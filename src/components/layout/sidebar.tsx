@@ -19,6 +19,7 @@ import {
   Banknote,
   BarChart3,
   Upload,
+  Merge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSociety } from "@/providers/society-provider";
@@ -75,6 +76,7 @@ const navigation = [
     items: [
       { name: "Sociétés", href: "/societes", icon: Building2 },
       { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
+      { name: "Fusions", href: "/administration/fusions", icon: Merge },
       { name: "Audit", href: "/administration/audit", icon: ScrollText },
       { name: "Paramètres", href: "/parametres", icon: Settings },
     ],
