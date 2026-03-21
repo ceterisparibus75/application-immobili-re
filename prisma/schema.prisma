@@ -56,6 +56,8 @@ enum BuildingType {
 
 enum LotType {
   LOCAL_COMMERCIAL
+  BUREAUX
+  LOCAL_ACTIVITE
   RESERVE
   PARKING
   CAVE
@@ -470,7 +472,10 @@ model Diagnostic {
   performedAt DateTime
   expiresAt   DateTime?
   result      String?   @db.Text
-  fileUrl     String?
+  fileUrl         String?
+  fileStoragePath String?
+  aiAnalysis      String?   @db.Text
+  aiAnalyzedAt    DateTime?
   alertSent   Boolean   @default(false)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)

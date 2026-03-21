@@ -10,9 +10,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
+  Bot,
   Building2,
   CalendarClock,
   CheckCircle2,
+  ExternalLink,
   Home,
   Pencil,
   Plus,
@@ -34,6 +36,8 @@ const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
 
 const LOT_TYPE_LABELS: Record<LotType, string> = {
   LOCAL_COMMERCIAL: "Local commercial",
+  BUREAUX: "Bureaux",
+  LOCAL_ACTIVITE: "Local d'activité",
   RESERVE: "Réserve",
   PARKING: "Parking",
   CAVE: "Cave",
@@ -336,37 +340,51 @@ export default async function ImmeubleDetailPage({
                     new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
                 return (
-                  <div
-                    key={diag.id}
-                    className="flex items-center justify-between py-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">{diag.type}</span>
-                      {diag.result && (
-                        <span className="text-xs text-muted-foreground">
-                          {diag.result}
+                  <div key={diag.id} className="py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium">{diag.type}</span>
+                        {diag.result && (
+                          <span className="text-xs text-muted-foreground">{diag.result}</span>
+                        )}
+                        {diag.aiAnalysis && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <Bot className="h-3 w-3" /> Analysé par IA
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        {diag.fileUrl && (
+                          <a
+                            href={diag.fileUrl ?? ""}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3 w-3" /> PDF
+                          </a>
+                        )}
+                        <span className="text-muted-foreground">
+                          Réalisé le {diag.performedAt.toLocaleDateString("fr-FR")}
                         </span>
-                      )}
+                        {diag.expiresAt && (
+                          <Badge variant={isExpired ? "destructive" : isExpiring ? "warning" : "success"}>
+                            {isExpired ? "Expiré" : isExpiring ? "Expire bientôt" : "Valide"}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-muted-foreground">
-                        Réalisé le{" "}
-                        {diag.performedAt.toLocaleDateString("fr-FR")}
-                      </span>
-                      {diag.expiresAt && (
-                        <Badge
-                          variant={
-                            isExpired
-                              ? "destructive"
-                              : isExpiring
-                              ? "warning"
-                              : "success"
-                          }
-                        >
-                          {isExpired ? "Expiré" : isExpiring ? "Expire bientôt" : "Valide"}
-                        </Badge>
-                      )}
-                    </div>
+                    {diag.aiAnalysis && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-primary flex items-center gap-1 w-fit">
+                          <Bot className="h-3 w-3" /> Voir l'analyse IA
+                        </summary>
+                        <div className="mt-2 p-3 rounded-md bg-muted/50 whitespace-pre-wrap text-muted-foreground leading-relaxed">
+                          {diag.aiAnalysis}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 );
               })}

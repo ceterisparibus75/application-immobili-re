@@ -12,7 +12,11 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(node -e \":*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(wmic process:*)"
     ]
   }
 }

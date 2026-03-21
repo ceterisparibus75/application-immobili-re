@@ -51,6 +51,9 @@ export async function createDiagnostic(
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         result: data.result ?? null,
         fileUrl: data.fileUrl ?? null,
+        fileStoragePath: data.fileStoragePath ?? null,
+        aiAnalysis: data.aiAnalysis ?? null,
+        aiAnalyzedAt: data.aiAnalysis ? new Date() : null,
       },
     });
 

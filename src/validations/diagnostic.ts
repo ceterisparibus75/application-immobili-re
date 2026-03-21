@@ -7,6 +7,8 @@ export const createDiagnosticSchema = z.object({
   expiresAt: z.string().optional().nullable(),
   result: z.string().optional(),
   fileUrl: z.string().url("URL invalide").optional().nullable(),
+  fileStoragePath: z.string().optional().nullable(),
+  aiAnalysis: z.string().optional().nullable(),
 });
 
 export const updateDiagnosticSchema = createDiagnosticSchema.partial().extend({

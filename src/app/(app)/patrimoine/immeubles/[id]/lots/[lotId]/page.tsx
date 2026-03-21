@@ -23,6 +23,8 @@ import type { LotType, LotStatus } from "@prisma/client";
 
 const LOT_TYPE_LABELS: Record<LotType, string> = {
   LOCAL_COMMERCIAL: "Local commercial",
+  BUREAUX: "Bureaux",
+  LOCAL_ACTIVITE: "Local d'activité",
   RESERVE: "Réserve",
   PARKING: "Parking",
   CAVE: "Cave",

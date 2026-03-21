@@ -41,6 +41,8 @@ export const BUILDING_TYPES = [
 
 export const LOT_TYPES = [
   { value: "LOCAL_COMMERCIAL", label: "Local commercial" },
+  { value: "BUREAUX", label: "Bureaux" },
+  { value: "LOCAL_ACTIVITE", label: "Local d'activité" },
   { value: "RESERVE", label: "Réserve" },
   { value: "PARKING", label: "Parking" },
   { value: "CAVE", label: "Cave" },
