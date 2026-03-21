@@ -190,7 +190,14 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return { success: false, error: "Utilisateur introuvable" };
 
-    await prisma.user.delete({ where: { id: userId } });
+    // Supprimer les relations puis l'utilisateur en transaction
+    await prisma.$transaction([
+      prisma.userSociety.deleteMany({ where: { userId } }),
+      prisma.account.deleteMany({ where: { userId } }),
+      prisma.session.deleteMany({ where: { userId } }),
+      prisma.auditLog.updateMany({ where: { userId }, data: { userId: null } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
 
     await createAuditLog({
       societyId: "system",
