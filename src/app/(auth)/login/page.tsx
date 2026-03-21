@@ -39,7 +39,7 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Email ou mot de passe incorrect");
+        setError(`Erreur: ${result.error} (status: ${result.status})`);
       } else {
         router.push(callbackUrl);
         router.refresh();
