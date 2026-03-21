@@ -208,6 +208,17 @@ export async function getSocietyById(id: string) {
   return prisma.society.findUnique({
     where: { id },
     include: {
+      buildings: {
+        select: {
+          id: true,
+          name: true,
+          addressLine1: true,
+          city: true,
+          buildingType: true,
+          _count: { select: { lots: true } },
+        },
+        orderBy: { name: "asc" },
+      },
       _count: {
         select: {
           buildings: true,

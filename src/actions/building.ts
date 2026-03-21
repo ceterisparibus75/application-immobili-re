@@ -209,19 +209,11 @@ export async function getBuildingById(societyId: string, buildingId: string) {
   return prisma.building.findFirst({
     where: { id: buildingId, societyId },
     include: {
-      lots: {
-        orderBy: { number: "asc" },
-      },
-      diagnostics: {
-        orderBy: { expiresAt: "asc" },
-      },
-      maintenances: {
-        orderBy: { scheduledAt: "desc" },
-        take: 10,
-      },
-      _count: {
-        select: { lots: true, diagnostics: true, maintenances: true },
-      },
+      society: { select: { id: true, name: true, legalForm: true } },
+      lots: { orderBy: { number: "asc" } },
+      diagnostics: { orderBy: { expiresAt: "asc" } },
+      maintenances: { orderBy: { scheduledAt: "desc" }, take: 10 },
+      _count: { select: { lots: true, diagnostics: true, maintenances: true } },
     },
   });
 }

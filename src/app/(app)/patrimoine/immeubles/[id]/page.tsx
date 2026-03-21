@@ -111,6 +111,14 @@ export default async function ImmeubleDetailPage({
             <p className="text-muted-foreground">
               {building.addressLine1}, {building.postalCode} {building.city}
             </p>
+            {building.society && (
+              <Link
+                href={`/societes/${building.society.id}`}
+                className="text-xs text-primary hover:underline"
+              >
+                {building.society.legalForm} {building.society.name}
+              </Link>
+            )}
           </div>
         </div>
         <Link href={`/patrimoine/immeubles/${id}/modifier`}>

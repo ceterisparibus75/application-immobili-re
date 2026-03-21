@@ -10,7 +10,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, FileText, Pencil, Users } from "lucide-react";
+import { ArrowLeft, Building2, FileText, Home, Pencil, Plus, Users } from "lucide-react";
+import type { BuildingType } from "@prisma/client";
+
+const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
+  BUREAU: "Bureau",
+  COMMERCE: "Commerce",
+  MIXTE: "Mixte",
+  ENTREPOT: "Entrepôt",
+};
 import Link from "next/link";
 
 export default async function SocieteDetailPage({
@@ -79,6 +87,57 @@ export default async function SocieteDetailPage({
           icon={FileText}
         />
       </div>
+
+      {/* Immeubles */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Immeubles ({society.buildings.length})
+            </CardTitle>
+            <Link href="/patrimoine/immeubles/nouveau">
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4" />
+                Ajouter
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {society.buildings.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Aucun immeuble rattaché à cette société
+            </p>
+          ) : (
+            <div className="divide-y">
+              {society.buildings.map((b) => (
+                <Link
+                  key={b.id}
+                  href={`/patrimoine/immeubles/${b.id}`}
+                  className="flex items-center justify-between py-3 hover:text-primary transition-colors"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{b.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {b.addressLine1}, {b.city}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="text-xs">
+                      {BUILDING_TYPE_LABELS[b.buildingType]}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Home className="h-3 w-3" />
+                      {b._count.lots} lot{b._count.lots !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Informations */}
       <div className="grid gap-6 md:grid-cols-2">
