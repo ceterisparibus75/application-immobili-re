@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
+import { compareSync } from "bcryptjs";
 import { prisma } from "./prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -51,7 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const isPasswordValid = await compare(password, user.passwordHash);
+        const isPasswordValid = compareSync(password, user.passwordHash);
         console.log("[auth] password valid:", isPasswordValid);
         if (!isPasswordValid) {
           return null;
