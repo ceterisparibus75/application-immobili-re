@@ -21,27 +21,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[auth] authorize called, email:", credentials?.email);
         if (!credentials?.email || !credentials?.password) {
+          console.log("[auth] missing credentials");
           return null;
         }
 
         const email = credentials.email as string;
         const password = credentials.password as string;
 
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-          include: {
-            userSocieties: {
-              include: { society: { select: { id: true, name: true } } },
+        let user;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+            include: {
+              userSocieties: {
+                include: { society: { select: { id: true, name: true } } },
+              },
             },
-          },
-        });
+          });
+        } catch (err) {
+          console.error("[auth] DB error:", err);
+          return null;
+        }
+
+        console.log("[auth] user found:", !!user, "isActive:", user?.isActive);
 
         if (!user || !user.isActive) {
           return null;
         }
 
         const isPasswordValid = await compare(password, user.passwordHash);
+        console.log("[auth] password valid:", isPasswordValid);
         if (!isPasswordValid) {
           return null;
         }
