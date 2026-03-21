@@ -108,7 +108,7 @@ export async function mergeLots(
       // Transférer les provisions de charges
       prisma.chargeProvision.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
       // Transférer les clés de répartition
-      prisma.allocationKeyLot.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
+      prisma.allocationKeyEntry.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
       // Transférer les compteurs
       prisma.meterReading.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
       // Transférer les annonces
