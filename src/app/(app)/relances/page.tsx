@@ -154,8 +154,8 @@ export default async function RelancesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-orange-100 p-2">
-                <Euro className="h-4 w-4 text-orange-600" />
+              <div className="rounded-full bg-orange-100 dark:bg-orange-900/30 p-2">
+                <Euro className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total impayés</p>
@@ -167,8 +167,8 @@ export default async function RelancesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-blue-100 p-2">
-                <Clock className="h-4 w-4 text-blue-600" />
+              <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-2">
+                <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Relances envoyées</p>

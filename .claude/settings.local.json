@@ -16,7 +16,19 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "Bash(taskkill /F /IM node.exe)",
-      "Bash(wmic process:*)"
+      "Bash(wmic process:*)",
+      "Bash(find '/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere' -maxdepth 1 -type f -name README* -o -name .cursorrules* -o -name .github)",
+      "Bash(ls -la \"/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)\")",
+      "Bash(ls -la \"/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/patrimoine/immeubles/[id]/\")",
+      "Bash(npx @next/codemod@latest middleware-to-proxy . --no-dry-run)",
+      "Bash(find \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/locataires\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(find 'c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere' -path */actions/tenant.ts -o -path */validations/tenant.ts -o -path */schema.prisma)",
+      "Bash(npx shadcn@latest add alert-dialog --yes)",
+      "Bash(ls -la 'c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\\\\\(app\\\\\\)/')",
+      "Bash(xargs grep:*)",
+      "Bash(taskkill /PID 17512 /F)",
+      "Bash(taskkill //PID 17512 //F)",
+      "Bash(taskkill //F //IM node.exe)"
     ]
   }
 }

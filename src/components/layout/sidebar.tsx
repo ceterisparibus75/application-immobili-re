@@ -18,6 +18,7 @@ import {
   ScrollText,
   Banknote,
   BarChart3,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSociety } from "@/providers/society-provider";
@@ -41,6 +42,7 @@ const navigation = [
     items: [
       { name: "Baux", href: "/baux", icon: FileText },
       { name: "Locataires", href: "/locataires", icon: Users },
+      { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
   },
   {

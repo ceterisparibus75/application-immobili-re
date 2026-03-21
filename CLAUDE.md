@@ -13,155 +13,145 @@ Utiliser **systématiquement** le MCP context7 pour toute recherche de documenta
 
 ```bash
 # Développement
-npm run dev
-
-# Build production
-npm run build
-
-# Lint
-npm run lint
+npm run dev                # Serveur dev (Turbopack)
+npm run build              # Build production
+npm run lint               # ESLint
 
 # Base de données
-npm run db:generate    # Régénérer le client Prisma après modif du schéma
-npm run db:push        # Appliquer le schéma sans migration (dev)
-npm run db:migrate     # Créer et appliquer une migration
-npm run db:seed        # Seeder la base
-npm run db:studio      # Ouvrir Prisma Studio
+npm run db:generate        # Régénérer le client Prisma après modif du schéma
+npm run db:push            # Appliquer le schéma sans migration (dev)
+npm run db:migrate         # Créer et appliquer une migration
+npm run db:seed            # Seeder la base (tsx prisma/seed.ts)
+npm run db:studio          # Ouvrir Prisma Studio
 ```
 
 ## Architecture
 
 ### Stack
 
-- **Next.js 16** (App Router, Server Components, Server Actions)
+- **Next.js 16** (App Router, Server Components, Server Actions, Turbopack)
 - **React 19** avec TypeScript strict
-- **Tailwind CSS v4**
+- **Tailwind CSS v4** (PostCSS)
 - **Prisma 6** (PostgreSQL / Supabase)
 - **NextAuth.js v5** (credentials + stratégie JWT 24h)
 - **shadcn/ui** pour les composants UI (`src/components/ui/`)
-- **Resend** pour les emails
-- **AES-256-GCM** pour le chiffrement des données bancaires
-
-### Variables d'environnement clés
-
-```
-DATABASE_URL, DIRECT_URL         # Supabase PostgreSQL
-AUTH_SECRET, AUTH_URL            # NextAuth v5
-ENCRYPTION_KEY                   # 32 bytes base64 (IBAN/BIC)
-RESEND_API_KEY, EMAIL_FROM       # Emails
-INSEE_API_KEY, INSEE_API_SECRET  # Indices IRL
-CRON_SECRET                      # Jobs planifiés
-```
-
-### Structure des routes
-
-Deux groupes de layouts dans `src/app/` :
-
-- `(auth)/` — pages publiques (login)
-- `(app)/` — pages protégées, nécessitent une session active et une société sélectionnée
-
-Le middleware (`src/middleware.ts`) protège toutes les routes sauf les chemins publics définis. Il lit le cookie `active-society-id` et l'injecte dans les headers (`x-society-id`) pour les Server Components.
-
-### Multi-tenant
-
-Toute l'application est multi-société. Chaque entité Prisma est scopée par `societyId`. L'accès est vérifié via `requireSocietyAccess()` dans `src/lib/permissions.ts`.
-
-- La société active est gérée côté client par `SocietyProvider` (`src/providers/society-provider.tsx`) via le hook `useSociety()`
-- Le changement de société met à jour le cookie `active-society-id`
-- Helpers multi-tenant dans `src/lib/prisma-tenant.ts`
-
-### RBAC
-
-Hiérarchie de rôles (valeur numérique) : `SUPER_ADMIN (50) > ADMIN_SOCIETE (40) > GESTIONNAIRE (30) > COMPTABLE (20) > LECTURE (10)`
-
-Fonctions clés dans `src/lib/permissions.ts` : `requireSocietyAccess()`, `requireSuperAdmin()`, `hasMinRole()`.
-Erreurs custom : `ForbiddenError`, `NotFoundError`.
-
-### Server Actions
-
-Toutes les mutations passent par des Server Actions dans `src/actions/`. Pattern systématique :
-1. Vérification de session (`getServerSession`)
-2. Vérification des droits (`requireSocietyAccess`)
-3. Validation Zod (`src/validations/`)
-4. Opération Prisma
-5. Audit log (`createAuditLog` dans `src/lib/audit.ts`)
-
-### Chiffrement
-
-Les données sensibles (IBAN, BIC) sont chiffrées en AES-256-GCM via `src/lib/encryption.ts`. La clé est dans `ENCRYPTION_KEY` (env, 32 bytes base64).
+- **Resend** pour les emails (`src/lib/email.ts`)
+- **Zod** pour la validation (`src/validations/`)
+- **AES-256-GCM** pour le chiffrement des données bancaires (`src/lib/encryption.ts`)
 
 ### Alias de chemin
 
 `@/*` → `src/*`
 
-## État actuel du projet
+### Variables d'environnement
 
-### Implémenté
-
-- Auth (NextAuth v5, credentials, JWT 24h)
-- RBAC 5 niveaux (`src/lib/permissions.ts`)
-- Multi-tenant avec société active (`src/providers/society-provider.tsx`)
-- Audit log (`src/lib/audit.ts`)
-- Chiffrement AES-256-GCM (`src/lib/encryption.ts`)
-- Schéma Prisma complet — modèles couvrant les 9 phases métier + Emprunts + Budget
-- Pages : login, dashboard (placeholder), sociétés (CRUD complet), administration/audit, paramètres
-
-### Implémenté — Phases métier
-
-Toutes les phases ont une interface fonctionnelle dans `src/app/(app)/` :
-
-| Module | Route | État |
-|--------|-------|------|
-| Patrimoine (Immeubles, Lots, Diagnostics, Maintenances) | `/patrimoine` | ✅ |
-| Gestion locative (Baux, Inspections) | `/baux` | ✅ |
-| Locataires | `/locataires` | ✅ |
-| Charges + Catégories | `/charges` | ✅ |
-| Facturation + Paiements | `/facturation` | ✅ |
-| Banque + Transactions | `/banque` | ✅ |
-| Comptabilité (Plan comptable, Écritures) | `/comptabilite` | ✅ |
-| Prévisionnel / Budget vs. réalisé | `/comptabilite/previsionnel` | ✅ |
-| **Emprunts + Tableau d'amortissement** | `/emprunts` | ✅ |
-| Indices ILC/ILAT/ICC | `/indices` | ✅ |
-| Relances | `/relances` | ✅ |
-| Contacts | `/contacts` | ✅ |
-| RGPD | `/rgpd` | ✅ |
-
-### Module Emprunts
-
-- Modèles Prisma : `Loan`, `LoanAmortizationLine`, `BudgetLine`
-- Actions dans `src/actions/loan.ts` : `createLoan`, `getLoans`, `getLoanById`, `markAmortizationLinePaid`, `upsertBudgetLine`, `getBudgetLines`
-- Calcul automatique du tableau d'amortissement (AMORTISSABLE/IN_FINE/BULLET)
-- Valeur nette = valeur d'acquisition − capital restant dû
-- Lié à un immeuble (`buildingId` optionnel)
-
-## Règles impératives
-
-### Données
-
-```typescript
-// ✅ TOUJOURS : scoper par societyId (jamais sans)
-const lots = await prisma.lot.findMany({ where: { societyId } })
-
-// ✅ TOUJOURS : valider avec Zod avant d'écrire en BDD
-// ✅ TOUJOURS : appeler l'audit log sur toute mutation
-// ✅ TOUJOURS : montants en euros (Float), affichage avec .toLocaleString("fr-FR") ou Intl.NumberFormat
-// ✅ TOUJOURS : soft delete pour locataires, baux, documents
-
-// ❌ JAMAIS : IBAN/BIC en clair — utiliser encryptBankData()
-// ❌ JAMAIS : requête Prisma sans societyId (sauf SUPER_ADMIN explicite)
-// ❌ JAMAIS : societyId depuis le body/params — toujours depuis la session
+```
+DATABASE_URL, DIRECT_URL              # Supabase PostgreSQL
+AUTH_SECRET, AUTH_URL                  # NextAuth v5
+ENCRYPTION_KEY                        # 32 bytes base64 (IBAN/BIC)
+RESEND_API_KEY, EMAIL_FROM            # Emails (contact@mtggroupe.org)
+NEXT_PUBLIC_APP_NAME                  # Branding UI
+INSEE_API_KEY, INSEE_API_SECRET       # Indices IRL
+CRON_SECRET                           # Jobs planifiés
 ```
 
-### API Routes
+## Structure et flux de requêtes
+
+### Route Groups
+
+- `src/app/(auth)/` — pages publiques (login, forgot-password)
+- `src/app/(app)/` — pages protégées, nécessitent session active + société sélectionnée
+
+### Middleware (`src/middleware.ts`)
+
+1. Utilise NextAuth comme middleware
+2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/api/public`, `/api/auth`)
+3. Lit le cookie `active-society-id` et l'injecte dans le header `x-society-id` pour les Server Components
+4. Matcher exclut les assets statiques (`_next/static`, images, etc.)
+
+### Multi-tenant
+
+Toute l'application est multi-société. Chaque entité Prisma est scopée par `societyId`.
+
+- **Côté client** : `SocietyProvider` (`src/providers/society-provider.tsx`) + hook `useSociety()` gère le cookie `active-society-id`
+- **Côté serveur** : `requireSocietyAccess(userId, societyId, minRole?)` dans `src/lib/permissions.ts`
+- **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` injecte automatiquement `societyId` dans toutes les requêtes (find, create, update, delete)
+
+### RBAC
+
+Hiérarchie : `SUPER_ADMIN (50) > ADMIN_SOCIETE (40) > GESTIONNAIRE (30) > COMPTABLE (20) > LECTURE (10)`
+
+Fonctions dans `src/lib/permissions.ts` : `requireSocietyAccess()`, `requireSuperAdmin()`, `hasMinRole()`.
+Erreurs custom : `ForbiddenError`, `NotFoundError`.
+
+## Patterns de code
+
+### Server Actions (`src/actions/`)
+
+Toutes les mutations passent par des Server Actions. Pattern systématique :
+
+```typescript
+"use server";
+import type { ActionResult } from "@/actions/society"; // { success: boolean; data?: T; error?: string }
+
+export async function createEntity(societyId: string, input: Input): Promise<ActionResult<{ id: string }>> {
+  try {
+    // 1. Session
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    // 2. Permissions
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // 3. Validation Zod
+    const parsed = createEntitySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
+
+    // 4. Opération Prisma
+    const result = await prisma.entity.create({ data: { societyId, ...parsed.data } });
+
+    // 5. Audit log
+    await createAuditLog({ societyId, userId: session.user.id, action: "CREATE", entity: "Entity", entityId: result.id });
+
+    // 6. Revalidation cache
+    revalidatePath("/path");
+    return { success: true, data: { id: result.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createEntity]", error);
+    return { success: false, error: "Erreur lors de l'opération" };
+  }
+}
+```
+
+Le type `ActionResult<T>` est défini dans `src/actions/society.ts` et importé par toutes les autres actions.
+
+### Validations Zod (`src/validations/`)
+
+Chaque module a un fichier de validation avec le pattern :
+
+```typescript
+export const createEntitySchema = z.object({ /* ... */ });
+export const updateEntitySchema = createEntitySchema.partial().extend({ id: z.string().cuid() });
+export type CreateEntityInput = z.infer<typeof createEntitySchema>;
+export type UpdateEntityInput = z.infer<typeof updateEntitySchema>;
+```
+
+### API Routes (`src/app/api/`)
 
 Convention REST :
 ```
-GET    /api/[module]       → liste paginée
+GET    /api/[module]       → liste (paginée)
 POST   /api/[module]       → création
 GET    /api/[module]/[id]  → détail
-PUT    /api/[module]/[id]  → mise à jour complète
-PATCH  /api/[module]/[id]  → mise à jour partielle
+PUT    /api/[module]/[id]  → mise à jour
 DELETE /api/[module]/[id]  → suppression (soft delete si possible)
+```
+
+**Récupération du societyId** dans les routes API :
+```typescript
+const cookieStore = await cookies();
+const societyId = cookieStore.get("active-society-id")?.value;
 ```
 
 Réponse standard :
@@ -172,18 +162,64 @@ Réponse standard :
 { error: { code: string, message: string, details?: unknown } }
 ```
 
-Ordre impératif dans chaque route :
-1. `getServerSession` → 401 si absent
-2. `checkPermission` → 403 si insuffisant
-3. Validation Zod → 400 si invalide
-4. Logique métier + audit log
+### Utilitaires (`src/lib/utils.ts`)
+
+- `cn()` — merge classes Tailwind
+- `formatCurrency(amount)` — `Intl.NumberFormat("fr-FR", { currency: "EUR" })`
+- `formatDate(date)` — format `dd/MM/yyyy`
+- `formatDateTime(date)` — format `dd/MM/yyyy HH:mm`
+
+### Prisma singleton (`src/lib/prisma.ts`)
+
+Client unique avec cache `globalThis` en dev. Logs `query`+`error`+`warn` en dev, `error` seul en prod.
+
+### Emails (`src/lib/email.ts`)
+
+Via Resend. Templates HTML intégrés : relance (3 niveaux), facture, quittance, bienvenue utilisateur, bienvenue locataire.
+
+## Modules métier
+
+Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src/actions/`) et validation (`src/validations/`) correspondantes :
+
+| Module | Route | Actions |
+|--------|-------|---------|
+| Patrimoine (Immeubles, Lots) | `/patrimoine` | `building.ts`, `lot.ts` |
+| Diagnostics, Maintenances | `/patrimoine/immeubles/[id]/...` | `diagnostic.ts`, `maintenance.ts` |
+| Baux, Inspections | `/baux` | `lease.ts`, `inspection.ts` |
+| Locataires | `/locataires` | `tenant.ts` |
+| Charges + Catégories | `/charges` | `charge.ts` |
+| Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |
+| Banque + Transactions | `/banque` | `bank.ts` |
+| Comptabilité + Prévisionnel | `/comptabilite` | via API routes |
+| Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
+| Indices ILC/ILAT/ICC | `/indices` | via API INSEE |
+| Relances | `/relances` | via `src/lib/email.ts` |
+| Contacts | `/contacts` | `contact.ts` |
+| RGPD | `/rgpd` | via API routes |
+
+## Règles impératives
+
+### Données
+
+```typescript
+// ✅ TOUJOURS : scoper par societyId (jamais sans)
+const lots = await prisma.lot.findMany({ where: { societyId } })
+
+// ✅ TOUJOURS : valider avec Zod avant d'écrire en BDD
+// ✅ TOUJOURS : appeler createAuditLog() sur toute mutation
+// ✅ TOUJOURS : montants en euros (Float), affichage avec formatCurrency()
+// ✅ TOUJOURS : soft delete pour locataires, baux, documents
+
+// ❌ JAMAIS : IBAN/BIC en clair — utiliser encryptBankData()
+// ❌ JAMAIS : requête Prisma sans societyId (sauf SUPER_ADMIN explicite)
+// ❌ JAMAIS : societyId depuis le body/params — toujours depuis la session ou le cookie
+```
 
 ### TypeScript
 
-- Strict mode sans compromis — zéro `any` implicite
+- Strict mode — zéro `any` implicite
 - `as Type` uniquement avec commentaire justificatif
 - Types explicites sur tous les paramètres de fonction
-- Zod pour toutes les données externes
 
 ### UI
 

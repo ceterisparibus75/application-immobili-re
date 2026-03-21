@@ -43,11 +43,11 @@ export const LOT_TYPES = [
   { value: "LOCAL_COMMERCIAL", label: "Local commercial" },
   { value: "BUREAUX", label: "Bureaux" },
   { value: "LOCAL_ACTIVITE", label: "Local d'activité" },
+  { value: "APPARTEMENT", label: "Appartement" },
   { value: "RESERVE", label: "Réserve" },
   { value: "PARKING", label: "Parking" },
   { value: "CAVE", label: "Cave" },
   { value: "TERRASSE", label: "Terrasse" },
-  { value: "BUREAU", label: "Bureau" },
   { value: "ENTREPOT", label: "Entrepôt" },
 ] as const;
 

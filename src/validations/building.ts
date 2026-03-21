@@ -18,6 +18,8 @@ export const createBuildingSchema = z.object({
   totalArea: z.coerce.number().positive("La surface doit être positive").optional().nullable(),
   marketValue: z.coerce.number().min(0).optional().nullable(),
   netBookValue: z.coerce.number().min(0).optional().nullable(),
+  acquisitionPrice: z.coerce.number().min(0).optional().nullable(),
+  acquisitionDate: z.string().optional().nullable(),
   description: z.string().optional(),
 });
 

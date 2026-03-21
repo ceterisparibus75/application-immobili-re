@@ -112,9 +112,9 @@ export default async function ChargesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Euro className="h-8 w-8 text-green-600/70" />
+              <Euro className="h-8 w-8 text-green-600 dark:text-green-400/70 dark:text-green-400/70" />
               <div>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {(totalAmount - totalUnpaid).toLocaleString("fr-FR")} €
                 </p>
                 <p className="text-xs text-muted-foreground">

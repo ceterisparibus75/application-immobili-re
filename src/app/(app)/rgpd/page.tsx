@@ -93,8 +93,8 @@ export default async function RgpdPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-orange-100 p-2">
-                <UserCheck className="h-4 w-4 text-orange-600" />
+              <div className="rounded-full bg-orange-100 dark:bg-orange-900/30 p-2">
+                <UserCheck className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Demandes en attente</p>
@@ -106,8 +106,8 @@ export default async function RgpdPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-blue-100 p-2">
-                <FileText className="h-4 w-4 text-blue-600" />
+              <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-2">
+                <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Traitements actifs</p>
@@ -119,8 +119,8 @@ export default async function RgpdPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-green-100 p-2">
-                <Shield className="h-4 w-4 text-green-600" />
+              <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-2">
+                <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Consentements actifs</p>

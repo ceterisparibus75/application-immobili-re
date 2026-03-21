@@ -62,8 +62,8 @@ enum LotType {
   PARKING
   CAVE
   TERRASSE
-  BUREAU
   ENTREPOT
+  APPARTEMENT
 }
 
 enum LotStatus {
@@ -446,7 +446,13 @@ model Building {
   totalArea       Float? // m²
   marketValue     Float? // Valeur vénale
   netBookValue    Float? // Valeur comptable nette
+  acquisitionPrice Float? // Prix d'acquisition
+  acquisitionDate  DateTime? // Date d'acquisition
   description     String?      @db.Text
+  // Acte d'acquisition PDF
+  acquisitionPdfUrl         String?
+  acquisitionPdfStoragePath String?
+  acquisitionPdfAnalysis    String?   @db.Text
 
   society          Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lots             Lot[]

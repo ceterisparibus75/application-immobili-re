@@ -31,7 +31,7 @@ export default async function BanquePage() {
           <h1 className="text-2xl font-bold tracking-tight">Banque</h1>
           <p className="text-muted-foreground">
             {accounts.length} compte{accounts.length !== 1 ? "s" : ""} —{" "}
-            <span className={totalBalance >= 0 ? "text-green-600" : "text-destructive"}>
+            <span className={totalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}>
               {totalBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
             </span>{" "}
             au total
@@ -87,7 +87,7 @@ export default async function BanquePage() {
                       <p
                         className={`text-xl font-bold ${
                           account.currentBalance >= 0
-                            ? "text-green-600"
+                            ? "text-green-600 dark:text-green-400"
                             : "text-destructive"
                         }`}
                       >

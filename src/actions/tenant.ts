@@ -12,6 +12,16 @@ import {
 } from "@/validations/tenant";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { z } from "zod";
+
+const tenantContactSchema = z.object({
+  name: z.string().min(1, "Le nom est requis"),
+  role: z.string().optional().nullable(),
+  email: z.string().email("Email invalide").optional().nullable(),
+  phone: z.string().optional().nullable(),
+});
+
+type TenantContactInput = z.infer<typeof tenantContactSchema>;
 
 export async function createTenant(
   societyId: string,
@@ -260,7 +270,125 @@ export async function getTenantById(societyId: string, tenantId: string) {
       },
       guarantees: true,
       documentChecklist: true,
+      secondaryContacts: { orderBy: { name: "asc" } },
       _count: { select: { leases: true } },
     },
   });
+}
+
+export async function createTenantContact(
+  societyId: string,
+  tenantId: string,
+  input: TenantContactInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = tenantContactSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const tenant = await prisma.tenant.findFirst({ where: { id: tenantId, societyId } });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    const contact = await prisma.tenantContact.create({
+      data: { tenantId, ...parsed.data },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "TenantContact",
+      entityId: contact.id,
+      details: { tenantId, name: contact.name },
+    });
+
+    revalidatePath(`/locataires/${tenantId}`);
+    return { success: true, data: { id: contact.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createTenantContact]", error);
+    return { success: false, error: "Erreur lors de la création du contact" };
+  }
+}
+
+export async function updateTenantContact(
+  societyId: string,
+  contactId: string,
+  input: TenantContactInput
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = tenantContactSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const existing = await prisma.tenantContact.findFirst({
+      where: { id: contactId, tenant: { societyId } },
+    });
+    if (!existing) return { success: false, error: "Contact introuvable" };
+
+    await prisma.tenantContact.update({ where: { id: contactId }, data: parsed.data });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "TenantContact",
+      entityId: contactId,
+      details: { updatedFields: Object.keys(parsed.data) },
+    });
+
+    revalidatePath(`/locataires/${existing.tenantId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateTenantContact]", error);
+    return { success: false, error: "Erreur lors de la mise à jour du contact" };
+  }
+}
+
+export async function deleteTenantContact(
+  societyId: string,
+  contactId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const existing = await prisma.tenantContact.findFirst({
+      where: { id: contactId, tenant: { societyId } },
+    });
+    if (!existing) return { success: false, error: "Contact introuvable" };
+
+    await prisma.tenantContact.delete({ where: { id: contactId } });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "TenantContact",
+      entityId: contactId,
+      details: { tenantId: existing.tenantId },
+    });
+
+    revalidatePath(`/locataires/${existing.tenantId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteTenantContact]", error);
+    return { success: false, error: "Erreur lors de la suppression du contact" };
+  }
 }

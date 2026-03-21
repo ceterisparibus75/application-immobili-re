@@ -67,7 +67,7 @@ export default async function BankAccountDetailPage({
             <p className="text-xs text-muted-foreground">Solde actuel</p>
             <p
               className={`text-2xl font-bold ${
-                account.currentBalance >= 0 ? "text-green-600" : "text-destructive"
+                account.currentBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
               }`}
             >
               {account.currentBalance.toLocaleString("fr-FR", {
@@ -80,10 +80,10 @@ export default async function BankAccountDetailPage({
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
+              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
               <p className="text-xs text-muted-foreground">Entrées</p>
             </div>
-            <p className="text-xl font-bold text-green-600">
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">
               +{credits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
             </p>
           </CardContent>
@@ -136,7 +136,7 @@ export default async function BankAccountDetailPage({
                         <p
                           className={`text-sm font-medium tabular-nums ${
                             transaction.amount >= 0
-                              ? "text-green-600"
+                              ? "text-green-600 dark:text-green-400"
                               : "text-destructive"
                           }`}
                         >

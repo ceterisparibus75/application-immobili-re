@@ -127,10 +127,10 @@ export default async function EmpruntDetailPage({
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 mb-1">
-                <Building2 className="h-4 w-4 text-green-600" />
+                <Building2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <p className="text-xs text-muted-foreground">Valeur nette du bien</p>
               </div>
-              <p className={`text-xl font-bold ${netValue >= 0 ? "text-green-600" : "text-destructive"}`}>
+              <p className={`text-xl font-bold ${netValue >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
                 {fmt(netValue)}
               </p>
               <p className="text-xs text-muted-foreground">

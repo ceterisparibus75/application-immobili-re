@@ -15,6 +15,7 @@ import {
   Pencil,
   User,
 } from "lucide-react";
+import { TenantContactsSection } from "./contacts-section";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -221,6 +222,12 @@ export default async function LocataireDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Contacts secondaires */}
+      <TenantContactsSection
+        tenantId={tenant.id}
+        contacts={tenant.secondaryContacts}
+      />
 
       {/* Historique des baux */}
       {tenant.leases.length > 0 && (

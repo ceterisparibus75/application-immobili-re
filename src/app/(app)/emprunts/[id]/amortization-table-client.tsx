@@ -106,7 +106,7 @@ export function AmortizationTableClient({
                       title={line.isPaid ? "Marquer comme non réglée" : "Marquer comme réglée"}
                     >
                       {line.isPaid ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                       ) : (
                         <Circle className="h-4 w-4 text-muted-foreground" />
                       )}

@@ -87,9 +87,9 @@ export default async function EmpruntsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-600/70" />
+              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400/70 dark:text-green-400/70" />
               <div>
-                <p className="text-2xl font-bold text-green-600">{fmt(totalCapital - totalRemaining)}</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</p>
                 <p className="text-xs text-muted-foreground">Capital remboursé</p>
               </div>
             </div>

@@ -46,12 +46,14 @@ export default function NouveauLotPage() {
       number: data.number,
       lotType: data.lotType as
         | "LOCAL_COMMERCIAL"
+        | "BUREAUX"
+        | "LOCAL_ACTIVITE"
         | "RESERVE"
         | "PARKING"
         | "CAVE"
         | "TERRASSE"
-        | "BUREAU"
-        | "ENTREPOT",
+        | "ENTREPOT"
+        | "APPARTEMENT",
       area: parseFloat(data.area),
       commonShares: data.commonShares ? parseInt(data.commonShares) : undefined,
       floor: data.floor,

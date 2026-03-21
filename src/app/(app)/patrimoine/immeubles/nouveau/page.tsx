@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBuilding } from "@/actions/building";
 import { Button } from "@/components/ui/button";
@@ -17,15 +17,150 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BUILDING_TYPES } from "@/lib/constants";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, FileText, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+
+type ExtractedLot = {
+  number: string;
+  lotType: string;
+  area: number | null;
+  floor: string | null;
+  description: string | null;
+};
+
+type PdfAnalysisResult = {
+  name?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  buildingType?: string | null;
+  yearBuilt?: number | null;
+  totalArea?: number | null;
+  acquisitionPrice?: number | null;
+  acquisitionDate?: string | null;
+  description?: string | null;
+  lots?: ExtractedLot[];
+  error?: string;
+};
 
 export default function NouvelImmeubleePage() {
   const router = useRouter();
   const { activeSociety } = useSociety();
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [extractedLots, setExtractedLots] = useState<ExtractedLot[]>([]);
+  const [analysisSuccess, setAnalysisSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function handlePdfUpload(file: File) {
+    setPdfFile(file);
+    setError("");
+    setIsAnalyzing(true);
+    setAnalysisSuccess(false);
+    setExtractedLots([]);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/buildings/analyze-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error ?? "Erreur lors de l'analyse");
+        setIsAnalyzing(false);
+        return;
+      }
+
+      const data = result.data as PdfAnalysisResult;
+
+      if (data.error) {
+        setError(data.error);
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // Pre-remplir le formulaire
+      const form = formRef.current;
+      if (form) {
+        const setValue = (name: string, value: string | number | null | undefined) => {
+          const el = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+          if (el && value != null && value !== "") {
+            el.value = String(value);
+          }
+        };
+
+        setValue("name", data.name);
+        setValue("addressLine1", data.addressLine1);
+        setValue("addressLine2", data.addressLine2);
+        setValue("city", data.city);
+        setValue("postalCode", data.postalCode);
+        setValue("yearBuilt", data.yearBuilt);
+        setValue("totalArea", data.totalArea);
+        setValue("acquisitionPrice", data.acquisitionPrice);
+        setValue("description", data.description);
+
+        if (data.acquisitionDate) {
+          setValue("acquisitionDate", data.acquisitionDate);
+        }
+
+        // BuildingType
+        if (data.buildingType) {
+          const validTypes = BUILDING_TYPES.map((t) => t.value);
+          const matched = validTypes.find((v) => v === data.buildingType);
+          if (matched) {
+            setValue("buildingType", matched);
+          }
+        }
+
+        // Prix d'acquisition comme valeur comptable nette si pas d'autre info
+        if (data.acquisitionPrice) {
+          setValue("netBookValue", data.acquisitionPrice);
+          setValue("marketValue", data.acquisitionPrice);
+        }
+      }
+
+      // Stocker les lots extraits
+      if (data.lots && data.lots.length > 0) {
+        setExtractedLots(data.lots);
+      }
+
+      setAnalysisSuccess(true);
+    } catch {
+      setError("Erreur lors de l'analyse du PDF");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        setError("Seuls les fichiers PDF sont acceptés");
+        return;
+      }
+      handlePdfUpload(file);
+    }
+  }
+
+  function removePdf() {
+    setPdfFile(null);
+    setExtractedLots([]);
+    setAnalysisSuccess(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,6 +187,8 @@ export default function NouvelImmeubleePage() {
       totalArea: data.totalArea ? parseFloat(data.totalArea) : undefined,
       marketValue: data.marketValue ? parseFloat(data.marketValue) : undefined,
       netBookValue: data.netBookValue ? parseFloat(data.netBookValue) : undefined,
+      acquisitionPrice: data.acquisitionPrice ? parseFloat(data.acquisitionPrice) : undefined,
+      acquisitionDate: data.acquisitionDate || undefined,
       description: data.description,
     });
 
@@ -86,7 +223,74 @@ export default function NouvelImmeubleePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Import PDF */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Import intelligent
+          </CardTitle>
+          <CardDescription>
+            Importez l'acte d'acquisition (PDF) pour pré-remplir automatiquement le formulaire via l'IA
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!pdfFile ? (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors"
+            >
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <div className="text-center">
+                <p className="text-sm font-medium">Cliquez pour importer un PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Acte d'acquisition, compromis de vente... (max 20 Mo)
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileText className="h-5 w-5 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{pdfFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(pdfFile.size / 1024 / 1024).toFixed(1)} Mo
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isAnalyzing && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analyse en cours...
+                    </div>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={removePdf} disabled={isAnalyzing}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {analysisSuccess && (
+                <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-3 text-sm text-green-800 dark:text-green-200">
+                  Analyse terminée — les champs ont été pré-remplis. Vérifiez et complétez les informations ci-dessous.
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
         {/* Identification */}
         <Card>
           <CardHeader>
@@ -170,6 +374,37 @@ export default function NouvelImmeubleePage() {
           </CardContent>
         </Card>
 
+        {/* Acquisition */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Acquisition</CardTitle>
+            <CardDescription>Informations issues de l'acte d'acquisition</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionPrice">Prix d'acquisition (€)</Label>
+                <Input
+                  id="acquisitionPrice"
+                  name="acquisitionPrice"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionDate">Date d'acquisition</Label>
+                <Input
+                  id="acquisitionDate"
+                  name="acquisitionDate"
+                  type="date"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Valorisation */}
         <Card>
           <CardHeader>
@@ -227,13 +462,49 @@ export default function NouvelImmeubleePage() {
           </CardContent>
         </Card>
 
+        {/* Lots extraits du PDF */}
+        {extractedLots.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Lots détectés dans l'acte ({extractedLots.length})
+              </CardTitle>
+              <CardDescription>
+                Ces lots seront créés automatiquement avec l'immeuble
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y">
+                {extractedLots.map((lot, idx) => (
+                  <div key={idx} className="flex items-center justify-between py-3">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium">
+                        Lot {lot.number}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {lot.lotType}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lot.area ? `${lot.area} m²` : ""}
+                        {lot.floor ? ` — Étage ${lot.floor}` : ""}
+                        {lot.description ? ` — ${lot.description}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex justify-end gap-3">
           <Link href="/patrimoine/immeubles">
             <Button variant="outline" type="button">
               Annuler
             </Button>
           </Link>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || isAnalyzing}>
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

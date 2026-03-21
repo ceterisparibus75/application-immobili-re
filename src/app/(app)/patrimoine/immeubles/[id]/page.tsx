@@ -42,8 +42,8 @@ const LOT_TYPE_LABELS: Record<LotType, string> = {
   PARKING: "Parking",
   CAVE: "Cave",
   TERRASSE: "Terrasse",
-  BUREAU: "Bureau",
   ENTREPOT: "Entrepôt",
+  APPARTEMENT: "Appartement",
 };
 
 const LOT_STATUS_VARIANTS: Record<

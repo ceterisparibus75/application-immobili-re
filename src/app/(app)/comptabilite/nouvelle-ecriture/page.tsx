@@ -195,7 +195,7 @@ export default function NouvelleEcriturePage() {
                   Crédit : <span className="font-medium">{totalCredit.toFixed(2)} €</span>
                 </span>
                 {totalDebit > 0 && (
-                  <span className={isBalanced ? "text-green-600 font-medium" : "text-destructive font-medium"}>
+                  <span className={isBalanced ? "text-green-600 dark:text-green-400 font-medium" : "text-destructive font-medium"}>
                     {isBalanced ? "Équilibrée" : "Non équilibrée"}
                   </span>
                 )}

@@ -49,6 +49,8 @@ export async function createBuilding(
         totalArea: data.totalArea ?? null,
         marketValue: data.marketValue ?? null,
         netBookValue: data.netBookValue ?? null,
+        acquisitionPrice: data.acquisitionPrice ?? null,
+        acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : null,
         description: data.description ?? null,
       },
     });

@@ -153,8 +153,8 @@ export default async function IndicesPage() {
                               <span
                                 className={
                                   parseFloat(evol) >= 0
-                                    ? "text-green-600"
-                                    : "text-red-600"
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
                                 }
                               >
                                 {parseFloat(evol) >= 0 ? "+" : ""}
