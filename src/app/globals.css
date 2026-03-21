@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.398 0.07 227.392);
+  --color-primary-foreground: oklch(0.985 0.001 227.392);
+  --color-secondary: oklch(0.96 0.005 227.392);
+  --color-secondary-foreground: oklch(0.398 0.07 227.392);
+  --color-muted: oklch(0.96 0.005 227.392);
+  --color-muted-foreground: oklch(0.556 0.02 227.392);
+  --color-accent: oklch(0.96 0.005 227.392);
+  --color-accent-foreground: oklch(0.398 0.07 227.392);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0.001 227.392);
+  --color-border: oklch(0.922 0.004 227.392);
+  --color-input: oklch(0.922 0.004 227.392);
+  --color-ring: oklch(0.398 0.07 227.392);
+  --color-sidebar: oklch(0.97 0.005 227.392);
+  --color-sidebar-foreground: oklch(0.345 0.06 227.392);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+.dark {
+  --color-background: oklch(0.145 0.015 227.392);
+  --color-foreground: oklch(0.985 0.001 227.392);
+  --color-card: oklch(0.178 0.015 227.392);
+  --color-card-foreground: oklch(0.985 0.001 227.392);
+  --color-popover: oklch(0.178 0.015 227.392);
+  --color-popover-foreground: oklch(0.985 0.001 227.392);
+  --color-primary: oklch(0.598 0.09 227.392);
+  --color-primary-foreground: oklch(0.145 0.015 227.392);
+  --color-secondary: oklch(0.245 0.02 227.392);
+  --color-secondary-foreground: oklch(0.985 0.001 227.392);
+  --color-muted: oklch(0.245 0.02 227.392);
+  --color-muted-foreground: oklch(0.656 0.02 227.392);
+  --color-accent: oklch(0.245 0.02 227.392);
+  --color-accent-foreground: oklch(0.985 0.001 227.392);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0.001 227.392);
+  --color-border: oklch(0.278 0.02 227.392);
+  --color-input: oklch(0.278 0.02 227.392);
+  --color-ring: oklch(0.598 0.09 227.392);
+  --color-sidebar: oklch(0.178 0.015 227.392);
+  --color-sidebar-foreground: oklch(0.856 0.01 227.392);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
