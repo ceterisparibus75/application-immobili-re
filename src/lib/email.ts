@@ -174,6 +174,41 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
 }
 
 // ============================================================
+// BIENVENUE NOUVEL UTILISATEUR
+// ============================================================
+
+interface NewUserEmailParams {
+  to: string;
+  name: string;
+  email: string;
+  password: string;
+  appUrl: string;
+  societyName?: string;
+}
+
+export async function sendNewUserEmail(params: NewUserEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Votre accès à ${APP_NAME}</h2>
+    <p>Bonjour <strong>${params.name}</strong>,</p>
+    <p>Un compte a été créé pour vous sur <strong>${APP_NAME}</strong>${params.societyName ? ` pour la société <strong>${params.societyName}</strong>` : ""}.</p>
+    <p>Voici vos identifiants de connexion :</p>
+    <table class="table">
+      <tr><th>Adresse email</th><td>${params.email}</td></tr>
+      <tr><th>Mot de passe</th><td><strong style="font-family:monospace;font-size:16px">${params.password}</strong></td></tr>
+    </table>
+    <p style="margin-top:24px">
+      <a href="${params.appUrl}" style="display:inline-block;padding:10px 24px;background:#18181b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">
+        Se connecter
+      </a>
+    </p>
+    <p style="color:#dc2626;font-size:13px;margin-top:16px">⚠️ Pour des raisons de sécurité, nous vous recommandons de modifier votre mot de passe dès votre première connexion.</p>
+    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+  `;
+
+  return sendMail(params.to, `Votre accès à ${APP_NAME}`, baseTemplate(`Votre accès à ${APP_NAME}`, content));
+}
+
+// ============================================================
 // BIENVENUE NOUVEAU LOCATAIRE
 // ============================================================
 

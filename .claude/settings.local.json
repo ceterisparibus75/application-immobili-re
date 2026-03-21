@@ -10,7 +10,9 @@
       "Bash(npm install:*)",
       "Bash(ls \"/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/societes/\")",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Bash(node -e \":*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }

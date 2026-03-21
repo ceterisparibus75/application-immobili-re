@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSociety } from "@/providers/society-provider";
-import { getUsers, createUser, assignUserToSociety } from "@/actions/user";
+import { getUsers, createUser, assignUserToSociety, deleteUser } from "@/actions/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import {
   Loader2,
   UserPlus,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -43,6 +44,7 @@ export default function UtilisateursPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -92,6 +94,20 @@ export default function UtilisateursPage() {
     }
 
     setCreating(false);
+  }
+
+  async function handleDeleteUser(userId: string, userEmail: string) {
+    if (!confirm(`Supprimer définitivement l'utilisateur ${userEmail} ? Cette action est irréversible.`)) return;
+    setDeletingId(userId);
+    setError("");
+    const result = await deleteUser(userId);
+    if (result.success) {
+      setSuccess("Utilisateur supprimé");
+      loadUsers();
+    } else {
+      setError(result.error ?? "Erreur lors de la suppression");
+    }
+    setDeletingId(null);
   }
 
   return (
@@ -222,6 +238,7 @@ export default function UtilisateursPage() {
                     <th className="text-left p-3 font-medium">
                       Dernière connexion
                     </th>
+                    <th className="p-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -254,6 +271,19 @@ export default function UtilisateursPage() {
                         {user.lastLoginAt
                           ? formatDateTime(user.lastLoginAt)
                           : "Jamais"}
+                      </td>
+                      <td className="p-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteUser(user.id, user.email)}
+                          disabled={deletingId === user.id}
+                        >
+                          {deletingId === user.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Trash2 className="h-4 w-4" />}
+                        </Button>
                       </td>
                     </tr>
                   ))}

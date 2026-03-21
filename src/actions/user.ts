@@ -14,6 +14,7 @@ import {
   type AssignUserToSocietyInput,
 } from "@/validations/user";
 import { revalidatePath } from "next/cache";
+import { sendNewUserEmail } from "@/lib/email";
 import type { ActionResult } from "./society";
 
 export async function createUser(
@@ -55,6 +56,15 @@ export async function createUser(
     });
 
     revalidatePath("/administration/utilisateurs");
+
+    // Envoi de l'email de bienvenue avec les identifiants
+    await sendNewUserEmail({
+      to: user.email,
+      name: `${data.name}${data.firstName ? " " + data.firstName : ""}`,
+      email: user.email,
+      password: data.password,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    }).catch((err) => console.error("[createUser] email error", err));
 
     return { success: true, data: { id: user.id } };
   } catch (error) {
@@ -160,6 +170,45 @@ export async function removeUserFromSociety(
     }
     console.error("[removeUserFromSociety]", error);
     return { success: false, error: "Erreur lors du retrait" };
+  }
+}
+
+export async function deleteUser(userId: string): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    await requireSuperAdmin(session.user.id);
+
+    // Empêcher de se supprimer soi-même
+    if (userId === session.user.id) {
+      return { success: false, error: "Vous ne pouvez pas supprimer votre propre compte" };
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return { success: false, error: "Utilisateur introuvable" };
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    await createAuditLog({
+      societyId: "system",
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "User",
+      entityId: userId,
+      details: { deletedEmail: user.email },
+    });
+
+    revalidatePath("/administration/utilisateurs");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[deleteUser]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
   }
 }
 
