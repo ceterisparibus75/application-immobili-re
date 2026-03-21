@@ -358,6 +358,57 @@ export async function updateTenantContact(
   }
 }
 
+export async function deleteTenant(
+  societyId: string,
+  tenantId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, societyId },
+      include: { leases: { where: { status: "EN_COURS" } } },
+    });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    if (tenant.leases.length > 0) {
+      return { success: false, error: "Impossible de supprimer un locataire ayant un bail actif. Résiliez d'abord ses baux." };
+    }
+
+    // Supprimer les relations puis le locataire en transaction
+    await prisma.$transaction([
+      prisma.tenantContact.deleteMany({ where: { tenantId } }),
+      prisma.tenantDocument.deleteMany({ where: { tenantId } }),
+      prisma.guarantee.deleteMany({ where: { tenantId } }),
+      prisma.tenantPortalAccess.deleteMany({ where: { tenantId } }),
+      prisma.invoice.deleteMany({ where: { tenantId } }),
+      prisma.document.updateMany({ where: { tenantId }, data: { tenantId: null } }),
+      prisma.tenant.delete({ where: { id: tenantId } }),
+    ]);
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "Tenant",
+      entityId: tenantId,
+      details: {
+        name: tenant.companyName ?? `${tenant.firstName} ${tenant.lastName}`,
+      },
+    });
+
+    revalidatePath("/locataires");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteTenant]", error);
+    return { success: false, error: "Erreur lors de la suppression du locataire" };
+  }
+}
+
 export async function deleteTenantContact(
   societyId: string,
   contactId: string
