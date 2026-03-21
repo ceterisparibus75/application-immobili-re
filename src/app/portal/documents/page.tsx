@@ -59,8 +59,8 @@ export default async function PortalDocumentsPage() {
       totalTTC: true,
       issueDate: true,
       dueDate: true,
-      paidAt: true,
       fileUrl: true,
+      payments: { select: { paidAt: true }, take: 1, orderBy: { paidAt: "desc" } },
     },
     orderBy: { issueDate: "desc" },
     take: 100,
@@ -177,7 +177,7 @@ export default async function PortalDocumentsPage() {
                   <div>
                     <p className="text-sm font-medium">{inv.invoiceNumber}</p>
                     <p className="text-xs text-muted-foreground">
-                      {inv.paidAt ? `Payé le ${formatDate(inv.paidAt)}` : formatDate(inv.issueDate)}
+                      {inv.payments?.[0]?.paidAt ? `Payé le ${formatDate(inv.payments[0].paidAt)}` : formatDate(inv.issueDate)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

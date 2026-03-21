@@ -39,7 +39,6 @@ export async function GET() {
         totalTTC: true,
         issueDate: true,
         dueDate: true,
-        paidAt: true,
         fileUrl: true,
       },
       orderBy: { issueDate: "desc" },
