@@ -239,3 +239,117 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<Emai
 
   return sendMail(params.to, `Bienvenue — Votre bail au ${params.propertyAddress}`, baseTemplate("Bienvenue dans votre nouveau logement", content));
 }
+
+// ============================================================
+// PORTAIL LOCATAIRE — ACTIVATION
+// ============================================================
+
+interface PortalActivationEmailParams {
+  to: string;
+  tenantName: string;
+  activationCode: string;
+  portalUrl: string;
+}
+
+export async function sendPortalActivationEmail(params: PortalActivationEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Activez votre espace locataire</h2>
+    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
+    <p>Votre espace locataire a été créé. Utilisez le code ci-dessous pour l'activer :</p>
+    <p style="text-align:center;margin:32px 0">
+      <span style="display:inline-block;padding:16px 32px;background:#18181b;color:#fff;border-radius:8px;font-size:28px;font-weight:700;letter-spacing:8px;font-family:monospace">${params.activationCode}</span>
+    </p>
+    <p style="text-align:center">
+      <a href="${params.portalUrl}/portal/activate" style="display:inline-block;padding:10px 24px;background:#18181b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">
+        Activer mon espace
+      </a>
+    </p>
+    <p style="color:#71717a;font-size:13px">Ce code expire dans 48 heures.</p>
+    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+  `;
+
+  return sendMail(params.to, `Activez votre espace locataire — ${APP_NAME}`, baseTemplate("Activez votre espace locataire", content));
+}
+
+// ============================================================
+// PORTAIL LOCATAIRE — CODE DE CONNEXION
+// ============================================================
+
+interface PortalLoginCodeEmailParams {
+  to: string;
+  tenantName: string;
+  code: string;
+}
+
+export async function sendPortalLoginCodeEmail(params: PortalLoginCodeEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Votre code de connexion</h2>
+    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
+    <p>Voici votre code de connexion à votre espace locataire :</p>
+    <p style="text-align:center;margin:32px 0">
+      <span style="display:inline-block;padding:16px 32px;background:#18181b;color:#fff;border-radius:8px;font-size:28px;font-weight:700;letter-spacing:8px;font-family:monospace">${params.code}</span>
+    </p>
+    <p style="color:#71717a;font-size:13px">Ce code expire dans 15 minutes. Si vous n'avez pas demandé ce code, ignorez cet email.</p>
+    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+  `;
+
+  return sendMail(params.to, `Code de connexion — ${APP_NAME}`, baseTemplate("Code de connexion", content));
+}
+
+// ============================================================
+// RELANCE ATTESTATION D'ASSURANCE
+// ============================================================
+
+interface InsuranceReminderEmailParams {
+  to: string;
+  tenantName: string;
+  societyName: string;
+  portalUrl: string;
+}
+
+export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Attestation d'assurance requise</h2>
+    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
+    <p>Conformément à votre bail, vous devez nous fournir une <strong>attestation d'assurance</strong> en cours de validité.</p>
+    <p>À ce jour, nous n'avons pas reçu ce document. Nous vous invitons à le déposer dans votre espace locataire dans les meilleurs délais.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${params.portalUrl}/portal/assurance" style="display:inline-block;padding:10px 24px;background:#18181b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">
+        Déposer mon attestation
+      </a>
+    </p>
+    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+  `;
+
+  return sendMail(params.to, `Rappel — Attestation d'assurance requise`, baseTemplate("Attestation d'assurance requise", content));
+}
+
+// ============================================================
+// RELANCE FACTURE IMPAYÉE (CRON)
+// ============================================================
+
+interface InvoiceReminderEmailParams {
+  to: string;
+  tenantName: string;
+  invoiceNumber: string;
+  amount: number;
+  dueDate: string;
+  societyName: string;
+}
+
+export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Rappel — Facture en attente de règlement</h2>
+    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
+    <p>Nous vous informons que la facture ci-dessous est en attente de règlement :</p>
+    <table class="table">
+      <tr><th>N° Facture</th><td>${params.invoiceNumber}</td></tr>
+      <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
+      <tr><th>Montant dû</th><td><strong>${fmt(params.amount)}</strong></td></tr>
+    </table>
+    <p>Si vous avez déjà effectué ce paiement, merci de ne pas tenir compte de ce message.</p>
+    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+  `;
+
+  return sendMail(params.to, `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`, baseTemplate("Rappel — Facture impayée", content));
+}

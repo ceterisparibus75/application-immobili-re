@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { TenantContactsSection } from "./contacts-section";
 import { DeleteTenantButton } from "./delete-tenant-button";
+import { InviteTenantButton } from "./invite-tenant-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -106,6 +107,7 @@ export default async function LocataireDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <InviteTenantButton tenantId={id} />
           <Link href={`/locataires/${id}/modifier`}>
             <Button variant="outline">
               <Pencil className="h-4 w-4" />

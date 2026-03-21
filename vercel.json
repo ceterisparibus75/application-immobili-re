@@ -1,4 +1,14 @@
 {
   "framework": "nextjs",
-  "installCommand": "npm install --legacy-peer-deps --force"
+  "installCommand": "npm install --legacy-peer-deps --force",
+  "crons": [
+    {
+      "path": "/api/cron/insurance-reminder",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/invoice-reminder",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }

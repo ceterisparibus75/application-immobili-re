@@ -589,6 +589,10 @@ model Lease {
   depositReturnAmount Float?
   depositDeductions   Json? // [{reason, amount, documentUrl}]
 
+  // Bail PDF
+  leaseFileUrl         String?
+  leaseFileStoragePath String?
+
   // Alertes
   triennialAlert1Sent Boolean @default(false)
   triennialAlert2Sent Boolean @default(false)
@@ -728,6 +732,13 @@ model Tenant {
   riskIndicator  RiskIndicator @default(VERT)
   notes          String?       @db.Text
 
+  // Assurance locataire
+  insuranceFileUrl        String?
+  insuranceStoragePath    String?
+  insuranceUploadedAt     DateTime?
+  insuranceExpiresAt      DateTime?
+  insuranceReminderSentAt DateTime?
+
   society            Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
   leases             Lease[]
   guarantees         Guarantee[]
@@ -836,6 +847,8 @@ model TenantPortalAccess {
   isActive    Boolean  @default(true)
   lastLoginAt DateTime?
   invitedAt   DateTime @default(now())
+  activationCode          String?   // Code 6 chiffres hashé
+  activationCodeExpiresAt DateTime? // Expiration du code
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 

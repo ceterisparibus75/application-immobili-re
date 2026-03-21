@@ -13,6 +13,9 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { z } from "zod";
+import { hash, compare } from "bcryptjs";
+import { randomInt } from "crypto";
+import { sendPortalActivationEmail } from "@/lib/email";
 
 const tenantContactSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
@@ -97,6 +100,33 @@ export async function createTenant(
     });
 
     revalidatePath("/locataires");
+
+    // Créer l'accès portail et envoyer l'invitation
+    const activationCode = String(randomInt(100000, 999999));
+    const hashedCode = await hash(activationCode, 10);
+    const token = crypto.randomUUID();
+
+    await prisma.tenantPortalAccess.create({
+      data: {
+        tenantId: tenant.id,
+        token,
+        isActive: false,
+        activationCode: hashedCode,
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      },
+    });
+
+    const tenantName =
+      tenant.entityType === "PERSONNE_MORALE"
+        ? (tenant.companyName ?? "")
+        : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
+
+    await sendPortalActivationEmail({
+      to: tenant.email,
+      tenantName,
+      activationCode,
+      portalUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    }).catch((err) => console.error("[createTenant] portal email error", err));
 
     return { success: true, data: { id: tenant.id } };
   } catch (error) {
@@ -441,5 +471,70 @@ export async function deleteTenantContact(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteTenantContact]", error);
     return { success: false, error: "Erreur lors de la suppression du contact" };
+  }
+}
+
+export async function inviteOrReinviteTenant(
+  societyId: string,
+  tenantId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, societyId },
+    });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    const activationCode = String(randomInt(100000, 999999));
+    const hashedCode = await hash(activationCode, 10);
+    const token = crypto.randomUUID();
+
+    await prisma.tenantPortalAccess.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        token,
+        isActive: false,
+        activationCode: hashedCode,
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      },
+      update: {
+        activationCode: hashedCode,
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+        invitedAt: new Date(),
+      },
+    });
+
+    const tenantName =
+      tenant.entityType === "PERSONNE_MORALE"
+        ? (tenant.companyName ?? "")
+        : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
+
+    await sendPortalActivationEmail({
+      to: tenant.email,
+      tenantName,
+      activationCode,
+      portalUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "SEND_EMAIL",
+      entity: "Tenant",
+      entityId: tenantId,
+      details: { action: "portal_invitation" },
+    });
+
+    revalidatePath(`/locataires/${tenantId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[inviteOrReinviteTenant]", error);
+    return { success: false, error: "Erreur lors de l'envoi de l'invitation" };
   }
 }

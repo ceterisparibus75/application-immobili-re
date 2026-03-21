@@ -24,6 +24,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { LeasePdfUpload } from "@/components/lease-pdf-upload";
 import type {
   LeaseStatus,
   LeaseType,
@@ -145,6 +146,19 @@ export default async function BailDetailPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Colonne principale */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Document du bail */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Document du bail
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeasePdfUpload leaseId={lease.id} currentFileUrl={lease.leaseFileUrl ?? null} />
+            </CardContent>
+          </Card>
+
           {/* Informations générales */}
           <Card>
             <CardHeader>

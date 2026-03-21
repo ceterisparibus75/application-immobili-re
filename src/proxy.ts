@@ -20,8 +20,8 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Portail locataire — vérification du token dans l'URL (géré par la page)
-  if (pathname.startsWith("/portal")) {
+  // Portail locataire — auth gérée par JWT portail, pas NextAuth
+  if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
     return NextResponse.next();
   }
 
