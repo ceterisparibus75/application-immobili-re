@@ -58,11 +58,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // Mettre à jour la date de dernière connexion
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          });
+        } catch (err) {
+          console.error("[auth] update lastLoginAt error:", err);
+          // Non bloquant
+        }
 
+        console.log("[auth] login success for:", user.email);
         return {
           id: user.id,
           email: user.email,
