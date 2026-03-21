@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BUILDING_TYPES } from "@/lib/constants";
-import { ArrowLeft, Loader2, Upload, FileText, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, FileText, Sparkles, X, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 
@@ -45,6 +46,11 @@ type PdfAnalysisResult = {
   error?: string;
 };
 
+type DuplicateMatch = {
+  buildings: Array<{ id: string; name: string; addressLine1: string; city: string; matchReason: string }>;
+  lots: Array<{ id: string; number: string; buildingName: string; matchReason: string }>;
+};
+
 export default function NouvelImmeubleePage() {
   const router = useRouter();
   const { activeSociety } = useSociety();
@@ -53,6 +59,7 @@ export default function NouvelImmeubleePage() {
   const [error, setError] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [extractedLots, setExtractedLots] = useState<ExtractedLot[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateMatch | null>(null);
   const [analysisSuccess, setAnalysisSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -63,6 +70,7 @@ export default function NouvelImmeubleePage() {
     setIsAnalyzing(true);
     setAnalysisSuccess(false);
     setExtractedLots([]);
+    setDuplicates(null);
 
     try {
       const formData = new FormData();
@@ -134,6 +142,14 @@ export default function NouvelImmeubleePage() {
         setExtractedLots(data.lots);
       }
 
+      // Stocker les doublons détectés
+      if (result.duplicates) {
+        const d = result.duplicates as DuplicateMatch;
+        if (d.buildings.length > 0 || d.lots.length > 0) {
+          setDuplicates(d);
+        }
+      }
+
       setAnalysisSuccess(true);
     } catch {
       setError("Erreur lors de l'analyse du PDF");
@@ -157,6 +173,7 @@ export default function NouvelImmeubleePage() {
     setPdfFile(null);
     setExtractedLots([]);
     setAnalysisSuccess(false);
+    setDuplicates(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -283,6 +300,56 @@ export default function NouvelImmeubleePage() {
               {analysisSuccess && (
                 <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-3 text-sm text-green-800 dark:text-green-200">
                   Analyse terminée — les champs ont été pré-remplis. Vérifiez et complétez les informations ci-dessous.
+                </div>
+              )}
+
+              {/* Alertes doublons */}
+              {duplicates && duplicates.buildings.length > 0 && (
+                <div className="rounded-md border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-900/20 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                      Immeubles similaires détectés
+                    </p>
+                  </div>
+                  <div className="space-y-1.5 ml-6">
+                    {duplicates.buildings.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-orange-800 dark:text-orange-300">
+                            <span className="font-medium">{b.name}</span> — {b.addressLine1}, {b.city}
+                          </p>
+                          <p className="text-xs text-orange-600 dark:text-orange-400">{b.matchReason}</p>
+                        </div>
+                        <Link href={`/patrimoine/immeubles/${b.id}`}>
+                          <Badge variant="outline" className="cursor-pointer hover:bg-accent text-xs">
+                            Voir l'immeuble
+                          </Badge>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 ml-6">
+                    Si cet immeuble existe déjà, utilisez le lien ci-dessus au lieu de le recréer.
+                  </p>
+                </div>
+              )}
+
+              {duplicates && duplicates.lots.length > 0 && (
+                <div className="rounded-md border border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-900/20 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                      Lots existants correspondants
+                    </p>
+                  </div>
+                  <div className="space-y-1 ml-6">
+                    {duplicates.lots.map((l) => (
+                      <p key={l.id} className="text-sm text-yellow-800 dark:text-yellow-300">
+                        Lot <span className="font-medium">{l.number}</span> — {l.matchReason}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

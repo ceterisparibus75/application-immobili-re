@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -93,18 +94,92 @@ export async function POST(req: NextRequest) {
     const rawText = message.content[0].type === "text" ? message.content[0].text : "";
 
     // Parse le JSON retourné par Claude
+    let parsed: Record<string, unknown>;
     try {
-      const parsed = JSON.parse(rawText);
-      return NextResponse.json({ data: parsed });
+      parsed = JSON.parse(rawText);
     } catch {
-      // Si le JSON est mal formé, tenter d'extraire le JSON du texte
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return NextResponse.json({ data: parsed });
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        return NextResponse.json({ error: "Impossible de parser l'analyse du document", raw: rawText }, { status: 500 });
       }
-      return NextResponse.json({ error: "Impossible de parser l'analyse du document", raw: rawText }, { status: 500 });
     }
+
+    // Recherche de doublons dans la société
+    const duplicates: {
+      buildings: Array<{ id: string; name: string; addressLine1: string; city: string; matchReason: string }>;
+      lots: Array<{ id: string; number: string; buildingName: string; matchReason: string }>;
+    } = { buildings: [], lots: [] };
+
+    // 1. Chercher les immeubles existants similaires (par adresse ou nom)
+    if (parsed.addressLine1 || parsed.name) {
+      const existingBuildings = await prisma.building.findMany({
+        where: {
+          societyId,
+          OR: [
+            ...(parsed.addressLine1 ? [{
+              addressLine1: { contains: String(parsed.addressLine1).split(" ").slice(-2).join(" "), mode: "insensitive" as const },
+              city: parsed.city ? { equals: String(parsed.city), mode: "insensitive" as const } : undefined,
+            }] : []),
+            ...(parsed.name ? [{
+              name: { contains: String(parsed.name), mode: "insensitive" as const },
+            }] : []),
+            ...(parsed.postalCode ? [{
+              postalCode: String(parsed.postalCode),
+              city: parsed.city ? { equals: String(parsed.city), mode: "insensitive" as const } : undefined,
+            }] : []),
+          ],
+        },
+        select: { id: true, name: true, addressLine1: true, city: true, postalCode: true },
+        take: 5,
+      });
+
+      for (const b of existingBuildings) {
+        const reasons: string[] = [];
+        if (parsed.name && b.name.toLowerCase().includes(String(parsed.name).toLowerCase())) reasons.push("nom similaire");
+        if (parsed.addressLine1 && b.addressLine1.toLowerCase().includes(String(parsed.addressLine1).toLowerCase().split(" ").slice(-2).join(" "))) reasons.push("même adresse");
+        if (parsed.postalCode && b.postalCode === String(parsed.postalCode)) reasons.push("même code postal");
+        duplicates.buildings.push({
+          id: b.id,
+          name: b.name,
+          addressLine1: b.addressLine1,
+          city: b.city,
+          matchReason: reasons.join(", ") || "correspondance possible",
+        });
+      }
+    }
+
+    // 2. Chercher les lots existants similaires
+    const extractedLots = parsed.lots as Array<{ number?: string }> | undefined;
+    if (extractedLots?.length) {
+      const lotNumbers = extractedLots.map((l) => l.number).filter(Boolean) as string[];
+      if (lotNumbers.length > 0) {
+        const existingLots = await prisma.lot.findMany({
+          where: {
+            building: { societyId },
+            number: { in: lotNumbers },
+          },
+          select: {
+            id: true,
+            number: true,
+            building: { select: { name: true } },
+          },
+          take: 20,
+        });
+
+        for (const l of existingLots) {
+          duplicates.lots.push({
+            id: l.id,
+            number: l.number,
+            buildingName: l.building.name,
+            matchReason: `lot n°${l.number} existe dans ${l.building.name}`,
+          });
+        }
+      }
+    }
+
+    return NextResponse.json({ data: parsed, duplicates });
   } catch (error) {
     console.error("[analyze-pdf]", error);
     return NextResponse.json({ error: "Erreur lors de l'analyse du document" }, { status: 500 });
