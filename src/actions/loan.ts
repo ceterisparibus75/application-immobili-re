@@ -123,14 +123,104 @@ const createLoanSchema = z.object({
   insuranceRate: z.number().min(0).default(0),
   durationMonths: z.number().int().positive(),
   startDate: z.string().min(1),
-  buildingId: z.string().cuid().optional().nullable(),
+  buildingId: z.string().min(1, "L'immeuble est obligatoire"),
   purchaseValue: z.number().positive().optional().nullable(),
   notes: z.string().optional().nullable(),
+});
+
+const createLoanFromPdfSchema = z.object({
+  label: z.string().min(1),
+  lender: z.string().min(1),
+  loanType: z.enum(["AMORTISSABLE", "IN_FINE", "BULLET"]),
+  amount: z.number().positive(),
+  interestRate: z.number().min(0),
+  insuranceRate: z.number().min(0).default(0),
+  durationMonths: z.number().int().positive(),
+  startDate: z.string().min(1),
+  buildingId: z.string().min(1, "L'immeuble est obligatoire"),
+  purchaseValue: z.number().positive().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  schedule: z.array(
+    z.object({
+      period: z.number().int().positive(),
+      dueDate: z.string().min(1),
+      principal: z.number(),
+      interest: z.number(),
+      insurance: z.number().default(0),
+      total: z.number(),
+      balance: z.number(),
+    })
+  ).min(1, "Le tableau d'amortissement est requis"),
 });
 
 // ============================================================
 // ACTIONS CRUD
 // ============================================================
+
+export async function createLoanFromPdf(societyId: string, data: unknown) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const parsed = createLoanFromPdfSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+  }
+
+  const d = parsed.data;
+  const startDate = new Date(d.startDate);
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + d.durationMonths);
+
+  // Convertir le tableau extrait du PDF en lignes d'amortissement
+  const amortLines = d.schedule.map((line) => ({
+    period: line.period,
+    dueDate: new Date(line.dueDate),
+    principalPayment: line.principal,
+    interestPayment: line.interest,
+    insurancePayment: line.insurance,
+    totalPayment: line.total,
+    remainingBalance: line.balance,
+  }));
+
+  const loan = await prisma.loan.create({
+    data: {
+      societyId,
+      label: d.label,
+      lender: d.lender,
+      loanType: d.loanType,
+      amount: d.amount,
+      interestRate: d.interestRate,
+      insuranceRate: d.insuranceRate,
+      durationMonths: d.durationMonths,
+      startDate,
+      endDate,
+      buildingId: d.buildingId,
+      purchaseValue: d.purchaseValue ?? null,
+      notes: d.notes ?? null,
+      amortizationLines: {
+        create: amortLines,
+      },
+    },
+  });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "CREATE",
+    entity: "Loan",
+    entityId: loan.id,
+    details: { label: d.label, amount: d.amount, lender: d.lender, source: "PDF" },
+  });
+
+  revalidatePath("/emprunts");
+  return { data: loan };
+}
 
 export async function createLoan(societyId: string, data: unknown) {
   const session = await auth();

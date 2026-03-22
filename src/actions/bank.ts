@@ -145,15 +145,24 @@ export async function getBankAccountById(societyId: string, accountId: string) {
 
   await requireSocietyAccess(session.user.id, societyId);
 
-  const account = await prisma.bankAccount.findFirst({
-    where: { id: accountId, societyId },
-    include: {
-      transactions: {
-        orderBy: { transactionDate: "desc" },
-        take: 50,
+  const [account, unreconciledCount] = await Promise.all([
+    prisma.bankAccount.findFirst({
+      where: { id: accountId, societyId },
+      include: {
+        transactions: {
+          orderBy: { transactionDate: "desc" },
+          take: 50,
+        },
+        connection: {
+          select: { institutionName: true, status: true },
+        },
+        _count: { select: { transactions: true } },
       },
-    },
-  });
+    }),
+    prisma.bankTransaction.count({
+      where: { bankAccountId: accountId, isReconciled: false },
+    }),
+  ]);
 
   if (!account) return null;
 
@@ -165,7 +174,7 @@ export async function getBankAccountById(societyId: string, accountId: string) {
     // ignore
   }
 
-  return { ...account, ibanMasked };
+  return { ...account, ibanMasked, unreconciledCount };
 }
 
 // ─── Transactions ─────────────────────────────────────────────────────────────

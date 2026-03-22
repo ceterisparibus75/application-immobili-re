@@ -90,6 +90,13 @@ enum LeaseStatus {
 enum PaymentFrequency {
   MENSUEL
   TRIMESTRIEL
+  SEMESTRIEL
+  ANNUEL
+}
+
+enum BillingTerm {
+  ECHU      // Terme échu — paiement en fin de période (ex: loyer de janvier payé le 1er février)
+  A_ECHOIR  // Terme à échoir — paiement en début de période (ex: loyer de janvier payé le 1er janvier)
 }
 
 enum IndexType {
@@ -302,6 +309,7 @@ model Society {
   leases              Lease[]
   invoices            Invoice[]
   bankAccounts        BankAccount[]
+  bankConnections     BankConnection[]
   accountingAccounts  AccountingAccount[]
   journalEntries      JournalEntry[]
   reminderScenarios   ReminderScenario[]
@@ -566,6 +574,7 @@ model Lease {
   currentRentHT    Float // Loyer actuel HT (après révisions)
   depositAmount    Float // Dépôt de garantie
   paymentFrequency PaymentFrequency @default(MENSUEL)
+  billingTerm      BillingTerm      @default(A_ECHOIR) // Terme échu ou à échoir
   vatApplicable    Boolean          @default(true)
   vatRate          Float            @default(20.0)
 
@@ -1127,6 +1136,27 @@ model Payment {
 // PHASE 7 — RAPPROCHEMENT BANCAIRE
 // ============================================================
 
+/// Connexion Open Banking (GoCardless Bank Account Data / PSD2)
+model BankConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  requisitionId   String   @unique // ID GoCardless de la réquisition
+  institutionId   String            // ex: "BNP_PARIBAS_BNPAFRPP"
+  institutionName String            // ex: "BNP Paribas"
+  status          String   @default("CR") // CR=created, LN=linked, RJ=rejected, ER=error, EX=expired, SU=suspended
+  authLink        String?           // URL d'autorisation envoyée à l'utilisateur
+  agreementId     String?           // ID accord GoCardless (90 jours)
+  expiresAt       DateTime?         // Date d'expiration de l'accord
+
+  society      Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bankAccounts BankAccount[]
+
+  @@index([societyId])
+}
+
 /// Compte bancaire
 model BankAccount {
   id        String   @id @default(cuid())
@@ -1136,12 +1166,18 @@ model BankAccount {
 
   bankName      String
   accountName   String
-  ibanEncrypted String // Chiffré AES-256
-  initialBalance Float @default(0)
-  currentBalance Float @default(0)
+  ibanEncrypted String  // Chiffré AES-256
+  initialBalance Float  @default(0)
+  currentBalance Float  @default(0)
   isActive       Boolean @default(true)
 
+  // Open Banking (GoCardless)
+  gocardlessAccountId String?   @unique // ID du compte GoCardless
+  connectionId        String?           // Lien vers BankConnection
+  lastSyncAt          DateTime?         // Dernière synchronisation
+
   society      Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  connection   BankConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
   transactions BankTransaction[]
 
   @@index([societyId])

@@ -73,6 +73,7 @@ export async function createLease(
         currentRentHT: data.baseRentHT,
         depositAmount: data.depositAmount,
         paymentFrequency: data.paymentFrequency,
+        billingTerm: data.billingTerm ?? "A_ECHOIR",
         vatApplicable: data.vatApplicable,
         vatRate: data.vatRate,
         indexType: data.indexType ?? null,
@@ -180,6 +181,60 @@ export async function updateLease(
     }
     console.error("[updateLease]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
+  }
+}
+
+export async function deleteLease(
+  societyId: string,
+  leaseId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId },
+      select: { id: true, status: true, lotId: true },
+    });
+    if (!lease) return { success: false, error: "Bail introuvable" };
+
+    if (lease.status === "EN_COURS") {
+      return {
+        success: false,
+        error: "Impossible de supprimer un bail en cours. Résiliez-le d'abord.",
+      };
+    }
+
+    await prisma.lease.delete({ where: { id: leaseId } });
+
+    // Remettre le lot en vacant si plus aucun bail actif
+    const remainingActive = await prisma.lease.count({
+      where: { lotId: lease.lotId, status: "EN_COURS" },
+    });
+    if (remainingActive === 0) {
+      await prisma.lot.update({
+        where: { id: lease.lotId },
+        data: { status: "VACANT" },
+      });
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "Lease",
+      entityId: leaseId,
+    });
+
+    revalidatePath("/baux");
+    revalidatePath(`/patrimoine/immeubles`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteLease]", error);
+    return { success: false, error: "Erreur lors de la suppression du bail" };
   }
 }
 

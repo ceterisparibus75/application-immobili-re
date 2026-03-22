@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Euro, FileText, Plus } from "lucide-react";
+import { Euro, FileText, Plus, Zap } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -80,12 +80,20 @@ export default async function FacturationPage() {
             {invoices.length} facture{invoices.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/facturation/nouvelle">
-          <Button>
-            <Plus className="h-4 w-4" />
-            Nouvelle facture
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/facturation/generer">
+            <Button variant="outline">
+              <Zap className="h-4 w-4" />
+              Générer les appels
+            </Button>
+          </Link>
+          <Link href="/facturation/nouvelle">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nouvelle facture
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* KPIs */}

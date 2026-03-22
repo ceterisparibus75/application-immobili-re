@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Euro } from "lucide-react";
 import Link from "next/link";
+import SendReminderButton from "./_components/send-reminder-button";
 
 export const metadata = { title: "Relances" };
 
@@ -92,7 +93,7 @@ async function getRecentReminders(societyId: string) {
 
 export default async function RelancesPage() {
   const h = await headers();
-  const societyId = h.get("x-society-id");
+  const societyId = h.get("x-society-id") ?? "";
   const session = await auth();
 
   let overdueInvoices: Awaited<ReturnType<typeof getOverdueInvoices>> = [];
@@ -223,14 +224,23 @@ export default async function RelancesPage() {
                         {tenantName(inv.lease)}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-destructive">
-                        {fmt(remaining)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Éch.{" "}
-                        {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
-                      </p>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-destructive">
+                          {fmt(remaining)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Éch.{" "}
+                          {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
+                        </p>
+                      </div>
+                      <SendReminderButton
+                        societyId={societyId}
+                        invoiceId={inv.id}
+                        defaultLevel={
+                          daysLate >= 30 ? "MISE_EN_DEMEURE" : daysLate >= 15 ? "RELANCE_2" : "RELANCE_1"
+                        }
+                      />
                     </div>
                   </div>
                 );

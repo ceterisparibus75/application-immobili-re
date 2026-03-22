@@ -265,6 +265,34 @@ export async function changePassword(
   }
 }
 
+export async function getUsersNotInSociety(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+  // Récupérer tous les userId déjà dans la société
+  const existing = await prisma.userSociety.findMany({
+    where: { societyId },
+    select: { userId: true },
+  });
+  const existingIds = existing.map((e) => e.userId);
+
+  return prisma.user.findMany({
+    where: {
+      isActive: true,
+      id: { notIn: existingIds },
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      firstName: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getUsers(societyId?: string) {
   const session = await auth();
   if (!session?.user?.id) return [];

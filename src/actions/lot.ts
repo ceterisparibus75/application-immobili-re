@@ -152,6 +152,50 @@ export async function updateLot(
   }
 }
 
+export async function deleteLot(
+  societyId: string,
+  lotId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const lot = await prisma.lot.findFirst({
+      where: { id: lotId, building: { societyId } },
+      include: { _count: { select: { leases: true } } },
+    });
+    if (!lot) return { success: false, error: "Lot introuvable" };
+
+    if (lot._count.leases > 0) {
+      return {
+        success: false,
+        error: `Impossible de supprimer : ${lot._count.leases} bail(aux) associé(s) à ce lot. Supprimez les baux d'abord.`,
+      };
+    }
+
+    await prisma.lot.delete({ where: { id: lotId } });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "Lot",
+      entityId: lotId,
+      details: { number: lot.number, buildingId: lot.buildingId },
+    });
+
+    revalidatePath(`/patrimoine/immeubles/${lot.buildingId}`);
+    revalidatePath("/patrimoine/immeubles");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteLot]", error);
+    return { success: false, error: "Erreur lors de la suppression du lot" };
+  }
+}
+
 export async function getLots(societyId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];

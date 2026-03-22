@@ -30,3 +30,17 @@ export const createBankTransactionSchema = z.object({
 export type CreateBankAccountInput = z.infer<typeof createBankAccountSchema>;
 export type UpdateBankAccountInput = z.infer<typeof updateBankAccountSchema>;
 export type CreateBankTransactionInput = z.infer<typeof createBankTransactionSchema>;
+
+export const initiateOpenBankingSchema = z.object({
+  institutionId: z.string().min(1, "La banque est requise"),
+  institutionName: z.string().min(1),
+});
+
+export const bankReconciliationSchema = z.object({
+  transactionId: z.string().cuid("Transaction invalide"),
+  paymentId: z.string().cuid("Paiement invalide"),
+  notes: z.string().optional(),
+});
+
+export type InitiateOpenBankingInput = z.infer<typeof initiateOpenBankingSchema>;
+export type BankReconciliationInput = z.infer<typeof bankReconciliationSchema>;

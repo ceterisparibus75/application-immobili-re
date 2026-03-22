@@ -7,11 +7,16 @@ import { createAuditLog } from "@/lib/audit";
 import {
   createInvoiceSchema,
   recordPaymentSchema,
+  generateInvoiceFromLeaseSchema,
+  generateBatchInvoicesSchema,
   type CreateInvoiceInput,
   type RecordPaymentInput,
+  type GenerateInvoiceFromLeaseInput,
+  type GenerateBatchInvoicesInput,
 } from "@/validations/invoice";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { PaymentFrequency, BillingTerm } from "@prisma/client";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -248,4 +253,505 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
       payments: { orderBy: { paidAt: "desc" } },
     },
   });
+}
+
+// ============================================================
+// GÉNÉRATION AUTOMATIQUE DES FACTURES
+// ============================================================
+
+/** Calcule les dates de début/fin d'une période à partir d'un mois (ex: "2025-01"). */
+function computePeriodDates(
+  periodMonth: string,
+  frequency: PaymentFrequency
+): { periodStart: Date; periodEnd: Date } {
+  const [y, m] = periodMonth.split("-").map(Number);
+
+  switch (frequency) {
+    case "TRIMESTRIEL": {
+      const q = Math.floor((m - 1) / 3); // trimestre 0-3
+      return {
+        periodStart: new Date(y, q * 3, 1),
+        periodEnd: new Date(y, q * 3 + 3, 0),
+      };
+    }
+    case "SEMESTRIEL": {
+      const s = Math.floor((m - 1) / 6); // semestre 0-1
+      return {
+        periodStart: new Date(y, s * 6, 1),
+        periodEnd: new Date(y, s * 6 + 6, 0),
+      };
+    }
+    case "ANNUEL":
+      return {
+        periodStart: new Date(y, 0, 1),
+        periodEnd: new Date(y, 12, 0),
+      };
+    default: // MENSUEL
+      return {
+        periodStart: new Date(y, m - 1, 1),
+        periodEnd: new Date(y, m, 0),
+      };
+  }
+}
+
+/** Détermine la date d'émission et l'échéance selon le terme. */
+function computeIssueDueDate(
+  periodStart: Date,
+  periodEnd: Date,
+  billingTerm: BillingTerm
+): { issueDate: Date; dueDate: Date } {
+  if (billingTerm === "A_ECHOIR") {
+    // Terme à échoir : on émet et on paie au début de la période
+    return { issueDate: periodStart, dueDate: periodStart };
+  }
+  // Terme échu : on émet en fin de période, échéance le 1er du mois suivant
+  const dueDate = new Date(periodEnd);
+  dueDate.setDate(dueDate.getDate() + 1);
+  return { issueDate: periodEnd, dueDate };
+}
+
+/**
+ * Calcule le loyer applicable pour une période donnée.
+ * Prend en compte : franchise, loyer progressif, loyer courant.
+ */
+function computeRentForPeriod(
+  startDate: Date,
+  currentRentHT: number,
+  progressiveRent: unknown,
+  rentFreeMonths: number
+): number {
+  // Calcul du nombre de mois depuis le début du bail
+  const start = new Date(startDate);
+  start.setDate(1);
+  const now = new Date();
+  now.setDate(1);
+  const monthsSinceStart =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth());
+
+  // Franchise de loyer
+  if (monthsSinceStart < rentFreeMonths) return 0;
+
+  // Loyer progressif : [{months: 12, rentHT: 5000}, {months: 12, rentHT: 5500}, ...]
+  const progressive = progressiveRent as
+    | Array<{ months: number; rentHT: number }>
+    | null;
+  if (progressive && progressive.length > 0) {
+    let cumulative = 0;
+    for (const period of progressive) {
+      cumulative += period.months;
+      if (monthsSinceStart < cumulative) return period.rentHT;
+    }
+  }
+
+  return currentRentHT;
+}
+
+/**
+ * Retourne les baux actifs avec les infos nécessaires pour la facturation.
+ */
+export async function getActiveLeasesForInvoicing(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.lease.findMany({
+    where: { societyId, status: "EN_COURS" },
+    select: {
+      id: true,
+      startDate: true,
+      paymentFrequency: true,
+      billingTerm: true,
+      currentRentHT: true,
+      baseRentHT: true,
+      vatApplicable: true,
+      vatRate: true,
+      rentFreeMonths: true,
+      progressiveRent: true,
+      tenant: {
+        select: {
+          id: true,
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+      lot: {
+        select: {
+          number: true,
+          building: { select: { name: true, city: true } },
+        },
+      },
+    },
+    orderBy: [
+      { lot: { building: { name: "asc" } } },
+      { tenant: { lastName: "asc" } },
+    ],
+  });
+}
+
+/**
+ * Récupère les données d'un bail pour pré-remplir le formulaire de facturation.
+ */
+export async function getLeaseForInvoice(societyId: string, leaseId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.lease.findFirst({
+    where: { id: leaseId, societyId, status: "EN_COURS" },
+    select: {
+      id: true,
+      startDate: true,
+      paymentFrequency: true,
+      billingTerm: true,
+      currentRentHT: true,
+      vatApplicable: true,
+      vatRate: true,
+      rentFreeMonths: true,
+      progressiveRent: true,
+      tenantId: true,
+      tenant: {
+        select: {
+          id: true,
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      lot: {
+        select: {
+          number: true,
+          building: { select: { name: true, city: true } },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Génère un appel de loyer pour un bail sur une période donnée.
+ * Evite les doublons : si une facture APPEL_LOYER existe déjà pour ce bail+période, retourne une erreur.
+ */
+export async function generateInvoiceFromLease(
+  societyId: string,
+  input: GenerateInvoiceFromLeaseInput
+): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = generateInvoiceFromLeaseSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: parsed.data.leaseId, societyId, status: "EN_COURS" },
+      select: {
+        id: true,
+        tenantId: true,
+        startDate: true,
+        paymentFrequency: true,
+        billingTerm: true,
+        currentRentHT: true,
+        vatApplicable: true,
+        vatRate: true,
+        rentFreeMonths: true,
+        progressiveRent: true,
+        lot: {
+          select: {
+            number: true,
+            building: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!lease) return { success: false, error: "Bail actif introuvable" };
+
+    const { periodStart, periodEnd } = computePeriodDates(
+      parsed.data.periodMonth,
+      lease.paymentFrequency
+    );
+
+    // Anti-doublon : vérifier qu'une facture n'existe pas déjà pour ce bail et cette période
+    const existing = await prisma.invoice.findFirst({
+      where: {
+        societyId,
+        leaseId: lease.id,
+        invoiceType: "APPEL_LOYER",
+        periodStart: { gte: periodStart },
+        periodEnd: { lte: periodEnd },
+      },
+    });
+    if (existing) {
+      return {
+        success: false,
+        error: `Une facture existe déjà pour ce bail sur cette période (${existing.invoiceNumber})`,
+      };
+    }
+
+    const rentHT = computeRentForPeriod(
+      lease.startDate,
+      lease.currentRentHT,
+      lease.progressiveRent,
+      lease.rentFreeMonths ?? 0
+    );
+
+    const vatRate = lease.vatApplicable ? lease.vatRate : 0;
+    const totalHT = rentHT;
+    const totalVAT = totalHT * (vatRate / 100);
+    const totalTTC = totalHT + totalVAT;
+
+    const { issueDate, dueDate } = computeIssueDueDate(
+      periodStart,
+      periodEnd,
+      lease.billingTerm
+    );
+
+    const invoiceNumber = await getNextInvoiceNumber(societyId);
+
+    const lotLabel = lease.lot
+      ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
+      : "Lot non précisé";
+
+    const periodLabel = periodStart.toLocaleDateString("fr-FR", {
+      month: "long",
+      year: "numeric",
+    });
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        societyId,
+        tenantId: lease.tenantId,
+        leaseId: lease.id,
+        invoiceNumber,
+        invoiceType: "APPEL_LOYER",
+        status: "EN_ATTENTE",
+        issueDate,
+        dueDate,
+        periodStart,
+        periodEnd,
+        totalHT,
+        totalVAT,
+        totalTTC,
+        lines: {
+          create: [
+            {
+              label: `Loyer ${lotLabel} — ${periodLabel}`,
+              quantity: 1,
+              unitPrice: rentHT,
+              vatRate,
+              totalHT,
+              totalVAT,
+              totalTTC,
+            },
+          ],
+        },
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: invoice.id,
+      details: {
+        invoiceNumber,
+        totalTTC,
+        leaseId: lease.id,
+        periodMonth: parsed.data.periodMonth,
+        generated: true,
+      },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/baux/${lease.id}`);
+
+    return { success: true, data: { id: invoice.id, invoiceNumber } };
+  } catch (error) {
+    if (error instanceof ForbiddenError)
+      return { success: false, error: error.message };
+    console.error("[generateInvoiceFromLease]", error);
+    return { success: false, error: "Erreur lors de la génération de la facture" };
+  }
+}
+
+/**
+ * Génère les appels de loyers en masse pour tous les baux actifs (ou une sélection).
+ * Retourne un rapport : nb créés, nb ignorés (doublons), erreurs.
+ */
+export async function generateBatchInvoices(
+  societyId: string,
+  input: GenerateBatchInvoicesInput
+): Promise<
+  ActionResult<{ created: number; skipped: number; errors: string[] }>
+> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = generateBatchInvoicesSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const leases = await prisma.lease.findMany({
+      where: {
+        societyId,
+        status: "EN_COURS",
+        ...(parsed.data.leaseIds?.length
+          ? { id: { in: parsed.data.leaseIds } }
+          : {}),
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        startDate: true,
+        paymentFrequency: true,
+        billingTerm: true,
+        currentRentHT: true,
+        vatApplicable: true,
+        vatRate: true,
+        rentFreeMonths: true,
+        progressiveRent: true,
+        lot: {
+          select: {
+            number: true,
+            building: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const lease of leases) {
+      try {
+        const { periodStart, periodEnd } = computePeriodDates(
+          parsed.data.periodMonth,
+          lease.paymentFrequency
+        );
+
+        // Anti-doublon
+        const existing = await prisma.invoice.findFirst({
+          where: {
+            societyId,
+            leaseId: lease.id,
+            invoiceType: "APPEL_LOYER",
+            periodStart: { gte: periodStart },
+            periodEnd: { lte: periodEnd },
+          },
+        });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const rentHT = computeRentForPeriod(
+          lease.startDate,
+          lease.currentRentHT,
+          lease.progressiveRent,
+          lease.rentFreeMonths ?? 0
+        );
+
+        const vatRate = lease.vatApplicable ? lease.vatRate : 0;
+        const totalHT = rentHT;
+        const totalVAT = totalHT * (vatRate / 100);
+        const totalTTC = totalHT + totalVAT;
+
+        const { issueDate, dueDate } = computeIssueDueDate(
+          periodStart,
+          periodEnd,
+          lease.billingTerm
+        );
+
+        const invoiceNumber = await getNextInvoiceNumber(societyId);
+
+        const lotLabel = lease.lot
+          ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
+          : "Lot non précisé";
+
+        const periodLabel = periodStart.toLocaleDateString("fr-FR", {
+          month: "long",
+          year: "numeric",
+        });
+
+        await prisma.invoice.create({
+          data: {
+            societyId,
+            tenantId: lease.tenantId,
+            leaseId: lease.id,
+            invoiceNumber,
+            invoiceType: "APPEL_LOYER",
+            status: "EN_ATTENTE",
+            issueDate,
+            dueDate,
+            periodStart,
+            periodEnd,
+            totalHT,
+            totalVAT,
+            totalTTC,
+            lines: {
+              create: [
+                {
+                  label: `Loyer ${lotLabel} — ${periodLabel}`,
+                  quantity: 1,
+                  unitPrice: rentHT,
+                  vatRate,
+                  totalHT,
+                  totalVAT,
+                  totalTTC,
+                },
+              ],
+            },
+          },
+        });
+
+        created++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Erreur inconnue";
+        errors.push(`Bail ${lease.id} : ${msg}`);
+      }
+    }
+
+    if (created > 0) {
+      await createAuditLog({
+        societyId,
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "Invoice",
+        entityId: societyId,
+        details: {
+          batch: true,
+          periodMonth: parsed.data.periodMonth,
+          created,
+          skipped,
+        },
+      });
+      revalidatePath("/facturation");
+    }
+
+    return { success: true, data: { created, skipped, errors } };
+  } catch (error) {
+    if (error instanceof ForbiddenError)
+      return { success: false, error: error.message };
+    console.error("[generateBatchInvoices]", error);
+    return { success: false, error: "Erreur lors de la génération en masse" };
+  }
 }

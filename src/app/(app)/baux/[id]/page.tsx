@@ -31,6 +31,7 @@ import type {
   PaymentFrequency,
   TenantEntityType,
 } from "@prisma/client";
+import { DeleteLeaseButton } from "./_components/delete-lease-button";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -60,6 +61,8 @@ const TYPE_LABELS: Record<LeaseType, string> = {
 const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   MENSUEL: "Mensuel",
   TRIMESTRIEL: "Trimestriel",
+  SEMESTRIEL: "Semestriel",
+  ANNUEL: "Annuel",
 };
 
 const INVOICE_STATUS_LABELS: Record<string, string> = {
@@ -133,14 +136,21 @@ export default async function BailDetailPage({
             </p>
           </div>
         </div>
-        {isActive && (
-          <Link href={`/baux/${lease.id}/modifier`}>
-            <Button variant="outline">
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <Link href={`/baux/${lease.id}/modifier`}>
+              <Button variant="outline">
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
+          )}
+          <DeleteLeaseButton
+            societyId={societyId}
+            leaseId={lease.id}
+            leaseStatus={lease.status}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

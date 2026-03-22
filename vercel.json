@@ -9,6 +9,14 @@
     {
       "path": "/api/cron/invoice-reminder",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-bank",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/sync-indices",
+      "schedule": "0 7 1 * *"
     }
   ]
 }

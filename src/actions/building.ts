@@ -212,7 +212,13 @@ export async function getBuildingById(societyId: string, buildingId: string) {
     where: { id: buildingId, societyId },
     include: {
       society: { select: { id: true, name: true, legalForm: true } },
-      lots: { orderBy: { number: "asc" } },
+      lots: {
+        orderBy: { number: "asc" },
+        include: {
+          _count: { select: { leases: true } },
+          leases: { where: { status: "EN_COURS" }, select: { id: true, status: true } },
+        },
+      },
       diagnostics: { orderBy: { expiresAt: "asc" } },
       maintenances: { orderBy: { scheduledAt: "desc" }, take: 10 },
       _count: { select: { lots: true, diagnostics: true, maintenances: true } },

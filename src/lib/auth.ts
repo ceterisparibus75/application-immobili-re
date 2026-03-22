@@ -21,9 +21,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
-        console.log("[auth] authorize called, email:", credentials?.email);
         if (!credentials?.email || !credentials?.password) {
-          console.log("[auth] missing credentials");
           return null;
         }
 
@@ -45,14 +43,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        console.log("[auth] user found:", !!user, "isActive:", user?.isActive);
-
         if (!user || !user.isActive) {
           return null;
         }
 
         const isPasswordValid = compareSync(password, user.passwordHash);
-        console.log("[auth] password valid:", isPasswordValid);
         if (!isPasswordValid) {
           return null;
         }
@@ -65,10 +60,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
         } catch (err) {
           console.error("[auth] update lastLoginAt error:", err);
-          // Non bloquant
         }
 
-        console.log("[auth] login success for:", user.email);
         return {
           id: user.id,
           email: user.email,

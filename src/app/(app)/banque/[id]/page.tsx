@@ -7,12 +7,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  GitMerge,
+  Plus,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AddTransactionForm from "./_components/add-transaction-form";
+import SyncButton from "./_components/sync-button";
 
 export default async function BankAccountDetailPage({
   params,
@@ -37,7 +47,7 @@ export default async function BankAccountDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <Link href="/banque">
             <Button variant="ghost" size="icon">
@@ -45,23 +55,50 @@ export default async function BankAccountDetailPage({
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold tracking-tight">
                 {account.accountName}
               </h1>
               <Badge variant={account.isActive ? "success" : "secondary"}>
                 {account.isActive ? "Actif" : "Inactif"}
               </Badge>
+              {account.connection && (
+                <Badge variant="outline" className="text-xs">
+                  Open Banking · {account.connection.institutionName}
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground">
               {account.bankName} — {account.ibanMasked}
             </p>
+            {account.lastSyncAt && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Dernière sync : {formatDate(account.lastSyncAt)}
+              </p>
+            )}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {account.gocardlessAccountId && (
+            <SyncButton bankAccountId={account.id} societyId={societyId} />
+          )}
+          <Link href={`/banque/${id}/rapprochement`}>
+            <Button variant="outline">
+              <GitMerge className="h-4 w-4" />
+              Rapprochement
+              {account.unreconciledCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                  {account.unreconciledCount}
+                </Badge>
+              )}
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Soldes */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* KPIs */}
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Solde actuel</p>
@@ -70,10 +107,7 @@ export default async function BankAccountDetailPage({
                 account.currentBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
               }`}
             >
-              {account.currentBalance.toLocaleString("fr-FR", {
-                maximumFractionDigits: 2,
-              })}{" "}
-              €
+              {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
             </p>
           </CardContent>
         </Card>
@@ -96,6 +130,17 @@ export default async function BankAccountDetailPage({
             </div>
             <p className="text-xl font-bold text-destructive">
               {debits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Non rapprochées</p>
+            </div>
+            <p className={`text-xl font-bold ${account.unreconciledCount > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
+              {account.unreconciledCount}
             </p>
           </CardContent>
         </Card>
@@ -125,9 +170,7 @@ export default async function BankAccountDetailPage({
                       <div>
                         <p className="text-sm font-medium">{transaction.label}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(transaction.transactionDate).toLocaleDateString(
-                            "fr-FR"
-                          )}
+                          {new Date(transaction.transactionDate).toLocaleDateString("fr-FR")}
                           {transaction.reference && ` — ${transaction.reference}`}
                           {transaction.category && ` — ${transaction.category}`}
                         </p>
@@ -141,16 +184,14 @@ export default async function BankAccountDetailPage({
                           }`}
                         >
                           {transaction.amount >= 0 ? "+" : ""}
-                          {transaction.amount.toLocaleString("fr-FR", {
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          €
+                          {transaction.amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                         </p>
-                        {transaction.isReconciled && (
-                          <Badge variant="success" className="text-xs">
-                            Rapproché
-                          </Badge>
-                        )}
+                        <Badge
+                          variant={transaction.isReconciled ? "success" : "secondary"}
+                          className="text-xs"
+                        >
+                          {transaction.isReconciled ? "Rapproché" : "En attente"}
+                        </Badge>
                       </div>
                     </div>
                   ))}
@@ -193,12 +234,18 @@ export default async function BankAccountDetailPage({
               <div>
                 <p className="text-xs text-muted-foreground">Solde initial</p>
                 <p className="text-sm">
-                  {account.initialBalance.toLocaleString("fr-FR", {
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
+                  {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                 </p>
               </div>
+              {account.gocardlessAccountId && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Open Banking</p>
+                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <RefreshCw className="h-3 w-3" />
+                    Synchronisation automatique active
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

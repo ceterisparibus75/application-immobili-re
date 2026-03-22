@@ -29,6 +29,19 @@ const LEASE_TYPES = [
 const PAYMENT_FREQUENCIES = [
   { value: "MENSUEL", label: "Mensuel" },
   { value: "TRIMESTRIEL", label: "Trimestriel" },
+  { value: "SEMESTRIEL", label: "Semestriel" },
+  { value: "ANNUEL", label: "Annuel" },
+];
+
+const BILLING_TERMS = [
+  {
+    value: "A_ECHOIR",
+    label: "Terme à échoir (paiement en début de période)",
+  },
+  {
+    value: "ECHU",
+    label: "Terme échu (paiement en fin de période)",
+  },
 ];
 
 const INDEX_TYPES = [
@@ -116,7 +129,8 @@ export default function NouveauBailPage() {
       durationMonths: parseInt(data.durationMonths) || 108,
       baseRentHT: parseFloat(data.baseRentHT),
       depositAmount: parseFloat(data.depositAmount) || 0,
-      paymentFrequency: data.paymentFrequency as "MENSUEL" | "TRIMESTRIEL",
+      paymentFrequency: data.paymentFrequency as "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL",
+      billingTerm: (data.billingTerm as "ECHU" | "A_ECHOIR") || "A_ECHOIR",
       vatApplicable: data.vatApplicable === "on",
       vatRate: parseFloat(data.vatRate) || 20,
       indexType: (data.indexType as "ILC" | "ILAT" | "ICC") || null,
@@ -262,6 +276,19 @@ export default function NouveauBailPage() {
                   options={PAYMENT_FREQUENCIES}
                   defaultValue="MENSUEL"
                 />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="billingTerm">Terme de facturation</Label>
+                <Select
+                  id="billingTerm"
+                  name="billingTerm"
+                  options={BILLING_TERMS}
+                  defaultValue="A_ECHOIR"
+                />
+                <p className="text-xs text-muted-foreground">
+                  À échoir : le loyer est dû au début de la période couverte.
+                  Échu : le loyer est dû après la période.
+                </p>
               </div>
             </div>
           </CardContent>

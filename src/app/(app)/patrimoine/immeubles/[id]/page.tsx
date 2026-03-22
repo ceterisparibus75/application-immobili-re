@@ -26,6 +26,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { BuildingType, LotStatus, LotType } from "@prisma/client";
+import { DeleteBuildingButton } from "./_components/delete-building-button";
 
 const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
   BUREAU: "Bureau",
@@ -125,12 +126,22 @@ export default async function ImmeubleDetailPage({
             )}
           </div>
         </div>
-        <Link href={`/patrimoine/immeubles/${id}/modifier`}>
-          <Button variant="outline">
-            <Pencil className="h-4 w-4" />
-            Modifier
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/patrimoine/immeubles/${id}/modifier`}>
+            <Button variant="outline">
+              <Pencil className="h-4 w-4" />
+              Modifier
+            </Button>
+          </Link>
+          <DeleteBuildingButton
+            societyId={societyId}
+            buildingId={id}
+            buildingName={building.name}
+            hasActiveLeases={building.lots.some((l) =>
+              l.leases?.some((le) => le.status === "EN_COURS")
+            )}
+          />
+        </div>
       </div>
 
       {/* Alertes diagnostics */}

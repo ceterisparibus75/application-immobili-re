@@ -35,5 +35,28 @@ export const recordPaymentSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+/**
+ * Schéma pour la génération automatique d'une facture depuis un bail.
+ * La période est exprimée par son mois de début (ex: "2025-01" pour janvier 2025).
+ */
+export const generateInvoiceFromLeaseSchema = z.object({
+  leaseId: z.string().cuid(),
+  periodMonth: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Format attendu : AAAA-MM"),
+});
+
+/**
+ * Schéma pour la génération en masse des appels de loyers.
+ */
+export const generateBatchInvoicesSchema = z.object({
+  periodMonth: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Format attendu : AAAA-MM"),
+  leaseIds: z.array(z.string().cuid()).optional(), // si vide → tous les baux actifs
+});
+
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+export type GenerateInvoiceFromLeaseInput = z.infer<typeof generateInvoiceFromLeaseSchema>;
+export type GenerateBatchInvoicesInput = z.infer<typeof generateBatchInvoicesSchema>;

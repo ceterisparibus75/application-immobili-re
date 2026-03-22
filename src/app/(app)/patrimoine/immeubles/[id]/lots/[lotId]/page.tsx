@@ -20,6 +20,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LotType, LotStatus } from "@prisma/client";
+import { DeleteLotButton } from "./_components/delete-lot-button";
 
 const LOT_TYPE_LABELS: Record<LotType, string> = {
   LOCAL_COMMERCIAL: "Local commercial",
@@ -97,12 +98,21 @@ export default async function LotDetailPage({
             </p>
           </div>
         </div>
-        <Link href={`/patrimoine/immeubles/${id}/lots/${lotId}/modifier`}>
-          <Button variant="outline">
-            <Pencil className="h-4 w-4" />
-            Modifier
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/patrimoine/immeubles/${id}/lots/${lotId}/modifier`}>
+            <Button variant="outline">
+              <Pencil className="h-4 w-4" />
+              Modifier
+            </Button>
+          </Link>
+          <DeleteLotButton
+            societyId={societyId}
+            buildingId={id}
+            lotId={lotId}
+            lotNumber={lot.number}
+            leaseCount={lot._count.leases}
+          />
+        </div>
       </div>
 
       {/* Bail actif */}
