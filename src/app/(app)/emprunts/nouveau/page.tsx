@@ -756,7 +756,7 @@ export default function NouvelEmpruntPage() {
   useEffect(() => {
     fetch("/api/buildings")
       .then((r) => r.json())
-      .then((d) => setBuildings(Array.isArray(d) ? d : []))
+      .then((d) => setBuildings(Array.isArray(d?.data) ? d.data : []))
       .catch(() => {});
   }, []);
 
