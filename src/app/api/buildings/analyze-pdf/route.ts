@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
-import * as pdfParse from "pdf-parse";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 
 export const maxDuration = 60;
 
