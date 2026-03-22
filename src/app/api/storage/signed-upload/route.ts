@@ -28,8 +28,9 @@ export async function POST(req: NextRequest) {
       .createSignedUploadUrl(storagePath);
 
     if (error || !data) {
-      console.error("[signed-upload] supabase error", error);
-      return NextResponse.json({ error: "Impossible de créer l'URL d'upload" }, { status: 500 });
+      const msg = error?.message ?? "Réponse vide de Supabase Storage";
+      console.error("[signed-upload] supabase error", msg, "bucket:", process.env.SUPABASE_STORAGE_BUCKET ?? "documents");
+      return NextResponse.json({ error: `Impossible de créer l'URL d'upload : ${msg}` }, { status: 500 });
     }
 
     return NextResponse.json({ signedUrl: data.signedUrl, storagePath });

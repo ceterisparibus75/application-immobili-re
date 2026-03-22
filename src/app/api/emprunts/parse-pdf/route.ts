@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import Anthropic from "@anthropic-ai/sdk";
+import { jsonrepair } from "jsonrepair";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -150,7 +151,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as ParsedLoan & { error?: string };
+    let parsed: ParsedLoan & { error?: string };
+    try {
+      parsed = JSON.parse(jsonMatch[0]) as ParsedLoan & { error?: string };
+    } catch {
+      parsed = JSON.parse(jsonrepair(jsonMatch[0])) as ParsedLoan & { error?: string };
+    }
 
     if (parsed.error) {
       return NextResponse.json({ error: parsed.error }, { status: 422 });
