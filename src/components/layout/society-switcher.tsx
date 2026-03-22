@@ -51,7 +51,7 @@ export function SocietySwitcher() {
 
   const canSwitch = societies.length > 1;
 
-  function handleSwitch(society: typeof activeSociety) {
+  function handleSwitch(society: NonNullable<typeof activeSociety>) {
     if (society.id === activeSociety?.id) { setOpen(false); return; }
     setSwitching(true);
     setActiveSociety(society);
