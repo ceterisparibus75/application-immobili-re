@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
+import pdfParse from "pdf-parse";
 
 export const maxDuration = 60;
 
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
 
-    let pdfBase64: string;
+    let pdfBuffer: Buffer;
     let tempStoragePath: string | null = null;
 
     const contentType = req.headers.get("content-type") ?? "";
@@ -85,11 +86,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Impossible de télécharger le fichier" }, { status: 500 });
       }
 
-      const fileBuffer = Buffer.from(await blob.arrayBuffer());
-      pdfBase64 = fileBuffer.toString("base64");
+      pdfBuffer = Buffer.from(await blob.arrayBuffer());
       tempStoragePath = storagePath;
     } else {
-      // Upload direct (petits fichiers < 4.5 Mo)
+      // Upload direct (petits fichiers)
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
 
@@ -103,8 +103,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
       }
 
-      const fileBuffer = Buffer.from(await file.arrayBuffer());
-      pdfBase64 = fileBuffer.toString("base64");
+      pdfBuffer = Buffer.from(await file.arrayBuffer());
+    }
+
+    // Extraction du texte du PDF (beaucoup plus rapide que l'envoi base64)
+    const pdfData = await pdfParse(pdfBuffer);
+    // Limiter à 80 000 caractères pour rester dans les limites de contexte
+    const pdfText = pdfData.text.slice(0, 80000);
+
+    if (!pdfText.trim()) {
+      return NextResponse.json({ error: "Impossible d'extraire le texte du PDF (document peut-être scanné)" }, { status: 422 });
     }
 
     const message = await anthropic.messages.create({
@@ -113,13 +121,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "document",
-              source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
-            } as Anthropic.DocumentBlockParam,
-            { type: "text", text: ANALYSIS_PROMPT },
-          ],
+          content: `${ANALYSIS_PROMPT}\n\n---\nCONTENU DU DOCUMENT :\n\n${pdfText}`,
         },
       ],
     });
