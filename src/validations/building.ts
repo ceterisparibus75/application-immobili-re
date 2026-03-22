@@ -19,6 +19,9 @@ export const createBuildingSchema = z.object({
   marketValue: z.coerce.number().min(0).optional().nullable(),
   netBookValue: z.coerce.number().min(0).optional().nullable(),
   acquisitionPrice: z.coerce.number().min(0).optional().nullable(),
+  acquisitionFees: z.coerce.number().min(0).optional().nullable(),
+  acquisitionTaxes: z.coerce.number().min(0).optional().nullable(),
+  acquisitionOtherCosts: z.coerce.number().min(0).optional().nullable(),
   acquisitionDate: z.string().optional().nullable(),
   description: z.string().optional(),
 });

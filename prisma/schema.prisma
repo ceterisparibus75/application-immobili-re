@@ -452,9 +452,12 @@ model Building {
   buildingType    BuildingType
   yearBuilt       Int?
   totalArea       Float? // m²
-  marketValue     Float? // Valeur vénale
+  marketValue     Float? // Valeur vénale (= prix + frais + taxes + autres)
   netBookValue    Float? // Valeur comptable nette
   acquisitionPrice Float? // Prix d'acquisition
+  acquisitionFees  Float? // Frais de notaire / frais d'acte
+  acquisitionTaxes Float? // Droits de mutation / taxes
+  acquisitionOtherCosts Float? // Autres frais d'acquisition
   acquisitionDate  DateTime? // Date d'acquisition
   description     String?      @db.Text
   // Acte d'acquisition PDF

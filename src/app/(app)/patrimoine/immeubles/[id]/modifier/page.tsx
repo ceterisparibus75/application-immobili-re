@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { updateBuilding } from "@/actions/building";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BUILDING_TYPES } from "@/lib/constants";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 
@@ -33,6 +33,11 @@ type Building = {
   totalArea: number | null;
   marketValue: number | null;
   netBookValue: number | null;
+  acquisitionPrice: number | null;
+  acquisitionFees: number | null;
+  acquisitionTaxes: number | null;
+  acquisitionOtherCosts: number | null;
+  acquisitionDate: string | null;
   description: string | null;
 };
 
@@ -44,6 +49,18 @@ export default function ModifierImmeubleePage() {
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState("");
   const [building, setBuilding] = useState<Building | null>(null);
+  const [acqPrice, setAcqPrice] = useState("");
+  const [acqFees, setAcqFees] = useState("");
+  const [acqTaxes, setAcqTaxes] = useState("");
+  const [acqOther, setAcqOther] = useState("");
+  const acqTotal = useMemo(
+    () =>
+      (parseFloat(acqPrice) || 0) +
+      (parseFloat(acqFees) || 0) +
+      (parseFloat(acqTaxes) || 0) +
+      (parseFloat(acqOther) || 0),
+    [acqPrice, acqFees, acqTaxes, acqOther]
+  );
 
   useEffect(() => {
     async function fetchBuilding() {
@@ -51,7 +68,12 @@ export default function ModifierImmeubleePage() {
         const res = await fetch(`/api/buildings/${params.id}`);
         if (res.ok) {
           const json = await res.json() as { data: Building };
-          setBuilding(json.data);
+          const b = json.data;
+          setBuilding(b);
+          setAcqPrice(b.acquisitionPrice != null ? String(b.acquisitionPrice) : "");
+          setAcqFees(b.acquisitionFees != null ? String(b.acquisitionFees) : "");
+          setAcqTaxes(b.acquisitionTaxes != null ? String(b.acquisitionTaxes) : "");
+          setAcqOther(b.acquisitionOtherCosts != null ? String(b.acquisitionOtherCosts) : "");
         }
       } finally {
         setIsFetching(false);
@@ -73,6 +95,12 @@ export default function ModifierImmeubleePage() {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as Record<string, string>;
 
+    const aqPrice = parseFloat(data.acquisitionPrice) || 0;
+    const aqFees = parseFloat(data.acquisitionFees) || 0;
+    const aqTaxes = parseFloat(data.acquisitionTaxes) || 0;
+    const aqOther = parseFloat(data.acquisitionOtherCosts) || 0;
+    const totalAcq = aqPrice + aqFees + aqTaxes + aqOther;
+
     const result = await updateBuilding(activeSociety.id, {
       id: params.id,
       name: data.name,
@@ -84,8 +112,13 @@ export default function ModifierImmeubleePage() {
       buildingType: data.buildingType as "BUREAU" | "COMMERCE" | "MIXTE" | "ENTREPOT",
       yearBuilt: data.yearBuilt ? parseInt(data.yearBuilt) : undefined,
       totalArea: data.totalArea ? parseFloat(data.totalArea) : undefined,
-      marketValue: data.marketValue ? parseFloat(data.marketValue) : undefined,
+      marketValue: totalAcq > 0 ? totalAcq : (data.marketValue ? parseFloat(data.marketValue) : undefined),
       netBookValue: data.netBookValue ? parseFloat(data.netBookValue) : undefined,
+      acquisitionPrice: aqPrice || undefined,
+      acquisitionFees: aqFees || undefined,
+      acquisitionTaxes: aqTaxes || undefined,
+      acquisitionOtherCosts: aqOther || undefined,
+      acquisitionDate: data.acquisitionDate || undefined,
       description: data.description,
     });
 
@@ -224,13 +257,115 @@ export default function ModifierImmeubleePage() {
           </CardContent>
         </Card>
 
+        {/* Acquisition + Valeur vénale */}
         <Card>
           <CardHeader>
-            <CardTitle>Valorisation</CardTitle>
-            <CardDescription>Informations financières et surfaces</CardDescription>
+            <CardTitle>Acquisition</CardTitle>
+            <CardDescription>Date et détail du coût d'acquisition</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionDate">Date d'acquisition</Label>
+                <Input
+                  id="acquisitionDate"
+                  name="acquisitionDate"
+                  type="date"
+                  defaultValue={
+                    building.acquisitionDate
+                      ? building.acquisitionDate.slice(0, 10)
+                      : ""
+                  }
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-primary" />
+                Valeur vénale — détail
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Le total est calculé automatiquement et enregistré comme valeur vénale du bien.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionPrice">Prix d'acquisition (€)</Label>
+                <Input
+                  id="acquisitionPrice"
+                  name="acquisitionPrice"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={acqPrice}
+                  onChange={(e) => setAcqPrice(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionFees">Frais de notaire / frais d'acte (€)</Label>
+                <Input
+                  id="acquisitionFees"
+                  name="acquisitionFees"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={acqFees}
+                  onChange={(e) => setAcqFees(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionTaxes">Droits de mutation / taxes (€)</Label>
+                <Input
+                  id="acquisitionTaxes"
+                  name="acquisitionTaxes"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={acqTaxes}
+                  onChange={(e) => setAcqTaxes(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acquisitionOtherCosts">Autres frais (€)</Label>
+                <Input
+                  id="acquisitionOtherCosts"
+                  name="acquisitionOtherCosts"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.00"
+                  value={acqOther}
+                  onChange={(e) => setAcqOther(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+              <span className="text-sm font-medium">Valeur vénale totale</span>
+              <span className="text-lg font-bold text-primary">
+                {acqTotal > 0
+                  ? acqTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+                  : "—"}
+              </span>
+            </div>
+            <input type="hidden" name="marketValue" value={acqTotal > 0 ? acqTotal : ""} />
+          </CardContent>
+        </Card>
+
+        {/* Valorisation complémentaire */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Valorisation complémentaire</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="totalArea">Surface totale (m²)</Label>
                 <Input
@@ -240,17 +375,6 @@ export default function ModifierImmeubleePage() {
                   min={0}
                   step={0.01}
                   defaultValue={building.totalArea ?? ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="marketValue">Valeur vénale (€)</Label>
-                <Input
-                  id="marketValue"
-                  name="marketValue"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  defaultValue={building.marketValue ?? ""}
                 />
               </div>
               <div className="space-y-2">
