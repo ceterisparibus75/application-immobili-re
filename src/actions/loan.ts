@@ -297,6 +297,7 @@ export async function getLoans(societyId: string) {
     include: {
       building: { select: { id: true, name: true, city: true } },
       amortizationLines: {
+        where: { dueDate: { lte: new Date() } },
         orderBy: { period: "desc" },
         take: 1,
         select: { remainingBalance: true, period: true },
