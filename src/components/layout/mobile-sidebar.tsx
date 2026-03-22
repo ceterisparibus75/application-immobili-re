@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { SocietySwitcher } from "./society-switcher";
 
 const navItems = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
@@ -59,11 +60,17 @@ export function MobileSidebar({
 
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-72 bg-sidebar border-r border-border">
-        <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <span className="font-bold text-lg">GestImmo</span>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
+        <div className="border-b border-border px-3 py-3">
+          <div className="flex items-center justify-between mb-2 px-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <span className="font-bold text-base">GestImmo</span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          <SocietySwitcher />
         </div>
 
         <nav className="overflow-y-auto py-4 px-3">

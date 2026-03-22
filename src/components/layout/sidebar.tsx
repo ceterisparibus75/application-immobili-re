@@ -22,7 +22,7 @@ import {
   Merge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSociety } from "@/providers/society-provider";
+import { SocietySwitcher } from "./society-switcher";
 
 const navigation = [
   {
@@ -85,18 +85,16 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { activeSociety } = useSociety();
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-sidebar border-r border-border">
-      {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b border-border">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Building2 className="h-7 w-7 text-primary" />
-          <span className="font-bold text-lg text-sidebar-foreground">
-            GestImmo
-          </span>
+      {/* Logo + sélecteur de société */}
+      <div className="border-b border-border px-3 py-3 space-y-1">
+        <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors">
+          <Building2 className="h-5 w-5 text-primary shrink-0" />
+          <span className="font-bold text-base text-sidebar-foreground">GestImmo</span>
         </Link>
+        <SocietySwitcher />
       </div>
 
       {/* Navigation */}
@@ -129,19 +127,6 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-
-      {/* Société active en bas */}
-      {activeSociety && (
-        <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground">Société active</p>
-          <p className="text-sm font-medium text-sidebar-foreground truncate">
-            {activeSociety.name}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {activeSociety.legalForm} — {activeSociety.city}
-          </p>
-        </div>
-      )}
     </aside>
   );
 }
