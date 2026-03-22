@@ -14,11 +14,13 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Home,
   Pencil,
   Plus,
   TriangleAlert,
+  User,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -96,51 +98,43 @@ export default async function ImmeubleDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/patrimoine/immeubles">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+      {/* Fil d'Ariane + Header */}
+      <div className="space-y-3">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/patrimoine/immeubles" className="hover:text-foreground transition-colors">
+            Immeubles
           </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-foreground font-medium truncate">{building.name}</span>
+        </div>
+
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">
-                {building.name}
-              </h1>
-              <Badge variant="outline">
-                {BUILDING_TYPE_LABELS[building.buildingType]}
-              </Badge>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">{building.name}</h1>
+              <Badge variant="outline">{BUILDING_TYPE_LABELS[building.buildingType]}</Badge>
             </div>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mt-0.5">
               {building.addressLine1}, {building.postalCode} {building.city}
             </p>
-            {building.society && (
-              <Link
-                href={`/societes/${building.society.id}`}
-                className="text-xs text-primary hover:underline"
-              >
-                {building.society.legalForm} {building.society.name}
-              </Link>
-            )}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/patrimoine/immeubles/${id}/modifier`}>
-            <Button variant="outline">
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </Button>
-          </Link>
-          <DeleteBuildingButton
-            societyId={societyId}
-            buildingId={id}
-            buildingName={building.name}
-            hasActiveLeases={building.lots.some((l) =>
-              l.leases?.some((le) => le.status === "EN_COURS")
-            )}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={`/patrimoine/immeubles/${id}/modifier`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
+            <DeleteBuildingButton
+              societyId={societyId}
+              buildingId={id}
+              buildingName={building.name}
+              hasActiveLeases={building.lots.some((l) =>
+                l.leases?.some((le) => le.status === "EN_COURS")
+              )}
+            />
+          </div>
         </div>
       </div>
 
@@ -263,9 +257,7 @@ export default async function ImmeubleDetailPage({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Lots ({building.lots.length})</CardTitle>
-            <Link
-              href={`/patrimoine/immeubles/${id}/lots/nouveau`}
-            >
+            <Link href={`/patrimoine/immeubles/${id}/lots/nouveau`}>
               <Button size="sm">
                 <Plus className="h-4 w-4" />
                 Ajouter un lot
@@ -273,48 +265,80 @@ export default async function ImmeubleDetailPage({
             </Link>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {building.lots.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center">
+            <div className="flex flex-col items-center py-10 text-center px-6">
               <Home className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-3">
                 Aucun lot dans cet immeuble
               </p>
+              <Link href={`/patrimoine/immeubles/${id}/lots/nouveau`}>
+                <Button size="sm" variant="outline">
+                  <Plus className="h-4 w-4" />
+                  Créer le premier lot
+                </Button>
+              </Link>
             </div>
           ) : (
             <div className="divide-y">
-              {building.lots.map((lot) => (
-                <Link
-                  key={lot.id}
-                  href={`/patrimoine/immeubles/${id}/lots/${lot.id}`}
-                  className="flex items-center justify-between py-3 hover:bg-accent/50 px-2 rounded-md transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm font-medium">Lot {lot.number}</div>
-                    <Badge variant="outline">
-                      {LOT_TYPE_LABELS[lot.lotType]}
-                    </Badge>
-                    {lot.floor && (
-                      <span className="text-xs text-muted-foreground">
-                        Étage {lot.floor}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      {lot.area} m²
-                    </span>
-                    <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>
-                      {LOT_STATUS_LABELS[lot.status]}
-                    </Badge>
-                    {lot.currentRent && (
-                      <span className="text-sm font-medium">
-                        {lot.currentRent.toLocaleString("fr-FR")} €/mois
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
+              {building.lots.map((lot) => {
+                const activeLease = lot.leases[0] ?? null;
+                const tenantName = activeLease?.tenant
+                  ? activeLease.tenant.entityType === "PERSONNE_MORALE"
+                    ? activeLease.tenant.companyName ?? ""
+                    : `${activeLease.tenant.firstName ?? ""} ${activeLease.tenant.lastName ?? ""}`.trim()
+                  : null;
+
+                return (
+                  <Link
+                    key={lot.id}
+                    href={`/patrimoine/immeubles/${id}/lots/${lot.id}`}
+                    className="flex items-center justify-between px-4 py-3.5 hover:bg-accent/50 transition-colors group"
+                  >
+                    {/* Gauche : numéro + type + locataire */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        {lot.number}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium">Lot {lot.number}</span>
+                          <Badge variant="outline" className="text-xs">{LOT_TYPE_LABELS[lot.lotType]}</Badge>
+                          {lot.floor && (
+                            <span className="text-xs text-muted-foreground">Ét. {lot.floor}</span>
+                          )}
+                        </div>
+                        {tenantName ? (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <User className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground truncate">{tenantName}</span>
+                          </div>
+                        ) : lot.status === "VACANT" ? (
+                          <span className="text-xs text-muted-foreground">Vacant — pas de locataire</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Droite : surface + statut + loyer + chevron */}
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      {lot.area && (
+                        <span className="text-sm text-muted-foreground hidden sm:block">
+                          {lot.area} m²
+                        </span>
+                      )}
+                      <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>
+                        {LOT_STATUS_LABELS[lot.status]}
+                      </Badge>
+                      {lot.currentRent && (
+                        <span className="text-sm font-medium hidden md:block">
+                          {lot.currentRent.toLocaleString("fr-FR")} €/mois
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </CardContent>

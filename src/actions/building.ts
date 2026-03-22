@@ -219,7 +219,14 @@ export async function getBuildingById(societyId: string, buildingId: string) {
         orderBy: { number: "asc" },
         include: {
           _count: { select: { leases: true } },
-          leases: { where: { status: "EN_COURS" }, select: { id: true, status: true } },
+          leases: {
+            where: { status: "EN_COURS" },
+            select: {
+              id: true,
+              status: true,
+              tenant: { select: { firstName: true, lastName: true, companyName: true, entityType: true } },
+            },
+          },
         },
       },
       diagnostics: { orderBy: { expiresAt: "asc" } },

@@ -10,9 +10,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
+  Building2,
+  ChevronRight,
   FileText,
   Home,
   Pencil,
+  Plus,
   User,
 } from "lucide-react";
 import Link from "next/link";
@@ -74,44 +77,50 @@ export default async function LotDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/patrimoine/immeubles/${id}`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+      {/* Fil d'Ariane + Header */}
+      <div className="space-y-3">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground flex-wrap">
+          <Link href="/patrimoine/immeubles" className="hover:text-foreground transition-colors">
+            Immeubles
           </Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          <Link href={`/patrimoine/immeubles/${id}`} className="hover:text-foreground transition-colors flex items-center gap-1">
+            <Building2 className="h-3.5 w-3.5" />
+            {lot.building.name}
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          <span className="text-foreground font-medium">Lot {lot.number}</span>
+        </div>
+
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">
-                Lot {lot.number}
-              </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">Lot {lot.number}</h1>
               <Badge variant="outline">{LOT_TYPE_LABELS[lot.lotType]}</Badge>
               <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>
                 {LOT_STATUS_LABELS[lot.status]}
               </Badge>
             </div>
-            <p className="text-muted-foreground">
-              {lot.building.name} —{" "}
+            <p className="text-muted-foreground mt-0.5">
               {lot.building.postalCode} {lot.building.city}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/patrimoine/immeubles/${id}/lots/${lotId}/modifier`}>
-            <Button variant="outline">
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </Button>
-          </Link>
-          <DeleteLotButton
-            societyId={societyId}
-            buildingId={id}
-            lotId={lotId}
-            lotNumber={lot.number}
-            leaseCount={lot._count.leases}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={`/patrimoine/immeubles/${id}/lots/${lotId}/modifier`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
+            <DeleteLotButton
+              societyId={societyId}
+              buildingId={id}
+              lotId={lotId}
+              lotNumber={lot.number}
+              leaseCount={lot._count.leases}
+            />
+          </div>
         </div>
       </div>
 
@@ -205,19 +214,15 @@ export default async function LotDetailPage({
               }
             />
             <Separator />
-            <div className="text-sm text-muted-foreground">
-              <p>Immeuble</p>
-              <Link
-                href={`/patrimoine/immeubles/${id}`}
-                className="text-primary hover:underline font-medium"
-              >
-                {lot.building.name}
+            <InfoRow label="Nombre de baux" value={`${lot._count.leases}`} />
+            {lot.status === "VACANT" && (
+              <Link href={`/baux/nouveau?lotId=${lot.id}`}>
+                <Button size="sm" variant="outline" className="w-full mt-1">
+                  <Plus className="h-4 w-4" />
+                  Créer un bail
+                </Button>
               </Link>
-            </div>
-            <InfoRow
-              label="Baux total"
-              value={`${lot._count.leases} bail(aux)`}
-            />
+            )}
           </CardContent>
         </Card>
       </div>
