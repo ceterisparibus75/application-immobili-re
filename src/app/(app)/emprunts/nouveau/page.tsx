@@ -25,6 +25,7 @@ import Link from "next/link";
 import { createLoan, createLoanFromPdf } from "@/actions/loan";
 import { useSociety } from "@/providers/society-provider";
 import type { ParsedLoan } from "@/app/api/emprunts/parse-pdf/route";
+import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 
 type Building = { id: string; name: string; city: string };
 
@@ -345,6 +346,7 @@ function PdfImportForm({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState<ParsedLoan | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Champs éditables après extraction
   const [label, setLabel] = useState("");
@@ -397,15 +399,9 @@ function PdfImportForm({
     setIsAnalyzing(false);
   }
 
-  async function handleConfirm() {
+  async function doSave() {
     if (!parsed) return;
-    if (!buildingId) {
-      setError("Veuillez sélectionner un immeuble");
-      return;
-    }
-    setError("");
     setStep("saving");
-
     const data = {
       label,
       lender,
@@ -420,7 +416,6 @@ function PdfImportForm({
       notes: notes || null,
       schedule: parsed.schedule,
     };
-
     const result = await createLoanFromPdf(activeSocietyId, data);
     if ("error" in result) {
       setError(result.error ?? "Erreur lors de la création");
@@ -428,6 +423,16 @@ function PdfImportForm({
     } else if ("data" in result && result.data) {
       router.push(`/emprunts/${result.data.id}`);
     }
+  }
+
+  function handleConfirm() {
+    if (!parsed) return;
+    if (!buildingId) {
+      setError("Veuillez sélectionner un immeuble");
+      return;
+    }
+    setError("");
+    setConfirmOpen(true);
   }
 
   if (step === "upload" || isAnalyzing) {
@@ -485,6 +490,23 @@ function PdfImportForm({
   // Étape preview : données extraites + formulaire de correction
   return (
     <div className="space-y-6">
+      <AiConfirmDialog
+        open={confirmOpen}
+        description="Tableau d'amortissement importé depuis le PDF bancaire"
+        lines={[
+          { label: "Libellé", value: label },
+          { label: "Prêteur", value: lender },
+          { label: "Type", value: loanType },
+          { label: "Capital", value: amount ? `${parseFloat(amount).toLocaleString("fr-FR")} €` : undefined },
+          { label: "Taux nominal", value: interestRate ? `${interestRate} %` : undefined },
+          { label: "Durée", value: durationMonths ? `${durationMonths} mois` : undefined },
+          { label: "Date de début", value: startDate },
+          { label: "Lignes amortissement", value: parsed ? `${parsed.schedule.length} lignes` : undefined },
+        ]}
+        onConfirm={async () => { setConfirmOpen(false); await doSave(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
       {error && (
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />

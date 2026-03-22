@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useSociety } from "@/providers/society-provider";
 import { importFromPdf, type ImportInput, type ImportResult } from "@/actions/import";
+import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
 import { getActiveTenants } from "@/actions/tenant";
 import { cn } from "@/lib/utils";
@@ -566,6 +567,7 @@ export default function ImportPage() {
   const [existingTenantId, setExistingTenantId] = useState("");
 
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Load buildings & tenants
   useEffect(() => {
@@ -648,10 +650,8 @@ export default function ImportPage() {
     return null;
   }
 
-  function handleImport() {
+  function doImport() {
     if (!societyId) return;
-    const err = validateForm();
-    if (err) { setImportError(err); return; }
     setImportError("");
 
     const input: ImportInput = {
@@ -713,10 +713,45 @@ export default function ImportPage() {
     });
   }
 
+  function handleImport() {
+    if (!societyId) return;
+    const err = validateForm();
+    if (err) { setImportError(err); return; }
+    setImportError("");
+    setConfirmOpen(true);
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────────
+
+  const tenantName = useExistingTenant
+    ? tenants.find((t) => t.id === existingTenantId) ? tenantLabel(tenants.find((t) => t.id === existingTenantId)!) : ""
+    : form.locataire.entityType === "PERSONNE_MORALE"
+      ? form.locataire.companyName
+      : `${form.locataire.firstName} ${form.locataire.lastName}`.trim();
+
+  const buildingName = useExistingBuilding
+    ? buildings.find((b) => b.id === existingBuildingId)?.name ?? ""
+    : form.immeuble.name;
 
   return (
     <div className="space-y-6 max-w-5xl">
+      <AiConfirmDialog
+        open={confirmOpen}
+        description="Bail extrait depuis le PDF"
+        lines={[
+          { label: "Immeuble", value: buildingName },
+          { label: "Lot", value: form.lot.number ? `Lot ${form.lot.number} — ${form.lot.lotType}` : undefined },
+          { label: "Surface", value: form.lot.area ? `${form.lot.area} m²` : undefined },
+          { label: "Locataire", value: tenantName },
+          { label: "Type de bail", value: form.bail.leaseType },
+          { label: "Loyer HT", value: form.bail.baseRentHT ? `${parseFloat(form.bail.baseRentHT).toLocaleString("fr-FR")} € / mois` : undefined },
+          { label: "Début", value: form.bail.startDate },
+          { label: "Durée", value: form.bail.durationMonths ? `${form.bail.durationMonths} mois` : undefined },
+        ]}
+        onConfirm={() => { setConfirmOpen(false); doImport(); }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createDiagnostic } from "@/actions/diagnostic";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { DIAGNOSTIC_TYPES } from "@/lib/constants";
 import { ArrowLeft, Bot, CheckCircle2, FileText, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 
 export default function NouveauDiagnosticPage() {
   const router = useRouter();
@@ -33,6 +34,9 @@ export default function NouveauDiagnosticPage() {
   const [fileUrl, setFileUrl] = useState("");
   const [fileStoragePath, setFileStoragePath] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDiag, setPendingDiag] = useState<Parameters<typeof createDiagnostic>[1] | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -64,17 +68,27 @@ export default function NouveauDiagnosticPage() {
     setIsAnalyzing(false);
   }
 
+  const doSaveDiag = useCallback(async (input: Parameters<typeof createDiagnostic>[1]) => {
+    if (!activeSociety) return;
+    setIsLoading(true);
+    const result = await createDiagnostic(activeSociety.id, input);
+    setIsLoading(false);
+    if (result.success) {
+      router.push(`/patrimoine/immeubles/${params.id}`);
+    } else {
+      setError(result.error ?? "Erreur inconnue");
+    }
+  }, [activeSociety, params.id, router]);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!activeSociety) { setError("Aucune société sélectionnée"); return; }
-
     setError("");
-    setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as Record<string, string>;
 
-    const result = await createDiagnostic(activeSociety.id, {
+    const input = {
       buildingId: params.id,
       type: data.type,
       performedAt: data.performedAt,
@@ -83,18 +97,37 @@ export default function NouveauDiagnosticPage() {
       fileUrl: fileUrl || null,
       aiAnalysis: aiAnalysis || null,
       fileStoragePath: fileStoragePath || null,
-    } as Parameters<typeof createDiagnostic>[1]);
+    } as Parameters<typeof createDiagnostic>[1];
 
-    setIsLoading(false);
-    if (result.success) {
-      router.push(`/patrimoine/immeubles/${params.id}`);
-    } else {
-      setError(result.error ?? "Erreur inconnue");
+    // Si l'IA a analysé le document, demander confirmation avant sauvegarde
+    if (aiAnalysis) {
+      setPendingDiag(input);
+      setConfirmOpen(true);
+      return;
     }
+
+    await doSaveDiag(input);
   }
 
   return (
     <div className="space-y-6 max-w-2xl">
+      <AiConfirmDialog
+        open={confirmOpen}
+        description="L'analyse IA sera enregistrée avec ce diagnostic"
+        lines={[
+          { label: "Type", value: pendingDiag?.type },
+          { label: "Date réalisation", value: pendingDiag?.performedAt },
+          { label: "Expiration", value: pendingDiag?.expiresAt ?? undefined },
+          { label: "Résultat", value: pendingDiag?.result ?? undefined },
+          { label: "Analyse IA", value: aiAnalysis ? `${aiAnalysis.slice(0, 80)}…` : undefined },
+        ]}
+        onConfirm={async () => {
+          setConfirmOpen(false);
+          if (pendingDiag) await doSaveDiag(pendingDiag);
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
       <div className="flex items-center gap-4">
         <Link href={`/patrimoine/immeubles/${params.id}`}>
           <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>

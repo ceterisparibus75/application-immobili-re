@@ -21,6 +21,8 @@ import { ArrowLeft, Loader2, Upload, FileText, Sparkles, X, AlertTriangle } from
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
+import type { AiConfirmLine } from "@/components/ai-confirm-dialog";
 
 type ExtractedLot = {
   number: string;
@@ -61,6 +63,9 @@ export default function NouvelImmeubleePage() {
   const [extractedLots, setExtractedLots] = useState<ExtractedLot[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateMatch | null>(null);
   const [analysisSuccess, setAnalysisSuccess] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingData, setPendingData] = useState<Parameters<typeof createBuilding>[1] | null>(null);
+  const [confirmLines, setConfirmLines] = useState<AiConfirmLine[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -204,20 +209,30 @@ export default function NouvelImmeubleePage() {
     }
   }
 
+  async function doSave(input: Parameters<typeof createBuilding>[1]) {
+    if (!activeSociety) return;
+    setIsLoading(true);
+    const result = await createBuilding(activeSociety.id, input);
+    setIsLoading(false);
+    if (result.success && result.data) {
+      router.push(`/patrimoine/immeubles/${result.data.id}`);
+    } else {
+      setError(result.error ?? "Erreur inconnue");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!activeSociety) {
       setError("Aucune société sélectionnée");
       return;
     }
-
     setError("");
-    setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as Record<string, string>;
 
-    const result = await createBuilding(activeSociety.id, {
+    const input: Parameters<typeof createBuilding>[1] = {
       name: data.name,
       addressLine1: data.addressLine1,
       addressLine2: data.addressLine2,
@@ -232,19 +247,41 @@ export default function NouvelImmeubleePage() {
       acquisitionPrice: data.acquisitionPrice ? parseFloat(data.acquisitionPrice) : undefined,
       acquisitionDate: data.acquisitionDate || undefined,
       description: data.description,
-    });
+    };
 
-    setIsLoading(false);
-
-    if (result.success && result.data) {
-      router.push(`/patrimoine/immeubles/${result.data.id}`);
-    } else {
-      setError(result.error ?? "Erreur inconnue");
+    // Si l'IA a été utilisée, demander confirmation avant sauvegarde
+    if (analysisSuccess) {
+      setPendingData(input);
+      setConfirmLines([
+        { label: "Nom", value: input.name },
+        { label: "Adresse", value: input.addressLine1 },
+        { label: "Ville", value: input.city ? `${input.postalCode} ${input.city}` : undefined },
+        { label: "Type", value: input.buildingType },
+        { label: "Surface", value: input.totalArea ? `${input.totalArea} m²` : undefined },
+        { label: "Prix d'acquisition", value: input.acquisitionPrice ? `${input.acquisitionPrice.toLocaleString("fr-FR")} €` : undefined },
+        { label: "Date d'acquisition", value: input.acquisitionDate },
+        { label: "Lots à créer", value: extractedLots.length > 0 ? `${extractedLots.length} lot(s)` : undefined },
+      ]);
+      setConfirmOpen(true);
+      return;
     }
+
+    await doSave(input);
   }
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <AiConfirmDialog
+        open={confirmOpen}
+        lines={confirmLines}
+        description="Les champs ont été pré-remplis depuis l'acte d'acquisition"
+        onConfirm={async () => {
+          setConfirmOpen(false);
+          if (pendingData) await doSave(pendingData);
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
       <div className="flex items-center gap-4">
         <Link href="/patrimoine/immeubles">
           <Button variant="ghost" size="icon">
