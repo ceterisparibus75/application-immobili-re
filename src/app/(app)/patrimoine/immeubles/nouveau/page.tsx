@@ -73,12 +73,37 @@ export default function NouvelImmeubleePage() {
     setDuplicates(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Étape 1 : obtenir une URL d'upload signée (contourne la limite de taille Vercel)
+      const uploadUrlRes = await fetch("/api/storage/signed-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name }),
+      });
+      if (!uploadUrlRes.ok) {
+        const err = await uploadUrlRes.json().catch(() => ({}));
+        setError(err.error ?? "Erreur lors de la préparation de l'upload");
+        setIsAnalyzing(false);
+        return;
+      }
+      const { signedUrl, storagePath } = await uploadUrlRes.json() as { signedUrl: string; storagePath: string };
 
+      // Étape 2 : upload direct vers Supabase Storage (bypasse le serveur Next.js)
+      const uploadRes = await fetch(signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        setError("Erreur lors de l'envoi du fichier vers le stockage");
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // Étape 3 : demander l'analyse en passant uniquement le chemin de stockage
       const response = await fetch("/api/buildings/analyze-pdf", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storagePath }),
       });
 
       const result = await response.json();

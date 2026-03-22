@@ -4,6 +4,14 @@ import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
+
+export const maxDuration = 60;
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -55,24 +63,48 @@ export async function POST(req: NextRequest) {
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    let pdfBase64: string;
+    let tempStoragePath: string | null = null;
 
-    if (!file) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+    const contentType = req.headers.get("content-type") ?? "";
+
+    if (contentType.includes("application/json")) {
+      // Fichier déjà uploadé dans Supabase Storage (flux pour grands fichiers)
+      const { storagePath } = await req.json() as { storagePath?: string };
+      if (!storagePath) {
+        return NextResponse.json({ error: "storagePath requis" }, { status: 400 });
+      }
+
+      const { data: blob, error: downloadError } = await supabase.storage
+        .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+        .download(storagePath);
+
+      if (downloadError || !blob) {
+        console.error("[analyze-pdf] download error", downloadError);
+        return NextResponse.json({ error: "Impossible de télécharger le fichier" }, { status: 500 });
+      }
+
+      const fileBuffer = Buffer.from(await blob.arrayBuffer());
+      pdfBase64 = fileBuffer.toString("base64");
+      tempStoragePath = storagePath;
+    } else {
+      // Upload direct (petits fichiers < 4.5 Mo)
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+
+      if (!file) {
+        return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+      }
+      if (file.type !== "application/pdf") {
+        return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés" }, { status: 400 });
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
+      }
+
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      pdfBase64 = fileBuffer.toString("base64");
     }
-
-    if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés" }, { status: 400 });
-    }
-
-    if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
-    }
-
-    // Analyse Claude
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const pdfBase64 = fileBuffer.toString("base64");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -177,6 +209,13 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+    }
+
+    // Supprimer le fichier temporaire Supabase après analyse
+    if (tempStoragePath) {
+      await supabase.storage
+        .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+        .remove([tempStoragePath]);
     }
 
     return NextResponse.json({ data: parsed, duplicates });
