@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -66,6 +66,13 @@ export interface ParsedLoan {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "Clé API Anthropic non configurée (ANTHROPIC_API_KEY manquante)" },
+        { status: 500 }
+      );
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -77,7 +84,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
     }
 
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    try {
+      await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    } catch (e) {
+      if (e instanceof ForbiddenError) {
+        return NextResponse.json({ error: e.message }, { status: 403 });
+      }
+      throw e;
+    }
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -144,9 +158,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: parsed });
   } catch (error) {
-    console.error("[parse-pdf]", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[parse-pdf]", message);
     return NextResponse.json(
-      { error: "Erreur lors de l'analyse du PDF" },
+      { error: `Erreur lors de l'analyse du PDF : ${message}` },
       { status: 500 }
     );
   }
