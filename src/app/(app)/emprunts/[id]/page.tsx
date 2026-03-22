@@ -49,9 +49,9 @@ export default async function EmpruntDetailPage({
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(v);
 
   // Calculs globaux
-  const lastLine = loan.amortizationLines[loan.amortizationLines.length - 1];
-  const remainingBalance = lastLine?.remainingBalance ?? loan.amount;
   const paidLines = loan.amortizationLines.filter((l) => l.isPaid);
+  const lastPaidLine = paidLines[paidLines.length - 1];
+  const remainingBalance = lastPaidLine?.remainingBalance ?? loan.amount;
   const paidPrincipal = paidLines.reduce((s, l) => s + l.principalPayment, 0);
   const paidInterest = paidLines.reduce((s, l) => s + l.interestPayment, 0);
   const totalInterest = loan.amortizationLines.reduce((s, l) => s + l.interestPayment, 0);
