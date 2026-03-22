@@ -5,6 +5,7 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { jsonrepair } from "jsonrepair";
 
 export const maxDuration = 60;
 
@@ -130,11 +131,13 @@ export async function POST(req: NextRequest) {
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        return NextResponse.json({ error: "Impossible de parser l'analyse du document", raw: rawText }, { status: 500 });
+      try {
+        // jsonrepair corrige les caractères non échappés, virgules manquantes, etc.
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const candidate = jsonMatch ? jsonMatch[0] : rawText;
+        parsed = JSON.parse(jsonrepair(candidate));
+      } catch {
+        return NextResponse.json({ error: "Impossible de parser l'analyse du document" }, { status: 500 });
       }
     }
 
