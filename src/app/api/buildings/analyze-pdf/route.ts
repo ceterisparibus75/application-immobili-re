@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
-import pdfParse from "pdf-parse";
+import * as pdfParse from "pdf-parse";
 
 export const maxDuration = 60;
 
