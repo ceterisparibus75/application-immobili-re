@@ -88,38 +88,48 @@ export default function NouvelImmeubleePage() {
     setDuplicates(null);
 
     try {
-      // Étape 1 : obtenir une URL d'upload signée (contourne la limite de taille Vercel)
-      const uploadUrlRes = await fetch("/api/storage/signed-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name }),
-      });
-      if (!uploadUrlRes.ok) {
-        const err = await uploadUrlRes.json().catch(() => ({}));
-        setError(err.error ?? "Erreur lors de la préparation de l'upload");
-        setIsAnalyzing(false);
-        return;
-      }
-      const { signedUrl, storagePath } = await uploadUrlRes.json() as { signedUrl: string; storagePath: string };
+      let response: Response;
 
-      // Étape 2 : upload direct vers Supabase Storage (bypasse le serveur Next.js)
-      const uploadRes = await fetch(signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/pdf" },
-        body: file,
-      });
-      if (!uploadRes.ok) {
-        setError("Erreur lors de l'envoi du fichier vers le stockage");
-        setIsAnalyzing(false);
-        return;
-      }
+      if (file.size > 4 * 1024 * 1024) {
+        // Grands fichiers (> 4 Mo) : upload via Supabase signé pour contourner la limite Vercel
+        const uploadUrlRes = await fetch("/api/storage/signed-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name }),
+        });
+        if (!uploadUrlRes.ok) {
+          const err = await uploadUrlRes.json().catch(() => ({})) as { error?: string };
+          setError(err.error ?? "Erreur lors de la préparation de l'upload");
+          setIsAnalyzing(false);
+          return;
+        }
+        const { signedUrl, storagePath } = await uploadUrlRes.json() as { signedUrl: string; storagePath: string };
 
-      // Étape 3 : demander l'analyse en passant uniquement le chemin de stockage
-      const response = await fetch("/api/buildings/analyze-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storagePath }),
-      });
+        const uploadRes = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/pdf" },
+          body: file,
+        });
+        if (!uploadRes.ok) {
+          setError("Erreur lors de l'envoi du fichier vers le stockage");
+          setIsAnalyzing(false);
+          return;
+        }
+
+        response = await fetch("/api/buildings/analyze-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ storagePath }),
+        });
+      } else {
+        // Petits fichiers (≤ 4 Mo) : envoi direct en multipart
+        const formData = new FormData();
+        formData.append("file", file);
+        response = await fetch("/api/buildings/analyze-pdf", {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       const rawText = await response.text();
       let result: { data?: PdfAnalysisResult; duplicates?: DuplicateMatch; error?: string };
