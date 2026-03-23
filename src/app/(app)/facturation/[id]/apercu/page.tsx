@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { decrypt } from "@/lib/encryption";
 import type { InvoiceType, TenantEntityType } from "@prisma/client";
 
 const TYPE_LABELS: Record<InvoiceType, string> = {
@@ -62,6 +63,16 @@ export default async function FactureApercuPage({
 
   const s = invoice.society;
   const isAvoir = invoice.invoiceType === "AVOIR";
+
+  // Déchiffrer les coordonnées bancaires
+  let iban: string | null = null;
+  let bic: string | null = null;
+  try {
+    if (s?.ibanEncrypted) iban = decrypt(s.ibanEncrypted);
+    if (s?.bicEncrypted) bic = decrypt(s.bicEncrypted);
+  } catch {
+    // Données bancaires inaccessibles — on n'affiche rien
+  }
 
   // Grouper les taux de TVA pour le récapitulatif
   const vatBreakdown = invoice.lines.reduce<Record<number, { ht: number; vat: number }>>((acc, l) => {
@@ -264,11 +275,13 @@ export default async function FactureApercuPage({
             </span>
           </div>
 
-          {/* Coordonnées bancaires si disponibles */}
-          {(s as { iban?: string | null } | null)?.iban && (
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 text-sm">
-              <p className="font-semibold text-gray-700 mb-1">Coordonnées bancaires</p>
-              <p className="text-gray-600">IBAN : {(s as { iban: string }).iban}</p>
+          {/* Coordonnées bancaires (RIB) */}
+          {(iban || bic || s?.bankName) && (
+            <div className="border border-gray-200 rounded-lg px-5 py-4 bg-gray-50 text-sm space-y-1">
+              <p className="font-semibold text-gray-700 mb-2">Règlement par virement</p>
+              {s?.bankName && <p className="text-gray-600">Banque : <span className="font-medium">{s.bankName}</span></p>}
+              {iban && <p className="text-gray-600">IBAN : <span className="font-medium tracking-wider">{iban}</span></p>}
+              {bic && <p className="text-gray-600">BIC : <span className="font-medium">{bic}</span></p>}
             </div>
           )}
 

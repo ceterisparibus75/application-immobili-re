@@ -239,6 +239,9 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           addressLine2: true,
           city: true,
           postalCode: true,
+          ibanEncrypted: true,
+          bicEncrypted: true,
+          bankName: true,
         },
       },
       lease: {
