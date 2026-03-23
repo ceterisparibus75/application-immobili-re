@@ -1,31 +1,11 @@
+import type { Ratelimit } from "@upstash/ratelimit";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
 
-  // Rate limiting (actif si Upstash configuré)
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    const { loginRatelimit, apiRatelimit } = await import("@/lib/rate-limit");
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
-    let limiter: typeof loginRatelimit | undefined;
-    if (pathname === "/login" || pathname.startsWith("/api/auth")) {
-      limiter = loginRatelimit;
-    } else if (pathname.startsWith("/api/")) {
-      limiter = apiRatelimit;
-    }
-    if (limiter) {
-      const { success } = await limiter.limit(ip);
-      if (!success) {
-        return new Response(
-          JSON.stringify({ error: { code: "RATE_LIMIT", message: "Trop de requêtes. Réessayez dans quelques secondes." } }),
-          { status: 429, headers: { "Content-Type": "application/json" } }
-        );
-      }
-    }
-  }
-
-  // Routes publiques — pas de vérification
+  // Routes publiques - pas de verification
   if (
     pathname.startsWith("/locaux") ||
     pathname.startsWith("/contact") ||
@@ -42,17 +22,48 @@ export default auth(async (req) => {
     return NextResponse.next();
   }
 
-  // Portail locataire — auth gérée par JWT portail, pas NextAuth
+  // Portail locataire - auth geree par JWT portail, pas NextAuth
   if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
     return NextResponse.next();
   }
 
-  // Pages de login — rediriger si déjà connecté
+  // Pages de login - rediriger si deja connecte
   if (pathname === "/login" || pathname === "/forgot-password") {
     if (req.auth) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     return NextResponse.next();
+  }
+
+  // Rate limiting (actif si Upstash configure)
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    const { getLoginRatelimit, getApiRatelimit } = await import("@/lib/rate-limit");
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      `anon-${crypto.randomUUID()}`;
+    let limiter: Ratelimit | undefined;
+    if (pathname === "/login" || pathname.startsWith("/api/auth")) {
+      limiter = getLoginRatelimit();
+    } else if (pathname.startsWith("/api/")) {
+      limiter = getApiRatelimit();
+    }
+    if (limiter) {
+      const { success, reset } = await limiter.limit(ip);
+      if (!success) {
+        const retryAfterSeconds = Math.ceil((reset - Date.now()) / 1000);
+        return new Response(
+          JSON.stringify({ error: { code: "RATE_LIMIT", message: "Trop de requetes. Reessayez dans quelques secondes." } }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": String(retryAfterSeconds),
+            },
+          }
+        );
+      }
+    }
   }
 
   // Toutes les autres routes : authentification requise
@@ -62,7 +73,7 @@ export default auth(async (req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Lire la société active depuis le cookie
+  // Lire la societe active depuis le cookie
   const activeSocietyId = req.cookies.get("active-society-id")?.value;
 
   // Injecter le societyId dans les headers pour les Server Components
