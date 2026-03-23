@@ -1,8 +1,29 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export default auth(async (req) => {
   const { pathname } = req.nextUrl;
+
+  // Rate limiting (actif si Upstash configuré)
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    const { loginRatelimit, apiRatelimit } = await import("@/lib/rate-limit");
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+    let limiter: typeof loginRatelimit | undefined;
+    if (pathname === "/login" || pathname.startsWith("/api/auth")) {
+      limiter = loginRatelimit;
+    } else if (pathname.startsWith("/api/")) {
+      limiter = apiRatelimit;
+    }
+    if (limiter) {
+      const { success } = await limiter.limit(ip);
+      if (!success) {
+        return new Response(
+          JSON.stringify({ error: { code: "RATE_LIMIT", message: "Trop de requêtes. Réessayez dans quelques secondes." } }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+  }
 
   // Routes publiques — pas de vérification
   if (
@@ -61,6 +82,6 @@ export const config = {
      * - favicon.ico, sitemap.xml, robots.txt
      * - fichiers statiques (images, etc.)
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
