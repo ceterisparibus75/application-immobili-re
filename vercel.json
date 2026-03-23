@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
-  "buildCommand": "prisma db push --accept-data-loss && next build",
   "installCommand": "npm install --legacy-peer-deps --force",
   "crons": [
     {
