@@ -107,10 +107,12 @@ export function InvoicePreviewSheet({
             <div className="rounded border border-gray-200 p-3 bg-gray-50 max-w-xs">
               <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Destinataire</p>
               <p className="font-semibold">{preview.tenantName}</p>
-              {preview.tenantAddress && (
-                <p className="text-xs text-gray-600 whitespace-pre-line">{preview.tenantAddress}</p>
+              {preview.tenantAddress ? (
+                <p className="text-xs text-gray-600 whitespace-pre-line mt-0.5">{preview.tenantAddress}</p>
+              ) : (
+                <p className="text-xs text-gray-400 italic mt-0.5">Adresse non renseignée</p>
               )}
-              {preview.tenantEmail && <p className="text-xs text-gray-600">{preview.tenantEmail}</p>}
+              {preview.tenantEmail && <p className="text-xs text-gray-600 mt-0.5">{preview.tenantEmail}</p>}
               {preview.tenantPhone && <p className="text-xs text-gray-600">{preview.tenantPhone}</p>}
             </div>
 

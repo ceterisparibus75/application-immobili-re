@@ -15,8 +15,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Loader2, Save, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Save, Upload } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 const LEGAL_FORMS = [
   { value: "SCI", label: "SCI" },
@@ -82,9 +83,17 @@ export default function ModifierSocietePage() {
       const { signedUrl, storagePath } = (await res.json()) as { signedUrl: string; storagePath: string };
       await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${storagePath}`;
-      set("logoUrl", publicUrl);
+      // Sauvegarde immédiate du logo (sans attendre la soumission du formulaire)
+      const result = await updateSociety({ id, logoUrl: publicUrl });
+      if (result.success) {
+        set("logoUrl", publicUrl);
+        toast.success("Logo enregistré");
+      } else {
+        throw new Error(result.error ?? "Erreur de sauvegarde");
+      }
     } catch {
       setError("Erreur lors de l'upload du logo");
+      toast.error("Erreur lors de l'enregistrement du logo");
     } finally {
       setLogoUploading(false);
     }

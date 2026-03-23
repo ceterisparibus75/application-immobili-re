@@ -37,6 +37,10 @@ function tenantAddress(t: {
   return t.entityType === "PERSONNE_MORALE" ? t.companyAddress : t.personalAddress;
 }
 
+function tenantEmail(t: { email: string; billingEmail?: string | null }) {
+  return t.billingEmail || t.email;
+}
+
 export default async function FactureApercuPage({
   params,
 }: {
@@ -111,12 +115,14 @@ export default async function FactureApercuPage({
         <div className="rounded border border-gray-200 p-4 bg-gray-50 max-w-xs">
           <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Destinataire</p>
           <p className="font-semibold">{tenantName(invoice.tenant)}</p>
-          {tenantAddress(invoice.tenant) && (
-            <p className="text-xs text-gray-600 whitespace-pre-line">
+          {tenantAddress(invoice.tenant) ? (
+            <p className="text-xs text-gray-600 whitespace-pre-line mt-0.5">
               {tenantAddress(invoice.tenant)}
             </p>
+          ) : (
+            <p className="text-xs text-gray-400 italic mt-0.5">Adresse non renseignée</p>
           )}
-          <p className="text-xs text-gray-600">{invoice.tenant.email}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{tenantEmail(invoice.tenant)}</p>
           {invoice.tenant.phone && (
             <p className="text-xs text-gray-600">{invoice.tenant.phone}</p>
           )}
