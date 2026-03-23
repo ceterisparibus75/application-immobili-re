@@ -108,12 +108,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Extraction du texte du PDF (beaucoup plus rapide que l'envoi base64)
-    const pdfData = await pdfParse(pdfBuffer);
-    // Limiter à 80 000 caractères pour rester dans les limites de contexte
-    const pdfText = pdfData.text.slice(0, 80000);
+    let pdfText = "";
+    try {
+      const pdfData = await pdfParse(pdfBuffer);
+      pdfText = pdfData.text.slice(0, 80000);
+    } catch (parseErr) {
+      console.error("[analyze-pdf] pdf-parse error:", parseErr);
+      return NextResponse.json({ error: "Impossible de lire le PDF — le fichier est peut-être protégé ou corrompu" }, { status: 422 });
+    }
 
     if (!pdfText.trim()) {
-      return NextResponse.json({ error: "Impossible d'extraire le texte du PDF (document peut-être scanné)" }, { status: 422 });
+      return NextResponse.json({ error: "Impossible d'extraire le texte du PDF (document scanné sans OCR)" }, { status: 422 });
     }
 
     const message = await anthropic.messages.create({

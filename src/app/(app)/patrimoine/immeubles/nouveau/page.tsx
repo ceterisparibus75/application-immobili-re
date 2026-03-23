@@ -121,7 +121,16 @@ export default function NouvelImmeubleePage() {
         body: JSON.stringify({ storagePath }),
       });
 
-      const result = await response.json();
+      const rawText = await response.text();
+      let result: { data?: PdfAnalysisResult; duplicates?: DuplicateMatch; error?: string };
+      try {
+        result = JSON.parse(rawText) as typeof result;
+      } catch {
+        console.error("[analyze-pdf] réponse non-JSON:", rawText.slice(0, 300));
+        setError("Le serveur a renvoyé une réponse inattendue — réessayez");
+        setIsAnalyzing(false);
+        return;
+      }
 
       if (!response.ok) {
         setError(result.error ?? "Erreur lors de l'analyse");
@@ -191,8 +200,9 @@ export default function NouvelImmeubleePage() {
       }
 
       setAnalysisSuccess(true);
-    } catch {
-      setError("Erreur lors de l'analyse du PDF");
+    } catch (err) {
+      console.error("[handlePdfUpload]", err);
+      setError(err instanceof Error ? err.message : "Erreur lors de l'analyse du PDF");
     } finally {
       setIsAnalyzing(false);
     }
