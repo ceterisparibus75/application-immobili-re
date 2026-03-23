@@ -316,14 +316,16 @@ model Society {
   contacts            Contact[]
   messages            Message[]
   auditLogs           AuditLog[]
-  charges             Charge[]
-  chargeCategories    ChargeCategory[]
-  announcements       Announcement[]
-  documents           Document[]
-  letterTemplates     LetterTemplate[]
-  loans               Loan[]
-  budgetLines         BudgetLine[]
-  gdprRequests        GdprRequest[]
+  charges                 Charge[]
+  chargeCategories        ChargeCategory[]
+  societyChargeCategories SocietyChargeCategory[]
+  chargeRegularizations   ChargeRegularization[]
+  announcements           Announcement[]
+  documents               Document[]
+  letterTemplates         LetterTemplate[]
+  loans                   Loan[]
+  budgetLines             BudgetLine[]
+  gdprRequests            GdprRequest[]
 
   @@index([siret])
 }
@@ -916,6 +918,25 @@ model RentRevision {
 // PHASE 5 — CHARGES
 // ============================================================
 
+/// Bibliothèque de catégories de charges au niveau société
+model SocietyChargeCategory {
+  id               String           @id @default(cuid())
+  societyId        String
+  name             String
+  nature           ChargeNature
+  recoverableRate  Float?
+  allocationMethod AllocationMethod @default(TANTIEME)
+  description      String?
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+
+  society          Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  chargeCategories ChargeCategory[]
+
+  @@unique([societyId, name])
+  @@index([societyId])
+}
+
 /// Catégorie de charge par immeuble
 model ChargeCategory {
   id         String @id @default(cuid())
@@ -927,6 +948,8 @@ model ChargeCategory {
   recoverableRate  Float?   @default(100) // % récupérable si MIXTE
   allocationMethod AllocationMethod @default(TANTIEME)
   description      String?
+  societyChargeCategoryId String?
+  libraryCategory SocietyChargeCategory? @relation(fields: [societyChargeCategoryId], references: [id], onDelete: SetNull)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   society  Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
@@ -1017,6 +1040,7 @@ model ChargeRegularization {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   leaseId   String
+  societyId String
 
   fiscalYear      Int
   periodStart     DateTime
@@ -1029,10 +1053,12 @@ model ChargeRegularization {
   isFinalized     Boolean @default(false)
   finalizedAt     DateTime?
 
-  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
   @@unique([leaseId, fiscalYear])
   @@index([leaseId])
+  @@index([societyId])
 }
 
 /// Relevé de compteur individuel

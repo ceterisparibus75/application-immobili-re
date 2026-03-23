@@ -9,10 +9,14 @@ import {
   updateChargeCategorySchema,
   createChargeSchema,
   updateChargeSchema,
+  createSocietyChargeCategorySchema,
+  updateSocietyChargeCategorySchema,
   type CreateChargeCategoryInput,
   type UpdateChargeCategoryInput,
   type CreateChargeInput,
   type UpdateChargeInput,
+  type CreateSocietyChargeCategoryInput,
+  type UpdateSocietyChargeCategoryInput,
 } from "@/validations/charge";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -295,7 +299,7 @@ export async function getCharges(societyId: string, buildingId?: string) {
       ...(buildingId ? { buildingId } : {}),
     },
     include: {
-      category: { select: { id: true, name: true, nature: true } },
+      category: { select: { id: true, name: true, nature: true, recoverableRate: true } },
       building: { select: { id: true, name: true, city: true } },
     },
     orderBy: [{ date: "desc" }],
@@ -315,4 +319,317 @@ export async function getChargeById(societyId: string, chargeId: string) {
       building: { select: { id: true, name: true, city: true } },
     },
   });
+}
+
+// ============ BDD SOCIÉTÉ ============
+
+export async function getSocietyChargeCategories(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+  return prisma.societyChargeCategory.findMany({
+    where: { societyId },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function createSocietyChargeCategory(
+  societyId: string,
+  input: CreateSocietyChargeCategoryInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const parsed = createSocietyChargeCategorySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
+    const cat = await prisma.societyChargeCategory.create({
+      data: { societyId, ...parsed.data },
+    });
+    await createAuditLog({ societyId, userId: session.user.id, action: "CREATE", entity: "SocietyChargeCategory", entityId: cat.id, details: { name: cat.name } });
+    revalidatePath("/charges/bibliotheque");
+    return { success: true, data: { id: cat.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createSocietyChargeCategory]", error);
+    return { success: false, error: "Erreur lors de la création" };
+  }
+}
+
+export async function updateSocietyChargeCategory(
+  societyId: string,
+  input: UpdateSocietyChargeCategoryInput
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const parsed = updateSocietyChargeCategorySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
+    const { id, ...data } = parsed.data;
+    await prisma.societyChargeCategory.update({ where: { id }, data });
+    revalidatePath("/charges/bibliotheque");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors de la mise à jour" };
+  }
+}
+
+export async function deleteSocietyChargeCategory(societyId: string, id: string): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await prisma.societyChargeCategory.delete({ where: { id } });
+    revalidatePath("/charges/bibliotheque");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+// ============ COMPTES RENDUS ANNUELS (CRAC) ============
+
+export async function getChargeRegularizations(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+  return prisma.chargeRegularization.findMany({
+    where: { societyId },
+    include: {
+      lease: {
+        include: {
+          tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
+          lot: { include: { building: { select: { id: true, name: true, city: true } } } },
+        },
+      },
+    },
+    orderBy: [{ fiscalYear: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function generateAnnualChargeReport(
+  societyId: string,
+  buildingId: string,
+  year: number
+): Promise<ActionResult<{ created: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const periodStart = new Date(year, 0, 1);
+    const periodEnd = new Date(year, 11, 31, 23, 59, 59);
+
+    // 1. Charges de l'immeuble sur la période
+    const charges = await prisma.charge.findMany({
+      where: {
+        societyId,
+        buildingId,
+        date: { gte: periodStart, lte: periodEnd },
+      },
+      include: { category: true },
+    });
+
+    if (charges.length === 0) {
+      return { success: false, error: "Aucune charge trouvée pour cet immeuble sur cette période" };
+    }
+
+    // 2. Lots de l'immeuble
+    const buildingLots = await prisma.lot.findMany({
+      where: { buildingId },
+      select: { id: true },
+    });
+    const buildingLotIds = buildingLots.map((l) => l.id);
+
+    // 3. Baux actifs sur la période
+    const allLeases = await prisma.lease.findMany({
+      where: {
+        societyId,
+        lotId: { in: buildingLotIds },
+        startDate: { lte: periodEnd },
+        status: { in: ["EN_COURS", "RESILIE", "RENOUVELE"] },
+      },
+      include: {
+        lot: true,
+        tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
+        chargeProvisions: { where: { isActive: true } },
+      },
+    });
+    // Filtrer les baux qui couvrent la période (endDate null = bail encore actif)
+    const leases = allLeases.filter(
+      (l) => l.endDate == null || l.endDate >= periodStart
+    );
+
+    if (leases.length === 0) {
+      return { success: false, error: "Aucun bail actif sur cet immeuble pour cette période" };
+    }
+
+    // 4. Total tantiemes / surface pour répartition
+    const totalTantiemes = leases.reduce((s, l) => s + (l.lot.commonShares ?? 0), 0);
+    const totalSurface = leases.reduce((s, l) => s + l.lot.area, 0);
+    const nbLots = leases.length;
+
+    // 5. Pour chaque bail, calculer la part
+    let created = 0;
+    for (const lease of leases) {
+      // Proratisation si bail ne couvre pas toute l'année
+      const leaseStart = lease.startDate > periodStart ? lease.startDate : periodStart;
+      const leaseEndRaw = lease.endDate ?? periodEnd;
+      const leaseEnd = leaseEndRaw < periodEnd ? leaseEndRaw : periodEnd;
+      const totalDaysInYear = 365;
+      const leaseDays = Math.max(1, Math.floor((leaseEnd.getTime() - leaseStart.getTime()) / (1000 * 60 * 60 * 24)));
+      const prorata = leaseDays / totalDaysInYear;
+
+      // Calcul des charges récupérables par catégorie
+      const categoryDetails: Array<{
+        categoryName: string;
+        nature: string;
+        totalAmount: number;
+        recoverableAmount: number;
+        allocationMethod: string;
+        allocationRate: number;
+        tenantShare: number;
+      }> = [];
+
+      let totalTenantShare = 0;
+
+      // Grouper les charges par catégorie
+      const chargesByCategory = charges.reduce((acc, c) => {
+        const key = c.categoryId;
+        if (!acc[key]) acc[key] = { category: c.category, charges: [] };
+        acc[key]!.charges.push(c);
+        return acc;
+      }, {} as Record<string, { category: typeof charges[0]["category"]; charges: typeof charges }>);
+
+      for (const { category, charges: catCharges } of Object.values(chargesByCategory)) {
+        if (category.nature === "PROPRIETAIRE") continue;
+
+        const totalAmount = catCharges.reduce((s, c) => s + c.amount, 0);
+        const recoverableRate = category.nature === "RECUPERABLE" ? 1 : (category.recoverableRate ?? 50) / 100;
+        const recoverableAmount = totalAmount * recoverableRate;
+
+        // Clé de répartition
+        let allocationRate = 0;
+        if (category.allocationMethod === "SURFACE" && totalSurface > 0) {
+          allocationRate = lease.lot.area / totalSurface;
+        } else if (category.allocationMethod === "NB_LOTS" && nbLots > 0) {
+          allocationRate = 1 / nbLots;
+        } else {
+          // TANTIEME (default) - fallback sur SURFACE si pas de tantièmes
+          if (totalTantiemes > 0 && (lease.lot.commonShares ?? 0) > 0) {
+            allocationRate = (lease.lot.commonShares ?? 0) / totalTantiemes;
+          } else if (totalSurface > 0) {
+            allocationRate = lease.lot.area / totalSurface;
+          } else {
+            allocationRate = 1 / nbLots;
+          }
+        }
+
+        const tenantShare = recoverableAmount * allocationRate * prorata;
+        totalTenantShare += tenantShare;
+
+        categoryDetails.push({
+          categoryName: category.name,
+          nature: category.nature,
+          totalAmount,
+          recoverableAmount,
+          allocationMethod: category.allocationMethod,
+          allocationRate: Math.round(allocationRate * 10000) / 100,
+          tenantShare: Math.round(tenantShare * 100) / 100,
+        });
+      }
+
+      // 5. Total provisions versées
+      const totalProvisions = lease.chargeProvisions.reduce((s, p) => {
+        const provStart = p.startDate > periodStart ? p.startDate : periodStart;
+        const provEnd = p.endDate ? (p.endDate < periodEnd ? p.endDate : periodEnd) : periodEnd;
+        const months = Math.max(0, (provEnd.getFullYear() - provStart.getFullYear()) * 12 + provEnd.getMonth() - provStart.getMonth() + 1);
+        return s + p.monthlyAmount * months;
+      }, 0);
+
+      const balance = totalTenantShare - totalProvisions;
+
+      const tenantName = lease.tenant.entityType === "PERSONNE_MORALE"
+        ? (lease.tenant.companyName ?? "Locataire")
+        : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim();
+
+      // 6. Créer/mettre à jour ChargeRegularization
+      await prisma.chargeRegularization.upsert({
+        where: { leaseId_fiscalYear: { leaseId: lease.id, fiscalYear: year } },
+        update: {
+          societyId,
+          periodStart,
+          periodEnd,
+          totalCharges: charges.reduce((s, c) => s + c.amount, 0),
+          totalProvisions: Math.round(totalProvisions * 100) / 100,
+          balance: Math.round(balance * 100) / 100,
+          details: {
+            tenantName,
+            lotNumber: lease.lot.number,
+            buildingId,
+            prorataDays: leaseDays,
+            categories: categoryDetails,
+            totalRecoverableAllocated: Math.round(totalTenantShare * 100) / 100,
+          },
+          isFinalized: false,
+        },
+        create: {
+          societyId,
+          leaseId: lease.id,
+          fiscalYear: year,
+          periodStart,
+          periodEnd,
+          totalCharges: charges.reduce((s, c) => s + c.amount, 0),
+          totalProvisions: Math.round(totalProvisions * 100) / 100,
+          balance: Math.round(balance * 100) / 100,
+          details: {
+            tenantName,
+            lotNumber: lease.lot.number,
+            buildingId,
+            prorataDays: leaseDays,
+            categories: categoryDetails,
+            totalRecoverableAllocated: Math.round(totalTenantShare * 100) / 100,
+          },
+          isFinalized: false,
+        },
+      });
+      created++;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "ChargeRegularization",
+      entityId: buildingId,
+      details: { buildingId, year, count: created },
+    });
+
+    revalidatePath("/charges/comptes-rendus");
+    return { success: true, data: { created } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[generateAnnualChargeReport]", error);
+    return { success: false, error: "Erreur lors de la génération : " + (error instanceof Error ? error.message : String(error)) };
+  }
+}
+
+export async function finalizeChargeReport(societyId: string, regularizationId: string): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await prisma.chargeRegularization.update({
+      where: { id: regularizationId },
+      data: { isFinalized: true, finalizedAt: new Date() },
+    });
+    revalidatePath("/charges/comptes-rendus");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors de la finalisation" };
+  }
 }

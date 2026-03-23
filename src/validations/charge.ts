@@ -39,3 +39,14 @@ export type CreateChargeCategoryInput = z.infer<typeof createChargeCategorySchem
 export type UpdateChargeCategoryInput = z.infer<typeof updateChargeCategorySchema>;
 export type CreateChargeInput = z.infer<typeof createChargeSchema>;
 export type UpdateChargeInput = z.infer<typeof updateChargeSchema>;
+
+export const createSocietyChargeCategorySchema = z.object({
+  name: z.string().min(2).max(100),
+  nature: z.enum(["PROPRIETAIRE", "RECUPERABLE", "MIXTE"]),
+  recoverableRate: z.coerce.number().min(0).max(100).optional().nullable(),
+  allocationMethod: z.enum(["TANTIEME", "SURFACE", "NB_LOTS", "COMPTEUR", "PERSONNALISE"]).default("TANTIEME"),
+  description: z.string().optional().nullable(),
+});
+export const updateSocietyChargeCategorySchema = createSocietyChargeCategorySchema.partial().extend({ id: z.string().cuid() });
+export type CreateSocietyChargeCategoryInput = z.infer<typeof createSocietyChargeCategorySchema>;
+export type UpdateSocietyChargeCategoryInput = z.infer<typeof updateSocietyChargeCategorySchema>;

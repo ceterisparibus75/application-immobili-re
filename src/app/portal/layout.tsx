@@ -2,7 +2,7 @@ import { getPortalSession } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, FileText, Home, Shield, LogOut } from "lucide-react";
+import { Building2, FileText, Home, Shield, LogOut, ReceiptText } from "lucide-react";
 import "../globals.css";
 
 async function PortalNav({ tenantName }: { tenantName: string }) {
@@ -35,6 +35,13 @@ async function PortalNav({ tenantName }: { tenantName: string }) {
             >
               <Shield className="h-3.5 w-3.5" />
               Assurance
+            </Link>
+            <Link
+              href="/portal/charges"
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+            >
+              <ReceiptText className="h-3.5 w-3.5" />
+              Charges
             </Link>
           </nav>
         </div>

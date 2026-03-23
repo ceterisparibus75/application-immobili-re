@@ -15,7 +15,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 
@@ -34,6 +34,7 @@ const ALLOCATION_OPTIONS = [
 ];
 
 type BuildingOption = { id: string; name: string; city: string };
+type LibraryCat = { id: string; name: string; nature: string; allocationMethod: string; recoverableRate: number | null; description: string | null };
 
 export default function NouvelleCategorieChargePage() {
   const router = useRouter();
@@ -42,20 +43,37 @@ export default function NouvelleCategorieChargePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
+  const [libraryCategories, setLibraryCategories] = useState<LibraryCat[]>([]);
   const [nature, setNature] = useState("RECUPERABLE");
+  const [selectedLibCatId, setSelectedLibCatId] = useState("");
 
   const defaultBuildingId = searchParams.get("buildingId") ?? "";
 
   useEffect(() => {
-    async function fetchBuildings() {
-      const res = await fetch("/api/buildings");
-      if (res.ok) {
-        const json = await res.json() as { data: BuildingOption[] };
+    async function fetchData() {
+      const [buildingsRes, libRes] = await Promise.all([
+        fetch("/api/buildings"),
+        fetch("/api/society-charge-categories"),
+      ]);
+      if (buildingsRes.ok) {
+        const json = await buildingsRes.json() as { data: BuildingOption[] };
         setBuildings(json.data);
       }
+      if (libRes.ok) {
+        const json = await libRes.json() as { data: LibraryCat[] };
+        setLibraryCategories(json.data);
+      }
     }
-    void fetchBuildings();
+    void fetchData();
   }, []);
+
+  function applyLibraryCategory(catId: string) {
+    const cat = libraryCategories.find((c) => c.id === catId);
+    if (cat) {
+      setNature(cat.nature);
+      setSelectedLibCatId(catId);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -115,6 +133,29 @@ export default function NouvelleCategorieChargePage() {
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
+      )}
+
+      {libraryCategories.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BookOpen className="h-4 w-4" />Importer depuis la bibliothèque</CardTitle>
+            <CardDescription>Pré-remplir le formulaire à partir d&apos;une catégorie de la bibliothèque société.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedLibCatId}
+                onChange={(e) => applyLibraryCategory(e.target.value)}
+                className="flex h-9 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Sélectionner une catégorie...</option>
+                {libraryCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
