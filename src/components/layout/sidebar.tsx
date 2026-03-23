@@ -13,6 +13,7 @@ import {
   BookOpen,
   Bell,
   Contact,
+  FolderOpen,
   Settings,
   Shield,
   ScrollText,
@@ -43,6 +44,7 @@ const navigation = [
     items: [
       { name: "Baux", href: "/baux", icon: FileText },
       { name: "Locataires", href: "/locataires", icon: Users },
+      { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
   },
