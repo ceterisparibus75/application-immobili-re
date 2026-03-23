@@ -32,17 +32,10 @@ export function InvoicePreviewSheet({
 }: Props) {
   const s = preview.society;
 
-  // Récap TVA par taux
-  const vatBreakdown = preview.lines.reduce<Record<number, { ht: number; vat: number }>>((acc, l) => {
-    if (!acc[l.vatRate]) acc[l.vatRate] = { ht: 0, vat: 0 };
-    acc[l.vatRate].ht += l.totalHT;
-    acc[l.vatRate].vat += l.totalVAT;
-    return acc;
-  }, {});
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col p-0">
+
         {/* Barre d'actions */}
         <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 print:hidden">
           <SheetTitle className="text-base font-semibold">Aperçu de la facture</SheetTitle>
@@ -52,11 +45,7 @@ export function InvoicePreviewSheet({
               Imprimer
             </Button>
             {onConfirm && (
-              <Button
-                size="sm"
-                onClick={onConfirm}
-                disabled={isConfirming || preview.alreadyExists}
-              >
+              <Button size="sm" onClick={onConfirm} disabled={isConfirming || preview.alreadyExists}>
                 <Zap className="h-4 w-4" />
                 {isConfirming ? "Génération…" : confirmLabel}
               </Button>
@@ -70,7 +59,7 @@ export function InvoicePreviewSheet({
           </div>
         </div>
 
-        {/* Avertissement doublon */}
+        {/* Doublon */}
         {preview.alreadyExists && (
           <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive shrink-0">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -78,124 +67,108 @@ export function InvoicePreviewSheet({
           </div>
         )}
 
-        {/* Document — zone scrollable */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="bg-white text-gray-900 rounded-lg border shadow text-sm print:shadow-none print:border-none">
+        {/* Document — scrollable */}
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="bg-white text-gray-900 text-sm font-sans space-y-5">
 
-            {/* Bandeau supérieur */}
-            <div className="bg-gray-900 text-white px-8 py-5 rounded-t-lg flex items-center justify-between">
-              <div>
+            {/* Numéro + date */}
+            <div className="text-center text-xs text-gray-600">
+              <p>Facture n° : <span className="font-semibold text-gray-900">— prévisualisation —</span></p>
+              <p>Émise le : {fmtDate(preview.issueDate)}</p>
+            </div>
+
+            {/* Émetteur + Destinataire */}
+            <div className="flex items-start gap-6">
+              <div className="flex-1 space-y-0.5 text-xs">
                 {s?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.logoUrl} alt="Logo" className="h-10 object-contain brightness-0 invert" />
-                ) : (
-                  <p className="text-lg font-bold tracking-wide">{s?.name ?? "—"}</p>
+                  <img src={s.logoUrl} alt="Logo" className="h-12 object-contain mb-2" />
+                ) : null}
+                <p className="font-bold text-sm">{s?.name ?? "—"}</p>
+                {s?.addressLine1 && (
+                  <p className="text-gray-600">
+                    {s.addressLine1}, {[s.postalCode, s.city].filter(Boolean).join(" ")}
+                  </p>
                 )}
+                {s?.siret && <p className="text-gray-500">SIRET : {s.siret}</p>}
               </div>
-              <div className="text-right">
-                <p className="text-xl font-bold tracking-widest">FACTURE</p>
-                <p className="text-gray-300 text-xs mt-0.5">{preview.periodLabel}</p>
+
+              {/* Destinataire avec coins + */}
+              <div className="w-52 relative p-4 text-xs">
+                <span className="absolute top-0.5 left-0.5 text-gray-400 select-none">+</span>
+                <span className="absolute top-0.5 right-0.5 text-gray-400 select-none">+</span>
+                <span className="absolute bottom-0.5 left-0.5 text-gray-400 select-none">+</span>
+                <span className="absolute bottom-0.5 right-0.5 text-gray-400 select-none">+</span>
+                <p className="font-semibold text-gray-900">{preview.tenantName}</p>
+                {preview.tenantAddress ? (
+                  <p className="text-gray-600 whitespace-pre-line">{preview.tenantAddress}</p>
+                ) : (
+                  <p className="text-gray-400 italic">Adresse non renseignée</p>
+                )}
+                {preview.tenantEmail && <p className="text-gray-600">{preview.tenantEmail}</p>}
               </div>
             </div>
 
-            <div className="px-8 py-6 space-y-6">
-              {/* Émetteur / Destinataire */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1.5">De</p>
-                  <p className="font-bold">{s?.name ?? "—"}</p>
-                  {s?.addressLine1 && <p className="text-gray-600 text-xs">{s.addressLine1}</p>}
-                  {s?.addressLine2 && <p className="text-gray-600 text-xs">{s.addressLine2}</p>}
-                  {(s?.postalCode || s?.city) && (
-                    <p className="text-gray-600 text-xs">{[s.postalCode, s.city].filter(Boolean).join(" ")}</p>
-                  )}
-                  {s?.siret && <p className="text-gray-400 text-xs mt-1">SIRET : {s.siret}</p>}
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1.5">À</p>
-                  <p className="font-bold">{preview.tenantName}</p>
-                  {preview.tenantAddress ? (
-                    <p className="text-gray-600 text-xs whitespace-pre-line">{preview.tenantAddress}</p>
-                  ) : (
-                    <p className="text-gray-400 italic text-xs">Adresse non renseignée</p>
-                  )}
-                  {preview.tenantEmail && <p className="text-gray-600 text-xs">{preview.tenantEmail}</p>}
-                  {preview.tenantPhone && <p className="text-gray-600 text-xs">{preview.tenantPhone}</p>}
-                </div>
-              </div>
+            {/* Titre */}
+            <h2 className="text-lg font-bold">APPEL DE LOYER ET CHARGES</h2>
 
-              {/* Méta */}
-              <div className="grid grid-cols-3 gap-3 bg-gray-50 rounded-lg px-5 py-3 text-xs">
-                <div>
-                  <p className="text-gray-400 uppercase tracking-wide">Émission</p>
-                  <p className="font-semibold mt-0.5">{fmtDate(preview.issueDate)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 uppercase tracking-wide">Échéance</p>
-                  <p className="font-semibold mt-0.5">{fmtDate(preview.dueDate)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 uppercase tracking-wide">Période</p>
-                  <p className="font-semibold mt-0.5 capitalize">{preview.periodLabel}</p>
-                </div>
-              </div>
+            {/* Infos */}
+            <div className="space-y-0.5 text-xs">
+              <p>Date d&apos;échéance : {fmtDate(preview.dueDate)}</p>
+              <p>Pour la période : <span className="font-medium capitalize">{preview.periodLabel}</span></p>
+              {preview.lotLabel && (
+                <>
+                  <p>Lot(s) concerné(s) :</p>
+                  <p>{preview.lotLabel}</p>
+                </>
+              )}
+            </div>
 
-              {/* Objet */}
-              <p className="font-semibold text-gray-700 text-sm">
-                Objet : Appel de loyer
-                <span className="font-normal text-gray-500"> — {preview.lotLabel}</span>
-              </p>
-
-              {/* Lignes */}
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-gray-900 text-left">
-                    <th className="pb-2 font-semibold text-gray-700">Désignation</th>
-                    <th className="pb-2 font-semibold text-gray-700 text-right w-16">TVA</th>
-                    <th className="pb-2 font-semibold text-gray-700 text-right w-24">HT</th>
-                    <th className="pb-2 font-semibold text-gray-700 text-right w-24">TTC</th>
+            {/* Tableau */}
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="text-left px-2 py-1.5 font-semibold border border-gray-200">Libellé opération</th>
+                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-24">Montant HT</th>
+                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-16">TVA</th>
+                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-24">Montant TTC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.lines.map((line, i) => (
+                  <tr key={i} className={i % 2 === 1 ? "bg-gray-50/40" : ""}>
+                    <td className="px-2 py-1.5 border-b border-gray-100">{line.label.split(" — ")[0]}</td>
+                    <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">{fmt(line.totalHT)}</td>
+                    <td className="px-2 py-1.5 text-right border-b border-gray-100 text-gray-500">
+                      {line.vatRate.toFixed(2).replace(".", ",")} %
+                    </td>
+                    <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">{fmt(line.totalTTC)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {preview.lines.map((line, i) => (
-                    <tr key={i} className={`border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/50" : ""}`}>
-                      <td className="py-2 pr-3">{line.label}</td>
-                      <td className="py-2 text-right text-gray-500">{line.vatRate} %</td>
-                      <td className="py-2 text-right tabular-nums">{fmt(line.totalHT)}</td>
-                      <td className="py-2 text-right tabular-nums font-medium">{fmt(line.totalTTC)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2} />
+                  <td className="px-2 py-1.5 text-right text-gray-600 border-t border-gray-200">Total HT</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums border-t border-gray-200">{fmt(preview.totalHT)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2} />
+                  <td className="px-2 py-1.5 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
+                  <td className="px-2 py-1.5 text-right font-bold tabular-nums border-t border-gray-400">{fmt(preview.totalTTC)}</td>
+                </tr>
+              </tfoot>
+            </table>
 
-              {/* Totaux */}
-              <div className="flex justify-end">
-                <div className="w-56 space-y-1 text-xs">
-                  {Object.entries(vatBreakdown).map(([rate, vals]) => (
-                    <div key={rate} className="flex justify-between text-gray-600">
-                      <span>TVA {rate} %</span>
-                      <span className="tabular-nums">{fmt(vals.vat)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-gray-600">
-                    <span>Total HT</span>
-                    <span className="tabular-nums font-medium">{fmt(preview.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-sm border-t-2 border-gray-900 pt-1.5 mt-1">
-                    <span>Total TTC</span>
-                    <span className="tabular-nums">{fmt(preview.totalTTC)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mentions légales */}
-              <div className="border-t border-gray-200 pt-4 text-xs text-gray-400 space-y-1">
-                {s?.vatRegime === "FRANCHISE" && (
-                  <p className="font-semibold text-gray-600">TVA non applicable — art. 293 B du CGI</p>
-                )}
-                <p>Pénalités de retard : 3× taux légal + indemnité forfaitaire 40 € (art. D. 441-5 C. com.).</p>
-                {s?.legalMentions && <p className="whitespace-pre-wrap">{s.legalMentions}</p>}
-              </div>
+            {/* Mentions légales abrégées */}
+            <div className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+              {s?.vatRegime === "FRANCHISE" && (
+                <p className="font-semibold text-gray-700 mb-1">TVA non applicable — art. 293 B du CGI</p>
+              )}
+              <p>
+                Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité
+                égale à 3 fois le taux intérêt légal sera exigible (Art. L 441-10 C. com.).
+              </p>
             </div>
           </div>
         </div>

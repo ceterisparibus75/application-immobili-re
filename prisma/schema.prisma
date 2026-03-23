@@ -278,6 +278,9 @@ model Society {
   city          String
   postalCode    String
   country       String  @default("France")
+  phone         String? // Téléphone de la société
+  shareCapital  Float?  // Capital social en euros
+  signatoryName String? // Nom du signataire facture (ex: "M. DUPONT Jean")
 
   // Finances — IBAN/BIC chiffrés AES-256 au niveau applicatif
   ibanEncrypted String?

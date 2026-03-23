@@ -72,6 +72,9 @@ export async function createSociety(
         accountantPhone: data.accountantPhone || null,
         invoicePrefix: data.invoicePrefix || null,
         legalMentions: data.legalMentions || null,
+        phone: data.phone || null,
+        shareCapital: data.shareCapital ?? null,
+        signatoryName: data.signatoryName || null,
       },
     });
 

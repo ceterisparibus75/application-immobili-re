@@ -1,4 +1,5 @@
 import { getInvoiceById } from "@/actions/invoice";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
 import Link from "next/link";
@@ -7,14 +8,17 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { decrypt } from "@/lib/encryption";
-import type { InvoiceType, TenantEntityType } from "@prisma/client";
+import type { TenantEntityType, LegalForm } from "@prisma/client";
 
-const TYPE_LABELS: Record<InvoiceType, string> = {
-  APPEL_LOYER: "Appel de loyer",
-  QUITTANCE: "Quittance de loyer",
-  REGULARISATION_CHARGES: "Régularisation de charges",
-  REFACTURATION: "Refacturation",
-  AVOIR: "Avoir",
+const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
+  SCI:   "Société Civile Immobilière (SCI)",
+  SARL:  "Société à Responsabilité Limitée (SARL)",
+  SAS:   "Société par Actions Simplifiée (SAS)",
+  SA:    "Société Anonyme (SA)",
+  EURL:  "Entreprise Unipersonnelle à Responsabilité Limitée (EURL)",
+  SASU:  "Société par Actions Simplifiée Unipersonnelle (SASU)",
+  SNC:   "Société en Nom Collectif (SNC)",
+  AUTRE: "Société",
 };
 
 function tenantName(t: {
@@ -35,18 +39,6 @@ function tenantAddress(t: {
 }) {
   return t.entityType === "PERSONNE_MORALE" ? t.companyAddress : t.personalAddress;
 }
-
-function tenantEmail(t: { email: string; billingEmail?: string | null }) {
-  return t.billingEmail || t.email;
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  EN_ATTENTE: "En attente de règlement",
-  PAYE: "Payée",
-  PARTIELLEMENT_PAYE: "Partiellement réglée",
-  EN_RETARD: "En retard",
-  LITIGIEUX: "Litigieux",
-};
 
 export default async function FactureApercuPage({
   params,
@@ -69,25 +61,46 @@ export default async function FactureApercuPage({
   let bic: string | null = null;
   try {
     if (s?.ibanEncrypted) iban = decrypt(s.ibanEncrypted);
-    if (s?.bicEncrypted) bic = decrypt(s.bicEncrypted);
-  } catch {
-    // Données bancaires inaccessibles — on n'affiche rien
+    if (s?.bicEncrypted)  bic  = decrypt(s.bicEncrypted);
+  } catch { /* non bloquant */ }
+
+  // Solde précédent (factures non payées antérieures pour ce bail)
+  let previousBalance = 0;
+  if (invoice.lease?.id) {
+    const unpaid = await prisma.invoice.findMany({
+      where: {
+        societyId,
+        leaseId: invoice.lease.id,
+        id: { not: invoice.id },
+        status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+      },
+      select: { totalTTC: true, payments: { select: { amount: true } } },
+    });
+    previousBalance = unpaid.reduce((sum, inv) => {
+      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+      return sum + (inv.totalTTC - paid);
+    }, 0);
   }
 
-  // Grouper les taux de TVA pour le récapitulatif
-  const vatBreakdown = invoice.lines.reduce<Record<number, { ht: number; vat: number }>>((acc, l) => {
-    if (!acc[l.vatRate]) acc[l.vatRate] = { ht: 0, vat: 0 };
-    acc[l.vatRate].ht += l.totalHT;
-    acc[l.vatRate].vat += l.totalVAT;
-    return acc;
-  }, {});
-
+  const totalToPay = previousBalance + invoice.totalTTC;
   const paid = invoice.payments.reduce((s, p) => s + p.amount, 0);
-  const remaining = invoice.totalTTC - paid;
+
+  // Libellé du lot
+  const lot = invoice.lease?.lot;
+  const lotLabel = lot
+    ? `${lot.number} — ${lot.building.addressLine1}, ${lot.building.postalCode} ${lot.building.city} ${lot.building.country ?? ""}`.trim()
+    : null;
+
+  // Titre selon type
+  const typeTitle = isAvoir ? "AVOIR" :
+    invoice.invoiceType === "APPEL_LOYER" ? "APPEL DE LOYER ET CHARGES" :
+    invoice.invoiceType === "QUITTANCE"   ? "QUITTANCE DE LOYER" :
+    invoice.invoiceType === "REGULARISATION_CHARGES" ? "RÉGULARISATION DE CHARGES" :
+    "FACTURE";
 
   return (
     <div className="space-y-4">
-      {/* Barre d'actions (masquée à l'impression) */}
+      {/* Barre d'actions — masquée à l'impression */}
       <div className="flex items-center justify-between print:hidden">
         <Link href={`/facturation/${id}`}>
           <Button variant="ghost" size="sm">
@@ -103,202 +116,209 @@ export default async function FactureApercuPage({
         </Button>
       </div>
 
-      {/* ─── Document facture ─── */}
-      <div className="mx-auto max-w-3xl bg-white text-gray-900 rounded-lg border shadow print:shadow-none print:border-none print:rounded-none print:max-w-none text-sm">
+      {/* ═══════════════════════════════════════
+          DOCUMENT FACTURE
+      ═══════════════════════════════════════ */}
+      <div className="mx-auto max-w-3xl bg-white text-gray-900 print:shadow-none print:max-w-none text-sm font-sans">
 
-        {/* Bandeau supérieur coloré */}
-        <div className="bg-gray-900 text-white px-10 py-5 rounded-t-lg print:rounded-none flex items-center justify-between">
-          <div>
-            {s?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={s.logoUrl} alt="Logo" className="h-12 object-contain brightness-0 invert" />
-            ) : (
-              <p className="text-xl font-bold tracking-wide">{s?.name ?? "—"}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold tracking-widest">{isAvoir ? "AVOIR" : "FACTURE"}</p>
-            <p className="text-gray-300 text-sm mt-0.5">{invoice.invoiceNumber}</p>
-          </div>
+        {/* ── 1. Numéro + date (centré en haut) ── */}
+        <div className="text-center mb-6 text-sm">
+          <p>Facture n° : <span className="font-semibold">{invoice.invoiceNumber}</span></p>
+          <p>Émise le : {formatDate(invoice.issueDate)}</p>
         </div>
 
-        <div className="px-10 py-8 space-y-8">
-          {/* Bloc émetteur / destinataire */}
-          <div className="grid grid-cols-2 gap-8">
-            {/* Émetteur (société) */}
-            <div className="space-y-0.5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">De</p>
-              <p className="font-bold text-base">{s?.name ?? "—"}</p>
-              {s?.addressLine1 && <p className="text-gray-600">{s.addressLine1}</p>}
-              {s?.addressLine2 && <p className="text-gray-600">{s.addressLine2}</p>}
-              {(s?.postalCode || s?.city) && (
-                <p className="text-gray-600">{[s.postalCode, s.city].filter(Boolean).join(" ")}</p>
-              )}
-              {s?.siret && <p className="text-gray-500 text-xs mt-1">SIRET : {s.siret}</p>}
-              {s?.vatNumber && <p className="text-gray-500 text-xs">N° TVA intracommunautaire : {s.vatNumber}</p>}
-            </div>
+        {/* ── 2. Émetteur (gauche) + Destinataire (droite) ── */}
+        <div className="flex items-start gap-8 mb-8">
 
-            {/* Destinataire (locataire) */}
-            <div className="space-y-0.5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">À</p>
-              <p className="font-bold text-base">{tenantName(invoice.tenant)}</p>
+          {/* Émetteur */}
+          <div className="flex-1 space-y-1 text-sm">
+            {s?.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.logoUrl} alt="Logo" className="h-20 object-contain mb-3" />
+            )}
+            <p className="font-bold text-base">{s?.name ?? "—"}</p>
+            {s?.addressLine1 && <p>{s.addressLine1}, {[s.postalCode, s.city, s.country].filter(Boolean).join(" ")}</p>}
+            {s?.addressLine2 && <p>{s.addressLine2}</p>}
+            {s?.phone && <p>Tél. : {s.phone}</p>}
+            {s?.legalForm && s?.shareCapital && (
+              <p>{LEGAL_FORM_LABELS[s.legalForm]} au capital de {formatCurrency(s.shareCapital)}</p>
+            )}
+            {s?.legalForm && !s?.shareCapital && (
+              <p>{LEGAL_FORM_LABELS[s.legalForm]}</p>
+            )}
+            {s?.siret && <p>SIRET : {s.siret}</p>}
+            {s?.vatNumber && <p>N° TVA : {s.vatNumber}</p>}
+          </div>
+
+          {/* Destinataire — boîte avec coins "+" */}
+          <div className="w-72 relative p-6 text-sm">
+            <span className="absolute top-1 left-1 text-gray-400 font-light select-none">+</span>
+            <span className="absolute top-1 right-1 text-gray-400 font-light select-none">+</span>
+            <span className="absolute bottom-1 left-1 text-gray-400 font-light select-none">+</span>
+            <span className="absolute bottom-1 right-1 text-gray-400 font-light select-none">+</span>
+            <div className="space-y-1">
+              <p className="font-semibold">{tenantName(invoice.tenant)}</p>
               {tenantAddress(invoice.tenant) ? (
-                <p className="text-gray-600 whitespace-pre-line">{tenantAddress(invoice.tenant)}</p>
+                <p className="whitespace-pre-line">{tenantAddress(invoice.tenant)}</p>
               ) : (
-                <p className="text-gray-400 italic text-xs">Adresse non renseignée</p>
-              )}
-              <p className="text-gray-600">{tenantEmail(invoice.tenant)}</p>
-              {invoice.tenant.phone && (
-                <p className="text-gray-600">{invoice.tenant.phone}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Méta-données de la facture */}
-          <div className="grid grid-cols-3 gap-4 bg-gray-50 rounded-lg px-6 py-4 text-sm">
-            <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wide">Date d&apos;émission</p>
-              <p className="font-semibold mt-0.5">{formatDate(invoice.issueDate)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wide">Date d&apos;échéance</p>
-              <p className="font-semibold mt-0.5">{formatDate(invoice.dueDate)}</p>
-            </div>
-            {invoice.periodStart && invoice.periodEnd && (
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Période</p>
-                <p className="font-semibold mt-0.5">
-                  {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Objet */}
-          <div>
-            <p className="font-semibold text-gray-700">
-              Objet : {TYPE_LABELS[invoice.invoiceType]}
-              {invoice.lease && (
-                <span className="font-normal text-gray-500">
-                  {" "}— {invoice.lease.lot.building.name}, Lot {invoice.lease.lot.number}
-                </span>
-              )}
-            </p>
-            {invoice.creditNoteFor && (
-              <p className="text-xs text-gray-500 mt-1">
-                Avoir correspondant à la facture {invoice.creditNoteFor.invoiceNumber}
-              </p>
-            )}
-          </div>
-
-          {/* Tableau des lignes */}
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-900 text-left">
-                <th className="pb-2 font-semibold text-gray-700">Désignation</th>
-                <th className="pb-2 font-semibold text-gray-700 text-right w-10">Qté</th>
-                <th className="pb-2 font-semibold text-gray-700 text-right w-28">P.U. HT</th>
-                <th className="pb-2 font-semibold text-gray-700 text-right w-16">TVA</th>
-                <th className="pb-2 font-semibold text-gray-700 text-right w-28">Montant HT</th>
-                <th className="pb-2 font-semibold text-gray-700 text-right w-28">Montant TTC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoice.lines.map((line, i) => (
-                <tr key={line.id} className={`border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/50" : ""}`}>
-                  <td className="py-2.5 pr-4">{line.label}</td>
-                  <td className="py-2.5 text-right text-gray-600">{line.quantity}</td>
-                  <td className="py-2.5 text-right tabular-nums">{formatCurrency(line.unitPrice)}</td>
-                  <td className="py-2.5 text-right text-gray-500">{line.vatRate} %</td>
-                  <td className="py-2.5 text-right tabular-nums">{formatCurrency(line.totalHT)}</td>
-                  <td className="py-2.5 text-right tabular-nums font-medium">{formatCurrency(line.totalTTC)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Totaux */}
-          <div className="flex justify-end">
-            <div className="w-72 space-y-1.5">
-              {/* Récap TVA par taux */}
-              {Object.entries(vatBreakdown).map(([rate, vals]) => (
-                <div key={rate} className="flex justify-between text-sm text-gray-600">
-                  <span>TVA {rate} %</span>
-                  <span className="tabular-nums">{formatCurrency(vals.vat)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between text-sm pt-1">
-                <span className="text-gray-600">Total HT</span>
-                <span className="tabular-nums font-medium">{formatCurrency(invoice.totalHT)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Total TVA</span>
-                <span className="tabular-nums font-medium">{formatCurrency(invoice.totalVAT)}</span>
-              </div>
-              <div className="flex justify-between text-base font-bold border-t-2 border-gray-900 pt-2 mt-1">
-                <span>Total TTC</span>
-                <span className="tabular-nums">{formatCurrency(invoice.totalTTC)}</span>
-              </div>
-
-              {/* Paiements et solde */}
-              {invoice.payments.length > 0 && (
                 <>
-                  {invoice.payments.map((p) => (
-                    <div key={p.id} className="flex justify-between text-sm text-green-700">
-                      <span>
-                        Règlement {formatDate(p.paidAt)}
-                        {p.method ? ` (${p.method})` : ""}
-                      </span>
-                      <span className="tabular-nums">− {formatCurrency(p.amount)}</span>
-                    </div>
-                  ))}
-                  {remaining > 0.01 && (
-                    <div className="flex justify-between font-bold text-sm border-t border-gray-200 pt-1 text-red-600">
-                      <span>Solde restant dû</span>
-                      <span className="tabular-nums">{formatCurrency(remaining)}</span>
-                    </div>
-                  )}
+                  <p className="text-gray-400 italic text-xs">Adresse non renseignée</p>
+                  <p>{invoice.tenant.email}</p>
                 </>
               )}
             </div>
           </div>
-
-          {/* Statut */}
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-              invoice.status === "PAYE" ? "bg-green-100 text-green-800" :
-              invoice.status === "EN_RETARD" ? "bg-red-100 text-red-800" :
-              invoice.status === "PARTIELLEMENT_PAYE" ? "bg-yellow-100 text-yellow-800" :
-              "bg-gray-100 text-gray-800"
-            }`}>
-              {STATUS_LABELS[invoice.status] ?? invoice.status}
-            </span>
-          </div>
-
-          {/* Coordonnées bancaires (RIB) */}
-          {(iban || bic || s?.bankName) && (
-            <div className="border border-gray-200 rounded-lg px-5 py-4 bg-gray-50 text-sm space-y-1">
-              <p className="font-semibold text-gray-700 mb-2">Règlement par virement</p>
-              {s?.bankName && <p className="text-gray-600">Banque : <span className="font-medium">{s.bankName}</span></p>}
-              {iban && <p className="text-gray-600">IBAN : <span className="font-medium tracking-wider">{iban}</span></p>}
-              {bic && <p className="text-gray-600">BIC : <span className="font-medium">{bic}</span></p>}
-            </div>
-          )}
-
-          {/* Mentions légales */}
-          <div className="border-t border-gray-200 pt-6 space-y-2 text-xs text-gray-500">
-            {s?.vatRegime === "FRANCHISE" && (
-              <p className="font-semibold text-gray-700">TVA non applicable — art. 293 B du CGI</p>
-            )}
-            <p>
-              En cas de retard de paiement, des pénalités sont exigibles au taux de 3 fois le taux d&apos;intérêt
-              légal, ainsi qu&apos;une indemnité forfaitaire de recouvrement de 40 € (art. D. 441-5 C. com.).
-            </p>
-            {s?.legalMentions && (
-              <p className="whitespace-pre-wrap">{s.legalMentions}</p>
-            )}
-          </div>
         </div>
+
+        {/* ── 3. Titre ── */}
+        <h1 className="text-2xl font-bold mb-4">{typeTitle}</h1>
+
+        {/* ── 4. Infos période / lot ── */}
+        <div className="space-y-1 mb-6 text-sm">
+          <p>Date d&apos;échéance : {formatDate(invoice.dueDate)}</p>
+          {invoice.periodStart && invoice.periodEnd && (
+            <p>Pour la période du {formatDate(invoice.periodStart)} au {formatDate(invoice.periodEnd)}.</p>
+          )}
+          {invoice.creditNoteFor && (
+            <p className="text-gray-500">Avoir correspondant à la facture {invoice.creditNoteFor.invoiceNumber}</p>
+          )}
+          {lotLabel && (
+            <>
+              <p>Lot(s) concerné(s) :</p>
+              <p>{lotLabel}</p>
+            </>
+          )}
+        </div>
+
+        {/* ── 5. Tableau des lignes ── */}
+        <table className="w-full text-sm border-collapse mb-2">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="text-left px-3 py-2 font-semibold border border-gray-200">Libellé opération</th>
+              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-32">Montant HT</th>
+              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-24">TVA</th>
+              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-32">Montant TTC</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.lines.map((line, i) => (
+              <tr key={line.id} className={i % 2 === 0 ? "" : "bg-gray-50/40"}>
+                <td className="px-3 py-2 border-b border-gray-100">
+                  <p>{line.label.split(" — ")[0]}</p>
+                  {lot && <p className="text-gray-500 text-xs">{lot.number}</p>}
+                </td>
+                <td className="px-3 py-2 text-right border-b border-gray-100 tabular-nums">
+                  {formatCurrency(line.totalHT)}
+                </td>
+                <td className="px-3 py-2 text-right border-b border-gray-100 text-gray-500">
+                  {line.vatRate.toFixed(2).replace(".", ",")} %
+                </td>
+                <td className="px-3 py-2 text-right border-b border-gray-100 tabular-nums">
+                  {formatCurrency(line.totalTTC)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2} />
+              <td className="px-3 py-2 text-right text-gray-600 text-sm border-t border-gray-200">Total HT</td>
+              <td className="px-3 py-2 text-right tabular-nums border-t border-gray-200">{formatCurrency(invoice.totalHT)}</td>
+            </tr>
+            {invoice.totalVAT > 0.001 && (
+              <tr>
+                <td colSpan={2} />
+                <td className="px-3 py-2 text-right text-gray-600 text-sm">TVA</td>
+                <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(invoice.totalVAT)}</td>
+              </tr>
+            )}
+            <tr>
+              <td colSpan={2} />
+              <td className="px-3 py-2 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
+              <td className="px-3 py-2 text-right font-bold tabular-nums border-t border-gray-400">
+                {formatCurrency(invoice.totalTTC)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* ── 6. Paiements reçus ── */}
+        {paid > 0.001 && (
+          <div className="mb-6 text-sm">
+            {invoice.payments.map((p) => (
+              <div key={p.id} className="flex justify-between text-green-700">
+                <span>Règlement reçu le {formatDate(p.paidAt)}{p.method ? ` (${p.method})` : ""}</span>
+                <span className="tabular-nums">− {formatCurrency(p.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── 7. Situation de compte ── */}
+        <div className="mt-8 mb-6">
+          <p className="font-bold text-sm mb-1">Situation de compte au {formatDate(invoice.issueDate)}</p>
+          <p className="text-sm text-gray-600 mb-3">
+            Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s&apos;agit du montant
+            de votre solde précédent auquel s&apos;ajoute le montant de cette facture.
+          </p>
+          <table className="w-full text-sm border-collapse">
+            <tbody>
+              <tr>
+                <td className="border border-gray-200 px-4 py-2">Solde précédent à date d&apos;édition</td>
+                <td className="border border-gray-200 px-4 py-2 text-right tabular-nums">
+                  {previousBalance !== 0
+                    ? `${previousBalance > 0 ? "" : "−"} ${formatCurrency(Math.abs(previousBalance))}`
+                    : formatCurrency(0)}
+                </td>
+              </tr>
+              <tr className="font-bold">
+                <td className="border border-gray-200 px-4 py-2">
+                  Total à payer avant le {formatDate(invoice.dueDate)}
+                </td>
+                <td className="border border-gray-200 px-4 py-2 text-right tabular-nums">
+                  {formatCurrency(Math.max(0, totalToPay - paid))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── 8. Mentions légales ── */}
+        <div className="text-xs text-gray-600 mb-6 leading-relaxed">
+          {s?.vatRegime === "FRANCHISE" && (
+            <p className="font-semibold mb-1">TVA non applicable — art. 293 B du CGI</p>
+          )}
+          <p>
+            Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité
+            égale à 3 fois le taux intérêt légal sera exigible (Article L 441-10, alinéa 12 du Code de
+            Commerce). Pour tout professionnel, en sus des indemnités de retard, toute somme, y compris
+            l&apos;acompte, non payée à sa date d&apos;exigibilité produira de plein droit le paiement
+            d&apos;une indemnité forfaitaire de 40 euros due au titre des frais de recouvrement
+            (Art. 441-6, I al. 12 du code de commerce et D. 441-5 ibidem).
+          </p>
+          {s?.legalMentions && (
+            <p className="mt-1 whitespace-pre-wrap">{s.legalMentions}</p>
+          )}
+        </div>
+
+        {/* ── 9. Signature ── */}
+        <div className="flex justify-between text-sm mb-6">
+          <p>Fait à {s?.city ?? "—"}, le {formatDate(invoice.issueDate)}</p>
+          {s?.signatoryName && (
+            <p>{s.signatoryName}, pour {s.name}</p>
+          )}
+        </div>
+
+        {/* ── 10. Coordonnées bancaires ── */}
+        {(iban || bic || s?.bankName) && (
+          <div className="text-sm space-y-0.5">
+            <p className="font-bold">Coordonnées bancaires</p>
+            {s?.bankName && <p>Banque : {s.bankName}</p>}
+            {iban && <p>IBAN : {iban}</p>}
+            {bic  && <p>BIC : {bic}</p>}
+          </div>
+        )}
+
       </div>
     </div>
   );

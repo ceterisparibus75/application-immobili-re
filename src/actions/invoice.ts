@@ -244,6 +244,7 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
       society: {
         select: {
           name: true,
+          legalForm: true,
           siret: true,
           vatNumber: true,
           vatRegime: true,
@@ -253,6 +254,10 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           addressLine2: true,
           city: true,
           postalCode: true,
+          country: true,
+          phone: true,
+          shareCapital: true,
+          signatoryName: true,
           ibanEncrypted: true,
           bicEncrypted: true,
           bankName: true,
@@ -264,7 +269,15 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           lot: {
             select: {
               number: true,
-              building: { select: { name: true, city: true } },
+              building: {
+                select: {
+                  name: true,
+                  addressLine1: true,
+                  postalCode: true,
+                  city: true,
+                  country: true,
+                },
+              },
             },
           },
         },

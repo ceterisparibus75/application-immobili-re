@@ -63,6 +63,9 @@ export default function ModifierSocietePage() {
         logoUrl: s.logoUrl ?? "",
         invoicePrefix: s.invoicePrefix ?? "",
         legalMentions: s.legalMentions ?? "",
+        phone: s.phone ?? "",
+        shareCapital: s.shareCapital?.toString() ?? "",
+        signatoryName: s.signatoryName ?? "",
       });
     });
   }, [id, router]);
@@ -191,6 +194,10 @@ export default function ModifierSocietePage() {
                 <Label htmlFor="country">Pays</Label>
                 <Input id="country" value={form.country} onChange={(e) => set("country", e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Téléphone</Label>
+                <Input id="phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+33 1 23 45 67 89" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -298,6 +305,16 @@ export default function ModifierSocietePage() {
             <div className="space-y-2 max-w-xs">
               <Label htmlFor="invoicePrefix">Préfixe des factures</Label>
               <Input id="invoicePrefix" value={form.invoicePrefix} onChange={(e) => set("invoicePrefix", e.target.value)} maxLength={10} placeholder="FAC" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="signatoryName">Nom du signataire</Label>
+                <Input id="signatoryName" value={form.signatoryName} onChange={(e) => set("signatoryName", e.target.value)} placeholder="M. DUPONT Jean" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="shareCapital">Capital social (€)</Label>
+                <Input id="shareCapital" type="number" step="0.01" value={form.shareCapital} onChange={(e) => set("shareCapital", e.target.value)} placeholder="200000" />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="legalMentions">Mentions légales (pied de facture)</Label>
