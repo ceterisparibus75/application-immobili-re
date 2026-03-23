@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import type { Ratelimit } from "@upstash/ratelimit";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -76,11 +77,28 @@ export default auth(async (req) => {
   // Lire la societe active depuis le cookie
   const activeSocietyId = req.cookies.get("active-society-id")?.value;
 
-  // Injecter le societyId dans les headers pour les Server Components
+  // Generer un nonce unique par requete pour Content-Security-Policy
+  const nonce = randomBytes(16).toString("base64");
+  const cspValue = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    "img-src 'self' blob: data: https:",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+
+  // Injecter les headers dans la reponse
   const response = NextResponse.next();
   if (activeSocietyId) {
     response.headers.set("x-society-id", activeSocietyId);
   }
+  response.headers.set("x-nonce", nonce);
+  response.headers.set("Content-Security-Policy", cspValue);
 
   return response;
 });
