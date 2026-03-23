@@ -433,6 +433,200 @@ export async function getLeaseForInvoice(societyId: string, leaseId: string) {
   });
 }
 
+// ============================================================
+// PRÉVISUALISATION (sans écriture en base)
+// ============================================================
+
+export type InvoicePreviewLine = {
+  label: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  totalHT: number;
+  totalVAT: number;
+  totalTTC: number;
+};
+
+export type InvoicePreview = {
+  leaseId: string;
+  tenantName: string;
+  lotLabel: string;
+  periodLabel: string;
+  issueDate: string;
+  dueDate: string;
+  lines: InvoicePreviewLine[];
+  totalHT: number;
+  totalVAT: number;
+  totalTTC: number;
+  alreadyExists: boolean;
+};
+
+/** Calcule les lignes d'une facture sans la créer. */
+async function computeInvoicePreview(
+  societyId: string,
+  leaseId: string,
+  periodMonth: string
+): Promise<InvoicePreview | null> {
+  const lease = await prisma.lease.findFirst({
+    where: { id: leaseId, societyId, status: "EN_COURS" },
+    select: {
+      id: true,
+      tenantId: true,
+      startDate: true,
+      paymentFrequency: true,
+      billingTerm: true,
+      currentRentHT: true,
+      vatApplicable: true,
+      vatRate: true,
+      rentFreeMonths: true,
+      progressiveRent: true,
+      chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
+      tenant: {
+        select: {
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      lot: {
+        select: { number: true, building: { select: { name: true } } },
+      },
+    },
+  });
+  if (!lease) return null;
+
+  const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
+  const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
+  const rentHT = computeRentForPeriod(
+    lease.startDate,
+    lease.currentRentHT,
+    lease.progressiveRent,
+    lease.rentFreeMonths ?? 0
+  );
+  const vatRate = lease.vatApplicable ? lease.vatRate : 0;
+  const freqMultiplier: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
+  const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
+
+  const lotLabel = lease.lot
+    ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
+    : "Lot non précisé";
+  const periodLabel = periodStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const tenantName =
+    lease.tenant.entityType === "PERSONNE_MORALE"
+      ? (lease.tenant.companyName ?? "—")
+      : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "—";
+
+  const rentVAT = rentHT * (vatRate / 100);
+  const lines: InvoicePreviewLine[] = [
+    {
+      label: `Loyer ${lotLabel} — ${periodLabel}`,
+      quantity: 1,
+      unitPrice: rentHT,
+      vatRate,
+      totalHT: rentHT,
+      totalVAT: rentVAT,
+      totalTTC: rentHT + rentVAT,
+    },
+  ];
+  for (const cp of lease.chargeProvisions) {
+    const ht = cp.monthlyAmount * mult;
+    const vat = ht * (vatRate / 100);
+    lines.push({
+      label: `Provision sur charges — ${periodLabel}`,
+      quantity: 1,
+      unitPrice: ht,
+      vatRate,
+      totalHT: ht,
+      totalVAT: vat,
+      totalTTC: ht + vat,
+    });
+  }
+
+  const totalHT = lines.reduce((s, l) => s + l.totalHT, 0);
+  const totalVAT = lines.reduce((s, l) => s + l.totalVAT, 0);
+
+  // Vérifier si une facture existe déjà pour ce bail+période
+  const existing = await prisma.invoice.findFirst({
+    where: {
+      societyId,
+      leaseId: lease.id,
+      invoiceType: "APPEL_LOYER",
+      periodStart: { gte: periodStart },
+      periodEnd: { lte: periodEnd },
+    },
+  });
+
+  return {
+    leaseId: lease.id,
+    tenantName,
+    lotLabel,
+    periodLabel,
+    issueDate: issueDate.toISOString(),
+    dueDate: dueDate.toISOString(),
+    lines,
+    totalHT,
+    totalVAT,
+    totalTTC: totalHT + totalVAT,
+    alreadyExists: !!existing,
+  };
+}
+
+export async function previewInvoiceFromLease(
+  societyId: string,
+  input: GenerateInvoiceFromLeaseInput
+): Promise<ActionResult<InvoicePreview>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = generateInvoiceFromLeaseSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const preview = await computeInvoicePreview(societyId, parsed.data.leaseId, parsed.data.periodMonth);
+    if (!preview) return { success: false, error: "Bail actif introuvable" };
+
+    return { success: true, data: preview };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[previewInvoiceFromLease]", error);
+    return { success: false, error: "Erreur lors de la prévisualisation" };
+  }
+}
+
+export async function previewBatchInvoices(
+  societyId: string,
+  input: GenerateBatchInvoicesInput
+): Promise<ActionResult<InvoicePreview[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = generateBatchInvoicesSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const leaseIds = parsed.data.leaseIds?.length
+      ? parsed.data.leaseIds
+      : (await prisma.lease.findMany({ where: { societyId, status: "EN_COURS" }, select: { id: true } })).map((l) => l.id);
+
+    const previews: InvoicePreview[] = [];
+    for (const leaseId of leaseIds) {
+      const preview = await computeInvoicePreview(societyId, leaseId, parsed.data.periodMonth);
+      if (preview) previews.push(preview);
+    }
+
+    return { success: true, data: previews };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[previewBatchInvoices]", error);
+    return { success: false, error: "Erreur lors de la prévisualisation" };
+  }
+}
+
 /**
  * Génère un appel de loyer pour un bail sur une période donnée.
  * Inclut les provisions sur charges actives.

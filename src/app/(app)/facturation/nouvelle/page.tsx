@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createInvoice, generateInvoiceFromLease, getActiveLeasesForInvoicing } from "@/actions/invoice";
+import { createInvoice, generateInvoiceFromLease, getActiveLeasesForInvoicing, previewInvoiceFromLease, type InvoicePreview } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Plus, Trash2, Zap, PenLine } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2, Zap, PenLine, Eye, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { toast } from "sonner";
@@ -107,6 +107,8 @@ export default function NouvelleFacturePage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [preview, setPreview] = useState<InvoicePreview | null>(null);
+  const [isPreviewing, startPreviewing] = useTransition();
   const [isGenerating, startGenerating] = useTransition();
 
   // ── Mode manuel ──
@@ -128,7 +130,17 @@ export default function NouvelleFacturePage() {
 
   const selectedLease = leases.find((l) => l.id === selectedLeaseId) ?? null;
 
-  // Preview du montant
+  // Réinitialiser la prévisualisation quand les paramètres changent
+  function onLeaseChange(id: string) {
+    setSelectedLeaseId(id);
+    setPreview(null);
+  }
+  function onPeriodChange(val: string) {
+    setPeriodMonth(val);
+    setPreview(null);
+  }
+
+  // Preview du montant (estimation rapide avant prévisualisation détaillée)
   const previewAmount = selectedLease
     ? (() => {
         const ht = selectedLease.currentRentHT;
@@ -138,6 +150,22 @@ export default function NouvelleFacturePage() {
     : null;
 
   // ── Handlers auto ──
+  function handlePreview() {
+    if (!activeSociety || !selectedLeaseId) return;
+    setPreview(null);
+    startPreviewing(async () => {
+      const result = await previewInvoiceFromLease(activeSociety.id, {
+        leaseId: selectedLeaseId,
+        periodMonth,
+      });
+      if (result.success && result.data) {
+        setPreview(result.data);
+      } else {
+        toast.error(result.error ?? "Erreur lors de la prévisualisation");
+      }
+    });
+  }
+
   function handleGenerate() {
     if (!activeSociety || !selectedLeaseId) return;
     startGenerating(async () => {
@@ -262,7 +290,7 @@ export default function NouvelleFacturePage() {
                   <select
                     id="leaseId"
                     value={selectedLeaseId}
-                    onChange={(e) => setSelectedLeaseId(e.target.value)}
+                    onChange={(e) => onLeaseChange(e.target.value)}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="">Sélectionner un bail...</option>
@@ -285,7 +313,7 @@ export default function NouvelleFacturePage() {
                     id="periodMonth"
                     type="month"
                     value={periodMonth}
-                    onChange={(e) => setPeriodMonth(e.target.value)}
+                    onChange={(e) => onPeriodChange(e.target.value)}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
@@ -294,10 +322,10 @@ export default function NouvelleFacturePage() {
                 </div>
               </div>
 
-              {/* Aperçu du bail sélectionné */}
-              {selectedLease && (
+              {/* Aperçu estimatif du bail */}
+              {selectedLease && !preview && (
                 <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                  <p className="text-sm font-medium">Aperçu du bail</p>
+                  <p className="text-sm font-medium">Bail sélectionné</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                     <div>
                       <span className="text-muted-foreground">Locataire</span>
@@ -327,36 +355,78 @@ export default function NouvelleFacturePage() {
                         </Badge>
                       </p>
                     </div>
-                    {selectedLease.rentFreeMonths && selectedLease.rentFreeMonths > 0 && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Franchise de loyer</span>
-                        <p className="font-medium text-orange-600">
-                          {selectedLease.rentFreeMonths} mois
-                        </p>
-                      </div>
-                    )}
                   </div>
-
                   {previewAmount && (
                     <div className="border-t pt-3 space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Loyer HT</span>
+                        <span className="text-muted-foreground">Loyer HT estimé</span>
                         <span>{fmt(previewAmount.ht)}</span>
                       </div>
-                      {selectedLease.vatApplicable && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            TVA ({selectedLease.vatRate}%)
-                          </span>
-                          <span>{fmt(previewAmount.vat)}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between font-semibold">
-                        <span>Total TTC</span>
+                        <span>TTC estimé</span>
                         <span>{fmt(previewAmount.ttc)}</span>
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Prévisualisation détaillée */}
+              {preview && (
+                <div className="rounded-lg border bg-background p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Prévisualisation de la facture</p>
+                    <button
+                      type="button"
+                      onClick={() => setPreview(null)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+
+                  {preview.alreadyExists && (
+                    <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Une facture existe déjà pour ce bail sur cette période. La génération sera ignorée.
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                    <div><span className="font-medium text-foreground">{preview.tenantName}</span></div>
+                    <div>{preview.lotLabel}</div>
+                    <div>Émission : {new Date(preview.issueDate).toLocaleDateString("fr-FR")}</div>
+                    <div>Échéance : {new Date(preview.dueDate).toLocaleDateString("fr-FR")}</div>
+                  </div>
+
+                  <div className="border rounded-md overflow-hidden text-sm">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr className="text-xs text-muted-foreground">
+                          <th className="text-left px-3 py-2">Désignation</th>
+                          <th className="text-right px-3 py-2">HT</th>
+                          <th className="text-right px-3 py-2">TVA</th>
+                          <th className="text-right px-3 py-2">TTC</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {preview.lines.map((line, i) => (
+                          <tr key={i}>
+                            <td className="px-3 py-2 text-sm">{line.label}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{fmt(line.totalHT)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{line.vatRate}%</td>
+                            <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(line.totalTTC)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/30 border-t">
+                        <tr>
+                          <td className="px-3 py-2 text-sm font-semibold" colSpan={3}>Total TTC</td>
+                          <td className="px-3 py-2 text-right font-bold">{fmt(preview.totalTTC)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -366,22 +436,30 @@ export default function NouvelleFacturePage() {
             <Link href="/facturation">
               <Button variant="outline" type="button">Annuler</Button>
             </Link>
-            <Button
-              onClick={handleGenerate}
-              disabled={!selectedLeaseId || !periodMonth || isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Génération...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  Générer la facture
-                </>
-              )}
-            </Button>
+            {!preview ? (
+              <Button
+                onClick={handlePreview}
+                disabled={!selectedLeaseId || !periodMonth || isPreviewing}
+                variant="outline"
+              >
+                {isPreviewing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Calcul...</>
+                ) : (
+                  <><Eye className="h-4 w-4" />Prévisualiser</>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || preview.alreadyExists}
+              >
+                {isGenerating ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Génération...</>
+                ) : (
+                  <><Zap className="h-4 w-4" />Confirmer et générer</>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       )}
