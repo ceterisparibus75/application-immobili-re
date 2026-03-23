@@ -296,6 +296,17 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           invoiceNumber: true,
         },
       },
+      chargeProvisions: {
+        orderBy: { startDate: "asc" },
+        select: {
+          id: true,
+          label: true,
+          monthlyAmount: true,
+          startDate: true,
+          endDate: true,
+          isActive: true,
+        },
+      },
       inspections: {
         orderBy: { performedAt: "desc" },
         take: 5,

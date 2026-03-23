@@ -19,6 +19,7 @@ import {
   Receipt,
   TrendingUp,
   User,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -32,6 +33,7 @@ import type {
   TenantEntityType,
 } from "@prisma/client";
 import { DeleteLeaseButton } from "./_components/delete-lease-button";
+import { ChargeProvisions } from "./_components/charge-provisions";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -369,6 +371,25 @@ export default async function BailDetailPage({
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Provisions sur charges */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Provisions sur charges et taxes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChargeProvisions
+                leaseId={lease.id}
+                lotId={lease.lot.id}
+                societyId={societyId}
+                provisions={lease.chargeProvisions}
+                isActive={isActive}
+              />
             </CardContent>
           </Card>
 
