@@ -589,7 +589,7 @@ async function computeInvoicePreview(
     if (society?.bicEncrypted)  bic  = decrypt(society.bicEncrypted);
   } catch { /* non bloquant */ }
 
-  // Générer une URL signée pour le logo (serveur → fiable)
+  // Générer une URL signée fraîche pour le logo (toujours via service role)
   let logoResolvedUrl: string | null = null;
   if (society?.logoUrl) {
     try {
@@ -597,14 +597,26 @@ async function computeInvoicePreview(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
-      const cleanPath = society.logoUrl.replace(/^\//, "").replace(/\.\.\//g, "");
-      if (!cleanPath.startsWith("http")) {
+      const logoUrl = society.logoUrl;
+      let storagePath: string | null = null;
+
+      if (!logoUrl.startsWith("http")) {
+        // Chemin relatif stocké directement
+        storagePath = logoUrl.replace(/^\//, "");
+      } else {
+        // Extraire le chemin depuis toute URL Supabase (signée ou publique)
+        const m = logoUrl.match(
+          /\/storage\/v1\/object\/(?:sign\/|upload\/sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/
+        );
+        if (m) storagePath = decodeURIComponent(m[1]);
+      }
+
+      if (storagePath) {
+        const clean = storagePath.replace(/\.\.\//g, "").replace(/^\//, "");
         const { data } = await supabase.storage
           .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-          .createSignedUrl(cleanPath, 3600);
+          .createSignedUrl(clean, 3600);
         if (data?.signedUrl) logoResolvedUrl = data.signedUrl;
-      } else {
-        logoResolvedUrl = cleanPath;
       }
     } catch { /* non bloquant */ }
   }
