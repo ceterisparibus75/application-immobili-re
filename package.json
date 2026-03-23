@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
@@ -14,8 +14,10 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@auth/prisma-adapter": "^2",
     "@prisma/client": "^6",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1",
     "@radix-ui/react-checkbox": "^1",
     "@radix-ui/react-dialog": "^1",
@@ -28,9 +30,12 @@
     "@radix-ui/react-tabs": "^1",
     "@radix-ui/react-toast": "^1",
     "@radix-ui/react-tooltip": "^1",
+    "@supabase/supabase-js": "^2.100.0",
     "bcryptjs": "^2",
     "class-variance-authority": "^0.7",
     "clsx": "^2",
+    "jose": "^6.2.2",
+    "jsonrepair": "^3.13.3",
     "lucide-react": "^0.469",
     "next": "16.2.0",
     "next-auth": "5.0.0-beta.25",
@@ -38,6 +43,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^4",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3",
     "zod": "^3"
   },
