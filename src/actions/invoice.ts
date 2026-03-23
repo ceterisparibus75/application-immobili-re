@@ -43,14 +43,28 @@ async function getNextInvoiceNumber(
   societyId: string,
   tx: Prisma.TransactionClient
 ): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  // Lire l'état actuel pour détecter un changement d'année
+  const current = await tx.society.findUnique({
+    where: { id: societyId },
+    select: { invoiceNumberYear: true, nextInvoiceNumber: true, invoicePrefix: true },
+  });
+
+  const yearChanged = !current || current.invoiceNumberYear !== currentYear;
+
   const society = await tx.society.update({
     where: { id: societyId },
-    data: { nextInvoiceNumber: { increment: 1 } },
+    data: yearChanged
+      // Nouvelle année : remettre le compteur à 1
+      ? { invoiceNumberYear: currentYear, nextInvoiceNumber: 1 }
+      // Même année : incrémenter
+      : { nextInvoiceNumber: { increment: 1 } },
     select: { nextInvoiceNumber: true, invoicePrefix: true },
   });
-  const year = new Date().getFullYear();
-  const prefix = (society.invoicePrefix?.toUpperCase() || "FAC");
-  return `${prefix}-${year}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
+
+  const prefix = (current?.invoicePrefix?.toUpperCase() || "FAC");
+  return `${prefix}-${currentYear}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
 }
 
 export async function createInvoice(
@@ -67,7 +81,7 @@ export async function createInvoice(
     if (!parsed.success) {
       return {
         success: false,
-        error: parsed.error.errors.map((e) => e.message).join(", "),
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
       };
     }
 
@@ -137,7 +151,7 @@ export async function recordPayment(
     if (!parsed.success) {
       return {
         success: false,
-        error: parsed.error.errors.map((e) => e.message).join(", "),
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
       };
     }
 
@@ -634,7 +648,7 @@ export async function previewInvoiceFromLease(
 
     const parsed = generateInvoiceFromLeaseSchema.safeParse(input);
     if (!parsed.success)
-      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+      return { success: false, error: parsed.error.errors.map((e: { message: string }) => e.message).join(", ") };
 
     const preview = await computeInvoicePreview(societyId, parsed.data.leaseId, parsed.data.periodMonth);
     if (!preview) return { success: false, error: "Bail actif introuvable" };
@@ -658,7 +672,7 @@ export async function previewBatchInvoices(
 
     const parsed = generateBatchInvoicesSchema.safeParse(input);
     if (!parsed.success)
-      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+      return { success: false, error: parsed.error.errors.map((e: { message: string }) => e.message).join(", ") };
 
     const leaseIds = parsed.data.leaseIds?.length
       ? parsed.data.leaseIds
@@ -695,7 +709,7 @@ export async function generateInvoiceFromLease(
     if (!parsed.success) {
       return {
         success: false,
-        error: parsed.error.errors.map((e) => e.message).join(", "),
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
       };
     }
 
@@ -882,7 +896,7 @@ export async function generateBatchInvoices(
     if (!parsed.success) {
       return {
         success: false,
-        error: parsed.error.errors.map((e) => e.message).join(", "),
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
       };
     }
 
@@ -1082,7 +1096,7 @@ export async function createCreditNote(
     if (!parsed.success) {
       return {
         success: false,
-        error: parsed.error.errors.map((e) => e.message).join(", "),
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
       };
     }
 

@@ -297,8 +297,9 @@ model Society {
   // Branding & documents
   logoUrl          String?
   legalMentions    String? @db.Text // Mentions légales personnalisées
-  invoicePrefix    String? // Préfixe numérotation (ex: "SCI1")
+  invoicePrefix     String? // Préfixe numérotation (ex: "SCI1")
   nextInvoiceNumber Int     @default(0)
+  invoiceNumberYear Int     @default(0) // Année du compteur — réinitialise nextInvoiceNumber chaque année
 
   // Configuration
   isActive Boolean @default(true)
