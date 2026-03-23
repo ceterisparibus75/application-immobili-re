@@ -297,7 +297,7 @@ model Society {
   logoUrl          String?
   legalMentions    String? @db.Text // Mentions légales personnalisées
   invoicePrefix    String? // Préfixe numérotation (ex: "SCI1")
-  nextInvoiceNumber Int     @default(1)
+  nextInvoiceNumber Int     @default(0)
 
   // Configuration
   isActive Boolean @default(true)
@@ -1106,11 +1106,16 @@ model Invoice {
   sentAt      DateTime?
   sentBy      String? // email
 
-  society  Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lease    Lease?   @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  lines    InvoiceLine[]
-  payments Payment[]
+  // Avoir — référence à la facture d'origine
+  creditNoteForId String?
+
+  society      Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease        Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  lines        InvoiceLine[]
+  payments     Payment[]
+  creditNoteFor Invoice?  @relation("CreditNoteFor", fields: [creditNoteForId], references: [id], onDelete: SetNull)
+  creditNotes   Invoice[] @relation("CreditNoteFor")
 
   @@unique([societyId, invoiceNumber])
   @@index([societyId])
@@ -1118,6 +1123,7 @@ model Invoice {
   @@index([tenantId])
   @@index([leaseId])
   @@index([dueDate])
+  @@index([creditNoteForId])
 }
 
 /// Ligne de facture

@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -84,18 +84,34 @@ export default async function FactureDetailPage({
           </Link>
           <div>
             <div className="flex items-center gap-3">
+              {invoice.society?.logoUrl && (
+                <img src={invoice.society.logoUrl} alt="Logo" className="h-10 object-contain" />
+              )}
               <h1 className="text-2xl font-bold tracking-tight">
                 {invoice.invoiceNumber}
               </h1>
               <Badge variant={STATUS_VARIANTS[invoice.status]}>
                 {STATUS_LABELS[invoice.status]}
               </Badge>
+              {invoice.invoiceType === "AVOIR" && (
+                <Badge variant="secondary">Avoir</Badge>
+              )}
             </div>
             <p className="text-muted-foreground">
               {TYPE_LABELS[invoice.invoiceType]} —{" "}
               {tenantName(invoice.tenant)}
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
+            <Link href={`/facturation/${invoice.id}/avoir`}>
+              <Button variant="outline" size="sm">
+                <ReceiptText className="h-4 w-4" />
+                Émettre un avoir
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -212,6 +228,24 @@ export default async function FactureDetailPage({
             </CardContent>
           </Card>
 
+          {/* Liens avoir */}
+          {invoice.creditNoteFor && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm flex items-center justify-between">
+              <span className="text-muted-foreground">Avoir de la facture</span>
+              <Link href={`/facturation/${invoice.creditNoteFor.id}`} className="font-medium hover:underline">
+                {invoice.creditNoteFor.invoiceNumber}
+              </Link>
+            </div>
+          )}
+          {invoice.creditNotes.length > 0 && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm flex items-center justify-between">
+              <span className="text-muted-foreground">Avoir émis</span>
+              <Link href={`/facturation/${invoice.creditNotes[0]!.id}`} className="font-medium hover:underline">
+                {invoice.creditNotes[0]!.invoiceNumber}
+              </Link>
+            </div>
+          )}
+
           {/* Paiements */}
           <Card>
             <CardHeader>
@@ -267,6 +301,31 @@ export default async function FactureDetailPage({
               )}
             </CardContent>
           </Card>
+          {/* Mentions légales */}
+          {invoice.society && (
+            <Card>
+              <CardContent className="pt-4 space-y-1 text-xs text-muted-foreground">
+                {invoice.society.name && (
+                  <p className="font-medium text-foreground">{invoice.society.name}</p>
+                )}
+                {invoice.society.addressLine1 && (
+                  <p>{invoice.society.addressLine1}{invoice.society.addressLine2 ? `, ${invoice.society.addressLine2}` : ""}</p>
+                )}
+                {invoice.society.postalCode && invoice.society.city && (
+                  <p>{invoice.society.postalCode} {invoice.society.city}</p>
+                )}
+                {invoice.society.siret && <p>SIRET : {invoice.society.siret}</p>}
+                {invoice.society.vatNumber && <p>N° TVA : {invoice.society.vatNumber}</p>}
+                {invoice.society.vatRegime === "FRANCHISE" && (
+                  <p className="font-medium text-foreground">TVA non applicable — art. 293 B du CGI</p>
+                )}
+                <p>En cas de retard de paiement, des pénalités de retard sont exigibles au taux de 3 fois le taux d&apos;intérêt légal, ainsi qu&apos;une indemnité forfaitaire de recouvrement de 40 € (art. D. 441-5 C. com.).</p>
+                {invoice.society.legalMentions && (
+                  <p className="whitespace-pre-wrap">{invoice.society.legalMentions}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Colonne latérale */}
@@ -282,6 +341,12 @@ export default async function FactureDetailPage({
             <CardContent className="space-y-2">
               <p className="text-sm font-medium">{tenantName(invoice.tenant)}</p>
               <p className="text-xs text-muted-foreground">{invoice.tenant.email}</p>
+              {invoice.tenant.phone && (
+                <p className="text-xs text-muted-foreground">{invoice.tenant.phone}</p>
+              )}
+              {invoice.tenant.mobile && (
+                <p className="text-xs text-muted-foreground">{invoice.tenant.mobile}</p>
+              )}
               <Link href={`/locataires/${invoice.tenant.id}`}>
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   Voir le locataire

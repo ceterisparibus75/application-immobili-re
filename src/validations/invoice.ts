@@ -56,7 +56,15 @@ export const generateBatchInvoicesSchema = z.object({
   leaseIds: z.array(z.string().cuid()).optional(), // si vide → tous les baux actifs
 });
 
+export const createCreditNoteSchema = z.object({
+  originalInvoiceId: z.string().cuid(),
+  issueDate: z.string().min(1, "La date d'émission est requise"),
+  dueDate: z.string().min(1, "La date d'échéance est requise"),
+  reason: z.string().optional().nullable(),
+});
+
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
 export type GenerateInvoiceFromLeaseInput = z.infer<typeof generateInvoiceFromLeaseSchema>;
 export type GenerateBatchInvoicesInput = z.infer<typeof generateBatchInvoicesSchema>;
+export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;

@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload } from "lucide-react";
 import Link from "next/link";
 
 const LEGAL_FORMS = [
@@ -35,6 +35,7 @@ export default function ModifierSocietePage() {
   const id = params.id as string;
 
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState<Record<string, string> | null>(null);
 
@@ -58,6 +59,7 @@ export default function ModifierSocietePage() {
         accountantFirm: s.accountantFirm ?? "",
         accountantEmail: s.accountantEmail ?? "",
         accountantPhone: s.accountantPhone ?? "",
+        logoUrl: s.logoUrl ?? "",
         invoicePrefix: s.invoicePrefix ?? "",
         legalMentions: s.legalMentions ?? "",
       });
@@ -66,6 +68,26 @@ export default function ModifierSocietePage() {
 
   function set(field: string, value: string) {
     setForm((prev) => prev ? { ...prev, [field]: value } : prev);
+  }
+
+  async function handleLogoUpload(file: File) {
+    setLogoUploading(true);
+    try {
+      const res = await fetch("/api/storage/signed-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+      if (!res.ok) throw new Error("Erreur lors de la signature");
+      const { signedUrl, storagePath } = (await res.json()) as { signedUrl: string; storagePath: string };
+      await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${storagePath}`;
+      set("logoUrl", publicUrl);
+    } catch {
+      setError("Erreur lors de l'upload du logo");
+    } finally {
+      setLogoUploading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -242,6 +264,28 @@ export default function ModifierSocietePage() {
             <CardTitle>Facturation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Logo */}
+            <div className="space-y-2">
+              <Label>Logo (affiché sur les factures)</Label>
+              {form.logoUrl && (
+                <img src={form.logoUrl} alt="Logo société" className="h-16 object-contain border rounded p-2 bg-white" />
+              )}
+              <label className="flex items-center gap-2 cursor-pointer w-fit">
+                <span className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors">
+                  {logoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {logoUploading ? "Envoi en cours..." : "Choisir un fichier"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleLogoUpload(file);
+                  }}
+                />
+              </label>
+            </div>
             <div className="space-y-2 max-w-xs">
               <Label htmlFor="invoicePrefix">Préfixe des factures</Label>
               <Input id="invoicePrefix" value={form.invoicePrefix} onChange={(e) => set("invoicePrefix", e.target.value)} maxLength={10} placeholder="FAC" />

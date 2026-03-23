@@ -42,6 +42,15 @@ type InvoiceLine = {
 
 // ── Constantes ────────────────────────────────────────────────────────────
 
+const VAT_RATES = [
+  { value: "0", label: "0 % (exonéré)" },
+  { value: "2.1", label: "2,1 %" },
+  { value: "5.5", label: "5,5 %" },
+  { value: "8.5", label: "8,5 % (DOM-TOM)" },
+  { value: "10", label: "10 %" },
+  { value: "20", label: "20 %" },
+];
+
 const INVOICE_TYPES = [
   { value: "APPEL_LOYER", label: "Appel de loyer" },
   { value: "QUITTANCE", label: "Quittance de loyer" },
@@ -487,16 +496,17 @@ export default function NouvelleFacturePage() {
                     </div>
                     <div className="col-span-2 space-y-1">
                       {index === 0 && <Label className="text-xs">TVA %</Label>}
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.1}
-                        value={line.vatRate}
+                      <select
+                        value={String(line.vatRate)}
                         onChange={(e) =>
-                          updateLine(index, "vatRate", parseFloat(e.target.value) || 0)
+                          updateLine(index, "vatRate", parseFloat(e.target.value))
                         }
-                      />
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {VAT_RATES.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="col-span-1">
                       {index === 0 && <div className="h-4" />}

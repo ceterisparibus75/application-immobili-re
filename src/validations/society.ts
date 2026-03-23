@@ -33,6 +33,7 @@ export const createSocietySchema = z.object({
   accountantEmail: z.string().email("Email invalide").optional().or(z.literal("")),
   accountantPhone: z.string().optional().or(z.literal("")),
   // Branding
+  logoUrl: z.string().optional().or(z.literal("")),
   invoicePrefix: z
     .string()
     .max(10, "Le préfixe ne peut pas dépasser 10 caractères")

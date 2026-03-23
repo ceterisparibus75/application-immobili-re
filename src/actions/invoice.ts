@@ -9,14 +9,16 @@ import {
   recordPaymentSchema,
   generateInvoiceFromLeaseSchema,
   generateBatchInvoicesSchema,
+  createCreditNoteSchema,
   type CreateInvoiceInput,
   type RecordPaymentInput,
   type GenerateInvoiceFromLeaseInput,
   type GenerateBatchInvoicesInput,
+  type CreateCreditNoteInput,
 } from "@/validations/invoice";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
-import type { PaymentFrequency, BillingTerm } from "@prisma/client";
+import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -36,26 +38,19 @@ function computeLines(
   });
 }
 
-async function getNextInvoiceNumber(societyId: string): Promise<string> {
-  const society = await prisma.society.findUnique({
+/** Numérotation atomique — incrémente le compteur dans la transaction. */
+async function getNextInvoiceNumber(
+  societyId: string,
+  tx: Prisma.TransactionClient
+): Promise<string> {
+  const society = await tx.society.update({
     where: { id: societyId },
-    select: { id: true },
+    data: { nextInvoiceNumber: { increment: 1 } },
+    select: { nextInvoiceNumber: true, invoicePrefix: true },
   });
-  if (!society) throw new Error("Société introuvable");
-
   const year = new Date().getFullYear();
-  const count = await prisma.invoice.count({
-    where: {
-      societyId,
-      issueDate: {
-        gte: new Date(`${year}-01-01`),
-        lt: new Date(`${year + 1}-01-01`),
-      },
-    },
-  });
-
-  const prefix = societyId.slice(0, 4).toUpperCase();
-  return `${prefix}-${year}-${String(count + 1).padStart(4, "0")}`;
+  const prefix = (society.invoicePrefix?.toUpperCase() || "FAC");
+  return `${prefix}-${year}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
 }
 
 export async function createInvoice(
@@ -86,31 +81,26 @@ export async function createInvoice(
     const totalVAT = computedLines.reduce((s, l) => s + l.totalVAT, 0);
     const totalTTC = totalHT + totalVAT;
 
-    const invoiceNumber = await getNextInvoiceNumber(societyId);
-
-    const invoice = await prisma.invoice.create({
-      data: {
-        societyId,
-        tenantId: parsed.data.tenantId,
-        leaseId: parsed.data.leaseId ?? null,
-        invoiceNumber,
-        invoiceType: parsed.data.invoiceType,
-        status: "EN_ATTENTE",
-        issueDate: new Date(parsed.data.issueDate),
-        dueDate: new Date(parsed.data.dueDate),
-        periodStart: parsed.data.periodStart
-          ? new Date(parsed.data.periodStart)
-          : null,
-        periodEnd: parsed.data.periodEnd
-          ? new Date(parsed.data.periodEnd)
-          : null,
-        totalHT,
-        totalVAT,
-        totalTTC,
-        lines: {
-          create: computedLines,
+    const invoice = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      return tx.invoice.create({
+        data: {
+          societyId,
+          tenantId: parsed.data.tenantId,
+          leaseId: parsed.data.leaseId ?? null,
+          invoiceNumber,
+          invoiceType: parsed.data.invoiceType,
+          status: "EN_ATTENTE",
+          issueDate: new Date(parsed.data.issueDate),
+          dueDate: new Date(parsed.data.dueDate),
+          periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
+          periodEnd: parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : null,
+          totalHT,
+          totalVAT,
+          totalTTC,
+          lines: { create: computedLines },
         },
-      },
+      });
     });
 
     await createAuditLog({
@@ -119,7 +109,7 @@ export async function createInvoice(
       action: "CREATE",
       entity: "Invoice",
       entityId: invoice.id,
-      details: { invoiceNumber, totalTTC, tenantId: parsed.data.tenantId },
+      details: { invoiceNumber: invoice.invoiceNumber, totalTTC, tenantId: parsed.data.tenantId },
     });
 
     revalidatePath("/facturation");
@@ -168,7 +158,6 @@ export async function recordPayment(
       },
     });
 
-    // Calculer le total payé et mettre à jour le statut
     const totalPaid =
       invoice.payments.reduce((s, p) => s + p.amount, 0) + parsed.data.amount;
     let newStatus: "EN_ATTENTE" | "PAYE" | "PARTIELLEMENT_PAYE" | "EN_RETARD" | "LITIGIEUX" =
@@ -238,6 +227,20 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
     where: { id: invoiceId, societyId },
     include: {
       tenant: true,
+      society: {
+        select: {
+          name: true,
+          siret: true,
+          vatNumber: true,
+          vatRegime: true,
+          logoUrl: true,
+          legalMentions: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          postalCode: true,
+        },
+      },
       lease: {
         select: {
           id: true,
@@ -251,6 +254,8 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
       },
       lines: true,
       payments: { orderBy: { paidAt: "desc" } },
+      creditNoteFor: { select: { id: true, invoiceNumber: true } },
+      creditNotes: { select: { id: true, invoiceNumber: true } },
     },
   });
 }
@@ -268,14 +273,14 @@ function computePeriodDates(
 
   switch (frequency) {
     case "TRIMESTRIEL": {
-      const q = Math.floor((m - 1) / 3); // trimestre 0-3
+      const q = Math.floor((m - 1) / 3);
       return {
         periodStart: new Date(y, q * 3, 1),
         periodEnd: new Date(y, q * 3 + 3, 0),
       };
     }
     case "SEMESTRIEL": {
-      const s = Math.floor((m - 1) / 6); // semestre 0-1
+      const s = Math.floor((m - 1) / 6);
       return {
         periodStart: new Date(y, s * 6, 1),
         periodEnd: new Date(y, s * 6 + 6, 0),
@@ -301,10 +306,8 @@ function computeIssueDueDate(
   billingTerm: BillingTerm
 ): { issueDate: Date; dueDate: Date } {
   if (billingTerm === "A_ECHOIR") {
-    // Terme à échoir : on émet et on paie au début de la période
     return { issueDate: periodStart, dueDate: periodStart };
   }
-  // Terme échu : on émet en fin de période, échéance le 1er du mois suivant
   const dueDate = new Date(periodEnd);
   dueDate.setDate(dueDate.getDate() + 1);
   return { issueDate: periodEnd, dueDate };
@@ -312,7 +315,6 @@ function computeIssueDueDate(
 
 /**
  * Calcule le loyer applicable pour une période donnée.
- * Prend en compte : franchise, loyer progressif, loyer courant.
  */
 function computeRentForPeriod(
   startDate: Date,
@@ -320,7 +322,6 @@ function computeRentForPeriod(
   progressiveRent: unknown,
   rentFreeMonths: number
 ): number {
-  // Calcul du nombre de mois depuis le début du bail
   const start = new Date(startDate);
   start.setDate(1);
   const now = new Date();
@@ -329,10 +330,8 @@ function computeRentForPeriod(
     (now.getFullYear() - start.getFullYear()) * 12 +
     (now.getMonth() - start.getMonth());
 
-  // Franchise de loyer
   if (monthsSinceStart < rentFreeMonths) return 0;
 
-  // Loyer progressif : [{months: 12, rentHT: 5000}, {months: 12, rentHT: 5500}, ...]
   const progressive = progressiveRent as
     | Array<{ months: number; rentHT: number }>
     | null;
@@ -376,6 +375,8 @@ export async function getActiveLeasesForInvoicing(societyId: string) {
           firstName: true,
           lastName: true,
           email: true,
+          phone: true,
+          mobile: true,
         },
       },
       lot: {
@@ -434,7 +435,7 @@ export async function getLeaseForInvoice(societyId: string, leaseId: string) {
 
 /**
  * Génère un appel de loyer pour un bail sur une période donnée.
- * Evite les doublons : si une facture APPEL_LOYER existe déjà pour ce bail+période, retourne une erreur.
+ * Inclut les provisions sur charges actives.
  */
 export async function generateInvoiceFromLease(
   societyId: string,
@@ -466,6 +467,10 @@ export async function generateInvoiceFromLease(
         vatRate: true,
         rentFreeMonths: true,
         progressiveRent: true,
+        chargeProvisions: {
+          where: { isActive: true },
+          select: { monthlyAmount: true },
+        },
         lot: {
           select: {
             number: true,
@@ -482,7 +487,6 @@ export async function generateInvoiceFromLease(
       lease.paymentFrequency
     );
 
-    // Anti-doublon : vérifier qu'une facture n'existe pas déjà pour ce bail et cette période
     const existing = await prisma.invoice.findFirst({
       where: {
         societyId,
@@ -507,17 +511,12 @@ export async function generateInvoiceFromLease(
     );
 
     const vatRate = lease.vatApplicable ? lease.vatRate : 0;
-    const totalHT = rentHT;
-    const totalVAT = totalHT * (vatRate / 100);
-    const totalTTC = totalHT + totalVAT;
 
     const { issueDate, dueDate } = computeIssueDueDate(
       periodStart,
       periodEnd,
       lease.billingTerm
     );
-
-    const invoiceNumber = await getNextInvoiceNumber(societyId);
 
     const lotLabel = lease.lot
       ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
@@ -528,35 +527,68 @@ export async function generateInvoiceFromLease(
       year: "numeric",
     });
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        societyId,
-        tenantId: lease.tenantId,
-        leaseId: lease.id,
-        invoiceNumber,
-        invoiceType: "APPEL_LOYER",
-        status: "EN_ATTENTE",
-        issueDate,
-        dueDate,
-        periodStart,
-        periodEnd,
-        totalHT,
-        totalVAT,
-        totalTTC,
-        lines: {
-          create: [
-            {
-              label: `Loyer ${lotLabel} — ${periodLabel}`,
-              quantity: 1,
-              unitPrice: rentHT,
-              vatRate,
-              totalHT,
-              totalVAT,
-              totalTTC,
-            },
-          ],
-        },
+    // Multiplicateur selon fréquence de paiement
+    const freqMultiplier: Record<string, number> = {
+      MENSUEL: 1,
+      TRIMESTRIEL: 3,
+      SEMESTRIEL: 6,
+      ANNUEL: 12,
+    };
+    const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
+
+    // Ligne de loyer
+    const rentVAT = rentHT * (vatRate / 100);
+    const invoiceLines = [
+      {
+        label: `Loyer ${lotLabel} — ${periodLabel}`,
+        quantity: 1,
+        unitPrice: rentHT,
+        vatRate,
+        totalHT: rentHT,
+        totalVAT: rentVAT,
+        totalTTC: rentHT + rentVAT,
       },
+    ];
+
+    // Lignes de provisions sur charges
+    for (const cp of lease.chargeProvisions) {
+      const ht = cp.monthlyAmount * mult;
+      const vat = ht * (vatRate / 100);
+      invoiceLines.push({
+        label: `Provision sur charges — ${periodLabel}`,
+        quantity: 1,
+        unitPrice: ht,
+        vatRate,
+        totalHT: ht,
+        totalVAT: vat,
+        totalTTC: ht + vat,
+      });
+    }
+
+    const totalHT = invoiceLines.reduce((s, l) => s + l.totalHT, 0);
+    const totalVAT = invoiceLines.reduce((s, l) => s + l.totalVAT, 0);
+    const totalTTC = totalHT + totalVAT;
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      return tx.invoice.create({
+        data: {
+          societyId,
+          tenantId: lease.tenantId,
+          leaseId: lease.id,
+          invoiceNumber,
+          invoiceType: "APPEL_LOYER",
+          status: "EN_ATTENTE",
+          issueDate,
+          dueDate,
+          periodStart,
+          periodEnd,
+          totalHT,
+          totalVAT,
+          totalTTC,
+          lines: { create: invoiceLines },
+        },
+      });
     });
 
     await createAuditLog({
@@ -566,7 +598,7 @@ export async function generateInvoiceFromLease(
       entity: "Invoice",
       entityId: invoice.id,
       details: {
-        invoiceNumber,
+        invoiceNumber: invoice.invoiceNumber,
         totalTTC,
         leaseId: lease.id,
         periodMonth: parsed.data.periodMonth,
@@ -577,7 +609,7 @@ export async function generateInvoiceFromLease(
     revalidatePath("/facturation");
     revalidatePath(`/baux/${lease.id}`);
 
-    return { success: true, data: { id: invoice.id, invoiceNumber } };
+    return { success: true, data: { id: invoice.id, invoiceNumber: invoice.invoiceNumber } };
   } catch (error) {
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
@@ -587,8 +619,7 @@ export async function generateInvoiceFromLease(
 }
 
 /**
- * Génère les appels de loyers en masse pour tous les baux actifs (ou une sélection).
- * Retourne un rapport : nb créés, nb ignorés (doublons), erreurs.
+ * Génère les appels de loyers en masse pour tous les baux actifs.
  */
 export async function generateBatchInvoices(
   societyId: string,
@@ -628,6 +659,10 @@ export async function generateBatchInvoices(
         vatRate: true,
         rentFreeMonths: true,
         progressiveRent: true,
+        chargeProvisions: {
+          where: { isActive: true },
+          select: { monthlyAmount: true },
+        },
         lot: {
           select: {
             number: true,
@@ -648,7 +683,6 @@ export async function generateBatchInvoices(
           lease.paymentFrequency
         );
 
-        // Anti-doublon
         const existing = await prisma.invoice.findFirst({
           where: {
             societyId,
@@ -671,17 +705,12 @@ export async function generateBatchInvoices(
         );
 
         const vatRate = lease.vatApplicable ? lease.vatRate : 0;
-        const totalHT = rentHT;
-        const totalVAT = totalHT * (vatRate / 100);
-        const totalTTC = totalHT + totalVAT;
 
         const { issueDate, dueDate } = computeIssueDueDate(
           periodStart,
           periodEnd,
           lease.billingTerm
         );
-
-        const invoiceNumber = await getNextInvoiceNumber(societyId);
 
         const lotLabel = lease.lot
           ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
@@ -692,35 +721,65 @@ export async function generateBatchInvoices(
           year: "numeric",
         });
 
-        await prisma.invoice.create({
-          data: {
-            societyId,
-            tenantId: lease.tenantId,
-            leaseId: lease.id,
-            invoiceNumber,
-            invoiceType: "APPEL_LOYER",
-            status: "EN_ATTENTE",
-            issueDate,
-            dueDate,
-            periodStart,
-            periodEnd,
-            totalHT,
-            totalVAT,
-            totalTTC,
-            lines: {
-              create: [
-                {
-                  label: `Loyer ${lotLabel} — ${periodLabel}`,
-                  quantity: 1,
-                  unitPrice: rentHT,
-                  vatRate,
-                  totalHT,
-                  totalVAT,
-                  totalTTC,
-                },
-              ],
-            },
+        const freqMultiplier: Record<string, number> = {
+          MENSUEL: 1,
+          TRIMESTRIEL: 3,
+          SEMESTRIEL: 6,
+          ANNUEL: 12,
+        };
+        const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
+
+        const rentVAT = rentHT * (vatRate / 100);
+        const invoiceLines = [
+          {
+            label: `Loyer ${lotLabel} — ${periodLabel}`,
+            quantity: 1,
+            unitPrice: rentHT,
+            vatRate,
+            totalHT: rentHT,
+            totalVAT: rentVAT,
+            totalTTC: rentHT + rentVAT,
           },
+        ];
+
+        for (const cp of lease.chargeProvisions) {
+          const ht = cp.monthlyAmount * mult;
+          const vat = ht * (vatRate / 100);
+          invoiceLines.push({
+            label: `Provision sur charges — ${periodLabel}`,
+            quantity: 1,
+            unitPrice: ht,
+            vatRate,
+            totalHT: ht,
+            totalVAT: vat,
+            totalTTC: ht + vat,
+          });
+        }
+
+        const totalHT = invoiceLines.reduce((s, l) => s + l.totalHT, 0);
+        const totalVAT = invoiceLines.reduce((s, l) => s + l.totalVAT, 0);
+        const totalTTC = totalHT + totalVAT;
+
+        await prisma.$transaction(async (tx) => {
+          const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+          await tx.invoice.create({
+            data: {
+              societyId,
+              tenantId: lease.tenantId,
+              leaseId: lease.id,
+              invoiceNumber,
+              invoiceType: "APPEL_LOYER",
+              status: "EN_ATTENTE",
+              issueDate,
+              dueDate,
+              periodStart,
+              periodEnd,
+              totalHT,
+              totalVAT,
+              totalTTC,
+              lines: { create: invoiceLines },
+            },
+          });
         });
 
         created++;
@@ -753,5 +812,105 @@ export async function generateBatchInvoices(
       return { success: false, error: error.message };
     console.error("[generateBatchInvoices]", error);
     return { success: false, error: "Erreur lors de la génération en masse" };
+  }
+}
+
+// ============================================================
+// AVOIR
+// ============================================================
+
+/**
+ * Émet un avoir annulant intégralement une facture d'origine.
+ */
+export async function createCreditNote(
+  societyId: string,
+  input: CreateCreditNoteInput
+): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = createCreditNoteSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const original = await prisma.invoice.findFirst({
+      where: { id: parsed.data.originalInvoiceId, societyId },
+      include: { lines: true },
+    });
+    if (!original) return { success: false, error: "Facture originale introuvable" };
+    if (original.invoiceType === "AVOIR")
+      return { success: false, error: "Impossible d'émettre un avoir sur un avoir" };
+
+    const existingCreditNote = await prisma.invoice.findFirst({
+      where: { creditNoteForId: original.id },
+    });
+    if (existingCreditNote) {
+      return {
+        success: false,
+        error: `Un avoir existe déjà pour cette facture (${existingCreditNote.invoiceNumber})`,
+      };
+    }
+
+    const creditNoteLines = original.lines.map((l) => ({
+      label: l.label,
+      quantity: l.quantity,
+      unitPrice: -l.unitPrice,
+      vatRate: l.vatRate,
+      totalHT: -l.totalHT,
+      totalVAT: -l.totalVAT,
+      totalTTC: -l.totalTTC,
+    }));
+
+    const creditNote = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      return tx.invoice.create({
+        data: {
+          societyId,
+          tenantId: original.tenantId,
+          leaseId: original.leaseId,
+          creditNoteForId: original.id,
+          invoiceNumber,
+          invoiceType: "AVOIR",
+          status: "EN_ATTENTE",
+          issueDate: new Date(parsed.data.issueDate),
+          dueDate: new Date(parsed.data.dueDate),
+          periodStart: original.periodStart,
+          periodEnd: original.periodEnd,
+          totalHT: -original.totalHT,
+          totalVAT: -original.totalVAT,
+          totalTTC: -original.totalTTC,
+          lines: { create: creditNoteLines },
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: creditNote.id,
+      details: {
+        invoiceNumber: creditNote.invoiceNumber,
+        creditNoteFor: original.invoiceNumber,
+        reason: parsed.data.reason,
+      },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${original.id}`);
+
+    return { success: true, data: { id: creditNote.id, invoiceNumber: creditNote.invoiceNumber } };
+  } catch (error) {
+    if (error instanceof ForbiddenError)
+      return { success: false, error: error.message };
+    console.error("[createCreditNote]", error);
+    return { success: false, error: "Erreur lors de l'émission de l'avoir" };
   }
 }
