@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/she
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Printer, X, Zap } from "lucide-react";
 import type { InvoicePreview } from "@/actions/invoice";
+import { getLogoProxyUrl } from "@/lib/utils";
 
 function fmt(v: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
@@ -82,7 +83,7 @@ export function InvoicePreviewSheet({
               <div className="flex-1 space-y-0.5 text-xs">
                 {s?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.logoUrl} alt="Logo" className="h-12 object-contain mb-2" />
+                  <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-12 object-contain mb-2" />
                 ) : null}
                 <p className="font-bold text-sm">{s?.name ?? "—"}</p>
                 {s?.addressLine1 && (
