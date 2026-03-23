@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, CheckCircle2, Loader2, Save, Upload } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getLogoProxyUrl } from "@/lib/utils";
 
 const LEGAL_FORMS = [
   { value: "SCI", label: "SCI" },
@@ -83,9 +84,11 @@ export default function ModifierSocietePage() {
         body: JSON.stringify({ filename: file.name, contentType: file.type }),
       });
       if (!res.ok) throw new Error("Erreur lors de la signature");
-      const { signedUrl, viewUrl } = (await res.json()) as { signedUrl: string; storagePath: string; viewUrl: string | null };
+      const { signedUrl, storagePath, viewUrl } = (await res.json()) as { signedUrl: string; storagePath: string; viewUrl: string | null };
       await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      const logoUrl = viewUrl ?? signedUrl;
+      // Stocker le chemin de stockage (pas l'URL signée) pour pouvoir régénérer des URLs fraîches
+      const logoUrl = storagePath;
+      void viewUrl; // non utilisé
       // Sauvegarde immédiate du logo (sans attendre la soumission du formulaire)
       const result = await updateSociety({ id, logoUrl });
       if (result.success) {
@@ -284,7 +287,7 @@ export default function ModifierSocietePage() {
             <div className="space-y-2">
               <Label>Logo (affiché sur les factures)</Label>
               {form.logoUrl && (
-                <img src={form.logoUrl} alt="Logo société" className="h-16 object-contain border rounded p-2 bg-white" />
+                <img src={getLogoProxyUrl(form.logoUrl) ?? ""} alt="Logo société" className="h-16 object-contain border rounded p-2 bg-white" />
               )}
               <label className="flex items-center gap-2 cursor-pointer w-fit">
                 <span className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors">

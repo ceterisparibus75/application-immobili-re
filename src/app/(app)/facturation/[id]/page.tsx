@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
+import { getLogoProxyUrl } from "@/lib/utils";
 import PaymentForm from "./_components/payment-form";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -85,7 +86,7 @@ export default async function FactureDetailPage({
           <div>
             <div className="flex items-center gap-3">
               {invoice.society?.logoUrl && (
-                <img src={invoice.society.logoUrl} alt="Logo" className="h-10 object-contain" />
+                <img src={getLogoProxyUrl(invoice.society.logoUrl) ?? ""} alt="Logo" className="h-10 object-contain" />
               )}
               <h1 className="text-2xl font-bold tracking-tight">
                 {invoice.invoiceNumber}

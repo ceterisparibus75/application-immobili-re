@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getLogoProxyUrl } from "@/lib/utils";
 import { decrypt } from "@/lib/encryption";
 import type { TenantEntityType, LegalForm } from "@prisma/client";
 
@@ -134,7 +134,7 @@ export default async function FactureApercuPage({
           <div className="flex-1 space-y-1 text-sm">
             {s?.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={s.logoUrl} alt="Logo" className="h-20 object-contain mb-3" />
+              <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-20 object-contain mb-3" />
             )}
             <p className="font-bold text-base">{s?.name ?? "—"}</p>
             {s?.addressLine1 && <p>{s.addressLine1}, {[s.postalCode, s.city, s.country].filter(Boolean).join(" ")}</p>}

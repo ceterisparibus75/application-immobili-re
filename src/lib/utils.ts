@@ -38,3 +38,23 @@ export function formatDateTime(date: Date | string): string {
     minute: "2-digit",
   }).format(new Date(date));
 }
+
+/**
+ * Convertit une logoUrl (chemin de stockage ou URL Supabase complète)
+ * en URL proxy qui génère une URL signée fraîche à chaque affichage.
+ * Gère les cas : chemin seul, URL signée Supabase, URL publique Supabase.
+ */
+export function getLogoProxyUrl(logoUrl: string | null | undefined): string | null {
+  if (!logoUrl) return null;
+  // Déjà un chemin de stockage (pas une URL complète)
+  if (!logoUrl.startsWith("http")) {
+    return `/api/storage/view?path=${encodeURIComponent(logoUrl)}`;
+  }
+  // Extraire le chemin depuis une URL Supabase (signed, upload/sign, ou public)
+  const match = logoUrl.match(/\/storage\/v1\/object\/(?:upload\/sign\/|sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/);
+  if (match) {
+    return `/api/storage/view?path=${encodeURIComponent(match[1])}`;
+  }
+  // URL externe non-Supabase : utiliser telle quelle
+  return logoUrl;
+}
