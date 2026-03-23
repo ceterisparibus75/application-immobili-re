@@ -30,44 +30,48 @@ export default async function PortalDocumentsPage() {
     redirect("/portal/login");
   }
 
-  const [leases, gedDocuments] = await Promise.all([
-    prisma.lease.findMany({
-      where: { tenantId: session.tenantId },
-      select: {
-        id: true,
-        leaseType: true,
-        status: true,
-        startDate: true,
-        leaseFileUrl: true,
-        lot: {
-          select: {
-            number: true,
-            building: { select: { name: true, city: true } },
-          },
+  // 1. D'abord les baux du locataire (source de vérité)
+  const leases = await prisma.lease.findMany({
+    where: { tenantId: session.tenantId },
+    select: {
+      id: true,
+      leaseType: true,
+      status: true,
+      startDate: true,
+      leaseFileUrl: true,
+      lot: {
+        select: {
+          number: true,
+          building: { select: { name: true, city: true } },
         },
       },
-      orderBy: { startDate: "desc" },
-    }),
-    // Documents uploadés via la GED liés au locataire ou à ses baux
-    prisma.document.findMany({
-      where: {
-        OR: [
-          { tenantId: session.tenantId },
-          { lease: { tenantId: session.tenantId } },
-        ],
-      },
-      select: {
-        id: true,
-        fileName: true,
-        fileUrl: true,
-        category: true,
-        description: true,
-        createdAt: true,
-        leaseId: true,
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+    },
+    orderBy: { startDate: "desc" },
+  });
+
+  // 2. Liste des IDs de baux vérifiés (appartiennent à ce locataire)
+  const ownLeaseIds = leases.map((l) => l.id);
+
+  // 3. Documents GED — uniquement ceux liés à CE locataire ou à SES baux
+  //    (jamais aux baux d'autres locataires du même immeuble)
+  const gedDocuments = await prisma.document.findMany({
+    where: {
+      OR: [
+        { tenantId: session.tenantId },
+        ...(ownLeaseIds.length > 0 ? [{ leaseId: { in: ownLeaseIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      fileName: true,
+      fileUrl: true,
+      category: true,
+      description: true,
+      createdAt: true,
+      leaseId: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   const invoices = await prisma.invoice.findMany({
     where: { tenantId: session.tenantId },
