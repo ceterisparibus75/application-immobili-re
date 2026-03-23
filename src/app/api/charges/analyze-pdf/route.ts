@@ -90,24 +90,8 @@ export async function POST(req: NextRequest) {
       pdfBuffer = Buffer.from(await file.arrayBuffer());
     }
 
-    // Lazy require pour capturer tout crash d'initialisation dans le try-catch
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
-    let pdfText = "";
-    try {
-      const pdfData = await pdfParse(pdfBuffer);
-      pdfText = pdfData.text.slice(0, 80000);
-    } catch (parseErr) {
-      console.error("[charges/analyze-pdf] pdf-parse error:", parseErr);
-      return NextResponse.json({ error: "Impossible de lire le PDF — fichier protégé ou corrompu" }, { status: 422 });
-    }
-
-    if (!pdfText.trim()) {
-      return NextResponse.json(
-        { error: "Impossible d'extraire le texte du PDF (document scanné sans OCR)" },
-        { status: 422 }
-      );
-    }
+    // Envoi direct du PDF à Claude (API document native — pas de pdf-parse)
+    const pdfBase64 = pdfBuffer.toString("base64");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -115,7 +99,20 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `${ANALYSIS_PROMPT}\n\n---\nCONTENU DU DOCUMENT :\n\n${pdfText}`,
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdfBase64,
+              },
+            },
+            {
+              type: "text",
+              text: ANALYSIS_PROMPT,
+            },
+          ],
         },
       ],
     });
@@ -146,7 +143,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: parsed });
   } catch (error) {
-    console.error("[charges/analyze-pdf]", error);
-    return NextResponse.json({ error: "Erreur lors de l'analyse du document" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[charges/analyze-pdf]", msg, error);
+    return NextResponse.json({ error: `Erreur interne : ${msg}` }, { status: 500 });
   }
 }

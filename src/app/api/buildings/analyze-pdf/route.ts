@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       pdfBuffer = Buffer.from(await blob.arrayBuffer());
       tempStoragePath = storagePath;
     } else {
-      // Upload direct (petits fichiers)
+      // Upload direct (petits fichiers ≤ 4 Mo)
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
 
@@ -105,21 +105,8 @@ export async function POST(req: NextRequest) {
       pdfBuffer = Buffer.from(await file.arrayBuffer());
     }
 
-    // Extraction du texte du PDF (lazy require pour capturer tout crash d'init)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
-    let pdfText = "";
-    try {
-      const pdfData = await pdfParse(pdfBuffer);
-      pdfText = pdfData.text.slice(0, 80000);
-    } catch (parseErr) {
-      console.error("[analyze-pdf] pdf-parse error:", parseErr);
-      return NextResponse.json({ error: "Impossible de lire le PDF — le fichier est peut-être protégé ou corrompu" }, { status: 422 });
-    }
-
-    if (!pdfText.trim()) {
-      return NextResponse.json({ error: "Impossible d'extraire le texte du PDF (document scanné sans OCR)" }, { status: 422 });
-    }
+    // Envoi direct du PDF à Claude (API document nativ — pas de pdf-parse)
+    const pdfBase64 = pdfBuffer.toString("base64");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -127,7 +114,20 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `${ANALYSIS_PROMPT}\n\n---\nCONTENU DU DOCUMENT :\n\n${pdfText}`,
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: pdfBase64,
+              },
+            },
+            {
+              type: "text",
+              text: ANALYSIS_PROMPT,
+            },
+          ],
         },
       ],
     });
@@ -140,7 +140,6 @@ export async function POST(req: NextRequest) {
       parsed = JSON.parse(rawText);
     } catch {
       try {
-        // jsonrepair corrige les caractères non échappés, virgules manquantes, etc.
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         const candidate = jsonMatch ? jsonMatch[0] : rawText;
         parsed = JSON.parse(jsonrepair(candidate));
@@ -155,7 +154,6 @@ export async function POST(req: NextRequest) {
       lots: Array<{ id: string; number: string; buildingName: string; matchReason: string }>;
     } = { buildings: [], lots: [] };
 
-    // 1. Chercher les immeubles existants similaires (par adresse ou nom)
     if (parsed.addressLine1 || parsed.name) {
       const existingBuildings = await prisma.building.findMany({
         where: {
@@ -193,7 +191,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Chercher les lots existants similaires
     const extractedLots = parsed.lots as Array<{ number?: string }> | undefined;
     if (extractedLots?.length) {
       const lotNumbers = extractedLots.map((l) => l.number).filter(Boolean) as string[];
