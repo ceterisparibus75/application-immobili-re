@@ -204,7 +204,7 @@ export default async function FactureApercuPage({
             {invoice.lines.map((line, i) => (
               <tr key={line.id} className={i % 2 === 0 ? "" : "bg-gray-50/40"}>
                 <td className="px-3 py-2 border-b border-gray-100">
-                  <p>{line.label.split(" — ")[0]}</p>
+                  <p>{line.label}</p>
                   {lot && <p className="text-gray-500 text-xs">{lot.number}</p>}
                 </td>
                 <td className="px-3 py-2 text-right border-b border-gray-100 tabular-nums">

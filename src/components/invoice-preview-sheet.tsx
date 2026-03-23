@@ -138,7 +138,10 @@ export function InvoicePreviewSheet({
               <tbody>
                 {preview.lines.map((line, i) => (
                   <tr key={i} className={i % 2 === 1 ? "bg-gray-50/40" : ""}>
-                    <td className="px-2 py-1.5 border-b border-gray-100">{line.label.split(" — ")[0]}</td>
+                    <td className="px-2 py-1.5 border-b border-gray-100">
+                      <p>{line.label}</p>
+                      {preview.lotNumber && <p className="text-gray-400">{preview.lotNumber}</p>}
+                    </td>
                     <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">{fmt(line.totalHT)}</td>
                     <td className="px-2 py-1.5 text-right border-b border-gray-100 text-gray-500">
                       {line.vatRate.toFixed(2).replace(".", ",")} %

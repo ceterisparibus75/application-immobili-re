@@ -497,6 +497,7 @@ export type InvoicePreview = {
   tenantEmail: string | null;
   tenantPhone: string | null;
   lotLabel: string;
+  lotNumber: string;
   periodLabel: string;
   issueDate: string;
   dueDate: string;
@@ -542,7 +543,10 @@ async function computeInvoicePreview(
         },
       },
       lot: {
-        select: { number: true, building: { select: { name: true } } },
+        select: {
+          number: true,
+          building: { select: { name: true, addressLine1: true, postalCode: true, city: true, country: true } },
+        },
       },
     },
   });
@@ -577,8 +581,9 @@ async function computeInvoicePreview(
   const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
 
   const lotLabel = lease.lot
-    ? `${lease.lot.building.name} – Lot ${lease.lot.number}`
+    ? `${lease.lot.number} — ${[lease.lot.building.addressLine1, lease.lot.building.postalCode, lease.lot.building.city].filter(Boolean).join(" ")}`
     : "Lot non précisé";
+  const lotNumber = lease.lot?.number ?? "";
   const periodLabel = periodStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   const tenantName =
     lease.tenant.entityType === "PERSONNE_MORALE"
@@ -588,7 +593,7 @@ async function computeInvoicePreview(
   const rentVAT = rentHT * (vatRate / 100);
   const lines: InvoicePreviewLine[] = [
     {
-      label: `Loyer ${lotLabel} — ${periodLabel}`,
+      label: `Loyer`,
       quantity: 1,
       unitPrice: rentHT,
       vatRate,
@@ -602,7 +607,7 @@ async function computeInvoicePreview(
     const cpVatRate = cp.vatRate;
     const vat = ht * (cpVatRate / 100);
     lines.push({
-      label: `${cp.label} — ${periodLabel}`,
+      label: cp.label,
       quantity: 1,
       unitPrice: ht,
       vatRate: cpVatRate,
@@ -638,6 +643,7 @@ async function computeInvoicePreview(
     tenantEmail: lease.tenant.billingEmail || lease.tenant.email || null,
     tenantPhone: lease.tenant.phone ?? null,
     lotLabel,
+    lotNumber,
     periodLabel,
     issueDate: issueDate.toISOString(),
     dueDate: dueDate.toISOString(),
