@@ -5,8 +5,6 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 
 export const maxDuration = 60;
 
@@ -92,12 +90,21 @@ export async function POST(req: NextRequest) {
       pdfBuffer = Buffer.from(await file.arrayBuffer());
     }
 
-    const pdfData = await pdfParse(pdfBuffer);
-    const pdfText = pdfData.text.slice(0, 80000);
+    // Lazy require pour capturer tout crash d'initialisation dans le try-catch
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
+    let pdfText = "";
+    try {
+      const pdfData = await pdfParse(pdfBuffer);
+      pdfText = pdfData.text.slice(0, 80000);
+    } catch (parseErr) {
+      console.error("[charges/analyze-pdf] pdf-parse error:", parseErr);
+      return NextResponse.json({ error: "Impossible de lire le PDF — fichier protégé ou corrompu" }, { status: 422 });
+    }
 
     if (!pdfText.trim()) {
       return NextResponse.json(
-        { error: "Impossible d'extraire le texte du PDF (document peut-être scanné)" },
+        { error: "Impossible d'extraire le texte du PDF (document scanné sans OCR)" },
         { status: 422 }
       );
     }

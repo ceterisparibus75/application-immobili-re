@@ -6,8 +6,6 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 
 export const maxDuration = 60;
 
@@ -107,7 +105,9 @@ export async function POST(req: NextRequest) {
       pdfBuffer = Buffer.from(await file.arrayBuffer());
     }
 
-    // Extraction du texte du PDF (beaucoup plus rapide que l'envoi base64)
+    // Extraction du texte du PDF (lazy require pour capturer tout crash d'init)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
     let pdfText = "";
     try {
       const pdfData = await pdfParse(pdfBuffer);
