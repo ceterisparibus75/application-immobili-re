@@ -302,6 +302,7 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           id: true,
           label: true,
           monthlyAmount: true,
+          vatRate: true,
           startDate: true,
           endDate: true,
           isActive: true,

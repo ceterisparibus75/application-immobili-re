@@ -1025,6 +1025,7 @@ model ChargeProvision {
 
   label         String  @default("Provision sur charges")
   monthlyAmount Float   // Provision mensuelle
+  vatRate       Float   @default(20) // Taux de TVA applicable (0, 2.1, 5.5, 8.5, 10, 20)
   startDate     DateTime
   endDate       DateTime?
   isActive      Boolean @default(true)

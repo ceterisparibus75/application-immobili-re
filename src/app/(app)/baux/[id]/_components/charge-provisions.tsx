@@ -22,10 +22,20 @@ import Link from "next/link";
 import { PROVISION_LABELS } from "@/validations/chargeProvision";
 import { formatCurrency } from "@/lib/utils";
 
+const VAT_RATES = [
+  { value: "0", label: "0 % (exonéré)" },
+  { value: "2.1", label: "2,1 %" },
+  { value: "5.5", label: "5,5 %" },
+  { value: "8.5", label: "8,5 % (DOM-TOM)" },
+  { value: "10", label: "10 %" },
+  { value: "20", label: "20 %" },
+];
+
 type Provision = {
   id: string;
   label: string;
   monthlyAmount: number;
+  vatRate: number;
   startDate: Date;
   endDate: Date | null;
   isActive: boolean;
@@ -42,6 +52,7 @@ type Props = {
 type FormState = {
   label: string;
   monthlyAmount: string;
+  vatRate: string;
   startDate: string;
   endDate: string;
 };
@@ -49,6 +60,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   label: "Provision sur charges",
   monthlyAmount: "",
+  vatRate: "20",
   startDate: new Date().toISOString().split("T")[0]!,
   endDate: "",
 };
@@ -79,6 +91,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
     setForm({
       label: p.label,
       monthlyAmount: String(p.monthlyAmount),
+      vatRate: String(p.vatRate),
       startDate: toDateString(p.startDate),
       endDate: p.endDate ? toDateString(p.endDate) : "",
     });
@@ -97,6 +110,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
           id: editingId,
           label: form.label,
           monthlyAmount: parseFloat(form.monthlyAmount),
+          vatRate: parseFloat(form.vatRate),
           startDate: form.startDate,
           endDate: form.endDate || null,
         });
@@ -106,6 +120,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
           lotId,
           label: form.label,
           monthlyAmount: parseFloat(form.monthlyAmount),
+          vatRate: parseFloat(form.vatRate),
           startDate: form.startDate,
           endDate: form.endDate || null,
         });
@@ -170,9 +185,12 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
                 </p>
               </div>
               <div className="flex items-center gap-3 ml-4 shrink-0">
-                <span className="text-sm font-semibold tabular-nums">
-                  {formatCurrency(p.monthlyAmount)}<span className="text-xs text-muted-foreground font-normal"> / mois</span>
-                </span>
+                <div className="text-right">
+                  <span className="text-sm font-semibold tabular-nums">
+                    {formatCurrency(p.monthlyAmount)}<span className="text-xs text-muted-foreground font-normal"> / mois</span>
+                  </span>
+                  <p className="text-xs text-muted-foreground">TVA {p.vatRate} %</p>
+                </div>
                 {isActive && (
                   <div className="flex items-center gap-1">
                     <Button
@@ -250,21 +268,36 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="monthlyAmount">Montant mensuel HT (€) *</Label>
-              <Input
-                id="monthlyAmount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={form.monthlyAmount}
-                onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
-                placeholder="Ex: 150.00"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Pour une taxe foncière annuelle, divisez par 12 pour obtenir le montant mensuel.
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="monthlyAmount">Montant mensuel HT (€) *</Label>
+                <Input
+                  id="monthlyAmount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={form.monthlyAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
+                  placeholder="Ex: 150.00"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Pour une taxe annuelle, divisez par 12.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vatRate">Taux de TVA *</Label>
+                <select
+                  id="vatRate"
+                  value={form.vatRate}
+                  onChange={(e) => setForm((f) => ({ ...f, vatRate: e.target.value }))}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {VAT_RATES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -12,9 +12,8 @@ export const createChargeProvisionSchema = z.object({
   leaseId: z.string().cuid(),
   lotId: z.string().cuid(),
   label: z.string().min(1, "Le libellé est requis").max(100),
-  monthlyAmount: z.coerce
-    .number()
-    .min(0.01, "Le montant doit être supérieur à 0"),
+  monthlyAmount: z.coerce.number().min(0.01, "Le montant doit être supérieur à 0"),
+  vatRate: z.coerce.number().min(0).max(100).default(20),
   startDate: z.string().min(1, "La date de début est requise"),
   endDate: z.string().optional().nullable(),
 });

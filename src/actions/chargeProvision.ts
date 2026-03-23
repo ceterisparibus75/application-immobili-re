@@ -38,6 +38,7 @@ export async function createChargeProvision(
         lotId: parsed.data.lotId,
         label: parsed.data.label,
         monthlyAmount: parsed.data.monthlyAmount,
+        vatRate: parsed.data.vatRate,
         startDate: new Date(parsed.data.startDate),
         endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
         isActive: true,
@@ -88,6 +89,7 @@ export async function updateChargeProvision(
       data: {
         label: parsed.data.label,
         monthlyAmount: parsed.data.monthlyAmount,
+        vatRate: parsed.data.vatRate,
         startDate: new Date(parsed.data.startDate),
         endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
         isActive: parsed.data.isActive ?? true,

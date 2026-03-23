@@ -480,7 +480,7 @@ async function computeInvoicePreview(
       vatRate: true,
       rentFreeMonths: true,
       progressiveRent: true,
-      chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
+      chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true, vatRate: true, label: true } },
       tenant: {
         select: {
           entityType: true,
@@ -531,12 +531,13 @@ async function computeInvoicePreview(
   ];
   for (const cp of lease.chargeProvisions) {
     const ht = cp.monthlyAmount * mult;
-    const vat = ht * (vatRate / 100);
+    const cpVatRate = cp.vatRate;
+    const vat = ht * (cpVatRate / 100);
     lines.push({
-      label: `Provision sur charges — ${periodLabel}`,
+      label: `${cp.label} — ${periodLabel}`,
       quantity: 1,
       unitPrice: ht,
-      vatRate,
+      vatRate: cpVatRate,
       totalHT: ht,
       totalVAT: vat,
       totalTTC: ht + vat,
@@ -663,7 +664,7 @@ export async function generateInvoiceFromLease(
         progressiveRent: true,
         chargeProvisions: {
           where: { isActive: true },
-          select: { monthlyAmount: true },
+          select: { monthlyAmount: true, vatRate: true, label: true },
         },
         lot: {
           select: {
@@ -744,15 +745,16 @@ export async function generateInvoiceFromLease(
       },
     ];
 
-    // Lignes de provisions sur charges
+    // Lignes de provisions sur charges (chaque provision a son propre taux de TVA)
     for (const cp of lease.chargeProvisions) {
       const ht = cp.monthlyAmount * mult;
-      const vat = ht * (vatRate / 100);
+      const cpVatRate = cp.vatRate;
+      const vat = ht * (cpVatRate / 100);
       invoiceLines.push({
-        label: `Provision sur charges — ${periodLabel}`,
+        label: `${cp.label} — ${periodLabel}`,
         quantity: 1,
         unitPrice: ht,
-        vatRate,
+        vatRate: cpVatRate,
         totalHT: ht,
         totalVAT: vat,
         totalTTC: ht + vat,
@@ -855,7 +857,7 @@ export async function generateBatchInvoices(
         progressiveRent: true,
         chargeProvisions: {
           where: { isActive: true },
-          select: { monthlyAmount: true },
+          select: { monthlyAmount: true, vatRate: true, label: true },
         },
         lot: {
           select: {
@@ -938,12 +940,13 @@ export async function generateBatchInvoices(
 
         for (const cp of lease.chargeProvisions) {
           const ht = cp.monthlyAmount * mult;
-          const vat = ht * (vatRate / 100);
+          const cpVatRate = cp.vatRate;
+          const vat = ht * (cpVatRate / 100);
           invoiceLines.push({
-            label: `Provision sur charges — ${periodLabel}`,
+            label: `${cp.label} — ${periodLabel}`,
             quantity: 1,
             unitPrice: ht,
-            vatRate,
+            vatRate: cpVatRate,
             totalHT: ht,
             totalVAT: vat,
             totalTTC: ht + vat,

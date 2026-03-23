@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User, ReceiptText } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -104,6 +104,12 @@ export default async function FactureDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={`/facturation/${invoice.id}/apercu`}>
+            <Button variant="outline" size="sm">
+              <Eye className="h-4 w-4" />
+              Aperçu / Imprimer
+            </Button>
+          </Link>
           {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
             <Link href={`/facturation/${invoice.id}/avoir`}>
               <Button variant="outline" size="sm">
