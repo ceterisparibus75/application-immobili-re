@@ -13,6 +13,7 @@ export default auth((req) => {
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/admin/migrate") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname === "/"
