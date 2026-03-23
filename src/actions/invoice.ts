@@ -447,9 +447,25 @@ export type InvoicePreviewLine = {
   totalTTC: number;
 };
 
+export type InvoicePreviewSociety = {
+  name: string;
+  logoUrl: string | null;
+  siret: string | null;
+  vatNumber: string | null;
+  vatRegime: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  postalCode: string | null;
+  city: string | null;
+  legalMentions: string | null;
+};
+
 export type InvoicePreview = {
   leaseId: string;
   tenantName: string;
+  tenantAddress: string | null;
+  tenantEmail: string | null;
+  tenantPhone: string | null;
   lotLabel: string;
   periodLabel: string;
   issueDate: string;
@@ -459,6 +475,7 @@ export type InvoicePreview = {
   totalVAT: number;
   totalTTC: number;
   alreadyExists: boolean;
+  society: InvoicePreviewSociety | null;
 };
 
 /** Calcule les lignes d'une facture sans la créer. */
@@ -487,6 +504,10 @@ async function computeInvoicePreview(
           companyName: true,
           firstName: true,
           lastName: true,
+          personalAddress: true,
+          companyAddress: true,
+          email: true,
+          phone: true,
         },
       },
       lot: {
@@ -495,6 +516,22 @@ async function computeInvoicePreview(
     },
   });
   if (!lease) return null;
+
+  const society = await prisma.society.findUnique({
+    where: { id: societyId },
+    select: {
+      name: true,
+      logoUrl: true,
+      siret: true,
+      vatNumber: true,
+      vatRegime: true,
+      addressLine1: true,
+      addressLine2: true,
+      postalCode: true,
+      city: true,
+      legalMentions: true,
+    },
+  });
 
   const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
@@ -558,9 +595,17 @@ async function computeInvoicePreview(
     },
   });
 
+  const tenantAddress =
+    lease.tenant.entityType === "PERSONNE_MORALE"
+      ? (lease.tenant.companyAddress ?? null)
+      : (lease.tenant.personalAddress ?? null);
+
   return {
     leaseId: lease.id,
     tenantName,
+    tenantAddress,
+    tenantEmail: lease.tenant.email ?? null,
+    tenantPhone: lease.tenant.phone ?? null,
     lotLabel,
     periodLabel,
     issueDate: issueDate.toISOString(),
@@ -570,6 +615,7 @@ async function computeInvoicePreview(
     totalVAT,
     totalTTC: totalHT + totalVAT,
     alreadyExists: !!existing,
+    society: society ?? null,
   };
 }
 

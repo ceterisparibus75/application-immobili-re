@@ -389,6 +389,8 @@ export default async function BailDetailPage({
                 societyId={societyId}
                 provisions={lease.chargeProvisions}
                 isActive={isActive}
+                leaseVatRate={lease.vatRate ?? 20}
+                leaseVatApplicable={lease.vatApplicable}
               />
             </CardContent>
           </Card>

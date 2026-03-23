@@ -47,6 +47,8 @@ type Props = {
   societyId: string;
   provisions: Provision[];
   isActive: boolean;
+  leaseVatRate: number;
+  leaseVatApplicable: boolean;
 };
 
 type FormState = {
@@ -69,7 +71,7 @@ function toDateString(d: Date) {
   return new Date(d).toISOString().split("T")[0]!;
 }
 
-export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActive }: Props) {
+export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActive, leaseVatRate, leaseVatApplicable }: Props) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -79,11 +81,26 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
   const activeProvisions = provisions.filter((p) => p.isActive);
   const monthlyTotal = activeProvisions.reduce((s, p) => s + p.monthlyAmount, 0);
 
+  function defaultVatRateForLabel(label: string): string {
+    if (label === "Taxe foncière") return "0";
+    if (leaseVatApplicable) return String(leaseVatRate);
+    return "0";
+  }
+
   function openCreate() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, vatRate: defaultVatRateForLabel(EMPTY_FORM.label) });
     setError("");
     setOpen(true);
+  }
+
+  function handleLabelChange(newLabel: string) {
+    setForm((f) => ({
+      ...f,
+      label: newLabel,
+      // Auto-suggest TVA only when creating (not editing)
+      ...(editingId === null && { vatRate: defaultVatRateForLabel(newLabel) }),
+    }));
   }
 
   function openEdit(p: Provision) {
@@ -247,7 +264,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
               <select
                 id="label"
                 value={form.label}
-                onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                onChange={(e) => handleLabelChange(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 required
               >
@@ -297,6 +314,11 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
+                {form.label === "Taxe foncière" && (
+                  <p className="text-xs text-muted-foreground">
+                    La taxe foncière n&apos;est pas soumise à TVA.
+                  </p>
+                )}
               </div>
             </div>
 

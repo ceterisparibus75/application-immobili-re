@@ -26,12 +26,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
-  ChevronDown,
-  ChevronRight,
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+import { InvoicePreviewSheet } from "@/components/invoice-preview-sheet";
 
 type LeaseOption = Awaited<ReturnType<typeof getActiveLeasesForInvoicing>>[number];
 
@@ -59,15 +58,10 @@ function tenantLabel(t: LeaseOption["tenant"]) {
 
 // ── Composant carte prévisualisation d'une facture ────────────────────────
 
-function PreviewCard({ p }: { p: InvoicePreview }) {
-  const [open, setOpen] = useState(false);
-
+function PreviewCard({ p, onPreview }: { p: InvoicePreview; onPreview: (p: InvoicePreview) => void }) {
   return (
-    <div className={`rounded-lg border p-3 space-y-2 ${p.alreadyExists ? "opacity-50 bg-muted/30" : "bg-background"}`}>
-      <div
-        className="flex items-center justify-between cursor-pointer"
-        onClick={() => setOpen((v) => !v)}
-      >
+    <div className={`rounded-lg border p-3 ${p.alreadyExists ? "opacity-50 bg-muted/30" : "bg-background"}`}>
+      <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium">{p.tenantName}</span>
@@ -79,43 +73,16 @@ function PreviewCard({ p }: { p: InvoicePreview }) {
         </div>
         <div className="flex items-center gap-3 shrink-0 ml-2">
           <span className="text-sm font-semibold tabular-nums">{fmt(p.totalTTC)}</span>
-          {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <button
+            type="button"
+            onClick={() => onPreview(p)}
+            className="text-xs text-primary underline underline-offset-2 hover:no-underline flex items-center gap-1"
+          >
+            <Eye className="h-3 w-3" />
+            Aperçu
+          </button>
         </div>
       </div>
-
-      {open && (
-        <div className="border rounded-md overflow-hidden text-xs mt-1">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr className="text-muted-foreground">
-                <th className="text-left px-2 py-1.5">Désignation</th>
-                <th className="text-right px-2 py-1.5">HT</th>
-                <th className="text-right px-2 py-1.5">TVA</th>
-                <th className="text-right px-2 py-1.5">TTC</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {p.lines.map((line, i) => (
-                <tr key={i}>
-                  <td className="px-2 py-1.5">{line.label}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">{fmt(line.totalHT)}</td>
-                  <td className="px-2 py-1.5 text-right text-muted-foreground">{line.vatRate}%</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums font-medium">{fmt(line.totalTTC)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-muted/30 border-t">
-              <tr>
-                <td className="px-2 py-1.5 font-semibold" colSpan={3}>Total</td>
-                <td className="px-2 py-1.5 text-right font-bold">{fmt(p.totalTTC)}</td>
-              </tr>
-            </tfoot>
-          </table>
-          <div className="px-2 pb-1.5 text-muted-foreground">
-            Émission : {new Date(p.issueDate).toLocaleDateString("fr-FR")} · Échéance : {new Date(p.dueDate).toLocaleDateString("fr-FR")}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -135,6 +102,7 @@ export default function GenererFacturesPage() {
 
   const [step, setStep] = useState<"form" | "preview">("form");
   const [previews, setPreviews] = useState<InvoicePreview[]>([]);
+  const [sheetPreview, setSheetPreview] = useState<InvoicePreview | null>(null);
   const [isPreviewing, startPreviewing] = useTransition();
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<{
@@ -307,8 +275,15 @@ export default function GenererFacturesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-[28rem] overflow-y-auto">
+            {sheetPreview && (
+              <InvoicePreviewSheet
+                open={!!sheetPreview}
+                onOpenChange={(open) => { if (!open) setSheetPreview(null); }}
+                preview={sheetPreview}
+              />
+            )}
             {previews.map((p) => (
-              <PreviewCard key={p.leaseId} p={p} />
+              <PreviewCard key={p.leaseId} p={p} onPreview={setSheetPreview} />
             ))}
           </CardContent>
         </Card>

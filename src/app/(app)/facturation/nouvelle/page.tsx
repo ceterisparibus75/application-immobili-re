@@ -19,6 +19,7 @@ import { ArrowLeft, Loader2, Plus, Trash2, Zap, PenLine, Eye, AlertCircle } from
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { toast } from "sonner";
+import { InvoicePreviewSheet } from "@/components/invoice-preview-sheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ export default function NouvelleFacturePage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [preview, setPreview] = useState<InvoicePreview | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [isPreviewing, startPreviewing] = useTransition();
   const [isGenerating, startGenerating] = useTransition();
 
@@ -160,6 +162,7 @@ export default function NouvelleFacturePage() {
       });
       if (result.success && result.data) {
         setPreview(result.data);
+        setSheetOpen(true);
       } else {
         toast.error(result.error ?? "Erreur lors de la prévisualisation");
       }
@@ -239,6 +242,16 @@ export default function NouvelleFacturePage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* Sheet de prévisualisation */}
+      {preview && (
+        <InvoicePreviewSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          preview={preview}
+          onConfirm={handleGenerate}
+          isConfirming={isGenerating}
+        />
+      )}
       {/* En-tête */}
       <div className="flex items-center gap-4">
         <Link href="/facturation">
@@ -371,11 +384,24 @@ export default function NouvelleFacturePage() {
                 </div>
               )}
 
-              {/* Prévisualisation détaillée */}
+              {/* Badge récapitulatif après prévisualisation */}
               {preview && (
-                <div className="rounded-lg border bg-background p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">Prévisualisation de la facture</p>
+                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
+                  <div className="text-sm">
+                    <span className="font-medium">{preview.tenantName}</span>
+                    <span className="text-muted-foreground"> · {preview.lotLabel} · {preview.periodLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {preview.alreadyExists && (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSheetOpen(true)}
+                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      Voir l&apos;aperçu
+                    </button>
                     <button
                       type="button"
                       onClick={() => setPreview(null)}
@@ -383,49 +409,6 @@ export default function NouvelleFacturePage() {
                     >
                       Modifier
                     </button>
-                  </div>
-
-                  {preview.alreadyExists && (
-                    <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      Une facture existe déjà pour ce bail sur cette période. La génération sera ignorée.
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
-                    <div><span className="font-medium text-foreground">{preview.tenantName}</span></div>
-                    <div>{preview.lotLabel}</div>
-                    <div>Émission : {new Date(preview.issueDate).toLocaleDateString("fr-FR")}</div>
-                    <div>Échéance : {new Date(preview.dueDate).toLocaleDateString("fr-FR")}</div>
-                  </div>
-
-                  <div className="border rounded-md overflow-hidden text-sm">
-                    <table className="w-full">
-                      <thead className="bg-muted/50">
-                        <tr className="text-xs text-muted-foreground">
-                          <th className="text-left px-3 py-2">Désignation</th>
-                          <th className="text-right px-3 py-2">HT</th>
-                          <th className="text-right px-3 py-2">TVA</th>
-                          <th className="text-right px-3 py-2">TTC</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {preview.lines.map((line, i) => (
-                          <tr key={i}>
-                            <td className="px-3 py-2 text-sm">{line.label}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{fmt(line.totalHT)}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{line.vatRate}%</td>
-                            <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(line.totalTTC)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/30 border-t">
-                        <tr>
-                          <td className="px-3 py-2 text-sm font-semibold" colSpan={3}>Total TTC</td>
-                          <td className="px-3 py-2 text-right font-bold">{fmt(preview.totalTTC)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
                   </div>
                 </div>
               )}
