@@ -100,6 +100,7 @@ enum BillingTerm {
 }
 
 enum IndexType {
+  IRL
   ILC
   ILAT
   ICC

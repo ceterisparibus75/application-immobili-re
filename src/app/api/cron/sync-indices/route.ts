@@ -2,111 +2,71 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Route CRON : synchronise les indices ILC, ILAT et ICC depuis l'API INSEE.
+ * Route CRON : synchronise les indices IRL, ILC, ILAT et ICC depuis l'API INSEE publique.
  *
- * API BDM (Base de données macroéconomiques) INSEE :
- * - ILC  : 010768073 (Indice des Loyers Commerciaux)
- * - ILAT : 010768080 (Indice des Loyers des Activités Tertiaires)
- * - ICC  : 010768204 (Indice du Coût de la Construction)
+ * API BDM (Base de données macroéconomiques) INSEE — endpoint public, sans authentification :
+ *   https://api.insee.fr/series/BDM/data/SERIES_BDM/{IDBANK}?lastNObservations=8
+ *
+ * Séries :
+ *   IRL  : 001515333 (Indice de Référence des Loyers)
+ *   ILC  : 001517765 (Indice des Loyers Commerciaux)
+ *   ILAT : 001517754 (Indice des Loyers des Activités Tertiaires)
+ *   ICC  : 001517761 (Indice du Coût de la Construction)
  *
  * À planifier via Vercel Cron (vercel.json) :
- * { "path": "/api/cron/sync-indices", "schedule": "0 7 1 * *" }  (1er de chaque mois)
+ *   { "path": "/api/cron/sync-indices", "schedule": "0 7 1 * *" }
  *
  * Protégée par le header Authorization: Bearer CRON_SECRET
  */
 
-// Identifiants des séries dans la BDM INSEE
 const INSEE_SERIES: Record<string, string> = {
-  ILC: "010768073",
-  ILAT: "010768080",
-  ICC: "010768204",
+  IRL: "001515333",
+  ILC: "001517765",
+  ILAT: "001517754",
+  ICC: "001517761",
 };
 
-interface InseeObservation {
-  value: string;
-  period: string; // ex: "2024-T3" ou "2024-Q3" ou "2024-3"
-}
-
-interface InseeSeriesResponse {
-  observations?: Array<{
-    value: string;
-    period: string;
-  }>;
-}
-
-/**
- * Appelle l'API BDM INSEE pour récupérer les dernières valeurs d'une série.
- * Utilise l'API REST JSON de la BDM.
- */
-async function fetchInseeSeriesLastN(
-  seriesId: string,
-  apiKey: string,
-  apiSecret: string,
-  lastNObs = 8
-): Promise<InseeObservation[]> {
-  // Obtenir un token OAuth2 INSEE
-  const tokenResponse = await fetch(
-    "https://api.insee.fr/token",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`,
-      },
-      body: "grant_type=client_credentials",
+/** Extrait les observations depuis une réponse SDMX-ML XML retournée par l'API BDM INSEE */
+function parseSDMXObservations(xml: string): Array<{ period: string; value: string }> {
+  const results: Array<{ period: string; value: string }> = [];
+  // Chaque observation est entre <generic:Obs>...</generic:Obs>
+  const obsRegex = /<(?:generic:)?Obs>([\s\S]*?)<\/(?:generic:)?Obs>/g;
+  let match;
+  while ((match = obsRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const periodMatch = block.match(/id="TIME_PERIOD"\s+value="([^"]+)"/);
+    const valueMatch = block.match(/<(?:generic:)?ObsValue\s+value="([^"]+)"/);
+    if (periodMatch && valueMatch) {
+      results.push({ period: periodMatch[1], value: valueMatch[1] });
     }
-  );
-
-  if (!tokenResponse.ok) {
-    throw new Error(`INSEE token error: ${tokenResponse.status}`);
   }
-
-  const tokenData = (await tokenResponse.json()) as { access_token: string };
-  const accessToken = tokenData.access_token;
-
-  // Appel API BDM INSEE pour la série
-  const url = `https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/${seriesId}?lastNObservations=${lastNObs}`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`INSEE API error ${response.status} for series ${seriesId}`);
-  }
-
-  const data = (await response.json()) as InseeSeriesResponse;
-
-  // L'API BDM renvoie les observations dans un format GenericData JSON
-  const observations = data.observations ?? [];
-  return observations.map((obs) => ({
-    value: obs.value,
-    period: obs.period,
-  }));
+  return results;
 }
 
 /**
- * Parse une période INSEE au format "AAAA-TN" ou "AAAA-QN" ou "AAAA-N"
- * et retourne { year, quarter }.
+ * Période INSEE au format "AAAA-TN" (ex: "2024-T3") → { year, quarter }
  */
 function parsePeriod(period: string): { year: number; quarter: number } | null {
-  // Formats possibles: "2024-T3", "2024-Q3", "2024-3", "2024S12" (semestriel - ignoré)
-  const matchT = period.match(/^(\d{4})-T(\d)$/i);
-  if (matchT) return { year: parseInt(matchT[1]), quarter: parseInt(matchT[2]) };
-
-  const matchQ = period.match(/^(\d{4})-Q(\d)$/i);
-  if (matchQ) return { year: parseInt(matchQ[1]), quarter: parseInt(matchQ[2]) };
-
-  const matchN = period.match(/^(\d{4})-(\d)$/);
-  if (matchN) return { year: parseInt(matchN[1]), quarter: parseInt(matchN[2]) };
-
+  const m = period.match(/^(\d{4})-T(\d)$/i) ?? period.match(/^(\d{4})-Q(\d)$/i) ?? period.match(/^(\d{4})-(\d)$/);
+  if (m) return { year: parseInt(m[1]), quarter: parseInt(m[2]) };
   return null;
 }
 
+async function fetchInseeSeriesLastN(seriesId: string, lastN = 8): Promise<Array<{ period: string; value: string }>> {
+  const url = `https://api.insee.fr/series/BDM/data/SERIES_BDM/${seriesId}?lastNObservations=${lastN}`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/xml, text/xml, */*" },
+  });
+
+  if (!response.ok) {
+    throw new Error(`INSEE API ${response.status} pour la série ${seriesId}`);
+  }
+
+  const xml = await response.text();
+  return parseSDMXObservations(xml);
+}
+
 export async function POST(req: NextRequest) {
-  // Vérification du secret CRON
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -114,21 +74,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const apiKey = process.env.INSEE_API_KEY;
-  const apiSecret = process.env.INSEE_API_SECRET;
-
-  if (!apiKey || !apiSecret) {
-    return NextResponse.json(
-      { error: "Variables INSEE_API_KEY et INSEE_API_SECRET non configurées" },
-      { status: 500 }
-    );
-  }
-
   const results: Record<string, { synced: number; error?: string }> = {};
 
   for (const [indexType, seriesId] of Object.entries(INSEE_SERIES)) {
     try {
-      const observations = await fetchInseeSeriesLastN(seriesId, apiKey, apiSecret);
+      const observations = await fetchInseeSeriesLastN(seriesId);
       let synced = 0;
 
       for (const obs of observations) {
@@ -141,14 +91,14 @@ export async function POST(req: NextRequest) {
         await prisma.inseeIndex.upsert({
           where: {
             indexType_year_quarter: {
-              indexType: indexType as "ILC" | "ILAT" | "ICC",
+              indexType: indexType as "IRL" | "ILC" | "ILAT" | "ICC",
               year: parsed.year,
               quarter: parsed.quarter,
             },
           },
           update: { value },
           create: {
-            indexType: indexType as "ILC" | "ILAT" | "ICC",
+            indexType: indexType as "IRL" | "ILC" | "ILAT" | "ICC",
             year: parsed.year,
             quarter: parsed.quarter,
             value,
