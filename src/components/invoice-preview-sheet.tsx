@@ -4,7 +4,6 @@ import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/she
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Printer, X, Zap } from "lucide-react";
 import type { InvoicePreview } from "@/actions/invoice";
-import { getLogoProxyUrl } from "@/lib/utils";
 
 function fmt(v: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
@@ -81,9 +80,9 @@ export function InvoicePreviewSheet({
             {/* Émetteur + Destinataire */}
             <div className="flex items-start gap-6">
               <div className="flex-1 space-y-0.5 text-xs">
-                {s?.logoUrl ? (
+                {preview.logoResolvedUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-12 object-contain mb-2" />
+                  <img src={preview.logoResolvedUrl} alt="Logo" className="h-12 object-contain mb-2" />
                 ) : null}
                 <p className="font-bold text-sm">{s?.name ?? "—"}</p>
                 {s?.addressLine1 && (
@@ -156,6 +155,13 @@ export function InvoicePreviewSheet({
                   <td className="px-2 py-1.5 text-right text-gray-600 border-t border-gray-200">Total HT</td>
                   <td className="px-2 py-1.5 text-right tabular-nums border-t border-gray-200">{fmt(preview.totalHT)}</td>
                 </tr>
+                {preview.totalVAT > 0.001 && (
+                  <tr>
+                    <td colSpan={2} />
+                    <td className="px-2 py-1.5 text-right text-gray-600">TVA</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{fmt(preview.totalVAT)}</td>
+                  </tr>
+                )}
                 <tr>
                   <td colSpan={2} />
                   <td className="px-2 py-1.5 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
@@ -163,6 +169,31 @@ export function InvoicePreviewSheet({
                 </tr>
               </tfoot>
             </table>
+
+            {/* Situation de compte */}
+            <div className="mt-4">
+              <p className="font-bold text-xs mb-1">Situation de compte au {fmtDate(preview.issueDate)}</p>
+              <table className="w-full text-xs border-collapse">
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-1.5">Solde précédent à date d&apos;édition</td>
+                    <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
+                      {preview.previousBalance !== 0
+                        ? `${preview.previousBalance > 0 ? "" : "−"} ${fmt(Math.abs(preview.previousBalance))}`
+                        : fmt(0)}
+                    </td>
+                  </tr>
+                  <tr className="font-bold">
+                    <td className="border border-gray-200 px-3 py-1.5">
+                      Total à payer avant le {fmtDate(preview.dueDate)}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
+                      {fmt(Math.max(0, preview.previousBalance + preview.totalTTC))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             {/* Mentions légales abrégées */}
             <div className="text-xs text-gray-500 border-t border-gray-100 pt-3">
@@ -173,7 +204,24 @@ export function InvoicePreviewSheet({
                 Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité
                 égale à 3 fois le taux intérêt légal sera exigible (Art. L 441-10 C. com.).
               </p>
+              {s?.legalMentions && <p className="mt-1 whitespace-pre-wrap">{s.legalMentions}</p>}
             </div>
+
+            {/* Signature */}
+            <div className="flex justify-between text-xs">
+              <p>Fait à {s?.city ?? "—"}, le {fmtDate(preview.issueDate)}</p>
+              {s?.signatoryName && <p>{s.signatoryName}, pour {s?.name}</p>}
+            </div>
+
+            {/* Coordonnées bancaires */}
+            {(preview.iban || preview.bic || s?.bankName) && (
+              <div className="text-xs space-y-0.5 border-t border-gray-100 pt-3">
+                <p className="font-bold">Coordonnées bancaires</p>
+                {s?.bankName && <p>Banque : {s.bankName}</p>}
+                {preview.iban && <p>IBAN : {preview.iban}</p>}
+                {preview.bic  && <p>BIC : {preview.bic}</p>}
+              </div>
+            )}
           </div>
         </div>
       </SheetContent>

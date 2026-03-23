@@ -15,7 +15,9 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
+  Download,
   ExternalLink,
+  FileText,
   Home,
   Pencil,
   Plus,
@@ -23,6 +25,7 @@ import {
   User,
   Wrench,
 } from "lucide-react";
+import { BuildingDocumentUpload } from "./_components/building-document-upload";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -471,6 +474,46 @@ export default async function ImmeubleDetailPage({
                       {m.completedAt ? "Terminée" : "En cours"}
                     </Badge>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Documents */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Documents ({building.documents.length})
+            </CardTitle>
+            <BuildingDocumentUpload buildingId={id} societyId={societyId} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {building.documents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun document</p>
+          ) : (
+            <div className="divide-y">
+              {building.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">{doc.description ?? doc.fileName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {doc.category && <span className="capitalize">{doc.category.replace(/_/g, " ")} — </span>}
+                      {new Date(doc.createdAt).toLocaleDateString("fr-FR")}
+                      {doc.expiresAt && (
+                        <span className={new Date(doc.expiresAt) < new Date() ? " text-destructive font-medium" : ""}>
+                          {" "}— Expire le {new Date(doc.expiresAt).toLocaleDateString("fr-FR")}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <Download className="h-4 w-4 text-primary hover:text-primary/80" />
+                  </a>
                 </div>
               ))}
             </div>

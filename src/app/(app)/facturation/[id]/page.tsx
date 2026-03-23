@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
 import { getLogoProxyUrl } from "@/lib/utils";
 import PaymentForm from "./_components/payment-form";
+import { SendInvoiceButton } from "./_components/send-invoice-button";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   EN_ATTENTE: "En attente",
@@ -111,6 +112,7 @@ export default async function FactureDetailPage({
               Aperçu / Imprimer
             </Button>
           </Link>
+          <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
             <Link href={`/facturation/${invoice.id}/avoir`}>
               <Button variant="outline" size="sm">

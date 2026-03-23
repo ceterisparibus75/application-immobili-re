@@ -1,7 +1,7 @@
 import { getInvoiceById } from "@/actions/invoice";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { formatCurrency, formatDate, getLogoProxyUrl } from "@/lib/utils";
 import { decrypt } from "@/lib/encryption";
 import type { TenantEntityType, LegalForm } from "@prisma/client";
+import { PrintButton } from "./_components/print-button";
 
 const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
   SCI:   "Société Civile Immobilière (SCI)",
@@ -98,6 +99,24 @@ export default async function FactureApercuPage({
     invoice.invoiceType === "REGULARISATION_CHARGES" ? "RÉGULARISATION DE CHARGES" :
     "FACTURE";
 
+  // Nom du fichier PDF suggéré : IMMEUBLE_LOCATAIRE_PERIODE
+  function sanitize(str: string) {
+    return str
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // supprimer accents
+      .replace(/[^a-zA-Z0-9]/g, "_")                       // remplacer caractères spéciaux
+      .replace(/_+/g, "_")                                  // dédoubler underscores
+      .toUpperCase();
+  }
+  const buildingPart = lot?.building ? sanitize(lot.building.addressLine1 ?? lot.building.name ?? "") : "IMMEUBLE";
+  const tenantNameRaw = invoice.tenant.entityType === "PERSONNE_MORALE"
+    ? (invoice.tenant.companyName ?? "")
+    : `${invoice.tenant.firstName ?? ""} ${invoice.tenant.lastName ?? ""}`.trim();
+  const tenantPart = sanitize(tenantNameRaw) || "LOCATAIRE";
+  const periodPart = invoice.periodStart
+    ? sanitize(new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }))
+    : sanitize(new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+  const pdfFilename = `${buildingPart}_${tenantPart}_${periodPart}`;
+
   return (
     <div className="space-y-4">
       {/* Barre d'actions — masquée à l'impression */}
@@ -108,12 +127,7 @@ export default async function FactureApercuPage({
             Retour
           </Button>
         </Link>
-        <Button variant="outline" size="sm" asChild>
-          <button onClick={() => window.print()}>
-            <Printer className="h-4 w-4" />
-            Imprimer / PDF
-          </button>
-        </Button>
+        <PrintButton filename={pdfFilename} />
       </div>
 
       {/* ═══════════════════════════════════════

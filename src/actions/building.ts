@@ -231,7 +231,11 @@ export async function getBuildingById(societyId: string, buildingId: string) {
       },
       diagnostics: { orderBy: { expiresAt: "asc" } },
       maintenances: { orderBy: { scheduledAt: "desc" }, take: 10 },
-      _count: { select: { lots: true, diagnostics: true, maintenances: true } },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, fileName: true, fileUrl: true, category: true, description: true, createdAt: true, expiresAt: true },
+      },
+      _count: { select: { lots: true, diagnostics: true, maintenances: true, documents: true } },
     },
   });
 }

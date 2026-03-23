@@ -19,6 +19,9 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
+import { decrypt } from "@/lib/encryption";
+import { createClient } from "@supabase/supabase-js";
+import { sendInvoiceEmail } from "@/lib/email";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -488,6 +491,8 @@ export type InvoicePreviewSociety = {
   postalCode: string | null;
   city: string | null;
   legalMentions: string | null;
+  bankName: string | null;
+  signatoryName: string | null;
 };
 
 export type InvoicePreview = {
@@ -507,6 +512,10 @@ export type InvoicePreview = {
   totalTTC: number;
   alreadyExists: boolean;
   society: InvoicePreviewSociety | null;
+  iban: string | null;
+  bic: string | null;
+  logoResolvedUrl: string | null;
+  previousBalance: number;
 };
 
 /** Calcule les lignes d'une facture sans la créer. */
@@ -565,8 +574,57 @@ async function computeInvoicePreview(
       postalCode: true,
       city: true,
       legalMentions: true,
+      bankName: true,
+      signatoryName: true,
+      ibanEncrypted: true,
+      bicEncrypted: true,
     },
   });
+
+  // Déchiffrer les coordonnées bancaires
+  let iban: string | null = null;
+  let bic: string | null = null;
+  try {
+    if (society?.ibanEncrypted) iban = decrypt(society.ibanEncrypted);
+    if (society?.bicEncrypted)  bic  = decrypt(society.bicEncrypted);
+  } catch { /* non bloquant */ }
+
+  // Générer une URL signée pour le logo (serveur → fiable)
+  let logoResolvedUrl: string | null = null;
+  if (society?.logoUrl) {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const cleanPath = society.logoUrl.replace(/^\//, "").replace(/\.\.\//g, "");
+      if (!cleanPath.startsWith("http")) {
+        const { data } = await supabase.storage
+          .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+          .createSignedUrl(cleanPath, 3600);
+        if (data?.signedUrl) logoResolvedUrl = data.signedUrl;
+      } else {
+        logoResolvedUrl = cleanPath;
+      }
+    } catch { /* non bloquant */ }
+  }
+
+  // Solde précédent (factures non payées pour ce bail)
+  let previousBalance = 0;
+  if (lease.id) {
+    const unpaid = await prisma.invoice.findMany({
+      where: {
+        societyId,
+        leaseId: lease.id,
+        status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+      },
+      select: { totalTTC: true, payments: { select: { amount: true } } },
+    });
+    previousBalance = unpaid.reduce((sum, inv) => {
+      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+      return sum + (inv.totalTTC - paid);
+    }, 0);
+  }
 
   const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
@@ -636,6 +694,22 @@ async function computeInvoicePreview(
       ? (lease.tenant.companyAddress ?? null)
       : (lease.tenant.personalAddress ?? null);
 
+  // Retourner society sans les champs chiffrés
+  const societyClean = society ? {
+    name: society.name,
+    logoUrl: society.logoUrl,
+    siret: society.siret,
+    vatNumber: society.vatNumber,
+    vatRegime: society.vatRegime,
+    addressLine1: society.addressLine1,
+    addressLine2: society.addressLine2,
+    postalCode: society.postalCode,
+    city: society.city,
+    legalMentions: society.legalMentions,
+    bankName: society.bankName,
+    signatoryName: society.signatoryName,
+  } : null;
+
   return {
     leaseId: lease.id,
     tenantName,
@@ -652,7 +726,11 @@ async function computeInvoicePreview(
     totalVAT,
     totalTTC: totalHT + totalVAT,
     alreadyExists: !!existing,
-    society: society ?? null,
+    society: societyClean,
+    iban,
+    bic,
+    logoResolvedUrl,
+    previousBalance,
   };
 }
 
@@ -1192,5 +1270,67 @@ export async function createCreditNote(
       return { success: false, error: error.message };
     console.error("[createCreditNote]", error);
     return { success: false, error: "Erreur lors de l'émission de l'avoir" };
+  }
+}
+
+/** Envoie la facture par email au locataire. */
+export async function sendInvoiceToTenant(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ sent: true }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      include: {
+        tenant: { select: { email: true, billingEmail: true, firstName: true, lastName: true, entityType: true, companyName: true } },
+        society: { select: { name: true } },
+        lines: { select: { label: true, totalTTC: true } },
+      },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+
+    const to = invoice.tenant.billingEmail || invoice.tenant.email;
+    if (!to) return { success: false, error: "Le locataire n'a pas d'adresse email" };
+
+    const tenantName =
+      invoice.tenant.entityType === "PERSONNE_MORALE"
+        ? (invoice.tenant.companyName ?? "—")
+        : `${invoice.tenant.firstName ?? ""} ${invoice.tenant.lastName ?? ""}`.trim() || "—";
+
+    const period = invoice.periodStart
+      ? new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+      : new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+    const result = await sendInvoiceEmail({
+      to,
+      tenantName,
+      invoiceRef: invoice.invoiceNumber,
+      amount: invoice.totalTTC,
+      dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
+      period,
+      societyName: invoice.society?.name ?? "",
+      items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
+    });
+
+    if (!result.success) return { success: false, error: result.error ?? "Erreur d'envoi" };
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "SEND_EMAIL",
+      entity: "Invoice",
+      entityId: invoice.id,
+      details: { to, invoiceNumber: invoice.invoiceNumber },
+    });
+
+    return { success: true, data: { sent: true } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[sendInvoiceToTenant]", error);
+    return { success: false, error: "Erreur lors de l'envoi de l'email" };
   }
 }
