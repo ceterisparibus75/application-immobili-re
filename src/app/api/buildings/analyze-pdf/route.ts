@@ -231,7 +231,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: parsed, duplicates });
   } catch (error) {
-    console.error("[analyze-pdf]", error);
-    return NextResponse.json({ error: "Erreur lors de l'analyse du document" }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[analyze-pdf]", msg, error);
+    return NextResponse.json({ error: `Erreur interne : ${msg}` }, { status: 500 });
   }
 }
