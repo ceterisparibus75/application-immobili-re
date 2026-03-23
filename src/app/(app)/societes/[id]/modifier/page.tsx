@@ -80,13 +80,13 @@ export default function ModifierSocietePage() {
         body: JSON.stringify({ filename: file.name, contentType: file.type }),
       });
       if (!res.ok) throw new Error("Erreur lors de la signature");
-      const { signedUrl, storagePath } = (await res.json()) as { signedUrl: string; storagePath: string };
+      const { signedUrl, viewUrl } = (await res.json()) as { signedUrl: string; storagePath: string; viewUrl: string | null };
       await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${storagePath}`;
+      const logoUrl = viewUrl ?? signedUrl;
       // Sauvegarde immédiate du logo (sans attendre la soumission du formulaire)
-      const result = await updateSociety({ id, logoUrl: publicUrl });
+      const result = await updateSociety({ id, logoUrl });
       if (result.success) {
-        set("logoUrl", publicUrl);
+        set("logoUrl", logoUrl);
         toast.success("Logo enregistré");
       } else {
         throw new Error(result.error ?? "Erreur de sauvegarde");

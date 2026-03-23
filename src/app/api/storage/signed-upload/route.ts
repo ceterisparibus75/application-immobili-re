@@ -33,7 +33,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Impossible de créer l'URL d'upload : ${msg}` }, { status: 500 });
     }
 
-    return NextResponse.json({ signedUrl: data.signedUrl, storagePath });
+    // Créer aussi une URL de lecture signée (valable 10 ans) pour stocker en base
+    const { data: viewData } = await supabase.storage
+      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .createSignedUrl(storagePath, 10 * 365 * 24 * 3600);
+
+    return NextResponse.json({
+      signedUrl: data.signedUrl,
+      storagePath,
+      viewUrl: viewData?.signedUrl ?? null,
+    });
   } catch (error) {
     console.error("[signed-upload]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
