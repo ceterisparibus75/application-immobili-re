@@ -2,7 +2,7 @@ import { requirePortalAuth } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Receipt } from "lucide-react";
+import { FileText, Download, Receipt, FolderOpen } from "lucide-react";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -30,23 +30,44 @@ export default async function PortalDocumentsPage() {
     redirect("/portal/login");
   }
 
-  const leases = await prisma.lease.findMany({
-    where: { tenantId: session.tenantId },
-    select: {
-      id: true,
-      leaseType: true,
-      status: true,
-      startDate: true,
-      leaseFileUrl: true,
-      lot: {
-        select: {
-          number: true,
-          building: { select: { name: true, city: true } },
+  const [leases, gedDocuments] = await Promise.all([
+    prisma.lease.findMany({
+      where: { tenantId: session.tenantId },
+      select: {
+        id: true,
+        leaseType: true,
+        status: true,
+        startDate: true,
+        leaseFileUrl: true,
+        lot: {
+          select: {
+            number: true,
+            building: { select: { name: true, city: true } },
+          },
         },
       },
-    },
-    orderBy: { startDate: "desc" },
-  });
+      orderBy: { startDate: "desc" },
+    }),
+    // Documents uploadés via la GED liés au locataire ou à ses baux
+    prisma.document.findMany({
+      where: {
+        OR: [
+          { tenantId: session.tenantId },
+          { lease: { tenantId: session.tenantId } },
+        ],
+      },
+      select: {
+        id: true,
+        fileName: true,
+        fileUrl: true,
+        category: true,
+        description: true,
+        createdAt: true,
+        leaseId: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   const invoices = await prisma.invoice.findMany({
     where: { tenantId: session.tenantId },
@@ -105,11 +126,24 @@ export default async function PortalDocumentsPage() {
                     <Badge variant={lease.status === "EN_COURS" ? "success" : "secondary"}>
                       {lease.status === "EN_COURS" ? "Actif" : lease.status}
                     </Badge>
+                    {/* Bail uploadé via l'outil dédié */}
                     {lease.leaseFileUrl && (
-                      <a href={lease.leaseFileUrl} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4 text-primary hover:text-primary/80" />
+                      <a href={lease.leaseFileUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-primary hover:underline">
+                        <Download className="h-4 w-4" />
+                        Bail
                       </a>
                     )}
+                    {/* Documents GED liés à ce bail */}
+                    {gedDocuments
+                      .filter((d) => d.leaseId === lease.id)
+                      .map((doc) => (
+                        <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-primary hover:underline">
+                          <Download className="h-4 w-4" />
+                          {doc.description ?? doc.fileName}
+                        </a>
+                      ))}
                   </div>
                 </div>
               ))}
@@ -117,6 +151,33 @@ export default async function PortalDocumentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Autres documents (GED sans bail associé) */}
+      {gedDocuments.filter((d) => !d.leaseId).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderOpen className="h-4 w-4" />
+              Documents ({gedDocuments.filter((d) => !d.leaseId).length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {gedDocuments.filter((d) => !d.leaseId).map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">{doc.description ?? doc.fileName}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
+                  </div>
+                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <Download className="h-4 w-4 text-primary hover:text-primary/80" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Appels de loyer */}
       <Card>
