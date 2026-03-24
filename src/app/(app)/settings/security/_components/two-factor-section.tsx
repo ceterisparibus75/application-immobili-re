@@ -26,12 +26,13 @@ interface TwoFactorSectionProps {
 
 export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactorSectionProps) {
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [step, setStep] = useState<"idle" | "setup" | "disable">("idle");
+  const [step, setStep] = useState<"idle" | "setup" | "disable" | "recovery-codes">("idle");
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   async function handleStartSetup() {
     setIsLoading(true);
@@ -53,11 +54,10 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
     setIsLoading(true);
     try {
       const result = await confirmSetupTwoFactor(code);
-      if (result.success) {
-        setEnabled(true);
-        setStep("idle");
+      if (result.success && result.data?.recoveryCodes) {
+        setRecoveryCodes(result.data.recoveryCodes);
         setCode("");
-        toast.success("Authentification 2FA activee avec succes");
+        setStep("recovery-codes");
       } else {
         toast.error(result.error ?? "Code invalide");
       }
@@ -167,6 +167,36 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
                 Annuler
               </Button>
             </div>
+          </div>
+        )}
+
+        {step === "recovery-codes" && (
+          <div className="space-y-4">
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
+              <p className="text-sm font-semibold text-amber-800 mb-2">
+                Sauvegardez ces codes de recuperation
+              </p>
+              <p className="text-xs text-amber-700 mb-3">
+                Chaque code ne peut etre utilise qu&apos;une seule fois. Conservez-les dans un endroit sur (gestionnaire de mots de passe, papier sous clef...).
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {recoveryCodes.map((code, i) => (
+                  <code key={i} className="bg-white border rounded px-2 py-1 text-sm font-mono text-center">
+                    {code}
+                  </code>
+                ))}
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                setEnabled(true);
+                setStep("idle");
+                setRecoveryCodes([]);
+                toast.success("Authentification 2FA activee avec succes");
+              }}
+            >
+              J&apos;ai sauvegarde mes codes
+            </Button>
           </div>
         )}
 

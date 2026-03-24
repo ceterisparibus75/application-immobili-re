@@ -6,6 +6,8 @@ import {
   generateTOTPUri,
   generateQRCode,
   encryptTOTPSecret,
+  generateRecoveryCodes,
+  encryptRecoveryCodes,
 } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -39,7 +41,7 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
   }
 }
 
-export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<void>> {
+export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifie" };
@@ -61,16 +63,23 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     if (delta === null) return { success: false, error: "Code invalide ou expire" };
 
     const encryptedSecret = encryptTOTPSecret(pendingSecret);
+    const recoveryCodes = generateRecoveryCodes(8);
+    const encryptedRecoveryCodes = encryptRecoveryCodes(recoveryCodes);
+
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { twoFactorEnabled: true, twoFactorSecret: encryptedSecret },
+      data: {
+        twoFactorEnabled: true,
+        twoFactorSecret: encryptedSecret,
+        twoFactorRecoveryCodes: encryptedRecoveryCodes,
+      },
     });
 
     // Nettoyer le secret temporaire de la session
     await update({ pendingTwoFactorSecret: null });
 
     revalidatePath("/settings/security");
-    return { success: true };
+    return { success: true, data: { recoveryCodes } };
   } catch (error) {
     console.error("[confirmSetupTwoFactor]", error);
     return { success: false, error: "Erreur lors de la confirmation" };

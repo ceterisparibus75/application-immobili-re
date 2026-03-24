@@ -1,4 +1,5 @@
 import * as OTPAuth from "otpauth";
+import { randomBytes } from "crypto";
 import QRCode from "qrcode";
 import { encrypt, decrypt } from "@/lib/encryption";
 
@@ -74,4 +75,29 @@ export function encryptTOTPSecret(secret: string): string {
  */
 export function decryptTOTPSecret(encrypted: string): string {
   return decrypt(encrypted);
+}
+
+/**
+ * Genere des codes de recuperation 2FA.
+ * Format : XXXXX-XXXXX (10 caracteres hexadecimaux avec tiret central)
+ */
+export function generateRecoveryCodes(count: number = 8): string[] {
+  return Array.from({ length: count }, () => {
+    const hex = randomBytes(5).toString("hex").toUpperCase();
+    return hex.slice(0, 5) + "-" + hex.slice(5);
+  });
+}
+
+/**
+ * Chiffre un tableau de codes de recuperation avant stockage.
+ */
+export function encryptRecoveryCodes(codes: string[]): string[] {
+  return codes.map((code) => encrypt(code));
+}
+
+/**
+ * Dechiffre un tableau de codes de recuperation stockes en base.
+ */
+export function decryptRecoveryCodes(encryptedCodes: string[]): string[] {
+  return encryptedCodes.map((code) => decrypt(code));
 }

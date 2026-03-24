@@ -1,7 +1,7 @@
 "use server";
 
 import { auth, update } from "@/lib/auth";
-import { verifyTOTP } from "@/lib/two-factor";
+import { verifyTOTP, decryptRecoveryCodes } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/actions/society";
 
@@ -16,16 +16,30 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { twoFactorSecret: true },
+      select: { twoFactorSecret: true, twoFactorRecoveryCodes: true },
     });
 
     if (!user?.twoFactorSecret) {
       return { success: false, error: "Configuration 2FA introuvable" };
     }
 
-    const isValid = verifyTOTP(user.twoFactorSecret, code.replace(/\s/g, ""));
-    if (!isValid) {
-      return { success: false, error: "Code invalide ou expire" };
+    const isValidTOTP = verifyTOTP(user.twoFactorSecret, code.replace(/\s/g, ""));
+
+    if (!isValidTOTP) {
+      // Verifier si c'est un code de recuperation
+      const decryptedCodes = decryptRecoveryCodes(user.twoFactorRecoveryCodes);
+      const codeIndex = decryptedCodes.findIndex((c) => c === code.trim().toUpperCase());
+
+      if (codeIndex === -1) {
+        return { success: false, error: "Code invalide ou expire" };
+      }
+
+      // Supprimer le code de recuperation utilise (usage unique)
+      const newEncryptedCodes = user.twoFactorRecoveryCodes.filter((_, i) => i !== codeIndex);
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { twoFactorRecoveryCodes: newEncryptedCodes },
+      });
     }
 
     await update({ requires2FA: false, twoFactorVerified: true });
