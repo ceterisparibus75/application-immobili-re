@@ -120,31 +120,42 @@ interface InvoiceEmailParams {
   dueDate: string;
   period: string;
   societyName: string;
+  typeLabel?: string;
   items?: Array<{ label: string; amount: number }>;
   pdfAttachment?: { filename: string; content: Buffer };
 }
 
 export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<EmailResult> {
+  const typeLabel = params.typeLabel ?? "votre facture";
+  const typeLabelCapitalized = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1);
+
   const itemsHtml = params.items?.length
-    ? `<table class="table"><thead><tr><th>Désignation</th><th style="text-align:right">Montant</th></tr></thead><tbody>
+    ? `<table class="table"><thead><tr><th>Désignation</th><th style="text-align:right">Montant TTC</th></tr></thead><tbody>
         ${params.items.map((i) => `<tr><td>${i.label}</td><td style="text-align:right">${fmt(i.amount)}</td></tr>`).join("")}
       </tbody></table>`
     : "";
 
   const content = `
-    <h2>Appel de loyer — ${params.period}</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Votre appel de loyer pour la période <strong>${params.period}</strong> :</p>
+    <p>Madame, Monsieur,</p>
+    <p>Veuillez trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période <strong>${params.period}</strong>.</p>
     ${itemsHtml}
     <table class="table">
       <tr><th>Référence</th><td>${params.invoiceRef}</td></tr>
       <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
-      <tr><th>Montant total</th><td><strong style="font-size:18px">${fmt(params.amount)}</strong></td></tr>
+      <tr><th>Montant TTC</th><td><strong style="font-size:18px">${fmt(params.amount)}</strong></td></tr>
     </table>
+    <p>Nous vous remercions de bien vouloir régler cette somme avant la date d'échéance indiquée.</p>
+    <p>Pour toute question relative à ce document, n'hésitez pas à nous contacter.</p>
+    <p>Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
     <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
   `;
 
-  return sendMail(params.to, `Appel de loyer ${params.period} — ${params.invoiceRef}`, baseTemplate(`Appel de loyer ${params.period}`, content), params.pdfAttachment ? [params.pdfAttachment] : undefined);
+  return sendMail(
+    params.to,
+    `${typeLabelCapitalized} ${params.period} — ${params.invoiceRef}`,
+    baseTemplate(`${typeLabelCapitalized} ${params.period}`, content),
+    params.pdfAttachment ? [params.pdfAttachment] : undefined
+  );
 }
 
 // ============================================================
