@@ -96,8 +96,8 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
         </div>
         <CardDescription>
           {enabled
-            ? "L&apos;authentification a deux facteurs est activee sur votre compte."
-            : "Renforcez la securite de votre compte avec une application d&apos;authentification."}
+            ? "L'authentification a deux facteurs est activee sur votre compte."
+            : "Renforcez la securite de votre compte avec une application d'authentification."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,7 +120,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
           <div className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground mb-3">
-                Scannez ce QR code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.)
+                Scannez ce QR code avec votre application d’authentification (Google Authenticator, Authy, etc.)
               </p>
               {qrCode && (
                 <Image
@@ -177,7 +177,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
                 Sauvegardez ces codes de recuperation
               </p>
               <p className="text-xs text-amber-700 mb-3">
-                Chaque code ne peut etre utilise qu&apos;une seule fois. Conservez-les dans un endroit sur (gestionnaire de mots de passe, papier sous clef...).
+                Chaque code ne peut etre utilise qu’une seule fois. Conservez-les dans un endroit sur (gestionnaire de mots de passe, papier sous clef...).
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {recoveryCodes.map((code, i) => (
@@ -195,7 +195,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
                 toast.success("Authentification 2FA activee avec succes");
               }}
             >
-              J&apos;ai sauvegarde mes codes
+              J’ai sauvegarde mes codes
             </Button>
           </div>
         )}

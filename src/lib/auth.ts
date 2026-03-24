@@ -92,9 +92,6 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
         if ("twoFactorVerified" in session) {
           token.twoFactorVerified = session.twoFactorVerified as boolean;
         }
-        if ("pendingTwoFactorSecret" in session) {
-          token.pendingTwoFactorSecret = (session.pendingTwoFactorSecret as string | null) ?? undefined;
-        }
         return token;
       }
 
@@ -124,9 +121,6 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
       const s = session as any;
       s.requires2FA = token.requires2FA ?? false;
       s.twoFactorVerified = token.twoFactorVerified ?? false;
-      if (token.pendingTwoFactorSecret !== undefined) {
-        s.pendingTwoFactorSecret = token.pendingTwoFactorSecret ?? null;
-      }
       return session;
     },
   },

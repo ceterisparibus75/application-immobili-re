@@ -350,9 +350,10 @@ model User {
   lastLoginAt   DateTime?
 
   // 2FA TOTP
-  twoFactorEnabled       Boolean  @default(false)
-  twoFactorSecret        String?  // chiffre AES-256-GCM
-  twoFactorRecoveryCodes String[] // chiffres AES-256-GCM, usage unique
+  twoFactorEnabled          Boolean  @default(false)
+  twoFactorSecret           String?  // chiffre AES-256-GCM
+  twoFactorRecoveryCodes    String[] // chiffres AES-256-GCM, usage unique
+  pendingTwoFactorSecret    String?  // secret temporaire chiffre AES-256-GCM, en attente de confirmation
 
   // Relations
   userSocieties UserSociety[]

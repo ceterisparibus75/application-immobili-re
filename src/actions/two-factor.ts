@@ -1,11 +1,12 @@
 "use server";
 
-import { auth, update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import {
   generateTOTPSecret,
   generateTOTPUri,
   generateQRCode,
   encryptTOTPSecret,
+  decryptTOTPSecret,
   generateRecoveryCodes,
   encryptRecoveryCodes,
 } from "@/lib/two-factor";
@@ -31,8 +32,11 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
     const uri = generateTOTPUri(secret, user.email);
     const qrCode = await generateQRCode(uri);
 
-    // Stocker le secret temporairement dans le token de session
-    await update({ pendingTwoFactorSecret: secret });
+    // Stocker le secret temporaire chiffre en DB (pas dans le JWT)
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { pendingTwoFactorSecret: encryptTOTPSecret(secret) },
+    });
 
     return { success: true, data: { qrCode, secret } };
   } catch (error) {
@@ -46,10 +50,15 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
-    const pendingSecret = session.pendingTwoFactorSecret;
-    if (!pendingSecret) return { success: false, error: "Aucune configuration 2FA en attente" };
+    // Lire le secret temporaire depuis la DB (chiffre)
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { pendingTwoFactorSecret: true },
+    });
+    if (!user?.pendingTwoFactorSecret) return { success: false, error: "Aucune configuration 2FA en attente" };
+    const pendingSecret = decryptTOTPSecret(user.pendingTwoFactorSecret);
 
-    // Verifier le code avec le secret temporaire (non chiffre)
+    // Verifier le code avec le secret temporaire (dechiffre)
     const { TOTP, Secret } = await import("otpauth");
     const totp = new TOTP({
       issuer: process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo",
@@ -72,11 +81,9 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
         twoFactorEnabled: true,
         twoFactorSecret: encryptedSecret,
         twoFactorRecoveryCodes: encryptedRecoveryCodes,
+        pendingTwoFactorSecret: null,
       },
     });
-
-    // Nettoyer le secret temporaire de la session
-    await update({ pendingTwoFactorSecret: null });
 
     revalidatePath("/settings/security");
     return { success: true, data: { recoveryCodes } };
@@ -104,7 +111,7 @@ export async function disableTwoFactor(password: string): Promise<ActionResult<v
 
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { twoFactorEnabled: false, twoFactorSecret: null },
+      data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: [] },
     });
 
     revalidatePath("/settings/security");

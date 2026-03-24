@@ -10,7 +10,6 @@ declare module "next-auth" {
     };
     requires2FA?: boolean;
     twoFactorVerified?: boolean;
-    pendingTwoFactorSecret?: string | null;
   }
 
   interface User {
@@ -27,6 +26,5 @@ declare module "next-auth/jwt" {
     id?: string;
     requires2FA?: boolean;
     twoFactorVerified?: boolean;
-    pendingTwoFactorSecret?: string | null;
   }
 }
