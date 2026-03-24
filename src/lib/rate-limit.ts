@@ -4,7 +4,13 @@ import { Redis } from "@upstash/redis";
 let _redis: Redis | null = null;
 function getRedis(): Redis {
   if (!_redis) {
-    _redis = Redis.fromEnv();
+    const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+    if (url && token) {
+      _redis = new Redis({ url, token });
+    } else {
+      _redis = Redis.fromEnv();
+    }
   }
   return _redis;
 }
