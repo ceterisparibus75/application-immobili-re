@@ -13,12 +13,14 @@ export function mockAuthSession(
     user: { id: "user-1", email: "test@example.com", name: "Test User" },
     expires: new Date(Date.now() + 86400000).toISOString(),
   }
-  vi.mocked(auth).mockResolvedValue(session)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(auth as any).mockResolvedValue(session)
   prismaMock.userSociety.findUnique.mockResolvedValue(
     buildMembership(role, { societyId })
   )
 }
 
 export function mockUnauthenticated() {
-  vi.mocked(auth).mockResolvedValue(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(auth as any).mockResolvedValue(null)
 }

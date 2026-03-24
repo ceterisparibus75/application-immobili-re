@@ -11,6 +11,8 @@ export const buildUser = (overrides?: Partial<User>): User => ({
   firstName: null,
   image: null,
   lastLoginAt: null,
+  twoFactorEnabled: false,
+  twoFactorSecret: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

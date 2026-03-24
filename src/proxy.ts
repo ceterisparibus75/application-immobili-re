@@ -28,11 +28,21 @@ export default auth(async (req) => {
     return NextResponse.next();
   }
 
-  // Pages de login - rediriger si deja connecte
+  // Pages de login - rediriger si deja connecte (sauf si 2FA requis)
   if (pathname === "/login" || pathname === "/forgot-password") {
     if (req.auth) {
+      const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
+      // Si 2FA requis, laisser passer pour ne pas bloquer le flux
+      if (authData.requires2FA && !authData.twoFactorVerified) {
+        return NextResponse.next();
+      }
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
+    return NextResponse.next();
+  }
+
+  // Page 2FA - accessible si connecte mais 2FA non encore verifie
+  if (pathname.startsWith("/login/two-factor")) {
     return NextResponse.next();
   }
 
@@ -72,6 +82,15 @@ export default auth(async (req) => {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Verifier si 2FA est requis et non encore verifie
+  const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
+  if (authData.requires2FA && !authData.twoFactorVerified) {
+    if (!pathname.startsWith("/login/two-factor")) {
+      return NextResponse.redirect(new URL("/login/two-factor", req.url));
+    }
+    return NextResponse.next();
   }
 
   // Lire la societe active depuis le cookie
