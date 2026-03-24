@@ -13,6 +13,8 @@ export const buildUser = (overrides?: Partial<User>): User => ({
   lastLoginAt: null,
   twoFactorEnabled: false,
   twoFactorSecret: null,
+  twoFactorRecoveryCodes: [],
+  pendingTwoFactorSecret: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

@@ -331,6 +331,7 @@ model Society {
   loans                   Loan[]
   budgetLines             BudgetLine[]
   gdprRequests            GdprRequest[]
+  signatureRequests       SignatureRequest[]
 
   @@index([siret])
 }
@@ -1758,4 +1759,54 @@ model Consent {
   revokedAt DateTime?
 
   @@index([email, purpose])
+}
+
+// ============================================================
+// PHASE 4.2 — SIGNATURES DOCUSIGN
+// ============================================================
+
+enum SignatureStatus {
+  SENT
+  DELIVERED
+  COMPLETED
+  DECLINED
+  VOIDED
+}
+
+enum SignatureDocumentType {
+  BAIL
+  ETAT_DES_LIEUX
+  MANDAT
+  AUTRE
+}
+
+/// Demande de signature electronique DocuSign
+model SignatureRequest {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  envelopeId     String  @unique // ID enveloppe DocuSign
+  status         SignatureStatus
+  documentType   SignatureDocumentType
+  documentId     String? // ID du document lié (bail, etc.)
+  documentName   String
+  signerEmail    String
+  signerName     String
+  signerClientId String? // Pour signature embarquée (embedded)
+  subject        String?
+  message        String?
+
+  // Dates de statut
+  signedAt      DateTime?
+  voidedAt      DateTime?
+  voidReason    String?
+  declinedAt    DateTime?
+  declineReason String?
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([societyId, status])
 }
