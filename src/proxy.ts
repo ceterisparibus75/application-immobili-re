@@ -41,8 +41,14 @@ export default auth(async (req) => {
     return NextResponse.next();
   }
 
-  // Page 2FA - accessible si connecte mais 2FA non encore verifie
+  // Page 2FA - accessible uniquement si session partielle avec 2FA requis
   if (pathname.startsWith("/login/two-factor")) {
+    if (!req.auth) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (!(req.auth as { requires2FA?: boolean }).requires2FA) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
     return NextResponse.next();
   }
 
@@ -54,7 +60,7 @@ export default auth(async (req) => {
       req.headers.get("x-real-ip") ??
       `anon-${crypto.randomUUID()}`;
     let limiter: Ratelimit | undefined;
-    if (pathname === "/login" || pathname.startsWith("/api/auth")) {
+    if (pathname === "/login" || pathname.startsWith("/api/auth") || pathname === "/login/two-factor") {
       limiter = getLoginRatelimit();
     } else if (pathname.startsWith("/api/")) {
       limiter = getApiRatelimit();

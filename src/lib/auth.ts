@@ -116,11 +116,9 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
       if (session.user && token.id) {
         session.user.id = token.id as string;
       }
-      // Exposer le statut 2FA dans la session
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const s = session as any;
-      s.requires2FA = token.requires2FA ?? false;
-      s.twoFactorVerified = token.twoFactorVerified ?? false;
+      // Exposer le statut 2FA dans la session (types declares dans src/types/next-auth.d.ts)
+      session.requires2FA = token.requires2FA ?? false;
+      session.twoFactorVerified = token.twoFactorVerified ?? false;
       return session;
     },
   },

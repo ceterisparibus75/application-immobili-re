@@ -4,6 +4,7 @@ import { auth, update } from "@/lib/auth";
 import { verifyTOTP, decryptRecoveryCodes } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/actions/society";
+import { createAuditLog } from "@/lib/audit";
 
 export async function completeTwoFactorLogin(code: string): Promise<ActionResult<{ redirectTo: string }>> {
   try {
@@ -43,6 +44,14 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
     }
 
     await update({ requires2FA: false, twoFactorVerified: true });
+    await createAuditLog({
+      societyId: "system",
+      userId: session.user.id,
+      action: "LOGIN",
+      entity: "User",
+      entityId: session.user.id,
+      details: { event: "TWO_FACTOR_LOGIN" },
+    });
     return { success: true, data: { redirectTo: "/dashboard" } };
   } catch (error) {
     console.error("[completeTwoFactorLogin]", error);

@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { compareSync } from "bcryptjs";
+import { createAuditLog } from "@/lib/audit";
 
 export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: string; secret: string }>> {
   try {
@@ -38,6 +39,8 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
       data: { pendingTwoFactorSecret: encryptTOTPSecret(secret) },
     });
 
+    // Le secret est retourne en clair uniquement pour permettre la saisie manuelle
+    // dans l'application d'authentification. Il n'est jamais stocke cote client.
     return { success: true, data: { qrCode, secret } };
   } catch (error) {
     console.error("[initSetupTwoFactor]", error);
@@ -86,6 +89,14 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     });
 
     revalidatePath("/settings/security");
+    await createAuditLog({
+      societyId: "system",
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "User",
+      entityId: session.user.id,
+      details: { event: "TWO_FACTOR_ENABLED" },
+    });
     return { success: true, data: { recoveryCodes } };
   } catch (error) {
     console.error("[confirmSetupTwoFactor]", error);
@@ -115,6 +126,14 @@ export async function disableTwoFactor(password: string): Promise<ActionResult<v
     });
 
     revalidatePath("/settings/security");
+    await createAuditLog({
+      societyId: "system",
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "User",
+      entityId: session.user.id,
+      details: { event: "TWO_FACTOR_DISABLED" },
+    });
     return { success: true };
   } catch (error) {
     console.error("[disableTwoFactor]", error);
