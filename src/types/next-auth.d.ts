@@ -8,6 +8,8 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
     };
+    requires2FA?: boolean;
+    twoFactorVerified?: boolean;
   }
 
   interface User {
@@ -15,11 +17,14 @@ declare module "next-auth" {
     email: string;
     name?: string | null;
     image?: string | null;
+    requires2FA?: boolean;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
+    requires2FA?: boolean;
+    twoFactorVerified?: boolean;
   }
 }

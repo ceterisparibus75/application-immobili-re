@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
 import { prisma } from "./prisma";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update: update } = NextAuth({
   trustHost: true,
   session: {
     strategy: "jwt",
@@ -52,7 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Mettre à jour la date de dernière connexion
+        // Mettre a jour la date de derniere connexion
         try {
           await prisma.user.update({
             where: { id: user.id },
@@ -60,6 +60,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
         } catch (err) {
           console.error("[auth] update lastLoginAt error:", err);
+        }
+
+        // Si 2FA active, retourner un token partiel
+        if (user.twoFactorEnabled) {
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name ?? user.firstName ?? user.email,
+            image: user.image,
+            requires2FA: true,
+          };
         }
 
         return {
@@ -72,16 +83,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Mise a jour manuelle du token via update()
+      if (trigger === "update" && session) {
+        if ("requires2FA" in session) {
+          token.requires2FA = session.requires2FA as boolean;
+        }
+        if ("twoFactorVerified" in session) {
+          token.twoFactorVerified = session.twoFactorVerified as boolean;
+        }
+        return token;
+      }
+
       if (user) {
         token.id = user.id;
+        // Propager le flag 2FA depuis authorize()
+        if (user.requires2FA === true) {
+          token.requires2FA = true;
+          token.twoFactorVerified = false;
+          return token; // Ne pas enrichir tant que 2FA non complete
+        }
       }
+
+      // Si 2FA requis et non verifie, ne pas enrichir le token
+      if (token.requires2FA && !token.twoFactorVerified) {
+        return token;
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
       }
+      // Exposer le statut 2FA dans la session (types declares dans src/types/next-auth.d.ts)
+      session.requires2FA = token.requires2FA ?? false;
+      session.twoFactorVerified = token.twoFactorVerified ?? false;
       return session;
     },
   },

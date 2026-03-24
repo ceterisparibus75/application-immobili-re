@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
+import * as Sentry from "@sentry/nextjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +30,15 @@ export default function RootLayout({
       <body className="min-h-full font-sans antialiased">
         <SessionProvider>
           <ThemeProvider>
-            {children}
+            <Sentry.ErrorBoundary
+              fallback={
+                <div className="p-8 text-center text-muted-foreground">
+                  Une erreur inattendue est survenue.
+                </div>
+              }
+            >
+              {children}
+            </Sentry.ErrorBoundary>
             <Toaster richColors closeButton />
           </ThemeProvider>
         </SessionProvider>

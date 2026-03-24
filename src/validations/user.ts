@@ -1,3 +1,4 @@
+import { strongPasswordSchema } from "@/validations/auth";
 import { z } from "zod";
 
 export const loginSchema = z.object({
@@ -9,13 +10,7 @@ export const createUserSchema = z.object({
   email: z.string().email("Adresse email invalide"),
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   firstName: z.string().optional().or(z.literal("")),
-  password: z
-    .string()
-    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre"
-    ),
+  password: strongPasswordSchema,
 });
 
 export const updateUserSchema = z.object({
@@ -41,13 +36,7 @@ export const assignUserToSocietySchema = z.object({
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Le mot de passe actuel est requis"),
-    newPassword: z
-      .string()
-      .min(8, "Le nouveau mot de passe doit contenir au moins 8 caractères")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-        "Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre"
-      ),
+    newPassword: strongPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
