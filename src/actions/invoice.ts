@@ -22,9 +22,6 @@ import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { sendInvoiceEmail } from "@/lib/email";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { InvoicePdf } from "@/lib/invoice-pdf";
-import React from "react";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -1312,6 +1309,7 @@ export async function sendInvoiceToTenant(
 
     const to = invoice.tenant.billingEmail || invoice.tenant.email;
     if (!to) return { success: false, error: "Le locataire n'a pas d'adresse email" };
+    console.error("[sendInvoiceToTenant] Envoi à:", to, "| facture:", invoice.invoiceNumber);
 
     const tenantName =
       invoice.tenant.entityType === "PERSONNE_MORALE"
@@ -1322,24 +1320,6 @@ export async function sendInvoiceToTenant(
       ? new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
       : new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-    // Tentative de génération PDF à joindre
-    let pdfAttachment: { filename: string; content: Buffer } | undefined;
-    try {
-      const pdfData = {
-        invoiceNumber: invoice.invoiceNumber, invoiceType: invoice.invoiceType,
-        issueDate: invoice.issueDate.toISOString(), dueDate: invoice.dueDate.toISOString(),
-        periodStart: null, periodEnd: null, totalHT: invoice.totalHT,
-        totalVAT: invoice.totalVAT, totalTTC: invoice.totalTTC, previousBalance: 0, isAvoir: invoice.invoiceType === "AVOIR",
-        society: invoice.society ? { name: invoice.society.name } : null,
-        tenant: { name: tenantName, address: null, email: to },
-        lotLabel: null, lines: invoice.lines.map((l) => ({ label: l.label, lotNumber: null, totalHT: l.totalTTC, vatRate: 0, totalTTC: l.totalTTC })),
-        payments: [], creditNoteForNumber: null,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const buf = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
-      pdfAttachment = { filename: "FACTURE-" + invoice.invoiceNumber + ".pdf", content: buf };
-    } catch { /* non bloquant */ }
-
     const result = await sendInvoiceEmail({
       to,
       tenantName,
@@ -1349,7 +1329,6 @@ export async function sendInvoiceToTenant(
       period,
       societyName: invoice.society?.name ?? "",
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
-      pdfAttachment,
     });
 
     if (!result.success) return { success: false, error: result.error ?? "Erreur d'envoi" };
@@ -1366,7 +1345,8 @@ export async function sendInvoiceToTenant(
     return { success: true, data: { sent: true } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    console.error("[sendInvoiceToTenant]", error);
-    return { success: false, error: "Erreur lors de l'envoi de l'email" };
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[sendInvoiceToTenant] exception:", msg);
+    return { success: false, error: msg };
   }
 }
