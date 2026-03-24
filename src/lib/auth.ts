@@ -117,9 +117,11 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
         session.user.id = token.id as string;
       }
       // Exposer le statut 2FA dans la session (types declares dans src/types/next-auth.d.ts)
-      session.requires2FA = token.requires2FA ?? false;
-      session.twoFactorVerified = token.twoFactorVerified ?? false;
-      return session;
+      // Object.assign evite le conflit de types strict de NextAuth v5
+      return Object.assign(session, {
+        requires2FA: (token.requires2FA ?? false) as boolean,
+        twoFactorVerified: (token.twoFactorVerified ?? false) as boolean,
+      });
     },
   },
 });
