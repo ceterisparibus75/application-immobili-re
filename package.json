@@ -41,6 +41,7 @@
     "bcryptjs": "^2",
     "class-variance-authority": "^0.7",
     "clsx": "^2",
+    "exceljs": "^4.4.0",
     "jose": "^6.2.2",
     "jsonrepair": "^3.13.3",
     "lucide-react": "^0.469",
