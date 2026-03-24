@@ -93,7 +93,8 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
         <Text style={s.centerText}>Facture n° {data.invoiceNumber}   Émise le : {fmtDate(data.issueDate)}</Text>
         <View style={s.headerRow}>
           <View style={s.emitter}>
-            {soc?.logoSignedUrl ? <Image src={soc.logoSignedUrl} style={s.logo} alt="" /> : null}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            {soc?.logoSignedUrl ? <Image src={soc.logoSignedUrl} style={s.logo} /> : null}
             <Text style={s.companyName}>{soc?.name ?? "---"}</Text>
             {soc?.addressLine1 ? <Text style={s.smallText}>{soc.addressLine1}, {[soc.postalCode, soc.city].filter(Boolean).join(" ")}</Text> : null}
             {soc?.phone ? <Text style={s.smallText}>Tél. : {soc.phone}</Text> : null}
