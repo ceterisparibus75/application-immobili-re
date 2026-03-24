@@ -55,7 +55,7 @@ export default function TwoFactorPage() {
             <CardTitle className="text-2xl">Verification 2FA</CardTitle>
           </div>
           <CardDescription>
-            Entrez le code a 6 chiffres de votre application d&apos;authentification
+            Entrez le code à 6 chiffres de votre application d&rsquo;authentification
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -66,7 +66,7 @@ export default function TwoFactorPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="code">Code d&apos;authentification</Label>
+              <Label htmlFor="code">Code d&rsquo;authentification</Label>
               <Input
                 id="code"
                 type="text"
