@@ -332,6 +332,7 @@ model Society {
   budgetLines             BudgetLine[]
   gdprRequests            GdprRequest[]
   signatureRequests       SignatureRequest[]
+  notifications           Notification[]
 
   @@index([siret])
 }
@@ -361,6 +362,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   auditLogs     AuditLog[]
+  notifications Notification[]
 
   @@index([email])
 }
@@ -773,6 +775,7 @@ model Tenant {
   portalAccess       TenantPortalAccess?
   documents          Document[]
   invoices           Invoice[]
+  sepaMandates       SepaMandate[]
 
   @@index([societyId])
   @@index([societyId, isActive])
@@ -1122,6 +1125,10 @@ model Invoice {
 
   // Avoir — référence à la facture d'origine
   creditNoteForId String?
+
+  // SEPA
+  sepaPaymentId String?  // ID paiement GoCardless
+  sepaStatus    SepaPaymentStatus?
 
   society      Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lease        Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
@@ -1809,4 +1816,92 @@ model SignatureRequest {
 
   @@index([societyId])
   @@index([societyId, status])
+}
+
+// ============================================================
+// PHASE 7 — PRÉLÈVEMENT SEPA (GoCardless)
+// ============================================================
+
+enum SepaMandateStatus {
+  PENDING_SUBMISSION
+  SUBMITTED
+  ACTIVE
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum SepaPaymentStatus {
+  PENDING_SUBMISSION
+  SUBMITTED
+  CONFIRMED
+  PAID_OUT
+  FAILED
+  CANCELLED
+  CUSTOMER_APPROVAL_DENIED
+  CHARGED_BACK
+}
+
+/// Mandat SEPA GoCardless — lié à un locataire
+model SepaMandate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  tenantId  String
+
+  gocardlessId    String  @unique  // ID mandat GoCardless
+  status          SepaMandateStatus @default(PENDING_SUBMISSION)
+  ibanLast4       String?           // 4 derniers chiffres IBAN (affichage)
+  bankName        String?
+  mandateReference String?          // Référence unique mandat
+  signedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  tenant  Tenant   @relation(fields: [tenantId],  references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([tenantId])
+  @@index([gocardlessId])
+}
+
+// ============================================================
+// PHASE 9 — NOTIFICATIONS
+// ============================================================
+
+enum NotificationType {
+  BAIL_EXPIRING
+  INVOICE_OVERDUE
+  DIAGNOSTIC_EXPIRING
+  PAYMENT_RECEIVED
+  MAINTENANCE_COMPLETED
+  DOCUMENT_SIGNED
+  SEPA_PAYMENT_FAILED
+  SEPA_PAYMENT_CONFIRMED
+  INSURANCE_EXPIRING
+}
+
+/// Notification in-app
+model Notification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  societyId String
+
+  type    NotificationType
+  title   String
+  message String           @db.Text
+  link    String?          // URL de navigation
+  isRead  Boolean          @default(false)
+  readAt  DateTime?
+
+  user    User    @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, societyId])
+  @@index([userId, isRead])
+  @@index([societyId])
+  @@index([createdAt])
 }

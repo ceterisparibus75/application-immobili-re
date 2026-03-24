@@ -18,7 +18,7 @@ export const buildUser = (overrides?: Partial<User>): User => ({
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
-}) as User
+}) as unknown as User
 
 export const buildSociety = (overrides?: Partial<Society>): Society => ({
   id: "society-1",

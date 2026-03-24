@@ -13,11 +13,27 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Gestion Immobilière",
-    template: "%s | Gestion Immobilière",
+    default: "Gestion Immobilière MTG",
+    template: "%s | MTG Immo",
   },
-  description:
-    "Application de gestion de baux commerciaux et patrimoine immobilier",
+  description: "Application de gestion de baux commerciaux et patrimoine immobilier",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MTG Immo",
+  },
+  themeColor: "#09090b",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  icons: {
+    apple: "/icons/icon-apple.png",
+    icon: "/icons/icon-192.png",
+  },
 };
 
 export default function RootLayout({
@@ -43,6 +59,11 @@ export default function RootLayout({
           </ThemeProvider>
         </SessionProvider>
       </body>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `if ("serviceWorker" in navigator) { window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js"); }); }`,
+        }}
+      />
     </html>
   );
 }

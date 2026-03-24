@@ -19,6 +19,8 @@ import {
   ScrollText,
   Banknote,
   BarChart3,
+  FileBarChart,
+  BellDot,
   Upload,
   Merge,
 } from "lucide-react";
@@ -58,12 +60,14 @@ const navigation = [
       { name: "Emprunts", href: "/emprunts", icon: Banknote },
       { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
       { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
+      { name: "Rapports", href: "/rapports", icon: FileBarChart },
     ],
   },
   {
     title: "Communication",
     items: [
       { name: "Relances", href: "/relances", icon: Bell },
+      { name: "Notifications", href: "/notifications", icon: BellDot },
       { name: "Contacts", href: "/contacts", icon: Contact },
     ],
   },

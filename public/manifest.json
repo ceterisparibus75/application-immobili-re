@@ -1,0 +1,51 @@
+{
+  "name": "Gestion Immobilière MTG",
+  "short_name": "MTG Immo",
+  "description": "Application de gestion immobilière professionnelle",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-apple.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": [
+    "business",
+    "finance"
+  ],
+  "lang": "fr",
+  "shortcuts": [
+    {
+      "name": "Tableau de bord",
+      "url": "/dashboard",
+      "description": "Vue d ensemble"
+    },
+    {
+      "name": "Factures",
+      "url": "/facturation",
+      "description": "Gestion des factures"
+    },
+    {
+      "name": "Locataires",
+      "url": "/locataires",
+      "description": "Liste des locataires"
+    }
+  ]
+}
