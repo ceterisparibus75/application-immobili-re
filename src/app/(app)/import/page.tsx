@@ -27,7 +27,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useSociety } from "@/providers/society-provider";
-import { importFromPdf, type ImportInput, type ImportResult } from "@/actions/import";
+import { importFromPdf, analyzePdfAction, type ImportInput, type ImportResult } from "@/actions/import";
 import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
 import { getActiveTenants } from "@/actions/tenant";
@@ -597,30 +597,15 @@ export default function ImportPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/import/analyze", { method: "POST", body: fd });
-      let data: Record<string, unknown> | null = null;
-      try {
-        data = await res.json();
-      } catch {
-        if (res.status === 413) {
-          setAnalyzeError("Fichier trop volumineux pour l'analyse (max 15 Mo).");
-        } else if (res.status === 503 || res.status === 504) {
-          setAnalyzeError("Le service d'analyse est temporairement indisponible. Réessayez dans quelques instants.");
-        } else {
-          setAnalyzeError("L'analyse a pris trop de temps ou une erreur serveur s'est produite. Réessayez.");
-        }
+      const result = await analyzePdfAction(fd);
+      if (!result.success) {
+        setAnalyzeError(result.error ?? "Erreur lors de l'analyse");
         return;
       }
-
-      if (!res.ok) {
-        setAnalyzeError((data?.error as string) ?? "Erreur lors de l'analyse");
-        return;
-      }
-
-      setForm(aiToForm(data as Record<string, unknown>));
+      setForm(aiToForm(result.data as Record<string, unknown>));
       setStep("review");
     } catch {
-      setAnalyzeError("Erreur de connexion au serveur. Vérifiez votre connexion internet.");
+      setAnalyzeError("Erreur lors de l'analyse. Réessayez.");
     } finally {
       setIsAnalyzing(false);
     }
