@@ -2,28 +2,54 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return new NextResponse(null, { status: 401 });
 
   const path = req.nextUrl.searchParams.get("path");
-  if (!path) return new NextResponse(null, { status: 400 });
+  if (!path || path.trim() === "") return new NextResponse(null, { status: 400 });
 
-  // Sécurité : empêcher la traversée de répertoires
-  const cleanPath = path.replace(/\.\.\//g, "").replace(/^\//, "");
-
-  const { data, error } = await supabase.storage
-    .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-    .createSignedUrl(cleanPath, 3600);
-
-  if (error || !data?.signedUrl) {
-    return new NextResponse(null, { status: 404 });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("[storage/view] Variables Supabase manquantes");
+    return new NextResponse(null, { status: 503 });
   }
 
-  return NextResponse.redirect(data.signedUrl);
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const cleanPath = path.replace(/\.\.\//g, "").replace(/^\//, "");
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+
+  // Téléchargement direct — contourne les problèmes de CORS et de policies sur les URLs signées
+  const { data: blob, error } = await supabase.storage.from(bucket).download(cleanPath);
+
+  if (error || !blob) {
+    console.error("[storage/view] download error:", error?.message, "path:", cleanPath, "bucket:", bucket);
+    // Fallback : essayer avec une URL signée
+    const { data: signed, error: signedErr } = await supabase.storage.from(bucket).createSignedUrl(cleanPath, 3600);
+    if (signedErr || !signed?.signedUrl) {
+      console.error("[storage/view] signedUrl error:", signedErr?.message);
+      return new NextResponse(null, { status: 404 });
+    }
+    const response = NextResponse.redirect(signed.signedUrl);
+    response.headers.set("Cache-Control", "private, max-age=3600");
+    return response;
+  }
+
+  const ab = await blob.arrayBuffer();
+  const ext = cleanPath.split(".").pop()?.toLowerCase() ?? "";
+  const mimeMap: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+    gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    pdf: "application/pdf",
+  };
+  const contentType = mimeMap[ext] ?? blob.type ?? "application/octet-stream";
+
+  return new NextResponse(ab, {
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "private, max-age=3600",
+      "Content-Length": String(ab.byteLength),
+    },
+  });
 }

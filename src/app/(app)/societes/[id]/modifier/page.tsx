@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, CheckCircle2, Loader2, Save, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getLogoProxyUrl } from "@/lib/utils";
@@ -77,29 +77,38 @@ export default function ModifierSocietePage() {
 
   async function handleLogoUpload(file: File) {
     setLogoUploading(true);
+    setError("");
     try {
+      // 1. Obtenir l'URL d'upload signée
       const res = await fetch("/api/storage/signed-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        body: JSON.stringify({ filename: file.name, contentType: file.type, societyId: id }),
       });
-      if (!res.ok) throw new Error("Erreur lors de la signature");
-      const { signedUrl, storagePath, viewUrl } = (await res.json()) as { signedUrl: string; storagePath: string; viewUrl: string | null };
-      await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      // Stocker le chemin de stockage (pas l'URL signée) pour pouvoir régénérer des URLs fraîches
-      const logoUrl = storagePath;
-      void viewUrl; // non utilisé
-      // Sauvegarde immédiate du logo (sans attendre la soumission du formulaire)
-      const result = await updateSociety({ id, logoUrl });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(errData.error ?? `Erreur serveur (${res.status})`);
+      }
+      const { signedUrl, storagePath } = (await res.json()) as { signedUrl: string; storagePath: string };
+
+      // 2. Uploader le fichier vers Supabase
+      const uploadRes = await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!uploadRes.ok) {
+        throw new Error(`Échec de l'upload du fichier (${uploadRes.status})`);
+      }
+
+      // 3. Sauvegarder le chemin en base
+      const result = await updateSociety({ id, logoUrl: storagePath });
       if (result.success) {
-        set("logoUrl", logoUrl);
+        set("logoUrl", storagePath);
         toast.success("Logo enregistré");
       } else {
         throw new Error(result.error ?? "Erreur de sauvegarde");
       }
-    } catch {
-      setError("Erreur lors de l'upload du logo");
-      toast.error("Erreur lors de l'enregistrement du logo");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur lors de l'upload du logo";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLogoUploading(false);
     }
@@ -181,7 +190,7 @@ export default function ModifierSocietePage() {
               <Input id="addressLine1" value={form.addressLine1} onChange={(e) => set("addressLine1", e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressLine2">Complément d'adresse</Label>
+              <Label htmlFor="addressLine2">Complément d&apos;adresse</Label>
               <Input id="addressLine2" value={form.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} />
             </div>
             <div className="grid gap-4 md:grid-cols-3">
@@ -213,7 +222,7 @@ export default function ModifierSocietePage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="taxRegime">Régime d'imposition *</Label>
+                <Label htmlFor="taxRegime">Régime d&apos;imposition *</Label>
                 <Select id="taxRegime" name="taxRegime" options={[{ value: "IS", label: "Impôt sur les Sociétés (IS)" }, { value: "IR", label: "Impôt sur le Revenu (IR)" }]} value={form.taxRegime} onChange={(e) => set("taxRegime", e.target.value)} required />
               </div>
               <div className="space-y-2">
@@ -234,7 +243,7 @@ export default function ModifierSocietePage() {
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="iban">IBAN</Label>
                 <Input id="iban" name="iban" placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" />
-                <p className="text-xs text-muted-foreground">Laissez vide pour ne pas modifier l'IBAN existant</p>
+                <p className="text-xs text-muted-foreground">Laissez vide pour ne pas modifier l&apos;IBAN existant</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bic">BIC</Label>

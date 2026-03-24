@@ -8,13 +8,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
 import { getLogoProxyUrl } from "@/lib/utils";
+import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
 
@@ -86,8 +87,8 @@ export default async function FactureDetailPage({
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              {invoice.society?.logoUrl && (
-                <img src={getLogoProxyUrl(invoice.society.logoUrl) ?? ""} alt="Logo" className="h-10 object-contain" />
+              {invoice.society?.logoUrl && getLogoProxyUrl(invoice.society.logoUrl) && (
+                <LogoImage src={getLogoProxyUrl(invoice.society.logoUrl)!} className="h-10 object-contain" />
               )}
               <h1 className="text-2xl font-bold tracking-tight">
                 {invoice.invoiceNumber}
@@ -109,9 +110,15 @@ export default async function FactureDetailPage({
           <Link href={`/facturation/${invoice.id}/apercu`}>
             <Button variant="outline" size="sm">
               <Eye className="h-4 w-4" />
-              Aperçu / Imprimer
+              Aperçu
             </Button>
           </Link>
+          <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4" />
+              PDF
+            </Button>
+          </a>
           <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
             <Link href={`/facturation/${invoice.id}/avoir`}>

@@ -598,17 +598,29 @@ export default function ImportPage() {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/import/analyze", { method: "POST", body: fd });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setAnalyzeError(data.error ?? "Erreur lors de l'analyse");
+      let data: Record<string, unknown> | null = null;
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status === 413) {
+          setAnalyzeError("Fichier trop volumineux pour l'analyse (max 15 Mo).");
+        } else if (res.status === 503 || res.status === 504) {
+          setAnalyzeError("Le service d'analyse est temporairement indisponible. Réessayez dans quelques instants.");
+        } else {
+          setAnalyzeError("L'analyse a pris trop de temps ou une erreur serveur s'est produite. Réessayez.");
+        }
         return;
       }
 
-      setForm(aiToForm(data));
+      if (!res.ok) {
+        setAnalyzeError((data?.error as string) ?? "Erreur lors de l'analyse");
+        return;
+      }
+
+      setForm(aiToForm(data as Record<string, unknown>));
       setStep("review");
     } catch {
-      setAnalyzeError("Erreur de connexion");
+      setAnalyzeError("Erreur de connexion au serveur. Vérifiez votre connexion internet.");
     } finally {
       setIsAnalyzing(false);
     }

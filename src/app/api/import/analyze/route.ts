@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import Anthropic from "@anthropic-ai/sdk";
+import { env } from "@/lib/env";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+export const maxDuration = 60;
 
 const EXTRACTION_PROMPT = `Tu es un expert en droit immobilier commercial français. Analyse ce bail et extrais les informations structurées.
 
@@ -79,6 +80,15 @@ export async function POST(req: NextRequest) {
     }
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    if (!env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "La clé API Anthropic n’est pas configurée. Contactez l’administrateur." },
+        { status: 503 }
+      );
+    }
+
+    const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

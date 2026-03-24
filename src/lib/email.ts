@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
 const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobilière"}" <${process.env.EMAIL_FROM ?? "contact@mtggroupe.org"}>`;
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobilière";
 
@@ -50,12 +50,17 @@ interface EmailResult {
   error?: string;
 }
 
-async function sendMail(to: string, subject: string, html: string): Promise<EmailResult> {
+async function sendMail(to: string, subject: string, html: string, attachments?: Array<{ filename: string; content: Buffer }>): Promise<EmailResult> {
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    const { data, error } = await getResend().emails.send({ from: FROM, to, subject, html, ...(attachments?.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content })) } : {}) });
+    if (error) {
+      console.error("[sendMail] Resend error:", error);
+      return { success: false, error: (error as { message?: string }).message ?? String(error) };
+    }
+    console.log("[sendMail] Envoye OK, id:", data?.id, "| a:", to, "| sujet:", subject);
     return { success: true };
   } catch (error) {
-    console.error("[sendMail]", error);
+    console.error("[sendMail] exception:", error);
     return { success: false, error: String(error) };
   }
 }
@@ -116,6 +121,7 @@ interface InvoiceEmailParams {
   period: string;
   societyName: string;
   items?: Array<{ label: string; amount: number }>;
+  pdfAttachment?: { filename: string; content: Buffer };
 }
 
 export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<EmailResult> {
@@ -138,7 +144,7 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
     <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
   `;
 
-  return sendMail(params.to, `Appel de loyer ${params.period} — ${params.invoiceRef}`, baseTemplate(`Appel de loyer ${params.period}`, content));
+  return sendMail(params.to, `Appel de loyer ${params.period} — ${params.invoiceRef}`, baseTemplate(`Appel de loyer ${params.period}`, content), params.pdfAttachment ? [params.pdfAttachment] : undefined);
 }
 
 // ============================================================

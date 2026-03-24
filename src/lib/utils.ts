@@ -46,14 +46,11 @@ export function formatDateTime(date: Date | string): string {
  */
 export function getLogoProxyUrl(logoUrl: string | null | undefined): string | null {
   if (!logoUrl) return null;
-  // URL signée Supabase (déjà valide) — utiliser directement
-  if (logoUrl.includes("supabase.co/storage") && logoUrl.includes("token=")) {
-    return logoUrl;
-  }
-  // Chemin relatif ou URL publique Supabase — proxifier via /api/storage/view
+  // Chemin relatif → proxifier directement
   if (!logoUrl.startsWith("http")) {
     return `/api/storage/view?path=${encodeURIComponent(logoUrl)}`;
   }
+  // URL Supabase (signée upload, signée download, ou publique) → extraire le chemin et proxifier
   const match = logoUrl.match(/\/storage\/v1\/object\/(?:upload\/sign\/|sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/);
   if (match) {
     return `/api/storage/view?path=${encodeURIComponent(match[1])}`;

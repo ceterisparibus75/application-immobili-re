@@ -22,6 +22,9 @@ import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { sendInvoiceEmail } from "@/lib/email";
+import { renderToBuffer } from "@react-pdf/renderer";
+import { InvoicePdf } from "@/lib/invoice-pdf";
+import React from "react";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -108,7 +111,7 @@ export async function createInvoice(
           invoiceNumber,
           invoiceType: parsed.data.invoiceType,
           status: "EN_ATTENTE",
-          issueDate: new Date(parsed.data.issueDate),
+          issueDate: new Date(),
           dueDate: new Date(parsed.data.dueDate),
           periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
           periodEnd: parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : null,
@@ -338,12 +341,14 @@ function computeIssueDueDate(
   periodEnd: Date,
   billingTerm: BillingTerm
 ): { issueDate: Date; dueDate: Date } {
+  // La date d'émission correspond toujours à la date de création de la facture
+  const issueDate = new Date();
   if (billingTerm === "A_ECHOIR") {
-    return { issueDate: periodStart, dueDate: periodStart };
+    return { issueDate, dueDate: periodStart };
   }
   const dueDate = new Date(periodEnd);
   dueDate.setDate(dueDate.getDate() + 1);
-  return { issueDate: periodEnd, dueDate };
+  return { issueDate, dueDate };
 }
 
 /**
@@ -1248,7 +1253,7 @@ export async function createCreditNote(
           invoiceNumber,
           invoiceType: "AVOIR",
           status: "EN_ATTENTE",
-          issueDate: new Date(parsed.data.issueDate),
+          issueDate: new Date(),
           dueDate: new Date(parsed.data.dueDate),
           periodStart: original.periodStart,
           periodEnd: original.periodEnd,
@@ -1317,6 +1322,24 @@ export async function sendInvoiceToTenant(
       ? new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
       : new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
+    // Tentative de génération PDF à joindre
+    let pdfAttachment: { filename: string; content: Buffer } | undefined;
+    try {
+      const pdfData = {
+        invoiceNumber: invoice.invoiceNumber, invoiceType: invoice.invoiceType,
+        issueDate: invoice.issueDate.toISOString(), dueDate: invoice.dueDate.toISOString(),
+        periodStart: null, periodEnd: null, totalHT: invoice.totalHT,
+        totalVAT: invoice.totalVAT, totalTTC: invoice.totalTTC, previousBalance: 0, isAvoir: invoice.invoiceType === "AVOIR",
+        society: invoice.society ? { name: invoice.society.name } : null,
+        tenant: { name: tenantName, address: null, email: to },
+        lotLabel: null, lines: invoice.lines.map((l) => ({ label: l.label, lotNumber: null, totalHT: l.totalTTC, vatRate: 0, totalTTC: l.totalTTC })),
+        payments: [], creditNoteForNumber: null,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const buf = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
+      pdfAttachment = { filename: "FACTURE-" + invoice.invoiceNumber + ".pdf", content: buf };
+    } catch { /* non bloquant */ }
+
     const result = await sendInvoiceEmail({
       to,
       tenantName,
@@ -1326,6 +1349,7 @@ export async function sendInvoiceToTenant(
       period,
       societyName: invoice.society?.name ?? "",
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
+      pdfAttachment,
     });
 
     if (!result.success) return { success: false, error: result.error ?? "Erreur d'envoi" };
