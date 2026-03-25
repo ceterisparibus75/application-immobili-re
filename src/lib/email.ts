@@ -129,16 +129,9 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
   const typeLabel = params.typeLabel ?? "votre facture";
   const typeLabelCapitalized = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1);
 
-  const itemsHtml = params.items?.length
-    ? `<table class="table"><thead><tr><th>Désignation</th><th style="text-align:right">Montant TTC</th></tr></thead><tbody>
-        ${params.items.map((i) => `<tr><td>${i.label}</td><td style="text-align:right">${fmt(i.amount)}</td></tr>`).join("")}
-      </tbody></table>`
-    : "";
-
   const content = `
     <p>Madame, Monsieur,</p>
     <p>Veuillez trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période <strong>${params.period}</strong>.</p>
-    ${itemsHtml}
     <table class="table">
       <tr><th>Référence</th><td>${params.invoiceRef}</td></tr>
       <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
