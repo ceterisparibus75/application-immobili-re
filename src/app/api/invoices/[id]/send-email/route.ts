@@ -190,11 +190,16 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       try {
         const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
         const year = new Date(invoice.issueDate).getFullYear();
-        const docStoragePath = `factures/${societyId}/${year}/${invoice.invoiceNumber}.pdf`;
+        const docStoragePath = `invoices/${societyId}/${year}/${invoice.invoiceNumber}.pdf`;
 
         await supabase.storage
           .from(bucketName)
           .upload(docStoragePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
+
+        await prisma.invoice.update({
+          where: { id },
+          data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to },
+        });
 
         await prisma.document.create({
           data: {

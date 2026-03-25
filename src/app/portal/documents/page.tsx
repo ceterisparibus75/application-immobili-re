@@ -212,7 +212,7 @@ export default async function PortalDocumentsPage() {
                       {STATUS_LABELS[inv.status] ?? inv.status}
                     </Badge>
                     {inv.fileUrl && (
-                      <a href={inv.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={`/api/portal/invoices/${inv.id}/pdf`} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4 text-primary hover:text-primary/80" />
                       </a>
                     )}
@@ -250,7 +250,7 @@ export default async function PortalDocumentsPage() {
                       {formatCurrency(inv.totalTTC ?? inv.totalHT)}
                     </span>
                     {inv.fileUrl && (
-                      <a href={inv.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={`/api/portal/invoices/${inv.id}/pdf`} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4 text-primary hover:text-primary/80" />
                       </a>
                     )}
