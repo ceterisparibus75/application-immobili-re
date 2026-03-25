@@ -1388,7 +1388,7 @@ export async function sendInvoiceToTenant(
         })),
         creditNoteForNumber: invoice.creditNoteFor?.invoiceNumber ?? null,
       };
-      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000));
+      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const buf = await Promise.race([renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any), timeout]);
       pdfAttachment = { filename: `FACTURE-${invoice.invoiceNumber}.pdf`, content: buf };

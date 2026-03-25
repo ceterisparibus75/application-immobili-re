@@ -1,3 +1,5 @@
+export const maxDuration = 30;
+
 import { getInvoiceById } from "@/actions/invoice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
