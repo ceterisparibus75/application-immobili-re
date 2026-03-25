@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
-import { sendInvoiceToTenant } from "@/actions/invoice";
 import { toast } from "sonner";
 
 type Props = {
@@ -11,16 +10,21 @@ type Props = {
   societyId: string;
 };
 
-export function SendInvoiceButton({ invoiceId, societyId }: Props) {
+export function SendInvoiceButton({ invoiceId }: Props) {
   const [sending, setSending] = useState(false);
 
   async function handleSend() {
     setSending(true);
-    const result = await sendInvoiceToTenant(societyId, invoiceId);
-    if (result.success) {
-      toast.success("Facture envoyée par email au locataire");
-    } else {
-      toast.error(result.error ?? "Erreur lors de l'envoi");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/send-email`, { method: "POST" });
+      const data = await res.json() as { success?: boolean; error?: { message?: string } };
+      if (res.ok && data.success) {
+        toast.success("Facture envoyée par email au locataire");
+      } else {
+        toast.error(data.error?.message ?? "Erreur lors de l'envoi");
+      }
+    } catch {
+      toast.error("Erreur lors de l'envoi");
     }
     setSending(false);
   }

@@ -22,9 +22,6 @@ import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { sendInvoiceEmail } from "@/lib/email";
-import React from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { InvoicePdf, type InvoicePdfData } from "@/lib/invoice-pdf";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -1290,7 +1287,7 @@ export async function createCreditNote(
   }
 }
 
-/** Envoie la facture par email au locataire. */
+/** Envoie la facture par email au locataire (sans PDF — le PDF est géré par le Route Handler /api/invoices/[id]/send-email). */
 export async function sendInvoiceToTenant(
   societyId: string,
   invoiceId: string
@@ -1303,18 +1300,15 @@ export async function sendInvoiceToTenant(
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
       include: {
-        tenant: { select: { email: true, billingEmail: true, firstName: true, lastName: true, entityType: true, companyName: true, companyAddress: true, personalAddress: true } },
-        society: { select: { name: true, addressLine1: true, postalCode: true, city: true, country: true, phone: true, siret: true, vatNumber: true, legalForm: true, shareCapital: true, bankName: true, vatRegime: true, legalMentions: true, signatoryName: true } },
-        lines: { select: { label: true, totalTTC: true, totalHT: true, vatRate: true } },
-        payments: { select: { paidAt: true, method: true, amount: true } },
-        creditNoteFor: { select: { invoiceNumber: true } },
+        tenant: { select: { email: true, billingEmail: true, firstName: true, lastName: true, entityType: true, companyName: true } },
+        society: { select: { name: true } },
+        lines: { select: { label: true, totalTTC: true } },
       },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
 
     const to = invoice.tenant.billingEmail || invoice.tenant.email;
     if (!to) return { success: false, error: "Le locataire n'a pas d'adresse email" };
-    console.log("[sendInvoiceToTenant] Envoi à:", to, "| facture:", invoice.invoiceNumber);
 
     const tenantName =
       invoice.tenant.entityType === "PERSONNE_MORALE"
@@ -1325,77 +1319,6 @@ export async function sendInvoiceToTenant(
       ? new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
       : new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-    const TYPE_LABELS: Record<string, string> = {
-      APPEL_LOYER: "votre appel de loyers",
-      QUITTANCE: "votre quittance de loyer",
-      REGULARISATION_CHARGES: "votre régularisation de charges",
-      REFACTURATION: "votre refacturation",
-      AVOIR: "votre avoir",
-    };
-    const typeLabel = TYPE_LABELS[invoice.invoiceType as string] ?? "votre facture";
-
-    // Génération PDF (non bloquante — timeout 15s)
-    let pdfAttachment: { filename: string; content: Buffer } | undefined;
-    try {
-      const pdfData: InvoicePdfData = {
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceType: invoice.invoiceType,
-        issueDate: invoice.issueDate.toISOString(),
-        dueDate: invoice.dueDate.toISOString(),
-        periodStart: invoice.periodStart?.toISOString() ?? null,
-        periodEnd: invoice.periodEnd?.toISOString() ?? null,
-        totalHT: invoice.totalHT,
-        totalVAT: invoice.totalVAT,
-        totalTTC: invoice.totalTTC,
-        previousBalance: 0,
-        isAvoir: invoice.invoiceType === "AVOIR",
-        society: invoice.society ? {
-          name: invoice.society.name,
-          addressLine1: invoice.society.addressLine1,
-          postalCode: invoice.society.postalCode,
-          city: invoice.society.city,
-          country: invoice.society.country,
-          phone: invoice.society.phone,
-          siret: invoice.society.siret,
-          vatNumber: invoice.society.vatNumber,
-          legalForm: invoice.society.legalForm,
-          shareCapital: invoice.society.shareCapital,
-          bankName: invoice.society.bankName,
-          vatRegime: invoice.society.vatRegime,
-          legalMentions: invoice.society.legalMentions,
-          signatoryName: invoice.society.signatoryName,
-          logoSignedUrl: null,
-          iban: null,
-          bic: null,
-        } : null,
-        tenant: {
-          name: tenantName,
-          address: (invoice.tenant.entityType === "PERSONNE_MORALE" ? invoice.tenant.companyAddress : invoice.tenant.personalAddress) ?? null,
-          email: to,
-        },
-        lotLabel: null,
-        lines: invoice.lines.map((l) => ({
-          label: l.label,
-          lotNumber: null,
-          totalHT: l.totalHT,
-          vatRate: l.vatRate,
-          totalTTC: l.totalTTC,
-        })),
-        payments: invoice.payments.map((p) => ({
-          paidAt: p.paidAt.toISOString(),
-          method: p.method ?? null,
-          amount: p.amount,
-        })),
-        creditNoteForNumber: invoice.creditNoteFor?.invoiceNumber ?? null,
-      };
-      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const buf = await Promise.race([renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any), timeout]);
-      pdfAttachment = { filename: `FACTURE-${invoice.invoiceNumber}.pdf`, content: buf };
-    } catch (pdfErr) {
-      console.error("[sendInvoiceToTenant] PDF generation failed (non-blocking):", pdfErr);
-    }
-
     const result = await sendInvoiceEmail({
       to,
       tenantName,
@@ -1404,9 +1327,7 @@ export async function sendInvoiceToTenant(
       dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
       period,
       societyName: invoice.society?.name ?? "",
-      typeLabel,
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
-      pdfAttachment,
     });
 
     if (!result.success) return { success: false, error: result.error ?? "Erreur d'envoi" };
