@@ -244,27 +244,38 @@ export default function NouveauComptePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-5 w-5 text-blue-500" />
+                <Wifi className="h-5 w-5 text-muted-foreground" />
                 Connexion Open Banking (PSD2)
               </CardTitle>
               <CardDescription>
-                Connectez directement votre compte bancaire. Les transactions seront importées automatiquement.
-                Accès sécurisé via GoCardless — vos identifiants bancaires ne sont jamais stockés.
+                Connectez directement votre compte bancaire pour importer vos transactions automatiquement.
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-sm space-y-2">
+                <p className="font-medium text-amber-800">Service temporairement indisponible</p>
+                <p className="text-amber-700">
+                  GoCardless Bank Account Data n&apos;accepte plus de nouveaux inscrits pour le moment.
+                  La fonctionnalité Open Banking sera disponible dès qu&apos;un accès sera obtenu.
+                </p>
+                <p className="text-amber-700">
+                  En attendant, utilisez l&apos;onglet <strong>Manuel</strong> pour ajouter vos comptes.
+                </p>
+              </div>
+            </CardContent>
           </Card>
 
-          {loadingInstitutions ? (
+          {false && loadingInstitutions ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : institutionError ? (
+          ) : false && institutionError ? (
             <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive space-y-2">
               <p className="font-medium">Connexion GoCardless impossible</p>
               <p>{institutionError}</p>
               <p className="text-muted-foreground text-xs">Vérifiez que les variables GOCARDLESS_SECRET_ID et GOCARDLESS_SECRET_KEY sont correctement configurées.</p>
             </div>
-          ) : (
+          ) : false && (
             <>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -322,7 +333,7 @@ export default function NouveauComptePage() {
                     ) : (
                       <>
                         <ExternalLink className="h-4 w-4" />
-                        Connecter {selectedInstitution.name}
+                        Connecter {selectedInstitution?.name}
                       </>
                     )}
                   </Button>
