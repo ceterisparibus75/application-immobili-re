@@ -185,6 +185,35 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!emailResult.success)
       return NextResponse.json({ error: { code: "EMAIL_ERROR", message: emailResult.error ?? "Erreur d'envoi" } }, { status: 500 });
 
+    // Dépôt automatique du PDF dans le module documents
+    if (supabase) {
+      try {
+        const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+        const year = new Date(invoice.issueDate).getFullYear();
+        const docStoragePath = `factures/${societyId}/${year}/${invoice.invoiceNumber}.pdf`;
+
+        await supabase.storage
+          .from(bucketName)
+          .upload(docStoragePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
+
+        await prisma.document.create({
+          data: {
+            societyId,
+            tenantId: invoice.tenantId,
+            ...(invoice.leaseId ? { leaseId: invoice.leaseId } : {}),
+            fileName: `FACTURE-${invoice.invoiceNumber}.pdf`,
+            fileUrl: docStoragePath,
+            fileSize: pdfBuffer.length,
+            mimeType: "application/pdf",
+            category: "facture",
+            description: `Facture ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`,
+          },
+        });
+      } catch (docError) {
+        console.error("[send-email] Dépôt document échoué (non bloquant):", docError);
+      }
+    }
+
     await createAuditLog({
       societyId,
       userId: session.user.id,
