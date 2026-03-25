@@ -61,6 +61,7 @@ export default function NouveauComptePage() {
 
   const [institutions, setInstitutions] = useState<GocardlessInstitution[]>([]);
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
+  const [institutionError, setInstitutionError] = useState<string | null>(null);
   const [institutionSearch, setInstitutionSearch] = useState("");
   const [selectedInstitution, setSelectedInstitution] = useState<GocardlessInstitution | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -68,12 +69,15 @@ export default function NouveauComptePage() {
   async function loadInstitutions() {
     if (!activeSociety) return;
     setLoadingInstitutions(true);
+    setInstitutionError(null);
     const result = await getGocardlessInstitutions(activeSociety.id);
     setLoadingInstitutions(false);
     if (result.success && result.data) {
       setInstitutions(result.data);
     } else {
-      toast.error(result.error ?? "Impossible de charger les banques");
+      const msg = result.error ?? "Impossible de charger les banques";
+      setInstitutionError(msg);
+      toast.error(msg);
     }
   }
 
@@ -94,9 +98,17 @@ export default function NouveauComptePage() {
     }
   }
 
-  const filteredInstitutions = institutions.filter((i) =>
-    i.name.toLowerCase().includes(institutionSearch.toLowerCase())
-  );
+  function normalizeSearch(s: string) {
+    return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  }
+  const filteredInstitutions = institutions.filter((i) => {
+    if (!institutionSearch.trim()) return true;
+    const q = normalizeSearch(institutionSearch);
+    const name = normalizeSearch(i.name);
+    const bic = i.bic.toLowerCase();
+    if (name.includes(q) || bic.includes(q)) return true;
+    return q.split(/\s+/).some((word) => word.length >= 2 && (name.includes(word) || bic.includes(word)));
+  });
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -246,6 +258,12 @@ export default function NouveauComptePage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : institutionError ? (
+            <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive space-y-2">
+              <p className="font-medium">Connexion GoCardless impossible</p>
+              <p>{institutionError}</p>
+              <p className="text-muted-foreground text-xs">Vérifiez que les variables GOCARDLESS_SECRET_ID et GOCARDLESS_SECRET_KEY sont correctement configurées.</p>
+            </div>
           ) : (
             <>
               <div className="relative">
@@ -261,7 +279,9 @@ export default function NouveauComptePage() {
               <div className="grid gap-2 max-h-80 overflow-y-auto">
                 {filteredInstitutions.length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-8">
-                    Aucune banque trouvée
+                    {institutions.length === 0
+                      ? "Aucune banque disponible"
+                      : "Aucun résultat — essayez l’acronyme (ex : LCL, BNP, CA, SG...)"}
                   </p>
                 )}
                 {filteredInstitutions.map((institution) => (
