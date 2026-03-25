@@ -4,82 +4,75 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
-import { encrypt } from "@/lib/encryption";
+import { encrypt, decrypt } from "@/lib/encryption";
 import {
-  getInstitutions,
-  createAgreement,
-  createRequisition,
-  getRequisition,
-  getAccountDetails,
-  getAccountTransactions,
-  type GocardlessInstitution,
-} from "@/lib/gocardless";
+  initPowensUser,
+  getPowensWebviewCode,
+  buildPowensWebviewUrl,
+  getPowensUserAccounts,
+  getPowensTransactions,
+  getPowensConnectors,
+  type PowensConnector,
+} from "@/lib/powens";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 
-// ─── Liste des banques disponibles ────────────────────────────────────────────
+// ─── Liste des connecteurs (banques disponibles) ─────────────────────────────
 
 export async function getGocardlessInstitutions(
   societyId: string
-): Promise<ActionResult<GocardlessInstitution[]>> {
+): Promise<ActionResult<PowensConnector[]>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
-    const institutions = await getInstitutions("FR");
-    return { success: true, data: institutions };
+    const connectors = await getPowensConnectors();
+    return { success: true, data: connectors };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    console.error("[getGocardlessInstitutions]", error);
+    console.error("[getConnectors]", error);
     return { success: false, error: "Impossible de récupérer la liste des banques" };
   }
 }
 
-// ─── Initier une connexion Open Banking ───────────────────────────────────────
+// ─── Initier une connexion Open Banking ─────────────────────────────────────
 
 export async function initiateOpenBanking(
   societyId: string,
-  institutionId: string,
-  institutionName: string
+  connectorId: string,
+  connectorName: string
 ): Promise<ActionResult<{ authLink: string; connectionId: string }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const redirectUrl = `${appUrl}/api/banque/callback`;
-    const reference = `${societyId}-${Date.now()}`;
+    const appUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+    const redirectUrl = appUrl + "/api/banque/callback";
 
-    // 1. Créer l'accord (90 jours d'accès)
-    const agreement = await createAgreement(institutionId);
+    const { auth_token, id_user } = await initPowensUser();
 
-    // 2. Créer la réquisition (lien d'autorisation)
-    const requisition = await createRequisition(
-      institutionId,
-      agreement.id,
-      redirectUrl,
-      reference
-    );
-
-    // 3. Sauvegarder la connexion en BDD
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 90);
+    // Chiffrer et stocker immediatement le token permanent
+    const encryptedToken = encrypt(auth_token);
 
     const connection = await prisma.bankConnection.create({
       data: {
         societyId,
-        requisitionId: requisition.id,
-        institutionId,
-        institutionName,
-        status: "CR",
-        authLink: requisition.link,
-        agreementId: agreement.id,
-        expiresAt,
+        powensUserId: String(id_user),
+        connectorId,
+        institutionName: connectorName,
+        status: "pending",
+        powensAccessToken: encryptedToken,
       },
+    });
+
+    const code = await getPowensWebviewCode(auth_token);
+
+    const webviewUrl = buildPowensWebviewUrl({
+      code,
+      state: connection.id,
+      redirectUri: redirectUrl,
+      connectorId: parseInt(connectorId, 10) || undefined,
     });
 
     await createAuditLog({
@@ -88,10 +81,11 @@ export async function initiateOpenBanking(
       action: "CREATE",
       entity: "BankConnection",
       entityId: connection.id,
-      details: { institutionId, institutionName },
+      details: { connectorId, connectorName },
     });
 
-    return { success: true, data: { authLink: requisition.link, connectionId: connection.id } };
+    console.log("[initiateOpenBanking] webviewUrl:", webviewUrl);
+    return { success: true, data: { authLink: webviewUrl, connectionId: connection.id } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[initiateOpenBanking]", error);
@@ -99,272 +93,142 @@ export async function initiateOpenBanking(
   }
 }
 
-// ─── Synchroniser les comptes après autorisation ──────────────────────────────
 
+// syncOpenBankingAccounts
 export async function syncOpenBankingAccounts(
   societyId: string,
   connectionId: string
 ): Promise<ActionResult<{ synced: number }>> {
   try {
     const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
-    const connection = await prisma.bankConnection.findFirst({
-      where: { id: connectionId, societyId },
-    });
+    const connection = await prisma.bankConnection.findFirst({ where: { id: connectionId, societyId } });
     if (!connection) return { success: false, error: "Connexion introuvable" };
-
-    // Vérifier le statut de la réquisition
-    const requisition = await getRequisition(connection.requisitionId);
-
-    // Mettre à jour le statut
-    await prisma.bankConnection.update({
-      where: { id: connectionId },
-      data: { status: requisition.status },
-    });
-
-    if (requisition.status !== "LN") {
-      return {
-        success: false,
-        error: `La connexion bancaire n'est pas encore autorisée (statut: ${requisition.status})`,
-      };
-    }
-
+    if (connection.status !== "active")
+      return { success: false, error: "Connexion non autorisee (statut: " + connection.status + ")" };
+    if (!connection.powensAccessToken || !connection.powensUserId)
+      return { success: false, error: "Token Powens manquant" };
+    const userToken = decrypt(connection.powensAccessToken);
+    const userId = parseInt(connection.powensUserId, 10);
+    const accounts = await getPowensUserAccounts(userId, userToken);
     let synced = 0;
-
-    // Pour chaque compte autorisé
-    for (const accountId of requisition.accounts) {
-      // Récupérer les détails du compte
-      let accountDetails;
-      try {
-        accountDetails = await getAccountDetails(accountId);
-      } catch {
-        console.error(`[syncOpenBankingAccounts] Impossible de récupérer le compte ${accountId}`);
-        continue;
-      }
-
-      // Vérifier si le compte existe déjà
-      const existing = await prisma.bankAccount.findFirst({
-        where: { gocardlessAccountId: accountId },
-      });
-
+    for (const account of accounts) {
+      if (account.disabled) continue;
+      const existing = await prisma.bankAccount.findFirst({ where: { powensAccountId: String(account.id), societyId } });
       let bankAccountId: string;
-
       if (existing) {
         bankAccountId = existing.id;
       } else {
-        // Créer le compte bancaire
-        const ibanToEncrypt = accountDetails.iban ?? "IBAN_NON_DISPONIBLE";
-        const bankAccount = await prisma.bankAccount.create({
-          data: {
-            societyId,
-            bankName: connection.institutionName,
-            accountName: accountDetails.name ?? accountDetails.ownerName ?? "Compte",
-            ibanEncrypted: encrypt(ibanToEncrypt),
-            initialBalance: 0,
-            currentBalance: 0,
-            gocardlessAccountId: accountId,
-            connectionId,
-          },
-        });
-        bankAccountId = bankAccount.id;
-
-        await createAuditLog({
-          societyId,
-          userId: session.user.id,
-          action: "CREATE",
-          entity: "BankAccount",
-          entityId: bankAccountId,
-          details: { bankName: connection.institutionName, gocardlessAccountId: accountId },
-        });
+        const created = await prisma.bankAccount.create({ data: {
+          societyId, bankName: connection.institutionName, accountName: account.name ?? "Compte",
+          ibanEncrypted: encrypt(account.iban ?? "IBAN_NON_DISPONIBLE"),
+          initialBalance: 0, currentBalance: account.balance ?? 0,
+          powensAccountId: String(account.id), connectionId,
+        } });
+        bankAccountId = created.id;
+        await createAuditLog({ societyId, userId: session.user.id, action: "CREATE",
+          entity: "BankAccount", entityId: bankAccountId,
+          details: { bankName: connection.institutionName, powensAccountId: account.id } });
       }
-
-      // Synchroniser les transactions
-      await syncAccountTransactionsInternal(societyId, bankAccountId, accountId);
+      await syncAccountTransactionsInternal(societyId, bankAccountId, account.id, userId, userToken);
       synced++;
     }
-
     revalidatePath("/banque");
     return { success: true, data: { synced } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    console.error("[syncOpenBankingAccounts]", error);
-    return { success: false, error: "Erreur lors de la synchronisation" };
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[syncOpenBankingAccounts]", msg);
+    return { success: false, error: msg };
   }
 }
 
-// ─── Synchroniser les transactions d'un compte ────────────────────────────────
-
+// syncAccountTransactions (appel UI)
 export async function syncAccountTransactions(
   societyId: string,
   bankAccountId: string
 ): Promise<ActionResult<{ imported: number }>> {
   try {
     const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
+      include: { connection: { select: { powensUserId: true, powensAccessToken: true } } },
     });
     if (!account) return { success: false, error: "Compte introuvable" };
-
-    if (!account.gocardlessAccountId) {
-      return { success: false, error: "Ce compte n'est pas lié à Open Banking" };
-    }
-
-    const imported = await syncAccountTransactionsInternal(
-      societyId,
-      bankAccountId,
-      account.gocardlessAccountId
-    );
-
+    if (!account.powensAccountId) return { success: false, error: "Compte non lie a Open Banking" };
+    if (!account.connection?.powensAccessToken || !account.connection.powensUserId)
+      return { success: false, error: "Token Powens manquant" };
+    const userToken = decrypt(account.connection.powensAccessToken);
+    const userId = parseInt(account.connection.powensUserId, 10);
+    const powensAccountId = parseInt(account.powensAccountId, 10);
+    const imported = await syncAccountTransactionsInternal(societyId, bankAccountId, powensAccountId, userId, userToken);
     revalidatePath("/banque");
-    revalidatePath(`/banque/${bankAccountId}`);
-
+    revalidatePath("/banque/" + bankAccountId);
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncAccountTransactions]", error);
-    return { success: false, error: "Erreur lors de la synchronisation des transactions" };
+    return { success: false, error: "Erreur sync transactions" };
   }
 }
 
-// ─── Logique interne de sync (réutilisable) ───────────────────────────────────
-
-async function syncAccountTransactionsInternal(
+// syncAccountTransactionsInternal (partage avec le cron)
+export async function syncAccountTransactionsInternal(
   societyId: string,
   bankAccountId: string,
-  gocardlessAccountId: string
+  powensAccountId: number,
+  userId: number,
+  userToken: string
 ): Promise<number> {
-  const account = await prisma.bankAccount.findUnique({
-    where: { id: bankAccountId },
-    select: { lastSyncAt: true, currentBalance: true },
-  });
-
-  // Calculer la date de début : lastSyncAt ou 90 jours en arrière
-  const dateFrom = account?.lastSyncAt
-    ? account.lastSyncAt.toISOString().split("T")[0]
+  const row = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { lastSyncAt: true } });
+  const dateFrom = row?.lastSyncAt
+    ? row.lastSyncAt.toISOString().split("T")[0]
     : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
-  const response = await getAccountTransactions(gocardlessAccountId, dateFrom);
-  const bookedTransactions = response.transactions.booked;
-
+  const transactions = await getPowensTransactions(userId, powensAccountId, userToken, dateFrom);
   let imported = 0;
   let balanceDelta = 0;
-
-  for (const tx of bookedTransactions) {
-    const externalId = tx.transactionId;
-    if (!externalId) continue;
-
-    const amount = parseFloat(tx.transactionAmount.amount);
-    const label =
-      tx.remittanceInformationUnstructured ??
-      tx.creditorName ??
-      tx.debtorName ??
-      "Transaction";
-
-    // Upsert pour éviter les doublons
-    const result = await prisma.bankTransaction.upsert({
-      where: {
-        bankAccountId_externalId: { bankAccountId, externalId },
-      },
-      update: {}, // Ne rien modifier si déjà importé
-      create: {
-        bankAccountId,
-        transactionDate: new Date(tx.bookingDate),
-        valueDate: tx.valueDate ? new Date(tx.valueDate) : null,
-        amount,
-        label,
-        reference: externalId,
-        externalId,
-        importBatch: `sync-${Date.now()}`,
-      },
-    });
-
-    // Compter seulement les nouvelles transactions (créées, pas mises à jour)
-    if (result.createdAt.getTime() === result.createdAt.getTime()) {
-      const isNew =
-        !account?.lastSyncAt ||
-        new Date(tx.bookingDate) > account.lastSyncAt;
-      if (isNew) {
-        balanceDelta += amount;
-        imported++;
-      }
-    }
+  for (const tx of transactions) {
+    const externalId = String(tx.id);
+    const dup = await prisma.bankTransaction.findFirst({ where: { bankAccountId, externalId } });
+    if (dup) continue;
+    const amount = tx.value;
+    const label = tx.simplified_wording ?? tx.label ?? tx.original_wording ?? "Transaction";
+    await prisma.bankTransaction.create({ data: {
+      bankAccountId, transactionDate: new Date(tx.date),
+      valueDate: tx.value_date ? new Date(tx.value_date) : null,
+      amount, label, reference: externalId, externalId,
+      importBatch: "sync-" + String(Date.now()),
+    } });
+    balanceDelta += amount;
+    imported++;
   }
-
-  // Mettre à jour le solde et la date de sync
-  if (balanceDelta !== 0) {
-    await prisma.bankAccount.update({
-      where: { id: bankAccountId },
-      data: {
-        currentBalance: { increment: balanceDelta },
-        lastSyncAt: new Date(),
-      },
-    });
-  } else {
-    await prisma.bankAccount.update({
-      where: { id: bankAccountId },
-      data: { lastSyncAt: new Date() },
-    });
-  }
-
-  // Log d'audit (sans userId car appelé aussi depuis le cron)
-  await prisma.auditLog.create({
-    data: {
-      societyId,
-      action: "CREATE",
-      entity: "BankTransaction",
-      entityId: bankAccountId,
-      details: { imported, source: "gocardless_sync" },
-    },
-  });
-
+  await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
+    ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
+    lastSyncAt: new Date(),
+  } });
+  await prisma.auditLog.create({ data: {
+    societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
+    details: { imported, source: "powens_sync" },
+  } });
   return imported;
 }
 
-// ─── Supprimer une connexion bancaire ─────────────────────────────────────────
-
-export async function deleteBankConnection(
-  societyId: string,
-  connectionId: string
-): Promise<ActionResult> {
+// deleteBankConnection
+export async function deleteBankConnection(societyId: string, connectionId: string): Promise<ActionResult> {
   try {
     const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
-    const connection = await prisma.bankConnection.findFirst({
-      where: { id: connectionId, societyId },
-    });
+    const connection = await prisma.bankConnection.findFirst({ where: { id: connectionId, societyId } });
     if (!connection) return { success: false, error: "Connexion introuvable" };
-
-    // Passer en statut suspendu et dissocier les comptes
-    await prisma.$transaction([
-      prisma.bankConnection.update({
-        where: { id: connectionId },
-        data: { status: "SU" },
-      }),
-      prisma.bankAccount.updateMany({
-        where: { connectionId },
-        data: { connectionId: null, gocardlessAccountId: null },
-      }),
-    ]);
-
-    await createAuditLog({
-      societyId,
-      userId: session.user.id,
-      action: "DELETE",
-      entity: "BankConnection",
-      entityId: connectionId,
-      details: { institutionName: connection.institutionName },
-    });
-
+    await prisma.bankConnection.update({ where: { id: connectionId }, data: { status: "expired" } });
+    await prisma.bankAccount.updateMany({ where: { connectionId }, data: { connectionId: null, powensAccountId: null } });
+    await createAuditLog({ societyId, userId: session.user.id, action: "DELETE",
+      entity: "BankConnection", entityId: connectionId,
+      details: { institutionName: connection.institutionName } });
     revalidatePath("/banque");
     return { success: true };
   } catch (error) {
@@ -373,7 +237,3 @@ export async function deleteBankConnection(
     return { success: false, error: "Erreur lors de la suppression" };
   }
 }
-
-// ─── Export de la fonction interne pour le cron ───────────────────────────────
-
-export { syncAccountTransactionsInternal };

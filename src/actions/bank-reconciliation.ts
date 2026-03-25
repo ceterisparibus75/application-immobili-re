@@ -415,3 +415,168 @@ async function createReconciliationRecord(
     }),
   ]);
 }
+
+
+// ─── Factures en attente (loyers appelés) ─────────────────────────────────────
+
+export async function getPendingInvoices(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.invoice.findMany({
+    where: {
+      societyId,
+      invoiceType: { not: "AVOIR" },
+      status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+    },
+    include: {
+      tenant: { select: { companyName: true, firstName: true, lastName: true } },
+      _count: { select: { payments: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+// ─── Échéances de prêts à rapprocher ─────────────────────────────────────────
+
+export async function getUpcomingLoanLines(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.loanAmortizationLine.findMany({
+    where: {
+      isPaid: false,
+      loan: { societyId, status: "EN_COURS" },
+    },
+    include: {
+      loan: { select: { id: true, label: true, lender: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+// ─── Rapprochement avec une facture (crée le paiement auto) ──────────────────
+
+export async function reconcileWithInvoice(
+  societyId: string,
+  transactionId: string,
+  invoiceId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const [transaction, invoice, paidAgg] = await Promise.all([
+      prisma.bankTransaction.findFirst({
+        where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+      }),
+      prisma.invoice.findFirst({ where: { id: invoiceId, societyId } }),
+      prisma.payment.aggregate({ where: { invoiceId }, _sum: { amount: true } }),
+    ]);
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+
+    const paidSoFar = paidAgg._sum.amount ?? 0;
+    const newTotal = paidSoFar + Math.abs(transaction.amount);
+    const newStatus = newTotal >= invoice.totalTTC - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          invoiceId,
+          amount: Math.abs(transaction.amount),
+          paidAt: transaction.transactionDate,
+          method: "virement",
+          reference: transaction.reference ?? undefined,
+          isReconciled: true,
+        },
+      });
+      await tx.invoice.update({ where: { id: invoiceId }, data: { status: newStatus } });
+      await tx.bankReconciliation.create({
+        data: {
+          transactionId,
+          paymentId: payment.id,
+          isValidated: true,
+          validatedAt: new Date(),
+          validatedBy: session.user.id,
+        },
+      });
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "BankReconciliation",
+      entityId: transactionId,
+      details: { invoiceId, action: "reconcile_invoice" },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/facturation");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileWithInvoice]", error);
+    return { success: false, error: "Erreur lors du rapprochement" };
+  }
+}
+
+// ─── Rapprochement avec une échéance de prêt ─────────────────────────────────
+
+export async function reconcileWithLoanLine(
+  societyId: string,
+  transactionId: string,
+  loanLineId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const [transaction, loanLine] = await Promise.all([
+      prisma.bankTransaction.findFirst({
+        where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+      }),
+      prisma.loanAmortizationLine.findFirst({
+        where: { id: loanLineId, loan: { societyId } },
+      }),
+    ]);
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+    if (!loanLine) return { success: false, error: "Échéance introuvable" };
+
+    await prisma.$transaction([
+      prisma.bankTransaction.update({ where: { id: transactionId }, data: { isReconciled: true } }),
+      prisma.loanAmortizationLine.update({
+        where: { id: loanLineId },
+        data: { isPaid: true, paidAt: transaction.transactionDate },
+      }),
+    ]);
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "LoanAmortizationLine",
+      entityId: loanLineId,
+      details: { transactionId, action: "reconcile_loan_payment" },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/emprunts");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileWithLoanLine]", error);
+    return { success: false, error: "Erreur lors du rapprochement" };
+  }
+}

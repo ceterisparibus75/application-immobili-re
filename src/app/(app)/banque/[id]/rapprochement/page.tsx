@@ -2,6 +2,8 @@ import {
   getUnreconciledTransactions,
   getUnreconciledPayments,
   getReconciledItems,
+  getPendingInvoices,
+  getUpcomingLoanLines,
 } from "@/actions/bank-reconciliation";
 import { getBankAccountById } from "@/actions/bank";
 import { headers } from "next/headers";
@@ -29,11 +31,15 @@ export default async function RapprochementPage({
   const account = await getBankAccountById(societyId, id);
   if (!account) notFound();
 
-  const [transactions, payments, reconciled] = await Promise.all([
+  const [transactions, payments, reconciled, pendingInvoices, loanLines] = await Promise.all([
     getUnreconciledTransactions(societyId, id),
     getUnreconciledPayments(societyId),
     getReconciledItems(societyId, id),
+    getPendingInvoices(societyId),
+    getUpcomingLoanLines(societyId),
   ]);
+
+  const totalRight = payments.length + pendingInvoices.length + loanLines.length;
 
   return (
     <div className="space-y-6">
@@ -51,12 +57,11 @@ export default async function RapprochementPage({
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="secondary">{transactions.length} transaction{transactions.length !== 1 ? "s" : ""} à rapprocher</Badge>
-          <Badge variant="secondary">{payments.length} paiement{payments.length !== 1 ? "s" : ""} à rapprocher</Badge>
+          <Badge variant="secondary">{totalRight} élément{totalRight !== 1 ? "s" : ""} attendus</Badge>
         </div>
       </div>
 
-      {/* Résumé */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Transactions non rapprochées</p>
@@ -67,7 +72,7 @@ export default async function RapprochementPage({
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Paiements non rapprochés</p>
+            <p className="text-xs text-muted-foreground">Paiements enregistrés</p>
             <p className={`text-2xl font-bold ${payments.length > 0 ? "text-orange-500" : "text-green-600"}`}>
               {payments.length}
             </p>
@@ -75,24 +80,32 @@ export default async function RapprochementPage({
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Rapprochements effectués</p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {reconciled.length}
+            <p className="text-xs text-muted-foreground">Loyers et factures en attente</p>
+            <p className={`text-2xl font-bold ${pendingInvoices.length > 0 ? "text-blue-600" : "text-green-600"}`}>
+              {pendingInvoices.length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground">Échéances de prêts</p>
+            <p className={`text-2xl font-bold ${loanLines.length > 0 ? "text-amber-500" : "text-green-600"}`}>
+              {loanLines.length}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Interface interactive */}
       <ReconciliationClient
         societyId={societyId}
         bankAccountId={id}
         transactions={transactions}
         payments={payments}
+        pendingInvoices={pendingInvoices}
+        loanLines={loanLines}
         reconciled={reconciled}
       />
 
-      {/* Rapprochements existants */}
       {reconciled.length > 0 && (
         <Card>
           <CardHeader>
@@ -111,21 +124,11 @@ export default async function RapprochementPage({
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`text-sm font-medium tabular-nums ${
-                        r.transaction.amount >= 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-destructive"
-                      }`}
-                    >
-                      {r.transaction.amount >= 0 ? "+" : ""}
-                      {formatCurrency(r.transaction.amount)}
+                    <span className={`text-sm font-medium tabular-nums ${r.transaction.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                      {r.transaction.amount >= 0 ? "+" : ""}{formatCurrency(r.transaction.amount)}
                     </span>
                     <Badge variant="success" className="text-xs">Rapproché</Badge>
-                    <UnreconcileButton
-                      societyId={societyId}
-                      reconciliationId={r.id}
-                    />
+                    <UnreconcileButton societyId={societyId} reconciliationId={r.id} />
                   </div>
                 </div>
               ))}
@@ -137,26 +140,14 @@ export default async function RapprochementPage({
   );
 }
 
-// Petit composant client pour le bouton d'annulation
-function UnreconcileButton({
-  societyId,
-  reconciliationId,
-}: {
-  societyId: string;
-  reconciliationId: string;
-}) {
+function UnreconcileButton({ societyId, reconciliationId }: { societyId: string; reconciliationId: string }) {
   return (
-    <form
-      action={async () => {
-        "use server";
-        const { unreconcile } = await import("@/actions/bank-reconciliation");
-        await unreconcile(societyId, reconciliationId);
-      }}
-    >
-      <button
-        type="submit"
-        className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
-      >
+    <form action={async () => {
+      "use server";
+      const { unreconcile } = await import("@/actions/bank-reconciliation");
+      await unreconcile(societyId, reconciliationId);
+    }}>
+      <button type="submit" className="text-xs text-muted-foreground hover:text-destructive transition-colors underline">
         Annuler
       </button>
     </form>
