@@ -41,6 +41,7 @@ export const createSocietySchema = z.object({
     .or(z.literal("")),
   legalMentions: z.string().optional().or(z.literal("")),
   phone: z.string().max(30).optional().or(z.literal("")),
+  email: z.string().email("Email invalide").optional().or(z.literal("")),
   shareCapital: z.coerce.number().min(0).optional().nullable(),
   signatoryName: z.string().max(100).optional().or(z.literal("")),
 });

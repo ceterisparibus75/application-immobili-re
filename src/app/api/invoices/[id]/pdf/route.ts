@@ -168,6 +168,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             logoSignedUrl,
             iban,
             bic,
+            email: soc.email ?? null,
           }
         : null,
       tenant: {

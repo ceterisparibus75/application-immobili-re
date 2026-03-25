@@ -65,6 +65,7 @@ export default function ModifierSocietePage() {
         invoicePrefix: s.invoicePrefix ?? "",
         legalMentions: s.legalMentions ?? "",
         phone: s.phone ?? "",
+        email: s.email ?? "",
         shareCapital: s.shareCapital?.toString() ?? "",
         signatoryName: s.signatoryName ?? "",
       });
@@ -209,6 +210,10 @@ export default function ModifierSocietePage() {
               <div className="space-y-2">
                 <Label htmlFor="phone">Téléphone</Label>
                 <Input id="phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+33 1 23 45 67 89" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email de contact</Label>
+                <Input id="email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contact@societe.fr" />
               </div>
             </div>
           </CardContent>

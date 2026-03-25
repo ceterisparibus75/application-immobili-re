@@ -279,6 +279,7 @@ model Society {
   postalCode    String
   country       String  @default("France")
   phone         String? // Téléphone de la société
+  email         String? // Email de contact du bailleur
   shareCapital  Float?  // Capital social en euros
   signatoryName String? // Nom du signataire facture (ex: "M. DUPONT Jean")
 
