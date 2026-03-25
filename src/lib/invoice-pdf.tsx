@@ -13,7 +13,7 @@ export type InvoicePdfData = {
     shareCapital?: number | null; bankName?: string | null;
     vatRegime?: string | null; legalMentions?: string | null;
     signatoryName?: string | null; logoSignedUrl?: string | null;
-    iban?: string | null; bic?: string | null;
+    iban?: string | null; bic?: string | null; email?: string | null;
   } | null;
   tenant: { name: string; address?: string | null; email?: string | null };
   lotLabel?: string | null;
@@ -28,16 +28,16 @@ const BORDER = "#e5e7eb";
 const LIGHT_BG = "#f9fafb";
 
 const s = StyleSheet.create({
-  page: { fontFamily: "Helvetica", fontSize: 9, color: DARK, paddingTop: 40, paddingBottom: 50, paddingHorizontal: 40 },
-  centerText: { fontSize: 9, color: GRAY, textAlign: "center", marginBottom: 16 },
+  page: { fontFamily: "Helvetica", fontSize: 9, color: DARK, paddingTop: 40, paddingBottom: 70, paddingHorizontal: 40 },
+  logoContainer: { alignItems: "center", marginBottom: 12 },
+  logo: { maxHeight: 96, maxWidth: 240 },
   headerRow: { flexDirection: "row", marginBottom: 24 },
   emitter: { flex: 1, paddingRight: 16 },
   recipientBox: { width: 180, padding: 12, position: "relative" },
   recipientCorner: { position: "absolute", fontSize: 10, color: "#d1d5db" },
-  logo: { maxHeight: 48, maxWidth: 120, marginBottom: 8 },
   companyName: { fontSize: 11, fontFamily: "Helvetica-Bold", marginBottom: 2 },
   smallText: { fontSize: 8, color: GRAY, marginBottom: 1 },
-  title: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 10 },
+  title: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   infoRow: { fontSize: 8.5, marginBottom: 2 },
   tableHeader: { flexDirection: "row", backgroundColor: LIGHT_BG, borderTopWidth: 1, borderBottomWidth: 1, borderColor: BORDER },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: BORDER },
@@ -59,10 +59,11 @@ const s = StyleSheet.create({
   accountCellLeft: { flex: 1, padding: 6, fontSize: 8.5, borderRightWidth: 1, borderColor: BORDER },
   accountCellRight: { width: 100, padding: 6, fontSize: 8.5, textAlign: "right" },
   legal: { fontSize: 7, color: GRAY, marginTop: 12, lineHeight: 1.4 },
-  signatureRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, marginBottom: 10, fontSize: 8.5 },
   bankSection: { marginTop: 8, fontSize: 8.5 },
   bankTitle: { fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  pageNumber: { position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center", fontSize: 8, color: GRAY },
+  footer: { position: "absolute", bottom: 0, left: 40, right: 40, paddingTop: 5, paddingBottom: 10, borderTopWidth: 1, borderColor: BORDER },
+  footerInfo: { fontSize: 7, color: GRAY, textAlign: "center", marginBottom: 3 },
+  footerPage: { fontSize: 7, color: GRAY, textAlign: "center" },
 });
 
 function fmt(v: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v).replace(/ /g, " ").replace(/ /g, " "); }
@@ -87,14 +88,25 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   const paid = data.payments.reduce((sum, p) => sum + p.amount, 0);
   const totalToPay = data.previousBalance + data.totalTTC;
 
+  const footerParts = [
+    soc?.addressLine1 ? soc.addressLine1 + ([soc.postalCode, soc.city].filter(Boolean).length > 0 ? ", " + [soc.postalCode, soc.city].filter(Boolean).join(" ") : "") : null,
+    soc?.shareCapital ? "Capital : " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €" : null,
+    soc?.legalForm ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null,
+    soc?.email ?? null,
+  ].filter((p): p is string => p !== null && p !== undefined && p !== "");
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        <Text style={s.centerText}>Facture n° {data.invoiceNumber}   Émise le : {fmtDate(data.issueDate)}</Text>
+        {soc?.logoSignedUrl ? (
+          <View style={s.logoContainer}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image src={soc.logoSignedUrl} style={s.logo} />
+          </View>
+        ) : null}
+
         <View style={s.headerRow}>
           <View style={s.emitter}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            {soc?.logoSignedUrl ? <Image src={soc.logoSignedUrl} style={s.logo} /> : null}
             <Text style={s.companyName}>{soc?.name ?? "---"}</Text>
             {soc?.addressLine1 ? <Text style={s.smallText}>{soc.addressLine1}, {[soc.postalCode, soc.city].filter(Boolean).join(" ")}</Text> : null}
             {soc?.phone ? <Text style={s.smallText}>Tél. : {soc.phone}</Text> : null}
@@ -114,13 +126,16 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             }
           </View>
         </View>
+
         <Text style={s.title}>{typeTitle(data.invoiceType, data.isAvoir)}</Text>
+        <Text style={s.infoRow}>Facture n° {data.invoiceNumber}   Émise le : {fmtDate(data.issueDate)}</Text>
         <Text style={s.infoRow}>{"Date d'échéance : "}{fmtDate(data.dueDate)}</Text>
         {data.periodStart && data.periodEnd
           ? <Text style={s.infoRow}>Période du {fmtDate(data.periodStart)} au {fmtDate(data.periodEnd)}.</Text>
           : null}
         {data.creditNoteForNumber ? <Text style={[s.infoRow, { color: GRAY }]}>Avoir pour facture {data.creditNoteForNumber}</Text> : null}
         {data.lotLabel ? <Text style={[s.infoRow, { marginTop: 2 }]}>Lot(s) : {data.lotLabel}</Text> : null}
+
         <View style={{ marginTop: 10, marginBottom: 4 }}>
           <View style={s.tableHeader}>
             <Text style={[s.colLabel, s.thText]}>Libellé</Text>
@@ -139,11 +154,13 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             </View>
           ))}
         </View>
+
         <View style={{ marginTop: 4, marginBottom: 10 }}>
           <View style={s.totalRow}><Text style={s.totalLabel}>Total HT</Text><Text style={s.totalValue}>{fmt(data.totalHT)}</Text></View>
           {data.totalVAT > 0.001 ? <View style={s.totalRow}><Text style={s.totalLabel}>TVA</Text><Text style={s.totalValue}>{fmt(data.totalVAT)}</Text></View> : null}
           <View style={s.totalRow}><Text style={s.totalLabelBold}>TOTAL TTC</Text><Text style={s.totalValueBold}>{fmt(data.totalTTC)}</Text></View>
         </View>
+
         {paid > 0.001 ? (
           <View style={{ marginBottom: 8 }}>
             {data.payments.map((p, i) => (
@@ -154,7 +171,9 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             ))}
           </View>
         ) : null}
-        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", marginTop: 12, marginBottom: 6 }}>Situation de compte au {fmtDate(data.issueDate)}</Text>
+
+        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", marginTop: 12, marginBottom: 4 }}>Situation de compte au {fmtDate(data.issueDate)}</Text>
+        <Text style={{ fontSize: 8, color: GRAY, marginBottom: 6 }}>{"Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s'agit du montant de votre solde précédent auquel s'ajoute le montant de cette facture."}</Text>
         <View style={{ marginBottom: 12 }}>
           <View style={s.accountRow}><Text style={s.accountCellLeft}>Solde précédent</Text><Text style={s.accountCellRight}>{fmt(data.previousBalance)}</Text></View>
           <View style={s.accountRow}>
@@ -162,15 +181,18 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             <Text style={[s.accountCellRight, { fontFamily: "Helvetica-Bold" }]}>{fmt(Math.max(0, totalToPay - paid))}</Text>
           </View>
         </View>
+
         <View style={s.legal}>
           {soc?.vatRegime === "FRANCHISE" ? <Text style={{ fontFamily: "Helvetica-Bold", marginBottom: 2 }}>TVA non applicable - art. 293 B du CGI</Text> : null}
-          <Text>{"Pas d'escompte pour règlement anticipé. En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt légal sera exigible. Indemnité forfaitaire de recouvrement : 40 euros (Art. L. 441-6 du code de commerce)."}</Text>
+          <Text>{"Pas d'escompte pour règlement anticipé. En cas de retard de paiement, une pénalité égale à 3 fois le taux intérêt légal sera exigible (Article L 441-10, alinéa 12 du Code de Commerce). Pour tout professionnel, en sus des indemnités de retard, toute somme, y compris l'acompte, non payée à sa date d'exigibilité produira de plein droit le paiement d'une indemnité forfaitaire de 40 euros due au titre des frais de recouvrement (Art. 441-6, I al. 12 du code de commerce et D. 441-5 ibidem)."}</Text>
           {soc?.legalMentions ? <Text style={{ marginTop: 3 }}>{soc.legalMentions}</Text> : null}
         </View>
-        <View style={s.signatureRow}>
-          <Text>Fait à {soc?.city ?? "---"}, le {fmtDate(data.issueDate)}</Text>
-          {soc?.signatoryName ? <Text>{soc.signatoryName}, pour {soc?.name}</Text> : null}
+
+        <View style={{ alignItems: "flex-end", marginTop: 12, marginBottom: 10 }}>
+          <Text style={{ fontSize: 8.5 }}>Fait à {soc?.city ?? "---"}, le {fmtDate(data.issueDate)}</Text>
+          {soc?.signatoryName ? <Text style={{ fontSize: 8.5 }}>{soc.signatoryName}, pour {soc?.name}</Text> : null}
         </View>
+
         {(soc?.bankName || soc?.iban || soc?.bic) ? (
           <View style={s.bankSection}>
             <Text style={s.bankTitle}>Coordonnées bancaires</Text>
@@ -179,7 +201,11 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             {soc.bic ? <Text>BIC : {soc.bic}</Text> : null}
           </View>
         ) : null}
-        <Text style={s.pageNumber} render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => pageNumber + " / " + totalPages} fixed />
+
+        <View style={s.footer} fixed>
+          {footerParts.length > 0 ? <Text style={s.footerInfo}>{footerParts.join("  |  ")}</Text> : null}
+          <Text style={s.footerPage} render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => pageNumber + " / " + totalPages} />
+        </View>
       </Page>
     </Document>
   );
