@@ -16,26 +16,38 @@ function baseTemplate(title: string, content: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
   <style>
-    body { margin: 0; padding: 0; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-    .header { background: #18181b; padding: 24px 32px; }
-    .header h1 { margin: 0; color: #ffffff; font-size: 20px; font-weight: 600; }
-    .body { padding: 32px; color: #3f3f46; font-size: 15px; line-height: 1.6; }
-    .body h2 { margin-top: 0; color: #18181b; font-size: 18px; }
-    .table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
-    .table th { text-align: left; padding: 8px 12px; background: #f4f4f5; color: #71717a; font-weight: 600; border-bottom: 1px solid #e4e4e7; }
-    .table td { padding: 8px 12px; border-bottom: 1px solid #f4f4f5; }
-    .badge-red { display: inline-block; padding: 2px 10px; background: #fee2e2; color: #dc2626; border-radius: 99px; font-size: 13px; font-weight: 600; }
-    .badge-yellow { display: inline-block; padding: 2px 10px; background: #fef9c3; color: #ca8a04; border-radius: 99px; font-size: 13px; font-weight: 600; }
-    .footer { padding: 20px 32px; background: #f4f4f5; color: #71717a; font-size: 13px; text-align: center; }
-    hr { border: none; border-top: 1px solid #e4e4e7; margin: 24px 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #09090b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    .outer { background: #09090b; padding: 40px 16px; }
+    .wrapper { max-width: 580px; margin: 0 auto; background: #18181b; border-radius: 12px; overflow: hidden; border: 1px solid #27272a; }
+    .header { background: #111113; padding: 22px 32px; border-bottom: 1px solid #27272a; }
+    .header-inner { display: flex; align-items: center; gap: 10px; }
+    .header-dot { display: inline-block; width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+    .header h1 { display: inline; margin: 0; color: #fafafa; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; vertical-align: middle; }
+    .body { padding: 32px; color: #a1a1aa; font-size: 14.5px; line-height: 1.65; }
+    .body h2 { margin-top: 0; color: #fafafa; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .body p { margin: 0 0 13px; }
+    .body strong { color: #e4e4e7; }
+    .table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13.5px; border: 1px solid #27272a; }
+    .table th { text-align: left; padding: 10px 16px; background: #27272a; color: #71717a; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #3f3f46; }
+    .table td { padding: 13px 16px; border-bottom: 1px solid #27272a; color: #e4e4e7; }
+    .table tr:last-child td { border-bottom: none; }
+    .amount { font-size: 20px !important; font-weight: 700; color: #fafafa !important; letter-spacing: -0.02em; }
+    .badge-red { display: inline-block; padding: 3px 10px; background: rgba(239,68,68,0.12); color: #f87171; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid rgba(239,68,68,0.25); }
+    .badge-yellow { display: inline-block; padding: 3px 10px; background: rgba(234,179,8,0.12); color: #fbbf24; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid rgba(234,179,8,0.25); }
+    .footer { padding: 18px 32px; background: #111113; color: #52525b; font-size: 12px; text-align: center; border-top: 1px solid #27272a; line-height: 1.5; }
+    hr { border: none; border-top: 1px solid #27272a; margin: 22px 0; }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <div class="header"><h1>${APP_NAME}</h1></div>
-    <div class="body">${content}</div>
-    <div class="footer">Cet email a été envoyé automatiquement par ${APP_NAME}. Ne pas répondre à cet email.</div>
+  <div class="outer">
+    <div class="wrapper">
+      <div class="header">
+        <span class="header-dot"></span><h1>${APP_NAME}</h1>
+      </div>
+      <div class="body">${content}</div>
+      <div class="footer">Cet email a \u00e9t\u00e9 envoy\u00e9 automatiquement par ${APP_NAME}. Ne pas r\u00e9pondre \u00e0 cet email.</div>
+    </div>
   </div>
 </body>
 </html>`;
@@ -102,7 +114,7 @@ export async function sendReminderEmail(params: ReminderEmailParams): Promise<Em
       <tr><th>Montant dû</th><td><strong>${fmt(params.amount)}</strong></td></tr>
     </table>
     ${params.contactEmail ? `<p>Pour toute question : <a href="mailto:${params.contactEmail}">${params.contactEmail}</a></p>` : ""}
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(params.to, `[${label}] Loyer impayé — ${params.invoiceRef} — ${fmt(params.amount)}`, baseTemplate(`${label} — Loyer impayé`, content));
@@ -135,12 +147,12 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
     <table class="table">
       <tr><th>Référence</th><td>${params.invoiceRef}</td></tr>
       <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
-      <tr><th>Montant TTC</th><td><strong style="font-size:18px">${fmt(params.amount)}</strong></td></tr>
+      <tr><th>Montant TTC</th><td><span class="amount">${fmt(params.amount)}</span></td></tr>
     </table>
     <p>Nous vous remercions de bien vouloir régler cette somme avant la date d'échéance indiquée.</p>
     <p>Pour toute question relative à ce document, n'hésitez pas à nous contacter.</p>
     <p>Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(
@@ -177,7 +189,7 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
       <tr><th>Date de paiement</th><td>${params.paidAt}</td></tr>
     </table>
     <p>Nous vous remercions de votre règlement.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(params.to, `Quittance de loyer ${params.period} — ${params.invoiceRef}`, baseTemplate(`Quittance de loyer ${params.period}`, content));
@@ -212,7 +224,7 @@ export async function sendNewUserEmail(params: NewUserEmailParams): Promise<Emai
       </a>
     </p>
     <p style="color:#dc2626;font-size:13px;margin-top:16px">⚠️ Pour des raisons de sécurité, nous vous recommandons de modifier votre mot de passe dès votre première connexion.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${APP_NAME}</p>
   `;
 
   return sendMail(params.to, `Votre accès à ${APP_NAME}`, baseTemplate(`Votre accès à ${APP_NAME}`, content));
@@ -244,7 +256,7 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<Emai
     </table>
     ${params.contactEmail ? `<p>Contact : <a href="mailto:${params.contactEmail}">${params.contactEmail}</a></p>` : ""}
     <p>Nous vous souhaitons un agréable séjour.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(params.to, `Bienvenue — Votre bail au ${params.propertyAddress}`, baseTemplate("Bienvenue dans votre nouveau logement", content));
@@ -275,7 +287,7 @@ export async function sendPortalActivationEmail(params: PortalActivationEmailPar
       </a>
     </p>
     <p style="color:#71717a;font-size:13px">Ce code expire dans 48 heures.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${APP_NAME}</p>
   `;
 
   return sendMail(params.to, `Activez votre espace locataire — ${APP_NAME}`, baseTemplate("Activez votre espace locataire", content));
@@ -300,7 +312,7 @@ export async function sendPortalLoginCodeEmail(params: PortalLoginCodeEmailParam
       <span style="display:inline-block;padding:16px 32px;background:#18181b;color:#fff;border-radius:8px;font-size:28px;font-weight:700;letter-spacing:8px;font-family:monospace">${params.code}</span>
     </p>
     <p style="color:#71717a;font-size:13px">Ce code expire dans 15 minutes. Si vous n'avez pas demandé ce code, ignorez cet email.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${APP_NAME}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${APP_NAME}</p>
   `;
 
   return sendMail(params.to, `Code de connexion — ${APP_NAME}`, baseTemplate("Code de connexion", content));
@@ -328,7 +340,7 @@ export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailP
         Déposer mon attestation
       </a>
     </p>
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(params.to, `Rappel — Attestation d'assurance requise`, baseTemplate("Attestation d'assurance requise", content));
@@ -358,7 +370,7 @@ export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParam
       <tr><th>Montant dû</th><td><strong>${fmt(params.amount)}</strong></td></tr>
     </table>
     <p>Si vous avez déjà effectué ce paiement, merci de ne pas tenir compte de ce message.</p>
-    <hr/><p style="color:#71717a;font-size:13px;">${params.societyName}</p>
+    <hr/><p style="color:#52525b;font-size:12.5px;">${params.societyName}</p>
   `;
 
   return sendMail(params.to, `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`, baseTemplate("Rappel — Facture impayée", content));
