@@ -26,7 +26,6 @@ export default function AvoirPage() {
   const { activeSociety } = useSociety();
 
   const today = new Date().toISOString().split("T")[0]!;
-  const [issueDate, setIssueDate] = useState(today);
   const [dueDate, setDueDate] = useState(today);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +39,6 @@ export default function AvoirPage() {
     startTransition(async () => {
       const result = await createCreditNote(activeSociety.id, {
         originalInvoiceId: invoiceId,
-        issueDate,
         dueDate,
         reason: reason || null,
       });
@@ -95,16 +93,6 @@ export default function AvoirPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="issueDate">Date d&apos;émission *</Label>
-                <Input
-                  id="issueDate"
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  required
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Date d&apos;échéance *</Label>
                 <Input

@@ -99,7 +99,25 @@ export async function createTenant(
       },
     });
 
+    // Créer automatiquement la fiche contact
+    await prisma.contact.create({
+      data: {
+        societyId,
+        tenantId: tenant.id,
+        contactType: "LOCATAIRE",
+        name:
+          tenant.entityType === "PERSONNE_MORALE"
+            ? (tenant.companyName ?? "—")
+            : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—",
+        company: tenant.entityType === "PERSONNE_MORALE" ? (tenant.legalRepName ?? null) : null,
+        email: tenant.email,
+        phone: tenant.phone ?? null,
+        mobile: tenant.mobile ?? null,
+      },
+    });
+
     revalidatePath("/locataires");
+    revalidatePath("/contacts");
 
     // Créer l'accès portail et envoyer l'invitation
     const activationCode = String(randomInt(100000, 999999));
@@ -186,8 +204,27 @@ export async function updateTenant(
       details: { updatedFields: Object.keys(data) },
     });
 
+    // Synchroniser la fiche contact si elle existe
+    const updated = await prisma.tenant.findUnique({ where: { id } });
+    if (updated) {
+      await prisma.contact.updateMany({
+        where: { tenantId: id },
+        data: {
+          name:
+            updated.entityType === "PERSONNE_MORALE"
+              ? (updated.companyName ?? "—")
+              : `${updated.firstName ?? ""} ${updated.lastName ?? ""}`.trim() || "—",
+          company: updated.entityType === "PERSONNE_MORALE" ? (updated.legalRepName ?? null) : null,
+          email: updated.email,
+          phone: updated.phone ?? null,
+          mobile: updated.mobile ?? null,
+        },
+      });
+    }
+
     revalidatePath("/locataires");
     revalidatePath(`/locataires/${id}`);
+    revalidatePath("/contacts");
 
     return { success: true };
   } catch (error) {
@@ -226,6 +263,12 @@ export async function deactivateTenant(
       data: { isActive: false },
     });
 
+    // Désactiver la fiche contact associée
+    await prisma.contact.updateMany({
+      where: { tenantId },
+      data: { isActive: false },
+    });
+
     await createAuditLog({
       societyId,
       userId: session.user.id,
@@ -236,6 +279,7 @@ export async function deactivateTenant(
     });
 
     revalidatePath("/locataires");
+    revalidatePath("/contacts");
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) {

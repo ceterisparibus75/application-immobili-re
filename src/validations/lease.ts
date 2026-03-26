@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createLeaseSchema = z.object({
   lotId: z.string().cuid(),
   tenantId: z.string().cuid(),
-  leaseType: z.enum(["COMMERCIAL_369", "DEROGATOIRE", "PRECAIRE"]),
+  leaseType: z.enum(["COMMERCIAL_369", "DEROGATOIRE", "PRECAIRE", "BAIL_PROFESSIONNEL"]),
   startDate: z.string().min(1, "La date de début est requise"),
   durationMonths: z.coerce.number().int().min(1).default(108),
   baseRentHT: z.coerce.number().min(0, "Le loyer doit être positif"),
@@ -30,7 +30,7 @@ export const createLeaseSchema = z.object({
   baseIndexValue: z.coerce.number().optional().nullable(),
   baseIndexQuarter: z.string().optional().nullable(),
   revisionFrequency: z.coerce.number().int().min(1).default(12),
-  rentFreeMonths: z.coerce.number().int().min(0).default(0),
+  rentFreeMonths: z.coerce.number().min(0).default(0),
   entryFee: z.coerce.number().min(0).default(0),
   tenantWorksClauses: z.string().optional().nullable(),
 });
@@ -64,6 +64,7 @@ export const updateLeaseSchema = z.object({
   tenantWorksClauses: z.string().optional().nullable(),
   entryDate: z.string().optional().nullable(),
   exitDate: z.string().optional().nullable(),
+  rentFreeMonths: z.coerce.number().min(0).optional(),
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;

@@ -6,7 +6,7 @@ import { createSociety } from "@/actions/society";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -107,12 +107,12 @@ export default function NouvelleSocietePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legalForm">Forme juridique *</Label>
-                <Select
+                <NativeSelect
                   id="legalForm"
                   name="legalForm"
                   options={[...LEGAL_FORMS]}
                   required
-                />
+                 />
               </div>
             </div>
 
@@ -175,21 +175,21 @@ export default function NouvelleSocietePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="taxRegime">Régime d'imposition *</Label>
-                <Select
+                <NativeSelect
                   id="taxRegime"
                   name="taxRegime"
                   options={[...TAX_REGIMES]}
                   required
-                />
+                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="vatRegime">Régime TVA *</Label>
-                <Select
+                <NativeSelect
                   id="vatRegime"
                   name="vatRegime"
                   options={[...VAT_REGIMES]}
                   required
-                />
+                 />
               </div>
             </div>
           </CardContent>

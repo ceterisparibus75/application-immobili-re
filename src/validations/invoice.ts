@@ -10,7 +10,6 @@ export const createInvoiceSchema = z.object({
     "REFACTURATION",
     "AVOIR",
   ]),
-  issueDate: z.string().min(1, "La date d'émission est requise"),
   dueDate: z.string().min(1, "La date d'échéance est requise"),
   periodStart: z.string().optional().nullable(),
   periodEnd: z.string().optional().nullable(),
@@ -58,7 +57,6 @@ export const generateBatchInvoicesSchema = z.object({
 
 export const createCreditNoteSchema = z.object({
   originalInvoiceId: z.string().cuid(),
-  issueDate: z.string().min(1, "La date d'émission est requise"),
   dueDate: z.string().min(1, "La date d'échéance est requise"),
   reason: z.string().optional().nullable(),
 });

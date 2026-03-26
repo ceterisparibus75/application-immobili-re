@@ -42,7 +42,7 @@ export default async function DashboardPage() {
             <Euro className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{fmt(kpis.currentMonthRevenue)}</div>
+            <div className="text-2xl font-bold tabular-nums">{fmt(kpis.currentMonthRevenue)}</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               {kpis.revenueChange >= 0 ? (
                 <ArrowUp className="h-3 w-3 text-green-500" />
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{kpis.occupancyRate}%</div>
+            <div className="text-2xl font-bold tabular-nums">{kpis.occupancyRate}%</div>
             <div className="mt-1 h-1.5 w-full rounded-full bg-secondary">
               <div
                 className="h-1.5 rounded-full bg-primary transition-all"
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{fmt(kpis.totalOverdueAmount)}</div>
+            <div className="text-2xl font-bold tabular-nums">{fmt(kpis.totalOverdueAmount)}</div>
             <p className="text-xs text-muted-foreground mt-1">en attente de reglement</p>
           </CardContent>
         </Card>
@@ -93,7 +93,7 @@ export default async function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tabular-nums">
               {kpis.grossYield !== null
                 ? `${kpis.grossYield.toFixed(1)}%`
                 : fmt(kpis.availableCash)}

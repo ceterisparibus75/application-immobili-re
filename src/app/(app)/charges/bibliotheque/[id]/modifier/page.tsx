@@ -5,7 +5,7 @@ import { updateSocietyChargeCategory } from "@/actions/charge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -123,7 +123,7 @@ export default function ModifierBiblioCategoryPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="nature">Nature *</Label>
-                <Select
+                <NativeSelect
                   id="nature"
                   name="nature"
                   options={NATURE_OPTIONS}
@@ -134,7 +134,7 @@ export default function ModifierBiblioCategoryPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="allocationMethod">Répartition</Label>
-                <Select
+                <NativeSelect
                   id="allocationMethod"
                   name="allocationMethod"
                   options={ALLOCATION_OPTIONS}

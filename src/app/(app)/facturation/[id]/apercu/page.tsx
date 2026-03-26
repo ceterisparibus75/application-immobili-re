@@ -148,7 +148,7 @@ export default async function FactureApercuPage({
           <div className="flex-1 space-y-1 text-sm">
             {s?.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-20 object-contain mb-3" />
+              <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-20 object-contain mb-3" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
             <p className="font-bold text-base">{s?.name ?? "—"}</p>
             {s?.addressLine1 && <p>{s.addressLine1}, {[s.postalCode, s.city, s.country].filter(Boolean).join(" ")}</p>}

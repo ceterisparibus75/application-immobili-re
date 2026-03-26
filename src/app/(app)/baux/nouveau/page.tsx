@@ -6,7 +6,7 @@ import { createLease } from "@/actions/lease";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -24,6 +24,7 @@ const LEASE_TYPES = [
   { value: "COMMERCIAL_369", label: "Bail commercial 3-6-9" },
   { value: "DEROGATOIRE", label: "Bail dérogatoire" },
   { value: "PRECAIRE", label: "Convention d'occupation précaire" },
+  { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel" },
 ];
 
 const PAYMENT_FREQUENCIES = [
@@ -124,7 +125,7 @@ export default function NouveauBailPage() {
     const result = await createLease(activeSociety.id, {
       lotId: data.lotId,
       tenantId: data.tenantId,
-      leaseType: data.leaseType as "COMMERCIAL_369" | "DEROGATOIRE" | "PRECAIRE",
+      leaseType: data.leaseType as "COMMERCIAL_369" | "DEROGATOIRE" | "PRECAIRE" | "BAIL_PROFESSIONNEL",
       startDate: data.startDate,
       durationMonths: parseInt(data.durationMonths) || 108,
       baseRentHT: parseFloat(data.baseRentHT),
@@ -137,7 +138,7 @@ export default function NouveauBailPage() {
       baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
       baseIndexQuarter: data.baseIndexQuarter || null,
       revisionFrequency: parseInt(data.revisionFrequency) || 12,
-      rentFreeMonths: parseInt(data.rentFreeMonths) || 0,
+      rentFreeMonths: parseFloat(data.rentFreeMonths) || 0,
       entryFee: parseFloat(data.entryFee) || 0,
       tenantWorksClauses: data.tenantWorksClauses || null,
     });
@@ -241,7 +242,7 @@ export default function NouveauBailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="leaseType">Type de bail *</Label>
-                <Select
+                <NativeSelect
                   id="leaseType"
                   name="leaseType"
                   options={LEASE_TYPES}
@@ -270,7 +271,7 @@ export default function NouveauBailPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="paymentFrequency">Fréquence de paiement</Label>
-                <Select
+                <NativeSelect
                   id="paymentFrequency"
                   name="paymentFrequency"
                   options={PAYMENT_FREQUENCIES}
@@ -279,7 +280,7 @@ export default function NouveauBailPage() {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="billingTerm">Terme de facturation</Label>
-                <Select
+                <NativeSelect
                   id="billingTerm"
                   name="billingTerm"
                   options={BILLING_TERMS}
@@ -364,6 +365,7 @@ export default function NouveauBailPage() {
                   name="rentFreeMonths"
                   type="number"
                   min={0}
+                  step={0.5}
                   defaultValue={0}
                 />
               </div>
@@ -394,7 +396,7 @@ export default function NouveauBailPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="indexType">Indice de référence</Label>
-                <Select
+                <NativeSelect
                   id="indexType"
                   name="indexType"
                   options={INDEX_TYPES}

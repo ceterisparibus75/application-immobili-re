@@ -3,205 +3,218 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Plus, Download, BarChart3 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  BookOpen, Plus, Scale, Archive, FileBarChart, PenLine,
+  List, TrendingUp, AlertTriangle, CheckCircle2, Clock,
+} from "lucide-react";
 import Link from "next/link";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Comptabilité" };
 
 const JOURNAL_LABELS: Record<string, string> = {
-  VENTES: "Ventes",
-  BANQUE: "Banque",
-  OPERATIONS_DIVERSES: "Opérations diverses",
+  VENTES: "Ventes", BANQUE: "Banque", OPERATIONS_DIVERSES: "Op. Diverses",
+  AN: "À Nouveaux", AC: "Achats", BQUE: "Banque", INV: "Investissements",
+  OD: "Op. Diverses", VT: "Ventes/TVA",
 };
 
-async function getJournalEntries(societyId: string) {
-  return prisma.journalEntry.findMany({
-    where: { societyId },
-    include: {
-      lines: {
-        include: { account: { select: { code: true, label: true } } },
-      },
-    },
-    orderBy: { entryDate: "desc" },
-    take: 50,
-  });
-}
-
-async function getAccountingAccounts(societyId: string) {
-  return prisma.accountingAccount.findMany({
-    where: { societyId },
-    orderBy: { code: "asc" },
-  });
-}
+const STATUS_COLORS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  BROUILLON: "secondary", VALIDEE: "default", CLOTUREE: "outline",
+};
 
 export default async function ComptabilitePage() {
   const h = await headers();
   const societyId = h.get("x-society-id");
   const session = await auth();
 
-  let entries: Awaited<ReturnType<typeof getJournalEntries>> = [];
-  let accounts: Awaited<ReturnType<typeof getAccountingAccounts>> = [];
+  if (!societyId || !session?.user?.id) return null;
 
-  if (societyId && session?.user?.id) {
-    try {
-      await requireSocietyAccess(session.user.id, societyId);
-      [entries, accounts] = await Promise.all([
-        getJournalEntries(societyId),
-        getAccountingAccounts(societyId),
-      ]);
-    } catch {
-      // permission denied
-    }
+  try {
+    await requireSocietyAccess(session.user.id, societyId);
+  } catch {
+    return null;
   }
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat("fr-FR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(v);
+  const [entries, accountCount, fiscalYear, stats] = await Promise.all([
+    prisma.journalEntry.findMany({
+      where: { societyId },
+      include: { lines: { select: { debit: true, credit: true } } },
+      orderBy: { entryDate: "desc" },
+      take: 20,
+    }),
+    prisma.accountingAccount.count({ where: { societyId, isActive: true } }),
+    prisma.fiscalYear.findFirst({
+      where: { societyId, isClosed: false },
+      orderBy: { year: "desc" },
+    }),
+    prisma.journalEntry.groupBy({
+      by: ["status"],
+      where: { societyId },
+      _count: { id: true },
+    }),
+  ]);
 
-  const totalDebit = entries
-    .flatMap((e) => e.lines)
-    .reduce((s, l) => s + l.debit, 0);
-  const totalCredit = entries
-    .flatMap((e) => e.lines)
-    .reduce((s, l) => s + l.credit, 0);
+  const brouillonCount = stats.find(s => s.status === "BROUILLON")?._count.id ?? 0;
+  const valideeCount = stats.find(s => s.status === "VALIDEE")?._count.id ?? 0;
+  const totalEntries = stats.reduce((s, r) => s + r._count.id, 0);
+
+  const quickActions = [
+    { href: "/comptabilite/nouvelle-ecriture", icon: PenLine, label: "Saisir une écriture", color: "text-blue-600" },
+    { href: "/comptabilite/grand-livre", icon: BookOpen, label: "Grand Livre", color: "text-purple-600" },
+    { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-green-600" },
+    { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-orange-600" },
+    { href: "/comptabilite/exports", icon: FileBarChart, label: "Export FEC", color: "text-slate-600" },
+    { href: "/comptabilite/cloture", icon: Archive, label: "Exercices", color: "text-red-600" },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Comptabilité</h1>
-          <p className="text-muted-foreground">
-            Plan comptable, journaux et écritures
-          </p>
+        <div className="flex items-center gap-3">
+          <BookOpen className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">Comptabilité</h1>
+            {fiscalYear && (
+              <p className="text-sm text-muted-foreground">Exercice {fiscalYear.year} en cours</p>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Link href="/comptabilite/previsionnel">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="h-4 w-4" />
-              Prévisionnel
-            </Button>
-          </Link>
-          <Link href="/comptabilite/plan-comptable">
-            <Button variant="outline" size="sm">
-              <BookOpen className="h-4 w-4" />
-              Plan comptable
-            </Button>
-          </Link>
+        <Button asChild>
           <Link href="/comptabilite/nouvelle-ecriture">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Nouvelle écriture
-            </Button>
+            <Plus className="h-4 w-4 mr-1" />Nouvelle écriture
           </Link>
-        </div>
+        </Button>
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Comptes actifs</p>
-            <p className="text-2xl font-bold">{accounts.length}</p>
+          <CardContent className="pt-4 flex items-center gap-3">
+            <TrendingUp className="h-8 w-8 text-blue-600 flex-shrink-0" />
+            <div>
+              <div className="text-2xl font-bold">{totalEntries}</div>
+              <div className="text-xs text-muted-foreground">Écritures au total</div>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Total débit</p>
-            <p className="text-2xl font-bold">{fmt(totalDebit)} €</p>
+          <CardContent className="pt-4 flex items-center gap-3">
+            <Clock className="h-8 w-8 text-amber-500 flex-shrink-0" />
+            <div>
+              <div className="text-2xl font-bold">{brouillonCount}</div>
+              <div className="text-xs text-muted-foreground">En brouillon</div>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Total crédit</p>
-            <p className="text-2xl font-bold">{fmt(totalCredit)} €</p>
+          <CardContent className="pt-4 flex items-center gap-3">
+            <CheckCircle2 className="h-8 w-8 text-green-600 flex-shrink-0" />
+            <div>
+              <div className="text-2xl font-bold">{valideeCount}</div>
+              <div className="text-xs text-muted-foreground">Validées</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 flex items-center gap-3">
+            <List className="h-8 w-8 text-purple-600 flex-shrink-0" />
+            <div>
+              <div className="text-2xl font-bold">{accountCount}</div>
+              <div className="text-xs text-muted-foreground">Comptes actifs</div>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Journal des écritures */}
+      {brouillonCount > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span><strong>{brouillonCount} écriture(s)</strong> sont en brouillon et doivent être validées avant la clôture de l&apos;exercice.</span>
+        </div>
+      )}
+      {/* Accès rapides */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        {quickActions.map(action => (
+          <Link key={action.href} href={action.href}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="pt-4 flex flex-col items-center gap-2 text-center">
+                <action.icon className={`h-6 w-6 ${action.color}`} />
+                <span className="text-xs font-medium">{action.label}</span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+      {/* Dernières écritures */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Journal des écritures récentes
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4" />
-              Export FEC
-            </Button>
-          </div>
+        <CardHeader className="flex flex-row items-center justify-between py-3">
+          <CardTitle className="text-base">Dernières écritures</CardTitle>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/comptabilite/grand-livre">Voir le grand livre</Link>
+          </Button>
         </CardHeader>
-        <CardContent>
-          {entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Aucune écriture comptable. Les écritures sont générées automatiquement
-              lors de la facturation et du rapprochement bancaire.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-xs text-muted-foreground">
-                    <th className="pb-2 text-left font-medium">Date</th>
-                    <th className="pb-2 text-left font-medium">Journal</th>
-                    <th className="pb-2 text-left font-medium">Libellé</th>
-                    <th className="pb-2 text-left font-medium">Pièce</th>
-                    <th className="pb-2 text-right font-medium">Débit</th>
-                    <th className="pb-2 text-right font-medium">Crédit</th>
-                    <th className="pb-2 text-center font-medium">Statut</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {entries.map((entry) => {
-                    const debit = entry.lines.reduce((s, l) => s + l.debit, 0);
-                    const credit = entry.lines.reduce((s, l) => s + l.credit, 0);
-                    return (
-                      <tr key={entry.id} className="hover:bg-muted/50">
-                        <td className="py-2 pr-4 whitespace-nowrap">
-                          {new Date(entry.entryDate).toLocaleDateString("fr-FR")}
-                        </td>
-                        <td className="py-2 pr-4">
-                          <Badge variant="outline" className="text-xs">
-                            {JOURNAL_LABELS[entry.journalType] ?? entry.journalType}
-                          </Badge>
-                        </td>
-                        <td className="py-2 pr-4 max-w-[200px] truncate">{entry.label}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">
-                          {entry.piece ?? "—"}
-                        </td>
-                        <td className="py-2 pr-4 text-right tabular-nums">
-                          {debit > 0 ? fmt(debit) : "—"}
-                        </td>
-                        <td className="py-2 pr-4 text-right tabular-nums">
-                          {credit > 0 ? fmt(credit) : "—"}
-                        </td>
-                        <td className="py-2 text-center">
-                          <Badge
-                            variant={entry.isValidated ? "default" : "secondary"}
-                            className="text-xs"
-                          >
-                            {entry.isValidated ? "Validée" : "Brouillon"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24">Date</TableHead>
+                  <TableHead className="w-20">Pièce</TableHead>
+                  <TableHead className="w-20">Journal</TableHead>
+                  <TableHead>Libellé</TableHead>
+                  <TableHead className="text-right w-28">Montant</TableHead>
+                  <TableHead className="w-24">Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Aucune écriture — <Link href="/comptabilite/nouvelle-ecriture" className="underline">Saisir la première</Link>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {entries.map(e => {
+                  const total = e.lines.reduce((s, l) => s + l.debit, 0);
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-mono text-xs">{formatDate(e.entryDate)}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{e.piece ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {JOURNAL_LABELS[e.journalType] ?? e.journalType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm max-w-64 truncate">{e.label}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{formatCurrency(total)}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_COLORS[e.status] ?? "secondary"} className="text-xs">
+                          {e.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
+      {/* Info exercice */}
+      {fiscalYear && (
+        <Card className="border-muted bg-muted/20">
+          <CardContent className="py-3 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Exercice <strong>{fiscalYear.year}</strong> — du {formatDate(fiscalYear.startDate)} au {formatDate(fiscalYear.endDate)}
+            </span>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/comptabilite/cloture">Gérer les exercices</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

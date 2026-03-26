@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
 export const metadata: Metadata = {
   title: {
-    default: "Gestion Immobilière MTG",
+    default: "Gestion Immobiliere MTG",
     template: "%s | MTG Immo",
   },
   description: "Application de gestion de baux commerciaux et patrimoine immobilier",
@@ -23,7 +17,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "MTG Immo",
   },
-  themeColor: "#09090b",
+  themeColor: "#007AFF",
   viewport: {
     width: "device-width",
     initialScale: 1,
@@ -42,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${inter.variable} h-full`} suppressHydrationWarning>
+    <html lang="fr" className="h-full" suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
         <SessionProvider>
           <ThemeProvider>

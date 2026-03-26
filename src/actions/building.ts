@@ -112,7 +112,14 @@ export async function updateBuilding(
 
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
-      updateData[key] = value === "" ? null : value;
+      if (value === "" || value === undefined || value === null) {
+        updateData[key] = null;
+      } else if (key === "acquisitionDate") {
+        // Prisma attend un objet Date, pas une chaîne ISO
+        updateData[key] = new Date(value as string);
+      } else {
+        updateData[key] = value;
+      }
     }
 
     await prisma.building.update({

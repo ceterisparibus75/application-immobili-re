@@ -28,6 +28,7 @@ export type ImportBuildingInput = {
 };
 
 export type ImportLotInput = {
+  existingId?: string;
   number: string;
   lotType: LotType;
   area: number;
@@ -114,25 +115,35 @@ export async function importFromPdf(
         if (!existing) throw new Error("Immeuble introuvable dans cette société");
       }
 
-      // 2. Lot (toujours créé)
-      const existingLot = await tx.lot.findFirst({
-        where: { buildingId, number: input.lot.number },
-      });
-      if (existingLot) {
-        throw new Error(`Le lot "${input.lot.number}" existe déjà dans cet immeuble`);
+      // 2. Lot — utiliser un existant ou en créer un nouveau
+      let lot;
+      if (input.lot.existingId) {
+        // Lot existant : vérifier qu'il appartient à cet immeuble
+        const foundLot = await tx.lot.findFirst({
+          where: { id: input.lot.existingId, buildingId },
+        });
+        if (!foundLot) throw new Error("Lot introuvable dans cet immeuble");
+        lot = foundLot;
+      } else {
+        // Nouveau lot
+        const existingLot = await tx.lot.findFirst({
+          where: { buildingId, number: input.lot.number },
+        });
+        if (existingLot) {
+          throw new Error(`Le lot "${input.lot.number}" existe déjà dans cet immeuble`);
+        }
+        lot = await tx.lot.create({
+          data: {
+            buildingId,
+            number: input.lot.number,
+            lotType: input.lot.lotType,
+            area: input.lot.area,
+            floor: input.lot.floor ?? null,
+            position: input.lot.position ?? null,
+            status: "VACANT",
+          },
+        });
       }
-
-      const lot = await tx.lot.create({
-        data: {
-          buildingId,
-          number: input.lot.number,
-          lotType: input.lot.lotType,
-          area: input.lot.area,
-          floor: input.lot.floor ?? null,
-          position: input.lot.position ?? null,
-          status: "VACANT",
-        },
-      });
 
       // 3. Locataire
       let tenantId = input.tenant.existingId;
@@ -276,7 +287,7 @@ Structure exacte :
     "mobile": "Mobile ou null"
   },
   "bail": {
-    "leaseType": "COMMERCIAL_369|DEROGATOIRE|PRECAIRE",
+    "leaseType": "COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL",
     "startDate": "YYYY-MM-DD",
     "durationMonths": 108,
     "baseRentHT": 0.0,
@@ -293,7 +304,7 @@ Structure exacte :
 
 Règles :
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
-- leaseType : COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire
+- leaseType : COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales)
 - durationMonths : 108 pour bail 3-6-9 (9 ans), 36 pour bail dérogatoire 3 ans
 - Les montants sont en euros HT/an si loyer annuel, /mois si mensuel — converti toujours en euros HT/MOIS
 - Si une info est absente, mets null pour les champs optionnels

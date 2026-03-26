@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import { importFromPdf, analyzePdfAction, type ImportInput, type ImportResult } 
 import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
 import { getActiveTenants } from "@/actions/tenant";
+import { getLots } from "@/actions/lot";
 import { cn } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -43,6 +44,15 @@ type TenantOption = {
   firstName: string | null;
   lastName: string | null;
   email: string;
+};
+
+type LotOption = {
+  id: string;
+  number: string;
+  lotType: string;
+  area: number;
+  status: string;
+  building: { id: string; name: string };
 };
 
 type ImmeubleForm = {
@@ -124,6 +134,7 @@ const LEASE_TYPE_OPTIONS = [
   { value: "COMMERCIAL_369", label: "Bail commercial 3-6-9" },
   { value: "DEROGATOIRE", label: "Bail dérogatoire" },
   { value: "PRECAIRE", label: "Convention d'occupation précaire" },
+  { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel" },
 ];
 
 const PAYMENT_FREQ_OPTIONS = [
@@ -278,7 +289,7 @@ function SectionImmeuble({
       <CardContent className="space-y-3">
         {useExisting ? (
           <FieldRow label="Immeuble *">
-            <Select
+            <NativeSelect
               value={existingId}
               onChange={(e) => onExistingChange(e.target.value)}
               options={buildings.map((b) => ({ value: b.id, label: `${b.name} — ${b.city}` }))}
@@ -302,7 +313,7 @@ function SectionImmeuble({
               </FieldRow>
             </div>
             <FieldRow label="Type *">
-              <Select
+              <NativeSelect
                 value={form.buildingType}
                 onChange={(e) => onChange({ buildingType: e.target.value })}
                 options={BUILDING_TYPE_OPTIONS}
@@ -315,7 +326,18 @@ function SectionImmeuble({
   );
 }
 
-function SectionLot({ form, onChange }: { form: LotForm; onChange: (u: Partial<LotForm>) => void }) {
+function SectionLot({
+  form, onChange, lots, useExisting, existingId,
+  onToggleExisting, onExistingChange,
+}: {
+  form: LotForm;
+  onChange: (u: Partial<LotForm>) => void;
+  lots: LotOption[];
+  useExisting: boolean;
+  existingId: string;
+  onToggleExisting: () => void;
+  onExistingChange: (id: string) => void;
+}) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -323,31 +345,58 @@ function SectionLot({ form, onChange }: { form: LotForm; onChange: (u: Partial<L
           <Layers className="h-4 w-4 text-green-500" />
           Lot
         </CardTitle>
+        {lots.length > 0 && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer mt-1">
+            <input
+              type="checkbox"
+              checked={useExisting}
+              onChange={onToggleExisting}
+              className="h-4 w-4"
+            />
+            Utiliser un lot existant
+          </label>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <FieldRow label="Numéro *">
-            <Input value={form.number} onChange={(e) => onChange({ number: e.target.value })} placeholder="A1" className="h-8 text-sm" />
+        {useExisting ? (
+          <FieldRow label="Lot *">
+            <NativeSelect
+              value={existingId}
+              onChange={(e) => onExistingChange(e.target.value)}
+              options={lots.map((l) => ({
+                value: l.id,
+                label: `Lot ${l.number} — ${l.lotType} (${l.area} m²)`,
+              }))}
+              placeholder="— Sélectionner un lot —"
+            />
           </FieldRow>
-          <FieldRow label="Surface (m²) *">
-            <Input type="number" value={form.area} onChange={(e) => onChange({ area: e.target.value })} placeholder="120" className="h-8 text-sm" />
-          </FieldRow>
-        </div>
-        <FieldRow label="Type *">
-          <Select
-            value={form.lotType}
-            onChange={(e) => onChange({ lotType: e.target.value })}
-            options={LOT_TYPE_OPTIONS}
-          />
-        </FieldRow>
-        <div className="grid grid-cols-2 gap-2">
-          <FieldRow label="Étage">
-            <Input value={form.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="RDC" className="h-8 text-sm" />
-          </FieldRow>
-          <FieldRow label="Position">
-            <Input value={form.position} onChange={(e) => onChange({ position: e.target.value })} placeholder="Aile droite" className="h-8 text-sm" />
-          </FieldRow>
-        </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Numéro *">
+                <Input value={form.number} onChange={(e) => onChange({ number: e.target.value })} placeholder="A1" className="h-8 text-sm" />
+              </FieldRow>
+              <FieldRow label="Surface (m²) *">
+                <Input type="number" value={form.area} onChange={(e) => onChange({ area: e.target.value })} placeholder="120" className="h-8 text-sm" />
+              </FieldRow>
+            </div>
+            <FieldRow label="Type *">
+              <NativeSelect
+                value={form.lotType}
+                onChange={(e) => onChange({ lotType: e.target.value })}
+                options={LOT_TYPE_OPTIONS}
+              />
+            </FieldRow>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Étage">
+                <Input value={form.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="RDC" className="h-8 text-sm" />
+              </FieldRow>
+              <FieldRow label="Position">
+                <Input value={form.position} onChange={(e) => onChange({ position: e.target.value })} placeholder="Aile droite" className="h-8 text-sm" />
+              </FieldRow>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -384,7 +433,7 @@ function SectionLocataire({
       <CardContent className="space-y-3">
         {useExisting ? (
           <FieldRow label="Locataire *">
-            <Select
+            <NativeSelect
               value={existingId}
               onChange={(e) => onExistingChange(e.target.value)}
               options={tenants.map((t) => ({ value: t.id, label: `${tenantLabel(t)} — ${t.email}` }))}
@@ -418,7 +467,7 @@ function SectionLocataire({
                 </FieldRow>
                 <div className="grid grid-cols-2 gap-2">
                   <FieldRow label="Forme juridique">
-                    <Select value={form.companyLegalForm} onChange={(e) => onChange({ companyLegalForm: e.target.value })} options={LEGAL_FORM_OPTIONS} />
+                    <NativeSelect value={form.companyLegalForm} onChange={(e) => onChange({ companyLegalForm: e.target.value })} options={LEGAL_FORM_OPTIONS} />
                   </FieldRow>
                   <FieldRow label="SIRET">
                     <Input value={form.siret} onChange={(e) => onChange({ siret: e.target.value })} placeholder="12345678901234" className="h-8 text-sm" />
@@ -482,7 +531,7 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
       </CardHeader>
       <CardContent className="space-y-3">
         <FieldRow label="Type de bail *">
-          <Select value={form.leaseType} onChange={(e) => onChange({ leaseType: e.target.value })} options={LEASE_TYPE_OPTIONS} />
+          <NativeSelect value={form.leaseType} onChange={(e) => onChange({ leaseType: e.target.value })} options={LEASE_TYPE_OPTIONS} />
         </FieldRow>
         <div className="grid grid-cols-2 gap-2">
           <FieldRow label="Date de début *">
@@ -502,10 +551,10 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
         </div>
         <div className="grid grid-cols-2 gap-2">
           <FieldRow label="Périodicité">
-            <Select value={form.paymentFrequency} onChange={(e) => onChange({ paymentFrequency: e.target.value })} options={PAYMENT_FREQ_OPTIONS} />
+            <NativeSelect value={form.paymentFrequency} onChange={(e) => onChange({ paymentFrequency: e.target.value })} options={PAYMENT_FREQ_OPTIONS} />
           </FieldRow>
           <FieldRow label="Indice révision">
-            <Select value={form.indexType} onChange={(e) => onChange({ indexType: e.target.value })} options={INDEX_TYPE_OPTIONS} />
+            <NativeSelect value={form.indexType} onChange={(e) => onChange({ indexType: e.target.value })} options={INDEX_TYPE_OPTIONS} />
           </FieldRow>
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -563,19 +612,32 @@ export default function ImportPage() {
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [useExistingBuilding, setUseExistingBuilding] = useState(false);
   const [existingBuildingId, setExistingBuildingId] = useState("");
+  const [useExistingLot, setUseExistingLot] = useState(false);
+  const [existingLotId, setExistingLotId] = useState("");
+  const [lots, setLots] = useState<LotOption[]>([]);
   const [useExistingTenant, setUseExistingTenant] = useState(false);
   const [existingTenantId, setExistingTenantId] = useState("");
 
   const [result, setResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Load buildings & tenants
+  // Load buildings, tenants & lots
   useEffect(() => {
     if (!societyId) return;
     getBuildings(societyId).then((list) =>
       setBuildings(list.map((b) => ({ id: b.id, name: b.name, city: b.city })))
     );
     getActiveTenants(societyId).then(setTenants);
+    getLots(societyId).then((list) =>
+      setLots(list.map((l) => ({
+        id: l.id,
+        number: l.number,
+        lotType: l.lotType,
+        area: l.area,
+        status: l.status,
+        building: { id: l.building.id, name: l.building.name },
+      })))
+    );
   }, [societyId]);
 
   // File handlers
@@ -633,8 +695,12 @@ export default function ImportPage() {
     } else if (!existingBuildingId) {
       return "Sélectionner un immeuble existant";
     }
-    if (!form.lot.number) return "Numéro de lot requis";
-    if (!form.lot.area || isNaN(parseFloat(form.lot.area))) return "Surface du lot requise";
+    if (!useExistingLot) {
+      if (!form.lot.number) return "Numéro de lot requis";
+      if (!form.lot.area || isNaN(parseFloat(form.lot.area))) return "Surface du lot requise";
+    } else if (!existingLotId) {
+      return "Sélectionner un lot existant";
+    }
     if (!useExistingTenant) {
       if (!form.locataire.email) return "Email du locataire requis";
       if (form.locataire.entityType === "PERSONNE_MORALE" && !form.locataire.companyName) return "Raison sociale requise";
@@ -661,6 +727,7 @@ export default function ImportPage() {
         buildingType: form.immeuble.buildingType as ImportInput["building"]["buildingType"],
       },
       lot: {
+        existingId: useExistingLot ? existingLotId : undefined,
         number: form.lot.number,
         lotType: form.lot.lotType as ImportInput["lot"]["lotType"],
         area: parseFloat(form.lot.area),
@@ -877,7 +944,17 @@ export default function ImportPage() {
                 onToggleExisting={() => { setUseExistingBuilding((v) => !v); setExistingBuildingId(""); }}
                 onExistingChange={setExistingBuildingId}
               />
-              <SectionLot form={form.lot} onChange={updateLot} />
+              <SectionLot
+                form={form.lot}
+                onChange={updateLot}
+                lots={useExistingBuilding && existingBuildingId
+                  ? lots.filter((l) => l.building.id === existingBuildingId && l.status === "VACANT")
+                  : lots.filter((l) => l.status === "VACANT")}
+                useExisting={useExistingLot}
+                existingId={existingLotId}
+                onToggleExisting={() => { setUseExistingLot((v) => !v); setExistingLotId(""); }}
+                onExistingChange={setExistingLotId}
+              />
             </div>
             <div className="space-y-4">
               <SectionLocataire

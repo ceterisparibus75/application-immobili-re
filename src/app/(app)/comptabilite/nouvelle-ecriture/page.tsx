@@ -1,298 +1,240 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSociety } from "@/providers/society-provider";
+import { createJournalEntry, getAccounts, getFiscalYears } from "@/actions/accounting";
+import type { AccountRow, FiscalYearRow } from "@/actions/accounting";
+import { formatCurrency } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useSociety } from "@/providers/society-provider";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Plus, Trash2, AlertTriangle, CheckCircle2, PenLine } from "lucide-react";
+import { toast } from "sonner";
 
-const JOURNAL_OPTIONS = [
-  { value: "VENTES", label: "Ventes" },
-  { value: "BANQUE", label: "Banque" },
-  { value: "OPERATIONS_DIVERSES", label: "Opérations diverses" },
+const JOURNALS = [
+  { value: "AN", label: "AN — À Nouveaux" },
+  { value: "AC", label: "AC — Achats" },
+  { value: "BQUE", label: "BQUE — Banque" },
+  { value: "INV", label: "INV — Investissements" },
+  { value: "OD", label: "OD — Opérations Diverses" },
+  { value: "VT", label: "VT — Ventes/TVA" },
 ];
 
-type Account = { id: string; code: string; label: string };
+type Line = { id: string; accountId: string; label: string; debit: string; credit: string };
 
-type Line = {
-  accountId: string;
-  label: string;
-  debit: string;
-  credit: string;
-};
+function newLine(): Line {
+  return { id: Math.random().toString(36).slice(2), accountId: "", label: "", debit: "", credit: "" };
+}
 
 export default function NouvelleEcriturePage() {
-  const router = useRouter();
   const { activeSociety } = useSociety();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [lines, setLines] = useState<Line[]>([
-    { accountId: "", label: "", debit: "", credit: "" },
-    { accountId: "", label: "", debit: "", credit: "" },
-  ]);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
+  const [journal, setJournal] = useState("OD");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [piece, setPiece] = useState("");
+  const [label, setLabel] = useState("");
+  const [fiscalYearId, setFiscalYearId] = useState("none");
+  const [lines, setLines] = useState<Line[]>([newLine(), newLine()]);
 
   useEffect(() => {
-    fetch("/api/comptabilite/accounts")
-      .then((r) => r.json())
-      .then((data) => setAccounts(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+    if (!activeSociety?.id) return;
+    getAccounts(activeSociety.id).then(r => { if (r.success && r.data) setAccounts(r.data); });
+    getFiscalYears(activeSociety.id).then(r => {
+      if (r.success && r.data) {
+        setFiscalYears(r.data);
+        const current = r.data.find(fy => !fy.isClosed);
+        if (current) setFiscalYearId(current.id);
+      }
+    });
+  }, [activeSociety?.id]);
 
-  function addLine() {
-    setLines([...lines, { accountId: "", label: "", debit: "", credit: "" }]);
+  const totalDebit = lines.reduce((s, l) => s + (parseFloat(l.debit) || 0), 0);
+  const totalCredit = lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
+  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
+  const diff = Math.abs(totalDebit - totalCredit);
+
+  function setLine(id: string, field: keyof Line, value: string) {
+    setLines(ls => ls.map(l => l.id === id ? { ...l, [field]: value } : l));
   }
 
-  function removeLine(index: number) {
-    setLines(lines.filter((_, i) => i !== index));
+  function removeLine(id: string) {
+    if (lines.length <= 2) return;
+    setLines(ls => ls.filter(l => l.id !== id));
   }
 
-  function updateLine(index: number, field: keyof Line, value: string) {
-    setLines(lines.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
-  }
+  function handleSubmit() {
+    if (!activeSociety?.id) return;
+    if (!label.trim()) { toast.error("Le libellé est obligatoire"); return; }
+    if (!isBalanced) { toast.error("L’écriture doit être équilibrée"); return; }
+    const validLines = lines.filter(l => l.accountId && (parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0));
+    if (validLines.length < 2) { toast.error("Au minimum 2 lignes avec compte et montant"); return; }
 
-  const totalDebit = lines.reduce(
-    (s, l) => s + (parseFloat(l.debit) || 0),
-    0
-  );
-  const totalCredit = lines.reduce(
-    (s, l) => s + (parseFloat(l.credit) || 0),
-    0
-  );
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!activeSociety) return;
-    if (!isBalanced) {
-      setError("L'écriture n'est pas équilibrée (débit ≠ crédit)");
-      return;
-    }
-
-    setError("");
-    setIsLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const body = {
-      journalType: formData.get("journalType"),
-      entryDate: formData.get("entryDate"),
-      label: formData.get("label"),
-      piece: formData.get("piece") || null,
-      reference: formData.get("reference") || null,
-      lines: lines
-        .filter((l) => l.accountId && (parseFloat(l.debit) > 0 || parseFloat(l.credit) > 0))
-        .map((l) => ({
+    startTransition(async () => {
+      const res = await createJournalEntry(activeSociety.id, {
+        journalType: journal,
+        entryDate: date,
+        piece: piece || undefined,
+        label,
+        fiscalYearId: fiscalYearId === "none" ? undefined : fiscalYearId,
+        lines: validLines.map(l => ({
           accountId: l.accountId,
-          label: l.label || null,
+          label: l.label || undefined,
           debit: parseFloat(l.debit) || 0,
           credit: parseFloat(l.credit) || 0,
         })),
-    };
-
-    const res = await fetch("/api/comptabilite/entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      });
+      if (res.success) {
+        toast.success("Écriture créée avec succès");
+        router.push("/comptabilite");
+      } else {
+        toast.error(res.error ?? "Erreur");
+      }
     });
-
-    if (res.ok) {
-      router.push("/comptabilite");
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Erreur lors de la création");
-    }
-    setIsLoading(false);
   }
 
+  const selectClass = "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+  const accountsByClass = accounts.reduce<Record<string, AccountRow[]>>((acc, a) => {
+    if (!acc[a.type]) acc[a.type] = [];
+    acc[a.type].push(a);
+    return acc;
+  }, {});
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center gap-4">
-        <Link href="/comptabilite">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nouvelle écriture</h1>
-          <p className="text-muted-foreground">Écriture comptable manuelle</p>
-        </div>
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex items-center gap-3">
+        <PenLine className="h-6 w-6 text-primary" />
+        <h1 className="text-2xl font-semibold">Nouvelle écriture comptable</h1>
       </div>
 
-      {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      <Card>
+        <CardHeader><CardTitle className="text-base">En-tête de l’écriture</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Journal *</Label>
+            <select value={journal} onChange={e => setJournal(e.target.value)} className={selectClass}>
+              {JOURNALS.map(j => <option key={j.value} value={j.value}>{j.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <Label>Date *</Label>
+            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>N° de pièce</Label>
+            <Input value={piece} onChange={e => setPiece(e.target.value)} placeholder="FAC-001" />
+          </div>
+          <div className="col-span-2">
+            <Label>Libellé *</Label>
+            <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="Ex : Loyer janvier 2026" />
+          </div>
+          <div>
+            <Label>Exercice</Label>
+            <select value={fiscalYearId} onChange={e => setFiscalYearId(e.target.value)} className={selectClass}>
+              <option value="none">Sans exercice</option>
+              {fiscalYears.map(fy => (
+                <option key={fy.id} value={fy.id} disabled={fy.isClosed}>
+                  {fy.year}{fy.isClosed ? " (clôturé)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </CardContent>
+      </Card>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>En-tête</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="journalType">Journal *</Label>
-                <Select
-                  id="journalType"
-                  name="journalType"
-                  options={JOURNAL_OPTIONS}
-                  defaultValue="OPERATIONS_DIVERSES"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="entryDate">Date *</Label>
-                <Input
-                  id="entryDate"
-                  name="entryDate"
-                  type="date"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="label">Libellé *</Label>
-              <Input
-                id="label"
-                name="label"
-                placeholder="Description de l'opération"
-                required
-              />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="piece">N° de pièce</Label>
-                <Input id="piece" name="piece" placeholder="FAC-2025-001" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reference">Référence</Label>
-                <Input id="reference" name="reference" placeholder="Bail, contrat..." />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Lignes d&apos;écriture</CardTitle>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-muted-foreground">
-                  Débit : <span className="font-medium">{totalDebit.toFixed(2)} €</span>
-                </span>
-                <span className="text-muted-foreground">
-                  Crédit : <span className="font-medium">{totalCredit.toFixed(2)} €</span>
-                </span>
-                {totalDebit > 0 && (
-                  <span className={isBalanced ? "text-green-600 dark:text-green-400 font-medium" : "text-destructive font-medium"}>
-                    {isBalanced ? "Équilibrée" : "Non équilibrée"}
-                  </span>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {accounts.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Aucun compte — <Link href="/comptabilite/plan-comptable" className="underline">créez des comptes</Link> d&apos;abord.
-              </p>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Lignes d’écriture</CardTitle>
+          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-green-700" : diff > 0 ? "text-red-700" : "text-muted-foreground")}>
+            {totalDebit > 0 && (isBalanced
+              ? <><CheckCircle2 className="h-4 w-4" />Écriture équilibrée</>
+              : <><AlertTriangle className="h-4 w-4" />Écart : {formatCurrency(diff)}</>
             )}
-            {lines.map((line, i) => (
-              <div key={i} className="grid gap-2 grid-cols-12 items-center">
-                <div className="col-span-4">
-                  <select
-                    value={line.accountId}
-                    onChange={(e) => updateLine(i, "accountId", e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="">Compte...</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} — {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-3">
-                  <Input
-                    value={line.label}
-                    onChange={(e) => updateLine(i, "label", e.target.value)}
-                    placeholder="Libellé ligne"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={line.debit}
-                    onChange={(e) => updateLine(i, "debit", e.target.value)}
-                    placeholder="Débit"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={line.credit}
-                    onChange={(e) => updateLine(i, "credit", e.target.value)}
-                    placeholder="Crédit"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => removeLine(i)}
-                    disabled={lines.length <= 2}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={addLine}>
-              <Plus className="h-4 w-4" />
-              Ajouter une ligne
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-64">Compte</TableHead>
+                  <TableHead>Libellé ligne</TableHead>
+                  <TableHead className="w-32">Débit (€)</TableHead>
+                  <TableHead className="w-32">Crédit (€)</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map(l => (
+                  <TableRow key={l.id}>
+                    <TableCell>
+                      <select
+                        value={l.accountId}
+                        onChange={e => setLine(l.id, "accountId", e.target.value)}
+                        className={selectClass + " font-mono"}
+                      >
+                        <option value="">Sélectionner un compte</option>
+                        {Object.entries(accountsByClass).sort((a, b) => a[0].localeCompare(b[0])).map(([cl, accs]) => (
+                          <optgroup key={cl} label={"Classe " + cl}>
+                            {accs.map(a => <option key={a.id} value={a.id}>{a.code} — {a.label}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </TableCell>
+                    <TableCell>
+                      <Input value={l.label} onChange={e => setLine(l.id, "label", e.target.value)} placeholder="Libellé (optionnel)" className="text-sm" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" min="0" step="0.01" value={l.debit}
+                        onChange={e => setLine(l.id, "debit", e.target.value)}
+                        onFocus={() => l.credit && setLine(l.id, "credit", "")}
+                        className="text-right font-mono text-sm" placeholder="0,00" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" min="0" step="0.01" value={l.credit}
+                        onChange={e => setLine(l.id, "credit", e.target.value)}
+                        onFocus={() => l.debit && setLine(l.id, "debit", "")}
+                        className="text-right font-mono text-sm" placeholder="0,00" />
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => removeLine(l.id)} disabled={lines.length <= 2} className="h-8 w-8">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={2} className="font-semibold">Totaux</TableCell>
+                  <TableCell className={"text-right font-mono font-bold " + (totalDebit > 0 ? "text-green-700" : "")}>{formatCurrency(totalDebit)}</TableCell>
+                  <TableCell className={"text-right font-mono font-bold " + (totalCredit > 0 ? "text-red-700" : "")}>{formatCurrency(totalCredit)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+          <div className="p-4 border-t">
+            <Button variant="outline" size="sm" onClick={() => setLines(ls => [...ls, newLine()])}>
+              <Plus className="h-4 w-4 mr-1" />Ajouter une ligne
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex justify-end gap-3">
-          <Link href="/comptabilite">
-            <Button variant="outline" type="button">
-              Annuler
-            </Button>
-          </Link>
-          <Button type="submit" disabled={isLoading || !isBalanced}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Enregistrement...
-              </>
-            ) : (
-              "Enregistrer l'écriture"
-            )}
-          </Button>
-        </div>
-      </form>
+      <div className="flex gap-3">
+        <Button onClick={handleSubmit} disabled={isPending || !isBalanced || !label.trim()} size="lg">
+          {isPending ? "Enregistrement..." : "Enregistrer l’écriture"}
+        </Button>
+        <Button variant="outline" size="lg" onClick={() => router.push("/comptabilite")}>Annuler</Button>
+      </div>
     </div>
   );
 }

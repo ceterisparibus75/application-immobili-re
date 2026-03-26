@@ -3,55 +3,68 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
+  /* Police systeme Apple (SF Pro sur Apple, fallback clean sinon) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+
+  /* Couleurs iOS — mode clair */
+  --color-background: oklch(0.963 0.003 264);    /* systemGray6 #F2F2F7 */
+  --color-foreground: oklch(0.09 0 0);            /* label #000000 */
+  --color-card: oklch(1 0 0);                     /* systemBackground */
+  --color-card-foreground: oklch(0.09 0 0);
   --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.398 0.07 227.392);
-  --color-primary-foreground: oklch(0.985 0.001 227.392);
-  --color-secondary: oklch(0.96 0.005 227.392);
-  --color-secondary-foreground: oklch(0.398 0.07 227.392);
-  --color-muted: oklch(0.96 0.005 227.392);
-  --color-muted-foreground: oklch(0.556 0.02 227.392);
-  --color-accent: oklch(0.96 0.005 227.392);
-  --color-accent-foreground: oklch(0.398 0.07 227.392);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0.001 227.392);
-  --color-border: oklch(0.922 0.004 227.392);
-  --color-input: oklch(0.922 0.004 227.392);
-  --color-ring: oklch(0.398 0.07 227.392);
-  --color-sidebar: oklch(0.97 0.005 227.392);
-  --color-sidebar-foreground: oklch(0.345 0.06 227.392);
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --color-popover-foreground: oklch(0.09 0 0);
+  --color-primary: oklch(0.597 0.198 264.4);      /* systemBlue #007AFF */
+  --color-primary-foreground: oklch(1 0 0);
+  --color-secondary: oklch(0.94 0.002 264);       /* secondarySystemBackground */
+  --color-secondary-foreground: oklch(0.09 0 0);
+  --color-muted: oklch(0.94 0.002 264);
+  --color-muted-foreground: oklch(0.55 0.005 264); /* secondaryLabel */
+  --color-accent: oklch(0.94 0.002 264);
+  --color-accent-foreground: oklch(0.09 0 0);
+  --color-destructive: oklch(0.578 0.238 27.3);   /* systemRed #FF3B30 */
+  --color-destructive-foreground: oklch(1 0 0);
+  --color-border: oklch(0.885 0.002 264);         /* separator */
+  --color-input: oklch(0.94 0.002 264);
+  --color-ring: oklch(0.597 0.198 264.4);
+
+  /* Sidebar — claire comme iOS */
+  --color-sidebar: oklch(0.988 0.001 264);
+  --color-sidebar-foreground: oklch(0.09 0 0);
+
+  /* Rayons iOS */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.375rem;
 }
 
+/* Mode sombre iOS */
 .dark {
-  --color-background: oklch(0.145 0.015 227.392);
-  --color-foreground: oklch(0.985 0.001 227.392);
-  --color-card: oklch(0.178 0.015 227.392);
-  --color-card-foreground: oklch(0.985 0.001 227.392);
-  --color-popover: oklch(0.178 0.015 227.392);
-  --color-popover-foreground: oklch(0.985 0.001 227.392);
-  --color-primary: oklch(0.598 0.09 227.392);
-  --color-primary-foreground: oklch(0.145 0.015 227.392);
-  --color-secondary: oklch(0.245 0.02 227.392);
-  --color-secondary-foreground: oklch(0.985 0.001 227.392);
-  --color-muted: oklch(0.245 0.02 227.392);
-  --color-muted-foreground: oklch(0.656 0.02 227.392);
-  --color-accent: oklch(0.245 0.02 227.392);
-  --color-accent-foreground: oklch(0.985 0.001 227.392);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0.001 227.392);
-  --color-border: oklch(0.278 0.02 227.392);
-  --color-input: oklch(0.278 0.02 227.392);
-  --color-ring: oklch(0.598 0.09 227.392);
-  --color-sidebar: oklch(0.178 0.015 227.392);
-  --color-sidebar-foreground: oklch(0.856 0.01 227.392);
+  --color-background: oklch(0 0 0);               /* #000000 */
+  --color-foreground: oklch(0.98 0 0);             /* white */
+  --color-card: oklch(0.168 0.002 264);            /* #2C2C2E */
+  --color-card-foreground: oklch(0.98 0 0);
+  --color-popover: oklch(0.168 0.002 264);
+  --color-popover-foreground: oklch(0.98 0 0);
+  --color-primary: oklch(0.638 0.198 264.4);       /* #0A84FF */
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-secondary: oklch(0.225 0.002 264);
+  --color-secondary-foreground: oklch(0.98 0 0);
+  --color-muted: oklch(0.225 0.002 264);
+  --color-muted-foreground: oklch(0.62 0.005 264);
+  --color-accent: oklch(0.225 0.002 264);
+  --color-accent-foreground: oklch(0.98 0 0);
+  --color-destructive: oklch(0.618 0.238 27.3);    /* #FF453A */
+  --color-destructive-foreground: oklch(0.98 0 0);
+  --color-border: oklch(0.26 0.002 264);
+  --color-input: oklch(0.26 0.002 264);
+  --color-ring: oklch(0.638 0.198 264.4);
+
+  /* Sidebar sombre iOS */
+  --color-sidebar: oklch(0.115 0.002 264);         /* #1C1C1E */
+  --color-sidebar-foreground: oklch(0.98 0 0);
 }
 
 @layer base {
@@ -60,12 +73,32 @@
   }
   html {
     color-scheme: light;
+    -webkit-font-smoothing: antialiased;
   }
   html.dark {
     color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  /* Scrollbar fine iOS-like */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.7 0 0 / 0.3);
+    border-radius: 99px;
+  }
+}
+
+/* Chiffres financiers en monospace */
+.tabular-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }

@@ -6,7 +6,7 @@ import { updateTenant } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -284,7 +284,7 @@ export default function ModifierLocatairePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="riskIndicator">Indicateur de risque</Label>
-              <Select id="riskIndicator" name="riskIndicator" options={RISK_OPTIONS} defaultValue={tenant.riskIndicator} />
+              <NativeSelect id="riskIndicator" name="riskIndicator" options={RISK_OPTIONS} defaultValue={tenant.riskIndicator} />
             </div>
             <Separator />
             <div className="space-y-2">

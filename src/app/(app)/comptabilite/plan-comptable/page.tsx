@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 
@@ -103,6 +103,12 @@ export default function PlanComptablePage() {
           <h1 className="text-2xl font-bold tracking-tight">Plan comptable</h1>
           <p className="text-muted-foreground">{accounts.length} compte(s)</p>
         </div>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/comptabilite/plan-comptable/importer">
+            <Upload className="h-4 w-4" />
+            Importer
+          </Link>
+        </Button>
         <Button size="sm" onClick={() => setShowForm(!showForm)}>
           <Plus className="h-4 w-4" />
           Nouveau compte

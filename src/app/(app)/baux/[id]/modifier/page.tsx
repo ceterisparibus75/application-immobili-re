@@ -6,7 +6,7 @@ import { updateLease } from "@/actions/lease";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -34,6 +34,18 @@ const INDEX_TYPES = [
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
 ];
 
+const BILLING_TERMS = [
+  { value: "A_ECHOIR", label: "Terme à échoir (paiement en début de période)" },
+  { value: "ECHU", label: "Terme échu (paiement en fin de période)" },
+];
+
+const PAYMENT_FREQUENCIES = [
+  { value: "MENSUEL", label: "Mensuel" },
+  { value: "TRIMESTRIEL", label: "Trimestriel" },
+  { value: "SEMESTRIEL", label: "Semestriel" },
+  { value: "ANNUEL", label: "Annuel" },
+];
+
 type LeaseData = {
   id: string;
   status: string;
@@ -41,6 +53,8 @@ type LeaseData = {
   depositAmount: number;
   vatApplicable: boolean;
   vatRate: number;
+  billingTerm: string;
+  paymentFrequency: string;
   indexType?: string | null;
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
@@ -48,6 +62,7 @@ type LeaseData = {
   tenantWorksClauses?: string | null;
   entryDate?: string | null;
   exitDate?: string | null;
+  rentFreeMonths?: number | null;
 };
 
 export default function ModifierBailPage() {
@@ -97,9 +112,12 @@ export default function ModifierBailPage() {
       baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
       baseIndexQuarter: data.baseIndexQuarter || null,
       revisionFrequency: parseInt(data.revisionFrequency) || 12,
+      billingTerm: (data.billingTerm as "ECHU" | "A_ECHOIR") || undefined,
+      paymentFrequency: (data.paymentFrequency as "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL") || undefined,
       tenantWorksClauses: data.tenantWorksClauses || null,
       entryDate: data.entryDate || null,
       exitDate: data.exitDate || null,
+      rentFreeMonths: data.rentFreeMonths !== undefined ? parseFloat(data.rentFreeMonths) || 0 : undefined,
     });
 
     setIsLoading(false);
@@ -160,7 +178,7 @@ export default function ModifierBailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="status">Statut *</Label>
-                <Select
+                <NativeSelect
                   id="status"
                   name="status"
                   options={STATUS_OPTIONS}
@@ -230,6 +248,40 @@ export default function ModifierBailPage() {
                   defaultValue={lease.depositAmount}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="rentFreeMonths">Franchise de loyer (mois)</Label>
+                <Input
+                  id="rentFreeMonths"
+                  name="rentFreeMonths"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={lease.rentFreeMonths ?? 0}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="paymentFrequency">Fréquence de paiement *</Label>
+                <NativeSelect
+                  id="paymentFrequency"
+                  name="paymentFrequency"
+                  options={PAYMENT_FREQUENCIES}
+                  defaultValue={lease.paymentFrequency}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billingTerm">Terme des loyers *</Label>
+                <NativeSelect
+                  id="billingTerm"
+                  name="billingTerm"
+                  options={BILLING_TERMS}
+                  defaultValue={lease.billingTerm}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -274,7 +326,7 @@ export default function ModifierBailPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="indexType">Indice de référence</Label>
-                <Select
+                <NativeSelect
                   id="indexType"
                   name="indexType"
                   options={INDEX_TYPES}

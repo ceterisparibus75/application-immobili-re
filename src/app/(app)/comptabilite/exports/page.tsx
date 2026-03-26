@@ -6,7 +6,7 @@ import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -119,7 +119,7 @@ export default function ExportsFecPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="year-select">Exercice comptable</Label>
-              <Select
+              <NativeSelect
                 id="year-select"
                 options={YEAR_OPTIONS}
                 value={year}
@@ -128,7 +128,7 @@ export default function ExportsFecPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="journal-select">Journal</Label>
-              <Select
+              <NativeSelect
                 id="journal-select"
                 options={JOURNAL_OPTIONS}
                 value={journal}

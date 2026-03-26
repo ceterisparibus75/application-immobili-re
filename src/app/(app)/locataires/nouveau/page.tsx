@@ -6,7 +6,7 @@ import { createTenant } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -183,7 +183,7 @@ export default function NouveauLocatairePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="companyLegalForm">Forme juridique</Label>
-                    <Select
+                    <NativeSelect
                       id="companyLegalForm"
                       name="companyLegalForm"
                       options={LEGAL_FORM_OPTIONS}
@@ -342,7 +342,7 @@ export default function NouveauLocatairePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="riskIndicator">Indicateur de risque</Label>
-              <Select
+              <NativeSelect
                 id="riskIndicator"
                 name="riskIndicator"
                 options={RISK_OPTIONS}

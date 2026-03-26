@@ -6,7 +6,7 @@ import { createInspection } from "@/actions/inspection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -121,13 +121,12 @@ export default function NouvelleInspectionPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="type">Type *</Label>
-                <Select
+                <NativeSelect
                   id="type"
                   name="type"
                   options={TYPE_OPTIONS}
                   defaultValue="ENTREE"
-                  required
-                />
+                  required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="performedAt">Date *</Label>

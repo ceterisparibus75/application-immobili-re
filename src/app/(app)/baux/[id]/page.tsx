@@ -56,6 +56,7 @@ const STATUS_VARIANTS: Record<
 
 const TYPE_LABELS: Record<LeaseType, string> = {
   COMMERCIAL_369: "Bail commercial 3-6-9",
+  BAIL_PROFESSIONNEL: "Bail professionnel",
   DEROGATOIRE: "Bail dérogatoire",
   PRECAIRE: "Convention d'occupation précaire",
 };

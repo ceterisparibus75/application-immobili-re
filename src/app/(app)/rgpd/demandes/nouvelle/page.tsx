@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -116,13 +116,13 @@ export default function NouvelleDemandeRgpdPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="requestType">Type *</Label>
-              <Select
+              <NativeSelect
                 id="requestType"
                 name="requestType"
                 options={TYPE_OPTIONS}
                 defaultValue="access"
                 required
-              />
+               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes / Contexte</Label>

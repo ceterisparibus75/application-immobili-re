@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   assignUserToSociety,
   createUser,
@@ -97,12 +97,16 @@ function ManageUser({
   if (editing) {
     return (
       <div className="flex items-center gap-2">
-        <Select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          options={ROLE_OPTIONS}
-          className="w-44 h-8 text-xs"
-        />
+        <Select value={role} onValueChange={(val) => setRole(val as UserRole)}>
+          <SelectTrigger className="w-44 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           size="sm"
           variant="ghost"
@@ -191,19 +195,29 @@ function AddExistingUser({
     <div className="flex items-end gap-3 flex-wrap">
       <div className="space-y-2 flex-1 min-w-48">
         <Label>Utilisateur</Label>
-        <Select
-          value={selectedUserId}
-          onChange={(e) => setSelectedUserId(e.target.value)}
-          options={[{ value: "", label: "Sélectionner un utilisateur..." }, ...userOptions]}
-        />
+        <Select value={selectedUserId} onValueChange={(val) => setSelectedUserId(val)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Sélectionner un utilisateur..." />
+          </SelectTrigger>
+          <SelectContent>
+            {userOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2 w-48">
         <Label>Rôle</Label>
-        <Select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          options={ROLE_OPTIONS}
-        />
+        <Select value={role} onValueChange={(val) => setRole(val as UserRole)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <Button
         onClick={handleAdd}
@@ -288,12 +302,11 @@ function CreateUser({
         </div>
         <div className="space-y-2">
           <Label htmlFor="role">Rôle *</Label>
-          <Select
-            id="role"
-            name="role"
-            options={ROLE_OPTIONS}
-            required
-          />
+          <select id="role" name="role" required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+            {ROLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="space-y-2">

@@ -6,7 +6,7 @@ import { updateLot } from "@/actions/lot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -158,7 +158,7 @@ export default function ModifierLotPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lotType">Type *</Label>
-                <Select
+                <NativeSelect
                   id="lotType"
                   name="lotType"
                   options={[...LOT_TYPES]}
@@ -187,7 +187,7 @@ export default function ModifierLotPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Statut</Label>
-                <Select
+                <NativeSelect
                   id="status"
                   name="status"
                   options={[...LOT_STATUSES]}

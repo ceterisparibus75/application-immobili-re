@@ -6,7 +6,7 @@ import { updateContact } from "@/actions/contact";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -133,7 +133,7 @@ export default function ModifierContactPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="contactType">Type *</Label>
-                <Select
+                <NativeSelect
                   id="contactType"
                   name="contactType"
                   options={TYPE_OPTIONS}

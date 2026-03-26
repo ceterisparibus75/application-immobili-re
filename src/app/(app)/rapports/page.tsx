@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -88,12 +88,14 @@ interface ReportCardProps {
 function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const actualFormat = report.format === "both" ? format : report.format;
 
   const handleDownload = async () => {
     setLoading(true);
     setError(null);
+    setSuccess(false);
     try {
       const body: Record<string, unknown> = {
         type: report.type,
@@ -116,12 +118,20 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: { message?: string } })?.error?.message ?? "Erreur lors de la génération");
+        const data = await res.json().catch(() => null);
+        const errorMsg =
+          (data as { error?: { message?: string } } | null)?.error?.message
+          ?? `Erreur ${res.status} lors de la génération`;
+        setError(errorMsg);
         return;
       }
 
       const blob = await res.blob();
+      if (blob.size === 0) {
+        setError("Le fichier généré est vide. Vérifiez vos données.");
+        return;
+      }
+
       const disposition = res.headers.get("Content-Disposition") ?? "";
       const fnMatch = disposition.match(/filename="([^"]+)"/);
       const filename = fnMatch?.[1] ?? `rapport.${actualFormat}`;
@@ -130,8 +140,12 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
       const a = document.createElement("a");
       a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
+      setSuccess(true);
+
+      // Le message de succès disparaît après 3 secondes
+      setTimeout(() => setSuccess(false), 3000);
     } catch {
-      setError("Erreur réseau. Veuillez réessayer.");
+      setError("Erreur réseau. Vérifiez votre connexion et réessayez.");
     } finally {
       setLoading(false);
     }
@@ -155,7 +169,16 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2 mt-auto">
         {error && (
-          <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{error}</p>
+          <div className="flex items-start gap-1.5 text-xs text-destructive bg-destructive/10 rounded px-2 py-1.5">
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 rounded px-2 py-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>Téléchargement terminé</span>
+          </div>
         )}
         <div className="flex items-center justify-between gap-2">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${actualFormat === "xlsx" ? "text-green-700 border-green-200 bg-green-50" : "text-blue-700 border-blue-200 bg-blue-50"}`}>
@@ -214,7 +237,7 @@ export default function RapportsPage() {
         <CardContent className="flex flex-wrap gap-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Exercice</Label>
-            <Select
+            <NativeSelect
               options={YEAR_OPTIONS}
               value={year}
               onChange={e => setYear(e.target.value)}
@@ -223,7 +246,7 @@ export default function RapportsPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Format (rapports au choix)</Label>
-            <Select
+            <NativeSelect
               options={[{ value:"pdf", label:"PDF" }, { value:"xlsx", label:"Excel" }]}
               value={format}
               onChange={e => setFormat(e.target.value as "pdf" | "xlsx")}

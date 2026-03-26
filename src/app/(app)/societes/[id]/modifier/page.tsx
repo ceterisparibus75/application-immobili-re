@@ -6,7 +6,7 @@ import { getSocietyById, updateSociety } from "@/actions/society";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -172,7 +172,7 @@ export default function ModifierSocietePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legalForm">Forme juridique *</Label>
-                <Select id="legalForm" name="legalForm" options={LEGAL_FORMS} value={form.legalForm} onChange={(e) => set("legalForm", e.target.value)} required />
+                <NativeSelect id="legalForm" name="legalForm" options={LEGAL_FORMS} value={form.legalForm} onChange={(e) => set("legalForm", e.target.value)} required />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -228,11 +228,11 @@ export default function ModifierSocietePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="taxRegime">Régime d&apos;imposition *</Label>
-                <Select id="taxRegime" name="taxRegime" options={[{ value: "IS", label: "Impôt sur les Sociétés (IS)" }, { value: "IR", label: "Impôt sur le Revenu (IR)" }]} value={form.taxRegime} onChange={(e) => set("taxRegime", e.target.value)} required />
+                <NativeSelect id="taxRegime" name="taxRegime" options={[{ value: "IS", label: "Impôt sur les Sociétés (IS)" }, { value: "IR", label: "Impôt sur le Revenu (IR)" }]} value={form.taxRegime} onChange={(e) => set("taxRegime", e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="vatRegime">Régime TVA *</Label>
-                <Select id="vatRegime" name="vatRegime" options={[{ value: "TVA", label: "Assujetti TVA" }, { value: "FRANCHISE", label: "Franchise de TVA" }]} value={form.vatRegime} onChange={(e) => set("vatRegime", e.target.value)} required />
+                <NativeSelect id="vatRegime" name="vatRegime" options={[{ value: "TVA", label: "Assujetti TVA" }, { value: "FRANCHISE", label: "Franchise de TVA" }]} value={form.vatRegime} onChange={(e) => set("vatRegime", e.target.value)} required />
               </div>
             </div>
           </CardContent>

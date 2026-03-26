@@ -6,15 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -30,14 +22,8 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
+      const result = await signIn("credentials", { email, password, redirect: false });
       if (result?.error) {
         setError("Email ou mot de passe incorrect");
       } else {
@@ -52,79 +38,61 @@ function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Connexion</CardTitle>
-        <CardDescription>
-          Accédez à votre espace de gestion immobilière
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="rounded-xl bg-destructive/8 border border-destructive/20 p-3 text-sm text-destructive text-center">
+          {error}
+        </div>
+      )}
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Adresse email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="votre@email.fr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              disabled={isLoading}
-            />
-          </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="email" className="text-sm font-medium">Adresse email</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="votre@email.fr"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          disabled={isLoading}
+          className="rounded-xl h-11"
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Votre mot de passe"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              disabled={isLoading}
-            />
-          </div>
-        </CardContent>
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-sm font-medium">Mot de passe</Label>
+        <Input
+          id="password"
+          type="password"
+          placeholder="Votre mot de passe"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          disabled={isLoading}
+          className="rounded-xl h-11"
+        />
+      </div>
 
-        <CardFooter className="flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Connexion...
-              </>
-            ) : (
-              "Se connecter"
-            )}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      <Button type="submit" className="w-full h-11 rounded-xl font-semibold text-sm mt-2" disabled={isLoading}>
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Connexion...
+          </>
+        ) : (
+          "Se connecter"
+        )}
+      </Button>
+    </form>
   );
 }
 
 export default function LoginPage() {
   return (
-    <>
-      {/* Logo mobile */}
-      <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
-        <Building2 className="h-8 w-8 text-primary" />
-        <span className="text-2xl font-bold">GestImmo</span>
-      </div>
-
-      <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-muted" />}>
-        <LoginForm />
-      </Suspense>
-    </>
+    <Suspense fallback={<div className="h-48 animate-pulse rounded-xl bg-muted" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

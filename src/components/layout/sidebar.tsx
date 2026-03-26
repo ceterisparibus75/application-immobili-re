@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  Crown,
   LayoutDashboard,
   FileText,
   Users,
@@ -23,22 +24,25 @@ import {
   BellDot,
   Upload,
   Merge,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
 
 const navigation = [
   {
-    title: "Général",
-    items: [
-      { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
-    ],
+    title: "Proprietaire",
+    items: [{ name: "Vue proprietaire", href: "/proprietaire", icon: Crown }],
+  },
+  {
+    title: "General",
+    items: [{ name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard }],
   },
   {
     title: "Patrimoine",
     items: [
       { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
-      { name: "Lots", href: "/patrimoine/lots", icon: Building2 },
+      { name: "Lots", href: "/patrimoine/lots", icon: Layers },
     ],
   },
   {
@@ -58,8 +62,8 @@ const navigation = [
       { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Banque", href: "/banque", icon: Landmark },
       { name: "Emprunts", href: "/emprunts", icon: Banknote },
-      { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
-      { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
+      { name: "Comptabilite", href: "/comptabilite", icon: BookOpen },
+      { name: "Previsionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
       { name: "Rapports", href: "/rapports", icon: FileBarChart },
     ],
   },
@@ -72,19 +76,17 @@ const navigation = [
     ],
   },
   {
-    title: "Conformité",
-    items: [
-      { name: "RGPD", href: "/rgpd", icon: Shield },
-    ],
+    title: "Conformite",
+    items: [{ name: "RGPD", href: "/rgpd", icon: Shield }],
   },
   {
     title: "Administration",
     items: [
-      { name: "Sociétés", href: "/societes", icon: Building2 },
+      { name: "Societes", href: "/societes", icon: Building2 },
       { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
       { name: "Fusions", href: "/administration/fusions", icon: Merge },
       { name: "Audit", href: "/administration/audit", icon: ScrollText },
-      { name: "Paramètres", href: "/parametres", icon: Settings },
+      { name: "Parametres", href: "/parametres", icon: Settings },
     ],
   },
 ];
@@ -93,39 +95,58 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-sidebar border-r border-border">
-      {/* Logo + sélecteur de société */}
-      <div className="border-b border-border px-3 py-3 space-y-1">
-        <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent transition-colors">
-          <Building2 className="h-5 w-5 text-primary shrink-0" />
-          <span className="font-bold text-base text-sidebar-foreground">GestImmo</span>
+    <aside
+      className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 border-r border-border/60"
+      style={{
+        background: "oklch(0.988 0.001 264 / 0.75)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+      }}
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border/50">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
+          <Building2 className="h-4 w-4 text-white" />
+        </div>
+        <Link href="/dashboard" className="font-semibold text-sm text-foreground tracking-tight">
+          GestImmo
         </Link>
+      </div>
+
+      {/* Selecteur de societe */}
+      <div className="px-2 py-2 border-b border-border/50">
         <SocietySwitcher />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
         {navigation.map((group) => (
-          <div key={group.title} className="mb-4">
-            <p className="px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <div key={group.title} className="mb-3">
+            <p className="px-3 mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground select-none">
               {group.title}
             </p>
             {group.items.map((item) => {
               const isActive =
-                pathname === item.href ||
-                pathname.startsWith(item.href + "/");
+                pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-100",
                     isActive
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-sidebar-foreground hover:bg-accent"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-foreground/65 hover:bg-foreground/5 hover:text-foreground"
                   )}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
+                  <item.icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isActive
+                        ? "text-primary"
+                        : "text-foreground/35 group-hover:text-foreground/55"
+                    )}
+                  />
                   {item.name}
                 </Link>
               );

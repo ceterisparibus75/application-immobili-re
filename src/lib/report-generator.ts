@@ -54,18 +54,27 @@ async function initPdf(title: string, subtitle: string) {
   const doc  = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg  = await doc.embedFont(StandardFonts.Helvetica);
-  const ds   = new Date().toLocaleDateString("fr-FR");
+  const ds   = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
+  let pageCount = 0;
   const np = (): any => {
+    pageCount++;
     const p: any = doc.addPage([PW, PH]);
     p.drawRectangle({ x: 0, y: PH-60, width: PW, height: 60, color: BLUE });
     p.drawText(title,    { x: MRG, y: PH-28, size: 14, font: bold, color: WHITE });
     p.drawText(subtitle, { x: MRG, y: PH-48, size: 9,  font: reg,  color: rgb(0.82,0.87,0.96) });
     p.drawText(`Généré le ${ds}`, { x: PW-150, y: PH-38, size: 8, font: reg, color: rgb(0.82,0.87,0.96) });
     p.drawLine({ start:{x:MRG,y:30}, end:{x:PW-MRG,y:30}, thickness:0.5, color:GRAY });
-    p.drawText("Application de gestion immobilière", { x: MRG, y:18, size:7, font:reg, color:GRAY });
+    p.drawText(`Application de gestion immobilière — Page ${pageCount}`, { x: MRG, y:18, size:7, font:reg, color:GRAY });
     return p;
   };
   return { bold, reg, np, save: async (): Promise<Buffer> => Buffer.from(await doc.save()) };
+}
+
+/** Affiche un message "Aucune donnée" dans un PDF si les données sont vides */
+function drawEmptyMessage(p: any, font: any, y: number, message: string): number {
+  p.drawRectangle({ x: MRG, y: y-30, width: CW, height: 32, color: rgb(0.97,0.95,0.90) });
+  p.drawText(message, { x: MRG + CW/2 - message.length*2.2, y: y-20, size: 9, font, color: GRAY });
+  return y - 40;
 }
 
 function sh(p: any, b: any, y: number, t: string): number {
@@ -111,6 +120,10 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
   const WS  = [70, 120, 90, 75, 60, CW - 415];
   const HDR = ["Lot", "Locataire", "Type", "Loyer HC/m", "Statut", "Fin bail"];
   let p: any = np(); let y = PH - 80;
+
+  if (buildings.length === 0) {
+    drawEmptyMessage(p, reg, y, "Aucun immeuble trouvé pour cette société.");
+  }
 
   for (const b of buildings) {
     if (y < 150) { p = np(); y = PH - 80; }
@@ -169,6 +182,11 @@ async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportRe
   const tchg  = charges.reduce((s, c) => s + c.amount, 0);
   const { bold, reg, np, save } = await initPdf(`Compte-rendu de gestion ${year}`, society?.name ?? "");
   let p: any = np(); let y = PH - 80;
+
+  if (invoices.length === 0 && charges.length === 0) {
+    drawEmptyMessage(p, reg, y, `Aucune donnée financière trouvée pour l'année ${year}.`);
+    y -= 10;
+  }
 
   y = sh(p, bold, y, `Synthèse ${year}`);
   [
@@ -330,9 +348,17 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
   }
 
   // PDF
-  const { bold, reg, np, save } = await initPdf("État des impayés", `Factures impayées au ${today.toLocaleDateString("fr-FR")}`);
+  const { bold, reg, np, save } = await initPdf("État des impayés", `Factures impayées au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`);
   let p: any = np(); let y = PH - 80;
   const total = invoices.reduce((s,i) => s+i.totalTTC, 0);
+
+  if (invoices.length === 0) {
+    p.drawText("Aucune facture impayée", {x:MRG+6,y,size:10,font:bold,color:rgb(0.09,0.48,0.27)});
+    y -= 16;
+    p.drawText("Toutes les factures sont à jour.", {x:MRG+6,y,size:9,font:reg,color:GRAY});
+    return {buffer:await save(),filename:`impayes-${today.toISOString().slice(0,10)}.pdf`,contentType:"application/pdf"};
+  }
+
   p.drawText(`${invoices.length} facture(s)  •  Total : ${formatCurrency(total)}`, {x:MRG+6,y,size:9,font:bold,color:RED});
   y -= 20;
   const WS=[85,120,105,70,75,CW-455];
@@ -373,15 +399,24 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
     ? (tenant.companyName??"—")
     : `${tenant.firstName??""} ${tenant.lastName??""}`.trim()||"—";
 
-  const { bold, reg, np, save } = await initPdf(
+  const { bold, reg: regFont, np, save } = await initPdf(
     `Récapitulatif charges — ${tenantName}`, `Exercice ${year}`
   );
   let p: any = np(); let y = PH - 80;
 
+  if (leases.length === 0) {
+    drawEmptyMessage(p, regFont, y, `Aucun bail trouvé pour ce locataire.`);
+    return {
+      buffer: await save(),
+      filename: `charges-locataire-${tenantId.slice(0,8)}-${year}.pdf`,
+      contentType: "application/pdf",
+    };
+  }
+
   y = sh(p, bold, y, "Informations locataire");
   [["Nom / Raison sociale", tenantName], ["Email", tenant.email??"—"], ["Téléphone", tenant.phone??"—"]].forEach(([l,v])=>{
     p.drawText(`${l} :`,{x:MRG+10,y,size:8,font:bold,color:GRAY});
-    p.drawText(v,{x:MRG+160,y,size:8,font:reg,color:BLACK}); y-=16;
+    p.drawText(v,{x:MRG+160,y,size:8,font:regFont,color:BLACK}); y-=16;
   });
   y -= 8;
 
@@ -389,25 +424,25 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
     if (y < 160) { p = np(); y = PH - 80; }
     y = sh(p, bold, y, `${lease.lot.building.name} — Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
     const totalInv = lease.invoices.reduce((s,i) => s+i.totalTTC, 0);
-    p.drawText(`Loyers appelés : ${formatCurrency(totalInv)}`, {x:MRG+10,y,size:8,font:reg,color:BLACK}); y-=16;
+    p.drawText(`Loyers appelés : ${formatCurrency(totalInv)}`, {x:MRG+10,y,size:8,font:regFont,color:BLACK}); y-=16;
 
     if (lease.chargeProvisions.length > 0) {
       const WS=[200,100,CW-300];
-      y=tr(p,reg,bold,y,["Provision sur charges","Mensuel",""],WS,true);
+      y=tr(p,regFont,bold,y,["Provision sur charges","Mensuel",""],WS,true);
       let totProv=0;
       for (const cp of lease.chargeProvisions) {
         if(y<60){p=np();y=PH-80;} totProv+=cp.monthlyAmount;
-        y=tr(p,reg,bold,y,[cp.label,formatCurrency(cp.monthlyAmount),""],WS);
+        y=tr(p,regFont,bold,y,[cp.label,formatCurrency(cp.monthlyAmount),""],WS);
       }
       p.drawRectangle({x:MRG,y:y-14,width:CW,height:15,color:LBLUE});
       p.drawText("Total provisions/mois",{x:MRG+4,y:y-10,size:8,font:bold,color:BLUE});
       p.drawText(formatCurrency(totProv),{x:MRG+204,y:y-10,size:8,font:bold,color:BLUE}); y-=20;
     }
 
-    for (const reg2 of lease.chargeRegularizations) {
+    for (const chargeReg of lease.chargeRegularizations) {
       if(y<60){p=np();y=PH-80;}
-      p.drawText(`Régularisation ${reg2.fiscalYear} : charges ${formatCurrency(reg2.totalCharges)} / provisions ${formatCurrency(reg2.totalProvisions)} — Solde ${formatCurrency(reg2.balance)}`,
-        {x:MRG+10,y,size:8,font:reg,color:reg2.balance>0?RED:BLACK}); y-=16;
+      p.drawText(`Régularisation ${chargeReg.fiscalYear} : charges ${formatCurrency(chargeReg.totalCharges)} / provisions ${formatCurrency(chargeReg.totalProvisions)} — Solde ${formatCurrency(chargeReg.balance)}`,
+        {x:MRG+10,y,size:8,font:regFont,color:chargeReg.balance>0?RED:BLACK}); y-=16;
     }
     y -= 8;
   }

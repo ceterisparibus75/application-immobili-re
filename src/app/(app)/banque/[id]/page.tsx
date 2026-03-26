@@ -80,7 +80,7 @@ export default async function BankAccountDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
-          {account.gocardlessAccountId && (
+          {account.powensAccountId && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}
           <Link href={`/banque/${id}/rapprochement`}>
@@ -237,7 +237,7 @@ export default async function BankAccountDetailPage({
                   {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                 </p>
               </div>
-              {account.gocardlessAccountId && (
+              {account.powensAccountId && (
                 <div>
                   <p className="text-xs text-muted-foreground">Open Banking</p>
                   <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">

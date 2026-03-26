@@ -1,0 +1,25 @@
+import { Building2 } from "lucide-react";
+import Link from "next/link";
+
+export const metadata = { title: "Politique de confidentialite | GestImmo" };
+
+export default function PolitiqueConfidentialitePage() {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"><Link href="/" className="flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" /><span className="font-bold text-lg">GestImmo</span></Link><nav className="flex items-center gap-6 text-sm"><Link href="/locaux" className="text-muted-foreground hover:text-foreground">Locaux disponibles</Link><Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link></nav></div></header>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h1 className="text-3xl font-bold mb-2">Politique de confidentialite</h1>
+        <p className="text-sm text-muted-foreground mb-8">Derniere mise a jour : mars 2025</p>
+        <div className="space-y-8 text-sm leading-relaxed">
+          <section><h2 className="text-xl font-semibold mb-4">1. Responsable du traitement</h2><p className="text-muted-foreground">MTG Groupe, joignable a <strong className="text-foreground">contact@mtggroupe.org</strong>, est responsable du traitement de vos donnees personnelles.</p></section>
+          <section><h2 className="text-xl font-semibold mb-4">2. Bases legales</h2><ul className="list-disc pl-6 space-y-2 text-muted-foreground"><li><strong className="text-foreground">Execution du contrat</strong> : gestion des baux, facturation</li><li><strong className="text-foreground">Obligation legale</strong> : conservation comptable 10 ans</li><li><strong className="text-foreground">Interet legitime</strong> : securite, logs audit</li></ul></section>
+          <section><h2 className="text-xl font-semibold mb-4">3. Durees de conservation</h2><ul className="list-disc pl-6 space-y-2 text-muted-foreground"><li>Locataire actif : duree de la relation</li><li>Locataire archive : 5 ans apres fin de bail</li><li>Documents identite : 3 ans apres fin de relation</li><li>Donnees bancaires : 10 ans (obligation legale)</li><li>Logs audit : 1 an</li></ul></section>
+          <section><h2 className="text-xl font-semibold mb-4">4. Vos droits (RGPD)</h2><ul className="list-disc pl-6 space-y-2 text-muted-foreground"><li><strong className="text-foreground">Acces</strong> : obtenir une copie de vos donnees</li><li><strong className="text-foreground">Rectification</strong> : corriger des donnees inexactes</li><li><strong className="text-foreground">Effacement</strong> : demander la suppression</li><li><strong className="text-foreground">Portabilite</strong> : recevoir vos donnees</li><li><strong className="text-foreground">Opposition</strong> : vous opposer a certains traitements</li></ul><p className="text-muted-foreground mt-3">Exercez vos droits a <strong className="text-foreground">contact@mtggroupe.org</strong>. Reclamations possibles aupres de la CNIL (cnil.fr).</p></section>
+          <section><h2 className="text-xl font-semibold mb-4">5. Securite</h2><p className="text-muted-foreground">Chiffrement AES-256-GCM, bcrypt + JWT, 2FA disponible, logs audit, RBAC.</p></section>
+          <section><h2 className="text-xl font-semibold mb-4">6. Cookies</h2><p className="text-muted-foreground">Cookies fonctionnels strictement necessaires : next-auth.session-token (session 24h), active-society-id (societe active). Aucun cookie publicitaire ou tracking tiers.</p></section>
+        </div>
+      </main>
+      <footer className="border-t py-8 mt-16"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between gap-4 text-sm text-muted-foreground"><p>&copy; {new Date().getFullYear()} MTG Groupe.</p><div className="flex gap-4"><Link href="/mentions-legales" className="hover:text-foreground">Mentions legales</Link><Link href="/politique-confidentialite" className="hover:text-foreground">Confidentialite</Link></div></div></footer>
+    </div>
+  );
+}

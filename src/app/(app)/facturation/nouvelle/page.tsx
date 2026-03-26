@@ -6,7 +6,7 @@ import { createInvoice, generateInvoiceFromLease, getActiveLeasesForInvoicing, p
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Card,
   CardContent,
@@ -224,7 +224,6 @@ export default function NouvelleFacturePage() {
       tenantId: data.tenantId!,
       leaseId: data.leaseId || null,
       invoiceType: data.invoiceType as "APPEL_LOYER" | "QUITTANCE" | "REGULARISATION_CHARGES" | "REFACTURATION" | "AVOIR",
-      issueDate: data.issueDate!,
       dueDate: data.dueDate!,
       periodStart: data.periodStart || null,
       periodEnd: data.periodEnd || null,
@@ -480,7 +479,7 @@ export default function NouvelleFacturePage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="invoiceType">Type de facture *</Label>
-                  <Select
+                  <NativeSelect
                     id="invoiceType"
                     name="invoiceType"
                     options={INVOICE_TYPES}
@@ -491,10 +490,6 @@ export default function NouvelleFacturePage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="issueDate">Date d&apos;émission *</Label>
-                  <Input id="issueDate" name="issueDate" type="date" required />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="dueDate">Date d&apos;échéance *</Label>
                   <Input id="dueDate" name="dueDate" type="date" required />

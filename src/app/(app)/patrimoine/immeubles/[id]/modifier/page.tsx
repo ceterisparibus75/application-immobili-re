@@ -6,7 +6,7 @@ import { updateBuilding } from "@/actions/building";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -187,7 +187,7 @@ export default function ModifierImmeubleePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="buildingType">Type *</Label>
-                <Select
+                <NativeSelect
                   id="buildingType"
                   name="buildingType"
                   options={[...BUILDING_TYPES]}

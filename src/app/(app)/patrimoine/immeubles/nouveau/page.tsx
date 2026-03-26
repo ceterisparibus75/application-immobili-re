@@ -3,10 +3,11 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBuilding } from "@/actions/building";
+import { createLot } from "@/actions/lot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -243,12 +244,45 @@ export default function NouvelImmeubleePage() {
     if (!activeSociety) return;
     setIsLoading(true);
     const result = await createBuilding(activeSociety.id, input);
-    setIsLoading(false);
-    if (result.success && result.data) {
-      router.push(`/patrimoine/immeubles/${result.data.id}`);
-    } else {
+    if (!result.success || !result.data) {
+      setIsLoading(false);
       setError(result.error ?? "Erreur inconnue");
+      return;
     }
+    const buildingId = result.data.id;
+    // Create extracted lots if any
+    if (extractedLots.length > 0) {
+      const lotTypeMap: Record<string, string> = {
+        BUREAU: "BUREAUX", BUREAUX: "BUREAUX",
+        LOCAL_ACTIVITE: "LOCAL_ACTIVITE", LOCAL_COMMERCIAL: "LOCAL_COMMERCIAL",
+        APPARTEMENT: "APPARTEMENT", RESERVE: "RESERVE",
+        PARKING: "PARKING", CAVE: "CAVE", TERRASSE: "TERRASSE", ENTREPOT: "ENTREPOT",
+      };
+      const lotErrors: string[] = [];
+      for (let i = 0; i < extractedLots.length; i++) {
+        const lot = extractedLots[i];
+        const lotType = (lotTypeMap[lot.lotType] ?? "LOCAL_COMMERCIAL") as "LOCAL_COMMERCIAL" | "BUREAUX" | "LOCAL_ACTIVITE" | "APPARTEMENT" | "RESERVE" | "PARKING" | "CAVE" | "TERRASSE" | "ENTREPOT";
+        const area = lot.area && lot.area > 0 ? lot.area : 1;
+        const number = lot.number && lot.number.trim() ? lot.number.trim() : String(i + 1);
+        const lotResult = await createLot(activeSociety.id, {
+          buildingId,
+          number,
+          lotType,
+          area,
+          floor: lot.floor ?? undefined,
+          description: lot.description ?? undefined,
+          status: "VACANT",
+        });
+        if (!lotResult.success) {
+          lotErrors.push(`Lot ${number} : ${lotResult.error}`);
+        }
+      }
+      if (lotErrors.length > 0) {
+        console.warn("[doSave] Lots non créés :", lotErrors);
+      }
+    }
+    setIsLoading(false);
+    router.push(`/patrimoine/immeubles/${buildingId}`);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -481,7 +515,7 @@ export default function NouvelImmeubleePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="buildingType">Type *</Label>
-                <Select
+                <NativeSelect
                   id="buildingType"
                   name="buildingType"
                   options={[...BUILDING_TYPES]}

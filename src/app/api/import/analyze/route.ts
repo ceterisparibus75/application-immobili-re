@@ -43,7 +43,7 @@ Structure exacte :
     "mobile": "Mobile ou null"
   },
   "bail": {
-    "leaseType": "COMMERCIAL_369|DEROGATOIRE|PRECAIRE",
+    "leaseType": "COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL",
     "startDate": "YYYY-MM-DD",
     "durationMonths": 108,
     "baseRentHT": 0.0,
@@ -60,7 +60,7 @@ Structure exacte :
 
 Règles :
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
-- leaseType : COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire
+- leaseType : COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales)
 - durationMonths : 108 pour bail 3-6-9 (9 ans), 36 pour bail dérogatoire 3 ans
 - Les montants sont en euros HT/an si loyer annuel, /mois si mensuel — converti toujours en euros HT/MOIS
 - Si une info est absente, mets null pour les champs optionnels

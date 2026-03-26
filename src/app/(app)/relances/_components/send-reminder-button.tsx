@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { sendManualReminder } from "@/actions/reminder";
 import { toast } from "sonner";
 import { Bell, Loader2 } from "lucide-react";
@@ -61,7 +61,7 @@ export default function SendReminderButton({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <Select
+      <NativeSelect
         value={level}
         onChange={(e) => setLevel(e.target.value as ReminderLevel)}
         options={LEVEL_OPTIONS}

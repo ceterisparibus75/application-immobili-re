@@ -365,7 +365,7 @@ function computeRentForPeriod(
     (now.getFullYear() - start.getFullYear()) * 12 +
     (now.getMonth() - start.getMonth());
 
-  if (monthsSinceStart < rentFreeMonths) return 0;
+  if (monthsSinceStart < Math.floor(rentFreeMonths)) return 0;
 
   const progressive = progressiveRent as
     | Array<{ months: number; rentHT: number }>
@@ -642,12 +642,44 @@ async function computeInvoicePreview(
 
   const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
-  const rentHT = computeRentForPeriod(
+  let rentHT = computeRentForPeriod(
     lease.startDate,
     lease.currentRentHT,
     lease.progressiveRent,
     lease.rentFreeMonths ?? 0
   );
+  // Prorata temporis sur le premier mois
+  let prorataLabel = "";
+  const leaseStartDay = new Date(lease.startDate).getDate();
+  const isFirstPeriod =
+    periodStart.getFullYear() === new Date(lease.startDate).getFullYear() &&
+    periodStart.getMonth() === new Date(lease.startDate).getMonth();
+  if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
+    const y = new Date(lease.startDate).getFullYear();
+    const m = new Date(lease.startDate).getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const daysRemaining = daysInMonth - leaseStartDay + 1;
+    rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
+    prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
+  }
+
+  // Prorata franchise decimale (ex: 1.5 mois = mois 2 a 50%)
+  const rfm = lease.rentFreeMonths ?? 0;
+  const rfmFrac = rfm - Math.floor(rfm);
+  if (rfmFrac > 0 && rentHT > 0) {
+    const leaseStartNorm = new Date(lease.startDate);
+    leaseStartNorm.setDate(1);
+    const monthsSinceLease =
+      (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
+      (periodStart.getMonth() - leaseStartNorm.getMonth());
+    if (monthsSinceLease === Math.floor(rfm)) {
+      const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
+      const freeDays = Math.round(rfmFrac * daysInMonth);
+      const paidDays = daysInMonth - freeDays;
+      rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
+      prorataLabel = prorataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+    }
+  }
   const vatRate = lease.vatApplicable ? lease.vatRate : 0;
   const freqMultiplier: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
   const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
@@ -665,7 +697,7 @@ async function computeInvoicePreview(
   const rentVAT = rentHT * (vatRate / 100);
   const lines: InvoicePreviewLine[] = [
     {
-      label: `Loyer`,
+      label: `Loyer${prorataLabel}`,
       quantity: 1,
       unitPrice: rentHT,
       vatRate,
@@ -873,12 +905,45 @@ export async function generateInvoiceFromLease(
       };
     }
 
-    const rentHT = computeRentForPeriod(
+    let rentHT = computeRentForPeriod(
       lease.startDate,
       lease.currentRentHT,
       lease.progressiveRent,
       lease.rentFreeMonths ?? 0
     );
+
+    // Prorata temporis sur le premier mois
+    let prorataLabel = "";
+    const leaseStartDay = new Date(lease.startDate).getDate();
+    const isFirstPeriod =
+      periodStart.getFullYear() === new Date(lease.startDate).getFullYear() &&
+      periodStart.getMonth() === new Date(lease.startDate).getMonth();
+    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
+      const y = new Date(lease.startDate).getFullYear();
+      const m = new Date(lease.startDate).getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const daysRemaining = daysInMonth - leaseStartDay + 1;
+      rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
+      prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
+    }
+
+    // Prorata franchise decimale (ex: 1.5 mois = mois 2 a 50%)
+    const rfm = lease.rentFreeMonths ?? 0;
+    const rfmFrac = rfm - Math.floor(rfm);
+    if (rfmFrac > 0 && rentHT > 0) {
+      const leaseStartNorm = new Date(lease.startDate);
+      leaseStartNorm.setDate(1);
+      const monthsSinceLease =
+        (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
+        (periodStart.getMonth() - leaseStartNorm.getMonth());
+      if (monthsSinceLease === Math.floor(rfm)) {
+        const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
+        const freeDays = Math.round(rfmFrac * daysInMonth);
+        const paidDays = daysInMonth - freeDays;
+        rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
+        prorataLabel = prorataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+      }
+    }
 
     const vatRate = lease.vatApplicable ? lease.vatRate : 0;
 
@@ -910,7 +975,7 @@ export async function generateInvoiceFromLease(
     const rentVAT = rentHT * (vatRate / 100);
     const invoiceLines = [
       {
-        label: `Loyer ${lotLabel} — ${periodLabel}`,
+        label: `Loyer ${lotLabel} — ${periodLabel}${prorataLabel}`,
         quantity: 1,
         unitPrice: rentHT,
         vatRate,

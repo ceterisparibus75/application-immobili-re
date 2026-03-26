@@ -82,7 +82,7 @@ export function InvoicePreviewSheet({
               <div className="flex-1 space-y-0.5 text-xs">
                 {preview.logoResolvedUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview.logoResolvedUrl} alt="Logo" className="h-12 object-contain mb-2" />
+                  <img src={preview.logoResolvedUrl} alt="Logo" className="h-12 object-contain mb-2" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : null}
                 <p className="font-bold text-sm">{s?.name ?? "—"}</p>
                 {s?.addressLine1 && (

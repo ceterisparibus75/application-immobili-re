@@ -75,6 +75,7 @@ export async function createSociety(
         phone: data.phone || null,
         shareCapital: data.shareCapital ?? null,
         signatoryName: data.signatoryName || null,
+        ownerId: session.user.id,
       },
     });
 
@@ -190,16 +191,33 @@ export async function getSocieties() {
           city: true,
           isActive: true,
           logoUrl: true,
+          ownerId: true,
         },
       },
     },
     orderBy: { society: { name: "asc" } },
   });
 
-  return memberships.map((m) => ({
+  const membershipIds = new Set(memberships.map((m) => m.societyId));
+
+  // Include societies owned by user but without explicit membership
+  const ownedWithoutMembership = await prisma.society.findMany({
+    where: { ownerId: session.user.id, id: { notIn: Array.from(membershipIds) } },
+    select: { id: true, name: true, legalForm: true, siret: true, city: true, isActive: true, logoUrl: true, ownerId: true },
+    orderBy: { name: "asc" },
+  });
+
+  const fromMemberships = memberships.map((m) => ({
     ...m.society,
     role: m.role,
   }));
+
+  const fromOwned = ownedWithoutMembership.map((s) => ({
+    ...s,
+    role: "ADMIN_SOCIETE" as const,
+  }));
+
+  return [...fromMemberships, ...fromOwned];
 }
 
 export async function getSocietyById(id: string) {

@@ -36,6 +36,7 @@ const STATUS_VARIANTS: Record<
 
 const TYPE_LABELS: Record<LeaseType, string> = {
   COMMERCIAL_369: "3-6-9",
+  BAIL_PROFESSIONNEL: "Professionnel",
   DEROGATOIRE: "Dérogatoire",
   PRECAIRE: "Précaire",
 };
@@ -110,42 +111,50 @@ export default async function BauxPage() {
                   Aucun bail actif
                 </p>
               ) : (
-                <div className="divide-y">
-                  {actifs.map((lease) => (
-                    <Link
-                      key={lease.id}
-                      href={`/baux/${lease.id}`}
-                      className="flex items-center justify-between py-3 px-2 hover:bg-accent/50 rounded-md transition-colors"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {tenantName(lease.tenant)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {lease.lot.building.name} — Lot {lease.lot.number},{" "}
-                          {lease.lot.building.city}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
+                <>
+                  <div className="divide-y">
+                    {actifs.map((lease) => (
+                      <Link
+                        key={lease.id}
+                        href={`/baux/${lease.id}`}
+                        className="flex items-center justify-between py-3 px-2 hover:bg-accent/50 rounded-md transition-colors"
+                      >
+                        <div>
                           <p className="text-sm font-medium">
-                            {lease.currentRentHT.toLocaleString("fr-FR")} € HT/mois
+                            {tenantName(lease.tenant)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Depuis le{" "}
-                            {new Date(lease.startDate).toLocaleDateString("fr-FR")}
+                            {lease.lot.building.name} — Lot {lease.lot.number},{" "}
+                            {lease.lot.building.city}
                           </p>
                         </div>
-                        <Badge variant="outline">
-                          {TYPE_LABELS[lease.leaseType]}
-                        </Badge>
-                        <Badge variant={STATUS_VARIANTS[lease.status]}>
-                          {STATUS_LABELS[lease.status]}
-                        </Badge>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm font-medium">
+                              {lease.currentRentHT.toLocaleString("fr-FR")} € HT/mois
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Depuis le{" "}
+                              {new Date(lease.startDate).toLocaleDateString("fr-FR")}
+                            </p>
+                          </div>
+                          <Badge variant="outline">
+                            {TYPE_LABELS[lease.leaseType]}
+                          </Badge>
+                          <Badge variant={STATUS_VARIANTS[lease.status]}>
+                            {STATUS_LABELS[lease.status]}
+                          </Badge>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between bg-muted/40 rounded-md px-3 py-2">
+                    <span className="text-sm font-semibold">Total loyers mensuels</span>
+                    <span className="text-sm font-bold text-primary">
+                      {actifs.reduce((sum, l) => sum + l.currentRentHT, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € HT/mois
+                    </span>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

@@ -6,7 +6,7 @@ import { createDiagnostic } from "@/actions/diagnostic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -151,7 +151,7 @@ export default function NouveauDiagnosticPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="type">Type de diagnostic *</Label>
-              <Select id="type" name="type" options={[...DIAGNOSTIC_TYPES]} required />
+              <NativeSelect id="type" name="type" options={[...DIAGNOSTIC_TYPES]} required />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

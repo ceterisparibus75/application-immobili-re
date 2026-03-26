@@ -32,6 +32,19 @@ export async function requireSocietyAccess(
   societyId: string,
   minRole?: UserRole
 ) {
+  // Le proprietaire de la societe a toujours acces en tant qu ADMIN_SOCIETE
+  const society = await prisma.society.findUnique({
+    where: { id: societyId },
+    select: { ownerId: true },
+  });
+  if (society?.ownerId === userId) {
+    const ownerRole: UserRole = "ADMIN_SOCIETE";
+    if (minRole && ROLE_HIERARCHY[ownerRole] < ROLE_HIERARCHY[minRole]) {
+      throw new ForbiddenError("Permissions insuffisantes pour cette action");
+    }
+    return { userId, societyId, role: ownerRole } as { userId: string; societyId: string; role: UserRole };
+  }
+
   const membership = await prisma.userSociety.findUnique({
     where: {
       userId_societyId: { userId, societyId },
@@ -39,7 +52,7 @@ export async function requireSocietyAccess(
   });
 
   if (!membership) {
-    throw new ForbiddenError("Vous n'avez pas accès à cette société");
+    throw new ForbiddenError("Vous n'avez pas acces a cette societe");
   }
 
   if (minRole && ROLE_HIERARCHY[membership.role] < ROLE_HIERARCHY[minRole]) {
