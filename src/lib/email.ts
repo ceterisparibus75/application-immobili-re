@@ -52,7 +52,7 @@ interface EmailResult {
 
 async function sendMail(to: string, subject: string, html: string, attachments?: Array<{ filename: string; content: Buffer }>): Promise<EmailResult> {
   try {
-    const { data, error } = await getResend().emails.send({ from: FROM, to, subject, html, ...(attachments?.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content })) } : {}) });
+    const { data, error } = await getResend().emails.send({ from: FROM, to, subject, html, ...(attachments?.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content.toString('base64') })) } : {}) });
     if (error) {
       console.error("[sendMail] Resend error:", error);
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
