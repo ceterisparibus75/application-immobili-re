@@ -61,41 +61,113 @@ async function main() {
 
   console.log(`Admin assigned to ${society.name} as SUPER_ADMIN`);
 
-  // Créer le plan comptable de base pour la société
-  const accounts = [
-    { code: "411000", label: "Clients - Locataires", type: "4" },
-    { code: "421000", label: "Dépôts de garantie reçus", type: "4" },
-    { code: "445710", label: "TVA collectée", type: "4" },
-    { code: "512000", label: "Banque", type: "5" },
-    { code: "706100", label: "Loyers encaissés", type: "7" },
-    { code: "706200", label: "Loyers bureaux", type: "7" },
-    { code: "708100", label: "Refacturation de charges", type: "7" },
-    { code: "613200", label: "Locations immobilières", type: "6" },
-    { code: "614000", label: "Charges locatives", type: "6" },
-    { code: "615000", label: "Entretien et réparations", type: "6" },
-    { code: "616000", label: "Assurances", type: "6" },
-    { code: "635100", label: "Taxe foncière", type: "6" },
-    { code: "635200", label: "TEOM", type: "6" },
-    { code: "622600", label: "Honoraires de gestion", type: "6" },
-    { code: "164000", label: "Emprunts", type: "1" },
+  // ─── Plan comptable complet SCI ────────────────────────────────────────
+  type AccountSeed = { code: string; label: string; type: string; accountType?: string; sensNormal?: string };
+  const accounts: AccountSeed[] = [
+    // CLASSE 1 — Capitaux
+    { code: "101000", label: "Capital social", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "106100", label: "Réserves légales", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "110000", label: "Report à nouveau (solde créditeur)", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "119000", label: "Report à nouveau (solde débiteur)", type: "1", accountType: "ACTIF_NEGATIF", sensNormal: "DEBIT" },
+    { code: "120000", label: "Résultat de l'exercice (bénéfice)", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "129000", label: "Résultat de l'exercice (perte)", type: "1", accountType: "ACTIF_NEGATIF", sensNormal: "DEBIT" },
+    { code: "164000", label: "Emprunts auprès des établissements de crédit", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "164100", label: "Emprunt — Lot Lens", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "164200", label: "Emprunt — Lot Rouen", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "164300", label: "Emprunt — Lot Paris", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "168740", label: "Intérêts courus sur emprunts", type: "1", accountType: "PASSIF", sensNormal: "CREDIT" },
+    // CLASSE 2 — Immobilisations
+    { code: "211000", label: "Terrains", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "213100", label: "Constructions sur sol propre — Immeubles bâtis", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "213500", label: "Installations générales et aménagements", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "215400", label: "Mobilier", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "231000", label: "Immobilisations en cours", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "275000", label: "Dépôts et cautionnements versés", type: "2", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "280300", label: "Amortissements des constructions", type: "2", accountType: "ACTIF_NEGATIF", sensNormal: "CREDIT" },
+    { code: "281540", label: "Amortissements du mobilier", type: "2", accountType: "ACTIF_NEGATIF", sensNormal: "CREDIT" },
+    // CLASSE 4 — Comptes de tiers
+    { code: "401000", label: "Fournisseurs", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "401100", label: "Fournisseurs — Travaux", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "401200", label: "Fournisseurs — Assurances", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "401300", label: "Fournisseurs — Honoraires", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "411000", label: "Clients — Locataires", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "411100", label: "Clients — Lens", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "411200", label: "Clients — Rouen", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "411300", label: "Clients — Paris", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "416000", label: "Clients douteux ou litigieux", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "421000", label: "Dépôts de garantie reçus des locataires", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "445660", label: "TVA déductible sur autres biens et services", type: "4", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "445710", label: "TVA collectée", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    { code: "455100", label: "Associés — Comptes courants", type: "4", accountType: "PASSIF", sensNormal: "CREDIT" },
+    // CLASSE 5 — Comptes financiers
+    { code: "512000", label: "Banque — Compte courant principal", type: "5", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "512100", label: "Banque — BNP Paribas", type: "5", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "512200", label: "Banque — Caisse d'Epargne", type: "5", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "512300", label: "Banque — Crédit Agricole", type: "5", accountType: "ACTIF", sensNormal: "DEBIT" },
+    { code: "530000", label: "Caisse", type: "5", accountType: "ACTIF", sensNormal: "DEBIT" },
+    // CLASSE 6 — Charges
+    { code: "606100", label: "Fournitures — eau, énergie", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "614000", label: "Charges locatives récupérables", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "615100", label: "Entretien et réparations sur immeubles", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "615200", label: "Entretien — parties communes", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "616000", label: "Primes d'assurance — multirisque immeuble", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "616100", label: "Primes d'assurance — PNO", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "622600", label: "Honoraires de gestion locative", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "622700", label: "Honoraires — Notaire et actes", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "622800", label: "Honoraires — Expertise comptable", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "626000", label: "Frais postaux et de télécommunications", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "627000", label: "Services bancaires et assimilés", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "635100", label: "Taxe foncière", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "635200", label: "TEOM", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "635300", label: "CFE", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "661100", label: "Intérêts des emprunts et dettes", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "661200", label: "Intérêts des comptes courants associés", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "681110", label: "Dotations aux amortissements — immeubles", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "681120", label: "Dotations aux amortissements — mobilier", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    { code: "695000", label: "Impôts sur les bénéfices", type: "6", accountType: "CHARGE", sensNormal: "DEBIT" },
+    // CLASSE 7 — Produits
+    { code: "706100", label: "Loyers habitation", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "706200", label: "Loyers bureaux et commerces", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "706300", label: "Loyers parkings et garages", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "706900", label: "Loyers divers", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "708100", label: "Refacturation de charges locatives", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "708200", label: "Provisions pour charges récupérables", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "758000", label: "Produits divers de gestion courante", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
+    { code: "771000", label: "Produits exceptionnels", type: "7", accountType: "PRODUIT", sensNormal: "CREDIT" },
   ];
 
   for (const account of accounts) {
     await prisma.accountingAccount.upsert({
-      where: {
-        societyId_code: { societyId: society.id, code: account.code },
-      },
-      update: {},
+      where: { societyId_code: { societyId: society.id, code: account.code } },
+      update: { label: account.label, accountType: account.accountType as never, sensNormal: account.sensNormal as never },
       create: {
         societyId: society.id,
         code: account.code,
         label: account.label,
         type: account.type,
+        accountType: account.accountType as never,
+        sensNormal: account.sensNormal as never,
+        isActive: true,
       },
     });
   }
 
-  console.log(`${accounts.length} accounting accounts created`);
+  console.log(`${accounts.length} comptes du plan comptable créés`);
+
+  // ─── Exercice 2026 ───────────────────────────────────────────
+  await prisma.fiscalYear.upsert({
+    where: { societyId_year: { societyId: society.id, year: 2026 } },
+    update: {},
+    create: {
+      societyId: society.id,
+      year: 2026,
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-12-31"),
+      isClosed: false,
+    },
+  });
+
+  console.log("Exercice 2026 créé");
 
   // Créer un scénario de relance par défaut
   const scenario = await prisma.reminderScenario.create({

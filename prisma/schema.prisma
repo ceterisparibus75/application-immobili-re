@@ -77,6 +77,7 @@ enum LeaseType {
   COMMERCIAL_369
   DEROGATOIRE
   PRECAIRE
+  BAIL_PROFESSIONNEL
 }
 
 enum LeaseStatus {
@@ -95,8 +96,8 @@ enum PaymentFrequency {
 }
 
 enum BillingTerm {
-  ECHU      // Terme échu — paiement en fin de période (ex: loyer de janvier payé le 1er février)
-  A_ECHOIR  // Terme à échoir — paiement en début de période (ex: loyer de janvier payé le 1er janvier)
+  ECHU // Terme échu — paiement en fin de période (ex: loyer de janvier payé le 1er février)
+  A_ECHOIR // Terme à échoir — paiement en début de période (ex: loyer de janvier payé le 1er janvier)
 }
 
 enum IndexType {
@@ -200,6 +201,31 @@ enum JournalType {
   VENTES
   BANQUE
   OPERATIONS_DIVERSES
+  AN
+  AC
+  BQUE
+  INV
+  OD
+  VT
+}
+
+enum EntryStatus {
+  BROUILLON
+  VALIDEE
+  CLOTUREE
+}
+
+enum AccountType {
+  ACTIF
+  PASSIF
+  ACTIF_NEGATIF
+  CHARGE
+  PRODUIT
+}
+
+enum SensNormal {
+  DEBIT
+  CREDIT
 }
 
 enum AuditAction {
@@ -235,9 +261,9 @@ enum PublicationStatus {
 }
 
 enum LoanType {
-  AMORTISSABLE    // Remboursement progressif (annuité constante)
-  IN_FINE         // Intérêts seuls + capital en fin de prêt
-  BULLET          // Capital + intérêts en une seule fois
+  AMORTISSABLE // Remboursement progressif (annuité constante)
+  IN_FINE // Intérêts seuls + capital en fin de prêt
+  BULLET // Capital + intérêts en une seule fois
 }
 
 enum LoanStatus {
@@ -271,16 +297,16 @@ model Society {
   // Identité
   name          String // Raison sociale
   legalForm     LegalForm
-  siret         String  @unique
+  siret         String    @unique
   vatNumber     String? // Numéro TVA intracommunautaire
   addressLine1  String
   addressLine2  String?
   city          String
   postalCode    String
-  country       String  @default("France")
+  country       String    @default("France")
   phone         String? // Téléphone de la société
   email         String? // Email de contact du bailleur
-  shareCapital  Float?  // Capital social en euros
+  shareCapital  Float? // Capital social en euros
   signatoryName String? // Nom du signataire facture (ex: "M. DUPONT Jean")
 
   // Finances — IBAN/BIC chiffrés AES-256 au niveau applicatif
@@ -293,14 +319,14 @@ model Society {
   vatRegime VatRegime
 
   // Expert-comptable
-  accountantName   String?
-  accountantFirm   String?
-  accountantEmail  String?
-  accountantPhone  String?
+  accountantName  String?
+  accountantFirm  String?
+  accountantEmail String?
+  accountantPhone String?
 
   // Branding & documents
-  logoUrl          String?
-  legalMentions    String? @db.Text // Mentions légales personnalisées
+  logoUrl           String?
+  legalMentions     String? @db.Text // Mentions légales personnalisées
   invoicePrefix     String? // Préfixe numérotation (ex: "SCI1")
   nextInvoiceNumber Int     @default(0)
   invoiceNumberYear Int     @default(0) // Année du compteur — réinitialise nextInvoiceNumber chaque année
@@ -308,20 +334,24 @@ model Society {
   // Configuration
   isActive Boolean @default(true)
 
+  // Proprietaire
+  ownerId String?
+  owner   User?   @relation("SocietyOwner", fields: [ownerId], references: [id])
+
   // Relations
-  userSocieties       UserSociety[]
-  buildings           Building[]
-  tenants             Tenant[]
-  leases              Lease[]
-  invoices            Invoice[]
-  bankAccounts        BankAccount[]
-  bankConnections     BankConnection[]
-  accountingAccounts  AccountingAccount[]
-  journalEntries      JournalEntry[]
-  reminderScenarios   ReminderScenario[]
-  contacts            Contact[]
-  messages            Message[]
-  auditLogs           AuditLog[]
+  userSocieties           UserSociety[]
+  buildings               Building[]
+  tenants                 Tenant[]
+  leases                  Lease[]
+  invoices                Invoice[]
+  bankAccounts            BankAccount[]
+  bankConnections         BankConnection[]
+  accountingAccounts      AccountingAccount[]
+  journalEntries          JournalEntry[]
+  reminderScenarios       ReminderScenario[]
+  contacts                Contact[]
+  messages                Message[]
+  auditLogs               AuditLog[]
   charges                 Charge[]
   chargeCategories        ChargeCategory[]
   societyChargeCategories SocietyChargeCategory[]
@@ -334,6 +364,7 @@ model Society {
   gdprRequests            GdprRequest[]
   signatureRequests       SignatureRequest[]
   notifications           Notification[]
+  fiscalYears             FiscalYear[]
 
   @@index([siret])
 }
@@ -353,17 +384,20 @@ model User {
   lastLoginAt   DateTime?
 
   // 2FA TOTP
-  twoFactorEnabled          Boolean  @default(false)
-  twoFactorSecret           String?  // chiffre AES-256-GCM
-  twoFactorRecoveryCodes    String[] // chiffres AES-256-GCM, usage unique
-  pendingTwoFactorSecret    String?  // secret temporaire chiffre AES-256-GCM, en attente de confirmation
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String? // chiffre AES-256-GCM
+  twoFactorRecoveryCodes String[] // chiffres AES-256-GCM, usage unique
+  pendingTwoFactorSecret String? // secret temporaire chiffre AES-256-GCM, en attente de confirmation
 
   // Relations
-  userSocieties UserSociety[]
-  accounts      Account[]
-  sessions      Session[]
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  ownedSocieties    Society[]     @relation("SocietyOwner")
+  userSocieties     UserSociety[]
+  accounts          Account[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  validatedEntries  JournalEntry[] @relation("JournalEntryValidator")
+  closedFiscalYears FiscalYear[]   @relation("FiscalYearCloser")
 
   @@index([email])
 }
@@ -436,7 +470,7 @@ model AuditLog {
   action    AuditAction
   entity    String // Nom du modèle concerné
   entityId  String // ID de l'objet concerné
-  details   Json?  // Détails supplémentaires (ancien/nouveau état)
+  details   Json? // Détails supplémentaires (ancien/nouveau état)
   ipAddress String?
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
@@ -458,31 +492,31 @@ model Building {
   updatedAt DateTime @updatedAt
   societyId String
 
-  name            String
-  addressLine1    String
-  addressLine2    String?
-  city            String
-  postalCode      String
-  country         String       @default("France")
-  latitude        Float?
-  longitude       Float?
-  buildingType    BuildingType
-  yearBuilt       Int?
-  totalArea       Float? // m²
-  marketValue     Float? // Valeur vénale (= prix + frais + taxes + autres)
-  netBookValue    Float? // Valeur comptable nette
-  acquisitionPrice Float? // Prix d'acquisition
-  acquisitionFees  Float? // Frais de notaire / frais d'acte
-  acquisitionTaxes Float? // Droits de mutation / taxes
-  acquisitionOtherCosts Float? // Autres frais d'acquisition
-  acquisitionDate  DateTime? // Date d'acquisition
-  description     String?      @db.Text
+  name                      String
+  addressLine1              String
+  addressLine2              String?
+  city                      String
+  postalCode                String
+  country                   String       @default("France")
+  latitude                  Float?
+  longitude                 Float?
+  buildingType              BuildingType
+  yearBuilt                 Int?
+  totalArea                 Float? // m²
+  marketValue               Float? // Valeur vénale (= prix + frais + taxes + autres)
+  netBookValue              Float? // Valeur comptable nette
+  acquisitionPrice          Float? // Prix d'acquisition
+  acquisitionFees           Float? // Frais de notaire / frais d'acte
+  acquisitionTaxes          Float? // Droits de mutation / taxes
+  acquisitionOtherCosts     Float? // Autres frais d'acquisition
+  acquisitionDate           DateTime? // Date d'acquisition
+  description               String?      @db.Text
   // Acte d'acquisition PDF
   acquisitionPdfUrl         String?
   acquisitionPdfStoragePath String?
-  acquisitionPdfAnalysis    String?   @db.Text
+  acquisitionPdfAnalysis    String?      @db.Text
 
-  society          Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  society          Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lots             Lot[]
   diagnostics      Diagnostic[]
   maintenances     Maintenance[]
@@ -502,15 +536,15 @@ model Diagnostic {
   updatedAt  DateTime @updatedAt
   buildingId String
 
-  type        String // DPE, amiante, plomb, électricité, accessibilité
-  performedAt DateTime
-  expiresAt   DateTime?
-  result      String?   @db.Text
+  type            String // DPE, amiante, plomb, électricité, accessibilité
+  performedAt     DateTime
+  expiresAt       DateTime?
+  result          String?   @db.Text
   fileUrl         String?
   fileStoragePath String?
   aiAnalysis      String?   @db.Text
   aiAnalyzedAt    DateTime?
-  alertSent   Boolean   @default(false)
+  alertSent       Boolean   @default(false)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
@@ -536,10 +570,10 @@ model Lot {
   marketRentValue Float? // Valeur locative de marché
   currentRent     Float? // Loyer pratiqué
 
-  building      Building       @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  leases        Lease[]
-  announcements Announcement[]
-  documents     Document[]
+  building             Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  leases               Lease[]
+  announcements        Announcement[]
+  documents            Document[]
   allocationKeyEntries AllocationKeyEntry[]
   chargeProvisions     ChargeProvision[]
   meterReadings        MeterReading[]
@@ -559,13 +593,13 @@ model Maintenance {
   contactId  String? // Prestataire
 
   title       String
-  description String?  @db.Text
+  description String?   @db.Text
   scheduledAt DateTime?
   completedAt DateTime?
   cost        Float?
-  isPaid      Boolean  @default(false)
+  isPaid      Boolean   @default(false)
   invoiceUrl  String?
-  notes       String?  @db.Text
+  notes       String?   @db.Text
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -583,11 +617,11 @@ model Lease {
   tenantId  String
 
   // Type et durée
-  leaseType  LeaseType
-  status     LeaseStatus      @default(EN_COURS)
-  startDate  DateTime
-  durationMonths Int          @default(108) // 9 ans par défaut
-  endDate    DateTime // Date de fin théorique
+  leaseType      LeaseType
+  status         LeaseStatus @default(EN_COURS)
+  startDate      DateTime
+  durationMonths Int         @default(108) // 9 ans par défaut
+  endDate        DateTime // Date de fin théorique
 
   // Loyer
   baseRentHT       Float // Loyer de base HT
@@ -599,16 +633,16 @@ model Lease {
   vatRate          Float            @default(20.0)
 
   // Indexation
-  indexType           IndexType?
-  baseIndexValue      Float? // Valeur de l'indice de référence
-  baseIndexQuarter    String? // ex: "T1 2024"
-  revisionFrequency   Int?    @default(12) // en mois
+  indexType         IndexType?
+  baseIndexValue    Float? // Valeur de l'indice de référence
+  baseIndexQuarter  String? // ex: "T1 2024"
+  revisionFrequency Int?       @default(12) // en mois
 
   // Clauses particulières
-  rentFreeMonths      Int?    @default(0) // Franchise de loyer (mois)
-  progressiveRent     Json?   // {periods: [{months, rentHT}]}
-  tenantWorksClauses  String? @db.Text
-  entryFee            Float?  @default(0) // Pas-de-porte / droit d'entrée
+  rentFreeMonths     Float?  @default(0) // Franchise de loyer (mois, peut être décimal)
+  progressiveRent    Json? // {periods: [{months, rentHT}]}
+  tenantWorksClauses String? @db.Text
+  entryFee           Float?  @default(0) // Pas-de-porte / droit d'entrée
 
   // Dates clés
   entryDate           DateTime? // Date effective d'entrée dans les lieux
@@ -628,18 +662,18 @@ model Lease {
   endAlert18mSent     Boolean @default(false)
   endAlert12mSent     Boolean @default(false)
 
-  society  Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lot      Lot     @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lot     Lot     @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  inspections      Inspection[]
-  rentRevisions    RentRevision[]
-  invoices         Invoice[]
-  chargeProvisions ChargeProvision[]
+  inspections           Inspection[]
+  rentRevisions         RentRevision[]
+  invoices              Invoice[]
+  chargeProvisions      ChargeProvision[]
   chargeRegularizations ChargeRegularization[]
-  documents        Document[]
-  reminders        Reminder[]
-  depositMovements DepositMovement[]
+  documents             Document[]
+  reminders             Reminder[]
+  depositMovements      DepositMovement[]
 
   @@index([societyId])
   @@index([lotId])
@@ -674,10 +708,10 @@ model Inspection {
   type          InspectionType
   performedAt   DateTime
   performedBy   String? // Nom de la personne
-  generalNotes  String? @db.Text
+  generalNotes  String?        @db.Text
   signedFileUrl String? // Document signé scanné
 
-  lease Lease           @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  lease Lease            @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   rooms InspectionRoom[]
 
   @@index([leaseId])
@@ -690,9 +724,9 @@ model InspectionRoom {
 
   name      String // Nom de la pièce
   condition RoomCondition
-  notes     String? @db.Text
+  notes     String?       @db.Text
 
-  inspection Inspection       @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection Inspection        @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   photos     InspectionPhoto[]
 
   @@index([inspectionId])
@@ -703,9 +737,9 @@ model InspectionPhoto {
   id               String @id @default(cuid())
   inspectionRoomId String
 
-  fileUrl     String
-  caption     String?
-  uploadedAt  DateTime @default(now())
+  fileUrl    String
+  caption    String?
+  uploadedAt DateTime @default(now())
 
   room InspectionRoom @relation(fields: [inspectionRoomId], references: [id], onDelete: Cascade)
 
@@ -724,42 +758,42 @@ model Tenant {
   societyId String
 
   entityType TenantEntityType
-  isActive   Boolean @default(true)
+  isActive   Boolean          @default(true)
 
   // --- Personne morale ---
-  companyName    String?
+  companyName      String?
   companyLegalForm String?
-  siret          String?
-  siren          String?
-  codeAPE        String?
-  vatNumber      String?
-  companyAddress String?
-  shareCapital   Float?
-  legalRepName   String?
-  legalRepTitle  String?
-  legalRepEmail  String?
-  legalRepPhone  String?
-  kbisFileUrl    String?
-  kbisExpiresAt  DateTime?
+  siret            String?
+  siren            String?
+  codeAPE          String?
+  vatNumber        String?
+  companyAddress   String?
+  shareCapital     Float?
+  legalRepName     String?
+  legalRepTitle    String?
+  legalRepEmail    String?
+  legalRepPhone    String?
+  kbisFileUrl      String?
+  kbisExpiresAt    DateTime?
 
   // --- Personne physique ---
-  lastName       String?
-  firstName      String?
-  birthDate      DateTime?
-  birthPlace     String?
-  personalAddress String?
-  idDocumentUrl  String?
-  idExpiresAt    DateTime?
+  lastName              String?
+  firstName             String?
+  birthDate             DateTime?
+  birthPlace            String?
+  personalAddress       String?
+  idDocumentUrl         String?
+  idExpiresAt           DateTime?
   autoEntrepreneurSiret String?
 
   // --- Commun ---
-  email          String
-  billingEmail   String?
-  phone          String?
-  mobile         String?
-  language       String  @default("fr")
-  riskIndicator  RiskIndicator @default(VERT)
-  notes          String?       @db.Text
+  email         String
+  billingEmail  String?
+  phone         String?
+  mobile        String?
+  language      String        @default("fr")
+  riskIndicator RiskIndicator @default(VERT)
+  notes         String?       @db.Text
 
   // Assurance locataire
   insuranceFileUrl        String?
@@ -768,15 +802,16 @@ model Tenant {
   insuranceExpiresAt      DateTime?
   insuranceReminderSentAt DateTime?
 
-  society            Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  leases             Lease[]
-  guarantees         Guarantee[]
-  documentChecklist  TenantDocument[]
-  secondaryContacts  TenantContact[]
-  portalAccess       TenantPortalAccess?
-  documents          Document[]
-  invoices           Invoice[]
-  sepaMandates       SepaMandate[]
+  society           Society             @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  leases            Lease[]
+  guarantees        Guarantee[]
+  documentChecklist TenantDocument[]
+  secondaryContacts TenantContact[]
+  portalAccess      TenantPortalAccess?
+  documents         Document[]
+  invoices          Invoice[]
+  sepaMandates      SepaMandate[]
+  contact           Contact?
 
   @@index([societyId])
   @@index([societyId, isActive])
@@ -788,10 +823,10 @@ model TenantContact {
   id       String @id @default(cuid())
   tenantId String
 
-  name     String
-  role     String? // Associé, gérant, etc.
-  email    String?
-  phone    String?
+  name  String
+  role  String? // Associé, gérant, etc.
+  email String?
+  phone String?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -815,17 +850,17 @@ model Guarantee {
   depositAccountInfo String?
 
   // Caution personnelle
-  guarantorName    String?
-  guarantorAddress String?
-  guarantorIdUrl   String?
-  maxAmount        Float?
-  deedFileUrl      String? // Acte de cautionnement
+  guarantorName     String?
+  guarantorAddress  String?
+  guarantorIdUrl    String?
+  maxAmount         Float?
+  deedFileUrl       String? // Acte de cautionnement
   engagementEndDate DateTime?
 
   // Garantie bancaire
-  bankName       String?
-  bankAmount     Float?
-  bankExpiresAt  DateTime?
+  bankName        String?
+  bankAmount      Float?
+  bankExpiresAt   DateTime?
   bankDocumentUrl String?
 
   // GLI
@@ -856,7 +891,7 @@ model TenantDocument {
   fileUrl      String?
   expiresAt    DateTime?
   receivedAt   DateTime?
-  alertSent    Boolean  @default(false)
+  alertSent    Boolean             @default(false)
   notes        String?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -873,11 +908,11 @@ model TenantPortalAccess {
   updatedAt DateTime @updatedAt
   tenantId  String   @unique
 
-  token       String   @unique // Token sécurisé d'accès
-  isActive    Boolean  @default(true)
-  lastLoginAt DateTime?
-  invitedAt   DateTime @default(now())
-  activationCode          String?   // Code 6 chiffres hashé
+  token                   String    @unique // Token sécurisé d'accès
+  isActive                Boolean   @default(true)
+  lastLoginAt             DateTime?
+  invitedAt               DateTime  @default(now())
+  activationCode          String? // Code 6 chiffres hashé
   activationCodeExpiresAt DateTime? // Expiration du code
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -894,10 +929,10 @@ model InseeIndex {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  indexType  IndexType
-  year      Int
-  quarter   Int // 1, 2, 3, 4
-  value     Float
+  indexType   IndexType
+  year        Int
+  quarter     Int // 1, 2, 3, 4
+  value       Float
   publishedAt DateTime?
 
   @@unique([indexType, year, quarter])
@@ -911,16 +946,16 @@ model RentRevision {
   updatedAt DateTime @updatedAt
   leaseId   String
 
-  effectiveDate    DateTime
-  previousRentHT   Float
-  newRentHT         Float
-  indexType          IndexType
-  baseIndexValue    Float
-  newIndexValue     Float
-  formula           String? // Description de la formule appliquée
-  isValidated       Boolean @default(false)
-  validatedAt       DateTime?
-  validatedBy       String?
+  effectiveDate       DateTime
+  previousRentHT      Float
+  newRentHT           Float
+  indexType           IndexType
+  baseIndexValue      Float
+  newIndexValue       Float
+  formula             String? // Description de la formule appliquée
+  isValidated         Boolean   @default(false)
+  validatedAt         DateTime?
+  validatedBy         String?
   notificationFileUrl String? // Courrier PDF
   amendmentFileUrl    String? // Avenant PDF
 
@@ -959,17 +994,17 @@ model ChargeCategory {
   buildingId String
   societyId  String
 
-  name             String // Entretien, ascenseur, eau, etc.
-  nature           ChargeNature
-  recoverableRate  Float?   @default(100) // % récupérable si MIXTE
-  allocationMethod AllocationMethod @default(TANTIEME)
-  description      String?
+  name                    String // Entretien, ascenseur, eau, etc.
+  nature                  ChargeNature
+  recoverableRate         Float?                 @default(100) // % récupérable si MIXTE
+  allocationMethod        AllocationMethod       @default(TANTIEME)
+  description             String?
   societyChargeCategoryId String?
-  libraryCategory SocietyChargeCategory? @relation(fields: [societyChargeCategoryId], references: [id], onDelete: SetNull)
+  libraryCategory         SocietyChargeCategory? @relation(fields: [societyChargeCategoryId], references: [id], onDelete: SetNull)
 
-  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  society  Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  charges  Charge[]
+  building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  society        Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  charges        Charge[]
   allocationKeys AllocationKey[]
 
   @@unique([buildingId, name])
@@ -995,9 +1030,9 @@ model Charge {
   supplierName String?
   isPaid       Boolean  @default(false)
 
-  society  Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  category ChargeCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  society  Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building Building       @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  category ChargeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   @@index([societyId])
   @@index([buildingId])
@@ -1039,12 +1074,12 @@ model ChargeProvision {
   leaseId String
   lotId   String
 
-  label         String  @default("Provision sur charges")
-  monthlyAmount Float   // Provision mensuelle
-  vatRate       Float   @default(20) // Taux de TVA applicable (0, 2.1, 5.5, 8.5, 10, 20)
+  label         String    @default("Provision sur charges")
+  monthlyAmount Float // Provision mensuelle
+  vatRate       Float     @default(20) // Taux de TVA applicable (0, 2.1, 5.5, 8.5, 10, 20)
   startDate     DateTime
   endDate       DateTime?
-  isActive      Boolean @default(true)
+  isActive      Boolean   @default(true)
 
   lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   lot   Lot   @relation(fields: [lotId], references: [id], onDelete: Cascade)
@@ -1060,16 +1095,16 @@ model ChargeRegularization {
   leaseId   String
   societyId String
 
-  fiscalYear      Int
-  periodStart     DateTime
-  periodEnd       DateTime
-  totalCharges    Float // Charges réelles imputables
-  totalProvisions Float // Provisions appelées
-  balance         Float // Solde (positif = dû, négatif = avoir)
-  details         Json? // Détail par catégorie
+  fiscalYear       Int
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalCharges     Float // Charges réelles imputables
+  totalProvisions  Float // Provisions appelées
+  balance          Float // Solde (positif = dû, négatif = avoir)
+  details          Json? // Détail par catégorie
   statementFileUrl String? // Décompte PDF
-  isFinalized     Boolean @default(false)
-  finalizedAt     DateTime?
+  isFinalized      Boolean   @default(false)
+  finalizedAt      DateTime?
 
   lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
@@ -1081,9 +1116,9 @@ model ChargeRegularization {
 
 /// Relevé de compteur individuel
 model MeterReading {
-  id      String   @id @default(cuid())
-  lotId   String
-  readAt  DateTime
+  id     String   @id @default(cuid())
+  lotId  String
+  readAt DateTime
 
   meterType String // eau, électricité, gaz, etc.
   value     Float
@@ -1120,24 +1155,24 @@ model Invoice {
   totalVAT Float
   totalTTC Float
 
-  fileUrl     String? // PDF généré
-  sentAt      DateTime?
-  sentBy      String? // email
+  fileUrl String? // PDF généré
+  sentAt  DateTime?
+  sentBy  String? // email
 
   // Avoir — référence à la facture d'origine
   creditNoteForId String?
 
   // SEPA
-  sepaPaymentId String?  // ID paiement GoCardless
+  sepaPaymentId String? // ID paiement GoCardless
   sepaStatus    SepaPaymentStatus?
 
-  society      Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lease        Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  lines        InvoiceLine[]
-  payments     Payment[]
-  creditNoteFor Invoice?  @relation("CreditNoteFor", fields: [creditNoteForId], references: [id], onDelete: SetNull)
-  creditNotes   Invoice[] @relation("CreditNoteFor")
+  society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease         Lease?        @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  lines         InvoiceLine[]
+  payments      Payment[]
+  creditNoteFor Invoice?      @relation("CreditNoteFor", fields: [creditNoteForId], references: [id], onDelete: SetNull)
+  creditNotes   Invoice[]     @relation("CreditNoteFor")
 
   @@unique([societyId, invoiceNumber])
   @@index([societyId])
@@ -1154,9 +1189,9 @@ model InvoiceLine {
   invoiceId String
 
   label     String
-  quantity  Float   @default(1)
+  quantity  Float  @default(1)
   unitPrice Float
-  vatRate   Float   @default(20.0)
+  vatRate   Float  @default(20.0)
   totalHT   Float
   totalVAT  Float
   totalTTC  Float
@@ -1180,9 +1215,9 @@ model Payment {
   method       String? // Virement, chèque, prélèvement
   reference    String? // Référence du virement
   notes        String?
-  isReconciled Boolean @default(false)
+  isReconciled Boolean  @default(false)
 
-  invoice         Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice         Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   reconciliations BankReconciliation[]
 
   @@index([invoiceId])
@@ -1193,20 +1228,20 @@ model Payment {
 // PHASE 7 — RAPPROCHEMENT BANCAIRE
 // ============================================================
 
-/// Connexion Open Banking (GoCardless Bank Account Data / PSD2)
+/// Connexion Open Banking (Powens / PSD2)
 model BankConnection {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   societyId String
 
-  requisitionId   String   @unique // ID GoCardless de la réquisition
-  institutionId   String            // ex: "BNP_PARIBAS_BNPAFRPP"
-  institutionName String            // ex: "BNP Paribas"
-  status          String   @default("CR") // CR=created, LN=linked, RJ=rejected, ER=error, EX=expired, SU=suspended
-  authLink        String?           // URL d'autorisation envoyée à l'utilisateur
-  agreementId     String?           // ID accord GoCardless (90 jours)
-  expiresAt       DateTime?         // Date d'expiration de l'accord
+  powensUserId       String    @unique // ID utilisateur Powens (id_user)
+  connectorId        String // ID du connecteur Powens (banque)
+  institutionName    String // ex: "BNP Paribas"
+  status             String    @default("pending") // pending/active/error/expired
+  powensAccessToken  String?   @db.Text // Token d'accès Powens chiffré AES-256
+  powensConnectionId String? // ID connexion Powens (après callback)
+  expiresAt          DateTime? // Date d'expiration (90 jours)
 
   society      Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   bankAccounts BankAccount[]
@@ -1221,17 +1256,17 @@ model BankAccount {
   updatedAt DateTime @updatedAt
   societyId String
 
-  bankName      String
-  accountName   String
-  ibanEncrypted String  // Chiffré AES-256
-  initialBalance Float  @default(0)
-  currentBalance Float  @default(0)
+  bankName       String
+  accountName    String
+  ibanEncrypted  String // Chiffré AES-256
+  initialBalance Float   @default(0)
+  currentBalance Float   @default(0)
   isActive       Boolean @default(true)
 
-  // Open Banking (GoCardless)
-  gocardlessAccountId String?   @unique // ID du compte GoCardless
-  connectionId        String?           // Lien vers BankConnection
-  lastSyncAt          DateTime?         // Dernière synchronisation
+  // Open Banking (Powens)
+  powensAccountId String?   @unique // ID du compte Powens
+  connectionId    String? // Lien vers BankConnection
+  lastSyncAt      DateTime? // Dernière synchronisation
 
   society      Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
   connection   BankConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
@@ -1252,11 +1287,11 @@ model BankTransaction {
   label           String
   reference       String?
   category        String?
-  isReconciled    Boolean @default(false)
+  isReconciled    Boolean   @default(false)
   importBatch     String? // Identifiant du lot d'import
   externalId      String? // ID unique dans le relevé (anti-doublon)
 
-  bankAccount     BankAccount        @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankAccount     BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   reconciliations BankReconciliation[]
 
   @@unique([bankAccountId, externalId])
@@ -1272,10 +1307,10 @@ model BankReconciliation {
   transactionId String
   paymentId     String
 
-  isValidated  Boolean  @default(false)
-  validatedAt  DateTime?
-  validatedBy  String?
-  notes        String?
+  isValidated Boolean   @default(false)
+  validatedAt DateTime?
+  validatedBy String?
+  notes       String?
 
   transaction BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   payment     Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
@@ -1292,13 +1327,13 @@ model MatchingRule {
   updatedAt DateTime @updatedAt
   societyId String
 
-  name           String
-  priority       Int      @default(0)
-  matchField     String // reference, amount, label
-  matchPattern   String // Regex ou valeur
+  name            String
+  priority        Int     @default(0)
+  matchField      String // reference, amount, label
+  matchPattern    String // Regex ou valeur
   toleranceAmount Float?  @default(0)
   toleranceDays   Int?    @default(0)
-  isActive       Boolean  @default(true)
+  isActive        Boolean @default(true)
 
   @@index([societyId])
 }
@@ -1314,9 +1349,13 @@ model AccountingAccount {
   updatedAt DateTime @updatedAt
   societyId String
 
-  code   String // ex: "706100"
-  label  String
-  type   String // Classe comptable (6, 7, 4, 5, etc.)
+  code        String // ex: "706100"
+  label       String
+  type        String // Classe comptable (6, 7, 4, 5, etc.)
+  accountType AccountType?
+  sensNormal  SensNormal?
+  refContrat  String? // Référence emprunt ou contrat lié
+  isActive    Boolean      @default(true)
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lines       JournalEntryLine[]
@@ -1333,15 +1372,20 @@ model JournalEntry {
   createdAt DateTime @default(now())
   societyId String
 
-  journalType JournalType
-  entryDate   DateTime
-  piece       String? // Numéro de pièce
-  label       String
-  reference   String? // Référence facture, bail, etc.
-  isValidated Boolean @default(false)
+  journalType   JournalType
+  entryDate     DateTime
+  piece         String? // Numéro de pièce
+  label         String
+  reference     String? // Référence facture, bail, etc.
+  isValidated   Boolean     @default(false)
+  status        EntryStatus @default(BROUILLON)
+  fiscalYearId  String?
+  validatedById String?
 
-  society Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lines   JournalEntryLine[]
+  society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lines       JournalEntryLine[]
+  fiscalYear  FiscalYear?        @relation(fields: [fiscalYearId], references: [id])
+  validatedBy User?              @relation("JournalEntryValidator", fields: [validatedById], references: [id])
 
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
@@ -1353,17 +1397,39 @@ model JournalEntryLine {
   journalEntryId String
   accountId      String
 
-  debit   Float @default(0)
-  credit  Float @default(0)
-  label   String?
+  debit    Float   @default(0)
+  credit   Float   @default(0)
+  label    String?
   lettrage String? // Code de lettrage (rapprochement 411)
 
-  journalEntry JournalEntry     @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account      AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
   @@index([journalEntryId])
   @@index([accountId])
   @@index([lettrage])
+}
+
+/// Exercice comptable
+model FiscalYear {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  year       Int
+  startDate  DateTime
+  endDate    DateTime
+  isClosed   Boolean   @default(false)
+  closedAt   DateTime?
+  closedById String?
+
+  society  Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  closedBy User?          @relation("FiscalYearCloser", fields: [closedById], references: [id])
+  entries  JournalEntry[]
+
+  @@unique([societyId, year])
+  @@index([societyId])
 }
 
 // ============================================================
@@ -1392,14 +1458,14 @@ model ReminderStep {
   id         String @id @default(cuid())
   scenarioId String
 
-  level          ReminderLevel
-  daysAfterDue   Int // J+5, J+15, etc.
-  channel        String // email, courrier, email+courrier
-  subject        String
-  bodyTemplate   String @db.Text
-  includeRIB     Boolean @default(false)
-  mentionPenalties Boolean @default(false)
-  requiresValidation Boolean @default(false)
+  level              ReminderLevel
+  daysAfterDue       Int // J+5, J+15, etc.
+  channel            String // email, courrier, email+courrier
+  subject            String
+  bodyTemplate       String        @db.Text
+  includeRIB         Boolean       @default(false)
+  mentionPenalties   Boolean       @default(false)
+  requiresValidation Boolean       @default(false)
 
   scenario ReminderScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
 
@@ -1418,12 +1484,12 @@ model Reminder {
   totalAmount Float
   channel     String
   subject     String
-  body        String  @db.Text
+  body        String        @db.Text
   fileUrl     String? // PDF mise en demeure
   sentAt      DateTime?
-  isSent      Boolean  @default(false)
-  isSuspended Boolean  @default(false)
-  emailStatus String?  // delivered, bounced, etc.
+  isSent      Boolean       @default(false)
+  isSuspended Boolean       @default(false)
+  emailStatus String? // delivered, bounced, etc.
 
   lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
 
@@ -1436,7 +1502,8 @@ model Contact {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  societyId String?  // null = partagé entre sociétés
+  societyId String? // null = partagé entre sociétés
+  tenantId  String?  @unique // lié à un locataire
 
   contactType  ContactType
   name         String
@@ -1448,15 +1515,17 @@ model Contact {
   addressLine1 String?
   city         String?
   postalCode   String?
-  notes        String? @db.Text
-  isActive     Boolean @default(true)
+  notes        String?     @db.Text
+  isActive     Boolean     @default(true)
 
-  society      Society?       @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  society      Society?      @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   maintenances Maintenance[]
   contactNotes ContactNote[]
 
   @@index([societyId])
   @@index([contactType])
+  @@index([tenantId])
 }
 
 /// Note interne sur un contact
@@ -1465,7 +1534,7 @@ model ContactNote {
   createdAt DateTime @default(now())
   contactId String
 
-  content   String @db.Text
+  content   String  @db.Text
   createdBy String? // userId
 
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -1479,14 +1548,14 @@ model Message {
   createdAt DateTime @default(now())
   societyId String?
 
-  senderName  String
-  senderEmail String
-  senderPhone String?
-  subject     String
-  body        String  @db.Text
-  lotId       String? // Si demande de visite
-  isRead      Boolean @default(false)
-  isArchived  Boolean @default(false)
+  senderName     String
+  senderEmail    String
+  senderPhone    String?
+  subject        String
+  body           String  @db.Text
+  lotId          String? // Si demande de visite
+  isRead         Boolean @default(false)
+  isArchived     Boolean @default(false)
   linkedTenantId String? // Rattachement à un locataire existant
 
   society Society? @relation(fields: [societyId], references: [id], onDelete: SetNull)
@@ -1502,10 +1571,10 @@ model LetterTemplate {
   updatedAt DateTime @updatedAt
   societyId String
 
-  name        String // revision_notification, mise_en_demeure, etc.
-  subject     String
-  bodyHtml    String @db.Text
-  variables   String[] // Liste des variables disponibles
+  name      String // revision_notification, mise_en_demeure, etc.
+  subject   String
+  bodyHtml  String   @db.Text
+  variables String[] // Liste des variables disponibles
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
@@ -1525,19 +1594,19 @@ model Announcement {
   societyId String
   lotId     String
 
-  title       String
-  description String  @db.Text
-  rentHC      Float
-  charges     Float?
-  area        Float
-  features    Json?   // {parking: true, accessibility: true, ...}
-  dpeRating   String?
-  status      AnnouncementStatus @default(BROUILLON)
-  publishedAt DateTime?
+  title         String
+  description   String             @db.Text
+  rentHC        Float
+  charges       Float?
+  area          Float
+  features      Json? // {parking: true, accessibility: true, ...}
+  dpeRating     String?
+  status        AnnouncementStatus @default(BROUILLON)
+  publishedAt   DateTime?
   unpublishedAt DateTime?
 
-  society      Society                @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lot          Lot                    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  society      Society                   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lot          Lot                       @relation(fields: [lotId], references: [id], onDelete: Cascade)
   photos       AnnouncementPhoto[]
   publications AnnouncementPublication[]
 
@@ -1551,10 +1620,10 @@ model AnnouncementPhoto {
   id             String @id @default(cuid())
   announcementId String
 
-  fileUrl    String
-  caption    String?
-  sortOrder  Int     @default(0)
-  isCover    Boolean @default(false)
+  fileUrl   String
+  caption   String?
+  sortOrder Int     @default(0)
+  isCover   Boolean @default(false)
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 
@@ -1569,7 +1638,7 @@ model AnnouncementPublication {
   announcementId String
 
   platform    PublicationPlatform
-  status      PublicationStatus @default(EN_COURS)
+  status      PublicationStatus   @default(EN_COURS)
   externalId  String? // ID sur la plateforme
   externalUrl String? // Lien vers l'annonce publiée
   error       String? // Message d'erreur si échec
@@ -1635,8 +1704,8 @@ model DataProcessingRecord {
   legalBasis     String // Base légale
   recipients     String[] // Destinataires
   retentionDays  Int // Durée de conservation en jours
-  description    String? @db.Text
-  isActive       Boolean @default(true)
+  description    String?  @db.Text
+  isActive       Boolean  @default(true)
 }
 
 /// Demande d'exercice de droits RGPD
@@ -1651,10 +1720,10 @@ model GdprRequest {
   requesterEmail String
   requesterName  String
   requestType    String // access, rectification, deletion, portability
-  status         String @default("pending") // pending, processing, completed, refused
+  status         String    @default("pending") // pending, processing, completed, refused
   processedAt    DateTime?
   processedBy    String?
-  notes          String? @db.Text
+  notes          String?   @db.Text
 
   @@index([societyId])
   @@index([status])
@@ -1676,16 +1745,16 @@ model Loan {
   buildingId String?
 
   // Identité du prêt
-  label        String   // Libellé ex: "Prêt BNP — immeuble Centre"
-  lender       String   // Établissement prêteur
-  loanType     LoanType @default(AMORTISSABLE)
-  status       LoanStatus @default(EN_COURS)
+  label    String // Libellé ex: "Prêt BNP — immeuble Centre"
+  lender   String // Établissement prêteur
+  loanType LoanType   @default(AMORTISSABLE)
+  status   LoanStatus @default(EN_COURS)
 
   // Paramètres financiers
-  amount          Float  // Capital emprunté (€)
-  interestRate    Float  // Taux annuel nominal (%)
-  insuranceRate   Float  @default(0) // Taux assurance annuel (%)
-  durationMonths  Int    // Durée en mois
+  amount         Float // Capital emprunté (€)
+  interestRate   Float // Taux annuel nominal (%)
+  insuranceRate  Float @default(0) // Taux assurance annuel (%)
+  durationMonths Int // Durée en mois
 
   // Dates
   startDate DateTime
@@ -1697,8 +1766,8 @@ model Loan {
   // Notes
   notes String? @db.Text
 
-  society    Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building   Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  society           Society                @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building          Building?              @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   amortizationLines LoanAmortizationLine[]
 
   @@index([societyId])
@@ -1711,13 +1780,13 @@ model LoanAmortizationLine {
   id     String @id @default(cuid())
   loanId String
 
-  period           Int      // Numéro d'échéance (1, 2, …, n)
+  period           Int // Numéro d'échéance (1, 2, …, n)
   dueDate          DateTime // Date d'échéance
-  principalPayment Float    // Capital remboursé
-  interestPayment  Float    // Intérêts payés
+  principalPayment Float // Capital remboursé
+  interestPayment  Float // Intérêts payés
   insurancePayment Float    @default(0) // Assurance
-  totalPayment     Float    // Mensualité totale
-  remainingBalance Float    // Capital restant dû après cette échéance
+  totalPayment     Float // Mensualité totale
+  remainingBalance Float // Capital restant dû après cette échéance
 
   isPaid Boolean   @default(false)
   paidAt DateTime?
@@ -1739,11 +1808,11 @@ model BudgetLine {
   updatedAt DateTime @updatedAt
   societyId String
 
-  year      Int    // Exercice comptable
-  month     Int?   // null = budget annuel, 1-12 = mensuel
+  year      Int // Exercice comptable
+  month     Int? // null = budget annuel, 1-12 = mensuel
   accountId String // Compte comptable lié
 
-  budgetAmount Float   // Montant prévisionnel (€)
+  budgetAmount Float // Montant prévisionnel (€)
   label        String? // Commentaire optionnel
 
   society Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
@@ -1763,7 +1832,7 @@ model Consent {
   purpose   String // contact_form, newsletter, visit_request
   ipAddress String?
   userAgent String?
-  isGranted Boolean @default(true)
+  isGranted Boolean   @default(true)
   revokedAt DateTime?
 
   @@index([email, purpose])
@@ -1795,7 +1864,7 @@ model SignatureRequest {
   updatedAt DateTime @updatedAt
   societyId String
 
-  envelopeId     String  @unique // ID enveloppe DocuSign
+  envelopeId     String                @unique // ID enveloppe DocuSign
   status         SignatureStatus
   documentType   SignatureDocumentType
   documentId     String? // ID du document lié (bail, etc.)
@@ -1851,16 +1920,16 @@ model SepaMandate {
   societyId String
   tenantId  String
 
-  gocardlessId    String  @unique  // ID mandat GoCardless
-  status          SepaMandateStatus @default(PENDING_SUBMISSION)
-  ibanLast4       String?           // 4 derniers chiffres IBAN (affichage)
-  bankName        String?
-  mandateReference String?          // Référence unique mandat
-  signedAt        DateTime?
-  cancelledAt     DateTime?
-  cancelReason    String?
+  gocardlessId     String            @unique // ID mandat GoCardless
+  status           SepaMandateStatus @default(PENDING_SUBMISSION)
+  ibanLast4        String? // 4 derniers chiffres IBAN (affichage)
+  bankName         String?
+  mandateReference String? // Référence unique mandat
+  signedAt         DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
 
-  tenant  Tenant   @relation(fields: [tenantId],  references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([societyId])
   @@index([tenantId])
@@ -1894,11 +1963,11 @@ model Notification {
   type    NotificationType
   title   String
   message String           @db.Text
-  link    String?          // URL de navigation
+  link    String? // URL de navigation
   isRead  Boolean          @default(false)
   readAt  DateTime?
 
-  user    User    @relation(fields: [userId],    references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
   @@index([userId, societyId])
