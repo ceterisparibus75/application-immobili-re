@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   if (!apiKey)
     return NextResponse.json({ error: "RESEND_API_KEY manquant" }, { status: 500 });
 
-  const body = await request.json() as { action?: string; domainId?: string };
+  const body = await request.json() as { action?: string; domainId?: string; to?: string };
 
   if (body.action === "delete_domain" && body.domainId) {
     const resend = new Resend(apiKey);
@@ -149,6 +149,22 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, cleaned: results });
+  }
+
+  // Action: test_send - envoie un email simple sans piece jointe
+  if (body.action === "test_send" && body.to) {
+    const resend = new Resend(apiKey);
+    const fromAddress = process.env.EMAIL_FROM ?? "contact@mtggroupe.org";
+    const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobiliere";
+    const { data, error } = await resend.emails.send({
+      from: `"${appName}" <${fromAddress}>`,
+      to: body.to as string,
+      replyTo: fromAddress,
+      subject: "[TEST] Verification de livraison email",
+      html: `<p>Ceci est un email de test envoye depuis ${appName}.</p><p>Si vous recevez ce message, la configuration email fonctionne correctement.</p><p>Heure d envoi : ${new Date().toISOString()}</p>`,
+    });
+    if (error) return NextResponse.json({ success: false, error: error.message });
+    return NextResponse.json({ success: true, emailId: data?.id, sentTo: body.to });
   }
 
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
