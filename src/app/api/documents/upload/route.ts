@@ -6,10 +6,14 @@ import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const maxDuration = 60;
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -73,6 +77,7 @@ export async function POST(req: NextRequest) {
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
+    const supabase = getSupabase();
     const { error: uploadError } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .upload(storagePath, fileBuffer, { contentType: file.type, upsert: false });
