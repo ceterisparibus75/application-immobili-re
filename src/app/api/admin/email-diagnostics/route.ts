@@ -53,14 +53,44 @@ export async function GET() {
   // Domaine utilise pour l envoi
   const senderDomain = emailFrom.replace(/.*@/, "");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const senderDomainConfig = formattedDomains.find((d: any) => d.name === senderDomain);
+  const senderDomainSummary = formattedDomains.find((d: any) => d.name === senderDomain);
+
+  // Recuperer le detail complet du domaine expediteur (inclut les records SPF/DKIM/DMARC)
+  let senderDomainDetail = null;
+  if (senderDomainSummary) {
+    const { data: detail, error: detailError } = await resend.domains.get(senderDomainSummary.id);
+    if (!detailError && detail) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = detail as any;
+      senderDomainDetail = {
+        id: d.id,
+        name: d.name,
+        status: d.status,
+        region: d.region,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        records: (d.records ?? []).map((r: any) => ({
+          record: r.record,   // MX, SPF, DKIM, DMARC
+          name: r.name,
+          type: r.type,
+          ttl: r.ttl,
+          status: r.status,   // verified | not_started | pending
+          value: r.value,
+        })),
+      };
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const missingRecords = (senderDomainDetail?.records ?? []).filter((r: any) => r.status !== "verified");
 
   return NextResponse.json({
     status: "ok",
     emailFrom,
     senderDomain,
-    senderDomainVerified: senderDomainConfig?.status === "verified",
-    senderDomainConfig: senderDomainConfig ?? null,
+    senderDomainVerified: senderDomainSummary?.status === "verified",
+    dnsComplete: missingRecords.length === 0,
+    missingRecords,
+    senderDomainDetail,
     allDomains: formattedDomains,
   });
 }
