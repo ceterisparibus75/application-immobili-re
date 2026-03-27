@@ -42,53 +42,39 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file) { setError("Veuillez selectionner un fichier"); return; }
+    if (!file) { setError("Veuillez sélectionner un fichier"); return; }
     setError(""); setIsLoading(true); setUploadProgress(0);
     try {
-      setUploadStep("signing");
-      const folder = entityType === "building" && buildingId ? "buildings/" + buildingId
+      setUploadStep("uploading");
+      const entityFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
         : entityType === "lot" && lotId ? "lots/" + lotId
         : entityType === "lease" && leaseId ? "leases/" + leaseId
         : entityType === "tenant" && tenantId ? "tenants/" + tenantId : "general";
 
-      const sigRes = await fetch("/api/storage/signed-upload", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, societyId, entityFolder: folder }),
+      // Upload en streaming : le fichier est transmis directement sans buffer
+      // (contourne la limite de 4.5 Mo de Vercel via streaming)
+      const res = await fetch("/api/documents/upload-stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type,
+          "x-filename": encodeURIComponent(file.name),
+          "x-filesize": String(file.size),
+          "x-category": category || "autre",
+          "x-entity-type": entityType || "",
+          "x-building-id": entityType === "building" ? (buildingId || "") : "",
+          "x-lot-id": entityType === "lot" ? (lotId || "") : "",
+          "x-lease-id": entityType === "lease" ? (leaseId || "") : "",
+          "x-tenant-id": entityType === "tenant" ? (tenantId || "") : "",
+          "x-description": description || "",
+          "x-expires-at": expiresAt || "",
+          "x-entity-folder": entityFolder,
+        },
+        body: file,
       });
-      const sigJson = await sigRes.json() as { signedUrl?: string; storagePath?: string; error?: string };
-      if (!sigRes.ok || !sigJson.signedUrl || !sigJson.storagePath)
-        throw new Error(sigJson.error ?? "Impossible d’obtenir l’URL d’upload");
 
-      setUploadStep("uploading"); setUploadProgress(10);
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) setUploadProgress(10 + Math.round((ev.loaded / ev.total) * 80));
-        };
-        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error("Erreur upload: " + String(xhr.status))));
-        xhr.onerror = () => reject(new Error("Erreur reseau pendant l’upload"));
-        xhr.open("PUT", sigJson.signedUrl!);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.send(file);
-      });
       setUploadProgress(90);
-
-      setUploadStep("saving");
-      const regRes = await fetch("/api/documents/register", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name, fileSize: file.size, mimeType: file.type, storagePath: sigJson.storagePath,
-          category: category || "autre",
-          description: description || undefined,
-          expiresAt: expiresAt || undefined,
-          buildingId: entityType === "building" ? buildingId || undefined : undefined,
-          lotId: entityType === "lot" ? lotId || undefined : undefined,
-          leaseId: entityType === "lease" ? leaseId || undefined : undefined,
-          tenantId: entityType === "tenant" ? tenantId || undefined : undefined,
-        }),
-      });
-      const regJson = await regRes.json() as { success?: boolean; error?: string };
-      if (!regJson.success) throw new Error(regJson.error ?? "Erreur d’enregistrement");
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) throw new Error(json.error ?? ("Erreur HTTP " + res.status));
       setUploadProgress(100);
       router.push("/documents");
     } catch (err: unknown) {
