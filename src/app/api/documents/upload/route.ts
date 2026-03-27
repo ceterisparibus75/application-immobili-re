@@ -11,6 +11,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+
 const ALLOWED_TYPES = [
   "application/pdf",
   "image/jpeg",
@@ -55,7 +57,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
     }
 
-    // Déterminer le dossier Supabase selon l'entité liée
     const entityFolder = buildingId
       ? `buildings/${buildingId}`
       : lotId
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     if (uploadError) {
       console.error("[documents/upload] upload error", uploadError);
-      return NextResponse.json({ error: "Erreur lors de l'upload" }, { status: 500 });
+      return NextResponse.json({ error: "Erreur lors de l upload" }, { status: 500 });
     }
 
     const { data: urlData } = await supabase.storage
@@ -101,6 +102,8 @@ export async function POST(req: NextRequest) {
         lotId: lotId || null,
         leaseId: leaseId || null,
         tenantId: tenantId || null,
+        storagePath,
+        aiStatus: AI_SUPPORTED_TYPES.includes(file.type) ? "pending" : null,
       },
     });
 
@@ -112,6 +115,15 @@ export async function POST(req: NextRequest) {
       entityId: doc.id,
       details: { fileName: file.name, category, buildingId, lotId, leaseId, tenantId },
     });
+
+    // Déclencher l analyse IA en arrière-plan pour les types supportés
+    if (AI_SUPPORTED_TYPES.includes(file.type)) {
+      const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+      void fetch(`${baseUrl}/api/documents/${doc.id}/analyze`, {
+        method: "POST",
+        headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+      }).catch(() => null);
+    }
 
     return NextResponse.json({ success: true, document: { id: doc.id, fileUrl } });
   } catch (error) {

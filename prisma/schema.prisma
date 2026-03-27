@@ -1686,6 +1686,14 @@ model Document {
   description String?
   expiresAt   DateTime?
 
+  // GED IA
+  storagePath  String?   // chemin brut Supabase Storage (stable)
+  aiSummary    String?   @db.Text  // resume genere par Claude
+  aiTags       String[]            // tags extraits automatiquement
+  aiMetadata   Json?               // metadonnees cles (loyer, dates, noms...)
+  aiAnalyzedAt DateTime?           // date derniere analyse IA
+  aiStatus     String?             // pending | done | error
+
   society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
   building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   lot      Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
@@ -1698,6 +1706,7 @@ model Document {
   @@index([leaseId])
   @@index([tenantId])
   @@index([expiresAt])
+  @@index([aiStatus])
 }
 
 // ============================================================

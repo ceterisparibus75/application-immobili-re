@@ -1,0 +1,455 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import {
+  FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
+  Search, X, Sparkles, Loader2, Plus, FileImage,
+  File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown,
+} from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { DeleteDocumentButton } from "./delete-button";
+import { AiBadge } from "./ai-badge";
+import { DocumentChat } from "./document-chat";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+type DocumentItem = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  category: string | null;
+  description: string | null;
+  expiresAt: Date | null;
+  storagePath: string | null;
+  aiSummary: string | null;
+  aiTags: string[];
+  aiMetadata: unknown;
+  aiStatus: string | null;
+  aiAnalyzedAt: Date | null;
+  buildingId: string | null;
+  lotId: string | null;
+  leaseId: string | null;
+  tenantId: string | null;
+  createdAt: Date;
+  building: { id: string; name: string; city: string } | null;
+  lot: { id: string; number: string; building: { name: string } | null } | null;
+  lease: {
+    id: string;
+    lot: { number: string; building: { name: string } | null } | null;
+    tenant: { firstName: string | null; lastName: string | null; companyName: string | null; entityType: string } | null;
+  } | null;
+  tenant: { id: string; firstName: string | null; lastName: string | null; companyName: string | null; entityType: string } | null;
+};
+type SortKey = "name" | "date" | "category" | "size";
+type ViewMode = "list" | "grid";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getCategoryLabel(cat: string | null): string {
+  return DOCUMENT_CATEGORIES.find((c) => c.value === cat)?.label ?? "Autre";
+}
+function getBuildingKey(doc: DocumentItem): string | null {
+  if (doc.buildingId) return doc.buildingId;
+  if (doc.lot?.building) return "name:" + doc.lot.building.name;
+  if (doc.lease?.lot?.building) return "name:" + doc.lease.lot.building.name;
+  return null;
+}
+function getBuildingLabel(doc: DocumentItem): string {
+  if (doc.building) return doc.building.name;
+  if (doc.lot?.building) return doc.lot.building.name;
+  if (doc.lease?.lot?.building) return doc.lease.lot.building.name;
+  return "";
+}
+function getTenantLabel(doc: DocumentItem): string | null {
+  const t = doc.tenant ?? doc.lease?.tenant ?? null;
+  if (!t) return null;
+  return t.entityType === "PERSONNE_MORALE"
+    ? (t.companyName ?? "Locataire")
+    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || null;
+}
+function isExpired(d: Date | null): boolean { return d ? new Date(d).getTime() < Date.now() : false; }
+function isExpiringSoon(d: Date | null): boolean {
+  if (!d) return false;
+  const diff = new Date(d).getTime() - Date.now();
+  return diff > 0 && diff < 60 * 24 * 3600 * 1000;
+}
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+function FileTypeIcon({ mimeType, className }: { mimeType: string | null; className?: string }) {
+  if (mimeType === "application/pdf") return <FileText className={cn("text-red-500", className)} />;
+  if (mimeType?.startsWith("image/")) return <FileImage className={cn("text-blue-500", className)} />;
+  return <File className={cn("text-muted-foreground", className)} />;
+}
+// ─── Tree Sidebar ─────────────────────────────────────────────────────────────
+type TreeData = {
+  total: number;
+  buildings: { key: string; name: string; count: number }[];
+  generalCount: number;
+};
+
+function buildTree(documents: DocumentItem[]): TreeData {
+  const map = new Map<string, { name: string; count: number }>();
+  let generalCount = 0;
+  for (const doc of documents) {
+    const key = getBuildingKey(doc);
+    if (key) {
+      if (!map.has(key)) map.set(key, { name: getBuildingLabel(doc), count: 0 });
+      map.get(key)!.count++;
+    } else { generalCount++; }
+  }
+  const buildings = Array.from(map.entries())
+    .map(([key, { name, count }]) => ({ key, name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  return { total: documents.length, buildings, generalCount };
+}
+
+function TreeSidebar({ tree, selected, onSelect }: { tree: TreeData; selected: string; onSelect: (key: string) => void; }) {
+  const item = (key: string, label: string, count: number, icon: React.ReactNode) => (
+    <button key={key} onClick={() => onSelect(key)}
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left transition-colors",
+        selected === key ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {icon}
+      <span className="flex-1 truncate">{label}</span>
+      <span className={cn("text-xs tabular-nums", selected === key ? "text-primary-foreground/70" : "text-muted-foreground/60")}>
+        {count}
+      </span>
+    </button>
+  );
+  return (
+    <nav className="p-1.5 space-y-0.5">
+      {item("all", "Tous les documents", tree.total, <FolderOpen className="h-4 w-4 shrink-0" />)}
+      {tree.buildings.length > 0 && (
+        <div className="pt-2">
+          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Immeubles</p>
+          {tree.buildings.map((b) => item(b.key, b.name, b.count, <Building2 className="h-4 w-4 shrink-0" />))}
+        </div>
+      )}
+      {tree.generalCount > 0 && (
+        <div className="pt-2">
+          {item("general", "Général", tree.generalCount, <FolderOpen className="h-4 w-4 shrink-0" />)}
+        </div>
+      )}
+    </nav>
+  );
+}
+
+function SortHeader({ label, sortKey, current, dir, onSort }: { label: string; sortKey: SortKey; current: SortKey; dir: "asc" | "desc"; onSort: (k: SortKey) => void; }) {
+  const active = current === sortKey;
+  return (
+    <button onClick={() => onSort(sortKey)}
+      className={cn("flex items-center gap-1 text-xs font-medium hover:text-foreground transition-colors", active ? "text-foreground" : "text-muted-foreground")}
+    >
+      {label}
+      {active ? (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+    </button>
+  );
+}
+
+function FileRow({ doc, selected, onSelect, societyId }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; }) {
+  const expired = isExpired(doc.expiresAt);
+  const expiringSoon = !expired && isExpiringSoon(doc.expiresAt);
+  return (
+    <div onClick={() => onSelect(doc)}
+      className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer select-none border-b border-border/50 last:border-0 hover:bg-accent/40 transition-colors group", selected && "bg-primary/10 hover:bg-primary/15")}
+    >
+      <FileTypeIcon mimeType={doc.mimeType} className="h-4 w-4 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className={cn("text-sm truncate", selected && "font-medium")}>{doc.fileName}</span>
+          <AiBadge status={doc.aiStatus} />
+          {expired && <span title="Expiré"><AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label="Expiré" /></span>}
+          {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" aria-label="Expire bientôt" /></span>}
+        </div>
+        {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+      </div>
+      <span className="hidden md:block text-xs text-muted-foreground w-28 shrink-0 truncate">{getCategoryLabel(doc.category)}</span>
+      <span className="hidden sm:block text-xs text-muted-foreground w-24 shrink-0 tabular-nums">{formatDate(doc.createdAt)}</span>
+      <span className="hidden lg:block text-xs text-muted-foreground w-16 shrink-0 text-right tabular-nums">{formatFileSize(doc.fileSize ?? 0)}</span>
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="ghost" size="icon" className="h-7 w-7"><ExternalLink className="h-3.5 w-3.5" /></Button>
+        </a>
+        <DeleteDocumentButton societyId={societyId} documentId={doc.id} fileName={doc.fileName} />
+      </div>
+    </div>
+  );
+}
+
+function FileGridCard({ doc, selected, onSelect, societyId }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; }) {
+  return (
+    <div onClick={() => onSelect(doc)}
+      className={cn("flex flex-col items-center gap-1.5 p-3 rounded-lg border cursor-pointer select-none hover:bg-accent/40 transition-colors group relative", selected && "border-primary bg-primary/10")}
+    >
+      <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10" />
+      <p className="text-xs text-center truncate w-full font-medium leading-tight">{doc.fileName}</p>
+      <AiBadge status={doc.aiStatus} />
+      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="ghost" size="icon" className="h-6 w-6"><ExternalLink className="h-3 w-3" /></Button>
+        </a>
+        <DeleteDocumentButton societyId={societyId} documentId={doc.id} fileName={doc.fileName} />
+      </div>
+    </div>
+  );
+}
+// ─── Details Panel ────────────────────────────────────────────────────────────
+function DetailsPanel({ doc, onClose }: { doc: DocumentItem; onClose: () => void; }) {
+  const [analysisResult, setAnalysisResult] = useState<{
+    summary?: string; tags?: string[]; metadata?: unknown; status: string;
+  } | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [lastId, setLastId] = useState(doc.id);
+
+  if (doc.id !== lastId) { setAnalysisResult(null); setAnalyzing(false); setLastId(doc.id); }
+
+  const display = analysisResult
+    ? { ...doc, aiSummary: analysisResult.summary ?? doc.aiSummary, aiTags: analysisResult.tags ?? doc.aiTags, aiMetadata: analysisResult.metadata ?? doc.aiMetadata, aiStatus: analysisResult.status }
+    : doc;
+
+  const hasAnalysis = display.aiStatus === "done" && (!!display.aiSummary || display.aiTags.length > 0);
+  const canAnalyze = !!display.storagePath && display.aiStatus !== "pending" && display.aiStatus !== "done";
+
+  async function triggerAnalysis() {
+    setAnalyzing(true);
+    try {
+      const r = await fetch(`/api/documents/${doc.id}/analyze`, { method: "POST" });
+      if (r.ok) {
+        const data = (await r.json()) as { summary?: string; tags?: string[]; metadata?: unknown };
+        setAnalysisResult({ summary: data.summary, tags: data.tags, metadata: data.metadata, status: "done" });
+      } else { setAnalysisResult({ status: "error" }); }
+    } catch { setAnalysisResult({ status: "error" }); }
+    finally { setAnalyzing(false); }
+  }
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="p-3 border-b flex items-start gap-2 shrink-0">
+        <FileTypeIcon mimeType={doc.mimeType} className="h-8 w-8 mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold break-words leading-tight">{doc.fileName}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(doc.fileSize ?? 0)} · {getCategoryLabel(doc.category)}</p>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <AiBadge status={display.aiStatus} />
+            {isExpired(doc.expiresAt) && <Badge variant="destructive" className="text-[10px] py-0">Expiré</Badge>}
+            {isExpiringSoon(doc.expiresAt) && <Badge className="text-[10px] py-0 bg-orange-100 text-orange-700">Expire bientôt</Badge>}
+          </div>
+        </div>
+        <button onClick={onClose} className="shrink-0 text-muted-foreground hover:text-foreground mt-0.5"><X className="h-4 w-4" /></button>
+      </div>
+      <div className="px-3 py-2 flex gap-2 border-b shrink-0">
+        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+          <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1"><ExternalLink className="h-3.5 w-3.5" />Ouvrir</Button>
+        </a>
+      </div>
+      <Tabs defaultValue={hasAnalysis ? "ai" : "info"} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="mx-2 mt-2 shrink-0">
+          <TabsTrigger value="ai" className="flex-1 text-xs"><Sparkles className="h-3.5 w-3.5 mr-1" />IA</TabsTrigger>
+          <TabsTrigger value="chat" className="flex-1 text-xs">Chat</TabsTrigger>
+          <TabsTrigger value="info" className="flex-1 text-xs">Infos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="ai" className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 mt-2">
+          {display.aiStatus === "pending" && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />Analyse en cours…
+            </div>
+          )}
+          {hasAnalysis && (
+            <>
+              {display.aiSummary && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Résumé</p>
+                  <p className="text-xs leading-relaxed">{display.aiSummary}</p>
+                </div>
+              )}
+              {display.aiTags.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Mots-clés</p>
+                  <div className="flex flex-wrap gap-1">
+                    {display.aiTags.map((tag) => <Badge key={tag} variant="secondary" className="text-[10px] py-0">{tag}</Badge>)}
+                  </div>
+                </div>
+              )}
+              {display.aiMetadata && typeof display.aiMetadata === "object" && Object.keys(display.aiMetadata as Record<string, unknown>).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Informations extraites</p>
+                  <dl className="space-y-1">
+                    {Object.entries(display.aiMetadata as Record<string, unknown>)
+                      .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                      .map(([k, v]) => (
+                        <div key={k} className="grid grid-cols-[auto_1fr] gap-x-2 text-xs">
+                          <dt className="text-muted-foreground capitalize whitespace-nowrap">{k.replace(/_/g, " ")}:</dt>
+                          <dd className="font-medium break-words">{String(v)}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                </div>
+              )}
+            </>
+          )}
+          {(!display.aiStatus || display.aiStatus === "error") && (
+            <div className="text-center py-6">
+              <Sparkles className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-xs text-muted-foreground mb-3">
+                {display.aiStatus === "error" ? "L’analyse a échoué." : "Pas encore analysé par l’IA."}
+              </p>
+              {canAnalyze ? (
+                <Button onClick={() => void triggerAnalysis()} disabled={analyzing} variant="outline" size="sm" className="text-xs">
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Analyse…</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Analyser</>}
+                </Button>
+              ) : <p className="text-xs text-muted-foreground/60">Disponible pour PDF et images récents.</p>}
+            </div>
+          )}
+        </TabsContent>
+        <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 px-3 pb-3 mt-2">
+          <DocumentChat documentId={doc.id} />
+        </TabsContent>
+        <TabsContent value="info" className="overflow-y-auto px-3 pb-3 mt-2 space-y-2">
+          <dl className="space-y-2 text-xs">
+            {([
+              ["Nom", doc.fileName],
+              ["Catégorie", getCategoryLabel(doc.category)],
+              ["Taille", formatFileSize(doc.fileSize ?? 0)],
+              ["Ajouté le", formatDate(doc.createdAt)],
+              ...(doc.expiresAt ? [["Expiration", formatDate(doc.expiresAt)]] : []),
+              ...(doc.description ? [["Description", doc.description]] : []),
+              ...(getTenantLabel(doc) ? [["Locataire", getTenantLabel(doc)!]] : []),
+              ...(getBuildingLabel(doc) ? [["Immeuble", getBuildingLabel(doc)]] : []),
+            ] as [string, string][]).map(([label, value]) => (
+              <div key={label} className="flex gap-2">
+                <dt className="text-muted-foreground w-20 shrink-0">{label}</dt>
+                <dd className="font-medium break-words flex-1">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+// ─── Main Component ───────────────────────────────────────────────────────────
+export function DocumentsClient({ societyId, documents }: { societyId: string; documents: DocumentItem[]; }) {
+  const [selectedFolder, setSelectedFolder] = useState<string>("all");
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
+
+  const tree = useMemo(() => buildTree(documents), [documents]);
+
+  const folderFiltered = useMemo(() => {
+    if (selectedFolder === "all") return documents;
+    if (selectedFolder === "general") return documents.filter((d) => !getBuildingKey(d));
+    return documents.filter((d) => getBuildingKey(d) === selectedFolder);
+  }, [documents, selectedFolder]);
+
+  const sorted = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = !q ? folderFiltered : folderFiltered.filter((d) =>
+      d.fileName.toLowerCase().includes(q) ||
+      (d.description?.toLowerCase().includes(q) ?? false) ||
+      getCategoryLabel(d.category).toLowerCase().includes(q) ||
+      (d.aiSummary?.toLowerCase().includes(q) ?? false) ||
+      d.aiTags.some((t) => t.toLowerCase().includes(q)) ||
+      getBuildingLabel(d).toLowerCase().includes(q) ||
+      (getTenantLabel(d) ?? "").toLowerCase().includes(q)
+    );
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "name") cmp = a.fileName.localeCompare(b.fileName, "fr");
+      else if (sortBy === "date") cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      else if (sortBy === "category") cmp = (a.category ?? "").localeCompare(b.category ?? "", "fr");
+      else if (sortBy === "size") cmp = (a.fileSize ?? 0) - (b.fileSize ?? 0);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [folderFiltered, search, sortBy, sortDir]);
+
+  function handleSort(key: SortKey) {
+    if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortDir("asc"); }
+  }
+
+  function selectDoc(doc: DocumentItem) { setSelectedDoc(doc); setMobileDetailsOpen(true); }
+
+  return (
+    <div className="flex border rounded-lg overflow-hidden bg-background" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
+      <div className="hidden md:flex flex-col w-52 shrink-0 border-r overflow-y-auto bg-muted/20">
+        <div className="flex-1 overflow-y-auto">
+          <TreeSidebar tree={tree} selected={selectedFolder} onSelect={(k) => { setSelectedFolder(k); setSelectedDoc(null); }} />
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/10 shrink-0">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input className="pl-8 h-7 text-xs" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            {search && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setSearch("")}><X className="h-3.5 w-3.5" /></button>}
+          </div>
+          <div className="flex items-center gap-1 ml-auto">
+            <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("list")}><List className="h-3.5 w-3.5" /></Button>
+            <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("grid")}><LayoutGrid className="h-3.5 w-3.5" /></Button>
+          </div>
+          <Link href="/documents/nouveau"><Button size="sm" className="h-7 text-xs gap-1 shrink-0"><Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nouveau</span></Button></Link>
+        </div>
+        {viewMode === "list" && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 border-b shrink-0">
+            <div className="w-4 shrink-0" />
+            <div className="flex-1"><SortHeader label="Nom" sortKey="name" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
+            <div className="hidden md:block w-28 shrink-0"><SortHeader label="Catégorie" sortKey="category" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
+            <div className="hidden sm:block w-24 shrink-0"><SortHeader label="Ajouté" sortKey="date" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
+            <div className="hidden lg:block w-16 shrink-0 text-right"><SortHeader label="Taille" sortKey="size" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
+            <div className="w-16 shrink-0" />
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto">
+          {sorted.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <FolderOpen className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-sm font-medium mb-1">Aucun document</p>
+              <Link href="/documents/nouveau"><Button size="sm"><Plus className="h-4 w-4" />Ajouter</Button></Link>
+            </div>
+          ) : viewMode === "list" ? (
+            <div>{sorted.map((doc) => <FileRow key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} />)}</div>
+          ) : (
+            <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {sorted.map((doc) => <FileGridCard key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} />)}
+            </div>
+          )}
+        </div>
+        <div className="border-t px-3 py-1 text-xs text-muted-foreground bg-muted/10 shrink-0">
+          {sorted.length} élément{sorted.length !== 1 ? "s" : ""}
+        </div>
+      </div>
+      {selectedDoc && (
+        <div className="hidden lg:flex flex-col w-72 shrink-0 border-l overflow-hidden">
+          <DetailsPanel doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+        </div>
+      )}
+      <Sheet open={mobileDetailsOpen} onOpenChange={(open) => { setMobileDetailsOpen(open); if (!open) setSelectedDoc(null); }}>
+        <SheetContent side="right" className="w-[90vw] sm:max-w-sm p-0 flex flex-col overflow-hidden lg:hidden">
+          {selectedDoc && (
+            <>
+              <SheetHeader className="sr-only"><SheetTitle>{selectedDoc.fileName}</SheetTitle></SheetHeader>
+              <div className="flex-1 overflow-hidden"><DetailsPanel doc={selectedDoc} onClose={() => { setMobileDetailsOpen(false); setSelectedDoc(null); }} /></div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
