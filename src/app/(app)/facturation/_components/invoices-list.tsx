@@ -108,20 +108,28 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
     const ids = Array.from(selected);
     setSending(true);
     let ok = 0;
-    let ko = 0;
+    const errors: string[] = [];
     for (const id of ids) {
       try {
         const r = await fetch(`/api/invoices/${id}/send-email`, { method: "POST" });
-        if (r.ok) ok++;
-        else ko++;
-      } catch {
-        ko++;
+        if (r.ok) {
+          ok++;
+          setLocalSentIds((prev) => new Set([...prev, id]));
+        } else {
+          const body = await r.json().catch(() => ({})) as { error?: { message?: string } };
+          const inv = invoices.find((i) => i.id === id);
+          const msg = body?.error?.message ?? `Erreur HTTP ${r.status}`;
+          errors.push(`${inv?.invoiceNumber ?? id} : ${msg}`);
+        }
+      } catch (err) {
+        const inv = invoices.find((i) => i.id === id);
+        errors.push(`${inv?.invoiceNumber ?? id} : ${String(err)}`);
       }
     }
     setSending(false);
     setSelected(new Set());
     if (ok > 0) toast.success(`${ok} email${ok > 1 ? "s" : ""} envoyé${ok > 1 ? "s" : ""}`);
-    if (ko > 0) toast.error(`${ko} échec${ko > 1 ? "s" : ""} d’envoi`);
+    if (errors.length > 0) toast.error(errors.join(" | "), { duration: 10000 });
     router.refresh();
   };
 
