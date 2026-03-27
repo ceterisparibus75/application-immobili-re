@@ -208,3 +208,83 @@ export async function claimSociety(societyId: string): Promise<ActionResult<void
   revalidatePath("/proprietaire");
   return { success: true };
 }
+
+export type OwnerProfileInput = {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  address?: string;
+  postalCode?: string;
+  ownerCity?: string;
+  profession?: string;
+  nationality?: string;
+};
+
+export async function getOwnerProfile(): Promise<ActionResult<{
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  birthDate: Date | null;
+  birthPlace: string | null;
+  address: string | null;
+  postalCode: string | null;
+  ownerCity: string | null;
+  profession: string | null;
+  nationality: string | null;
+  email: string;
+}>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      email: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      birthDate: true,
+      birthPlace: true,
+      address: true,
+      postalCode: true,
+      ownerCity: true,
+      profession: true,
+      nationality: true,
+    },
+  });
+
+  if (!user) return { success: false, error: "Utilisateur introuvable" };
+  return { success: true, data: user };
+}
+
+export async function updateOwnerProfile(input: OwnerProfileInput): Promise<ActionResult<void>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+
+  if (!input.firstName?.trim() || !input.lastName?.trim()) {
+    return { success: false, error: "Le prenom et le nom sont obligatoires" };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      name: `${input.firstName.trim()} ${input.lastName.trim()}`,
+      phone: input.phone?.trim() || null,
+      birthDate: input.birthDate ? new Date(input.birthDate) : null,
+      birthPlace: input.birthPlace?.trim() || null,
+      address: input.address?.trim() || null,
+      postalCode: input.postalCode?.trim() || null,
+      ownerCity: input.ownerCity?.trim() || null,
+      profession: input.profession?.trim() || null,
+      nationality: input.nationality?.trim() || null,
+    },
+  });
+
+  revalidatePath("/proprietaire");
+  revalidatePath("/", "layout");
+  return { success: true };
+}

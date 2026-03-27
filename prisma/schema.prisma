@@ -378,6 +378,15 @@ model User {
   emailVerified DateTime?
   name          String?
   firstName     String?
+  lastName      String?
+  phone         String?
+  birthDate     DateTime?
+  birthPlace    String?
+  address       String?
+  postalCode    String?
+  ownerCity     String?
+  profession    String?
+  nationality   String?
   passwordHash  String // bcrypt
   image         String?
   isActive      Boolean   @default(true)
