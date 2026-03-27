@@ -42,7 +42,7 @@ function baseTemplate(title: string, content: string): string {
     <div class="wrapper">
       <div class="header"><h1>${APP_NAME}</h1></div>
       <div class="body">${content}</div>
-      <div class="footer">Cet email a été envoyé automatiquement par ${APP_NAME}. Ne pas répondre à cet email.</div>
+      <div class="footer">Cet email a été envoyé par ${APP_NAME}. Pour toute question, répondez à cet email.</div>
     </div>
   </div>
 </body>
@@ -59,9 +59,25 @@ interface EmailResult {
   emailId?: string;
 }
 
-async function sendMail(to: string, subject: string, html: string, attachments?: Array<{ filename: string; content: Buffer }>): Promise<EmailResult> {
+async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  attachments?: Array<{ filename: string; content: Buffer }>,
+  replyTo?: string
+): Promise<EmailResult> {
   try {
-    const { data, error } = await getResend().emails.send({ from: FROM, to, subject, html, ...(attachments?.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.content.toString('base64') })) } : {}) });
+    const fromAddress = process.env.EMAIL_FROM ?? "contact@mtggroupe.org";
+    const { data, error } = await getResend().emails.send({
+      from: FROM,
+      to,
+      subject,
+      html,
+      replyTo: replyTo ?? fromAddress,
+      ...(attachments?.length
+        ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) }
+        : {}),
+    });
     if (error) {
       console.error("[sendMail] Resend error:", error);
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
