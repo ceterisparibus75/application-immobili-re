@@ -9,6 +9,12 @@ import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+/** formatCurrency adapte pour pdf-lib : remplace l espacement insecable etroit U+202F (hors WinAnsi) */
+function pdfCur(amount: number): string {
+  return formatCurrency(amount).replace(/ /g, " ").replace(/ /g, " ");
+}
+
+
 export type ReportType =
   | "SITUATION_LOCATIVE"
   | "COMPTE_RENDU_GESTION"
@@ -130,7 +136,7 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
     y = sh(p, bold, y, `${b.name} - ${b.lots.length} lot(s)`);
     const occ  = b.lots.filter(l => l.leases.length > 0).length;
     const rent = b.lots.reduce((s, l) => s + (l.leases[0]?.currentRentHT ?? 0), 0);
-    p.drawText(`Occupation : ${occ}/${b.lots.length} | Loyers HC : ${formatCurrency(rent)}/mois`,
+    p.drawText(`Occupation : ${occ}/${b.lots.length} | Loyers HC : ${pdfCur(rent)}/mois`,
       { x: MRG+6, y: y+2, size: 8, font: reg, color: GRAY });
     y -= 16;
     y = tr(p, reg, bold, y, HDR, WS, true);
@@ -144,7 +150,7 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
         : "Vacant";
       y = tr(p, reg, bold, y, [
         lot.number, tn, lot.lotType.replace(/_/g," "),
-        lease ? formatCurrency(lease.currentRentHT) : "-",
+        lease ? pdfCur(lease.currentRentHT) : "-",
         lease ? "Occupé" : "Vacant",
         lease?.endDate ? formatDate(new Date(lease.endDate)) : "-",
       ], WS);
@@ -190,10 +196,10 @@ async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportRe
 
   y = sh(p, bold, y, `Synthèse ${year}`);
   [
-    ["Loyers encaissés (payés)", formatCurrency(paid)],
-    ["Loyers en attente / retard", formatCurrency(pend)],
-    ["Total des charges", formatCurrency(tchg)],
-    ["Résultat net (encaissé - charges)", formatCurrency(paid - tchg)],
+    ["Loyers encaissés (payés)", pdfCur(paid)],
+    ["Loyers en attente / retard", pdfCur(pend)],
+    ["Total des charges", pdfCur(tchg)],
+    ["Résultat net (encaissé - charges)", pdfCur(paid - tchg)],
   ].forEach(([l, v]) => {
     p.drawText(l, { x: MRG+10, y, size: 9, font: reg, color: BLACK });
     p.drawText(v, { x: MRG+280, y, size: 9, font: bold, color: BLUE });
@@ -212,7 +218,7 @@ async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportRe
     const bF   = bi.reduce((s, i) => s + i.totalTTC, 0);
     const bP   = bi.filter(i => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
     const bC   = bc.reduce((s, c) => s + c.amount, 0);
-    y = tr(p, reg, bold, y, [b.name, String(b.lots.length), formatCurrency(bF), formatCurrency(bP), formatCurrency(bC), formatCurrency(bF - bP)], BW);
+    y = tr(p, reg, bold, y, [b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bF - bP)], BW);
   }
 
   return {
@@ -359,7 +365,7 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     return {buffer:await save(),filename:`impayes-${today.toISOString().slice(0,10)}.pdf`,contentType:"application/pdf"};
   }
 
-  p.drawText(`${invoices.length} facture(s) - Total : ${formatCurrency(total)}`, {x:MRG+6,y,size:9,font:bold,color:RED});
+  p.drawText(`${invoices.length} facture(s) - Total : ${pdfCur(total)}`, {x:MRG+6,y,size:9,font:bold,color:RED});
   y -= 20;
   const WS=[85,120,105,70,75,CW-455];
   y = tr(p,reg,bold,y,["N° Facture","Locataire","Immeuble/Lot","Échéance","Montant","Retard"],WS,true);
@@ -368,7 +374,7 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     const tn=inv.tenant.entityType==="PERSONNE_MORALE"?(inv.tenant.companyName??"-"):`${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"-";
     const loc=inv.lease?.lot?`${inv.lease.lot.building.name} / ${inv.lease.lot.number}`:"-";
     const days=Math.max(0,Math.floor((today.getTime()-new Date(inv.dueDate).getTime())/86400000));
-    y=tr(p,reg,bold,y,[inv.invoiceNumber,tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),formatCurrency(inv.totalTTC),`${days}j`],WS);
+    y=tr(p,reg,bold,y,[inv.invoiceNumber,tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),pdfCur(inv.totalTTC),`${days}j`],WS);
   }
   return {buffer:await save(),filename:`impayes-${today.toISOString().slice(0,10)}.pdf`,contentType:"application/pdf"};
 }
@@ -424,7 +430,7 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
     if (y < 160) { p = np(); y = PH - 80; }
     y = sh(p, bold, y, `${lease.lot.building.name} - Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
     const totalInv = lease.invoices.reduce((s,i) => s+i.totalTTC, 0);
-    p.drawText(`Loyers appelés : ${formatCurrency(totalInv)}`, {x:MRG+10,y,size:8,font:regFont,color:BLACK}); y-=16;
+    p.drawText(`Loyers appelés : ${pdfCur(totalInv)}`, {x:MRG+10,y,size:8,font:regFont,color:BLACK}); y-=16;
 
     if (lease.chargeProvisions.length > 0) {
       const WS=[200,100,CW-300];
@@ -432,16 +438,16 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
       let totProv=0;
       for (const cp of lease.chargeProvisions) {
         if(y<60){p=np();y=PH-80;} totProv+=cp.monthlyAmount;
-        y=tr(p,regFont,bold,y,[cp.label,formatCurrency(cp.monthlyAmount),""],WS);
+        y=tr(p,regFont,bold,y,[cp.label,pdfCur(cp.monthlyAmount),""],WS);
       }
       p.drawRectangle({x:MRG,y:y-14,width:CW,height:15,color:LBLUE});
       p.drawText("Total provisions/mois",{x:MRG+4,y:y-10,size:8,font:bold,color:BLUE});
-      p.drawText(formatCurrency(totProv),{x:MRG+204,y:y-10,size:8,font:bold,color:BLUE}); y-=20;
+      p.drawText(pdfCur(totProv),{x:MRG+204,y:y-10,size:8,font:bold,color:BLUE}); y-=20;
     }
 
     for (const chargeReg of lease.chargeRegularizations) {
       if(y<60){p=np();y=PH-80;}
-      p.drawText(`Régularisation ${chargeReg.fiscalYear} : charges ${formatCurrency(chargeReg.totalCharges)} / provisions ${formatCurrency(chargeReg.totalProvisions)} - Solde ${formatCurrency(chargeReg.balance)}`,
+      p.drawText(`Régularisation ${chargeReg.fiscalYear} : charges ${pdfCur(chargeReg.totalCharges)} / provisions ${pdfCur(chargeReg.totalProvisions)} - Solde ${pdfCur(chargeReg.balance)}`,
         {x:MRG+10,y,size:8,font:regFont,color:chargeReg.balance>0?RED:BLACK}); y-=16;
     }
     y -= 8;
