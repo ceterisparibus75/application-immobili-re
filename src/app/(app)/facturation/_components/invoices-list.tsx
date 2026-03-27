@@ -1,0 +1,208 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Building2, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
+
+type InvoiceItem = {
+  id: string;
+  invoiceNumber: string;
+  invoiceType: InvoiceType;
+  status: InvoiceStatus;
+  dueDate: Date;
+  totalTTC: number;
+  totalHT: number;
+  sentAt: Date | null;
+  tenant: {
+    id: string;
+    entityType: TenantEntityType;
+    companyName?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+    billingEmail?: string | null;
+  };
+  lease?: { lot?: { building?: { id: string; name: string } | null } | null } | null;
+  _count: { payments: number };
+};
+const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
+  EN_RETARD: "En retard", LITIGIEUX: "Litigieux",
+};
+
+const STATUS_VARIANTS: Record<InvoiceStatus, "default"|"success"|"warning"|"destructive"|"secondary"> = {
+  EN_ATTENTE: "default", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
+  EN_RETARD: "destructive", LITIGIEUX: "destructive",
+};
+
+const TYPE_LABELS: Record<InvoiceType, string> = {
+  APPEL_LOYER: "Appel loyer", QUITTANCE: "Quittance",
+  REGULARISATION_CHARGES: "Régul. charges", REFACTURATION: "Refacturation", AVOIR: "Avoir",
+};
+
+function getTenantName(t: InvoiceItem["tenant"]): string {
+  return t.entityType === "PERSONNE_MORALE"
+    ? (t.companyName ?? "—")
+    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
+}
+
+function getBuildingName(invoice: InvoiceItem): string {
+  return invoice.lease?.lot?.building?.name ?? "Sans immeuble";
+}
+
+function hasEmail(invoice: InvoiceItem): boolean {
+  return !!(invoice.tenant.billingEmail || invoice.tenant.email);
+}
+
+export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+
+  const byBuilding: [string, InvoiceItem[]][] = Object.entries(
+    invoices.reduce<Record<string, InvoiceItem[]>>((acc, inv) => {
+      const key = getBuildingName(inv);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(inv);
+      return acc;
+    }, {})
+  )
+    .sort(([a], [b]) => {
+      if (a === "Sans immeuble") return 1;
+      if (b === "Sans immeuble") return -1;
+      return a.localeCompare(b, "fr");
+    })
+    .map(([name, invs]) => [
+      name,
+      [...invs].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
+    ]);
+
+  const sendableIds = invoices.filter(hasEmail).map((i) => i.id);
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => {
+      if (prev.size === sendableIds.length) return new Set();
+      return new Set(sendableIds);
+    });
+  }, [sendableIds]);
+
+  const toggleOne = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const sendBulk = async () => {
+    setSending(true);
+    let ok = 0;
+    let ko = 0;
+    for (const id of selected) {
+      try {
+        const r = await fetch(`/api/invoices/${id}/send-email`, { method: "POST" });
+        if (r.ok) ok++;
+        else ko++;
+      } catch {
+        ko++;
+      }
+    }
+    setSending(false);
+    setSelected(new Set());
+    if (ok > 0) toast.success(`${ok} email${ok > 1 ? "s" : ""} envoyé${ok > 1 ? "s" : ""}`);
+    if (ko > 0) toast.error(`${ko} échec${ko > 1 ? "s" : ""} d’envoi`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 px-1 flex-wrap">
+        <Checkbox
+          checked={sendableIds.length > 0 && selected.size === sendableIds.length}
+          onCheckedChange={toggleAll}
+          id="select-all"
+          aria-label="Tout sélectionner"
+        />
+        <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer select-none">
+          Tout sélectionner ({sendableIds.length} avec email)
+        </label>
+        {selected.size > 0 && (
+          <>
+            <span className="text-xs font-medium">
+              {selected.size} sélectionné{selected.size > 1 ? "es" : "e"}
+            </span>
+            <Button size="sm" onClick={sendBulk} disabled={sending}>
+              {sending ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Mail className="h-4 w-4 mr-2" />)}
+              Envoyer par mail
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending}>
+              Annuler
+            </Button>
+          </>
+        )}
+      </div>
+
+      {byBuilding.map(([buildingName, invs]) => (
+        <Card key={buildingName}>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              {buildingName}
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                {invs.length} facture{invs.length > 1 ? "s" : ""}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {invs.map((invoice) => (
+                <div key={invoice.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
+                  <Checkbox
+                    checked={selected.has(invoice.id)}
+                    onCheckedChange={() => toggleOne(invoice.id)}
+                    disabled={!hasEmail(invoice)}
+                    title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : undefined}
+                    aria-label={`Sélectionner ${invoice.invoiceNumber}`}
+                  />
+                  <Link
+                    href={`/facturation/${invoice.id}`}
+                    className="flex flex-1 items-center justify-between min-w-0 gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
+                        {invoice.sentAt && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Email envoyé" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getTenantName(invoice.tenant)} — {formatDate(invoice.dueDate)}
+                        {invoice.sentAt && (
+                          <span className="ml-1 text-emerald-600">· envoyé le {formatDate(invoice.sentAt)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-sm font-medium">{formatCurrency(invoice.totalTTC)}</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(invoice.totalHT)} HT</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs hidden md:flex">{TYPE_LABELS[invoice.invoiceType]}</Badge>
+                      <Badge variant={STATUS_VARIANTS[invoice.status]} className="text-xs">{STATUS_LABELS[invoice.status]}</Badge>
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}

@@ -29,6 +29,9 @@ const navigation = [
     items: [
       { name: "Baux", href: "/baux", icon: FileText },
       { name: "Locataires", href: "/locataires", icon: Users },
+      { name: "Facturation", href: "/facturation", icon: Receipt },
+      { name: "Charges", href: "/charges", icon: ScrollText },
+      { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
@@ -36,9 +39,6 @@ const navigation = [
   {
     title: "Finances",
     items: [
-      { name: "Facturation", href: "/facturation", icon: Receipt },
-      { name: "Charges", href: "/charges", icon: ScrollText },
-      { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Banque", href: "/banque", icon: Landmark },
       { name: "Emprunts", href: "/emprunts", icon: Banknote },
       { name: "Comptabilite", href: "/comptabilite", icon: BookOpen },

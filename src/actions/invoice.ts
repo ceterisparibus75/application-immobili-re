@@ -226,6 +226,19 @@ export async function getInvoices(societyId: string) {
           companyName: true,
           firstName: true,
           lastName: true,
+          email: true,
+          billingEmail: true,
+        },
+      },
+      lease: {
+        include: {
+          lot: {
+            include: {
+              building: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       },
       _count: { select: { payments: true } },
