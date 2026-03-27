@@ -1165,8 +1165,10 @@ model Invoice {
   totalTTC Float
 
   fileUrl String? // PDF généré
-  sentAt  DateTime?
-  sentBy  String? // email
+  sentAt              DateTime?
+  sentBy              String?   // email destinataire
+  resendEmailId       String?   // ID Resend pour tracking livraison
+  emailDeliveryStatus String?   // delivered, bounced, spam_complaint...
 
   // Avoir — référence à la facture d'origine
   creditNoteForId String?

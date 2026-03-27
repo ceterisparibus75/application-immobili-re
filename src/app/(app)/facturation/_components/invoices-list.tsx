@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { Building2, Mail, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
@@ -21,6 +21,8 @@ type InvoiceItem = {
   totalTTC: number;
   totalHT: number;
   sentAt: Date | null;
+  resendEmailId: string | null;
+  emailDeliveryStatus: string | null;
   tenant: {
     id: string;
     entityType: TenantEntityType;
@@ -33,6 +35,9 @@ type InvoiceItem = {
   lease?: { lot?: { building?: { id: string; name: string } | null } | null } | null;
   _count: { payments: number };
 };
+
+type DeliveryStatus = { status: string | null; label: string | null };
+
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
   EN_RETARD: "En retard", LITIGIEUX: "Litigieux",
@@ -48,10 +53,15 @@ const TYPE_LABELS: Record<InvoiceType, string> = {
   REGULARISATION_CHARGES: "Régul. charges", REFACTURATION: "Refacturation", AVOIR: "Avoir",
 };
 
+const DELIVERY_LABELS: Record<string, string> = {
+  delivered: "Livré", bounced: "Rejeté", spam_complaint: "Spam",
+  opened: "Ouvert", clicked: "Cliqué", sent: "Envoyé", queued: "En file",
+};
+
 function getTenantName(t: InvoiceItem["tenant"]): string {
   return t.entityType === "PERSONNE_MORALE"
     ? (t.companyName ?? "—")
-    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
+    : [t.firstName, t.lastName].filter(Boolean).join(" ") || "—";
 }
 
 function getBuildingName(invoice: InvoiceItem): string {
@@ -62,11 +72,65 @@ function hasEmail(invoice: InvoiceItem): boolean {
   return !!(invoice.tenant.billingEmail || invoice.tenant.email);
 }
 
+function DeliveryBadge({ status, label }: { status: string | null; label: string | null }) {
+  if (!status || !label) return null;
+  if (["delivered", "opened", "clicked"].includes(status)) {
+    return (
+      <span className="flex items-center gap-0.5 text-emerald-600 text-[10px] font-medium">
+        <CheckCircle2 className="h-3 w-3 shrink-0" />{label}
+      </span>
+    );
+  }
+  if (["bounced", "spam_complaint"].includes(status)) {
+    return (
+      <span className="flex items-center gap-0.5 text-red-500 text-[10px] font-medium">
+        <XCircle className="h-3 w-3 shrink-0" />{label}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-0.5 text-muted-foreground text-[10px]">
+      <Clock className="h-3 w-3 shrink-0" />{label}
+    </span>
+  );
+}
+
 export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const router = useRouter();
   const [sending, setSending] = useState(false);
   const [localSentIds, setLocalSentIds] = useState<Set<string>>(new Set());
+  const [deliveryStatuses, setDeliveryStatuses] = useState<Record<string, DeliveryStatus>>({});
+
+  useEffect(() => {
+    const sentInvoices = invoices.filter((i) => i.resendEmailId);
+    if (sentInvoices.length === 0) return;
+    sentInvoices.forEach(async (invoice) => {
+      if (
+        invoice.emailDeliveryStatus &&
+        ["delivered", "bounced", "spam_complaint"].includes(invoice.emailDeliveryStatus)
+      ) {
+        setDeliveryStatuses((prev) => ({
+          ...prev,
+          [invoice.id]: {
+            status: invoice.emailDeliveryStatus,
+            label: DELIVERY_LABELS[invoice.emailDeliveryStatus!] ?? invoice.emailDeliveryStatus,
+          },
+        }));
+        return;
+      }
+      try {
+        const r = await fetch(`/api/invoices/${invoice.id}/email-status`);
+        if (r.ok) {
+          const data = await r.json() as DeliveryStatus;
+          setDeliveryStatuses((prev) => ({ ...prev, [invoice.id]: data }));
+        }
+      } catch {
+        // ignore
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const byBuilding: [string, InvoiceItem[]][] = Object.entries(
     invoices.reduce<Record<string, InvoiceItem[]>>((acc, inv) => {
@@ -115,6 +179,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
         if (r.ok) {
           ok++;
           setLocalSentIds((prev) => new Set([...prev, id]));
+          setDeliveryStatuses((prev) => ({ ...prev, [id]: { status: "sent", label: "Envoyé" } }));
         } else {
           const body = await r.json().catch(() => ({})) as { error?: { message?: string } };
           const inv = invoices.find((i) => i.id === id);
@@ -132,7 +197,6 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
     if (errors.length > 0) toast.error(errors.join(" | "), { duration: 10000 });
     router.refresh();
   };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 px-1 flex-wrap">
@@ -176,6 +240,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
             <div className="divide-y">
               {invs.map((invoice) => {
                 const isSent = !!(invoice.sentAt) || localSentIds.has(invoice.id);
+                const delivery = deliveryStatuses[invoice.id] ?? null;
                 return (
                   <div key={invoice.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
                   <Checkbox
@@ -192,18 +257,21 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
-                        {isSent && (
+                        {isSent && delivery?.status && (
+                          <DeliveryBadge status={delivery.status} label={delivery.label} />
+                        )}
+                        {isSent && !delivery?.status && (
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Email envoyé" />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {getTenantName(invoice.tenant)} — {formatDate(invoice.dueDate)}
-                          {isSent && invoice.sentAt && (
-                            <span className="ml-1 text-emerald-600">· envoye le {formatDate(invoice.sentAt)}</span>
-                          )}
-                          {isSent && !invoice.sentAt && localSentIds.has(invoice.id) && (
-                            <span className="ml-1 text-emerald-600">· envoye</span>
-                          )}
+                        {isSent && invoice.sentAt && (
+                          <span className="ml-1 text-emerald-600">· envoyé le {formatDate(invoice.sentAt)}</span>
+                        )}
+                        {isSent && !invoice.sentAt && localSentIds.has(invoice.id) && (
+                          <span className="ml-1 text-emerald-600">· envoyé</span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

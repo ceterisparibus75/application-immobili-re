@@ -197,7 +197,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
         await prisma.invoice.update({
           where: { id },
-          data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to },
+          data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to, resendEmailId: emailResult.emailId ?? null },
         });
 
         await prisma.document.create({
@@ -227,7 +227,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       details: { to, invoiceNumber: invoice.invoiceNumber },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, emailId: emailResult.emailId });
   } catch (error) {
     if (error instanceof ForbiddenError)
       return NextResponse.json({ error: { code: "FORBIDDEN", message: error.message } }, { status: 403 });

@@ -56,6 +56,7 @@ function fmt(amount: number): string {
 interface EmailResult {
   success: boolean;
   error?: string;
+  emailId?: string;
 }
 
 async function sendMail(to: string, subject: string, html: string, attachments?: Array<{ filename: string; content: Buffer }>): Promise<EmailResult> {
@@ -66,7 +67,7 @@ async function sendMail(to: string, subject: string, html: string, attachments?:
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
     }
     console.log("[sendMail] Envoye OK, id:", data?.id, "| a:", to, "| sujet:", subject);
-    return { success: true };
+    return { success: true, emailId: data?.id };
   } catch (error) {
     console.error("[sendMail] exception:", error);
     return { success: false, error: String(error) };
