@@ -64,7 +64,7 @@ async function initPdf(title: string, subtitle: string) {
     p.drawText(subtitle, { x: MRG, y: PH-48, size: 9,  font: reg,  color: rgb(0.82,0.87,0.96) });
     p.drawText(`Généré le ${ds}`, { x: PW-150, y: PH-38, size: 8, font: reg, color: rgb(0.82,0.87,0.96) });
     p.drawLine({ start:{x:MRG,y:30}, end:{x:PW-MRG,y:30}, thickness:0.5, color:GRAY });
-    p.drawText(`Application de gestion immobilière — Page ${pageCount}`, { x: MRG, y:18, size:7, font:reg, color:GRAY });
+    p.drawText(`Application de gestion immobiliere - Page ${pageCount}`, { x: MRG, y:18, size:7, font:reg, color:GRAY });
     return p;
   };
   return { bold, reg, np, save: async (): Promise<Buffer> => Buffer.from(await doc.save()) };
@@ -127,10 +127,10 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
 
   for (const b of buildings) {
     if (y < 150) { p = np(); y = PH - 80; }
-    y = sh(p, bold, y, `${b.name}  —  ${b.lots.length} lot(s)`);
+    y = sh(p, bold, y, `${b.name} - ${b.lots.length} lot(s)`);
     const occ  = b.lots.filter(l => l.leases.length > 0).length;
     const rent = b.lots.reduce((s, l) => s + (l.leases[0]?.currentRentHT ?? 0), 0);
-    p.drawText(`Occupation : ${occ}/${b.lots.length}  •  Loyers HC : ${formatCurrency(rent)}/mois`,
+    p.drawText(`Occupation : ${occ}/${b.lots.length} | Loyers HC : ${formatCurrency(rent)}/mois`,
       { x: MRG+6, y: y+2, size: 8, font: reg, color: GRAY });
     y -= 16;
     y = tr(p, reg, bold, y, HDR, WS, true);
@@ -139,14 +139,14 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
       const lease = lot.leases[0];
       const tn = lease?.tenant
         ? (lease.tenant.entityType === "PERSONNE_MORALE"
-            ? (lease.tenant.companyName ?? "—")
-            : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "—")
+            ? (lease.tenant.companyName ?? "-")
+            : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "-")
         : "Vacant";
       y = tr(p, reg, bold, y, [
         lot.number, tn, lot.lotType.replace(/_/g," "),
-        lease ? formatCurrency(lease.currentRentHT) : "—",
+        lease ? formatCurrency(lease.currentRentHT) : "-",
         lease ? "Occupé" : "Vacant",
-        lease?.endDate ? formatDate(new Date(lease.endDate)) : "—",
+        lease?.endDate ? formatDate(new Date(lease.endDate)) : "-",
       ], WS);
     }
     y -= 10;
@@ -332,9 +332,9 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     let total=0;
     for (const inv of invoices) {
       const tn = inv.tenant.entityType==="PERSONNE_MORALE"
-        ? (inv.tenant.companyName??"—")
-        : `${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"—";
-      const loc = inv.lease?.lot ? `${inv.lease.lot.building.name} / ${inv.lease.lot.number}` : "—";
+        ? (inv.tenant.companyName??"-")
+        : `${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"-";
+      const loc = inv.lease?.lot ? `${inv.lease.lot.building.name} / ${inv.lease.lot.number}` : "-";
       const days = Math.max(0, Math.floor((today.getTime()-new Date(inv.dueDate).getTime())/86400000));
       total += inv.totalTTC;
       const row=ws.addRow([inv.invoiceNumber,tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),inv.totalTTC,days,inv.status]);
@@ -359,14 +359,14 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     return {buffer:await save(),filename:`impayes-${today.toISOString().slice(0,10)}.pdf`,contentType:"application/pdf"};
   }
 
-  p.drawText(`${invoices.length} facture(s)  •  Total : ${formatCurrency(total)}`, {x:MRG+6,y,size:9,font:bold,color:RED});
+  p.drawText(`${invoices.length} facture(s) - Total : ${formatCurrency(total)}`, {x:MRG+6,y,size:9,font:bold,color:RED});
   y -= 20;
   const WS=[85,120,105,70,75,CW-455];
   y = tr(p,reg,bold,y,["N° Facture","Locataire","Immeuble/Lot","Échéance","Montant","Retard"],WS,true);
   for (const inv of invoices) {
     if(y<60){p=np();y=PH-80;y=tr(p,reg,bold,y,["N° Facture","Locataire","Immeuble/Lot","Échéance","Montant","Retard"],WS,true);}
-    const tn=inv.tenant.entityType==="PERSONNE_MORALE"?(inv.tenant.companyName??"—"):`${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"—";
-    const loc=inv.lease?.lot?`${inv.lease.lot.building.name} / ${inv.lease.lot.number}`:"—";
+    const tn=inv.tenant.entityType==="PERSONNE_MORALE"?(inv.tenant.companyName??"-"):`${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"-";
+    const loc=inv.lease?.lot?`${inv.lease.lot.building.name} / ${inv.lease.lot.number}`:"-";
     const days=Math.max(0,Math.floor((today.getTime()-new Date(inv.dueDate).getTime())/86400000));
     y=tr(p,reg,bold,y,[inv.invoiceNumber,tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),formatCurrency(inv.totalTTC),`${days}j`],WS);
   }
@@ -396,11 +396,11 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
   });
 
   const tenantName = tenant.entityType==="PERSONNE_MORALE"
-    ? (tenant.companyName??"—")
-    : `${tenant.firstName??""} ${tenant.lastName??""}`.trim()||"—";
+    ? (tenant.companyName??"-")
+    : `${tenant.firstName??""} ${tenant.lastName??""}`.trim()||"-";
 
   const { bold, reg: regFont, np, save } = await initPdf(
-    `Récapitulatif charges — ${tenantName}`, `Exercice ${year}`
+    `Recap charges - ${tenantName}`, `Exercice ${year}`
   );
   let p: any = np(); let y = PH - 80;
 
@@ -414,7 +414,7 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
   }
 
   y = sh(p, bold, y, "Informations locataire");
-  [["Nom / Raison sociale", tenantName], ["Email", tenant.email??"—"], ["Téléphone", tenant.phone??"—"]].forEach(([l,v])=>{
+  [["Nom / Raison sociale", tenantName], ["Email", tenant.email??"-"], ["Téléphone", tenant.phone??"-"]].forEach(([l,v])=>{
     p.drawText(`${l} :`,{x:MRG+10,y,size:8,font:bold,color:GRAY});
     p.drawText(v,{x:MRG+160,y,size:8,font:regFont,color:BLACK}); y-=16;
   });
@@ -422,7 +422,7 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
 
   for (const lease of leases) {
     if (y < 160) { p = np(); y = PH - 80; }
-    y = sh(p, bold, y, `${lease.lot.building.name} — Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
+    y = sh(p, bold, y, `${lease.lot.building.name} - Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
     const totalInv = lease.invoices.reduce((s,i) => s+i.totalTTC, 0);
     p.drawText(`Loyers appelés : ${formatCurrency(totalInv)}`, {x:MRG+10,y,size:8,font:regFont,color:BLACK}); y-=16;
 
@@ -441,7 +441,7 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
 
     for (const chargeReg of lease.chargeRegularizations) {
       if(y<60){p=np();y=PH-80;}
-      p.drawText(`Régularisation ${chargeReg.fiscalYear} : charges ${formatCurrency(chargeReg.totalCharges)} / provisions ${formatCurrency(chargeReg.totalProvisions)} — Solde ${formatCurrency(chargeReg.balance)}`,
+      p.drawText(`Régularisation ${chargeReg.fiscalYear} : charges ${formatCurrency(chargeReg.totalCharges)} / provisions ${formatCurrency(chargeReg.totalProvisions)} - Solde ${formatCurrency(chargeReg.balance)}`,
         {x:MRG+10,y,size:8,font:regFont,color:chargeReg.balance>0?RED:BLACK}); y-=16;
     }
     y -= 8;
