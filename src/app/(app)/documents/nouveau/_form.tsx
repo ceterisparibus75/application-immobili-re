@@ -45,36 +45,58 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
     if (!file) { setError("Veuillez sélectionner un fichier"); return; }
     setError(""); setIsLoading(true); setUploadProgress(0);
     try {
-      setUploadStep("uploading");
       const entityFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
         : entityType === "lot" && lotId ? "lots/" + lotId
         : entityType === "lease" && leaseId ? "leases/" + leaseId
         : entityType === "tenant" && tenantId ? "tenants/" + tenantId : "general";
 
-      // Upload en streaming : le fichier est transmis directement sans buffer
-      // (contourne la limite de 4.5 Mo de Vercel via streaming)
-      const res = await fetch("/api/documents/upload-stream", {
+      // Etape 1 : URL d upload signee (Supabase)
+      setUploadStep("signing");
+      const signRes = await fetch("/api/storage/signed-upload", {
         method: "POST",
-        headers: {
-          "Content-Type": file.type,
-          "x-filename": encodeURIComponent(file.name),
-          "x-filesize": String(file.size),
-          "x-category": category || "autre",
-          "x-entity-type": entityType || "",
-          "x-building-id": entityType === "building" ? (buildingId || "") : "",
-          "x-lot-id": entityType === "lot" ? (lotId || "") : "",
-          "x-lease-id": entityType === "lease" ? (leaseId || "") : "",
-          "x-tenant-id": entityType === "tenant" ? (tenantId || "") : "",
-          "x-description": description || "",
-          "x-expires-at": expiresAt || "",
-          "x-entity-folder": entityFolder,
-        },
-        body: file,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, societyId, entityFolder }),
       });
+      if (!signRes.ok) {
+        const errData = await signRes.json() as { error?: string };
+        throw new Error(errData.error ?? "Impossible de preparer l upload");
+      }
+      const { signedUrl, storagePath, anonKey } = await signRes.json() as {
+        signedUrl: string; storagePath: string; anonKey: string;
+      };
 
-      setUploadProgress(90);
-      const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok || !json.success) throw new Error(json.error ?? ("Erreur HTTP " + res.status));
+      // Etape 2 : upload direct navigateur vers Supabase (sans passer par Vercel)
+      setUploadStep("uploading");
+      setUploadProgress(10);
+      const uploadHeaders: Record<string, string> = { "Content-Type": file.type, "x-upsert": "false" };
+      if (anonKey) uploadHeaders["apikey"] = anonKey;
+      const uploadRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: file });
+      if (!uploadRes.ok) {
+        let errMsg = "Erreur upload (" + String(uploadRes.status) + ")";
+        try { const t = await uploadRes.text(); if (t) errMsg += ": " + t; } catch { }
+        throw new Error(errMsg);
+      }
+      setUploadProgress(80);
+
+      // Etape 3 : enregistrer les metadonnees en base
+      setUploadStep("saving");
+      const regRes = await fetch("/api/documents/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storagePath, fileName: file.name, fileSize: file.size, mimeType: file.type,
+          category: category || "autre", description: description || null,
+          expiresAt: expiresAt || null,
+          buildingId: entityType === "building" ? (buildingId || null) : null,
+          lotId: entityType === "lot" ? (lotId || null) : null,
+          leaseId: entityType === "lease" ? (leaseId || null) : null,
+          tenantId: entityType === "tenant" ? (tenantId || null) : null,
+        }),
+      });
+      if (!regRes.ok) {
+        const errData = await regRes.json() as { error?: string };
+        throw new Error(errData.error ?? "Erreur enregistrement");
+      }
       setUploadProgress(100);
       router.push("/documents");
     } catch (err: unknown) {
