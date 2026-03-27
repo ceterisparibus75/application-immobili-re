@@ -94,9 +94,10 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
 
+    const msg = error instanceof Error ? error.message : String(error);
     console.error("[POST /api/rapports]", error);
     return NextResponse.json(
-      { error: { code: "GENERATION_FAILED", message: "Erreur lors de la génération du rapport" } },
+      { error: { code: "GENERATION_FAILED", message: msg } },
       { status: 500 }
     );
   }
