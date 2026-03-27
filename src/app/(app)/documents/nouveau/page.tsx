@@ -73,6 +73,7 @@ export default async function NouveauDocumentPage() {
 
   return (
     <UploadDocumentForm
+      societyId={societyId}
       buildings={buildings}
       lots={lotOptions}
       leases={leaseOptions}
