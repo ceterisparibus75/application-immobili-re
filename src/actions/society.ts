@@ -97,6 +97,7 @@ export async function createSociety(
       details: { name: society.name, siret: society.siret },
     });
 
+    revalidatePath("/", "layout");
     revalidatePath("/societes");
     revalidatePath("/dashboard");
 

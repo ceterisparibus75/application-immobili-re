@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -40,32 +41,31 @@ export function SocietyProvider({
   children: React.ReactNode;
   initialSocieties: Society[];
 }) {
-  const [societies] = useState<Society[]>(initialSocieties);
+  const societies = initialSocieties;
   const [activeSociety, setActiveSocietyState] = useState<Society | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    // Lire la société active depuis le cookie
+    if (initialized.current) return;
+    initialized.current = true;
+
     const cookieValue = document.cookie
       .split("; ")
       .find((row) => row.startsWith("active-society-id="))
       ?.split("=")[1];
 
-    if (cookieValue) {
-      const found = societies.find((s) => s.id === cookieValue);
-      if (found) {
-        setActiveSocietyState(found);
-      } else if (societies.length > 0) {
-        setActiveSocietyState(societies[0]);
-        document.cookie = `active-society-id=${societies[0].id};path=/;max-age=${60 * 60 * 24 * 365}`;
-      }
-    } else if (societies.length > 0) {
-      setActiveSocietyState(societies[0]);
-      document.cookie = `active-society-id=${societies[0].id};path=/;max-age=${60 * 60 * 24 * 365}`;
-    }
+    const found = cookieValue
+      ? (societies.find((s) => s.id === cookieValue) ?? societies[0] ?? null)
+      : (societies[0] ?? null);
 
+    if (found) {
+      setActiveSocietyState(found);
+      document.cookie = `active-society-id=${found.id};path=/;max-age=${60 * 60 * 24 * 365}`;
+    }
     setIsLoading(false);
-  }, [societies]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setActiveSociety = useCallback((society: Society) => {
     setActiveSocietyState(society);
