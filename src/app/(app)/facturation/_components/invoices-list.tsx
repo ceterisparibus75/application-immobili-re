@@ -54,7 +54,7 @@ const TYPE_LABELS: Record<InvoiceType, string> = {
 };
 
 const DELIVERY_LABELS: Record<string, string> = {
-  delivered: "Livré", bounced: "Rejeté", spam_complaint: "Spam",
+  delivered: "Transmis", bounced: "Rejeté", spam_complaint: "Spam",
   opened: "Ouvert", clicked: "Cliqué", sent: "Envoyé", queued: "En file",
 };
 
@@ -74,26 +74,52 @@ function hasEmail(invoice: InvoiceItem): boolean {
 
 function DeliveryBadge({ status, label }: { status: string | null; label: string | null }) {
   if (!status || !label) return null;
-  if (["delivered", "opened", "clicked"].includes(status)) {
+
+  // opened/clicked = confirmed inbox delivery
+  if (["opened", "clicked"].includes(status)) {
     return (
-      <span className="flex items-center gap-0.5 text-emerald-600 text-[10px] font-medium">
+      <span
+        className="flex items-center gap-0.5 text-emerald-600 text-[10px] font-medium"
+        title="L’email a été ouvert par le destinataire"
+      >
         <CheckCircle2 className="h-3 w-3 shrink-0" />{label}
       </span>
     );
   }
+
+  // delivered = accepted by MX server, NOT guaranteed inbox
+  if (status === "delivered") {
+    return (
+      <span
+        className="flex items-center gap-0.5 text-blue-500 text-[10px] font-medium"
+        title="Accepté par le serveur du destinataire — peut être dans les spams"
+      >
+        <CheckCircle2 className="h-3 w-3 shrink-0" />{label}
+      </span>
+    );
+  }
+
   if (["bounced", "spam_complaint"].includes(status)) {
     return (
-      <span className="flex items-center gap-0.5 text-red-500 text-[10px] font-medium">
+      <span
+        className="flex items-center gap-0.5 text-red-500 text-[10px] font-medium"
+        title={status === "bounced" ? "Adresse invalide ou refusé" : "Signalé comme spam"}
+      >
         <XCircle className="h-3 w-3 shrink-0" />{label}
       </span>
     );
   }
+
   return (
-    <span className="flex items-center gap-0.5 text-muted-foreground text-[10px]">
+    <span
+      className="flex items-center gap-0.5 text-muted-foreground text-[10px]"
+      title="En attente de confirmation de livraison"
+    >
       <Clock className="h-3 w-3 shrink-0" />{label}
     </span>
   );
 }
+
 
 export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
