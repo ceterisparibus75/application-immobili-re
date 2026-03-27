@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,9 @@ function hasEmail(invoice: InvoiceItem): boolean {
 
 export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const router = useRouter();
   const [sending, setSending] = useState(false);
+  const [localSentIds, setLocalSentIds] = useState<Set<string>>(new Set());
 
   const byBuilding: [string, InvoiceItem[]][] = Object.entries(
     invoices.reduce<Record<string, InvoiceItem[]>>((acc, inv) => {
@@ -102,10 +105,11 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
   }, []);
 
   const sendBulk = async () => {
+    const ids = Array.from(selected);
     setSending(true);
     let ok = 0;
     let ko = 0;
-    for (const id of selected) {
+    for (const id of ids) {
       try {
         const r = await fetch(`/api/invoices/${id}/send-email`, { method: "POST" });
         if (r.ok) ok++;
@@ -118,6 +122,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
     setSelected(new Set());
     if (ok > 0) toast.success(`${ok} email${ok > 1 ? "s" : ""} envoyé${ok > 1 ? "s" : ""}`);
     if (ko > 0) toast.error(`${ko} échec${ko > 1 ? "s" : ""} d’envoi`);
+    router.refresh();
   };
 
   return (
@@ -139,7 +144,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
             </span>
             <Button size="sm" onClick={sendBulk} disabled={sending}>
               {sending ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Mail className="h-4 w-4 mr-2" />)}
-              Envoyer par mail
+              {sending ? "Envoi en cours..." : "Envoyer par mail"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending}>
               Annuler
@@ -161,12 +166,14 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {invs.map((invoice) => (
-                <div key={invoice.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
+              {invs.map((invoice) => {
+                const isSent = !!(invoice.sentAt) || localSentIds.has(invoice.id);
+                return (
+                  <div key={invoice.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
                   <Checkbox
                     checked={selected.has(invoice.id)}
                     onCheckedChange={() => toggleOne(invoice.id)}
-                    disabled={!hasEmail(invoice)}
+                    disabled={!hasEmail(invoice) || sending}
                     title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : undefined}
                     aria-label={`Sélectionner ${invoice.invoiceNumber}`}
                   />
@@ -177,15 +184,18 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
-                        {invoice.sentAt && (
+                        {isSent && (
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Email envoyé" />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {getTenantName(invoice.tenant)} — {formatDate(invoice.dueDate)}
-                        {invoice.sentAt && (
-                          <span className="ml-1 text-emerald-600">· envoyé le {formatDate(invoice.sentAt)}</span>
-                        )}
+                          {isSent && invoice.sentAt && (
+                            <span className="ml-1 text-emerald-600">· envoye le {formatDate(invoice.sentAt)}</span>
+                          )}
+                          {isSent && !invoice.sentAt && localSentIds.has(invoice.id) && (
+                            <span className="ml-1 text-emerald-600">· envoye</span>
+                          )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -197,8 +207,9 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                       <Badge variant={STATUS_VARIANTS[invoice.status]} className="text-xs">{STATUS_LABELS[invoice.status]}</Badge>
                     </div>
                   </Link>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
