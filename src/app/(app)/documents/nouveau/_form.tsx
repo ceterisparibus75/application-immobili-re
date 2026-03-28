@@ -64,33 +64,41 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       const subs = parts.slice(1, -1).map((p) => p.replace(/[^a-zA-Z0-9._-]/g, "_"));
       if (subs.length > 0) entityFolder = baseFolder + "/" + subs.join("/");
     }
-    const signRes = await fetch("/api/storage/signed-upload", {
+
+    // Étape 1 : créer une session TUS sur Supabase (via serveur → pas de CORS)
+    const initRes = await fetch("/api/storage/tus-create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: f.name, contentType: f.type, societyId, entityFolder }),
+      body: JSON.stringify({ filename: f.name, mimeType: f.type, fileSize: f.size, societyId, entityFolder }),
     });
-    if (!signRes.ok) {
-      const err = await signRes.json() as { error?: string };
+    if (!initRes.ok) {
+      const err = await initRes.json() as { error?: string };
       throw new Error("[préparation] " + (err.error ?? "Erreur serveur"));
     }
-    const { signedUrl, token, storagePath, anonKey } = await signRes.json() as {
-      signedUrl: string; token: string; storagePath: string; bucket: string; anonKey: string;
-    };
-    if (!anonKey) throw new Error("[upload] Clé Supabase manquante (NEXT_PUBLIC_SUPABASE_ANON_KEY non configurée sur Vercel)");
-    const uploadHeaders: Record<string, string> = {
-      "Content-Type": f.type,
-      "apikey": anonKey,
-    };
-    let putRes: Response;
-    try {
-      putRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: f });
-    } catch (netErr) {
-      throw new Error("[upload] Impossible de joindre le serveur de stockage. Vérifiez votre connexion. (" + String(netErr) + ")");
+    const { tusUrl, storagePath } = await initRes.json() as { tusUrl: string; storagePath: string };
+
+    // Étape 2 : envoyer le fichier en morceaux de 3,5 Mo (< limite Vercel 4,5 Mo)
+    const CHUNK = 3_670_016;
+    let offset = 0;
+    while (offset < f.size) {
+      const slice = f.slice(offset, Math.min(offset + CHUNK, f.size));
+      const chunkRes = await fetch("/api/storage/tus-patch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "x-tus-url": tusUrl,
+          "x-upload-offset": String(offset),
+        },
+        body: slice,
+      });
+      if (!chunkRes.ok) {
+        const err = await chunkRes.json() as { error?: string };
+        throw new Error("[upload] " + (err.error ?? "Erreur chunk"));
+      }
+      offset += slice.size;
     }
-    if (!putRes.ok) {
-      const msg = await putRes.text().catch(() => String(putRes.status));
-      throw new Error("[upload] Erreur " + putRes.status + " : " + msg.substring(0, 200));
-    }
+
+    // Étape 3 : enregistrer en base
     const regRes = await fetch("/api/documents/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
