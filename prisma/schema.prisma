@@ -119,6 +119,12 @@ enum DocumentCheckStatus {
 
 enum InvoiceStatus {
   EN_ATTENTE
+  BROUILLON
+  VALIDEE
+  ENVOYEE
+  RELANCEE
+  IRRECOUVRABLE
+  ANNULEE
   PAYE
   PARTIELLEMENT_PAYE
   EN_RETARD
@@ -1972,6 +1978,7 @@ enum NotificationType {
   SEPA_PAYMENT_FAILED
   SEPA_PAYMENT_CONFIRMED
   INSURANCE_EXPIRING
+  RENT_REVISION
 }
 
 /// Notification in-app

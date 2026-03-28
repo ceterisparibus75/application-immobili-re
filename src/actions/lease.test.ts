@@ -11,7 +11,7 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t"
 const VALID_CUID2 = "clh3x2z4k0001qh8g7z1y2v3u"
-const validLeaseInput = { lotId: VALID_CUID, tenantId: VALID_CUID2, leaseType: "COMMERCIAL_369" as const, startDate: "2024-01-01", durationMonths: 108, baseRentHT: 1500, depositAmount: 3000, paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, billingTerm: "A_ECHOIR" as const, revisionFrequency: "ANNUELLE" as const, rentFreeMonths: 0, entryFee: 0 } as unknown as CreateLeaseInput
+const validLeaseInput = { lotId: VALID_CUID, tenantId: VALID_CUID2, leaseType: "COMMERCIAL_369" as const, startDate: "2024-01-01", durationMonths: 108, baseRentHT: 1500, depositAmount: 3000, paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, billingTerm: "A_ECHOIR" as const, revisionFrequency: 12, rentFreeMonths: 0, entryFee: 0 } as unknown as CreateLeaseInput
 describe("createLease", () => {
   it("erreur si non authentifie", async () => { mockUnauthenticated(); const r = await createLease("society-1", validLeaseInput); expect(r.success).toBe(false); expect(r.error).toBe("Non authentifié") })
   it("erreur si role LECTURE", async () => { mockAuthSession(UserRole.LECTURE); const r = await createLease("society-1", validLeaseInput); expect(r.success).toBe(false); expect(r.error).toBe("Permissions insuffisantes pour cette action") })
