@@ -54,8 +54,8 @@ type DataroomFull = {
   accesses: {
     id: string;
     createdAt: Date;
-    visitorName: string | null;
-    visitorEmail: string | null;
+    viewerName: string | null;
+    viewerEmail: string | null;
     ipAddress: string | null;
   }[];
   _count: { documents: number; accesses: number };
@@ -392,8 +392,8 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                 {dataroom.accesses.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="text-xs">{formatDate(a.createdAt)}</TableCell>
-                    <TableCell className="text-xs">{a.visitorName ?? "Anonyme"}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs">{a.visitorEmail ?? "-"}</TableCell>
+                    <TableCell className="text-xs">{a.viewerName ?? "Anonyme"}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs">{a.viewerEmail ?? "-"}</TableCell>
                     <TableCell className="hidden md:table-cell text-xs font-mono">{a.ipAddress ?? "-"}</TableCell>
                   </TableRow>
                 ))}
