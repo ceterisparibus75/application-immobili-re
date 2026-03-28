@@ -17,6 +17,7 @@ export default auth(async (req) => {
     pathname.startsWith("/api/webhooks") ||
     pathname.startsWith("/api/admin/migrate") ||
     pathname.startsWith("/api/dataroom") ||
+    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/dataroom") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
