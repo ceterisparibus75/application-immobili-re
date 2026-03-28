@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
   File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
-  Download, Eye, Filter,
+  Download, Eye, Filter, FolderLock,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -23,6 +24,7 @@ import { DeleteDocumentButton } from "./delete-button";
 import { AiBadge } from "./ai-badge";
 import { DocumentChat } from "./document-chat";
 import { updateDocument } from "@/actions/document";
+import { getDatarooms, addDocumentToDataroom } from "@/actions/dataroom";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -368,9 +370,77 @@ function EditForm({ doc, societyId, onSaved }: { doc: DocumentItem; societyId: s
   );
 }
 
+// ─── Dataroom Picker ─────────────────────────────────────────────────────────
+function DataroomPickerDialog({ doc, societyId, onClose }: { doc: DocumentItem; societyId: string; onClose: () => void }) {
+  const [datarooms, setDatarooms] = useState<{ id: string; name: string; _count: { documents: number } }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [done, setDone] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    void getDatarooms(societyId).then((drs) => {
+      setDatarooms(drs as { id: string; name: string; _count: { documents: number } }[]);
+      setLoading(false);
+    });
+  }, [societyId]);
+
+  async function handleAdd(dataroomId: string) {
+    setAddingId(dataroomId);
+    const result = await addDocumentToDataroom(societyId, dataroomId, doc.id);
+    setAddingId(null);
+    if (result.success) {
+      setDone((prev) => new Set(prev).add(dataroomId));
+      toast.success("Document ajouté à la dataroom");
+    } else {
+      toast.error(result.error ?? "Erreur");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <FolderLock className="h-4 w-4" />Ajouter à une dataroom
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-1 mb-2 truncate">{doc.fileName}</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : datarooms.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-muted-foreground mb-3">Aucune dataroom disponible</p>
+            <Link href="/datarooms"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {datarooms.map((dr) => (
+              <div key={dr.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{dr.name}</p>
+                  <p className="text-xs text-muted-foreground">{dr._count.documents} document{dr._count.documents !== 1 ? "s" : ""}</p>
+                </div>
+                {done.has(dr.id) ? (
+                  <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200"><Check className="h-3 w-3" />Ajouté</Badge>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
+                    onClick={() => void handleAdd(dr.id)} disabled={addingId === dr.id}>
+                    {addingId === dr.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}Ajouter
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Details Panel ────────────────────────────────────────────────────────────
 function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentItem; societyId: string; onClose: () => void; }) {
   const [doc, setDoc] = useState(initialDoc);
+  const [dataroomDoc, setDataroomDoc] = useState<DocumentItem | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{
     summary?: string; tags?: string[]; metadata?: unknown; status: string;
   } | null>(null);
@@ -431,6 +501,10 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
             <Download className="h-3.5 w-3.5" />
           </Button>
         </a>
+        <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" title="Ajouter à une dataroom"
+          onClick={() => setDataroomDoc(doc)}>
+          <FolderLock className="h-3.5 w-3.5" />
+        </Button>
       </div>
       <Tabs defaultValue="preview" className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-2 mt-2 shrink-0">
@@ -528,6 +602,13 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
           />
         </TabsContent>
       </Tabs>
+      {dataroomDoc && (
+        <DataroomPickerDialog
+          doc={dataroomDoc}
+          societyId={societyId}
+          onClose={() => setDataroomDoc(null)}
+        />
+      )}
     </div>
   );
 }

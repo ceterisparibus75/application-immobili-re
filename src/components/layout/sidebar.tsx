@@ -25,6 +25,7 @@ import {
   Upload,
   Merge,
   Layers,
+  FolderLock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -54,6 +55,7 @@ const navigation = [
       { name: "Charges", href: "/charges", icon: ScrollText },
       { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
+      { name: "Datarooms", href: "/datarooms", icon: FolderLock },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
   },

@@ -1,0 +1,242 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { createAuditLog } from "@/lib/audit";
+import { revalidatePath } from "next/cache";
+import type { ActionResult } from "@/actions/society";
+import { createDataroomSchema, updateDataroomSchema } from "@/validations/dataroom";
+
+// ─── Requêtes ─────────────────────────────────────────────────────────────────
+
+export async function getDatarooms(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.dataroom.findMany({
+    where: { societyId },
+    include: {
+      _count: { select: { documents: true, accesses: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getDataroom(societyId: string, dataroomId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.dataroom.findFirst({
+    where: { id: dataroomId, societyId },
+    include: {
+      documents: {
+        orderBy: { order: "asc" },
+        include: {
+          document: {
+            select: {
+              id: true,
+              fileName: true,
+              fileUrl: true,
+              fileSize: true,
+              mimeType: true,
+              category: true,
+              description: true,
+              storagePath: true,
+              aiStatus: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+      accesses: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      },
+      _count: { select: { documents: true, accesses: true } },
+    },
+  });
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+export async function createDataroom(
+  societyId: string,
+  input: { name: string; description?: string | null; expiresAt?: string | null }
+): Promise<ActionResult<{ id: string; token: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = createDataroomSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const dataroom = await prisma.dataroom.create({
+      data: {
+        societyId,
+        createdById: session.user.id,
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "Dataroom",
+      entityId: dataroom.id,
+      details: { name: dataroom.name },
+    });
+
+    revalidatePath("/datarooms");
+    return { success: true, data: { id: dataroom.id, token: dataroom.token } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createDataroom]", error);
+    return { success: false, error: "Erreur lors de la création" };
+  }
+}
+
+export async function updateDataroom(
+  societyId: string,
+  dataroomId: string,
+  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean }
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = updateDataroomSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroom.update({
+      where: { id: dataroomId },
+      data: {
+        ...(parsed.data.name !== undefined && { name: parsed.data.name }),
+        ...(parsed.data.description !== undefined && { description: parsed.data.description }),
+        ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
+        expiresAt:
+          parsed.data.expiresAt !== undefined
+            ? parsed.data.expiresAt
+              ? new Date(parsed.data.expiresAt)
+              : null
+            : undefined,
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Dataroom",
+      entityId: dataroomId,
+      details: parsed.data,
+    });
+
+    revalidatePath("/datarooms");
+    revalidatePath(`/datarooms/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateDataroom]", error);
+    return { success: false, error: "Erreur lors de la mise à jour" };
+  }
+}
+
+export async function deleteDataroom(societyId: string, dataroomId: string): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroom.delete({ where: { id: dataroomId } });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "Dataroom",
+      entityId: dataroomId,
+      details: { name: dr.name },
+    });
+
+    revalidatePath("/datarooms");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteDataroom]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+export async function addDocumentToDataroom(
+  societyId: string,
+  dataroomId: string,
+  documentId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const [dr, doc] = await Promise.all([
+      prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } }),
+      prisma.document.findFirst({ where: { id: documentId, societyId } }),
+    ]);
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+    if (!doc) return { success: false, error: "Document introuvable" };
+
+    const count = await prisma.dataroomDocument.count({ where: { dataroomId } });
+
+    await prisma.dataroomDocument.upsert({
+      where: { dataroomId_documentId: { dataroomId, documentId } },
+      create: { dataroomId, documentId, order: count },
+      update: {},
+    });
+
+    revalidatePath(`/datarooms/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[addDocumentToDataroom]", error);
+    return { success: false, error: "Erreur lors de l'ajout" };
+  }
+}
+
+export async function removeDocumentFromDataroom(
+  societyId: string,
+  dataroomId: string,
+  documentId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroomDocument.deleteMany({ where: { dataroomId, documentId } });
+
+    revalidatePath(`/datarooms/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[removeDocumentFromDataroom]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
