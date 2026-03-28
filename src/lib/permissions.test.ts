@@ -21,7 +21,7 @@ describe("hasMinRole", () => {
 
 describe("requireSocietyAccess", () => {
   it("acces OK si membership existe", async () => {
-    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.GESTIONNAIRE) as unknown)
+    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.GESTIONNAIRE))
     const result = await requireSocietyAccess("user-1", "society-1")
     expect(result).toBeDefined()
     expect(result.role).toBe(UserRole.GESTIONNAIRE)
@@ -33,24 +33,24 @@ describe("requireSocietyAccess", () => {
   })
 
   it("ForbiddenError si role insuffisant", async () => {
-    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.LECTURE) as unknown)
+    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.LECTURE))
     await expect(requireSocietyAccess("user-1", "society-1", UserRole.GESTIONNAIRE)).rejects.toThrow(ForbiddenError)
   })
 
   it("acces OK si role exactement egal au minRole", async () => {
-    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.GESTIONNAIRE) as unknown)
+    prismaMock.userSociety.findUnique.mockResolvedValue(buildMembership(UserRole.GESTIONNAIRE))
     await expect(requireSocietyAccess("user-1", "society-1", UserRole.GESTIONNAIRE)).resolves.toBeDefined()
   })
 })
 
 describe("requireSuperAdmin", () => {
   it("OK si au moins un role SUPER_ADMIN", async () => {
-    prismaMock.userSociety.findMany.mockResolvedValue([buildMembership(UserRole.SUPER_ADMIN) as unknown])
+    prismaMock.userSociety.findMany.mockResolvedValue([buildMembership(UserRole.SUPER_ADMIN)])
     await expect(requireSuperAdmin("user-1")).resolves.toBe(true)
   })
 
   it("ForbiddenError si aucun role SUPER_ADMIN", async () => {
-    prismaMock.userSociety.findMany.mockResolvedValue([buildMembership(UserRole.GESTIONNAIRE) as unknown])
+    prismaMock.userSociety.findMany.mockResolvedValue([buildMembership(UserRole.GESTIONNAIRE)])
     await expect(requireSuperAdmin("user-1")).rejects.toThrow(ForbiddenError)
   })
 

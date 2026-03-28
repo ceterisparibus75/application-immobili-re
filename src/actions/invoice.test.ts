@@ -27,13 +27,13 @@ describe("recordPayment", () => {
   it("erreur si amount negatif", async () => { mockAuthSession(UserRole.COMPTABLE); const r = await recordPayment("society-1", { ...validPayment, amount: -1 }); expect(r.success).toBe(false); expect(r.error).toBe("Le montant doit être positif") })
   it("erreur si amount est 0", async () => { mockAuthSession(UserRole.COMPTABLE); const r = await recordPayment("society-1", { ...validPayment, amount: 0 }); expect(r.success).toBe(false); expect(r.error).toBe("Le montant doit être positif") })
   it("erreur si facture introuvable", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValue(null); const r = await recordPayment("society-1", validPayment); expect(r.success).toBe(false); expect(r.error).toBe("Facture introuvable") })
-  it("erreur si facture BROUILLON", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, payments: [] }) as unknown); const r = await recordPayment("society-1", validPayment); expect(r.success).toBe(false); expect(r.error).toContain("brouillon ou annul") })
+  it("erreur si facture BROUILLON", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, payments: [] }) as never); const r = await recordPayment("society-1", validPayment); expect(r.success).toBe(false); expect(r.error).toContain("brouillon ou annul") })
   it("paiement total -> PAYE", async () => {
     mockAuthSession(UserRole.COMPTABLE)
     const inv = buildInvoice({ id: VALID_CUID, status: InvoiceStatus.EN_ATTENTE, totalTTC: 500, payments: [] })
-    prismaMock.invoice.findFirst.mockResolvedValue(inv as unknown)
-    prismaMock.payment.create.mockResolvedValue({ id: "pay-1" } as unknown)
-    prismaMock.invoice.update.mockResolvedValue({} as unknown)
+    prismaMock.invoice.findFirst.mockResolvedValue(inv as never)
+    prismaMock.payment.create.mockResolvedValue({ id: "pay-1" } as never)
+    prismaMock.invoice.update.mockResolvedValue({} as never)
     const r = await recordPayment("society-1", { ...validPayment, amount: 500 })
     expect(r.success).toBe(true)
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PAYE" }) }))
@@ -41,9 +41,9 @@ describe("recordPayment", () => {
   it("paiement partiel -> PARTIELLEMENT_PAYE", async () => {
     mockAuthSession(UserRole.COMPTABLE)
     const inv = buildInvoice({ id: VALID_CUID, status: InvoiceStatus.EN_ATTENTE, totalTTC: 1000, payments: [] })
-    prismaMock.invoice.findFirst.mockResolvedValue(inv as unknown)
-    prismaMock.payment.create.mockResolvedValue({ id: "pay-2" } as unknown)
-    prismaMock.invoice.update.mockResolvedValue({} as unknown)
+    prismaMock.invoice.findFirst.mockResolvedValue(inv as never)
+    prismaMock.payment.create.mockResolvedValue({ id: "pay-2" } as never)
+    prismaMock.invoice.update.mockResolvedValue({} as never)
     const r = await recordPayment("society-1", { ...validPayment, amount: 300 })
     expect(r.success).toBe(true)
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PARTIELLEMENT_PAYE" }) }))
@@ -51,9 +51,9 @@ describe("recordPayment", () => {
   it("cumul paiements -> PAYE", async () => {
     mockAuthSession(UserRole.COMPTABLE)
     const inv = buildInvoice({ id: VALID_CUID, status: InvoiceStatus.PARTIELLEMENT_PAYE, totalTTC: 1000, payments: [{ amount: 700 }] })
-    prismaMock.invoice.findFirst.mockResolvedValue(inv as unknown)
-    prismaMock.payment.create.mockResolvedValue({ id: "pay-3" } as unknown)
-    prismaMock.invoice.update.mockResolvedValue({} as unknown)
+    prismaMock.invoice.findFirst.mockResolvedValue(inv as never)
+    prismaMock.payment.create.mockResolvedValue({ id: "pay-3" } as never)
+    prismaMock.invoice.update.mockResolvedValue({} as never)
     const r = await recordPayment("society-1", { ...validPayment, amount: 300 })
     expect(r.success).toBe(true)
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PAYE" }) }))
@@ -68,18 +68,18 @@ describe("generateInvoiceFromLease", () => {
 
 describe("validateInvoice", () => {
   it("erreur si non authentifie", async () => { mockUnauthenticated(); const r = await validateInvoice("society-1", VALID_CUID); expect(r.success).toBe(false); expect(r.error).toBe("Non authentifié") })
-  it("valide une facture brouillon", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON }) as unknown); prismaMock.invoice.update.mockResolvedValue({} as unknown); const r = await validateInvoice("society-1", VALID_CUID); expect(r.success).toBe(true); expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) })) })
+  it("valide une facture brouillon", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON }) as never); prismaMock.invoice.update.mockResolvedValue({} as never); const r = await validateInvoice("society-1", VALID_CUID); expect(r.success).toBe(true); expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) })) })
 })
 
 describe("cancelInvoice", () => {
   it("erreur si non authentifie", async () => { mockUnauthenticated(); const r = await cancelInvoice("society-1", VALID_CUID); expect(r.success).toBe(false); expect(r.error).toBe("Non authentifié") })
   it("erreur si facture introuvable", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(null); const r = await cancelInvoice("society-1", VALID_CUID); expect(r.success).toBe(false); expect(r.error).toBe("Facture introuvable") })
-  it("annule une facture brouillon", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, lines: [], creditNotes: [] }) as unknown); prismaMock.invoice.update.mockResolvedValue({} as unknown); const r = await cancelInvoice("society-1", VALID_CUID); expect(r.success).toBe(true); expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "ANNULEE" }) })) })
+  it("annule une facture brouillon", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, lines: [], creditNotes: [] }) as never); prismaMock.invoice.update.mockResolvedValue({} as never); const r = await cancelInvoice("society-1", VALID_CUID); expect(r.success).toBe(true); expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "ANNULEE" }) })) })
 })
 
 describe("createCreditNote", () => {
   const validCreditNote = { originalInvoiceId: VALID_CUID, dueDate: "2024-02-28" }
   it("erreur si non authentifie", async () => { mockUnauthenticated(); const r = await createCreditNote("society-1", validCreditNote); expect(r.success).toBe(false); expect(r.error).toBe("Non authentifié") })
   it("erreur si facture introuvable", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValueOnce(null); const r = await createCreditNote("society-1", validCreditNote); expect(r.success).toBe(false); expect(r.error).toBe("Facture originale introuvable") })
-  it("erreur si avoir sur un avoir", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValueOnce(buildInvoice({ id: VALID_CUID, invoiceType: InvoiceType.AVOIR, lines: [] }) as unknown); const r = await createCreditNote("society-1", validCreditNote); expect(r.success).toBe(false); expect(r.error).toContain("avoir sur un avoir") })
+  it("erreur si avoir sur un avoir", async () => { mockAuthSession(UserRole.COMPTABLE); prismaMock.invoice.findFirst.mockResolvedValueOnce(buildInvoice({ id: VALID_CUID, invoiceType: InvoiceType.AVOIR, lines: [] }) as never); const r = await createCreditNote("society-1", validCreditNote); expect(r.success).toBe(false); expect(r.error).toContain("avoir sur un avoir") })
 })

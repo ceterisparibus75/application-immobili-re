@@ -452,7 +452,8 @@ describe("Upload fichier 12 Mo dans la GED", () => {
       const supabaseInstance = vi.mocked(createClient).mock.results[0].value as {
         storage: { from: ReturnType<typeof vi.fn> }
       }
-      const storageFrom = supabaseInstance.storage.from("documents") as {
+       
+      const storageFrom = (supabaseInstance.storage.from as (...args: unknown[]) => unknown)("documents") as {
         createSignedUrl: ReturnType<typeof vi.fn>
       }
       expect(storageFrom.createSignedUrl).toHaveBeenCalledWith(

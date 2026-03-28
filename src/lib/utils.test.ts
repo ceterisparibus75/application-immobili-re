@@ -36,5 +36,5 @@ describe("getLogoProxyUrl", () => {
 })
 
 describe("cn", () => {
-  it("merge des classes", () => { expect(cn("a", "b", false as unknown)).toBe("a b") })
+  it("merge des classes", () => { expect(cn("a", "b", false as unknown as string | undefined)).toBe("a b") })
 })

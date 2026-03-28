@@ -5,6 +5,7 @@
 // ============================================================
 
 generator client {
+  output   = "../src/generated/prisma/client"
   provider = "prisma-client-js"
 }
 

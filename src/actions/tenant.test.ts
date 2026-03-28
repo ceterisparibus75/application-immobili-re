@@ -18,21 +18,21 @@ describe("createTenant", () => {
 
   it("retourne une erreur si non authentifié", async () => {
     mockUnauthenticated()
-    const result = await createTenant("society-1", validInput as unknown)
+    const result = await createTenant("society-1", validInput as never)
     expect(result.success).toBe(false)
     expect(result.error).toBe("Non authentifié")
   })
 
   it("retourne une erreur si role LECTURE (insuffisant)", async () => {
     mockAuthSession(UserRole.LECTURE)
-    const result = await createTenant("society-1", validInput as unknown)
+    const result = await createTenant("society-1", validInput as never)
     expect(result.success).toBe(false)
     expect(result.error).toBe("Permissions insuffisantes pour cette action")
   })
 
   it("retourne une erreur si input invalide (email manquant)", async () => {
     mockAuthSession()
-    const result = await createTenant("society-1", { ...validInput, email: "" } as unknown)
+    const result = await createTenant("society-1", { ...validInput, email: "" } as never)
     expect(result.success).toBe(false)
     expect(result.error).toBe("Email invalide")
   })
@@ -40,10 +40,10 @@ describe("createTenant", () => {
   it("crée le locataire et retourne son id", async () => {
     mockAuthSession()
     const tenant = buildTenantPhysique()
-    prismaMock.tenant.create.mockResolvedValue(tenant as unknown)
-    prismaMock.auditLog.create.mockResolvedValue({} as unknown)
-    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as unknown)
-    const result = await createTenant("society-1", validInput as unknown)
+    prismaMock.tenant.create.mockResolvedValue(tenant as never)
+    prismaMock.auditLog.create.mockResolvedValue({} as never)
+    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as never)
+    const result = await createTenant("society-1", validInput as never)
     expect(result.success).toBe(true)
     expect(result.data?.id).toBe("tenant-1")
     expect(prismaMock.tenant.create).toHaveBeenCalledOnce()
