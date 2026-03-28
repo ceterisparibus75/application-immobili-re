@@ -15,6 +15,7 @@ import {
   FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
   File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
+  Download, Eye, Filter,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -211,6 +212,75 @@ function FileGridCard({ doc, selected, onSelect, societyId }: { doc: DocumentIte
     </div>
   );
 }
+// ─── Preview Panel ────────────────────────────────────────────────────────────
+function PreviewContent({ doc }: { doc: DocumentItem }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const isImage = doc.mimeType?.startsWith("image/");
+  const isPdf = doc.mimeType === "application/pdf";
+  const previewUrl = doc.storagePath
+    ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}`
+    : null;
+
+  if (!previewUrl || (!isImage && !isPdf)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center py-8">
+        <Eye className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+        <p className="text-xs text-muted-foreground">Aperçu non disponible</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-1">PDF et images uniquement</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center py-8">
+        <AlertTriangle className="h-8 w-8 text-orange-400 mx-auto mb-3" />
+        <p className="text-xs text-muted-foreground">Impossible de charger l&apos;aperçu</p>
+        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm" className="mt-3 text-xs gap-1">
+            <ExternalLink className="h-3.5 w-3.5" />Ouvrir
+          </Button>
+        </a>
+      </div>
+    );
+  }
+
+  if (isImage) {
+    return (
+      <div className="flex items-center justify-center h-full p-2 bg-muted/20 rounded">
+        {loading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground absolute" />}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={doc.fileName}
+          className="max-w-full max-h-full object-contain rounded"
+          onLoad={() => setLoading(false)}
+          onError={() => { setLoading(false); setError(true); }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      <iframe
+        src={previewUrl}
+        title={doc.fileName}
+        className="w-full h-full border-0 rounded"
+        onLoad={() => setLoading(false)}
+        onError={() => { setLoading(false); setError(true); }}
+      />
+    </div>
+  );
+}
+
 // ─── Edit Form ────────────────────────────────────────────────────────────────
 function EditForm({ doc, societyId, onSaved }: { doc: DocumentItem; societyId: string; onSaved: (updated: Partial<DocumentItem>) => void }) {
   const [category, setCategory] = useState(doc.category ?? "autre");
@@ -352,14 +422,29 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
           <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1"><ExternalLink className="h-3.5 w-3.5" />Ouvrir</Button>
         </a>
+        <a
+          href={doc.storagePath ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}&dl=1` : doc.fileUrl}
+          download={doc.fileName}
+          className="shrink-0"
+        >
+          <Button variant="outline" size="icon" className="h-7 w-7" title="Télécharger">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+        </a>
       </div>
-      <Tabs defaultValue={hasAnalysis ? "ai" : "info"} className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue="preview" className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-2 mt-2 shrink-0">
+          <TabsTrigger value="preview" className="flex-1 text-xs"><Eye className="h-3 w-3 mr-1" />Aperçu</TabsTrigger>
           <TabsTrigger value="ai" className="flex-1 text-xs"><Sparkles className="h-3.5 w-3.5 mr-1" />IA</TabsTrigger>
           <TabsTrigger value="chat" className="flex-1 text-xs">Chat</TabsTrigger>
           <TabsTrigger value="info" className="flex-1 text-xs">Infos</TabsTrigger>
           <TabsTrigger value="edit" className="flex-1 text-xs"><Pencil className="h-3 w-3 mr-1" />Éditer</TabsTrigger>
         </TabsList>
+        <TabsContent value="preview" className="flex-1 min-h-0 px-3 pb-3 mt-2" style={{ height: "100%" }}>
+          <div className="h-full min-h-[300px]">
+            <PreviewContent doc={doc} />
+          </div>
+        </TabsContent>
         <TabsContent value="ai" className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 mt-2">
           {display.aiStatus === "pending" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
@@ -451,10 +536,17 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
   const [selectedFolder, setSelectedFolder] = useState<string>("all");
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
+
+  const usedCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of documents) { if (d.category) set.add(d.category); }
+    return DOCUMENT_CATEGORIES.filter((c) => set.has(c.value));
+  }, [documents]);
 
   const tree = useMemo(() => buildTree(documents), [documents]);
 
@@ -466,7 +558,8 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
 
   const sorted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const filtered = !q ? folderFiltered : folderFiltered.filter((d) =>
+    const categoryFiltered = categoryFilter === "all" ? folderFiltered : folderFiltered.filter((d) => d.category === categoryFilter);
+    const filtered = !q ? categoryFiltered : categoryFiltered.filter((d) =>
       d.fileName.toLowerCase().includes(q) ||
       (d.description?.toLowerCase().includes(q) ?? false) ||
       getCategoryLabel(d.category).toLowerCase().includes(q) ||
@@ -483,7 +576,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
       else if (sortBy === "size") cmp = (a.fileSize ?? 0) - (b.fileSize ?? 0);
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [folderFiltered, search, sortBy, sortDir]);
+  }, [folderFiltered, categoryFilter, search, sortBy, sortDir]);
 
   function handleSort(key: SortKey) {
     if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -506,6 +599,27 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             <Input className="pl-8 h-7 text-xs" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setSearch("")}><X className="h-3.5 w-3.5" /></button>}
           </div>
+          {usedCategories.length > 1 && (
+            <div className="hidden sm:flex items-center gap-1 shrink-0">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-7 text-xs w-36 border-0 bg-transparent shadow-none focus:ring-0 px-1">
+                  <SelectValue placeholder="Catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Toutes catégories</SelectItem>
+                  {usedCategories.map((c) => (
+                    <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {categoryFilter !== "all" && (
+                <button onClick={() => setCategoryFilter("all")} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-1 ml-auto">
             <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("list")}><List className="h-3.5 w-3.5" /></Button>
             <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("grid")}><LayoutGrid className="h-3.5 w-3.5" /></Button>
@@ -537,8 +651,20 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             </div>
           )}
         </div>
-        <div className="border-t px-3 py-1 text-xs text-muted-foreground bg-muted/10 shrink-0">
-          {sorted.length} élément{sorted.length !== 1 ? "s" : ""}
+        <div className="border-t px-3 py-1 text-xs text-muted-foreground bg-muted/10 shrink-0 flex items-center gap-2">
+          <span>{sorted.length} élément{sorted.length !== 1 ? "s" : ""}</span>
+          {categoryFilter !== "all" && (
+            <Badge variant="secondary" className="text-[10px] py-0 gap-1">
+              {getCategoryLabel(categoryFilter)}
+              <button onClick={() => setCategoryFilter("all")}><X className="h-2.5 w-2.5" /></button>
+            </Badge>
+          )}
+          {search && (
+            <Badge variant="secondary" className="text-[10px] py-0 gap-1">
+              &ldquo;{search}&rdquo;
+              <button onClick={() => setSearch("")}><X className="h-2.5 w-2.5" /></button>
+            </Badge>
+          )}
         </div>
       </div>
       {selectedDoc && (
