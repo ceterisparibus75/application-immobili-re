@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Loader2, FileUp, FolderOpen, CheckCircle2, X, Upload, File as FileIcon } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { cn } from "@/lib/utils";
 
@@ -74,13 +73,16 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       const err = await signRes.json() as { error?: string };
       throw new Error("[préparation] " + (err.error ?? "Erreur serveur"));
     }
-    const { token, storagePath, bucket, anonKey } = await signRes.json() as {
+    const { signedUrl, token, storagePath, anonKey } = await signRes.json() as {
       signedUrl: string; token: string; storagePath: string; bucket: string; anonKey: string;
     };
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-    const supabase = createClient(supabaseUrl, anonKey || "placeholder");
-    const { error: upErr } = await supabase.storage.from(bucket).uploadToSignedUrl(storagePath, token, f, { contentType: f.type });
-    if (upErr) throw new Error("[upload Supabase] " + upErr.message);
+    const uploadHeaders: Record<string, string> = { "Content-Type": f.type };
+    if (anonKey) { uploadHeaders["apikey"] = anonKey; uploadHeaders["Authorization"] = `Bearer ${token}`; }
+    const putRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: f });
+    if (!putRes.ok) {
+      const msg = await putRes.text().catch(() => String(putRes.status));
+      throw new Error("[upload Supabase] " + msg.substring(0, 200));
+    }
     const regRes = await fetch("/api/documents/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
