@@ -690,12 +690,46 @@ model Lease {
   documents             Document[]
   reminders             Reminder[]
   depositMovements      DepositMovement[]
+  amendments            LeaseAmendment[]
 
   @@index([societyId])
   @@index([lotId])
   @@index([tenantId])
   @@index([societyId, status])
   @@index([endDate])
+}
+
+
+/// Type d'avenant au bail
+enum AmendmentType {
+  RENOUVELLEMENT
+  AVENANT_LOYER
+  AVENANT_DUREE
+  AVENANT_DIVERS
+  RESILIATION
+}
+
+/// Avenant au bail
+model LeaseAmendment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leaseId   String
+
+  amendmentNumber Int
+  effectiveDate   DateTime
+  description     String        @db.Text
+  amendmentType   AmendmentType
+  previousRentHT  Float?
+  newRentHT       Float?
+  previousEndDate DateTime?
+  newEndDate      DateTime?
+  otherChanges    Json?
+
+  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@unique([leaseId, amendmentNumber])
+  @@index([leaseId])
 }
 
 /// Mouvement sur dépôt de garantie
@@ -1176,6 +1210,9 @@ model Invoice {
   sentBy              String?   // email destinataire
   resendEmailId       String?   // ID Resend pour tracking livraison
   emailDeliveryStatus String?   // delivered, bounced, spam_complaint...
+  validatedAt         DateTime?
+  cancelledAt         DateTime?
+  cancelReason        String?
 
   // Avoir — référence à la facture d'origine
   creditNoteForId String?
@@ -1418,7 +1455,9 @@ model JournalEntryLine {
   debit    Float   @default(0)
   credit   Float   @default(0)
   label    String?
-  lettrage String? // Code de lettrage (rapprochement 411)
+  lettrage       String? // Code de lettrage (rapprochement 411)
+  letteringCode  String?
+  letteredAt     DateTime?
 
   journalEntry JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account      AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
@@ -1426,6 +1465,7 @@ model JournalEntryLine {
   @@index([journalEntryId])
   @@index([accountId])
   @@index([lettrage])
+  @@index([letteringCode])
 }
 
 /// Exercice comptable
@@ -2023,7 +2063,8 @@ model Dataroom {
   shareToken    String    @unique @default(cuid())
   status        String    @default("BROUILLON")
   expiresAt     DateTime?
-  accessCount   Int       @default(0)
+  accessCount     Int       @default(0)
+  lastAccessedAt  DateTime?
   /// Mot de passe haché (optionnel, haché bcrypt) pour protéger l'accès, null = accès libre
   password      String?
   /// Email du bénéficiaire externe (notifié à chaque ajout de document)

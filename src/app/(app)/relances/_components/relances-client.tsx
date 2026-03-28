@@ -10,7 +10,7 @@ import { AlertTriangle, Bell, Loader2 } from "lucide-react";
 import { sendBulkReminders } from "@/actions/reminder";
 import SendReminderButton from "./send-reminder-button";
 import { toast } from "sonner";
-import type { ReminderLevel } from "@prisma/client";
+import type { ReminderLevel } from "@/generated/prisma/client";
 
 const NOW = Date.now();
 
