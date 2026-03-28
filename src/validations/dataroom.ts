@@ -7,10 +7,11 @@ export const createDataroomSchema = z.object({
   password: z.string().max(100).optional().nullable(),
   recipientEmail: z.string().email("Email invalide").optional().nullable(),
   recipientName: z.string().max(100).optional().nullable(),
+  purpose: z.string().max(100).optional().nullable(),
 });
 
 export const updateDataroomSchema = createDataroomSchema.partial().extend({
-  isActive: z.boolean().optional(),
+  status: z.enum(["BROUILLON", "ACTIF", "ARCHIVE"]).optional(),
 });
 
 export type CreateDataroomInput = z.infer<typeof createDataroomSchema>;

@@ -10,8 +10,6 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================
@@ -2009,28 +2007,29 @@ model Dataroom {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   societyId   String
-  createdById String?
+  createdBy   String?
 
   name          String
   description   String?   @db.Text
   /// Token public unique pour l'accès sans authentification
-  token         String    @unique @default(cuid())
-  isActive      Boolean   @default(true)
+  shareToken    String    @unique @default(cuid())
+  status        String    @default("BROUILLON")
   expiresAt     DateTime?
-  viewCount     Int       @default(0)
-  /// Mot de passe haché (bcrypt) pour protéger l'accès, null = accès libre
-  passwordHash  String?
+  accessCount   Int       @default(0)
+  /// Mot de passe haché (optionnel, haché bcrypt) pour protéger l'accès, null = accès libre
+  password      String?
   /// Email du bénéficiaire externe (notifié à chaque ajout de document)
   recipientEmail String?
   recipientName  String?
+  purpose        String?
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  createdBy   User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  creator    User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   documents   DataroomDocument[]
   accesses    DataroomAccess[]
 
   @@index([societyId])
-  @@index([token])
+  @@index([shareToken])
   @@index([expiresAt])
 }
 
@@ -2040,7 +2039,7 @@ model DataroomDocument {
   createdAt  DateTime @default(now())
   dataroomId String
   documentId String
-  order      Int      @default(0)
+  sortOrder  Int      @default(0)
 
   dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

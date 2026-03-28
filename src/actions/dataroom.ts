@@ -20,6 +20,7 @@ export async function getDatarooms(societyId: string) {
   return prisma.dataroom.findMany({
     where: { societyId },
     include: {
+      creator: { select: { name: true, email: true } },
       _count: { select: { documents: true, accesses: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -35,7 +36,7 @@ export async function getDataroom(societyId: string, dataroomId: string) {
     where: { id: dataroomId, societyId },
     include: {
       documents: {
-        orderBy: { order: "asc" },
+        orderBy: { sortOrder: "asc" },
         include: {
           document: {
             select: {
@@ -53,6 +54,7 @@ export async function getDataroom(societyId: string, dataroomId: string) {
           },
         },
       },
+      creator: { select: { name: true, email: true } },
       accesses: {
         orderBy: { createdAt: "desc" },
         take: 50,
@@ -66,7 +68,7 @@ export async function getDataroom(societyId: string, dataroomId: string) {
 
 export async function createDataroom(
   societyId: string,
-  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null; recipientEmail?: string | null; recipientName?: string | null }
+  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null; recipientEmail?: string | null; recipientName?: string | null; purpose?: string | null }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
     const session = await auth();
@@ -82,13 +84,12 @@ export async function createDataroom(
     const dataroom = await prisma.dataroom.create({
       data: {
         societyId,
-        createdById: session.user.id,
+        createdBy: session.user.id,
         name: parsed.data.name,
         description: parsed.data.description ?? null,
         expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
-        passwordHash,
-        recipientEmail: parsed.data.recipientEmail ?? null,
-        recipientName: parsed.data.recipientName ?? null,
+        password: passwordHash,
+        purpose: parsed.data.purpose ?? null,
       },
     });
 
@@ -102,7 +103,7 @@ export async function createDataroom(
     });
 
     revalidatePath("/datarooms");
-    return { success: true, data: { id: dataroom.id, token: dataroom.token } };
+    return { success: true, data: { id: dataroom.id, token: dataroom.shareToken || dataroom.id } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createDataroom]", error);
@@ -113,7 +114,7 @@ export async function createDataroom(
 export async function updateDataroom(
   societyId: string,
   dataroomId: string,
-  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean; password?: string | null; recipientEmail?: string | null; recipientName?: string | null }
+  input: { name?: string; description?: string | null; expiresAt?: string | null; password?: string | null; purpose?: string | null }
 ): Promise<ActionResult> {
   try {
     const session = await auth();
@@ -128,10 +129,10 @@ export async function updateDataroom(
     if (!dr) return { success: false, error: "Dataroom introuvable" };
 
     // Handle password: empty string = remove password, non-empty = set new hash, undefined = don't change
-    let passwordHashUpdate: { passwordHash: string | null } | undefined;
+    let passwordHashUpdate: { password: string | null } | undefined;
     if (parsed.data.password !== undefined) {
       passwordHashUpdate = {
-        passwordHash: parsed.data.password ? await bcrypt.hash(parsed.data.password, 10) : null,
+        password: parsed.data.password ? await bcrypt.hash(parsed.data.password, 10) : null,
       };
     }
 
@@ -140,10 +141,9 @@ export async function updateDataroom(
       data: {
         ...(parsed.data.name !== undefined && { name: parsed.data.name }),
         ...(parsed.data.description !== undefined && { description: parsed.data.description }),
-        ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
+        ...(parsed.data.purpose !== undefined && { purpose: parsed.data.purpose }),
         ...(passwordHashUpdate !== undefined && passwordHashUpdate),
-        ...(parsed.data.recipientEmail !== undefined && { recipientEmail: parsed.data.recipientEmail }),
-        ...(parsed.data.recipientName !== undefined && { recipientName: parsed.data.recipientName }),
         expiresAt:
           parsed.data.expiresAt !== undefined
             ? parsed.data.expiresAt
@@ -225,23 +225,23 @@ export async function addDocumentToDataroom(
 
     await prisma.dataroomDocument.upsert({
       where: { dataroomId_documentId: { dataroomId, documentId } },
-      create: { dataroomId, documentId, order: count },
+      create: { dataroomId, documentId, sortOrder: count },
       update: {},
     });
 
-    // Notifier le bénéficiaire si un email est configuré (non-bloquant)
-    if (dr.recipientEmail) {
-      const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://app.example.com";
-      void sendDataroomDocumentAddedEmail({
-        to: dr.recipientEmail,
-        recipientName: dr.recipientName,
-        dataroomName: dr.name,
-        documentName: doc.fileName,
-        documentCount: count + 1,
-        dataroomUrl: `${appUrl}/dataroom/${dr.token}`,
-        societyName: dr.society.name,
-      }).catch((err) => console.error("[addDocumentToDataroom] email failed:", err));
-    }
+    // Email notification skipped - recipientEmail not in current schema
+
+
+
+
+
+
+
+
+
+
+
+
 
     revalidatePath(`/datarooms/${dataroomId}`);
     return { success: true };
@@ -258,18 +258,18 @@ export async function verifyDataroomPassword(
 ): Promise<ActionResult> {
   try {
     const dataroom = await prisma.dataroom.findUnique({
-      where: { token },
-      select: { id: true, passwordHash: true, isActive: true, expiresAt: true },
+      where: { shareToken: token },
+      select: { id: true, password: true, status: true, expiresAt: true },
     });
 
-    if (!dataroom || !dataroom.isActive)
+    if (!dataroom || dataroom.status !== "ACTIF")
       return { success: false, error: "Dataroom introuvable ou inactive" };
     if (dataroom.expiresAt && new Date(dataroom.expiresAt) < new Date())
       return { success: false, error: "Cette dataroom a expiré" };
-    if (!dataroom.passwordHash)
+    if (!dataroom.password)
       return { success: true }; // no password required
 
-    const valid = await bcrypt.compare(password, dataroom.passwordHash);
+    const valid = await bcrypt.compare(password, dataroom.password);
     if (!valid) return { success: false, error: "Mot de passe incorrect" };
     return { success: true };
   } catch (error) {
@@ -299,5 +299,134 @@ export async function removeDocumentFromDataroom(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[removeDocumentFromDataroom]", error);
     return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+
+// --- Fonctions complementaires ---
+
+export async function getDataroomByToken(token: string) {
+  const dataroom = await prisma.dataroom.findUnique({
+    where: { shareToken: token },
+    include: {
+      society: { select: { name: true, logoUrl: true } },
+      documents: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          document: {
+            select: {
+              id: true,
+              fileName: true,
+              fileUrl: true,
+              fileSize: true,
+              mimeType: true,
+              category: true,
+              description: true,
+              storagePath: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!dataroom || dataroom.status !== "ACTIF") return null;
+  if (dataroom.expiresAt && new Date(dataroom.expiresAt) < new Date()) return null;
+
+  // Incrementer accessCount et creer un acces
+  await Promise.all([
+    prisma.dataroom.update({
+      where: { id: dataroom.id },
+      data: { accessCount: { increment: 1 } },
+    }),
+    prisma.dataroomAccess.create({
+      data: { dataroomId: dataroom.id },
+    }),
+  ]);
+
+  return dataroom;
+}
+
+export async function getDataroomsForDocument(societyId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.dataroom.findMany({
+    where: { societyId, status: "ACTIF" },
+    select: { id: true, name: true, status: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function activateDataroom(
+  societyId: string,
+  dataroomId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroom.update({
+      where: { id: dataroomId },
+      data: { status: "ACTIF" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Dataroom",
+      entityId: dataroomId,
+      details: { action: "activate" },
+    });
+
+    revalidatePath("/dataroom");
+    revalidatePath("/dataroom/" + dataroomId);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[activateDataroom]", error);
+    return { success: false, error: "Erreur lors de l'activation" };
+  }
+}
+
+export async function archiveDataroom(
+  societyId: string,
+  dataroomId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroom.update({
+      where: { id: dataroomId },
+      data: { status: "ARCHIVE" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Dataroom",
+      entityId: dataroomId,
+      details: { action: "archive" },
+    });
+
+    revalidatePath("/dataroom");
+    revalidatePath("/dataroom/" + dataroomId);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[archiveDataroom]", error);
+    return { success: false, error: "Erreur lors de l'archivage" };
   }
 }
