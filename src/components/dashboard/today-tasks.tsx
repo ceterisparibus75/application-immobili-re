@@ -11,10 +11,10 @@ async function getTodayTasks(societyId: string) {
   const ago30days = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
 
   const [expiringDiagnostics, expiringLeases, overdueInvoices] = await Promise.all([
-    // Diagnostics expirant dans les 30 jours
+    // Diagnostics expirant dans les 30 jours (via building → societyId)
     prisma.diagnostic.findMany({
       where: {
-        societyId,
+        building: { societyId },
         expiresAt: { gte: now, lte: in30days },
       },
       select: {
@@ -22,7 +22,6 @@ async function getTodayTasks(societyId: string) {
         type: true,
         expiresAt: true,
         building: { select: { id: true, name: true } },
-        lot: { select: { id: true, number: true } },
       },
       orderBy: { expiresAt: "asc" },
       take: 5,
@@ -104,14 +103,14 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
         {expiringDiagnostics.map((d) => (
           <Link
             key={d.id}
-            href={d.building ? `/patrimoine/immeubles/${d.building.id}` : "/patrimoine/immeubles"}
+            href={`/patrimoine/immeubles/${d.building.id}`}
             className="flex items-center gap-3 text-sm hover:bg-orange-100/60 rounded-md p-2 -mx-2 transition-colors group"
           >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
               <FileWarning className="h-3.5 w-3.5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">Diagnostic {d.type} — {d.building?.name ?? d.lot?.number ?? "—"}</p>
+              <p className="font-medium truncate">Diagnostic {d.type} — {d.building.name}</p>
               <p className="text-xs text-muted-foreground">Expire dans {daysUntil(d.expiresAt!)} jour{daysUntil(d.expiresAt!) > 1 ? "s" : ""}</p>
             </div>
             <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px] shrink-0">J-{daysUntil(d.expiresAt!)}</Badge>

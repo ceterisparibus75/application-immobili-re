@@ -603,7 +603,7 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
           <TabsTrigger value="info" className="flex-1 text-xs">Infos</TabsTrigger>
           <TabsTrigger value="edit" className="flex-1 text-xs"><Pencil className="h-3 w-3 mr-1" />Éditer</TabsTrigger>
         </TabsList>
-        <TabsContent value="preview" className="flex-1 min-h-0 px-3 pb-3 mt-2" style={{ height: "100%" }}>
+        <TabsContent value="preview" className="flex-1 min-h-0 px-3 pb-3 mt-2 h-full">
           <div className="h-full min-h-[300px]">
             <PreviewContent doc={doc} />
           </div>
