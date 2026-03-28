@@ -1,8 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const CATEGORY_HINTS: Record<string, string> = {
   bail: "Extrais : loyer mensuel (nombre), charges (nombre), date debut bail, date fin bail, type bail (meuble/non meuble), surface (m2), depot garantie.",
   avenant: "Extrais : type modification, nouvelle valeur, date effet.",
@@ -56,6 +54,7 @@ Pour les tags : utilise des mots cles courts et pertinents (categorie, type, ann
 Pour metadata : inclus uniquement les informations cles extraites du document (dates, montants, noms importants).
 Si une information n est pas dans le document, ne l inclus pas.`;
 
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-opus-4-5",
     max_tokens: 1024,
@@ -101,6 +100,7 @@ export async function chatWithDocument(
       : m.content,
   }));
 
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-opus-4-5",
     max_tokens: 1024,
