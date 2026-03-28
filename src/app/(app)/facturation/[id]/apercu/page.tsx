@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate, getLogoProxyUrl } from "@/lib/utils";
 import { decrypt } from "@/lib/encryption";
-import type { TenantEntityType, LegalForm } from "@prisma/client";
+import type { TenantEntityType, LegalForm } from "@/generated/prisma/client";
 import { PrintButton } from "./_components/print-button";
 
 const LEGAL_FORM_LABELS: Record<LegalForm, string> = {

@@ -1,5 +1,33 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions"
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(sed -i 's/ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye/ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download/' \"src/app/\\(app\\)/facturation/[id]/page.tsx\")",
+      "Bash(sed -i 's|<Link href={`/facturation/\\\\${invoice.id}/apercu`}>\\\\n.*<Button variant=\"\"outline\"\" size=\"\"sm\"\">\\\\n.*<Eye.*\\\\n.*Aperçu / Imprimer.*\\\\n.*</Button>\\\\n.*</Link>||' \"src/app/\\(app\\)/facturation/[id]/page.tsx\")",
+      "Bash(vercel --version)",
+      "Bash(vercel --yes)",
+      "Bash(python3 -c \":*)",
+      "Bash(vercel --prod --yes)",
+      "Bash(python3 /tmp/write_claude.py)",
+      "Bash(vercel --prod)",
+      "Bash(node:*)",
+      "Read(//c/Users/Maxime Langet/Mon Drive/Application gestion immobiliere/src/actions/**)",
+      "Read(//c/Users/Maxime Langet/Mon Drive/Application gestion immobiliere/src/validations/**)",
+      "Bash(python3:*)",
+      "Read(//c/c/Users/Maxime Langet/Mon Drive/Application gestion immobiliere/**)",
+      "Bash(rm -f .next/BUILD_ID .next/build-manifest.json)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(grep -n \"logoUrl\\\\|logo\\\\|getLogoProxy\" src/app/\\\\\\(app\\\\\\)/societes/[id]/modifier/page.tsx)",
+      "Read(//c/Users/Maxime Langet/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/facturation/**)",
+      "Bash(npx eslint:*)",
+      "Bash(grep '\"\"resend\"\"' package.json)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel ls:*)"
+    ],
+    "defaultMode": "bypassPermissions",
+    "additionalDirectories": [
+      "c:\\Users\\Maxime Langet\\Mon Drive\\Application gestion immobiliere\\src\\app\\api\\invoices\\[id]"
+    ]
   }
 }

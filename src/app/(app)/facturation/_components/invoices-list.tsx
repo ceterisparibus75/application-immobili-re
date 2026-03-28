@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Building2, Mail, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
+import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@/generated/prisma/client";
 
 type InvoiceItem = {
   id: string;
@@ -39,13 +39,17 @@ type InvoiceItem = {
 type DeliveryStatus = { status: string | null; label: string | null };
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
   EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
-  EN_RETARD: "En retard", LITIGIEUX: "Litigieux",
+  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
+  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
 };
 
-const STATUS_VARIANTS: Record<InvoiceStatus, "default"|"success"|"warning"|"destructive"|"secondary"> = {
+const STATUS_VARIANTS: Record<InvoiceStatus, "default"|"success"|"warning"|"destructive"|"secondary"|"outline"> = {
+  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
   EN_ATTENTE: "default", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive", LITIGIEUX: "destructive",
+  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
+  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
 };
 
 const TYPE_LABELS: Record<InvoiceType, string> = {

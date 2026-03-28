@@ -15,29 +15,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@prisma/client";
+import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@/generated/prisma/client";
 import { getLogoProxyUrl } from "@/lib/utils";
 import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
-  EN_ATTENTE: "En attente",
-  PAYE: "Payée",
-  PARTIELLEMENT_PAYE: "Partiellement payée",
-  EN_RETARD: "En retard",
-  LITIGIEUX: "Litigieux",
+  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
+  EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Partiellement payée",
+  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
+  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
 };
 
-const STATUS_VARIANTS: Record<
-  InvoiceStatus,
-  "default" | "success" | "warning" | "destructive" | "secondary"
-> = {
-  EN_ATTENTE: "default",
-  PAYE: "success",
-  PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive",
-  LITIGIEUX: "destructive",
+const STATUS_VARIANTS: Record<InvoiceStatus, "default" | "success" | "warning" | "destructive" | "secondary" | "outline"> = {
+  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
+  EN_ATTENTE: "default", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
+  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
+  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
 };
 
 const TYPE_LABELS: Record<InvoiceType, string> = {

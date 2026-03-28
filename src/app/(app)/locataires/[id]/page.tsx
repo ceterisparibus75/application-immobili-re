@@ -22,7 +22,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LeaseStatus, RiskIndicator, TenantEntityType } from "@prisma/client";
+import type { LeaseStatus, RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
 
 const RISK_VARIANTS: Record<RiskIndicator, "success" | "warning" | "destructive"> = {
   VERT: "success",

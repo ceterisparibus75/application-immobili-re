@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -10,6 +12,12 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    Sentry.captureException(error, {
+      tags: { boundary: "app-error" },
+    });
+  }, [error]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
       <AlertTriangle className="h-12 w-12 text-destructive" />
@@ -18,6 +26,11 @@ export default function Error({
         Nous sommes désolés, quelque chose s&apos;est mal passé.
         Vous pouvez réessayer ou retourner au tableau de bord.
       </p>
+      {error.digest && (
+        <p className="text-xs text-muted-foreground font-mono">
+          Référence : {error.digest}
+        </p>
+      )}
       <div className="flex gap-3">
         <Button onClick={reset} variant="default">Réessayer</Button>
         <Button variant="outline" asChild>

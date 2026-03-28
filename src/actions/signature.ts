@@ -179,8 +179,8 @@ export async function getSignatureRequests(
   return prisma.signatureRequest.findMany({
     where: {
       societyId,
-      ...(filters?.documentType ? { documentType: filters.documentType as import("@prisma/client").SignatureDocumentType } : {}),
-      ...(filters?.status ? { status: filters.status as import("@prisma/client").SignatureStatus } : {}),
+      ...(filters?.documentType ? { documentType: filters.documentType as import("@/generated/prisma/client").SignatureDocumentType } : {}),
+      ...(filters?.status ? { status: filters.status as import("@/generated/prisma/client").SignatureStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
   });
@@ -286,7 +286,7 @@ export async function syncSignatureStatus(
     if (!record) return { success: false, error: "Demande introuvable" };
 
     const envelope = await getEnvelopeStatus(record.envelopeId);
-    const statusMap: Record<string, import("@prisma/client").SignatureStatus> = {
+    const statusMap: Record<string, import("@/generated/prisma/client").SignatureStatus> = {
       sent: "SENT", delivered: "DELIVERED", completed: "COMPLETED",
       declined: "DECLINED", voided: "VOIDED",
     };

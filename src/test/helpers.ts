@@ -3,7 +3,7 @@ import type { Session } from "next-auth"
 import { auth } from "@/lib/auth"
 import { prismaMock } from "./mocks/prisma"
 import { buildMembership } from "./factories"
-import { UserRole } from "@prisma/client"
+import { UserRole } from "@/generated/prisma/client"
 
 export function mockAuthSession(
   role: UserRole = UserRole.GESTIONNAIRE,

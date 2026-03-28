@@ -1,12 +1,14 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getOwnerAnalytics, getClaimableSocieties } from "@/actions/owner";
+import { getOwnerAnalytics, getClaimableSocieties, getOwnerProfile } from "@/actions/owner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Layers, Euro, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
+import { OwnerProfileForm } from "./_components/owner-profile-form";
+import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 
 export const metadata = { title: "Vue proprietaire" };
 
@@ -28,14 +30,16 @@ export default async function ProprietaireDashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [result, claimableResult] = await Promise.all([
+  const [result, claimableResult, profileResult] = await Promise.all([
     getOwnerAnalytics(),
     getClaimableSocieties(),
+    getOwnerProfile(),
   ]);
   if (!result.success || !result.data) redirect("/login");
 
   const data = result.data;
   const claimable = claimableResult.success ? (claimableResult.data ?? []) : [];
+  const profile = profileResult.success ? profileResult.data : null;
 
   if (data.totalSocieties === 0 && claimable.length === 0) {
     redirect("/proprietaire/setup");
@@ -44,18 +48,8 @@ export default async function ProprietaireDashboardPage() {
   const cookieStore = await cookies();
   const activeSocietyId = cookieStore.get("active-society-id")?.value;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Vue proprietaire</h1>
-          <p className="text-muted-foreground">
-            Consolidation de {data.totalSocieties} societe{data.totalSocieties > 1 ? "s" : ""}
-          </p>
-        </div>
-        {claimable.length > 0 && <ClaimSocietyDialog societies={claimable} />}
-      </div>
-
+  const dashboardContent = (
+    <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -186,6 +180,25 @@ export default async function ProprietaireDashboardPage() {
           </Link>
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Vue proprietaire</h1>
+          <p className="text-muted-foreground">
+            Consolidation de {data.totalSocieties} societe{data.totalSocieties > 1 ? "s" : ""}
+          </p>
+        </div>
+        {claimable.length > 0 && <ClaimSocietyDialog societies={claimable} />}
+      </div>
+
+      <ProprietaireTabs
+        dashboardContent={dashboardContent}
+        profileContent={profile ? <OwnerProfileForm profile={profile} /> : null}
+      />
     </div>
   );
 }

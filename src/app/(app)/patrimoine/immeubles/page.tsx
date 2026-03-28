@@ -12,7 +12,7 @@ import { Building2, Home, Plus, Wrench } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { BuildingType } from "@prisma/client";
+import type { BuildingType } from "@/generated/prisma/client";
 
 export const metadata = { title: "Immeubles" };
 

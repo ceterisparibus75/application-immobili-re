@@ -10,7 +10,7 @@ import { useSociety } from "@/providers/society-provider";
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
-import type { Notification } from "@prisma/client";
+import type { Notification } from "@/generated/prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   BAIL_EXPIRING: "Bail",

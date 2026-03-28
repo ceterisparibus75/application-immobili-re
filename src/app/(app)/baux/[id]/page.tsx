@@ -31,9 +31,10 @@ import type {
   LeaseType,
   PaymentFrequency,
   TenantEntityType,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { DeleteLeaseButton } from "./_components/delete-lease-button";
 import { ChargeProvisions } from "./_components/charge-provisions";
+import { RentRevisions } from "./_components/rent-revisions";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -69,22 +70,17 @@ const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
 };
 
 const INVOICE_STATUS_LABELS: Record<string, string> = {
-  EN_ATTENTE: "En attente",
-  PAYE: "Payée",
-  PARTIELLEMENT_PAYE: "Part. payée",
-  EN_RETARD: "En retard",
-  LITIGIEUX: "Litigieux",
+  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
+  EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
+  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
+  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
 };
 
-const INVOICE_STATUS_VARIANTS: Record<
-  string,
-  "success" | "secondary" | "warning" | "destructive" | "default"
-> = {
-  EN_ATTENTE: "default",
-  PAYE: "success",
-  PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive",
-  LITIGIEUX: "destructive",
+const INVOICE_STATUS_VARIANTS: Record<string, "success" | "secondary" | "warning" | "destructive" | "default" | "outline"> = {
+  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
+  EN_ATTENTE: "default", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
+  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
+  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
 };
 
 function tenantName(t: {
@@ -396,47 +392,22 @@ export default async function BailDetailPage({
             </CardContent>
           </Card>
 
-          {/* Historique des révisions */}
-          {lease.rentRevisions.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Révisions de loyer ({lease._count.rentRevisions})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="divide-y">
-                  {lease.rentRevisions.map((rev) => (
-                    <div
-                      key={rev.id}
-                      className="flex items-center justify-between py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {new Date(rev.effectiveDate).toLocaleDateString(
-                            "fr-FR"
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Indice {rev.indexType} : {rev.newIndexValue}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {rev.newRentHT.toLocaleString("fr-FR")} € HT
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Précédent :{" "}
-                          {rev.previousRentHT.toLocaleString("fr-FR")} €
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Révisions de loyer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Révisions de loyer ({lease._count.rentRevisions})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RentRevisions
+                revisions={lease.rentRevisions}
+                societyId={societyId}
+                isActive={isActive}
+              />
+            </CardContent>
+          </Card>
 
           {/* États des lieux */}
           <Card>

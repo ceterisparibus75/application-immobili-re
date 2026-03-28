@@ -6,7 +6,7 @@ import { generateFec } from "@/lib/fec-export";
 import { createAuditLog } from "@/lib/audit";
 import { ForbiddenError } from "@/lib/permissions";
 
-// GET — Telechargement du fichier FEC
+// GET - Telechargement du fichier FEC
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const societyId = cookieStore.get("active-society-id")?.value;
@@ -26,14 +26,20 @@ export async function GET(req: NextRequest) {
   }
 
   const p = req.nextUrl.searchParams;
+  const fiscalYearId = p.get("fiscalYearId");
   const yearStr = p.get("year");
   const journalStr = p.get("journal");
 
   const options: Parameters<typeof generateFec>[1] = {};
-  if (yearStr) {
+
+  // Priorite au fiscalYearId s'il est fourni
+  if (fiscalYearId) {
+    options.fiscalYearId = fiscalYearId;
+  } else if (yearStr) {
     const y = parseInt(yearStr, 10);
     if (!isNaN(y) && y >= 2000 && y <= 2100) options.year = y;
   }
+
   if (
     journalStr &&
     ["VENTES", "BANQUE", "OPERATIONS_DIVERSES"].includes(journalStr)
@@ -50,18 +56,22 @@ export async function GET(req: NextRequest) {
     action: "EXPORT",
     entity: "JournalEntry",
     entityId: societyId,
-    details: { format: "FEC", year: yearStr, lineCount: result.lineCount },
+    details: { format: "FEC", fiscalYearId, year: yearStr, lineCount: result.lineCount },
   });
 
-  return new NextResponse(result.content, {
+  // BOM UTF-8 + contenu TSV
+  const bom = "﻿";
+  const body = bom + result.content;
+
+  return new NextResponse(body, {
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Type": "text/tab-separated-values; charset=utf-8",
       "Content-Disposition": `attachment; filename="${result.filename}"`,
     },
   });
 }
 
-// POST — Validation sans telechargement
+// POST - Validation sans telechargement
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const societyId = cookieStore.get("active-society-id")?.value;
@@ -81,9 +91,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { year, journalType, validatedOnly } = body as Record<string, unknown>;
+  const { year, journalType, validatedOnly, fiscalYearId } = body as Record<string, unknown>;
 
   const result = await generateFec(societyId, {
+    fiscalYearId: typeof fiscalYearId === "string" ? fiscalYearId : undefined,
     year: typeof year === "string" ? parseInt(year, 10) : undefined,
     journalType: typeof journalType === "string"
       ? (journalType as "VENTES" | "BANQUE" | "OPERATIONS_DIVERSES")

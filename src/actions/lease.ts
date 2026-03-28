@@ -283,7 +283,7 @@ export async function getLeaseById(societyId: string, leaseId: string) {
         },
       },
       tenant: true,
-      rentRevisions: { orderBy: { effectiveDate: "desc" }, take: 5 },
+      rentRevisions: { orderBy: { effectiveDate: "desc" }, take: 10 },
       invoices: {
         orderBy: { createdAt: "desc" },
         take: 6,

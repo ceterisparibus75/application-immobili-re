@@ -11,7 +11,7 @@ export type OverdueByAge = { label: string; count: number; amount: number };
 export type PatrimonyPoint = { date: string; value: number };
 export type TopTenant = { name: string; total: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[] };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
@@ -209,8 +209,28 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     where: { societyId, status: "EN_COURS", endDate: { lte: in90Days } },
   });
 
+  // 11. Revenus mensuels HT (somme des loyers HT des baux actifs)
+  const activeLeasesForRent = await prisma.lease.findMany({
+    where: { societyId, status: "EN_COURS" },
+    select: { currentRentHT: true },
+  });
+  const monthlyRentHT = activeLeasesForRent.reduce((s, l) => s + l.currentRentHT, 0);
+
+  // 12. Charges recuperables (total sur les 12 derniers mois)
+  const recoverableChargesAgg = await prisma.charge.aggregate({
+    where: {
+      societyId,
+      date: { gte: twelveMonthsAgo },
+      category: {
+        nature: { in: ["RECUPERABLE", "MIXTE"] },
+      },
+    },
+    _sum: { amount: true },
+  });
+  const recoverableCharges = recoverableChargesAgg._sum.amount ?? 0;
+
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline,
   };
 }

@@ -11,7 +11,7 @@ import {
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Building2, Plus } from "lucide-react";
 import Link from "next/link";
-import type { UserRole } from "@prisma/client";
+import type { UserRole } from "@/generated/prisma/client";
 
 export const metadata = {
   title: "Sociétés",

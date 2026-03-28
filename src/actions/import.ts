@@ -13,7 +13,7 @@ import type {
   PaymentFrequency,
   IndexType,
   TenantEntityType,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";

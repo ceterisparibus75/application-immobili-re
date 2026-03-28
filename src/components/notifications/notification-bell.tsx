@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Bell, Check, Calendar, AlertTriangle, Wrench, FileSignature, CreditCard } from "lucide-react";
+import { Bell, Check, Calendar, AlertTriangle, Wrench, FileSignature, CreditCard, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import { useSociety } from "@/providers/society-provider";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
-import type { Notification, NotificationType } from "@prisma/client";
+import type { Notification, NotificationType } from "@/generated/prisma/client";
 
 const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
   BAIL_EXPIRING: Calendar,
@@ -26,6 +26,7 @@ const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
   SEPA_PAYMENT_FAILED: AlertTriangle,
   SEPA_PAYMENT_CONFIRMED: CreditCard,
   INSURANCE_EXPIRING: AlertTriangle,
+  RENT_REVISION: TrendingUp,
 };
 
 export function NotificationBell() {

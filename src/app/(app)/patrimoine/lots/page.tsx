@@ -11,7 +11,7 @@ import { Home } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LotType, LotStatus } from "@prisma/client";
+import type { LotType, LotStatus } from "@/generated/prisma/client";
 
 export const metadata = { title: "Lots" };
 

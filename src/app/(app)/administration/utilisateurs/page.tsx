@@ -2,7 +2,7 @@ import { getUsers, getUsersNotInSociety } from "@/actions/user";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import {
   Card,
   CardContent,
@@ -13,7 +13,7 @@ import {
 import { Shield, UserPlus, Users } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/utils";
-import type { UserRole } from "@prisma/client";
+import type { UserRole } from "@/generated/prisma/client";
 import UsersClient from "./_components/users-client";
 
 export default async function UtilisateursPage() {

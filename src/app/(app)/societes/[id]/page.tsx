@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Building2, FileText, Home, Pencil, Plus, Users } from "lucide-react";
-import type { BuildingType } from "@prisma/client";
+import type { BuildingType } from "@/generated/prisma/client";
 
 const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
   BUREAU: "Bureau",

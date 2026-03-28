@@ -8,7 +8,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
-import type { ChargeNature } from "@prisma/client";
+import type { ChargeNature } from "@/generated/prisma/client";
 
 export const metadata = { title: "Charges" };
 

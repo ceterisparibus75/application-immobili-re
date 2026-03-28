@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateWebhookSignature } from "@/lib/docusign";
 import { createAuditLog } from "@/lib/audit";
-import type { SignatureStatus } from "@prisma/client";
+import type { SignatureStatus } from "@/generated/prisma/client";
 
 // Correspondance statuts DocuSign -> enum interne
 const STATUS_MAP: Record<string, SignatureStatus> = {

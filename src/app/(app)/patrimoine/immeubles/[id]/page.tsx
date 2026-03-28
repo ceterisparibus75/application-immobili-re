@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
   Bot,
-  Building2,
+ 
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -30,7 +30,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { BuildingType, LotStatus, LotType } from "@prisma/client";
+import type { BuildingType, LotStatus, LotType } from "@/generated/prisma/client";
 import { DeleteBuildingButton } from "./_components/delete-building-button";
 
 const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {

@@ -633,3 +633,177 @@ export async function finalizeChargeReport(societyId: string, regularizationId: 
     return { success: false, error: "Erreur lors de la finalisation" };
   }
 }
+
+// ============ RÉGULARISATION AUTOMATIQUE DES CHARGES ============
+
+/**
+ * Régularisation annuelle automatique des charges.
+ * Compare les provisions versées aux charges réelles et calcule le solde par bail.
+ */
+export async function autoRegularizeCharges(
+  societyId: string,
+  input: {
+    buildingId: string;
+    fiscalYear: number;
+    periodStart: string;
+    periodEnd: string;
+  }
+): Promise<ActionResult<{ regularizations: number; totalBalance: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const { buildingId, fiscalYear, periodStart, periodEnd } = input;
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+
+    // 1. Total des charges réelles de l'immeuble sur la période
+    const charges = await prisma.charge.findMany({
+      where: {
+        societyId,
+        buildingId,
+        date: { gte: start, lte: end },
+      },
+      include: {
+        category: { select: { nature: true, recoverableRate: true } },
+      },
+    });
+
+    const totalRealCharges = charges.reduce((sum, c) => {
+      const recoverableRate = (c.category.recoverableRate ?? 100) / 100;
+      return sum + c.amount * recoverableRate;
+    }, 0);
+
+    // 2. Baux actifs sur l'immeuble avec leurs lots (pour les tantièmes)
+    const activeLeases = await prisma.lease.findMany({
+      where: {
+        societyId,
+        status: { in: ["EN_COURS", "RESILIE"] },
+        lot: { buildingId },
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+      include: {
+        lot: { select: { id: true, commonShares: true, number: true } },
+        chargeProvisions: {
+          where: { isActive: true },
+          select: { monthlyAmount: true, startDate: true, endDate: true },
+        },
+        tenant: {
+          select: { firstName: true, lastName: true, companyName: true, entityType: true },
+        },
+      },
+    });
+
+    // Total des tantièmes de tous les lots actifs
+    const totalShares = activeLeases.reduce(
+      (s, l) => s + (l.lot.commonShares ?? 1),
+      0
+    );
+
+    let regularizationCount = 0;
+    let totalBalance = 0;
+
+    // 3. Pour chaque bail, calculer la quote-part et le solde
+    for (const lease of activeLeases) {
+      const lotShares = lease.lot.commonShares ?? 1;
+      const shareRatio = totalShares > 0 ? lotShares / totalShares : 0;
+
+      // Quote-part des charges réelles
+      const leaseChargeShare = totalRealCharges * shareRatio;
+
+      // Nombre de mois de la période couverte par le bail
+      const leaseStart = new Date(Math.max(lease.startDate.getTime(), start.getTime()));
+      const leaseEnd = lease.endDate
+        ? new Date(Math.min(lease.endDate.getTime(), end.getTime()))
+        : end;
+      const monthsCovered = Math.max(
+        0,
+        (leaseEnd.getFullYear() - leaseStart.getFullYear()) * 12 +
+          leaseEnd.getMonth() - leaseStart.getMonth() + 1
+      );
+
+      // Total des provisions versées
+      const totalProvisions = lease.chargeProvisions.reduce((sum, cp) => {
+        return sum + cp.monthlyAmount * monthsCovered;
+      }, 0);
+
+      // Solde : provisions - charges réelles
+      // Positif = trop-perçu (à rembourser au locataire)
+      // Négatif = complément à demander
+      const balance = totalProvisions - leaseChargeShare;
+      totalBalance += balance;
+
+      // Détails par catégorie de charge
+      const details = charges.reduce<Record<string, { label: string; amount: number; recoverable: number }>>((acc, c) => {
+        const key = c.category.nature;
+        if (!acc[key]) acc[key] = { label: key, amount: 0, recoverable: 0 };
+        acc[key].amount += c.amount;
+        acc[key].recoverable += c.amount * ((c.category.recoverableRate ?? 100) / 100) * shareRatio;
+        return acc;
+      }, {});
+
+      await prisma.chargeRegularization.upsert({
+        where: { leaseId_fiscalYear: { leaseId: lease.id, fiscalYear } },
+        update: {
+          periodStart: start,
+          periodEnd: end,
+          totalCharges: Math.round(leaseChargeShare * 100) / 100,
+          totalProvisions: Math.round(totalProvisions * 100) / 100,
+          balance: Math.round(balance * 100) / 100,
+          details: {
+            shareRatio: Math.round(shareRatio * 10000) / 10000,
+            lotShares,
+            totalShares,
+            monthsCovered,
+            categories: Object.values(details),
+          },
+          isFinalized: false,
+        },
+        create: {
+          leaseId: lease.id,
+          societyId,
+          fiscalYear,
+          periodStart: start,
+          periodEnd: end,
+          totalCharges: Math.round(leaseChargeShare * 100) / 100,
+          totalProvisions: Math.round(totalProvisions * 100) / 100,
+          balance: Math.round(balance * 100) / 100,
+          details: {
+            shareRatio: Math.round(shareRatio * 10000) / 10000,
+            lotShares,
+            totalShares,
+            monthsCovered,
+            categories: Object.values(details),
+          },
+        },
+      });
+
+      regularizationCount++;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "ChargeRegularization",
+      entityId: buildingId,
+      details: { fiscalYear, regularizationCount, totalBalance: Math.round(totalBalance * 100) / 100 },
+    });
+
+    revalidatePath("/charges");
+    return {
+      success: true,
+      data: {
+        regularizations: regularizationCount,
+        totalBalance: Math.round(totalBalance * 100) / 100,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[autoRegularizeCharges]", error);
+    return { success: false, error: "Erreur lors de la régularisation" };
+  }
+}

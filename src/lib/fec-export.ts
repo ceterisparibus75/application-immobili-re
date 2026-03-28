@@ -1,6 +1,6 @@
 /**
  * Generateur FEC -- Fichier des Ecritures Comptables
- * Format DGFiP (article L.47 A du Livre des Procedures Fiscales)
+ * Format DGFiP (article A.47 A-1 du Livre des Procedures Fiscales)
  * Separateur : tabulation, encodage UTF-8, CRLF
  */
 
@@ -10,12 +10,24 @@ const JOURNAL_CODES: Record<string, string> = {
   VENTES: "VT",
   BANQUE: "BQ",
   OPERATIONS_DIVERSES: "OD",
+  AN: "AN",
+  AC: "AC",
+  BQUE: "BQ",
+  INV: "IN",
+  OD: "OD",
+  VT: "VT",
 };
 
 const JOURNAL_LIBS: Record<string, string> = {
   VENTES: "Journal des ventes",
   BANQUE: "Journal de banque",
   OPERATIONS_DIVERSES: "Journal des operations diverses",
+  AN: "Journal des a-nouveaux",
+  AC: "Journal des achats",
+  BQUE: "Journal de banque",
+  INV: "Journal des investissements",
+  OD: "Journal des operations diverses",
+  VT: "Journal des ventes",
 };
 
 function fmtDate(d: Date): string {
@@ -32,8 +44,8 @@ function fmtAmount(n: number): string {
 function sanitize(s: string): string {
   return s.replace(/[\t\r\n]/g, " ").trim();
 }
-
 export interface FecOptions {
+  fiscalYearId?: string;
   year?: number;
   journalType?: "VENTES" | "BANQUE" | "OPERATIONS_DIVERSES";
   dateFrom?: Date;
@@ -74,13 +86,27 @@ export async function generateFec(
   });
   const siren = society?.siret?.replace(/\s/g, "").slice(0, 9) ?? "000000000";
 
+  // Recuperer l exercice fiscal si fiscalYearId est fourni
+  let fiscalYear: { year: number; startDate: Date; endDate: Date } | null = null;
+  if (options.fiscalYearId) {
+    fiscalYear = await prisma.fiscalYear.findUnique({
+      where: { id: options.fiscalYearId },
+      select: { year: true, startDate: true, endDate: true },
+    });
+  }
+
   const where: Record<string, unknown> = { societyId };
 
   if (options.validatedOnly) {
     where.isValidated = true;
   }
 
-  if (options.year) {
+  if (fiscalYear) {
+    where.entryDate = {
+      gte: fiscalYear.startDate,
+      lte: fiscalYear.endDate,
+    };
+  } else if (options.year) {
     where.entryDate = {
       gte: new Date(`${options.year}-01-01T00:00:00.000Z`),
       lt: new Date(`${options.year + 1}-01-01T00:00:00.000Z`),
@@ -95,7 +121,6 @@ export async function generateFec(
   if (options.journalType) {
     where.journalType = options.journalType;
   }
-
   const entries = await prisma.journalEntry.findMany({
     where,
     include: {
@@ -161,12 +186,20 @@ export async function generateFec(
     const validDate = entry.isValidated ? fmtDate(entry.entryDate) : "";
     const pieceRef = entry.piece ? sanitize(entry.piece) : "";
     const pieceDate = fmtDate(entry.entryDate);
-
     for (const line of entry.lines) {
       totalDebit += line.debit;
       totalCredit += line.credit;
 
       const lineLabel = sanitize(line.label ?? entry.label);
+
+      // EcritureLet : utiliser letteringCode en priorite, sinon lettrage
+      const ecritureLet = line.letteringCode
+        ? sanitize(line.letteringCode)
+        : line.lettrage
+          ? sanitize(line.lettrage)
+          : "";
+      // DateLet : date du lettrage si disponible
+      const dateLet = line.letteredAt ? fmtDate(line.letteredAt) : "";
 
       rows.push([
         journalCode,
@@ -175,18 +208,18 @@ export async function generateFec(
         fmtDate(entry.entryDate),
         sanitize(line.account.code),
         sanitize(line.account.label),
-        "",
-        "",
+        "", // CompAuxNum
+        "", // CompAuxLib
         pieceRef,
         pieceDate,
         lineLabel,
         fmtAmount(line.debit),
         fmtAmount(line.credit),
-        line.lettrage ? sanitize(line.lettrage) : "",
-        "",
+        ecritureLet,
+        dateLet,
         validDate,
-        "",
-        "",
+        "", // Montantdevise
+        "", // Idevise
       ].join("\t"));
     }
   }
@@ -201,8 +234,18 @@ export async function generateFec(
   }
 
   const lineCount = rows.length - 1;
-  const closingDate = options.year ? `${options.year}1231` : fmtDate(new Date());
-  const filename = `${siren}_FEC_${closingDate}.txt`;
+
+  // Nom du fichier : {SIREN}FEC{YYYYMMDD}.txt
+  // YYYYMMDD = date de cloture de l exercice fiscal
+  let closingDate: string;
+  if (fiscalYear) {
+    closingDate = fmtDate(fiscalYear.endDate);
+  } else if (options.year) {
+    closingDate = `${options.year}1231`;
+  } else {
+    closingDate = fmtDate(new Date());
+  }
+  const filename = `${siren}FEC${closingDate}.txt`;
 
   return {
     content: rows.join("\r\n"),

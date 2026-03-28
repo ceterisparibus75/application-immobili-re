@@ -7,7 +7,7 @@ import { createAuditLog } from "@/lib/audit";
 import { sendReminderEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "./society";
-import type { ReminderLevel } from "@prisma/client";
+import type { ReminderLevel } from "@/generated/prisma/client";
 
 const LEVEL_MAP: Record<ReminderLevel, 1 | 2 | 3> = {
   RELANCE_1: 1,

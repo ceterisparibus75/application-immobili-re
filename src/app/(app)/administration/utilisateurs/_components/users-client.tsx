@@ -12,8 +12,8 @@ import {
   deleteUser,
 } from "@/actions/user";
 import { toast } from "sonner";
-import { Loader2, Pencil, Trash2, UserMinus, Check, X } from "lucide-react";
-import type { UserRole } from "@prisma/client";
+import { Loader2, Pencil, UserMinus, Check, X } from "lucide-react";
+import type { UserRole } from "@/generated/prisma/client";
 import { useRouter } from "next/navigation";
 
 const ROLE_OPTIONS = [

@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/sync-indices",
       "schedule": "0 7 1 * *"
+    },
+    {
+      "path": "/api/cron/rent-revisions",
+      "schedule": "0 8 1 * *"
     }
   ]
 }

@@ -11,7 +11,7 @@ import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LeaseStatus, LeaseType, TenantEntityType } from "@prisma/client";
+import type { LeaseStatus, LeaseType, TenantEntityType } from "@/generated/prisma/client";
 
 export const metadata = { title: "Baux" };
 

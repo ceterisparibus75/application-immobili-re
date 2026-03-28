@@ -1,5 +1,5 @@
-import type { User, Society, UserSociety } from "@prisma/client"
-import { UserRole, InvoiceStatus, InvoiceType, RiskIndicator, LegalForm, TaxRegime, VatRegime } from "@prisma/client"
+import type { User, Society, UserSociety } from "@/generated/prisma/client"
+import { UserRole, InvoiceStatus, InvoiceType, RiskIndicator, LegalForm, TaxRegime, VatRegime } from "@/generated/prisma/client"
 
 export const buildUser = (overrides?: Partial<User>): User => ({
   id: "user-1",

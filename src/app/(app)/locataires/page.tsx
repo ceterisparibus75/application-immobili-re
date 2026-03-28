@@ -11,7 +11,7 @@ import { Building2, FileText, Plus, User, Users } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { RiskIndicator, TenantEntityType } from "@prisma/client";
+import type { RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
 
 export const metadata = { title: "Locataires" };
 

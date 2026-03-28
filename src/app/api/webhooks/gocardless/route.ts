@@ -53,7 +53,7 @@ async function handleEvent(event: GcEvent) {
     const newStatus = statusMap[action] ?? mandate.status;
     await prisma.sepaMandate.update({
       where: { id: mandate.id },
-      data: { status: newStatus as import("@prisma/client").SepaMandateStatus },
+      data: { status: newStatus as import("@/generated/prisma/client").SepaMandateStatus },
     });
   }
 
@@ -80,9 +80,9 @@ async function handleEvent(event: GcEvent) {
     await prisma.invoice.update({
       where: { id: invoice.id },
       data: {
-        sepaStatus: newStatus as import("@prisma/client").SepaPaymentStatus,
+        sepaStatus: newStatus as import("@/generated/prisma/client").SepaPaymentStatus,
         ...(action === "confirmed" || action === "paid_out"
-          ? { status: "PAYE" as import("@prisma/client").InvoiceStatus }
+          ? { status: "PAYE" as import("@/generated/prisma/client").InvoiceStatus }
           : {}),
       },
     });

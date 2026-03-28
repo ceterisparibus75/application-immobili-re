@@ -44,3 +44,6 @@ next-env.d.ts
 
 # git worktrees
 .worktrees/
+
+# Prisma generated client
+src/generated/

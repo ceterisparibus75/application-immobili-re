@@ -18,7 +18,7 @@ import {
 } from "@/validations/invoice";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
-import type { PaymentFrequency, BillingTerm, Prisma } from "@prisma/client";
+import type { PaymentFrequency, BillingTerm, Prisma, InvoiceStatus } from "@/generated/prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { sendInvoiceEmail } from "@/lib/email";
@@ -107,7 +107,7 @@ export async function createInvoice(
           leaseId: parsed.data.leaseId ?? null,
           invoiceNumber,
           invoiceType: parsed.data.invoiceType,
-          status: "EN_ATTENTE",
+          status: "BROUILLON",
           issueDate: new Date(),
           dueDate: new Date(parsed.data.dueDate),
           periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
@@ -163,6 +163,9 @@ export async function recordPayment(
       include: { payments: true },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (["BROUILLON", "ANNULEE"].includes(invoice.status)) {
+      return { success: false, error: "Impossible d'enregistrer un paiement sur une facture en brouillon ou annulée" };
+    }
 
     const payment = await prisma.payment.create({
       data: {
@@ -177,8 +180,7 @@ export async function recordPayment(
 
     const totalPaid =
       invoice.payments.reduce((s, p) => s + p.amount, 0) + parsed.data.amount;
-    let newStatus: "EN_ATTENTE" | "PAYE" | "PARTIELLEMENT_PAYE" | "EN_RETARD" | "LITIGIEUX" =
-      "EN_ATTENTE";
+    let newStatus: InvoiceStatus = invoice.status;
     if (totalPaid >= invoice.totalTTC) {
       newStatus = "PAYE";
     } else if (totalPaid > 0) {
@@ -1027,7 +1029,7 @@ export async function generateInvoiceFromLease(
           leaseId: lease.id,
           invoiceNumber,
           invoiceType: "APPEL_LOYER",
-          status: "EN_ATTENTE",
+          status: "BROUILLON",
           issueDate,
           dueDate,
           periodStart,
@@ -1219,7 +1221,7 @@ export async function generateBatchInvoices(
               leaseId: lease.id,
               invoiceNumber,
               invoiceType: "APPEL_LOYER",
-              status: "EN_ATTENTE",
+              status: "BROUILLON",
               issueDate,
               dueDate,
               periodStart,
@@ -1425,5 +1427,265 @@ export async function sendInvoiceToTenant(
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[sendInvoiceToTenant] exception:", msg);
     return { success: false, error: msg };
+  }
+}
+
+
+// ============================================================
+// WORKFLOW DE STATUT
+// ============================================================
+
+/**
+ * Valide un brouillon de facture. Passage BROUILLON → VALIDEE.
+ */
+export async function validateInvoice(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId, status: "BROUILLON" },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable ou déjà validée" };
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "VALIDEE", validatedAt: new Date() },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { transition: "BROUILLON → VALIDEE" },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[validateInvoice]", error);
+    return { success: false, error: "Erreur lors de la validation" };
+  }
+}
+/**
+ * Valide en masse un lot de factures brouillon.
+ */
+export async function validateBatchInvoices(
+  societyId: string,
+  invoiceIds: string[]
+): Promise<ActionResult<{ validated: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const result = await prisma.invoice.updateMany({
+      where: { id: { in: invoiceIds }, societyId, status: "BROUILLON" },
+      data: { status: "VALIDEE", validatedAt: new Date() },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceIds.join(","),
+      details: { transition: "BROUILLON → VALIDEE", count: result.count },
+    });
+
+    revalidatePath("/facturation");
+    return { success: true, data: { validated: result.count } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[validateBatchInvoices]", error);
+    return { success: false, error: "Erreur lors de la validation en masse" };
+  }
+}
+/**
+ * Annule une facture. Génère automatiquement un avoir si la facture a déjà été envoyée.
+ */
+export async function cancelInvoice(
+  societyId: string,
+  invoiceId: string,
+  reason?: string
+): Promise<ActionResult<{ id: string; creditNoteId?: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      include: { lines: true, creditNotes: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.status === "ANNULEE") return { success: false, error: "Facture déjà annulée" };
+    if (invoice.status === "PAYE") return { success: false, error: "Impossible d’annuler une facture payée" };
+    if (invoice.creditNotes.length > 0) return { success: false, error: "Un avoir existe déjà pour cette facture" };
+
+    let creditNoteId: string | undefined;
+
+    // Si la facture a été envoyée ou est en attente de paiement, générer un avoir
+    const needsCreditNote = ["ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE", "EN_RETARD", "RELANCEE", "LITIGIEUX"].includes(invoice.status);
+
+    if (needsCreditNote) {
+      const creditNote = await prisma.$transaction(async (tx) => {
+        const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+        return tx.invoice.create({
+          data: {
+            societyId,
+            tenantId: invoice.tenantId,
+            leaseId: invoice.leaseId,
+            invoiceNumber,
+            invoiceType: "AVOIR",
+            status: "VALIDEE",
+            issueDate: new Date(),
+            dueDate: new Date(),
+            periodStart: invoice.periodStart,
+            periodEnd: invoice.periodEnd,
+            totalHT: -invoice.totalHT,
+            totalVAT: -invoice.totalVAT,
+            totalTTC: -invoice.totalTTC,
+            creditNoteForId: invoiceId,
+            validatedAt: new Date(),
+            lines: {
+              create: invoice.lines.map((line) => ({
+                label: `Avoir : ${line.label}`,
+                quantity: line.quantity,
+                unitPrice: -line.unitPrice,
+                vatRate: line.vatRate,
+                totalHT: -line.totalHT,
+                totalVAT: -line.totalVAT,
+                totalTTC: -line.totalTTC,
+              })),
+            },
+          },
+        });
+      });
+      creditNoteId = creditNote.id;
+    }
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "ANNULEE", cancelledAt: new Date(), cancelReason: reason ?? null },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { transition: `${invoice.status} → ANNULEE`, reason, creditNoteId },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId, creditNoteId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[cancelInvoice]", error);
+    return { success: false, error: "Erreur lors de l’annulation" };
+  }
+}
+/**
+ * Marque une facture comme litigieuse.
+ */
+export async function markAsLitigious(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        societyId,
+        status: { in: ["EN_RETARD", "RELANCEE"] },
+      },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable ou statut incompatible" };
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "LITIGIEUX" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { transition: `${invoice.status} → LITIGIEUX` },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[markAsLitigious]", error);
+    return { success: false, error: "Erreur lors du passage en litigieux" };
+  }
+}
+/**
+ * Marque une facture comme irrécouvrable (perte).
+ */
+export async function markAsIrrecoverable(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        societyId,
+        status: { in: ["EN_RETARD", "RELANCEE", "LITIGIEUX"] },
+      },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable ou statut incompatible" };
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "IRRECOUVRABLE" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { transition: `${invoice.status} → IRRECOUVRABLE` },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[markAsIrrecoverable]", error);
+    return { success: false, error: "Erreur lors du passage en irrécouvrable" };
   }
 }

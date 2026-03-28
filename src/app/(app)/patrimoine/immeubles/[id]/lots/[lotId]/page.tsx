@@ -22,7 +22,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LotType, LotStatus } from "@prisma/client";
+import type { LotType, LotStatus } from "@/generated/prisma/client";
 import { DeleteLotButton } from "./_components/delete-lot-button";
 
 const LOT_TYPE_LABELS: Record<LotType, string> = {

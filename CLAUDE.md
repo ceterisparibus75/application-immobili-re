@@ -17,6 +17,10 @@ npm run dev                # Serveur dev (Turbopack)
 npm run build              # Build production
 npm run lint               # ESLint
 
+# Tests
+npm test                   # Lancer tous les tests (Vitest)
+npm test -- src/actions/invoice.test.ts  # Lancer un seul fichier de test
+
 # Base de données
 npm run db:generate        # Régénérer le client Prisma après modif du schéma
 npm run db:push            # Appliquer le schéma sans migration (dev)
@@ -38,12 +42,19 @@ npm run db:studio          # Ouvrir Prisma Studio
 - **Resend** pour les emails (`src/lib/email.ts`)
 - **Zod** pour la validation (`src/validations/`)
 - **AES-256-GCM** pour le chiffrement des données bancaires (`src/lib/encryption.ts`)
+- **@react-pdf/renderer v4** pour la génération de PDF (`src/lib/invoice-pdf.tsx`)
+- **Supabase Storage** pour le stockage des fichiers (logos, PDFs, documents)
+- **Upstash Redis** pour le cache et le rate-limiting
+- **Recharts** pour les graphiques du dashboard
+- **Vitest** pour les tests unitaires
 
 ### Alias de chemin
 
 `@/*` → `src/*`
 
 ### Variables d'environnement
+
+Toutes les env vars sont **validées au démarrage** via `src/lib/env.ts` (Zod). Utiliser `env.NOM_VAR` depuis ce fichier plutôt que `process.env.NOM_VAR` directement dans le code.
 
 ```
 DATABASE_URL, DIRECT_URL              # Supabase PostgreSQL
@@ -53,6 +64,10 @@ RESEND_API_KEY, EMAIL_FROM            # Emails (contact@mtggroupe.org)
 NEXT_PUBLIC_APP_NAME                  # Branding UI
 INSEE_API_KEY, INSEE_API_SECRET       # Indices IRL
 CRON_SECRET                           # Jobs planifiés
+ANTHROPIC_API_KEY                     # Claude API (optionnel)
+GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY  # Intégration bancaire (optionnel)
+UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  # Cache Redis (optionnel)
+NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers (optionnel)
 ```
 
 ## Structure et flux de requêtes
@@ -65,7 +80,7 @@ CRON_SECRET                           # Jobs planifiés
 ### Middleware (`src/middleware.ts`)
 
 1. Utilise NextAuth comme middleware
-2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/api/public`, `/api/auth`)
+2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/contact`, `/mentions-legales`, `/politique-confidentialite`, `/api/public`, `/api/auth`)
 3. Lit le cookie `active-society-id` et l'injecte dans le header `x-society-id` pour les Server Components
 4. Matcher exclut les assets statiques (`_next/static`, images, etc.)
 
@@ -177,6 +192,21 @@ Client unique avec cache `globalThis` en dev. Logs `query`+`error`+`warn` en dev
 
 Via Resend. Templates HTML intégrés : relance (3 niveaux), facture, quittance, bienvenue utilisateur, bienvenue locataire.
 
+### Génération PDF (`src/lib/invoice-pdf.tsx`, `src/app/api/invoices/[id]/pdf/route.ts`)
+
+Les factures PDF utilisent `@react-pdf/renderer`. Le composant `InvoicePdf` reçoit un objet `InvoicePdfData` complet. La route API `/api/invoices/[id]/pdf` :
+1. Déchiffre l'IBAN/BIC (AES-256)
+2. Récupère une URL signée Supabase pour le logo (300s)
+3. Calcule le solde précédent (factures impayées du même bail)
+4. Génère le PDF avec `renderToBuffer()`
+5. Uploade dans Supabase Storage (`invoices/{societyId}/{year}/{number}.pdf`)
+6. Crée un audit log `GENERATE_PDF`
+7. Répond avec `Content-Type: application/pdf` (inline, cache 300s)
+
+### Stockage fichiers (Supabase Storage)
+
+Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storage/signed-upload/route.ts` et `src/app/api/storage/view/route.ts` gèrent respectivement l'upload signé et la consultation sécurisée des fichiers.
+
 ## Modules métier
 
 Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src/actions/`) et validation (`src/validations/`) correspondantes :
@@ -187,15 +217,23 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Diagnostics, Maintenances | `/patrimoine/immeubles/[id]/...` | `diagnostic.ts`, `maintenance.ts` |
 | Baux, Inspections | `/baux` | `lease.ts`, `inspection.ts` |
 | Locataires | `/locataires` | `tenant.ts` |
-| Charges + Catégories | `/charges` | `charge.ts` |
+| Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
 | Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |
-| Banque + Transactions | `/banque` | `bank.ts` |
+| Banque + Transactions + Rapprochement | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts` |
 | Comptabilité + Prévisionnel | `/comptabilite` | via API routes |
 | Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
 | Indices ILC/ILAT/ICC | `/indices` | via API INSEE |
-| Relances | `/relances` | via `src/lib/email.ts` |
+| Relances | `/relances` | `reminder.ts` |
 | Contacts | `/contacts` | `contact.ts` |
 | RGPD | `/rgpd` | via API routes |
+| Documents | — | `document.ts` |
+| Signatures | — | `signature.ts` |
+| SEPA | — | `sepa.ts` |
+| Notifications | — | `notifications.ts` |
+| Import données | — | `import.ts` |
+| Fusion entités | `/administration/fusions` | `merge.ts` |
+| Administration | `/administration/...` | `user.ts`, `auth.ts` |
+| Dashboard + Analytiques | `/dashboard` | `dashboard.ts`, `analytics.ts` |
 
 ## Règles impératives
 
@@ -209,6 +247,7 @@ const lots = await prisma.lot.findMany({ where: { societyId } })
 // ✅ TOUJOURS : appeler createAuditLog() sur toute mutation
 // ✅ TOUJOURS : montants en euros (Float), affichage avec formatCurrency()
 // ✅ TOUJOURS : soft delete pour locataires, baux, documents
+// ✅ TOUJOURS : accéder aux env vars via env.NOM_VAR (src/lib/env.ts), pas process.env
 
 // ❌ JAMAIS : IBAN/BIC en clair — utiliser encryptBankData()
 // ❌ JAMAIS : requête Prisma sans societyId (sauf SUPER_ADMIN explicite)
@@ -224,7 +263,9 @@ const lots = await prisma.lot.findMany({ where: { societyId } })
 ### UI
 
 - Composants shadcn/ui en priorité (`src/components/ui/`)
-- États de chargement sur toute action async (Skeleton / Spinner)
+- Chaque module a un `loading.tsx` pour les états de chargement (Skeleton)
+- `error.tsx` et `not-found.tsx` à la racine de `/(app)/` gèrent les erreurs globales
+- Breadcrumb auto-généré par `src/components/layout/breadcrumb.tsx` (parse le pathname)
 - Toasts pour feedback succès/erreur
 - Responsive mobile-first obligatoire
 

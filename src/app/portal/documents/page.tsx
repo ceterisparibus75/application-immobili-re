@@ -7,19 +7,17 @@ import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
-  EN_ATTENTE: "En attente",
-  PAYE: "Payé",
-  PARTIELLEMENT_PAYE: "Partiel",
-  EN_RETARD: "En retard",
-  LITIGIEUX: "Litigieux",
+  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
+  EN_ATTENTE: "En attente", PAYE: "Payé", PARTIELLEMENT_PAYE: "Partiel",
+  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
+  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
 };
 
-const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive" | "secondary" | "default"> = {
-  EN_ATTENTE: "warning",
-  PAYE: "success",
-  PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive",
-  LITIGIEUX: "destructive",
+const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive" | "secondary" | "default" | "outline"> = {
+  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
+  EN_ATTENTE: "warning", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
+  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
+  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
 };
 
 export default async function PortalDocumentsPage() {

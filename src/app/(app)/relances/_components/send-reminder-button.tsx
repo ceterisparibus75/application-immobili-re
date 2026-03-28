@@ -6,7 +6,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { sendManualReminder } from "@/actions/reminder";
 import { toast } from "sonner";
 import { Bell, Loader2 } from "lucide-react";
-import type { ReminderLevel } from "@prisma/client";
+import type { ReminderLevel } from "@/generated/prisma/client";
 
 const LEVEL_OPTIONS = [
   { value: "RELANCE_1", label: "1ère relance (amiable)" },

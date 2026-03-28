@@ -1,35 +1,33 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/\")",
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/dashboard/\")",
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/administration/\")",
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/parametres/\")",
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/administration/audit/\")",
-      "Bash(ls \"c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/src/app/\\(app\\)/administration/utilisateurs/\")",
-      "Bash(npx tsc:*)",
-      "Bash(./node_modules/.bin/tsc --noEmit)",
-      "Read(//mnt/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/node_modules/**)",
-      "Bash(ls \"c:\\\\Users\\\\MaximeLanget\\\\Mon Drive\\\\Application gestion immobiliere\\\\src\\\\app\\\\\\(app\\)\\\\patrimoine\\\\immeubles\\\\[id]\")",
-      "Bash(ls \"c:\\\\Users\\\\MaximeLanget\\\\Mon Drive\\\\Application gestion immobiliere\\\\src\\\\app\\\\\\(app\\)\\\\patrimoine\\\\immeubles\\\\[id]\\\\diagnostics\")",
       "Bash(npm run:*)",
-      "Bash(npx next:*)",
-      "Bash(node -e \"const n = require\\(''./node_modules/next/package.json''\\); console.log\\(n.version\\)\")",
-      "Bash(find 'c:/Users/MaximeLanget/Mon Drive/Application gestion immobiliere' -maxdepth 1 -name *.yaml -o -name *.yml -o -name *.lock)",
-      "Bash(bun --version)",
-      "Bash(find '/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/node_modules' -name package.json -path */next/package.json)",
-      "Bash(find '/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/node_modules' -maxdepth 3 -name package.json -path */next/package.json)",
+      "Bash(npx:*)",
       "Bash(npx prisma:*)",
-      "Bash(DATABASE_URL=\"postgresql://user:pass@localhost:5432/db\" DIRECT_URL=\"postgresql://user:pass@localhost:5432/db\" npx prisma generate)",
-      "Bash(\"/c/Users/MaximeLanget/Mon Drive/Application gestion immobiliere/.env\")",
-      "Bash(node -e \"console.log\\(require\\(''./node_modules/zod/package.json''\\).version\\)\")",
-      "Bash(xargs ls:*)",
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
       "Bash(node -e:*)",
       "Bash(node -e \":*)",
-      "Bash(node -e \"console.log\\(require\\(''crypto''\\).randomBytes\\(32\\).toString\\(''base64''\\)\\)\")"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(git:*)",
+      "Bash(xargs:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
-    "additionalDirectories": [
-      "C:\\Users\\MaximeLanget\\Mon Drive\\Application gestion immobiliere\\src\\app\\(app)\\emprunts"
-    ]
+    "deny": []
   }
 }

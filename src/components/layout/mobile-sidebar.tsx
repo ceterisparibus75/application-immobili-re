@@ -6,7 +6,7 @@ import {
   Building2, LayoutDashboard, FileText, Users, Receipt,
   TrendingUp, Landmark, BookOpen, Bell, Contact,
   Settings, Shield, ScrollText, Layers, X, FolderOpen,
-  Upload, Banknote, BarChart3, FileBarChart, BellDot, Merge,
+  Upload, Banknote, BarChart3, FileBarChart, BellDot, Merge, Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,10 @@ const navigation = [
       { name: "Facturation", href: "/facturation", icon: Receipt },
       { name: "Charges", href: "/charges", icon: ScrollText },
       { name: "Indices", href: "/indices", icon: TrendingUp },
+      { name: "Révisions", href: "/revisions", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
+      { name: "Datarooms", href: "/dataroom", icon: Share2 },
     ],
   },
   {
