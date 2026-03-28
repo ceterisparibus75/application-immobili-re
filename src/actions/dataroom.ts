@@ -7,6 +7,7 @@ import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createDataroomSchema, updateDataroomSchema } from "@/validations/dataroom";
+import bcrypt from "bcryptjs";
 
 // ─── Requêtes ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export async function getDataroom(societyId: string, dataroomId: string) {
 
 export async function createDataroom(
   societyId: string,
-  input: { name: string; description?: string | null; expiresAt?: string | null }
+  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
     const session = await auth();
@@ -75,6 +76,8 @@ export async function createDataroom(
     if (!parsed.success)
       return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
 
+    const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 10) : null;
+
     const dataroom = await prisma.dataroom.create({
       data: {
         societyId,
@@ -82,6 +85,7 @@ export async function createDataroom(
         name: parsed.data.name,
         description: parsed.data.description ?? null,
         expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+        passwordHash,
       },
     });
 
@@ -106,7 +110,7 @@ export async function createDataroom(
 export async function updateDataroom(
   societyId: string,
   dataroomId: string,
-  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean }
+  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean; password?: string | null }
 ): Promise<ActionResult> {
   try {
     const session = await auth();
@@ -120,12 +124,21 @@ export async function updateDataroom(
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
 
+    // Handle password: empty string = remove password, non-empty = set new hash, undefined = don't change
+    let passwordHashUpdate: { passwordHash: string | null } | undefined;
+    if (parsed.data.password !== undefined) {
+      passwordHashUpdate = {
+        passwordHash: parsed.data.password ? await bcrypt.hash(parsed.data.password, 10) : null,
+      };
+    }
+
     await prisma.dataroom.update({
       where: { id: dataroomId },
       data: {
         ...(parsed.data.name !== undefined && { name: parsed.data.name }),
         ...(parsed.data.description !== undefined && { description: parsed.data.description }),
         ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
+        ...(passwordHashUpdate !== undefined && passwordHashUpdate),
         expiresAt:
           parsed.data.expiresAt !== undefined
             ? parsed.data.expiresAt
@@ -214,6 +227,32 @@ export async function addDocumentToDataroom(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[addDocumentToDataroom]", error);
     return { success: false, error: "Erreur lors de l'ajout" };
+  }
+}
+
+export async function verifyDataroomPassword(
+  token: string,
+  password: string
+): Promise<ActionResult> {
+  try {
+    const dataroom = await prisma.dataroom.findUnique({
+      where: { token },
+      select: { id: true, passwordHash: true, isActive: true, expiresAt: true },
+    });
+
+    if (!dataroom || !dataroom.isActive)
+      return { success: false, error: "Dataroom introuvable ou inactive" };
+    if (dataroom.expiresAt && new Date(dataroom.expiresAt) < new Date())
+      return { success: false, error: "Cette dataroom a expiré" };
+    if (!dataroom.passwordHash)
+      return { success: true }; // no password required
+
+    const valid = await bcrypt.compare(password, dataroom.passwordHash);
+    if (!valid) return { success: false, error: "Mot de passe incorrect" };
+    return { success: true };
+  } catch (error) {
+    console.error("[verifyDataroomPassword]", error);
+    return { success: false, error: "Erreur lors de la vérification" };
   }
 }
 

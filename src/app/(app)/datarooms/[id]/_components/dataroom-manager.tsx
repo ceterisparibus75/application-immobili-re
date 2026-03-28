@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, FileText, Trash2, Plus, Search, Copy, Check, ExternalLink,
-  Clock, Eye, Settings, FileImage, File, FolderLock, Loader2, X,
-  CheckCircle2, XCircle, Users,
+  Clock, Eye, EyeOff, Settings, FileImage, File, FolderLock, Loader2, X,
+  CheckCircle2, XCircle, Users, Lock,
 } from "lucide-react";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -29,6 +29,7 @@ type AccessLog = { id: string; createdAt: Date; ipAddress: string | null; viewer
 type Dataroom = {
   id: string; name: string; description: string | null; token: string;
   isActive: boolean; expiresAt: Date | null; viewCount: number; createdAt: Date;
+  passwordHash: string | null;
   documents: DataroomDoc[];
   accesses: AccessLog[];
   _count: { documents: number; accesses: number };
@@ -83,6 +84,8 @@ export function DataroomManager({
     dataroom.expiresAt ? new Date(dataroom.expiresAt).toISOString().split("T")[0] : ""
   );
   const [editActive, setEditActive] = useState(dataroom.isActive);
+  const [editPassword, setEditPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = `${origin}/dataroom/${dataroom.token}`;
@@ -136,6 +139,8 @@ export function DataroomManager({
       description: editDesc || null,
       expiresAt: editExpires || null,
       isActive: editActive,
+      // empty string = remove password; non-empty = set new password; undefined = no change
+      ...(editPassword !== undefined && { password: editPassword || null }),
     });
     setSavingSettings(false);
     if (result.success) {
@@ -143,6 +148,7 @@ export function DataroomManager({
         ...prev, name: editName, description: editDesc || null,
         expiresAt: editExpires ? new Date(editExpires) : null, isActive: editActive,
       }));
+      setEditPassword("");
       toast.success("Paramètres mis à jour");
     } else {
       toast.error(result.error ?? "Erreur");
@@ -167,6 +173,7 @@ export function DataroomManager({
               ? <Badge variant="destructive" className="gap-1"><Clock className="h-3 w-3" />Expirée</Badge>
               : <Badge className="gap-1 bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3" />Active</Badge>
             }
+            {dataroom.passwordHash && <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />Protégée</Badge>}
           </div>
           {dataroom.description && <p className="text-muted-foreground text-sm mt-1">{dataroom.description}</p>}
           <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
@@ -313,6 +320,27 @@ export function DataroomManager({
             <div className="flex items-center gap-3">
               <input type="checkbox" id="active" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} className="h-4 w-4" />
               <Label htmlFor="active" className="cursor-pointer">Dataroom active (accès public autorisé)</Label>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" />Mot de passe</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Laisser vide pour supprimer / ne pas changer…"
+                  className="pr-9 text-sm"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Laissez vide pour supprimer le mot de passe existant ou ne pas en définir.</p>
             </div>
             <Button onClick={() => void handleSaveSettings()} disabled={savingSettings} className="w-full">
               {savingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Enregistrer

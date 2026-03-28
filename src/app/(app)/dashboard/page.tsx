@@ -10,6 +10,7 @@ import { OverdueChart } from "@/components/dashboard/overdue-chart";
 import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
+import { TodayTasks } from "@/components/dashboard/today-tasks";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -112,6 +113,9 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Tâches à traiter */}
+      <TodayTasks societyId={societyId} />
 
       {/* Charts Row 1 */}
       <div className="grid gap-4 md:grid-cols-2">

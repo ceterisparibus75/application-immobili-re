@@ -2011,13 +2011,15 @@ model Dataroom {
   societyId   String
   createdById String?
 
-  name        String
-  description String?   @db.Text
+  name         String
+  description  String?   @db.Text
   /// Token public unique pour l'accès sans authentification
-  token       String    @unique @default(cuid())
-  isActive    Boolean   @default(true)
-  expiresAt   DateTime?
-  viewCount   Int       @default(0)
+  token        String    @unique @default(cuid())
+  isActive     Boolean   @default(true)
+  expiresAt    DateTime?
+  viewCount    Int       @default(0)
+  /// Mot de passe haché (bcrypt) pour protéger l'accès, null = accès libre
+  passwordHash String?
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   createdBy   User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)

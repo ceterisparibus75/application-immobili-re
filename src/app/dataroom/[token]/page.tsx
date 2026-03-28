@@ -1,11 +1,13 @@
 /**
  * Page publique d'accès à une dataroom — aucune authentification requise.
- * Valide le token, génère des URLs signées courte durée, affiche les documents.
+ * Valide le token, vérifie le mot de passe si applicable, génère des URLs signées.
  */
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { DataroomViewer } from "./_components/dataroom-viewer";
+import { PasswordGate } from "./_components/password-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,7 @@ async function getPublicDataroom(token: string) {
           },
         },
       },
+      createdBy: { select: { email: true } },
     },
   });
 
@@ -51,11 +54,30 @@ async function getPublicDataroom(token: string) {
 
 export default async function PublicDataroomPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const dataroom = await getPublicDataroom(token);
 
+  // Vérification rapide du token + existence
+  const meta = await prisma.dataroom.findUnique({
+    where: { token },
+    select: { id: true, isActive: true, expiresAt: true, passwordHash: true, name: true },
+  });
+
+  if (!meta || !meta.isActive) notFound();
+  if (meta.expiresAt && new Date(meta.expiresAt) < new Date()) notFound();
+
+  // Protection par mot de passe
+  if (meta.passwordHash) {
+    const cookieStore = await cookies();
+    const authCookie = cookieStore.get(`dr_auth_${token}`)?.value;
+    if (authCookie !== "authorized") {
+      return <PasswordGate token={token} dataroomName={meta.name} />;
+    }
+  }
+
+  // Charger la dataroom complète avec URLs signées
+  const dataroom = await getPublicDataroom(token);
   if (!dataroom) notFound();
 
-  // Enregistrer l'accès (fire-and-forget, best-effort)
+  // Enregistrer l'accès (fire-and-forget)
   void Promise.all([
     prisma.dataroomAccess.create({ data: { dataroomId: dataroom.id } }),
     prisma.dataroom.update({ where: { id: dataroom.id }, data: { viewCount: { increment: 1 } } }),

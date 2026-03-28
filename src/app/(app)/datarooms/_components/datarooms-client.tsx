@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   FolderLock, Plus, ExternalLink, Trash2, Eye, FileText,
-  Clock, CheckCircle2, XCircle, Copy, Check, Loader2,
+  Clock, CheckCircle2, XCircle, Copy, Check, Loader2, Lock,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { createDataroom, deleteDataroom } from "@/actions/dataroom";
@@ -29,6 +29,7 @@ type DataroomItem = {
   expiresAt: Date | null;
   viewCount: number;
   createdAt: Date;
+  passwordHash: string | null;
   _count: { documents: number; accesses: number };
 };
 
@@ -51,7 +52,12 @@ function StatusBadge({ dataroom }: { dataroom: DataroomItem }) {
   const expired = dataroom.expiresAt && new Date(dataroom.expiresAt) < new Date();
   if (!dataroom.isActive) return <Badge variant="secondary" className="text-xs gap-1"><XCircle className="h-3 w-3" />Désactivée</Badge>;
   if (expired) return <Badge variant="destructive" className="text-xs gap-1"><Clock className="h-3 w-3" />Expirée</Badge>;
-  return <Badge className="text-xs gap-1 bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3" />Active</Badge>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <Badge className="text-xs gap-1 bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3" />Active</Badge>
+      {dataroom.passwordHash && <Badge variant="outline" className="text-xs gap-1"><Lock className="h-3 w-3" />Protégée</Badge>}
+    </div>
+  );
 }
 
 export function DataroomsClient({

@@ -355,6 +355,43 @@ export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailP
 }
 
 // ============================================================
+// DATAROOM — NOTIFICATION D'ACCÈS
+// ============================================================
+
+interface DataroomAccessEmailParams {
+  to: string;
+  dataroomName: string;
+  viewerIp: string | null;
+  viewerEmail: string | null;
+  accessedAt: string;
+  dataroomUrl: string;
+}
+
+export async function sendDataroomAccessEmail(params: DataroomAccessEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Accès à votre dataroom</h2>
+    <p>Votre dataroom <strong>${params.dataroomName}</strong> vient d'être consultée.</p>
+    <table class="table">
+      <tr><th>Date</th><td>${params.accessedAt}</td></tr>
+      ${params.viewerIp ? `<tr><th>Adresse IP</th><td>${params.viewerIp}</td></tr>` : ""}
+      ${params.viewerEmail ? `<tr><th>Email du visiteur</th><td>${params.viewerEmail}</td></tr>` : ""}
+    </table>
+    <p style="margin-top:24px">
+      <a href="${params.dataroomUrl}" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
+        Voir la dataroom
+      </a>
+    </p>
+    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME}</p>
+  `;
+
+  return sendMail(
+    params.to,
+    `[Dataroom] Accès à "${params.dataroomName}"`,
+    baseTemplate(`Accès à votre dataroom`, content)
+  );
+}
+
+// ============================================================
 // RELANCE FACTURE IMPAYÉE (CRON)
 // ============================================================
 

@@ -1,10 +1,13 @@
 /**
  * API publique d'accès à une dataroom — aucune authentification requise.
- * Valide le token, enregistre l'accès, retourne les URLs signées des documents.
+ * Valide le token, vérifie le mot de passe si applicable, enregistre l'accès,
+ * retourne les URLs signées des documents.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
+import { sendDataroomAccessEmail } from "@/lib/email";
 
 export async function GET(
   req: NextRequest,
@@ -31,6 +34,7 @@ export async function GET(
           },
         },
       },
+      createdBy: { select: { email: true } },
     },
   });
 
@@ -40,6 +44,18 @@ export async function GET(
 
   if (dataroom.expiresAt && new Date(dataroom.expiresAt) < new Date()) {
     return NextResponse.json({ error: "Cette dataroom a expiré" }, { status: 410 });
+  }
+
+  // Vérification du mot de passe si protégée
+  if (dataroom.passwordHash) {
+    const authHeader = req.headers.get("x-dataroom-password");
+    if (!authHeader) {
+      return NextResponse.json({ error: "Mot de passe requis", requiresPassword: true }, { status: 401 });
+    }
+    const valid = await bcrypt.compare(authHeader, dataroom.passwordHash);
+    if (!valid) {
+      return NextResponse.json({ error: "Mot de passe incorrect", requiresPassword: true }, { status: 401 });
+    }
   }
 
   // Générer des URLs signées courte durée (1h) pour chaque document
@@ -88,6 +104,19 @@ export async function GET(
       data: { viewCount: { increment: 1 } },
     }),
   ]);
+
+  // Notifier le créateur par email (non bloquant)
+  if (dataroom.createdBy?.email) {
+    const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://app.example.com";
+    void sendDataroomAccessEmail({
+      to: dataroom.createdBy.email,
+      dataroomName: dataroom.name,
+      viewerIp: ip,
+      viewerEmail: null,
+      accessedAt: new Date().toLocaleString("fr-FR"),
+      dataroomUrl: `${appUrl}/datarooms/${dataroom.id}`,
+    }).catch((err) => console.error("[dataroom] email notification failed:", err));
+  }
 
   return NextResponse.json({
     id: dataroom.id,

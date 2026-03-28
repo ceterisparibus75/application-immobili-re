@@ -16,15 +16,16 @@ import {
   FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
   File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
-  Download, Eye, Filter, FolderLock,
+  Download, Eye, Filter, FolderLock, Trash2, FileDown,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { DeleteDocumentButton } from "./delete-button";
 import { AiBadge } from "./ai-badge";
 import { DocumentChat } from "./document-chat";
-import { updateDocument } from "@/actions/document";
+import { updateDocument, deleteDocument } from "@/actions/document";
 import { getDatarooms, addDocumentToDataroom } from "@/actions/dataroom";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -167,13 +168,19 @@ function SortHeader({ label, sortKey, current, dir, onSort }: { label: string; s
   );
 }
 
-function FileRow({ doc, selected, onSelect, societyId }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; }) {
+function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; checked: boolean; onCheckedChange: (id: string) => void; }) {
   const expired = isExpired(doc.expiresAt);
   const expiringSoon = !expired && isExpiringSoon(doc.expiresAt);
   return (
     <div onClick={() => onSelect(doc)}
       className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer select-none border-b border-border/50 last:border-0 hover:bg-accent/40 transition-colors group", selected && "bg-primary/10 hover:bg-primary/15")}
     >
+      <div
+        className={cn("shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", checked && "opacity-100")}
+        onClick={(e) => { e.stopPropagation(); onCheckedChange(doc.id); }}
+      >
+        <Checkbox checked={checked} aria-label={`Sélectionner ${doc.fileName}`} />
+      </div>
       <FileTypeIcon mimeType={doc.mimeType} className="h-4 w-4 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -197,11 +204,17 @@ function FileRow({ doc, selected, onSelect, societyId }: { doc: DocumentItem; se
   );
 }
 
-function FileGridCard({ doc, selected, onSelect, societyId }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; }) {
+function FileGridCard({ doc, selected, onSelect, societyId, checked, onCheckedChange }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; checked: boolean; onCheckedChange: (id: string) => void; }) {
   return (
     <div onClick={() => onSelect(doc)}
       className={cn("flex flex-col items-center gap-1.5 p-3 rounded-lg border cursor-pointer select-none hover:bg-accent/40 transition-colors group relative", selected && "border-primary bg-primary/10")}
     >
+      <div
+        className={cn("absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-10", checked && "opacity-100")}
+        onClick={(e) => { e.stopPropagation(); onCheckedChange(doc.id); }}
+      >
+        <Checkbox checked={checked} aria-label={`Sélectionner ${doc.fileName}`} />
+      </div>
       <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10" />
       <p className="text-xs text-center truncate w-full font-medium leading-tight">{doc.fileName}</p>
       <AiBadge status={doc.aiStatus} id={doc.id} />
@@ -437,6 +450,82 @@ function DataroomPickerDialog({ doc, societyId, onClose }: { doc: DocumentItem; 
   );
 }
 
+// ─── Bulk Dataroom Picker ─────────────────────────────────────────────────────
+function BulkDataroomPickerDialog({ selectedIds, societyId, onClose }: { selectedIds: string[]; societyId: string; onClose: () => void }) {
+  const [datarooms, setDatarooms] = useState<{ id: string; name: string; _count: { documents: number } }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ [dataroomId: string]: { done: number; total: number } }>({});
+
+  useEffect(() => {
+    void getDatarooms(societyId).then((drs) => {
+      setDatarooms(drs as { id: string; name: string; _count: { documents: number } }[]);
+      setLoading(false);
+    });
+  }, [societyId]);
+
+  async function handleAddAll(dataroomId: string) {
+    setAddingId(dataroomId);
+    setProgress((prev) => ({ ...prev, [dataroomId]: { done: 0, total: selectedIds.length } }));
+    let done = 0;
+    for (const docId of selectedIds) {
+      await addDocumentToDataroom(societyId, dataroomId, docId);
+      done++;
+      setProgress((prev) => ({ ...prev, [dataroomId]: { done, total: selectedIds.length } }));
+    }
+    setAddingId(null);
+    toast.success(`${done} document${done !== 1 ? "s" : ""} ajouté${done !== 1 ? "s" : ""} à la dataroom`);
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <FolderLock className="h-4 w-4" />Ajouter à une dataroom
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-1 mb-2">{selectedIds.length} élément{selectedIds.length !== 1 ? "s" : ""} sélectionné{selectedIds.length !== 1 ? "s" : ""}</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : datarooms.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-muted-foreground mb-3">Aucune dataroom disponible</p>
+            <Link href="/datarooms"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {datarooms.map((dr) => {
+              const prog = progress[dr.id];
+              const isDone = prog && prog.done === prog.total && prog.total > 0;
+              return (
+                <div key={dr.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{dr.name}</p>
+                    <p className="text-xs text-muted-foreground">{dr._count.documents} document{dr._count.documents !== 1 ? "s" : ""}</p>
+                  </div>
+                  {isDone ? (
+                    <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200"><Check className="h-3 w-3" />{prog.done}/{prog.total} ajoutés</Badge>
+                  ) : prog && addingId === dr.id ? (
+                    <Badge variant="secondary" className="gap-1 text-xs">
+                      <Loader2 className="h-3 w-3 animate-spin" />{prog.done}/{prog.total}
+                    </Badge>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
+                      onClick={() => void handleAddAll(dr.id)} disabled={addingId !== null}>
+                      <Plus className="h-3 w-3" />Ajouter
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Details Panel ────────────────────────────────────────────────────────────
 function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentItem; societyId: string; onClose: () => void; }) {
   const [doc, setDoc] = useState(initialDoc);
@@ -622,6 +711,9 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDataroomOpen, setBulkDataroomOpen] = useState(false);
 
   const usedCategories = useMemo(() => {
     const set = new Set<string>();
@@ -666,6 +758,53 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
 
   function selectDoc(doc: DocumentItem) { setSelectedDoc(doc); setMobileDetailsOpen(true); }
 
+  function toggleSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    let successCount = 0;
+    let errorCount = 0;
+    for (const id of Array.from(selectedIds)) {
+      const result = await deleteDocument(societyId, id);
+      if (result.success) successCount++;
+      else errorCount++;
+    }
+    setBulkDeleting(false);
+    setSelectedIds(new Set());
+    if (successCount > 0) toast.success(`${successCount} document${successCount !== 1 ? "s" : ""} supprimé${successCount !== 1 ? "s" : ""}`);
+    if (errorCount > 0) toast.error(`${errorCount} document${errorCount !== 1 ? "s" : ""} n'ont pas pu être supprimé${errorCount !== 1 ? "s" : ""}`);
+  }
+
+  function handleExportCsv() {
+    const header = ["Nom", "Catégorie", "Taille (Ko)", "Ajouté le", "Description", "Immeuble", "Locataire"];
+    const rows = sorted.map((doc) => [
+      doc.fileName,
+      getCategoryLabel(doc.category),
+      doc.fileSize !== null ? String(Math.round(doc.fileSize / 1024)) : "",
+      new Date(doc.createdAt).toLocaleDateString("fr-FR"),
+      doc.description ?? "",
+      getBuildingLabel(doc),
+      getTenantLabel(doc) ?? "",
+    ]);
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map((row) => row.map(escape).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `documents_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="flex border rounded-lg overflow-hidden bg-background" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
       <div className="hidden md:flex flex-col w-52 shrink-0 border-r overflow-y-auto bg-muted/20">
@@ -702,6 +841,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             </div>
           )}
           <div className="flex items-center gap-1 ml-auto">
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Exporter en CSV" onClick={handleExportCsv}><FileDown className="h-3.5 w-3.5" /></Button>
             <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("list")}><List className="h-3.5 w-3.5" /></Button>
             <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("grid")}><LayoutGrid className="h-3.5 w-3.5" /></Button>
           </div>
@@ -717,6 +857,38 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             <div className="w-16 shrink-0" />
           </div>
         )}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border-b shrink-0 flex-wrap">
+            <span className="text-xs font-medium text-primary">{selectedIds.size} élément{selectedIds.size !== 1 ? "s" : ""} sélectionné{selectedIds.size !== 1 ? "s" : ""}</span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 text-xs gap-1"
+              disabled={bulkDeleting}
+              onClick={() => void handleBulkDelete()}
+            >
+              {bulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Supprimer la sélection
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => setBulkDataroomOpen(true)}
+            >
+              <FolderLock className="h-3.5 w-3.5" />
+              Ajouter à une dataroom
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs ml-auto"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Désélectionner tout
+            </Button>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -725,10 +897,10 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
               <Link href="/documents/nouveau"><Button size="sm"><Plus className="h-4 w-4" />Ajouter</Button></Link>
             </div>
           ) : viewMode === "list" ? (
-            <div>{sorted.map((doc) => <FileRow key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} />)}</div>
+            <div>{sorted.map((doc) => <FileRow key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} checked={selectedIds.has(doc.id)} onCheckedChange={toggleSelection} />)}</div>
           ) : (
             <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-              {sorted.map((doc) => <FileGridCard key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} />)}
+              {sorted.map((doc) => <FileGridCard key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} checked={selectedIds.has(doc.id)} onCheckedChange={toggleSelection} />)}
             </div>
           )}
         </div>
@@ -763,6 +935,13 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
           )}
         </SheetContent>
       </Sheet>
+      {bulkDataroomOpen && (
+        <BulkDataroomPickerDialog
+          selectedIds={Array.from(selectedIds)}
+          societyId={societyId}
+          onClose={() => setBulkDataroomOpen(false)}
+        />
+      )}
     </div>
   );
 }
