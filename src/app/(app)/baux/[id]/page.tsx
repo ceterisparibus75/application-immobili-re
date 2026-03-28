@@ -35,6 +35,7 @@ import type {
 import { DeleteLeaseButton } from "./_components/delete-lease-button";
 import { ChargeProvisions } from "./_components/charge-provisions";
 import { RentRevisions } from "./_components/rent-revisions";
+import { LeaseAmendments } from "./_components/lease-amendments";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -409,6 +410,24 @@ export default async function BailDetailPage({
             </CardContent>
           </Card>
 
+          {/* Avenants */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Avenants ({lease._count.amendments})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeaseAmendments
+                amendments={lease.amendments}
+                leaseId={lease.id}
+                societyId={societyId}
+                isActive={isActive}
+                currentRentHT={lease.currentRentHT}
+              />
+            </CardContent>
+          </Card>
           {/* États des lieux */}
           <Card>
             <CardHeader>

@@ -258,7 +258,15 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
   return prisma.invoice.findFirst({
     where: { id: invoiceId, societyId },
     include: {
-      tenant: true,
+      tenant: {
+        include: {
+          sepaMandates: {
+            where: { status: "ACTIVE" },
+            select: { id: true, mandateReference: true, ibanLast4: true },
+            take: 1,
+          },
+        },
+      },
       society: {
         select: {
           name: true,

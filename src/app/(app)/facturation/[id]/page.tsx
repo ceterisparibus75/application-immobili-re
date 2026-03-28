@@ -20,6 +20,7 @@ import { getLogoProxyUrl } from "@/lib/utils";
 import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
+import { SepaButton } from "./_components/sepa-button";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
@@ -310,6 +311,18 @@ export default async function FactureDetailPage({
                     </span>
                   </div>
                   <PaymentForm invoiceId={invoice.id} societyId={societyId} />
+                  {invoice.tenant.sepaMandates?.[0] && (
+                    <div className="pt-2">
+                      <SepaButton
+                        invoiceId={invoice.id}
+                        societyId={societyId}
+                        mandateId={invoice.tenant.sepaMandates[0].id}
+                        mandateRef={invoice.tenant.sepaMandates[0].mandateReference}
+                        ibanLast4={invoice.tenant.sepaMandates[0].ibanLast4}
+                        remaining={remaining}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
