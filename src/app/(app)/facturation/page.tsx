@@ -1,7 +1,7 @@
 import { getInvoices } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Euro, FileText, Plus, Zap } from "lucide-react";
+import { Euro, FileText, Plus, Zap, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -30,7 +30,7 @@ export default async function FacturationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {invoices.length} facture{invoices.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -38,7 +38,7 @@ export default async function FacturationPage() {
           <Link href="/facturation/generer">
             <Button variant="outline">
               <Zap className="h-4 w-4" />
-              Générer les appels
+              Generer les appels
             </Button>
           </Link>
           <Link href="/facturation/nouvelle">
@@ -51,36 +51,45 @@ export default async function FacturationPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-primary/50 rounded-t-xl" />
+          <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <Euro className="h-8 w-8 text-muted-foreground" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8">
+                <Euro className="h-5 w-5 text-primary" />
+              </div>
               <div>
-                <p className="text-2xl font-bold">{totalTTC.toLocaleString("fr-FR")} €</p>
-                <p className="text-xs text-muted-foreground">Total facturé TTC</p>
+                <p className="text-2xl font-bold tabular-nums">{totalTTC.toLocaleString("fr-FR")} &euro;</p>
+                <p className="text-xs text-muted-foreground">Total facture TTC</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500/50 rounded-t-xl" />
+          <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <Euro className="h-8 w-8 text-destructive/70" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/8">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-destructive">{totalImpaye.toLocaleString("fr-FR")} €</p>
+                <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
                 <p className="text-xs text-muted-foreground">
-                  Impayés ({enAttente.length + enRetard.length})
+                  Impayes ({enAttente.length + enRetard.length})
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-destructive/50 rounded-t-xl" />
+          <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-destructive/70" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/8">
+                <FileText className="h-5 w-5 text-destructive" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-destructive">{enRetard.length}</p>
+                <p className="text-2xl font-bold tabular-nums text-destructive">{enRetard.length}</p>
                 <p className="text-xs text-muted-foreground">En retard</p>
               </div>
             </div>
@@ -92,11 +101,13 @@ export default async function FacturationPage() {
 
       {invoices.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucune facture</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Créez vos premiers appels de loyer et factures.
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 mb-4">
+              <FileText className="h-7 w-7 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">Aucune facture</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
+              Creez vos premiers appels de loyer et factures.
             </p>
             <Link href="/facturation/nouvelle">
               <Button>

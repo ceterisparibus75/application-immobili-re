@@ -17,9 +17,9 @@ export const metadata = { title: "Baux" };
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
-  RESILIE: "Résilié",
-  RENOUVELE: "Renouvelé",
-  EN_NEGOCIATION: "En négociation",
+  RESILIE: "Resilie",
+  RENOUVELE: "Renouvele",
+  EN_NEGOCIATION: "En negociation",
   CONTENTIEUX: "Contentieux",
 };
 
@@ -37,8 +37,8 @@ const STATUS_VARIANTS: Record<
 const TYPE_LABELS: Record<LeaseType, string> = {
   COMMERCIAL_369: "3-6-9",
   BAIL_PROFESSIONNEL: "Professionnel",
-  DEROGATOIRE: "Dérogatoire",
-  PRECAIRE: "Précaire",
+  DEROGATOIRE: "Derogatoire",
+  PRECAIRE: "Precaire",
 };
 
 function tenantName(t: {
@@ -48,8 +48,8 @@ function tenantName(t: {
   lastName?: string | null;
 }) {
   return t.entityType === "PERSONNE_MORALE"
-    ? (t.companyName ?? "—")
-    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
+    ? (t.companyName ?? "\u2014")
+    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "\u2014";
 }
 
 export default async function BauxPage() {
@@ -68,7 +68,7 @@ export default async function BauxPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Baux commerciaux</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {actifs.length} bail{actifs.length !== 1 ? "x" : ""} actif
             {actifs.length !== 1 ? "s" : ""}
           </p>
@@ -83,17 +83,19 @@ export default async function BauxPage() {
 
       {leases.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun bail</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Créez votre premier bail commercial en associant un lot et un
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 mb-4">
+              <FileText className="h-7 w-7 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">Aucun bail</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
+              Creez votre premier bail commercial en associant un lot et un
               locataire.
             </p>
             <Link href="/baux/nouveau">
               <Button>
                 <Plus className="h-4 w-4" />
-                Créer un bail
+                Creer un bail
               </Button>
             </Link>
           </CardContent>
@@ -103,7 +105,7 @@ export default async function BauxPage() {
           {/* Baux actifs */}
           <Card>
             <CardHeader>
-              <CardTitle>Baux actifs ({actifs.length})</CardTitle>
+              <CardTitle className="text-base">Baux actifs ({actifs.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {actifs.length === 0 ? (
@@ -112,26 +114,26 @@ export default async function BauxPage() {
                 </p>
               ) : (
                 <>
-                  <div className="divide-y">
+                  <div className="divide-y divide-border/50">
                     {actifs.map((lease) => (
                       <Link
                         key={lease.id}
                         href={`/baux/${lease.id}`}
-                        className="flex items-center justify-between py-3 px-2 hover:bg-accent/50 rounded-md transition-colors"
+                        className="flex items-center justify-between py-3 px-2 -mx-2 hover:bg-accent/40 rounded-lg transition-colors"
                       >
                         <div>
                           <p className="text-sm font-medium">
                             {tenantName(lease.tenant)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {lease.lot.building.name} — Lot {lease.lot.number},{" "}
+                            {lease.lot.building.name} \u2014 Lot {lease.lot.number},{" "}
                             {lease.lot.building.city}
                           </p>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-sm font-medium">
-                              {lease.currentRentHT.toLocaleString("fr-FR")} € HT/mois
+                            <p className="text-sm font-medium tabular-nums">
+                              {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/mois
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Depuis le{" "}
@@ -148,10 +150,10 @@ export default async function BauxPage() {
                       </Link>
                     ))}
                   </div>
-                  <div className="mt-3 pt-3 border-t flex items-center justify-between bg-muted/40 rounded-md px-3 py-2">
-                    <span className="text-sm font-semibold">Total loyers mensuels</span>
-                    <span className="text-sm font-bold text-primary">
-                      {actifs.reduce((sum, l) => sum + l.currentRentHT, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € HT/mois
+                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2.5">
+                    <span className="text-sm font-medium text-muted-foreground">Total loyers mensuels</span>
+                    <span className="text-sm font-bold tabular-nums">
+                      {actifs.reduce((sum, l) => sum + l.currentRentHT, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro; HT/mois
                     </span>
                   </div>
                 </>
@@ -163,29 +165,29 @@ export default async function BauxPage() {
           {autres.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-muted-foreground">
-                  Baux terminés / autres ({autres.length})
+                <CardTitle className="text-base text-muted-foreground">
+                  Baux termines / autres ({autres.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="divide-y">
+                <div className="divide-y divide-border/50">
                   {autres.map((lease) => (
                     <Link
                       key={lease.id}
                       href={`/baux/${lease.id}`}
-                      className="flex items-center justify-between py-3 px-2 hover:bg-accent/50 rounded-md transition-colors opacity-60"
+                      className="flex items-center justify-between py-3 px-2 -mx-2 hover:bg-accent/40 rounded-lg transition-colors opacity-60"
                     >
                       <div>
                         <p className="text-sm font-medium">
                           {tenantName(lease.tenant)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {lease.lot.building.name} — Lot {lease.lot.number}
+                          {lease.lot.building.name} \u2014 Lot {lease.lot.number}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          {lease.baseRentHT.toLocaleString("fr-FR")} € HT/mois
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {lease.baseRentHT.toLocaleString("fr-FR")} &euro; HT/mois
                         </span>
                         <Badge variant={STATUS_VARIANTS[lease.status]}>
                           {STATUS_LABELS[lease.status]}

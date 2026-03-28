@@ -47,7 +47,6 @@ const LABELS: Record<string, string> = {
 };
 
 function getLabel(segment: string): string {
-  // Dynamic segment like [id] — show generic label
   if (/^[a-z0-9]{20,}$/.test(segment)) return "Detail";
   return LABELS[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
 }
@@ -56,7 +55,6 @@ export function Breadcrumb() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
-  // Hide on dashboard or if only 1 segment
   if (segments.length <= 1) return null;
 
   const crumbs = segments.map((segment, index) => {
@@ -67,15 +65,15 @@ export function Breadcrumb() {
   });
 
   return (
-    <nav className="flex items-center gap-1 px-5 lg:px-6 py-2 text-xs text-muted-foreground border-b border-border/40 bg-background/50">
+    <nav className="flex items-center gap-1.5 px-5 lg:px-6 py-2 text-xs text-muted-foreground/80">
       <Link href="/dashboard" className="hover:text-foreground transition-colors">
-        <Home className="h-3 w-3" />
+        <Home className="h-3.5 w-3.5" />
       </Link>
       {crumbs.map((crumb) => (
-        <span key={crumb.href} className="flex items-center gap-1">
-          <ChevronRight className="h-3 w-3" />
+        <span key={crumb.href} className="flex items-center gap-1.5">
+          <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
           {crumb.isLast ? (
-            <span className="text-foreground font-medium">{crumb.label}</span>
+            <span className="text-foreground/70 font-medium">{crumb.label}</span>
           ) : (
             <Link href={crumb.href} className="hover:text-foreground transition-colors">
               {crumb.label}

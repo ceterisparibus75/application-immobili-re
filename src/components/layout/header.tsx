@@ -30,7 +30,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-5">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 px-5">
         <Button variant="ghost" size="icon" className="lg:hidden -ml-1" onClick={() => setMobileMenuOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>
@@ -45,19 +45,19 @@ export function Header() {
           <GlobalSearch />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileSearchOpen(true)}>
             <Search className="h-4 w-4" />
           </Button>
           <ThemeToggle />
           <NotificationBell />
           {session?.user && (
-            <div className="flex items-center gap-2 ml-1">
+            <div className="flex items-center gap-2.5 ml-1.5 pl-2.5 border-l border-border/50">
               <div className="hidden sm:flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 border border-primary/20 text-primary text-xs font-semibold select-none">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-semibold select-none">
                   {initials}
                 </div>
-                <span className="text-sm text-muted-foreground max-w-[140px] truncate hidden md:block">
+                <span className="text-[13px] text-muted-foreground max-w-[140px] truncate hidden md:block">
                   {session.user.name || session.user.email}
                 </span>
               </div>

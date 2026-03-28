@@ -37,7 +37,7 @@ export default async function AppLayout({
         <div className="flex flex-1 flex-col lg:pl-60">
           <Header />
           <Breadcrumb />
-          <main className="flex-1 overflow-y-auto p-5 lg:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-5 lg:p-7">{children}</main>
         </div>
       </div>
     </SocietyProvider>

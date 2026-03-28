@@ -36,7 +36,6 @@ export function GlobalSearch() {
   const router = useRouter();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cmd+K / Ctrl+K
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -88,7 +87,6 @@ export function GlobalSearch() {
     if (e.key === "Enter" && results[selected]) navigate(results[selected]);
   };
 
-  // Grouper par type
   const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {
     (acc[r.type] ??= []).push(r);
     return acc;
@@ -98,11 +96,11 @@ export function GlobalSearch() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-md border border-input bg-background text-sm text-muted-foreground hover:bg-accent transition-colors"
+        className="hidden lg:flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg border border-border/60 bg-secondary/50 text-sm text-muted-foreground hover:bg-secondary hover:border-border transition-all duration-150"
       >
         <Search className="h-3.5 w-3.5" />
-        <span>Rechercher...</span>
-        <kbd className="ml-6 text-xs bg-muted px-1 py-0.5 rounded">Ctrl+K</kbd>
+        <span className="flex-1 text-left">Rechercher...</span>
+        <kbd className="text-[10px] bg-background/80 border border-border/50 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
       </button>
     );
   }
@@ -110,29 +108,29 @@ export function GlobalSearch() {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
       {/* Dialog */}
-      <div className="fixed left-1/2 top-24 z-50 w-full max-w-xl -translate-x-1/2 rounded-xl border bg-background shadow-2xl">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="fixed left-1/2 top-[15%] z-50 w-full max-w-xl -translate-x-1/2 rounded-xl border border-border/60 bg-card shadow-2xl animate-fade-in-scale">
+        <div className="flex items-center gap-2.5 border-b border-border/50 px-4 py-3">
+          <Search className="h-4 w-4 text-muted-foreground/60 shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
             placeholder="Rechercher immeubles, locataires, factures..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
           />
           {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
-          <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Esc</kbd>
+          <kbd className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">Esc</kbd>
         </div>
 
         {results.length > 0 && (
           <div className="max-h-96 overflow-y-auto p-2">
             {Object.entries(grouped).map(([type, items]) => (
-              <div key={type} className="mb-2">
-                <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              <div key={type} className="mb-1.5">
+                <p className="px-2.5 py-1.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70 font-medium">
                   {TYPE_LABELS[type] ?? type}
                 </p>
                 {items.map((r) => {
@@ -143,12 +141,14 @@ export function GlobalSearch() {
                       key={r.id}
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-                        selected === idx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                        selected === idx ? "bg-primary/8 text-foreground" : "hover:bg-accent/50"
                       )}
                       onClick={() => navigate(r)}
                       onMouseEnter={() => setSelected(idx)}
                     >
-                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{r.title}</p>
                         {r.subtitle && <p className="text-xs text-muted-foreground truncate">{r.subtitle}</p>}
@@ -163,13 +163,16 @@ export function GlobalSearch() {
         )}
 
         {query.length >= 2 && results.length === 0 && !loading && (
-          <p className="px-4 py-8 text-sm text-muted-foreground text-center">Aucun résultat pour « {query} »</p>
+          <div className="px-4 py-10 text-center">
+            <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Aucun resultat pour &laquo; {query} &raquo;</p>
+          </div>
         )}
 
-        <div className="border-t px-4 py-2 flex items-center gap-4 text-[10px] text-muted-foreground">
-          <span><kbd className="bg-muted px-1 rounded">↑↓</kbd> Naviguer</span>
-          <span><kbd className="bg-muted px-1 rounded">↵</kbd> Ouvrir</span>
-          <span><kbd className="bg-muted px-1 rounded">Esc</kbd> Fermer</span>
+        <div className="border-t border-border/40 px-4 py-2 flex items-center gap-4 text-[10px] text-muted-foreground/60">
+          <span><kbd className="bg-secondary px-1 rounded font-mono">&#x2191;&#x2193;</kbd> Naviguer</span>
+          <span><kbd className="bg-secondary px-1 rounded font-mono">&#x21B5;</kbd> Ouvrir</span>
+          <span><kbd className="bg-secondary px-1 rounded font-mono">Esc</kbd> Fermer</span>
         </div>
       </div>
     </>

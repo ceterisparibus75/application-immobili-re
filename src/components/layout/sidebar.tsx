@@ -98,61 +98,66 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 border-r border-border/60"
+      className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 border-r border-border/50"
       style={{
-        background: "oklch(0.988 0.001 264 / 0.75)",
+        background: "oklch(0.985 0.002 264 / 0.8)",
         backdropFilter: "blur(20px) saturate(180%)",
         WebkitBackdropFilter: "blur(20px) saturate(180%)",
       }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border/50">
+      <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/40">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
           <Building2 className="h-4 w-4 text-white" />
         </div>
-        <Link href="/dashboard" className="font-semibold text-sm text-foreground tracking-tight">
+        <Link href="/dashboard" className="font-semibold text-[15px] text-foreground tracking-tight">
           GestImmo
         </Link>
       </div>
 
       {/* Selecteur de societe */}
-      <div className="px-2 py-2 border-b border-border/50">
+      <div className="px-2.5 py-2.5 border-b border-border/40">
         <SocietySwitcher />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {navigation.map((group) => (
-          <div key={group.title} className="mb-3">
-            <p className="px-3 mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground select-none">
+      <nav className="flex-1 overflow-y-auto py-2 px-2.5">
+        {navigation.map((group, groupIndex) => (
+          <div key={group.title} className={cn("pb-1", groupIndex > 0 && "pt-3")}>
+            <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 select-none">
               {group.title}
             </p>
-            {group.items.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-100",
-                    isActive
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "text-foreground/65 hover:bg-foreground/5 hover:text-foreground"
-                  )}
-                >
-                  <item.icon
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
                     className={cn(
-                      "h-4 w-4 shrink-0",
+                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-all duration-150",
                       isActive
-                        ? "text-primary"
-                        : "text-foreground/35 group-hover:text-foreground/55"
+                        ? "bg-primary/[0.08] text-primary font-semibold"
+                        : "text-foreground/60 hover:bg-foreground/[0.04] hover:text-foreground/85"
                     )}
-                  />
-                  {item.name}
-                </Link>
-              );
-            })}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-primary" />
+                    )}
+                    <item.icon
+                      className={cn(
+                        "h-[15px] w-[15px] shrink-0 transition-colors duration-150",
+                        isActive
+                          ? "text-primary"
+                          : "text-foreground/30 group-hover:text-foreground/50"
+                      )}
+                    />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         ))}
       </nav>
