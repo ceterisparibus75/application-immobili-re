@@ -35,7 +35,7 @@ type DataroomFull = {
   accessCount: number;
   lastAccessedAt: Date | null;
   createdAt: Date;
-  createdBy: string;
+  createdBy: string | null;
   creator: { name: string | null; email: string | null } | null;
   documents: {
     id: string;

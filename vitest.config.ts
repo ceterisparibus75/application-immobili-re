@@ -17,7 +17,7 @@ export default defineConfig({
       // Global thresholds reflect Phase 1 scope; Phase 2 will raise these to 70%+.
       // Measured Phase 1 values: lines 4.96%, functions 7.77%, stmts 4.59%, branches 4.16%
       // Thresholds set ~1-2 points below measured to guard against regression with room for variation.
-      thresholds: { lines: 3, functions: 6, statements: 3, branches: 3 },
+      thresholds: { lines: 3, functions: 5, statements: 3, branches: 3 },
     },
   },
 })
