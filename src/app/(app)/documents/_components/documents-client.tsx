@@ -5,19 +5,24 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
-  File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown,
+  File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { DeleteDocumentButton } from "./delete-button";
 import { AiBadge } from "./ai-badge";
 import { DocumentChat } from "./document-chat";
+import { updateDocument } from "@/actions/document";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DocumentItem = {
@@ -206,15 +211,108 @@ function FileGridCard({ doc, selected, onSelect, societyId }: { doc: DocumentIte
     </div>
   );
 }
+// ─── Edit Form ────────────────────────────────────────────────────────────────
+function EditForm({ doc, societyId, onSaved }: { doc: DocumentItem; societyId: string; onSaved: (updated: Partial<DocumentItem>) => void }) {
+  const [category, setCategory] = useState(doc.category ?? "autre");
+  const [description, setDescription] = useState(doc.description ?? "");
+  const [expiresAt, setExpiresAt] = useState(
+    doc.expiresAt ? new Date(doc.expiresAt).toISOString().split("T")[0] : ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    const result = await updateDocument(societyId, doc.id, {
+      category,
+      description: description || null,
+      expiresAt: expiresAt || null,
+    });
+    setSaving(false);
+    if (result.success) {
+      toast.success("Document mis à jour");
+      onSaved({ category, description: description || null, expiresAt: expiresAt ? new Date(expiresAt) : null });
+    } else {
+      toast.error(result.error ?? "Erreur lors de la mise à jour");
+    }
+  }
+
+  const isDirty =
+    category !== (doc.category ?? "autre") ||
+    description !== (doc.description ?? "") ||
+    expiresAt !== (doc.expiresAt ? new Date(doc.expiresAt).toISOString().split("T")[0] : "");
+
+  return (
+    <div className="space-y-4 py-1">
+      <div className="space-y-1.5">
+        <Label className="text-xs">Catégorie</Label>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DOCUMENT_CATEGORIES.map((c) => (
+              <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Description</Label>
+        <Textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Description optionnelle…"
+          rows={3}
+          className="text-xs resize-none"
+          maxLength={500}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Date d&apos;expiration</Label>
+        <Input
+          type="date"
+          value={expiresAt}
+          onChange={(e) => setExpiresAt(e.target.value)}
+          className="h-8 text-xs"
+        />
+        {expiresAt && (
+          <button
+            type="button"
+            onClick={() => setExpiresAt("")}
+            className="text-[10px] text-muted-foreground hover:text-destructive"
+          >
+            Supprimer la date
+          </button>
+        )}
+      </div>
+      <Button
+        onClick={() => void handleSave()}
+        disabled={saving || !isDirty}
+        size="sm"
+        className="w-full h-8 text-xs gap-1"
+      >
+        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+        Enregistrer
+      </Button>
+    </div>
+  );
+}
+
 // ─── Details Panel ────────────────────────────────────────────────────────────
-function DetailsPanel({ doc, onClose }: { doc: DocumentItem; onClose: () => void; }) {
+function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentItem; societyId: string; onClose: () => void; }) {
+  const [doc, setDoc] = useState(initialDoc);
   const [analysisResult, setAnalysisResult] = useState<{
     summary?: string; tags?: string[]; metadata?: unknown; status: string;
   } | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [lastId, setLastId] = useState(doc.id);
+  const [lastId, setLastId] = useState(initialDoc.id);
 
-  if (doc.id !== lastId) { setAnalysisResult(null); setAnalyzing(false); setLastId(doc.id); }
+  if (initialDoc.id !== lastId) {
+    setDoc(initialDoc);
+    setAnalysisResult(null);
+    setAnalyzing(false);
+    setLastId(initialDoc.id);
+  }
 
   const display = analysisResult
     ? { ...doc, aiSummary: analysisResult.summary ?? doc.aiSummary, aiTags: analysisResult.tags ?? doc.aiTags, aiMetadata: analysisResult.metadata ?? doc.aiMetadata, aiStatus: analysisResult.status }
@@ -260,6 +358,7 @@ function DetailsPanel({ doc, onClose }: { doc: DocumentItem; onClose: () => void
           <TabsTrigger value="ai" className="flex-1 text-xs"><Sparkles className="h-3.5 w-3.5 mr-1" />IA</TabsTrigger>
           <TabsTrigger value="chat" className="flex-1 text-xs">Chat</TabsTrigger>
           <TabsTrigger value="info" className="flex-1 text-xs">Infos</TabsTrigger>
+          <TabsTrigger value="edit" className="flex-1 text-xs"><Pencil className="h-3 w-3 mr-1" />Éditer</TabsTrigger>
         </TabsList>
         <TabsContent value="ai" className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 mt-2">
           {display.aiStatus === "pending" && (
@@ -335,6 +434,13 @@ function DetailsPanel({ doc, onClose }: { doc: DocumentItem; onClose: () => void
               </div>
             ))}
           </dl>
+        </TabsContent>
+        <TabsContent value="edit" className="overflow-y-auto px-3 pb-3 mt-2">
+          <EditForm
+            doc={doc}
+            societyId={societyId}
+            onSaved={(updated) => setDoc((prev) => ({ ...prev, ...updated }))}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -437,7 +543,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
       </div>
       {selectedDoc && (
         <div className="hidden lg:flex flex-col w-72 shrink-0 border-l overflow-hidden">
-          <DetailsPanel doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+          <DetailsPanel doc={selectedDoc} societyId={societyId} onClose={() => setSelectedDoc(null)} />
         </div>
       )}
       <Sheet open={mobileDetailsOpen} onOpenChange={(open) => { setMobileDetailsOpen(open); if (!open) setSelectedDoc(null); }}>
@@ -445,7 +551,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
           {selectedDoc && (
             <>
               <SheetHeader className="sr-only"><SheetTitle>{selectedDoc.fileName}</SheetTitle></SheetHeader>
-              <div className="flex-1 overflow-hidden"><DetailsPanel doc={selectedDoc} onClose={() => { setMobileDetailsOpen(false); setSelectedDoc(null); }} /></div>
+              <div className="flex-1 overflow-hidden"><DetailsPanel doc={selectedDoc} societyId={societyId} onClose={() => { setMobileDetailsOpen(false); setSelectedDoc(null); }} /></div>
             </>
           )}
         </SheetContent>

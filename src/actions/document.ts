@@ -7,6 +7,13 @@ import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+const updateDocumentSchema = z.object({
+  category: z.string().min(1, "Catégorie requise"),
+  description: z.string().max(500, "Description trop longue").optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,6 +57,49 @@ export async function getDocuments(
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function updateDocument(
+  societyId: string,
+  documentId: string,
+  input: { category: string; description?: string | null; expiresAt?: string | null }
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = updateDocumentSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const doc = await prisma.document.findFirst({ where: { id: documentId, societyId } });
+    if (!doc) return { success: false, error: "Document introuvable" };
+
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        category: parsed.data.category,
+        description: parsed.data.description ?? null,
+        expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Document",
+      entityId: documentId,
+      details: { category: parsed.data.category, description: parsed.data.description },
+    });
+
+    revalidatePath("/documents");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateDocument]", error);
+    return { success: false, error: "Erreur lors de la mise à jour" };
+  }
 }
 
 export async function deleteDocument(
