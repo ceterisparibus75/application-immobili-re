@@ -76,12 +76,20 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
     const { signedUrl, token, storagePath, anonKey } = await signRes.json() as {
       signedUrl: string; token: string; storagePath: string; bucket: string; anonKey: string;
     };
-    const uploadHeaders: Record<string, string> = { "Content-Type": f.type };
-    if (anonKey) { uploadHeaders["apikey"] = anonKey; uploadHeaders["Authorization"] = `Bearer ${token}`; }
-    const putRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: f });
+    const uploadHeaders: Record<string, string> = {
+      "Content-Type": f.type,
+      "Authorization": `Bearer ${token}`,
+    };
+    if (anonKey) uploadHeaders["apikey"] = anonKey;
+    let putRes: Response;
+    try {
+      putRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: f });
+    } catch (netErr) {
+      throw new Error("[upload] Impossible de joindre le serveur de stockage. Vérifiez votre connexion. (" + String(netErr) + ")");
+    }
     if (!putRes.ok) {
       const msg = await putRes.text().catch(() => String(putRes.status));
-      throw new Error("[upload Supabase] " + msg.substring(0, 200));
+      throw new Error("[upload] Erreur " + putRes.status + " : " + msg.substring(0, 200));
     }
     const regRes = await fetch("/api/documents/register", {
       method: "POST",
