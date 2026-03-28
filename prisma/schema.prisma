@@ -365,6 +365,7 @@ model Society {
   signatureRequests       SignatureRequest[]
   notifications           Notification[]
   fiscalYears             FiscalYear[]
+  datarooms               Dataroom[]
 
   @@index([siret])
 }
@@ -407,6 +408,7 @@ model User {
   notifications     Notification[]
   validatedEntries  JournalEntry[] @relation("JournalEntryValidator")
   closedFiscalYears FiscalYear[]   @relation("FiscalYearCloser")
+  datarooms         Dataroom[]
 
   @@index([email])
 }
@@ -1694,11 +1696,12 @@ model Document {
   aiAnalyzedAt DateTime?           // date derniere analyse IA
   aiStatus     String?             // pending | done | error
 
-  society  Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
-  lot      Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  lease    Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant   Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  society           Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building          Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  lot               Lot?              @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  lease             Lease?            @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant            Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  dataroomDocuments DataroomDocument[]
 
   @@index([societyId])
   @@index([buildingId])
@@ -1994,4 +1997,70 @@ model Notification {
   @@index([userId, isRead])
   @@index([societyId])
   @@index([createdAt])
+}
+
+// ============================================================
+// PHASE 10 — DATAROOMS
+// ============================================================
+
+/// Salle des données virtuelle — partage sécurisé de documents GED
+model Dataroom {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  societyId   String
+  createdById String?
+
+  name          String
+  description   String?   @db.Text
+  /// Token public unique pour l'accès sans authentification
+  token         String    @unique @default(cuid())
+  isActive      Boolean   @default(true)
+  expiresAt     DateTime?
+  viewCount     Int       @default(0)
+  /// Mot de passe haché (bcrypt) pour protéger l'accès, null = accès libre
+  passwordHash  String?
+  /// Email du bénéficiaire externe (notifié à chaque ajout de document)
+  recipientEmail String?
+  recipientName  String?
+
+  society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  createdBy   User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  documents   DataroomDocument[]
+  accesses    DataroomAccess[]
+
+  @@index([societyId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+/// Document inclus dans une dataroom
+model DataroomDocument {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  dataroomId String
+  documentId String
+  order      Int      @default(0)
+
+  dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([dataroomId, documentId])
+  @@index([dataroomId])
+}
+
+/// Trace d'accès externe à une dataroom
+model DataroomAccess {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  dataroomId  String
+  ipAddress   String?
+  userAgent   String?
+  viewerEmail String?
+  viewerName  String?
+
+  dataroom    Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
+
+  @@index([dataroomId])
+  @@index([dataroomId, createdAt])
 }

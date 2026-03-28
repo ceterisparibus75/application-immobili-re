@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Clock, Euro } from "lucide-react";
-import Link from "next/link";
-import SendReminderButton from "./_components/send-reminder-button";
+import { RelancesClient } from "./_components/relances-client";
 
 export const metadata = { title: "Relances" };
 
@@ -191,62 +190,7 @@ export default async function RelancesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {overdueInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              Aucune facture en retard
-            </p>
-          ) : (
-            <div className="divide-y">
-              {overdueInvoices.map((inv) => {
-                const daysLate = Math.floor(
-                  (Date.now() - new Date(inv.dueDate).getTime()) / 86400000
-                );
-                const paid = inv.payments.reduce((ps, p) => ps + p.amount, 0);
-                const remaining = inv.totalTTC - paid;
-                return (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between gap-4 py-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/facturation/${inv.id}`}
-                          className="text-sm font-medium hover:underline truncate"
-                        >
-                          {inv.invoiceNumber}
-                        </Link>
-                        <Badge variant="destructive" className="text-xs shrink-0">
-                          J+{daysLate}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {tenantName(inv.lease)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-destructive">
-                          {fmt(remaining)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Éch.{" "}
-                          {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
-                        </p>
-                      </div>
-                      <SendReminderButton
-                        societyId={societyId}
-                        invoiceId={inv.id}
-                        defaultLevel={
-                          daysLate >= 30 ? "MISE_EN_DEMEURE" : daysLate >= 15 ? "RELANCE_2" : "RELANCE_1"
-                        }
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <RelancesClient societyId={societyId} overdueInvoices={overdueInvoices} />
         </CardContent>
       </Card>
 

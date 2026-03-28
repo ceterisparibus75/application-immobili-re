@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
 
   const path = req.nextUrl.searchParams.get("path");
   if (!path || path.trim() === "") return new NextResponse(null, { status: 400 });
+  const forceDownload = req.nextUrl.searchParams.get("dl") === "1";
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -45,11 +46,15 @@ export async function GET(req: NextRequest) {
   };
   const contentType = mimeMap[ext] ?? blob.type ?? "application/octet-stream";
 
-  return new NextResponse(ab, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "private, max-age=3600",
-      "Content-Length": String(ab.byteLength),
-    },
-  });
+  const fileName = cleanPath.split("/").pop() ?? "document";
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Cache-Control": "private, max-age=3600",
+    "Content-Length": String(ab.byteLength),
+  };
+  if (forceDownload) {
+    headers["Content-Disposition"] = `attachment; filename="${encodeURIComponent(fileName)}"`;
+  }
+
+  return new NextResponse(ab, { headers });
 }

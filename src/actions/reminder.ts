@@ -148,3 +148,34 @@ export async function sendManualReminder(
     return { success: false, error: "Erreur lors de l'envoi de la relance" };
   }
 }
+
+/**
+ * Envoie des relances en masse pour une liste de factures.
+ * Retourne le nombre de succès et d'échecs.
+ */
+export async function sendBulkReminders(
+  societyId: string,
+  invoiceIds: string[],
+  level: ReminderLevel
+): Promise<ActionResult<{ sent: number; failed: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const invoiceId of invoiceIds) {
+      const result = await sendManualReminder(societyId, invoiceId, level);
+      if (result.success) sent++;
+      else failed++;
+    }
+
+    return { success: true, data: { sent, failed } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[sendBulkReminders]", error);
+    return { success: false, error: "Erreur lors de l'envoi des relances" };
+  }
+}
