@@ -76,11 +76,11 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
     const { signedUrl, token, storagePath, anonKey } = await signRes.json() as {
       signedUrl: string; token: string; storagePath: string; bucket: string; anonKey: string;
     };
+    if (!anonKey) throw new Error("[upload] Clé Supabase manquante (NEXT_PUBLIC_SUPABASE_ANON_KEY non configurée sur Vercel)");
     const uploadHeaders: Record<string, string> = {
       "Content-Type": f.type,
-      "Authorization": `Bearer ${token}`,
+      "apikey": anonKey,
     };
-    if (anonKey) uploadHeaders["apikey"] = anonKey;
     let putRes: Response;
     try {
       putRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: f });
