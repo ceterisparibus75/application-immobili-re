@@ -170,7 +170,7 @@ function FileRow({ doc, selected, onSelect, societyId }: { doc: DocumentItem; se
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className={cn("text-sm truncate", selected && "font-medium")}>{doc.fileName}</span>
-          <AiBadge status={doc.aiStatus} />
+          <AiBadge status={doc.aiStatus} id={doc.id} />
           {expired && <span title="Expiré"><AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label="Expiré" /></span>}
           {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" aria-label="Expire bientôt" /></span>}
         </div>
@@ -196,7 +196,7 @@ function FileGridCard({ doc, selected, onSelect, societyId }: { doc: DocumentIte
     >
       <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10" />
       <p className="text-xs text-center truncate w-full font-medium leading-tight">{doc.fileName}</p>
-      <AiBadge status={doc.aiStatus} />
+      <AiBadge status={doc.aiStatus} id={doc.id} />
       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
           <Button variant="ghost" size="icon" className="h-6 w-6"><ExternalLink className="h-3 w-3" /></Button>
@@ -243,7 +243,7 @@ function DetailsPanel({ doc, onClose }: { doc: DocumentItem; onClose: () => void
           <p className="text-sm font-semibold break-words leading-tight">{doc.fileName}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(doc.fileSize ?? 0)} · {getCategoryLabel(doc.category)}</p>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            <AiBadge status={display.aiStatus} />
+            <AiBadge status={display.aiStatus} id={doc.id} />
             {isExpired(doc.expiresAt) && <Badge variant="destructive" className="text-[10px] py-0">Expiré</Badge>}
             {isExpiringSoon(doc.expiresAt) && <Badge className="text-[10px] py-0 bg-orange-100 text-orange-700">Expire bientôt</Badge>}
           </div>
