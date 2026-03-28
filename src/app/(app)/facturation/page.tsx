@@ -26,7 +26,7 @@ export default async function FacturationPage() {
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>
@@ -36,84 +36,64 @@ export default async function FacturationPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/facturation/generer">
-            <Button variant="outline">
-              <Zap className="h-4 w-4" />
-              Generer les appels
-            </Button>
+            <Button variant="outline"><Zap className="h-4 w-4" />Generer les appels</Button>
           </Link>
           <Link href="/facturation/nouvelle">
-            <Button>
-              <Plus className="h-4 w-4" />
-              Nouvelle facture
-            </Button>
+            <Button><Plus className="h-4 w-4" />Nouvelle facture</Button>
           </Link>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-primary/50 rounded-t-xl" />
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8">
-                <Euro className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums">{totalTTC.toLocaleString("fr-FR")} &euro;</p>
-                <p className="text-xs text-muted-foreground">Total facture TTC</p>
-              </div>
+      <div className="grid gap-5 sm:grid-cols-3">
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-blue-50/80 to-card dark:from-blue-950/20 dark:to-card p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+              <Euro className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500/50 rounded-t-xl" />
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/8">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
-                <p className="text-xs text-muted-foreground">
-                  Impayes ({enAttente.length + enRetard.length})
-                </p>
-              </div>
+            <div>
+              <p className="text-2xl font-bold tabular-nums">{totalTTC.toLocaleString("fr-FR")} &euro;</p>
+              <p className="text-xs text-muted-foreground">Total facture TTC</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-destructive/50 rounded-t-xl" />
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/8">
-                <FileText className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums text-destructive">{enRetard.length}</p>
-                <p className="text-xs text-muted-foreground">En retard</p>
-              </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-amber-50/80 to-card dark:from-amber-950/20 dark:to-card p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
+              <p className="text-xs text-muted-foreground">Impayes ({enAttente.length + enRetard.length})</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-red-50/80 to-card dark:from-red-950/20 dark:to-card p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{enRetard.length}</p>
+              <p className="text-xs text-muted-foreground">En retard</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <DraftsBanner drafts={brouillons} societyId={societyId} />
 
       {invoices.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 mb-4">
-              <FileText className="h-7 w-7 text-primary" />
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="h-16 w-16 rounded-2xl bg-primary/8 flex items-center justify-center mb-5">
+              <FileText className="h-8 w-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucune facture</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
               Creez vos premiers appels de loyer et factures.
             </p>
             <Link href="/facturation/nouvelle">
-              <Button>
-                <Plus className="h-4 w-4" />
-                Nouvelle facture
-              </Button>
+              <Button><Plus className="h-4 w-4" />Nouvelle facture</Button>
             </Link>
           </CardContent>
         </Card>

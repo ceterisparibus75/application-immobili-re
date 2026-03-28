@@ -11,12 +11,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 
 function getInitials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+  return name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
 export function Header() {
@@ -30,8 +25,8 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 px-5">
-        <Button variant="ghost" size="icon" className="lg:hidden -ml-1" onClick={() => setMobileMenuOpen(true)}>
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6">
+        <Button variant="ghost" size="icon" className="lg:hidden -ml-2" onClick={() => setMobileMenuOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>
 
@@ -45,21 +40,23 @@ export function Header() {
           <GlobalSearch />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileSearchOpen(true)}>
             <Search className="h-4 w-4" />
           </Button>
           <ThemeToggle />
           <NotificationBell />
+
           {session?.user && (
-            <div className="flex items-center gap-2.5 ml-1.5 pl-2.5 border-l border-border/50">
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-semibold select-none">
+            <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border/40">
+              <div className="hidden sm:flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary text-white text-[11px] font-bold select-none shadow-sm">
                   {initials}
                 </div>
-                <span className="text-[13px] text-muted-foreground max-w-[140px] truncate hidden md:block">
-                  {session.user.name || session.user.email}
-                </span>
+                <div className="hidden md:block">
+                  <p className="text-[13px] font-medium leading-tight">{session.user.name || session.user.email}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Gestionnaire</p>
+                </div>
               </div>
               <Button
                 variant="ghost"

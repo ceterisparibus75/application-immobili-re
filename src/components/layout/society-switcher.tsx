@@ -49,24 +49,24 @@ export function SocietySwitcher() {
       <button
         onClick={() => canSwitch && setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors text-left",
-          canSwitch ? "hover:bg-foreground/5 cursor-pointer" : "cursor-default",
+          "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors text-left",
+          canSwitch ? "hover:bg-white/[0.06] cursor-pointer" : "cursor-default",
         )}
       >
-        <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white text-[10px] font-bold select-none shadow-sm", avatarColor(activeSociety.name))}>
+        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white text-[10px] font-bold select-none shadow-sm", avatarColor(activeSociety.name))}>
           {getInitials(activeSociety.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold leading-tight truncate text-foreground">{activeSociety.name}</p>
-          <p className="text-[10px] leading-tight text-muted-foreground truncate">{activeSociety.legalForm}</p>
+          <p className="text-xs font-semibold leading-tight truncate text-white/90">{activeSociety.name}</p>
+          <p className="text-[10px] leading-tight text-white/35 truncate">{activeSociety.legalForm}</p>
         </div>
         {canSwitch && (
-          <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform duration-150", open && "rotate-180")} />
+          <ChevronDown className={cn("h-3 w-3 text-white/30 shrink-0 transition-transform duration-150", open && "rotate-180")} />
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-card text-card-foreground shadow-xl z-50 overflow-hidden">
           <div className="p-1.5">
             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               Changer de societe

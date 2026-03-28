@@ -18,7 +18,6 @@ export default async function AppLayout({
 
   const societies = await getSocieties();
 
-  // First-time user: no societies at all — redirect to owner setup
   if (societies.length === 0) {
     const { headers: nextHeaders } = await import("next/headers");
     const h = await nextHeaders();
@@ -34,10 +33,10 @@ export default async function AppLayout({
     <SocietyProvider initialSocieties={societies}>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
-        <div className="flex flex-1 flex-col lg:pl-60">
+        <div className="flex flex-1 flex-col lg:pl-[260px]">
           <Header />
           <Breadcrumb />
-          <main className="flex-1 overflow-y-auto p-5 lg:p-7">{children}</main>
+          <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
         </div>
       </div>
     </SocietyProvider>

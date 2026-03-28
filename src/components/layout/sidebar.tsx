@@ -3,29 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Building2,
-  Crown,
-  LayoutDashboard,
-  FileText,
-  Users,
-  Receipt,
-  TrendingUp,
-  Landmark,
-  BookOpen,
-  Bell,
-  Contact,
-  FolderOpen,
-  Settings,
-  Shield,
-  ScrollText,
-  Banknote,
-  BarChart3,
-  FileBarChart,
-  BellDot,
-  Upload,
-  Merge,
-  Layers,
-  FolderLock,
+  Building2, Crown, LayoutDashboard, FileText, Users,
+  Receipt, TrendingUp, Landmark, BookOpen, Bell, Contact,
+  FolderOpen, Settings, Shield, ScrollText, Banknote,
+  BarChart3, FileBarChart, BellDot, Upload, Merge,
+  Layers, FolderLock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -97,34 +79,28 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside
-      className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 border-r border-border/50"
-      style={{
-        background: "oklch(0.985 0.002 264 / 0.8)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
-      }}
-    >
+    <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:fixed lg:inset-y-0 bg-sidebar text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/40">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
-          <Building2 className="h-4 w-4 text-white" />
+      <div className="flex items-center gap-3 px-5 h-16 border-b border-white/[0.06]">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
+          <Building2 className="h-4.5 w-4.5 text-white" />
         </div>
-        <Link href="/dashboard" className="font-semibold text-[15px] text-foreground tracking-tight">
-          GestImmo
+        <Link href="/dashboard">
+          <span className="font-bold text-[15px] text-white tracking-tight">GestImmo</span>
+          <span className="block text-[10px] text-white/40 font-medium -mt-0.5">Gestion immobiliere</span>
         </Link>
       </div>
 
-      {/* Selecteur de societe */}
-      <div className="px-2.5 py-2.5 border-b border-border/40">
+      {/* Selecteur societe */}
+      <div className="px-3 py-3 border-b border-white/[0.06]">
         <SocietySwitcher />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2.5">
+      <nav className="flex-1 overflow-y-auto py-3 px-3">
         {navigation.map((group, groupIndex) => (
-          <div key={group.title} className={cn("pb-1", groupIndex > 0 && "pt-3")}>
-            <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 select-none">
+          <div key={group.title} className={cn(groupIndex > 0 && "mt-5")}>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/30 select-none">
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -136,21 +112,21 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-all duration-150",
+                      "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150",
                       isActive
-                        ? "bg-primary/[0.08] text-primary font-semibold"
-                        : "text-foreground/60 hover:bg-foreground/[0.04] hover:text-foreground/85"
+                        ? "bg-white/[0.1] text-white shadow-sm"
+                        : "text-white/50 hover:bg-white/[0.06] hover:text-white/80"
                     )}
                   >
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-primary" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary shadow-sm shadow-primary/50" />
                     )}
                     <item.icon
                       className={cn(
-                        "h-[15px] w-[15px] shrink-0 transition-colors duration-150",
+                        "h-4 w-4 shrink-0 transition-colors duration-150",
                         isActive
-                          ? "text-primary"
-                          : "text-foreground/30 group-hover:text-foreground/50"
+                          ? "text-primary-foreground"
+                          : "text-white/30 group-hover:text-white/60"
                       )}
                     />
                     {item.name}
@@ -161,6 +137,11 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Pied de sidebar */}
+      <div className="px-4 py-3 border-t border-white/[0.06]">
+        <p className="text-[10px] text-white/20 font-medium">GestImmo v2.0</p>
+      </div>
     </aside>
   );
 }
