@@ -9,13 +9,6 @@ import { jsonrepair } from "jsonrepair";
 
 export const maxDuration = 60;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const ANALYSIS_PROMPT = `Tu es un expert en immobilier et en actes notariés français. Analyse cet acte d'acquisition immobilière et extrais les informations suivantes au format JSON strict (sans commentaires, sans markdown) :
 
 {
@@ -51,6 +44,8 @@ Règles :
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

@@ -3,13 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requirePortalAuth } from "@/lib/portal-auth";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { tenantId } = await requirePortalAuth();
 
     const formData = await req.formData();

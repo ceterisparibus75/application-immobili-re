@@ -6,13 +6,6 @@ import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const ANALYSIS_PROMPT = `Tu es un expert en diagnostics immobiliers techniques français. Analyse ce document de diagnostic et fournis une synthèse structurée en français comprenant :
 
 1. **Type de diagnostic** : identifie le type (DPE, amiante, plomb, électricité, gaz, termites, etc.)
@@ -26,6 +19,8 @@ Sois précis, concis et factuel. Si le document n'est pas un diagnostic immobili
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

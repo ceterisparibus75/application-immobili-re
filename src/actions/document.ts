@@ -15,10 +15,6 @@ const updateDocumentSchema = z.object({
   expiresAt: z.string().optional().nullable(),
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function getDocuments(
   societyId: string,
@@ -119,6 +115,7 @@ export async function deleteDocument(
       ? doc.fileUrl.split("/").slice(-3).join("/")
       : null;
     if (storagePath) {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       await supabase.storage
         .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
         .remove([storagePath])

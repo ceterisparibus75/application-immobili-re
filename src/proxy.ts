@@ -1,4 +1,3 @@
-import { randomBytes } from "crypto";
 import type { Ratelimit } from "@upstash/ratelimit";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -106,7 +105,7 @@ export default auth(async (req) => {
   const activeSocietyId = req.cookies.get("active-society-id")?.value;
 
   // Generer un nonce unique par requete pour Content-Security-Policy
-  const nonce = randomBytes(16).toString("base64");
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const cspValue = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,

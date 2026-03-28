@@ -5,8 +5,6 @@ import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse de tableaux d'amortissement de prêts immobiliers français.
 
 Analyse ce document PDF et extrais les informations suivantes au format JSON strict.
@@ -74,6 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
