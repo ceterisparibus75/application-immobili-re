@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createDataroomSchema, updateDataroomSchema } from "@/validations/dataroom";
 import bcrypt from "bcryptjs";
+import { sendDataroomDocumentAddedEmail } from "@/lib/email";
 
 // ─── Requêtes ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ export async function getDataroom(societyId: string, dataroomId: string) {
 
 export async function createDataroom(
   societyId: string,
-  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null }
+  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null; recipientEmail?: string | null; recipientName?: string | null }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
     const session = await auth();
@@ -86,6 +87,8 @@ export async function createDataroom(
         description: parsed.data.description ?? null,
         expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
         passwordHash,
+        recipientEmail: parsed.data.recipientEmail ?? null,
+        recipientName: parsed.data.recipientName ?? null,
       },
     });
 
@@ -110,7 +113,7 @@ export async function createDataroom(
 export async function updateDataroom(
   societyId: string,
   dataroomId: string,
-  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean; password?: string | null }
+  input: { name?: string; description?: string | null; expiresAt?: string | null; isActive?: boolean; password?: string | null; recipientEmail?: string | null; recipientName?: string | null }
 ): Promise<ActionResult> {
   try {
     const session = await auth();
@@ -139,6 +142,8 @@ export async function updateDataroom(
         ...(parsed.data.description !== undefined && { description: parsed.data.description }),
         ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
         ...(passwordHashUpdate !== undefined && passwordHashUpdate),
+        ...(parsed.data.recipientEmail !== undefined && { recipientEmail: parsed.data.recipientEmail }),
+        ...(parsed.data.recipientName !== undefined && { recipientName: parsed.data.recipientName }),
         expiresAt:
           parsed.data.expiresAt !== undefined
             ? parsed.data.expiresAt
@@ -207,7 +212,10 @@ export async function addDocumentToDataroom(
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
 
     const [dr, doc] = await Promise.all([
-      prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } }),
+      prisma.dataroom.findFirst({
+        where: { id: dataroomId, societyId },
+        include: { society: { select: { name: true } } },
+      }),
       prisma.document.findFirst({ where: { id: documentId, societyId } }),
     ]);
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -220,6 +228,20 @@ export async function addDocumentToDataroom(
       create: { dataroomId, documentId, order: count },
       update: {},
     });
+
+    // Notifier le bénéficiaire si un email est configuré (non-bloquant)
+    if (dr.recipientEmail) {
+      const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://app.example.com";
+      void sendDataroomDocumentAddedEmail({
+        to: dr.recipientEmail,
+        recipientName: dr.recipientName,
+        dataroomName: dr.name,
+        documentName: doc.fileName,
+        documentCount: count + 1,
+        dataroomUrl: `${appUrl}/dataroom/${dr.token}`,
+        societyName: dr.society.name,
+      }).catch((err) => console.error("[addDocumentToDataroom] email failed:", err));
+    }
 
     revalidatePath(`/datarooms/${dataroomId}`);
     return { success: true };

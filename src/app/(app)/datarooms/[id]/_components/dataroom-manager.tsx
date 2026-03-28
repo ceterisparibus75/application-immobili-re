@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, FileText, Trash2, Plus, Search, Copy, Check, ExternalLink,
   Clock, Eye, EyeOff, Settings, FileImage, File, FolderLock, Loader2, X,
-  CheckCircle2, XCircle, Users, Lock,
+  CheckCircle2, XCircle, Users, Lock, Mail,
 } from "lucide-react";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -30,6 +30,7 @@ type Dataroom = {
   id: string; name: string; description: string | null; token: string;
   isActive: boolean; expiresAt: Date | null; viewCount: number; createdAt: Date;
   passwordHash: string | null;
+  recipientEmail: string | null; recipientName: string | null;
   documents: DataroomDoc[];
   accesses: AccessLog[];
   _count: { documents: number; accesses: number };
@@ -86,6 +87,8 @@ export function DataroomManager({
   const [editActive, setEditActive] = useState(dataroom.isActive);
   const [editPassword, setEditPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [editRecipientEmail, setEditRecipientEmail] = useState(dataroom.recipientEmail ?? "");
+  const [editRecipientName, setEditRecipientName] = useState(dataroom.recipientName ?? "");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = `${origin}/dataroom/${dataroom.token}`;
@@ -139,6 +142,8 @@ export function DataroomManager({
       description: editDesc || null,
       expiresAt: editExpires || null,
       isActive: editActive,
+      recipientEmail: editRecipientEmail || null,
+      recipientName: editRecipientName || null,
       // empty string = remove password; non-empty = set new password; undefined = no change
       ...(editPassword !== undefined && { password: editPassword || null }),
     });
@@ -147,6 +152,7 @@ export function DataroomManager({
       setDataroom((prev) => ({
         ...prev, name: editName, description: editDesc || null,
         expiresAt: editExpires ? new Date(editExpires) : null, isActive: editActive,
+        recipientEmail: editRecipientEmail || null, recipientName: editRecipientName || null,
       }));
       setEditPassword("");
       toast.success("Paramètres mis à jour");
@@ -180,6 +186,11 @@ export function DataroomManager({
             <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{dataroom._count.documents} document{dataroom._count.documents !== 1 ? "s" : ""}</span>
             <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{dataroom.viewCount} consultation{dataroom.viewCount !== 1 ? "s" : ""}</span>
             {dataroom.expiresAt && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Expire le {formatDate(dataroom.expiresAt)}</span>}
+            {dataroom.recipientEmail && (
+              <span className="flex items-center gap-1" title={`Notifications → ${dataroom.recipientEmail}`}>
+                <Mail className="h-3.5 w-3.5" />{dataroom.recipientName ?? dataroom.recipientEmail}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -320,6 +331,29 @@ export function DataroomManager({
             <div className="flex items-center gap-3">
               <input type="checkbox" id="active" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} className="h-4 w-4" />
               <Label htmlFor="active" className="cursor-pointer">Dataroom active (accès public autorisé)</Label>
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bénéficiaire (notifications)</p>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Email du bénéficiaire</Label>
+                <Input
+                  type="email"
+                  value={editRecipientEmail}
+                  onChange={(e) => setEditRecipientEmail(e.target.value)}
+                  placeholder="partenaire@exemple.com"
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">Il recevra un email à chaque ajout de document.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Nom du bénéficiaire</Label>
+                <Input
+                  value={editRecipientName}
+                  onChange={(e) => setEditRecipientName(e.target.value)}
+                  placeholder="Ex : Banque Dupont — Jean Martin"
+                  className="text-sm"
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" />Mot de passe</Label>

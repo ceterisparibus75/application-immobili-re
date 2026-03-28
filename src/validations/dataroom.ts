@@ -5,6 +5,8 @@ export const createDataroomSchema = z.object({
   description: z.string().max(1000, "Description trop longue").optional().nullable(),
   expiresAt: z.string().optional().nullable(),
   password: z.string().max(100).optional().nullable(),
+  recipientEmail: z.string().email("Email invalide").optional().nullable(),
+  recipientName: z.string().max(100).optional().nullable(),
 });
 
 export const updateDataroomSchema = createDataroomSchema.partial().extend({

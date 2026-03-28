@@ -75,18 +75,26 @@ export function DataroomsClient({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientName, setRecipientName] = useState("");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   async function handleCreate() {
     if (!name.trim()) return;
     setSaving(true);
-    const result = await createDataroom(societyId, { name, description: description || null, expiresAt: expiresAt || null });
+    const result = await createDataroom(societyId, {
+      name,
+      description: description || null,
+      expiresAt: expiresAt || null,
+      recipientEmail: recipientEmail || null,
+      recipientName: recipientName || null,
+    });
     setSaving(false);
     if (result.success) {
       toast.success("Dataroom créée");
       setCreateOpen(false);
-      setName(""); setDescription(""); setExpiresAt("");
+      setName(""); setDescription(""); setExpiresAt(""); setRecipientEmail(""); setRecipientName("");
       // Refresh — router.refresh() is better but requires useRouter
       window.location.reload();
     } else {
@@ -191,6 +199,27 @@ export function DataroomsClient({
               <Label>{"Date d'expiration"}</Label>
               <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               <p className="text-xs text-muted-foreground">Laisser vide pour un accès sans limite de durée</p>
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bénéficiaire (notifications)</p>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Email du bénéficiaire</Label>
+                <Input
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  placeholder="partenaire@exemple.com"
+                />
+                <p className="text-xs text-muted-foreground">Il recevra un email à chaque ajout de document.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Nom du bénéficiaire</Label>
+                <Input
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="Ex : Banque Dupont — Jean Martin"
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>

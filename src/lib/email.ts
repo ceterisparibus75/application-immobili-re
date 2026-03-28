@@ -355,6 +355,45 @@ export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailP
 }
 
 // ============================================================
+// DATAROOM — DOCUMENT AJOUTÉ
+// ============================================================
+
+interface DataroomDocumentAddedEmailParams {
+  to: string;
+  recipientName: string | null;
+  dataroomName: string;
+  documentName: string;
+  documentCount: number;
+  dataroomUrl: string;
+  societyName: string;
+}
+
+export async function sendDataroomDocumentAddedEmail(params: DataroomDocumentAddedEmailParams): Promise<EmailResult> {
+  const greeting = params.recipientName ? `Bonjour <strong>${params.recipientName}</strong>,` : "Bonjour,";
+  const content = `
+    <h2>Nouveau document disponible</h2>
+    <p>${greeting}</p>
+    <p>Un nouveau document a été ajouté à la dataroom <strong>${params.dataroomName}</strong> qui vous a été partagée.</p>
+    <table class="table">
+      <tr><th>Document ajouté</th><td>${params.documentName}</td></tr>
+      <tr><th>Total documents</th><td>${params.documentCount}</td></tr>
+    </table>
+    <p style="margin-top:24px">
+      <a href="${params.dataroomUrl}" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
+        Accéder à la dataroom
+      </a>
+    </p>
+    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+  `;
+
+  return sendMail(
+    params.to,
+    `[${params.dataroomName}] Nouveau document disponible`,
+    baseTemplate(`Nouveau document disponible`, content)
+  );
+}
+
+// ============================================================
 // DATAROOM — NOTIFICATION D'ACCÈS
 // ============================================================
 
