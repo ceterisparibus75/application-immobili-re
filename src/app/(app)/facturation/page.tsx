@@ -6,6 +6,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { InvoicesList } from "./_components/invoices-list";
+import { DraftsBanner } from "./_components/drafts-banner";
 
 export const metadata = { title: "Facturation" };
 
@@ -22,6 +23,7 @@ export default async function FacturationPage() {
     .filter((i) => i.invoiceType !== "AVOIR")
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalImpaye = [...enAttente, ...enRetard].reduce((s, i) => s + i.totalTTC, 0);
+  const brouillons = invoices.filter((i) => i.status === "BROUILLON");
 
   return (
     <div className="space-y-6">
@@ -85,6 +87,8 @@ export default async function FacturationPage() {
           </CardContent>
         </Card>
       </div>
+
+      <DraftsBanner drafts={brouillons} societyId={societyId} />
 
       {invoices.length === 0 ? (
         <Card>
