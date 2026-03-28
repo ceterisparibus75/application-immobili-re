@@ -2089,6 +2089,7 @@ model DataroomDocument {
   dataroomId String
   documentId String
   sortOrder  Int      @default(0)
+  section    String?
 
   dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
