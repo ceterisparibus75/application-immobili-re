@@ -55,7 +55,7 @@ const navigation = [
       { name: "Charges", href: "/charges", icon: ScrollText },
       { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
-      { name: "Datarooms", href: "/datarooms", icon: FolderLock },
+      { name: "Datarooms", href: "/dataroom", icon: FolderLock },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
   },

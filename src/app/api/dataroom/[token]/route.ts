@@ -113,7 +113,7 @@ export async function GET(
       viewerIp: ip,
       viewerEmail: null,
       accessedAt: new Date().toLocaleString("fr-FR"),
-      dataroomUrl: `${appUrl}/datarooms/${dataroom.id}`,
+      dataroomUrl: `${appUrl}/dataroom/${dataroom.id}`,
     }).catch((err) => console.error("[dataroom] email notification failed:", err));
   }
 

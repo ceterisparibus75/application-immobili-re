@@ -102,7 +102,7 @@ export async function createDataroom(
       details: { name: dataroom.name },
     });
 
-    revalidatePath("/datarooms");
+    revalidatePath("/dataroom");
     return { success: true, data: { id: dataroom.id, token: dataroom.shareToken || dataroom.id } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -162,8 +162,8 @@ export async function updateDataroom(
       details: parsed.data,
     });
 
-    revalidatePath("/datarooms");
-    revalidatePath(`/datarooms/${dataroomId}`);
+    revalidatePath("/dataroom");
+    revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -192,7 +192,7 @@ export async function deleteDataroom(societyId: string, dataroomId: string): Pro
       details: { name: dr.name },
     });
 
-    revalidatePath("/datarooms");
+    revalidatePath("/dataroom");
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -243,7 +243,7 @@ export async function addDocumentToDataroom(
 
 
 
-    revalidatePath(`/datarooms/${dataroomId}`);
+    revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -293,7 +293,7 @@ export async function removeDocumentFromDataroom(
 
     await prisma.dataroomDocument.deleteMany({ where: { dataroomId, documentId } });
 
-    revalidatePath(`/datarooms/${dataroomId}`);
+    revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

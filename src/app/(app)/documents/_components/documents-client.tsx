@@ -423,7 +423,7 @@ function DataroomPickerDialog({ doc, societyId, onClose }: { doc: DocumentItem; 
         ) : datarooms.length === 0 ? (
           <div className="text-center py-6">
             <p className="text-sm text-muted-foreground mb-3">Aucune dataroom disponible</p>
-            <Link href="/datarooms"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
+            <Link href="/dataroom"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
           </div>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -491,7 +491,7 @@ function BulkDataroomPickerDialog({ selectedIds, societyId, onClose }: { selecte
         ) : datarooms.length === 0 ? (
           <div className="text-center py-6">
             <p className="text-sm text-muted-foreground mb-3">Aucune dataroom disponible</p>
-            <Link href="/datarooms"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
+            <Link href="/dataroom"><Button size="sm" variant="outline" className="gap-1"><Plus className="h-3.5 w-3.5" />Créer une dataroom</Button></Link>
           </div>
         ) : (
           <div className="space-y-2 max-h-64 overflow-y-auto">
