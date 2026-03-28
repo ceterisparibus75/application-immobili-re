@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useSyncExternalStore, useCallback } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -14,33 +14,39 @@ const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  return (localStorage.getItem("theme") as Theme) ?? "system";
+}
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) {
-      setThemeState(stored);
-    }
+function subscribeToTheme(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getServerSnapshot(): Theme {
+  return "system";
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const theme = useSyncExternalStore(subscribeToTheme, getStoredTheme, getServerSnapshot);
+
+  const setTheme = useCallback((newTheme: Theme) => {
+    localStorage.setItem("theme", newTheme);
+    // Force re-render
+    window.dispatchEvent(new Event("storage"));
   }, []);
 
-  useEffect(() => {
+  // Apply theme to document
+  if (typeof document !== "undefined") {
     const root = document.documentElement;
-
     if (theme === "system") {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.classList.toggle("dark", prefersDark);
     } else {
       root.classList.toggle("dark", theme === "dark");
     }
-  }, [theme]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

@@ -51,10 +51,6 @@ export default function AuditPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    if (!activeSociety) return;
-    loadLogs();
-  }, [activeSociety, page]);
 
   async function loadLogs() {
     if (!activeSociety) return;
@@ -73,6 +69,12 @@ export default function AuditPage() {
     }
     setIsLoading(false);
   }
+
+  useEffect(() => {
+    if (!activeSociety) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadLogs();
+  }, [activeSociety, page]);
 
   if (!activeSociety) {
     return (

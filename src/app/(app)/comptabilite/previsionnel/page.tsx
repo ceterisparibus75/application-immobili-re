@@ -71,6 +71,7 @@ export default function PrevisionnelPage() {
 
   useEffect(() => {
     if (!activeSociety) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     Promise.all([
       fetch("/api/comptabilite/accounts").then((r) => r.json()),

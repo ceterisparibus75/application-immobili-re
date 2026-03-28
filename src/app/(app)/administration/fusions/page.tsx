@@ -101,14 +101,11 @@ function MergeSection({ type }: { type: EntityType }) {
       }
     });
   }
-
-  const Icon = entityIcon(type);
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Icon className="h-4 w-4" />
+          {type === "building" ? <Building2 className="h-4 w-4" /> : type === "lot" ? <Layers className="h-4 w-4" /> : <Users className="h-4 w-4" />}
           Fusionner des {entityLabel(type).toLowerCase()}s
         </CardTitle>
         <CardDescription>
