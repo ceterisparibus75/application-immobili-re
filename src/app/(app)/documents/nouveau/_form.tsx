@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, FileUp, CheckCircle2, X, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, FileUp, FolderOpen, CheckCircle2, X, Upload, File as FileIcon } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { cn } from "@/lib/utils";
 
@@ -19,12 +20,17 @@ type Props = {
   tenants: { id: string; label: string }[];
 };
 
+const ALLOWED_TYPES = [
+  "application/pdf", "image/jpeg", "image/png", "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStep, setUploadStep] = useState<"" | "signing" | "uploading" | "saving">("");
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [entityType, setEntityType] = useState<"building" | "lot" | "lease" | "tenant" | "">("");
@@ -35,74 +41,91 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [mode, setMode] = useState<"file" | "folder">("file");
+  const [folderFiles, setFolderFiles] = useState<File[]>([]);
+  const [folderName, setFolderName] = useState("");
+  const [currentFileIdx, setCurrentFileIdx] = useState(0);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const filteredLots = buildingId ? lots.filter((l) => l.buildingId === buildingId) : lots;
-  const stepLabel: Record<string, string> = {
-    signing: "Preparation...", uploading: "Envoi du fichier...", saving: "Enregistrement...",
-  };
+  const totalFiles = mode === "folder" ? folderFiles.length : (file ? 1 : 0);
+
+  function handleFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).filter((f) => ALLOWED_TYPES.includes(f.type));
+    if (files.length > 0) {
+      setFolderFiles(files);
+      const first = files[0] as File & { webkitRelativePath: string };
+      setFolderName(first.webkitRelativePath?.split("/")[0] ?? "Dossier");
+    }
+  }
+  async function uploadOne(f: File, baseFolder: string) {
+    const relPath = (f as File & { webkitRelativePath: string }).webkitRelativePath;
+    let entityFolder = baseFolder;
+    if (relPath) {
+      const parts = relPath.split("/");
+      const subs = parts.slice(1, -1).map((p) => p.replace(/[^a-zA-Z0-9._-]/g, "_"));
+      if (subs.length > 0) entityFolder = baseFolder + "/" + subs.join("/");
+    }
+    const signRes = await fetch("/api/storage/signed-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: f.name, contentType: f.type, societyId, entityFolder }),
+    });
+    if (!signRes.ok) {
+      const err = await signRes.json() as { error?: string };
+      throw new Error("[préparation] " + (err.error ?? "Erreur serveur"));
+    }
+    const { token, storagePath, bucket, anonKey } = await signRes.json() as {
+      signedUrl: string; token: string; storagePath: string; bucket: string; anonKey: string;
+    };
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+    const supabase = createClient(supabaseUrl, anonKey || "placeholder");
+    const { error: upErr } = await supabase.storage.from(bucket).uploadToSignedUrl(storagePath, token, f, { contentType: f.type });
+    if (upErr) throw new Error("[upload Supabase] " + upErr.message);
+    const regRes = await fetch("/api/documents/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        storagePath, fileName: f.name, fileSize: f.size, mimeType: f.type,
+        category: category || "autre", description: description || null,
+        expiresAt: expiresAt || null,
+        buildingId: entityType === "building" ? (buildingId || null) : null,
+        lotId: entityType === "lot" ? (lotId || null) : null,
+        leaseId: entityType === "lease" ? (leaseId || null) : null,
+        tenantId: entityType === "tenant" ? (tenantId || null) : null,
+      }),
+    });
+    if (!regRes.ok) {
+      const err = await regRes.json() as { error?: string };
+      throw new Error("[enregistrement] " + (err.error ?? "Erreur serveur"));
+    }
+    const regData = await regRes.json() as { document?: { id: string }; success?: boolean };
+    const docId = regData.document?.id;
+    if (docId) {
+      void fetch("/api/documents/" + docId + "/analyze", { method: "POST" }).catch(() => null);
+    }
+  }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file) { setError("Veuillez sélectionner un fichier"); return; }
-    setError(""); setIsLoading(true); setUploadProgress(0);
+    const filesToUpload = mode === "folder" ? folderFiles : (file ? [file] : []);
+    if (filesToUpload.length === 0) { setError("Veuillez sélectionner un fichier ou un dossier"); return; }
+    setError(""); setIsLoading(true); setUploadProgress(0); setCurrentFileIdx(0);
+    const baseFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
+      : entityType === "lot" && lotId ? "lots/" + lotId
+      : entityType === "lease" && leaseId ? "leases/" + leaseId
+      : entityType === "tenant" && tenantId ? "tenants/" + tenantId : "general";
     try {
-      const entityFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
-        : entityType === "lot" && lotId ? "lots/" + lotId
-        : entityType === "lease" && leaseId ? "leases/" + leaseId
-        : entityType === "tenant" && tenantId ? "tenants/" + tenantId : "general";
-
-      // Etape 1 : URL d upload signee (Supabase)
-      setUploadStep("signing");
-      const signRes = await fetch("/api/storage/signed-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, societyId, entityFolder }),
-      });
-      if (!signRes.ok) {
-        const errData = await signRes.json() as { error?: string };
-        throw new Error(errData.error ?? "Impossible de preparer l upload");
-      }
-      const { signedUrl, storagePath, anonKey } = await signRes.json() as {
-        signedUrl: string; storagePath: string; anonKey: string;
-      };
-
-      // Etape 2 : upload direct navigateur vers Supabase (sans passer par Vercel)
-      setUploadStep("uploading");
-      setUploadProgress(10);
-      const uploadHeaders: Record<string, string> = { "Content-Type": file.type, "x-upsert": "false" };
-      if (anonKey) uploadHeaders["apikey"] = anonKey;
-      const uploadRes = await fetch(signedUrl, { method: "PUT", headers: uploadHeaders, body: file });
-      if (!uploadRes.ok) {
-        let errMsg = "Erreur upload (" + String(uploadRes.status) + ")";
-        try { const t = await uploadRes.text(); if (t) errMsg += ": " + t; } catch { }
-        throw new Error(errMsg);
-      }
-      setUploadProgress(80);
-
-      // Etape 3 : enregistrer les metadonnees en base
-      setUploadStep("saving");
-      const regRes = await fetch("/api/documents/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          storagePath, fileName: file.name, fileSize: file.size, mimeType: file.type,
-          category: category || "autre", description: description || null,
-          expiresAt: expiresAt || null,
-          buildingId: entityType === "building" ? (buildingId || null) : null,
-          lotId: entityType === "lot" ? (lotId || null) : null,
-          leaseId: entityType === "lease" ? (leaseId || null) : null,
-          tenantId: entityType === "tenant" ? (tenantId || null) : null,
-        }),
-      });
-      if (!regRes.ok) {
-        const errData = await regRes.json() as { error?: string };
-        throw new Error(errData.error ?? "Erreur enregistrement");
+      for (let i = 0; i < filesToUpload.length; i++) {
+        setCurrentFileIdx(i + 1);
+        setUploadProgress(Math.round((i / filesToUpload.length) * 100));
+        await uploadOne(filesToUpload[i], baseFolder);
       }
       setUploadProgress(100);
       router.push("/documents");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l’upload");
+      setError(err instanceof Error ? err.message : "Erreur lors de l'upload");
     } finally {
-      setIsLoading(false); setUploadStep(""); setUploadProgress(0);
+      setIsLoading(false); setUploadProgress(0);
     }
   }
 
@@ -111,29 +134,40 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       <div className="flex items-center gap-4">
         <Link href="/documents"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ajouter un document</h1>
-          <p className="text-muted-foreground">Importer un fichier dans la GED</p>
+          <h1 className="text-2xl font-bold tracking-tight">Ajouter des documents</h1>
+          <p className="text-muted-foreground">Importer un fichier ou un dossier entier dans la GED</p>
         </div>
       </div>
       {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex gap-2">
+          <Button type="button" variant={mode === "file" ? "default" : "outline"} size="sm"
+            onClick={() => { setMode("file"); setFolderFiles([]); setFolderName(""); }}>
+            <FileUp className="h-4 w-4 mr-1" />Fichier unique
+          </Button>
+          <Button type="button" variant={mode === "folder" ? "default" : "outline"} size="sm"
+            onClick={() => { setMode("folder"); setFile(null); }}>
+            <FolderOpen className="h-4 w-4 mr-1" />Dossier entier
+          </Button>
+        </div>
         <Card>
-          <CardHeader><CardTitle>Fichier *</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{mode === "folder" ? "Dossier *" : "Fichier *"}</CardTitle></CardHeader>
           <CardContent>
-            {!file ? (
+            {mode === "file" && !file && (
               <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 px-6 py-8 text-center cursor-pointer hover:border-primary/40 hover:bg-accent/30 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
               >
                 <FileUp className="h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-sm font-medium">Deposez un fichier ici</p>
+                <p className="text-sm font-medium">Déposez un fichier ici</p>
                 <p className="text-xs text-muted-foreground mt-1">PDF, image, Word — max 50 Mo</p>
                 <Button variant="outline" size="sm" className="mt-3" type="button">Choisir un fichier</Button>
                 <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
               </div>
-            ) : (
+            )}
+            {mode === "file" && file && (
               <div className={cn("flex items-center gap-3 rounded-lg bg-green-500/10 px-4 py-3")}>
                 <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -144,6 +178,48 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
                   onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
                   <X className="h-3 w-3" />
                 </Button>
+              </div>
+            )}
+            {mode === "folder" && folderFiles.length === 0 && (
+              <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 px-6 py-8 text-center cursor-pointer hover:border-primary/40 hover:bg-accent/30 transition-colors"
+                onClick={() => folderInputRef.current?.click()}
+              >
+                <FolderOpen className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">Cliquez pour sélectionner un dossier</p>
+                <p className="text-xs text-muted-foreground mt-1">Tous les PDF, images et Word seront importés</p>
+                <Button variant="outline" size="sm" className="mt-3" type="button">Choisir un dossier</Button>
+                <input
+                  ref={(el) => { if (el) { (folderInputRef as React.MutableRefObject<HTMLInputElement>).current = el; el.setAttribute("webkitdirectory", ""); } }}
+                  type="file" className="hidden" multiple onChange={handleFolderChange} />
+              </div>
+            )}
+            {mode === "folder" && folderFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-medium">{folderName}</span>
+                    <span className="text-xs text-muted-foreground">({folderFiles.length} fichier{folderFiles.length > 1 ? "s" : ""})</span>
+                  </div>
+                  <Button variant="ghost" size="sm" type="button"
+                    onClick={() => { setFolderFiles([]); setFolderName(""); if (folderInputRef.current) folderInputRef.current.value = ""; }}>
+                    <X className="h-3 w-3 mr-1" />Changer
+                  </Button>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-2 space-y-1">
+                  {folderFiles.slice(0, 50).map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs py-0.5">
+                      <FileIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate text-muted-foreground">
+                        {(f as File & { webkitRelativePath: string }).webkitRelativePath || f.name}
+                      </span>
+                      <span className="ml-auto text-muted-foreground shrink-0">{(f.size / 1024).toFixed(0)} Ko</span>
+                    </div>
+                  ))}
+                  {folderFiles.length > 50 && (
+                    <p className="text-xs text-muted-foreground text-center py-1">{'...et '}{folderFiles.length - 50}{' autres'}</p>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
@@ -239,10 +315,11 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
             </div>
           </CardContent>
         </Card>
-        {isLoading && uploadStep === "uploading" && (
+        {isLoading && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Envoi en cours…</span><span>{uploadProgress}%</span>
+              <span>{mode === "folder" ? `Fichier ${currentFileIdx}/${totalFiles}…` : "Envoi en cours…"}</span>
+              <span>{uploadProgress}%</span>
             </div>
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-primary transition-all duration-300 rounded-full"
@@ -252,10 +329,10 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
         )}
         <div className="flex justify-end gap-3">
           <Link href="/documents"><Button variant="outline" type="button">Annuler</Button></Link>
-          <Button type="submit" disabled={isLoading || !file}>
+          <Button type="submit" disabled={isLoading || totalFiles === 0}>
             {isLoading
-              ? <><Loader2 className="h-4 w-4 animate-spin" />{stepLabel[uploadStep] ?? "En cours..."}</>
-              : <><Upload className="h-4 w-4" />Enregistrer le document</>
+              ? <><Loader2 className="h-4 w-4 animate-spin" />{mode === "folder" ? `${currentFileIdx}/${totalFiles}…` : "En cours…"}</>
+              : <><Upload className="h-4 w-4" />{mode === "folder" && totalFiles > 0 ? `Importer ${totalFiles} fichier${totalFiles > 1 ? "s" : ""}` : "Enregistrer le document"}</>
             }
           </Button>
         </div>

@@ -80,7 +80,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       signedUrl: data.signedUrl,
+      token: data.token,
       storagePath,
+      bucket,
       contentType: contentType ?? null,
       anonKey,
     });
