@@ -9,15 +9,28 @@ const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse
 
 Analyse ce document PDF et extrais les informations suivantes au format JSON strict.
 
+CORRESPONDANCE DES COLONNES (les tableaux bancaires français utilisent ces noms) :
+- "Amortissement" ou "Capital amorti" ou "Remboursement capital" ou "Part capital" → champ "principal"
+- "Intérêts" ou "Part intérêts" ou "Frais financiers" → champ "interest"
+- "Assurance" ou "Prime assurance" ou "Cotisation assurance" → champ "insurance"
+- "Échéance" ou "Mensualité" ou "Annuité" ou "Total" → champ "total"
+- "Capital restant dû" ou "CRD" ou "Solde" ou "Restant dû" ou "Capital restant" → champ "balance"
+- "N°" ou "Période" ou "Mois" ou "Rang" → champ "period"
+- "Date" ou "Date d'échéance" → champ "dueDate"
+
+ATTENTION : Dans un prêt AMORTISSABLE, le capital amorti (principal) est TOUJOURS > 0 (sauf éventuellement la toute première échéance de pré-amortissement). Si tu vois une colonne avec des montants qui diminuent progressivement le solde restant dû, c'est la colonne "principal". Ne confonds PAS le capital emprunté total avec le capital amorti par échéance.
+
 RÈGLES :
 - Si une information est absente, utilise null
-- Les montants sont en euros (chiffres décimaux avec point)
+- Les montants sont en euros (chiffres décimaux avec point, PAS de virgule)
+- Convertir les virgules françaises en points : "1 234,56" → 1234.56
 - Les taux sont en pourcentage (ex: 3.5 pour 3,5%)
 - Les dates sont au format "YYYY-MM-DD"
-- Le type de prêt : "AMORTISSABLE" (annuités constantes), "IN_FINE" (intérêts seuls + capital en fin), "BULLET" (tout à l'échéance)
+- Le type de prêt : "AMORTISSABLE" (annuités constantes, le capital restant diminue chaque mois), "IN_FINE" (intérêts seuls + capital remboursé en une fois à la fin), "BULLET" (tout à l'échéance)
 - La durée est le nombre total de lignes dans le tableau d'amortissement
 - N'inclure QUE les lignes du tableau d'amortissement (exclure les lignes de résumé/total)
 - IMPORTANT : Tu DOIS extraire TOUTES les lignes du tableau, de la première à la dernière échéance, sans en omettre aucune, même si le tableau fait plus de 200 lignes
+- VÉRIFICATION : si le solde (balance) ne change jamais entre les lignes, c'est que tu n'as pas correctement identifié la colonne "principal" — relis le tableau attentivement
 
 Retourne UNIQUEMENT ce JSON (sans markdown, sans explication) :
 {
