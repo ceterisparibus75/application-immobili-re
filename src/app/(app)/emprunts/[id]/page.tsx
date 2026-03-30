@@ -68,8 +68,10 @@ export default async function EmpruntDetailPage({
     : null;
 
   const statusInfo = STATUS_LABELS[loan.status];
+  // Progression basée sur le calendrier (CRD) pour cohérence avec le montant affiché
+  const calendarPaidPrincipal = loan.amount - remainingBalance;
   const progressPct = loan.amount > 0
-    ? Math.min(100, (paidPrincipal / loan.amount) * 100)
+    ? Math.min(100, (calendarPaidPrincipal / loan.amount) * 100)
     : 0;
 
   return (

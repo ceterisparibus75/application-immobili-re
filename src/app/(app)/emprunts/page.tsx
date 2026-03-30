@@ -40,6 +40,24 @@ export default async function EmpruntsPage() {
   }, 0);
   const enCours = loans.filter((l) => l.status === "EN_COURS");
 
+  const totalMonthly = enCours.reduce((s, l) => {
+    const line = l.amortizationLines[0];
+    return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
+  }, 0);
+
+  // Regrouper par preteur
+  const lenderGroups = new Map<string, typeof loans>();
+  for (const loan of loans) {
+    const lender = loan.lender || "Autre";
+    if (!lenderGroups.has(lender)) lenderGroups.set(lender, []);
+    lenderGroups.get(lender)!.push(loan);
+  }
+  const sortedLenders = [...lenderGroups.entries()].sort((a, b) => {
+    const remainA = a[1].reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
+    const remainB = b[1].reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
+    return remainB - remainA;
+  });
+
   const fmt = (v: number) =>
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
 
@@ -87,7 +105,7 @@ export default async function EmpruntsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400/70 dark:text-green-400/70" />
+              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400/70" />
               <div>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</p>
                 <p className="text-xs text-muted-foreground">Capital remboursé</p>
@@ -101,10 +119,7 @@ export default async function EmpruntsPage() {
               <CalendarCheck className="h-8 w-8 text-blue-600 dark:text-blue-400/70" />
               <div>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {fmt(enCours.reduce((s, l) => {
-                    const line = l.amortizationLines[0];
-                    return s + (line && line.remainingBalance > 0 ? line.totalPayment : 0);
-                  }, 0))}
+                  {fmt(totalMonthly)}
                 </p>
                 <p className="text-xs text-muted-foreground">Échéance mensuelle totale</p>
               </div>
@@ -130,62 +145,86 @@ export default async function EmpruntsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Liste des emprunts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {loans.map((loan) => {
-                const last = loan.amortizationLines[0];
-                const remaining = last?.remainingBalance ?? loan.amount;
-                const paid = loan.amount - remaining;
-                const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
-                const statusInfo = STATUS_LABELS[loan.status];
+        <div className="space-y-6">
+          {sortedLenders.map(([lender, lenderLoans]) => {
+            const groupRemaining = lenderLoans.reduce((s, l) => {
+              const last = l.amortizationLines[0];
+              return s + (last?.remainingBalance ?? l.amount);
+            }, 0);
+            const groupCapital = lenderLoans.reduce((s, l) => s + l.amount, 0);
 
-                return (
-                  <Link
-                    key={loan.id}
-                    href={`/emprunts/${loan.id}`}
-                    className="flex items-center justify-between py-4 hover:bg-accent/50 rounded-md px-2 -mx-2 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium truncate">{loan.label}</p>
-                        <Badge variant={statusInfo?.variant ?? "outline"} className="shrink-0">
-                          {statusInfo?.label ?? loan.status}
-                        </Badge>
-                        <Badge variant="secondary" className="shrink-0">
-                          {TYPE_LABELS[loan.loanType] ?? loan.loanType}
-                        </Badge>
+            return (
+              <Card key={lender}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Landmark className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <CardTitle className="text-base">{lender}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {lenderLoans.length} emprunt{lenderLoans.length !== 1 ? "s" : ""}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {loan.lender}
-                        {loan.building && ` — ${loan.building.name}, ${loan.building.city}`}
-                        {" · "}{loan.interestRate}% · {loan.durationMonths} mois
-                      </p>
-                      {/* Barre de progression */}
-                      <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${Math.min(100, progress)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {Math.round(progress)}% remboursé
-                      </p>
                     </div>
-                    <div className="text-right ml-4 shrink-0">
-                      <p className="text-sm font-semibold">{fmt(remaining)}</p>
-                      <p className="text-xs text-muted-foreground">restant dû</p>
-                      <p className="text-xs text-muted-foreground">/ {fmt(loan.amount)}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-destructive">{fmt(groupRemaining)}</p>
+                      <p className="text-xs text-muted-foreground">restant / {fmt(groupCapital)}</p>
                     </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="divide-y">
+                    {lenderLoans.map((loan) => {
+                      const last = loan.amortizationLines[0];
+                      const remaining = last?.remainingBalance ?? loan.amount;
+                      const paid = loan.amount - remaining;
+                      const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
+                      const statusInfo = STATUS_LABELS[loan.status];
+
+                      return (
+                        <Link
+                          key={loan.id}
+                          href={"/emprunts/" + loan.id}
+                          className="flex items-center justify-between py-4 hover:bg-accent/50 rounded-md px-2 -mx-2 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium truncate">{loan.label}</p>
+                              <Badge variant={statusInfo?.variant ?? "outline"} className="shrink-0">
+                                {statusInfo?.label ?? loan.status}
+                              </Badge>
+                              <Badge variant="secondary" className="shrink-0">
+                                {TYPE_LABELS[loan.loanType] ?? loan.loanType}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {loan.building ? loan.building.name + ", " + loan.building.city + " · " : ""}
+                              {loan.interestRate}% · {loan.durationMonths} mois
+                            </p>
+                            <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{ width: Math.min(100, progress) + "%" }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {Math.round(progress)}% remboursé
+                            </p>
+                          </div>
+                          <div className="text-right ml-4 shrink-0">
+                            <p className="text-sm font-semibold">{fmt(remaining)}</p>
+                            <p className="text-xs text-muted-foreground">restant dû</p>
+                            <p className="text-xs text-muted-foreground">/ {fmt(loan.amount)}</p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
