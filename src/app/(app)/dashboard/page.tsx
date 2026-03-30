@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowDown, ArrowUp, Building2, Euro, TrendingUp, AlertTriangle, Calendar,
   FileText, Users, Wallet, Landmark, Receipt, Shield, Layers,
-  Banknote, ClipboardList, Contact, BookOpen, Bell, FolderOpen, Crown,
+  Banknote, ClipboardList, Contact, BookOpen, Bell, FolderOpen, Crown, FolderLock, Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -36,6 +36,8 @@ const MODULES = [
   { label: "Comptabilité", href: "/comptabilite", icon: BookOpen },
   { label: "Relances", href: "/relances", icon: Bell },
   { label: "Documents", href: "/documents", icon: FolderOpen },
+  { label: "Datarooms", href: "/dataroom", icon: FolderLock },
+  { label: "Import bail", href: "/import", icon: Upload },
   { label: "Contacts", href: "/contacts", icon: Contact },
   { label: "Indices", href: "/indices", icon: TrendingUp },
   { label: "RGPD", href: "/rgpd", icon: Shield },
