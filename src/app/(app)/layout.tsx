@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSocieties } from "@/actions/society";
 import { SocietyProvider } from "@/providers/society-provider";
-import { Sidebar } from "@/components/layout/sidebar";
+import { TopNav } from "@/components/layout/top-nav";
 import { Header } from "@/components/layout/header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 
@@ -31,13 +31,11 @@ export default async function AppLayout({
 
   return (
     <SocietyProvider initialSocieties={societies}>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar />
-        <div className="flex flex-1 flex-col lg:pl-[260px]">
-          <Header />
-          <Breadcrumb />
-          <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
-        </div>
+      <div className="flex flex-col h-screen overflow-hidden">
+        <TopNav />
+        <Header />
+        <Breadcrumb />
+        <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
       </div>
     </SocietyProvider>
   );

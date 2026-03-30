@@ -15,11 +15,14 @@ Utiliser **systématiquement** le MCP context7 pour toute recherche de documenta
 # Développement
 npm run dev                # Serveur dev (Turbopack)
 npm run build              # Build production
+npm run start              # Serveur production
 npm run lint               # ESLint
 
-# Tests
-npm test                   # Lancer tous les tests (Vitest)
+# Tests (Vitest)
+npm test                   # Lancer tous les tests
 npm test -- src/actions/invoice.test.ts  # Lancer un seul fichier de test
+npm run test:watch         # Mode watch
+npm run test:coverage      # Avec rapport de couverture
 
 # Base de données
 npm run db:generate        # Régénérer le client Prisma après modif du schéma
@@ -28,6 +31,8 @@ npm run db:migrate         # Créer et appliquer une migration
 npm run db:seed            # Seeder la base (tsx prisma/seed.ts)
 npm run db:studio          # Ouvrir Prisma Studio
 ```
+
+**Note :** Le client Prisma est généré dans `src/generated/prisma/client` (pas le chemin par défaut). Toujours lancer `npm run db:generate` après modification du schéma.
 
 ## Architecture
 
@@ -68,6 +73,8 @@ ANTHROPIC_API_KEY                     # Claude API (optionnel)
 GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY  # Intégration bancaire (optionnel)
 UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  # Cache Redis (optionnel)
 NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers (optionnel)
+POWENS_DOMAIN, POWENS_CLIENT_ID, POWENS_CLIENT_SECRET  # Connexion bancaire Powens (optionnel)
+NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT     # Monitoring Sentry (optionnel)
 ```
 
 ## Structure et flux de requêtes
@@ -77,12 +84,17 @@ NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers (option
 - `src/app/(auth)/` — pages publiques (login, forgot-password)
 - `src/app/(app)/` — pages protégées, nécessitent session active + société sélectionnée
 
-### Middleware (`src/middleware.ts`)
+### Middleware (`src/middleware.ts` → `src/proxy.ts`)
 
-1. Utilise NextAuth comme middleware
-2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/contact`, `/mentions-legales`, `/politique-confidentialite`, `/api/public`, `/api/auth`)
-3. Lit le cookie `active-society-id` et l'injecte dans le header `x-society-id` pour les Server Components
-4. Matcher exclut les assets statiques (`_next/static`, images, etc.)
+La logique middleware est dans `src/proxy.ts` (exportée depuis `middleware.ts`) :
+
+1. Authentification via NextAuth wrapper
+2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/contact`, `/mentions-legales`, `/politique-confidentialite`, `/api/public`, `/api/auth`, `/dataroom`, `/api/webhooks`)
+3. **2FA** : si l'utilisateur a 2FA activé, redirige vers `/login/two-factor` tant que non vérifié
+4. **Rate limiting** via Upstash Redis (si configuré) : 3 req/10s sur login, 10 req/10s sur API
+5. **En-têtes de sécurité** : CSP avec nonce, HSTS, X-Frame-Options DENY, etc.
+6. Injecte `x-society-id` et `x-nonce` dans les headers pour les Server Components
+7. Routes portail (`/portal`, `/api/portal`) utilisent une auth JWT séparée (`src/lib/portal-auth.ts`)
 
 ### Multi-tenant
 
@@ -234,6 +246,35 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Fusion entités | `/administration/fusions` | `merge.ts` |
 | Administration | `/administration/...` | `user.ts`, `auth.ts` |
 | Dashboard + Analytiques | `/dashboard` | `dashboard.ts`, `analytics.ts` |
+
+## Cron Jobs (Vercel)
+
+Définis dans `vercel.json`, protégés par `CRON_SECRET` :
+
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| `/api/cron/generate-drafts` | Quotidien 7h | Génération auto brouillons factures |
+| `/api/cron/sync-bank` | Quotidien 6h | Synchronisation transactions bancaires |
+| `/api/cron/invoice-reminder` | Lundi 8h | Relances factures impayées |
+| `/api/cron/insurance-reminder` | Lundi 9h | Rappels assurances |
+| `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
+| `/api/cron/rent-revisions` | 1er du mois 8h | Révisions de loyer |
+
+## Monitoring (Sentry)
+
+Configuré dans `sentry.*.config.ts` et `instrumentation.ts`. Actif uniquement en production (10% traces).
+
+## Git Hooks
+
+**Husky + lint-staged** : à chaque commit, ESLint `--fix` est lancé sur les fichiers `.ts`/`.tsx` stagés. `.npmrc` a `legacy-peer-deps=true` pour la compatibilité des dépendances.
+
+## Tests (Vitest)
+
+Configuration dans `vitest.config.ts`. Setup file : `src/test/setup.ts`. Couverture sur `src/lib/**`, `src/actions/**`, `src/validations/**`.
+
+## Tailwind CSS v4
+
+Pas de fichier `tailwind.config` : la configuration est dans `src/app/globals.css` via `@theme` (couleurs OKLch, polices Inter/JetBrains Mono, animations custom). Server Actions body limit : 20 MB (`next.config.ts`).
 
 ## Règles impératives
 
