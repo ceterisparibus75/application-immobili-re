@@ -304,7 +304,7 @@ export async function getLoans(societyId: string) {
         where: { dueDate: { lte: new Date() } },
         orderBy: { period: "desc" },
         take: 1,
-        select: { remainingBalance: true, period: true },
+        select: { remainingBalance: true, period: true, totalPayment: true },
       },
       _count: { select: { amortizationLines: true } },
     },
@@ -353,6 +353,115 @@ export async function markAmortizationLinePaid(
 
   revalidatePath(`/emprunts/${line.loanId}`);
   return { success: true };
+}
+
+
+export async function deleteLoan(societyId: string, loanId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const loan = await prisma.loan.findFirst({
+    where: { id: loanId, societyId },
+    select: { id: true, label: true },
+  });
+  if (!loan) return { error: "Emprunt introuvable" };
+
+  // Suppression en cascade (les lignes d'amortissement sont supprimées automatiquement via onDelete: Cascade)
+  await prisma.loan.delete({ where: { id: loanId } });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "DELETE",
+    entity: "Loan",
+    entityId: loanId,
+    details: { label: loan.label },
+  });
+
+  revalidatePath("/emprunts");
+  return { success: true };
+}
+
+export async function regenerateAmortizationTable(societyId: string, loanId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const loan = await prisma.loan.findFirst({
+    where: { id: loanId, societyId },
+    select: {
+      id: true, amount: true, interestRate: true, insuranceRate: true,
+      durationMonths: true, startDate: true, loanType: true, label: true,
+    },
+  });
+  if (!loan) return { error: "Emprunt introuvable" };
+
+  // Récupérer les lignes payées pour préserver leur statut
+  const paidLinesByPeriod = new Map<number, { isPaid: boolean; paidAt: Date | null }>();
+  const existingLines = await prisma.loanAmortizationLine.findMany({
+    where: { loanId },
+    select: { period: true, isPaid: true, paidAt: true },
+  });
+  for (const line of existingLines) {
+    if (line.isPaid) {
+      paidLinesByPeriod.set(line.period, { isPaid: true, paidAt: line.paidAt });
+    }
+  }
+
+  // Supprimer les anciennes lignes
+  await prisma.loanAmortizationLine.deleteMany({ where: { loanId } });
+
+  // Régénérer avec la formule corrigée
+  const newLines = generateAmortizationTable({
+    amount: loan.amount,
+    annualRate: loan.interestRate,
+    annualInsuranceRate: loan.insuranceRate,
+    durationMonths: loan.durationMonths,
+    startDate: new Date(loan.startDate),
+    loanType: loan.loanType as "AMORTISSABLE" | "IN_FINE" | "BULLET",
+  });
+
+  // Créer les nouvelles lignes en restaurant le statut payé
+  await prisma.loanAmortizationLine.createMany({
+    data: newLines.map((line) => {
+      const paid = paidLinesByPeriod.get(line.period);
+      return {
+        loanId,
+        period: line.period,
+        dueDate: line.dueDate,
+        principalPayment: line.principalPayment,
+        interestPayment: line.interestPayment,
+        insurancePayment: line.insurancePayment,
+        totalPayment: line.totalPayment,
+        remainingBalance: line.remainingBalance,
+        isPaid: paid?.isPaid ?? false,
+        paidAt: paid?.paidAt ?? null,
+      };
+    }),
+  });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "UPDATE",
+    entity: "Loan",
+    entityId: loanId,
+    details: { action: "regenerate_amortization", linesCount: newLines.length },
+  });
+
+  revalidatePath(`/emprunts/${loanId}`);
+  return { success: true, data: { linesCount: newLines.length } };
 }
 
 // ============================================================

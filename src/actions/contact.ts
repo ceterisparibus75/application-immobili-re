@@ -12,6 +12,8 @@ import {
 } from "@/validations/contact";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { hash } from "bcryptjs";
+import { sendNewUserEmail } from "@/lib/email";
 
 export async function createContact(
   societyId: string,
@@ -137,4 +139,97 @@ export async function getContactById(societyId: string, contactId: string) {
     where: { id: contactId, societyId },
     include: { contactNotes: { orderBy: { createdAt: "desc" } } },
   });
+}
+
+
+export async function inviteContactAsUser(
+  societyId: string,
+  contactId: string,
+  role: string = "LECTURE"
+): Promise<ActionResult<{ userId: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    // Récupérer le contact
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, societyId },
+    });
+    if (!contact) return { success: false, error: "Contact introuvable" };
+    if (!contact.email) return { success: false, error: "Le contact n'a pas d'adresse email" };
+
+    const email = contact.email.toLowerCase();
+
+    // Vérifier si un utilisateur existe déjà avec cet email
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      // Vérifier s'il est déjà associé à cette société
+      const membership = await prisma.userSociety.findUnique({
+        where: { userId_societyId: { userId: existing.id, societyId } },
+      });
+      if (membership) {
+        return { success: false, error: "Cet utilisateur est déjà membre de cette société" };
+      }
+      // L'associer à la société
+      await prisma.userSociety.create({
+        data: { userId: existing.id, societyId, role: role as "ADMIN_SOCIETE" | "GESTIONNAIRE" | "COMPTABLE" | "LECTURE" },
+      });
+      await createAuditLog({
+        societyId,
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "UserSociety",
+        entityId: existing.id,
+        details: { email, role, source: "contact_invite" },
+      });
+      revalidatePath("/contacts");
+      revalidatePath("/administration/utilisateurs");
+      return { success: true, data: { userId: existing.id } };
+    }
+
+    // Créer un nouvel utilisateur avec un mot de passe temporaire
+    const tempPassword = Math.random().toString(36).slice(-10) + "A1!";
+    const passwordHash = await hash(tempPassword, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: contact.name,
+        passwordHash,
+      },
+    });
+
+    // L'associer à la société
+    await prisma.userSociety.create({
+      data: { userId: user.id, societyId, role: role as "ADMIN_SOCIETE" | "GESTIONNAIRE" | "COMPTABLE" | "LECTURE" },
+    });
+
+    // Envoyer l'email d'invitation
+    await sendNewUserEmail({
+      to: email,
+      name: contact.name,
+      email,
+      password: tempPassword,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    }).catch((err) => console.error("[inviteContactAsUser] email error", err));
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "User",
+      entityId: user.id,
+      details: { email, role, source: "contact_invite", contactId },
+    });
+
+    revalidatePath("/contacts");
+    revalidatePath("/administration/utilisateurs");
+    return { success: true, data: { userId: user.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[inviteContactAsUser]", error);
+    return { success: false, error: "Erreur lors de l'invitation" };
+  }
 }

@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Landmark, TrendingDown, CheckCircle } from "lucide-react";
+import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Emprunts" };
@@ -61,7 +61,7 @@ export default async function EmpruntsPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -91,6 +91,22 @@ export default async function EmpruntsPage() {
               <div>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</p>
                 <p className="text-xs text-muted-foreground">Capital remboursé</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <CalendarCheck className="h-8 w-8 text-blue-600 dark:text-blue-400/70" />
+              <div>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {fmt(enCours.reduce((s, l) => {
+                    const line = l.amortizationLines[0];
+                    return s + (line && line.remainingBalance > 0 ? line.totalPayment : 0);
+                  }, 0))}
+                </p>
+                <p className="text-xs text-muted-foreground">Échéance mensuelle totale</p>
               </div>
             </div>
           </CardContent>

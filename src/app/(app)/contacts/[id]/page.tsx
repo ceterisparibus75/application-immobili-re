@@ -19,6 +19,7 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
+import { InviteContactButton } from "./invite-contact-button";
 
 const TYPE_LABELS: Record<string, string> = {
   LOCATAIRE: "Locataire",
@@ -60,6 +61,12 @@ export default async function ContactDetailPage({
         <Badge variant="secondary">
           {TYPE_LABELS[contact.contactType] ?? contact.contactType}
         </Badge>
+        <InviteContactButton
+          contactId={contact.id}
+          contactName={contact.name}
+          contactEmail={contact.email}
+          societyId={societyId}
+        />
         <Link href={`/contacts/${id}/modifier`}>
           <Button variant="outline" size="sm">
             <Pencil className="h-4 w-4" />

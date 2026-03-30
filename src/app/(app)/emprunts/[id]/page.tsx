@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AmortizationTableClient } from "./amortization-table-client";
+import { LoanActionsClient } from "./loan-actions-client";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   EN_COURS: { label: "En cours", variant: "default" },
@@ -86,6 +87,7 @@ export default async function EmpruntDetailPage({
         </div>
         <Badge variant={statusInfo?.variant ?? "outline"}>{statusInfo?.label ?? loan.status}</Badge>
         <Badge variant="secondary">{TYPE_LABELS[loan.loanType] ?? loan.loanType}</Badge>
+        <LoanActionsClient loanId={loan.id} societyId={societyId} loanLabel={loan.label} />
       </div>
 
       {/* Résumé */}

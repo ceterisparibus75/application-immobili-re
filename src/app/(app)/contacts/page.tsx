@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Phone, Mail, Building2 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Contacts" };
 
@@ -37,7 +38,9 @@ export default async function ContactsPage() {
   const h = await headers();
   const societyId = h.get("x-society-id");
 
-  const contacts = societyId ? await getContacts(societyId) : [];
+  if (!societyId) redirect("/login");
+
+  const contacts = await getContacts(societyId);
 
   const grouped = contacts.reduce<Record<string, typeof contacts>>(
     (acc, contact) => {
