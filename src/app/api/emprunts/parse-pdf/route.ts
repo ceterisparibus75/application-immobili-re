@@ -17,6 +17,7 @@ RÈGLES :
 - Le type de prêt : "AMORTISSABLE" (annuités constantes), "IN_FINE" (intérêts seuls + capital en fin), "BULLET" (tout à l'échéance)
 - La durée est le nombre total de lignes dans le tableau d'amortissement
 - N'inclure QUE les lignes du tableau d'amortissement (exclure les lignes de résumé/total)
+- IMPORTANT : Tu DOIS extraire TOUTES les lignes du tableau, de la première à la dernière échéance, sans en omettre aucune, même si le tableau fait plus de 200 lignes
 
 Retourne UNIQUEMENT ce JSON (sans markdown, sans explication) :
 {
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8192,
+      max_tokens: 65536,
       messages: [
         {
           role: "user",
