@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -438,6 +438,30 @@ function PdfImportForm({
     setConfirmOpen(true);
   }
 
+  // Construire un aperçu intelligent du tableau d'amortissement
+  // Montre: premières lignes + premières lignes avec capital amorti + dernières lignes
+  const previewLines = (() => {
+    if (!parsed || parsed.schedule.length === 0) return [];
+    const sched = parsed.schedule;
+    const first3 = sched.slice(0, 3);
+    const last3 = sched.slice(-3);
+    // Trouver les premières lignes avec du capital amorti (après différé)
+    const firstAmortIdx = sched.findIndex((l) => l.principal > 0);
+    const amortSample = firstAmortIdx > 2 ? sched.slice(firstAmortIdx, firstAmortIdx + 3) : [];
+    // Dédupliquer par période
+    const seen = new Set<number>();
+    const lines: typeof sched = [];
+    for (const group of [first3, amortSample, last3]) {
+      for (const line of group) {
+        if (!seen.has(line.period)) {
+          seen.add(line.period);
+          lines.push(line);
+        }
+      }
+    }
+    return lines.sort((a, b) => a.period - b.period);
+  })();
+
   if (step === "upload" || isAnalyzing) {
     return (
       <div className="space-y-4">
@@ -641,7 +665,6 @@ function PdfImportForm({
         </CardContent>
       </Card>
 
-      {/* Aperçu des premières lignes du tableau */}
       {parsed && parsed.schedule.length > 0 && (
         <Card>
           <CardHeader>
@@ -664,8 +687,16 @@ function PdfImportForm({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsed.schedule.slice(0, 6).map((line) => (
-                    <TableRow key={line.period}>
+                  {previewLines.map((line, idx, arr) => (
+                    <Fragment key={line.period}>
+                    {idx > 0 && line.period > arr[idx - 1].period + 1 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-1">
+                          ⋯
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow>
                       <TableCell>{line.period}</TableCell>
                       <TableCell>
                         {new Date(line.dueDate).toLocaleDateString("fr-FR")}
@@ -696,14 +727,15 @@ function PdfImportForm({
                         })}
                       </TableCell>
                     </TableRow>
+                    </Fragment>
                   ))}
-                  {parsed.schedule.length > 6 && (
+                  {parsed.schedule.length > previewLines.length && (
                     <TableRow>
                       <TableCell
                         colSpan={7}
                         className="text-center text-xs text-muted-foreground"
                       >
-                        … {parsed.schedule.length - 6} lignes supplémentaires
+                        … {parsed.schedule.length - previewLines.length} lignes non affichées
                       </TableCell>
                     </TableRow>
                   )}
