@@ -9,31 +9,52 @@ const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse
 
 Analyse ce document PDF et extrais les informations suivantes au format JSON strict.
 
-CORRESPONDANCE DES COLONNES (les tableaux bancaires français utilisent ces noms) :
-- "Amortissement" ou "Capital amorti" ou "Remboursement capital" ou "Part capital" → champ "principal"
-- "Intérêts" ou "Part intérêts" ou "Frais financiers" → champ "interest"
-- "Assurance" ou "Prime assurance" ou "Cotisation assurance" → champ "insurance"
-- "Échéance" ou "Mensualité" ou "Annuité" ou "Total" → champ "total"
-- "Capital restant dû" ou "CRD" ou "Solde" ou "Restant dû" ou "Capital restant" → champ "balance"
-- "N°" ou "Période" ou "Mois" ou "Rang" → champ "period"
-- "Date" ou "Date d'échéance" → champ "dueDate"
+ÉTAPE 1 — IDENTIFIER LES COLONNES :
+Avant d'extraire les données, identifie TOUTES les colonnes du tableau d'amortissement. Liste-les dans le champ "_rawColumns".
+Exemples de colonnes fréquentes dans les tableaux bancaires français :
+  - "N°", "Rang", "Période", "Échéance n°"
+  - "Date", "Date d'échéance", "Échéance"
+  - "Capital amorti", "Amortissement", "Remboursement capital", "Part capital", "Amort. Capital"
+  - "Intérêts", "Part intérêts", "Frais financiers", "Int."
+  - "Assurance", "Prime assurance", "Cotisation assurance", "Ass."
+  - "Échéance", "Mensualité", "Annuité", "Total", "Échéance totale", "Ech. totale"
+  - "Capital restant dû", "CRD", "Solde", "Restant dû", "Capital restant", "CRD après"
 
-ATTENTION : Dans un prêt AMORTISSABLE, le capital amorti (principal) est TOUJOURS > 0 (sauf éventuellement la toute première échéance de pré-amortissement). Si tu vois une colonne avec des montants qui diminuent progressivement le solde restant dû, c'est la colonne "principal". Ne confonds PAS le capital emprunté total avec le capital amorti par échéance.
+ÉTAPE 2 — MAPPER LES COLONNES :
+Chaque colonne du PDF doit correspondre à un champ JSON :
+  - La colonne qui montre la PART DU CAPITAL REMBOURSÉ à chaque échéance → "principal"
+    (C'est le montant qui, soustrait du solde précédent, donne le nouveau solde)
+  - La colonne qui montre les INTÉRÊTS payés → "interest"
+  - La colonne qui montre l'ASSURANCE → "insurance" (0 si absente)
+  - La colonne qui montre le MONTANT TOTAL de l'échéance → "total"
+    (total = principal + interest + insurance)
+  - La colonne qui montre le CAPITAL RESTANT DÛ après paiement → "balance"
+    (le solde diminue au fil des échéances dans un prêt amortissable)
+
+IMPORTANT — NE PAS CONFONDRE :
+  - "Capital restant dû" (= balance, le solde qui diminue) ≠ "Capital amorti" (= principal, la part remboursée)
+  - Si le tableau montre que le total de chaque échéance = intérêts seuls (pas de remboursement de capital), le prêt est IN_FINE
+  - Si le tableau montre un capital amorti > 0 chaque mois et un solde qui diminue, le prêt est AMORTISSABLE
+  - Vérifie que : balance[ligne N] = balance[ligne N-1] - principal[ligne N]
 
 RÈGLES :
 - Si une information est absente, utilise null
-- Les montants sont en euros (chiffres décimaux avec point, PAS de virgule)
-- Convertir les virgules françaises en points : "1 234,56" → 1234.56
-- Les taux sont en pourcentage (ex: 3.5 pour 3,5%)
-- Les dates sont au format "YYYY-MM-DD"
-- Le type de prêt : "AMORTISSABLE" (annuités constantes, le capital restant diminue chaque mois), "IN_FINE" (intérêts seuls + capital remboursé en une fois à la fin), "BULLET" (tout à l'échéance)
-- La durée est le nombre total de lignes dans le tableau d'amortissement
-- N'inclure QUE les lignes du tableau d'amortissement (exclure les lignes de résumé/total)
-- IMPORTANT : Tu DOIS extraire TOUTES les lignes du tableau, de la première à la dernière échéance, sans en omettre aucune, même si le tableau fait plus de 200 lignes
-- VÉRIFICATION : si le solde (balance) ne change jamais entre les lignes, c'est que tu n'as pas correctement identifié la colonne "principal" — relis le tableau attentivement
+- Les montants sont en euros avec POINT décimal (pas virgule) : "1 234,56" → 1234.56
+- Les taux sont en pourcentage (3.5 pour 3,5%)
+- Les dates au format "YYYY-MM-DD"
+- Type de prêt : "AMORTISSABLE" | "IN_FINE" | "BULLET"
+- La durée = nombre total de lignes dans le tableau
+- Exclure les lignes de résumé/total
+- EXTRAIRE TOUTES les lignes, même si le tableau fait plus de 200 lignes
+
+VÉRIFICATION FINALE :
+- Si toutes les valeurs "principal" sont 0 et que le "balance" ne change jamais → vérifie que tu n'as pas omis une colonne du tableau
+- Si principal est toujours 0 mais que "total" > "interest" + "insurance" → principal = total - interest - insurance
 
 Retourne UNIQUEMENT ce JSON (sans markdown, sans explication) :
 {
+  "_rawColumns": ["liste", "des", "en-têtes", "de", "colonnes", "trouvés"],
+  "_rawFirstRow": {"col1_name": "val1", "col2_name": "val2"},
   "label": "libellé suggéré pour cet emprunt",
   "lender": "nom de l'établissement prêteur",
   "loanType": "AMORTISSABLE|IN_FINE|BULLET",
@@ -207,6 +228,8 @@ export async function POST(req: NextRequest) {
     // Diagnostic : vérifier si le capital est détecté
     const allPrincipalZero = sanitized.schedule.length > 0 && sanitized.schedule.every(l => l.principal === 0);
     const allBalanceConstant = sanitized.schedule.length > 1 && sanitized.schedule.every(l => l.balance === sanitized.schedule[0].balance);
+    console.log("[parse-pdf] Raw columns detected:", (parsed as Record<string, unknown>)._rawColumns);
+    console.log("[parse-pdf] Raw first row:", (parsed as Record<string, unknown>)._rawFirstRow);
     console.log("[parse-pdf] Stats:", {
       lines: sanitized.schedule.length,
       loanType: sanitized.loanType,
@@ -219,6 +242,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: sanitized,
       _debug: {
+        rawColumns: (parsed as Record<string, unknown>)._rawColumns ?? null,
+        rawFirstRow: (parsed as Record<string, unknown>)._rawFirstRow ?? null,
         rawTextLength: rawText.length,
         linesExtracted: sanitized.schedule.length,
         allPrincipalZero,
