@@ -20,7 +20,11 @@ export async function POST(req: NextRequest) {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    if (!supabaseUrl || !serviceKey) return NextResponse.json({ error: "Stockage non configuré (SUPABASE_SERVICE_ROLE_KEY manquante)" }, { status: 503 });
+    if (serviceKey.length < 100) {
+      console.error("[tus-create] SUPABASE_SERVICE_ROLE_KEY semble tronquée (longueur:", serviceKey.length, ")");
+      return NextResponse.json({ error: "Clé Supabase invalide (trop courte). Régénérez-la depuis le dashboard Supabase." }, { status: 503 });
+    }
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     const timestamp = Date.now();
@@ -49,7 +53,14 @@ export async function POST(req: NextRequest) {
     if (!tusRes.ok) {
       const msg = await tusRes.text();
       console.error("[tus-create] Supabase error", tusRes.status, msg);
-      return NextResponse.json({ error: `TUS create ${tusRes.status}: ${msg}` }, { status: 500 });
+      // Diagnostic : clé service_role invalide ou expirée
+      if (msg.includes("Invalid Compact JWS") || msg.includes("invalid JWT") || tusRes.status === 403) {
+        return NextResponse.json(
+          { error: "Clé Supabase invalide ou expirée. Vérifiez SUPABASE_SERVICE_ROLE_KEY dans les variables d'environnement." },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ error: "Erreur stockage (" + tusRes.status + "): " + msg }, { status: 500 });
     }
 
     let tusUrl = tusRes.headers.get("Location") ?? "";
