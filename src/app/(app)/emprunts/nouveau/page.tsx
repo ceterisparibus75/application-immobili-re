@@ -668,27 +668,27 @@ function PdfImportForm({
                         {new Date(line.dueDate).toLocaleDateString("fr-FR")}
                       </TableCell>
                       <TableCell className="text-right">
-                        {line.principal.toLocaleString("fr-FR", {
+                        {(line.principal ?? 0).toLocaleString("fr-FR", {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {line.interest.toLocaleString("fr-FR", {
+                        {(line.interest ?? 0).toLocaleString("fr-FR", {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {line.insurance.toLocaleString("fr-FR", {
+                        {(line.insurance ?? 0).toLocaleString("fr-FR", {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {line.total.toLocaleString("fr-FR", {
+                        {(line.total ?? 0).toLocaleString("fr-FR", {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {line.balance.toLocaleString("fr-FR", {
+                        {(line.balance ?? 0).toLocaleString("fr-FR", {
                           minimumFractionDigits: 2,
                         })}
                       </TableCell>

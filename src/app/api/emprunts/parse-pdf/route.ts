@@ -161,7 +161,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 422 });
     }
 
-    return NextResponse.json({ data: parsed });
+    // Normaliser les champs numeriques pour eviter les null/undefined cote client
+    const sanitized: ParsedLoan = {
+      label: parsed.label ?? null,
+      lender: parsed.lender ?? null,
+      loanType: parsed.loanType ?? "AMORTISSABLE",
+      amount: Number(parsed.amount) || 0,
+      interestRate: Number(parsed.interestRate) || 0,
+      insuranceRate: Number(parsed.insuranceRate) || 0,
+      durationMonths: Number(parsed.durationMonths) || 0,
+      startDate: parsed.startDate ?? null,
+      schedule: Array.isArray(parsed.schedule)
+        ? parsed.schedule.map((line, i) => ({
+            period: Number(line.period) || i + 1,
+            dueDate: line.dueDate || "",
+            principal: Number(line.principal) || 0,
+            interest: Number(line.interest) || 0,
+            insurance: Number(line.insurance) || 0,
+            total: Number(line.total) || 0,
+            balance: Number(line.balance) || 0,
+          }))
+        : [],
+    };
+
+    return NextResponse.json({ data: sanitized });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[parse-pdf]", message);
