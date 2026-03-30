@@ -228,8 +228,8 @@ export async function POST(req: NextRequest) {
     // Diagnostic : vérifier si le capital est détecté
     const allPrincipalZero = sanitized.schedule.length > 0 && sanitized.schedule.every(l => l.principal === 0);
     const allBalanceConstant = sanitized.schedule.length > 1 && sanitized.schedule.every(l => l.balance === sanitized.schedule[0].balance);
-    console.log("[parse-pdf] Raw columns detected:", (parsed as Record<string, unknown>)._rawColumns);
-    console.log("[parse-pdf] Raw first row:", (parsed as Record<string, unknown>)._rawFirstRow);
+    console.log("[parse-pdf] Raw columns detected:", (parsed as unknown as Record<string, unknown>)._rawColumns);
+    console.log("[parse-pdf] Raw first row:", (parsed as unknown as Record<string, unknown>)._rawFirstRow);
     console.log("[parse-pdf] Stats:", {
       lines: sanitized.schedule.length,
       loanType: sanitized.loanType,
@@ -242,8 +242,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: sanitized,
       _debug: {
-        rawColumns: (parsed as Record<string, unknown>)._rawColumns ?? null,
-        rawFirstRow: (parsed as Record<string, unknown>)._rawFirstRow ?? null,
+        rawColumns: (parsed as unknown as Record<string, unknown>)._rawColumns ?? null,
+        rawFirstRow: (parsed as unknown as Record<string, unknown>)._rawFirstRow ?? null,
         rawTextLength: rawText.length,
         linesExtracted: sanitized.schedule.length,
         allPrincipalZero,
