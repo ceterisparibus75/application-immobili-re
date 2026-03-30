@@ -37,18 +37,19 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
   const lines: AmortizationLine[] = [];
 
   if (loanType === "BULLET") {
-    // Intérêts + capital en une seule échéance
-    const interestPayment = amount * annualRate / 100;
-    const insurancePayment = amount * annualInsuranceRate / 100;
+    // Intérêts + capital en une seule échéance à maturité
+    const years = durationMonths / 12;
+    const interestPayment = Math.round(amount * annualRate / 100 * years * 100) / 100;
+    const insurancePayment = Math.round(amount * annualInsuranceRate / 100 * years * 100) / 100;
     const dueDate = new Date(startDate);
-    dueDate.setFullYear(dueDate.getFullYear() + Math.round(durationMonths / 12));
+    dueDate.setMonth(dueDate.getMonth() + durationMonths);
     lines.push({
       period: 1,
       dueDate,
       principalPayment: amount,
       interestPayment,
       insurancePayment,
-      totalPayment: amount + interestPayment + insurancePayment,
+      totalPayment: Math.round((amount + interestPayment + insurancePayment) * 100) / 100,
       remainingBalance: 0,
     });
     return lines;
@@ -91,10 +92,13 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
     const dueDate = new Date(startDate);
     dueDate.setMonth(dueDate.getMonth() + i);
 
+    const isLast = i === durationMonths;
     const interestPayment = remaining * monthlyRate;
-    const principalPayment = Math.min(monthlyPayment - interestPayment, remaining);
     const insurancePayment = amount * monthlyInsuranceRate;
-    remaining = Math.max(0, remaining - principalPayment);
+
+    // Dernière échéance : on solde le capital restant dû pour éviter les résidus d'arrondi
+    const principalPayment = isLast ? remaining : Math.min(monthlyPayment - interestPayment, remaining);
+    remaining = isLast ? 0 : Math.max(0, remaining - principalPayment);
 
     lines.push({
       period: i,
@@ -103,7 +107,7 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
       interestPayment: Math.round(interestPayment * 100) / 100,
       insurancePayment: Math.round(insurancePayment * 100) / 100,
       totalPayment: Math.round((principalPayment + interestPayment + insurancePayment) * 100) / 100,
-      remainingBalance: Math.round(remaining * 100) / 100,
+      remainingBalance: isLast ? 0 : Math.round(remaining * 100) / 100,
     });
   }
 

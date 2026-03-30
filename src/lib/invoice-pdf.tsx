@@ -88,10 +88,20 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   const paid = data.payments.reduce((sum, p) => sum + p.amount, 0);
   const totalToPay = data.previousBalance + data.totalTTC;
 
+  // Mention légale : "{Forme juridique} au capital de {montant} €"
+  const legalFormLabel = soc?.legalForm ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null;
+  const capitalMention = legalFormLabel && soc?.shareCapital
+    ? legalFormLabel + " au capital de " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €"
+    : legalFormLabel
+      ? legalFormLabel
+      : soc?.shareCapital
+        ? "Capital social : " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €"
+        : null;
+
   const footerParts = [
     soc?.addressLine1 ? soc.addressLine1 + ([soc.postalCode, soc.city].filter(Boolean).length > 0 ? ", " + [soc.postalCode, soc.city].filter(Boolean).join(" ") : "") : null,
-    soc?.shareCapital ? "Capital : " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €" : null,
-    soc?.legalForm ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null,
+    capitalMention,
+    soc?.siret ? "SIRET : " + soc.siret : null,
     soc?.email ?? null,
   ].filter((p): p is string => p !== null && p !== undefined && p !== "");
 
@@ -110,7 +120,11 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             <Text style={s.companyName}>{soc?.name ?? "---"}</Text>
             {soc?.addressLine1 ? <Text style={s.smallText}>{soc.addressLine1}, {[soc.postalCode, soc.city].filter(Boolean).join(" ")}</Text> : null}
             {soc?.phone ? <Text style={s.smallText}>Tél. : {soc.phone}</Text> : null}
-            {soc?.legalForm ? <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm}</Text> : null}
+            {soc?.legalForm && soc?.shareCapital ? (
+              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm} au capital de {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital)} €</Text>
+            ) : soc?.legalForm ? (
+              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm}</Text>
+            ) : null}
             {soc?.siret ? <Text style={s.smallText}>SIRET : {soc.siret}</Text> : null}
             {soc?.vatNumber ? <Text style={s.smallText}>N° TVA : {soc.vatNumber}</Text> : null}
           </View>
