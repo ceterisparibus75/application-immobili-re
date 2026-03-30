@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const pdfBase64 = fileBuffer.toString("base64");
 
-    const message = await anthropic.messages.create({
+    // Utiliser le streaming pour supporter les réponses longues (65536 tokens)
+    const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: 65536,
       messages: [
@@ -139,8 +140,9 @@ export async function POST(req: NextRequest) {
       ],
     });
 
+    const finalMessage = await stream.finalMessage();
     const rawText =
-      message.content[0].type === "text" ? message.content[0].text.trim() : "";
+      finalMessage.content[0].type === "text" ? finalMessage.content[0].text.trim() : "";
 
     // Extraire le JSON de la réponse (au cas où Claude ajouterait du texte autour)
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
