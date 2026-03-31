@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDocuments } from "@/actions/document";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, FolderLock } from "lucide-react";
 import Link from "next/link";
 import { DocumentsClient } from "./_components/documents-client";
 
@@ -26,12 +26,20 @@ export default async function DocumentsPage() {
             {documents.length} document{documents.length !== 1 ? "s" : ""} · GED intelligente
           </p>
         </div>
-        <Link href="/documents/nouveau">
-          <Button>
-            <Plus className="h-4 w-4" />
-            Ajouter un document
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/dataroom">
+            <Button variant="outline">
+              <FolderLock className="h-4 w-4" />
+              Datarooms
+            </Button>
+          </Link>
+          <Link href="/documents/nouveau">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Ajouter un document
+            </Button>
+          </Link>
+        </div>
       </div>
       <DocumentsClient societyId={societyId} documents={documents} />
     </div>

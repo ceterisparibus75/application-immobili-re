@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   { name: "Comptabilité", href: "/comptabilite" },
   { name: "Relances", href: "/relances" },
   { name: "Documents", href: "/documents" },
-  { name: "Datarooms", href: "/dataroom" },
   { name: "Contacts", href: "/contacts" },
   { name: "Indices", href: "/indices" },
 ];
