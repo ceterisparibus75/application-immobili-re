@@ -16,7 +16,6 @@ const NAV_ITEMS = [
   { name: "Banque", href: "/banque" },
   { name: "Emprunts", href: "/emprunts" },
   { name: "Comptabilité", href: "/comptabilite" },
-  { name: "Relances", href: "/relances" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
   { name: "Indices", href: "/indices" },
