@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { name: "Relances", href: "/relances" },
   { name: "Documents", href: "/documents" },
   { name: "Datarooms", href: "/dataroom" },
-  { name: "Import bail", href: "/import" },
   { name: "Contacts", href: "/contacts" },
   { name: "Indices", href: "/indices" },
 ];

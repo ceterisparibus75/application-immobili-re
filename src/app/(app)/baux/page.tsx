@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -73,12 +73,20 @@ export default async function BauxPage() {
             {actifs.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/baux/nouveau">
-          <Button>
-            <Plus className="h-4 w-4" />
-            Nouveau bail
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/import">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              Import bail PDF
+            </Button>
+          </Link>
+          <Link href="/baux/nouveau">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nouveau bail
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {leases.length === 0 ? (
