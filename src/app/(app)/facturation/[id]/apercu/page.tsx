@@ -13,12 +13,12 @@ import { PrintButton } from "./_components/print-button";
 
 const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
   SCI:   "Société Civile Immobilière (SCI)",
-  SARL:  "Société à Responsabilité Limitée (SARL)",
-  SAS:   "Société par Actions Simplifiée (SAS)",
-  SA:    "Société Anonyme (SA)",
-  EURL:  "Entreprise Unipersonnelle à Responsabilité Limitée (EURL)",
-  SASU:  "Société par Actions Simplifiée Unipersonnelle (SASU)",
-  SNC:   "Société en Nom Collectif (SNC)",
+  SARL:  "SARL",
+  SAS:   "SAS",
+  SA:    "SA",
+  EURL:  "EURL",
+  SASU:  "SASU",
+  SNC:   "SNC",
   AUTRE: "Société",
 };
 
@@ -133,25 +133,25 @@ export default async function FactureApercuPage({
       {/* ═══════════════════════════════════════
           DOCUMENT FACTURE
       ═══════════════════════════════════════ */}
-      <div className="mx-auto max-w-3xl bg-white text-gray-900 print:shadow-none print:max-w-none text-sm font-sans">
+      <div className="mx-auto max-w-3xl bg-white text-gray-900 print:shadow-none print:max-w-none text-[9pt] font-sans leading-snug px-10 pt-10 pb-20 relative">
 
         {/* ── 1. Numéro + date (centré en haut) ── */}
-        <div className="text-center mb-6 text-sm">
+        <div className="text-center mb-2 text-[8.5pt]">
           <p>Facture n° : <span className="font-semibold">{invoice.invoiceNumber}</span></p>
           <p>Émise le : {formatDate(invoice.issueDate)}</p>
         </div>
 
         {/* ── 2. Émetteur (gauche) + Destinataire (droite) ── */}
-        <div className="flex items-start gap-8 mb-8">
+        <div className="flex items-start mb-6">
 
           {/* Émetteur */}
-          <div className="flex-1 space-y-1 text-sm">
+          <div className="flex-1 pr-4 space-y-0.5">
             {s?.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={getLogoProxyUrl(s.logoUrl) ?? ""} alt="Logo" className="h-20 object-contain mb-3" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
-            <p className="font-bold text-base">{s?.name ?? "—"}</p>
-            {s?.addressLine1 && <p>{s.addressLine1}, {[s.postalCode, s.city, s.country].filter(Boolean).join(" ")}</p>}
+            <p className="font-bold text-[11pt] mb-0.5">{s?.name ?? "—"}</p>
+            {s?.addressLine1 && <p>{s.addressLine1}, {[s.postalCode, s.city].filter(Boolean).join(" ")}</p>}
             {s?.addressLine2 && <p>{s.addressLine2}</p>}
             {s?.phone && <p>Tél. : {s.phone}</p>}
             {s?.legalForm && s?.shareCapital && (
@@ -165,13 +165,13 @@ export default async function FactureApercuPage({
           </div>
 
           {/* Destinataire — boîte avec coins "+" */}
-          <div className="w-72 relative p-6 text-sm">
-            <span className="absolute top-1 left-1 text-gray-400 font-light select-none">+</span>
-            <span className="absolute top-1 right-1 text-gray-400 font-light select-none">+</span>
-            <span className="absolute bottom-1 left-1 text-gray-400 font-light select-none">+</span>
-            <span className="absolute bottom-1 right-1 text-gray-400 font-light select-none">+</span>
+          <div className="w-[180px] relative p-3">
+            <span className="absolute top-0.5 left-0.5 text-gray-300 text-[10pt] font-light select-none">+</span>
+            <span className="absolute top-0.5 right-0.5 text-gray-300 text-[10pt] font-light select-none">+</span>
+            <span className="absolute bottom-0.5 left-0.5 text-gray-300 text-[10pt] font-light select-none">+</span>
+            <span className="absolute bottom-0.5 right-0.5 text-gray-300 text-[10pt] font-light select-none">+</span>
             <div className="space-y-1">
-              <p className="font-semibold">{tenantName(invoice.tenant)}</p>
+              <p className="font-bold text-[9pt] mb-0.5">{tenantName(invoice.tenant)}</p>
               {tenantAddress(invoice.tenant) ? (
                 <p className="whitespace-pre-line">{tenantAddress(invoice.tenant)}</p>
               ) : (
@@ -185,10 +185,10 @@ export default async function FactureApercuPage({
         </div>
 
         {/* ── 3. Titre ── */}
-        <h1 className="text-2xl font-bold mb-4">{typeTitle}</h1>
+        <h1 className="text-[14pt] font-bold mb-1">{typeTitle}</h1>
 
         {/* ── 4. Infos période / lot ── */}
-        <div className="space-y-1 mb-6 text-sm">
+        <div className="space-y-0.5 mb-4 text-[8.5pt]">
           <p>Date d&apos;échéance : {formatDate(invoice.dueDate)}</p>
           {invoice.periodStart && invoice.periodEnd && (
             <p>Pour la période du {formatDate(invoice.periodStart)} au {formatDate(invoice.periodEnd)}.</p>
@@ -205,29 +205,29 @@ export default async function FactureApercuPage({
         </div>
 
         {/* ── 5. Tableau des lignes ── */}
-        <table className="w-full text-sm border-collapse mb-2">
+        <table className="w-full text-[8.5pt] border-collapse mb-1">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="text-left px-3 py-2 font-semibold border border-gray-200">Libellé opération</th>
-              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-32">Montant HT</th>
-              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-24">TVA</th>
-              <th className="text-right px-3 py-2 font-semibold border border-gray-200 w-32">Montant TTC</th>
+            <tr className="bg-gray-50">
+              <th className="text-left px-2 py-1.5 font-semibold border border-gray-200">Libellé opération</th>
+              <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-32">Montant HT</th>
+              <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-24">TVA</th>
+              <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-32">Montant TTC</th>
             </tr>
           </thead>
           <tbody>
             {invoice.lines.map((line, i) => (
-              <tr key={line.id} className={i % 2 === 0 ? "" : "bg-gray-50/40"}>
-                <td className="px-3 py-2 border-b border-gray-100">
+              <tr key={line.id} className={i % 2 === 0 ? "" : "bg-[#fafafa]"}>
+                <td className="px-2 py-1.5 border-b border-gray-100">
                   <p>{line.label}</p>
                   {lot && <p className="text-gray-500 text-xs">{lot.number}</p>}
                 </td>
-                <td className="px-3 py-2 text-right border-b border-gray-100 tabular-nums">
+                <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">
                   {formatCurrency(line.totalHT)}
                 </td>
-                <td className="px-3 py-2 text-right border-b border-gray-100 text-gray-500">
+                <td className="px-2 py-1.5 text-right border-b border-gray-100 text-gray-500">
                   {line.vatRate.toFixed(2).replace(".", ",")} %
                 </td>
-                <td className="px-3 py-2 text-right border-b border-gray-100 tabular-nums">
+                <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">
                   {formatCurrency(line.totalTTC)}
                 </td>
               </tr>
@@ -236,20 +236,20 @@ export default async function FactureApercuPage({
           <tfoot>
             <tr>
               <td colSpan={2} />
-              <td className="px-3 py-2 text-right text-gray-600 text-sm border-t border-gray-200">Total HT</td>
-              <td className="px-3 py-2 text-right tabular-nums border-t border-gray-200">{formatCurrency(invoice.totalHT)}</td>
+              <td className="px-2 py-1.5 text-right text-gray-600 text-sm border-t border-gray-200">Total HT</td>
+              <td className="px-2 py-1.5 text-right tabular-nums border-t border-gray-200">{formatCurrency(invoice.totalHT)}</td>
             </tr>
             {invoice.totalVAT > 0.001 && (
               <tr>
                 <td colSpan={2} />
-                <td className="px-3 py-2 text-right text-gray-600 text-sm">TVA</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(invoice.totalVAT)}</td>
+                <td className="px-2 py-1.5 text-right text-gray-600 text-sm">TVA</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{formatCurrency(invoice.totalVAT)}</td>
               </tr>
             )}
             <tr>
               <td colSpan={2} />
-              <td className="px-3 py-2 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
-              <td className="px-3 py-2 text-right font-bold tabular-nums border-t border-gray-400">
+              <td className="px-2 py-1.5 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
+              <td className="px-2 py-1.5 text-right font-bold tabular-nums border-t border-gray-400">
                 {formatCurrency(invoice.totalTTC)}
               </td>
             </tr>
@@ -260,7 +260,7 @@ export default async function FactureApercuPage({
         {paid > 0.001 && (
           <div className="mb-6 text-sm">
             {invoice.payments.map((p) => (
-              <div key={p.id} className="flex justify-between text-green-700">
+              <div key={p.id} className="flex justify-between text-emerald-600">
                 <span>Règlement reçu le {formatDate(p.paidAt)}{p.method ? ` (${p.method})` : ""}</span>
                 <span className="tabular-nums">− {formatCurrency(p.amount)}</span>
               </div>
@@ -269,9 +269,9 @@ export default async function FactureApercuPage({
         )}
 
         {/* ── 7. Situation de compte ── */}
-        <div className="mt-8 mb-6">
-          <p className="font-bold text-sm mb-1">Situation de compte au {formatDate(invoice.issueDate)}</p>
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="mt-3 mb-3">
+          <p className="font-bold text-[9pt] mb-1">Situation de compte au {formatDate(invoice.issueDate)}</p>
+          <p className="text-[8pt] text-gray-500 mb-1.5">
             Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s&apos;agit du montant
             de votre solde précédent auquel s&apos;ajoute le montant de cette facture.
           </p>
@@ -298,9 +298,9 @@ export default async function FactureApercuPage({
         </div>
 
         {/* ── 8. Mentions légales ── */}
-        <div className="text-xs text-gray-600 mb-6 leading-relaxed">
+        <div className="text-[7pt] text-gray-500 mt-3 mb-3 leading-relaxed">
           {s?.vatRegime === "FRANCHISE" && (
-            <p className="font-semibold mb-1">TVA non applicable — art. 293 B du CGI</p>
+            <p className="font-bold mb-0.5">TVA non applicable - art. 293 B du CGI</p>
           )}
           <p>
             Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité
@@ -316,7 +316,7 @@ export default async function FactureApercuPage({
         </div>
 
         {/* ── 9. Signature ── */}
-        <div className="flex justify-between text-sm mb-6">
+        <div className="flex justify-end text-[8.5pt] mt-3 mb-2.5">
           <p>Fait à {s?.city ?? "—"}, le {formatDate(invoice.issueDate)}</p>
           {s?.signatoryName && (
             <p>{s.signatoryName}, pour {s.name}</p>
@@ -325,7 +325,7 @@ export default async function FactureApercuPage({
 
         {/* ── 10. Coordonnées bancaires ── */}
         {(iban || bic || s?.bankName) && (
-          <div className="text-sm space-y-0.5">
+          <div className="text-[8.5pt] mt-2 space-y-0.5">
             <p className="font-bold">Coordonnées bancaires</p>
             {s?.bankName && <p>Banque : {s.bankName}</p>}
             {iban && <p>IBAN : {iban}</p>}
