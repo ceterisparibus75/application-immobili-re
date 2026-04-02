@@ -70,6 +70,13 @@ const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   ANNUEL: "Annuel",
 };
 
+const FREQ_PERIOD_LABELS: Record<string, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
+
 const INVOICE_STATUS_LABELS: Record<string, string> = {
   BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
   EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
@@ -281,7 +288,7 @@ export default async function BailDetailPage({
                     Loyer de base HT
                   </p>
                   <p className="text-lg font-semibold">
-                    {lease.baseRentHT.toLocaleString("fr-FR")} € / mois
+                    {lease.baseRentHT.toLocaleString("fr-FR")} € / {FREQ_PERIOD_LABELS[lease.paymentFrequency] ?? "mois"}
                   </p>
                 </div>
                 {lease.currentRentHT !== lease.baseRentHT && (
@@ -290,7 +297,7 @@ export default async function BailDetailPage({
                       Loyer actuel HT
                     </p>
                     <p className="text-lg font-semibold text-primary">
-                      {lease.currentRentHT.toLocaleString("fr-FR")} € / mois
+                      {lease.currentRentHT.toLocaleString("fr-FR")} € / {FREQ_PERIOD_LABELS[lease.paymentFrequency] ?? "mois"}
                     </p>
                   </div>
                 )}
@@ -314,7 +321,7 @@ export default async function BailDetailPage({
                       ).toLocaleString("fr-FR", {
                         maximumFractionDigits: 2,
                       })}{" "}
-                      € / mois
+                      € / {FREQ_PERIOD_LABELS[lease.paymentFrequency] ?? "mois"}
                     </p>
                   </div>
                 )}

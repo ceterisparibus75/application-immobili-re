@@ -11,7 +11,14 @@ import { FileText, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LeaseStatus, LeaseType, TenantEntityType } from "@/generated/prisma/client";
+import type { LeaseStatus, LeaseType, TenantEntityType, PaymentFrequency } from "@/generated/prisma/client";
+
+const FREQ_PERIOD_LABELS: Record<PaymentFrequency, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
 
 export const metadata = { title: "Baux" };
 
@@ -141,7 +148,7 @@ export default async function BauxPage() {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <p className="text-sm font-medium tabular-nums">
-                              {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/mois
+                              {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Depuis le{" "}
@@ -159,9 +166,12 @@ export default async function BauxPage() {
                     ))}
                   </div>
                   <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2.5">
-                    <span className="text-sm font-medium text-muted-foreground">Total loyers mensuels</span>
+                    <span className="text-sm font-medium text-muted-foreground">Total loyers mensuels (base)</span>
                     <span className="text-sm font-bold tabular-nums">
-                      {actifs.reduce((sum, l) => sum + l.currentRentHT, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro; HT/mois
+                      {actifs.reduce((sum, l) => {
+                        const mult: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
+                        return sum + l.currentRentHT / (mult[l.paymentFrequency] ?? 1);
+                      }, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro; HT/mois
                     </span>
                   </div>
                 </>
@@ -195,7 +205,7 @@ export default async function BauxPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground tabular-nums">
-                          {lease.baseRentHT.toLocaleString("fr-FR")} &euro; HT/mois
+                          {lease.baseRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
                         </span>
                         <Badge variant={STATUS_VARIANTS[lease.status]}>
                           {STATUS_LABELS[lease.status]}

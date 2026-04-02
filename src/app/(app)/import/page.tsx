@@ -144,6 +144,13 @@ const PAYMENT_FREQ_OPTIONS = [
   { value: "ANNUEL", label: "Annuel" },
 ];
 
+const FREQ_PERIOD_LABELS: Record<string, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
+
 const INDEX_TYPE_OPTIONS = [
   { value: "", label: "Aucun" },
   { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
@@ -544,7 +551,7 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
           </FieldRow>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <FieldRow label="Loyer HT/mois *">
+          <FieldRow label={`Loyer HT/${FREQ_PERIOD_LABELS[form.paymentFrequency] ?? "mois"} *`}>
             <Input type="number" value={form.baseRentHT} onChange={(e) => onChange({ baseRentHT: e.target.value })} placeholder="2000" className="h-8 text-sm" />
           </FieldRow>
           <FieldRow label="Dépôt de garantie">
@@ -810,7 +817,7 @@ export default function ImportPage() {
           { label: "Surface", value: form.lot.area ? `${form.lot.area} m²` : undefined },
           { label: "Locataire", value: tenantName },
           { label: "Type de bail", value: form.bail.leaseType },
-          { label: "Loyer HT", value: form.bail.baseRentHT ? `${parseFloat(form.bail.baseRentHT).toLocaleString("fr-FR")} € / mois` : undefined },
+          { label: "Loyer HT", value: form.bail.baseRentHT ? `${parseFloat(form.bail.baseRentHT).toLocaleString("fr-FR")} € / ${FREQ_PERIOD_LABELS[form.bail.paymentFrequency] ?? "mois"}` : undefined },
           { label: "Début", value: form.bail.startDate },
           { label: "Durée", value: form.bail.durationMonths ? `${form.bail.durationMonths} mois` : undefined },
         ]}

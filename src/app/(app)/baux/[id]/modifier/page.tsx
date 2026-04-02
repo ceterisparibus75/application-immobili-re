@@ -46,6 +46,13 @@ const PAYMENT_FREQUENCIES = [
   { value: "ANNUEL", label: "Annuel" },
 ];
 
+const FREQ_PERIOD_LABELS: Record<string, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
+
 type LeaseData = {
   id: string;
   status: string;
@@ -74,6 +81,7 @@ export default function ModifierBailPage() {
   const [error, setError] = useState("");
   const [lease, setLease] = useState<LeaseData | null>(null);
   const [vatApplicable, setVatApplicable] = useState(true);
+  const [frequency, setFrequency] = useState("MENSUEL");
 
   useEffect(() => {
     async function fetchLease() {
@@ -83,6 +91,7 @@ export default function ModifierBailPage() {
           const json = await res.json() as { data: LeaseData };
           setLease(json.data);
           setVatApplicable(json.data.vatApplicable);
+          setFrequency(json.data.paymentFrequency);
         }
       } finally {
         setIsFetching(false);
@@ -226,7 +235,7 @@ export default function ModifierBailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="currentRentHT">Loyer actuel HT (€/mois) *</Label>
+                <Label htmlFor="currentRentHT">Loyer actuel HT (€/{FREQ_PERIOD_LABELS[frequency] ?? "mois"}) *</Label>
                 <Input
                   id="currentRentHT"
                   name="currentRentHT"
@@ -268,7 +277,8 @@ export default function ModifierBailPage() {
                   id="paymentFrequency"
                   name="paymentFrequency"
                   options={PAYMENT_FREQUENCIES}
-                  defaultValue={lease.paymentFrequency}
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value)}
                   required
                 />
               </div>

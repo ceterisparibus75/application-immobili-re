@@ -34,6 +34,13 @@ const PAYMENT_FREQUENCIES = [
   { value: "ANNUEL", label: "Annuel" },
 ];
 
+const FREQ_PERIOD_LABELS: Record<string, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
+
 const BILLING_TERMS = [
   {
     value: "A_ECHOIR",
@@ -77,6 +84,7 @@ export default function NouveauBailPage() {
   const [lots, setLots] = useState<LotOption[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [vatApplicable, setVatApplicable] = useState(true);
+  const [frequency, setFrequency] = useState("MENSUEL");
 
   const defaultLotId = searchParams.get("lotId") ?? "";
   const defaultTenantId = searchParams.get("tenantId") ?? "";
@@ -275,7 +283,8 @@ export default function NouveauBailPage() {
                   id="paymentFrequency"
                   name="paymentFrequency"
                   options={PAYMENT_FREQUENCIES}
-                  defaultValue="MENSUEL"
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value)}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -303,7 +312,7 @@ export default function NouveauBailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="baseRentHT">Loyer de base HT (€/mois) *</Label>
+                <Label htmlFor="baseRentHT">Loyer HT (€/{FREQ_PERIOD_LABELS[frequency] ?? "mois"}) *</Label>
                 <Input
                   id="baseRentHT"
                   name="baseRentHT"
