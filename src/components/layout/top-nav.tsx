@@ -16,9 +16,13 @@ const NAV_ITEMS = [
   { name: "Banque", href: "/banque" },
   { name: "Emprunts", href: "/emprunts" },
   { name: "Comptabilité", href: "/comptabilite" },
+  { name: "Prévisionnel", href: "/comptabilite/previsionnel" },
+  { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },
+  { name: "Notifications", href: "/notifications" },
   { name: "Contacts", href: "/contacts" },
   { name: "Indices", href: "/indices" },
+  { name: "RGPD", href: "/rgpd" },
 ];
 
 export function TopNav() {

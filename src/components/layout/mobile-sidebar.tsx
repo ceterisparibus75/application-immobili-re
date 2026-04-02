@@ -26,7 +26,6 @@ const navigation = [
     { name: "Indices", href: "/indices", icon: TrendingUp },
     { name: "Documents", href: "/documents", icon: FolderOpen },
     { name: "Import bail PDF", href: "/import", icon: Upload },
-    { name: "Datarooms", href: "/dataroom", icon: Share2 },
   ]},
   { title: "Finances", items: [
     { name: "Banque", href: "/banque", icon: Landmark },
@@ -36,7 +35,6 @@ const navigation = [
     { name: "Rapports", href: "/rapports", icon: FileBarChart },
   ]},
   { title: "Communication", items: [
-    { name: "Relances", href: "/relances", icon: Bell },
     { name: "Notifications", href: "/notifications", icon: BellDot },
     { name: "Contacts", href: "/contacts", icon: Contact },
   ]},

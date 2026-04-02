@@ -37,7 +37,6 @@ const navigation = [
       { name: "Charges", href: "/charges", icon: ScrollText },
       { name: "Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
-      { name: "Datarooms", href: "/dataroom", icon: FolderLock },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],
   },
@@ -54,7 +53,6 @@ const navigation = [
   {
     title: "Communication",
     items: [
-      { name: "Relances", href: "/relances", icon: Bell },
       { name: "Notifications", href: "/notifications", icon: BellDot },
       { name: "Contacts", href: "/contacts", icon: Contact },
     ],
