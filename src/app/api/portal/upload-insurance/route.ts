@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(req: NextRequest) {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { tenantId } = await requirePortalAuth();
+    const session = await requirePortalAuth();
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -23,9 +23,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)" }, { status: 400 });
     }
 
+    // Trouver TOUS les locataires avec cet email pour uploader sur chacun
+    const tenants = await prisma.tenant.findMany({
+      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+      select: { id: true },
+    });
+    const tenantIds = tenants.map((t) => t.id);
+
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const timestamp = Date.now();
-    const storagePath = `insurance/${tenantId}/${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `insurance/${session.tenantId}/${timestamp}_${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
@@ -42,8 +50,9 @@ export async function POST(req: NextRequest) {
 
     const fileUrl = urlData?.signedUrl ?? null;
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
+    // Mettre à jour l'assurance sur TOUS les tenants liés à cet email
+    await prisma.tenant.updateMany({
+      where: { id: { in: tenantIds } },
       data: {
         insuranceFileUrl: fileUrl,
         insuranceStoragePath: storagePath,

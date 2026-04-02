@@ -86,8 +86,8 @@ export default async function PortalLayout({
     );
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.tenantId },
+  const tenant = await prisma.tenant.findFirst({
+    where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: {
       entityType: true,
       companyName: true,

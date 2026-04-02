@@ -15,29 +15,35 @@ export default async function PortalAssurancePage() {
     redirect("/portal/login");
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.tenantId },
+  // Trouver TOUS les locataires avec cet email (multi-société)
+  const tenants = await prisma.tenant.findMany({
+    where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: {
+      id: true,
       insuranceFileUrl: true,
       insuranceUploadedAt: true,
       insuranceExpiresAt: true,
+      society: { select: { name: true } },
     },
   });
 
-  if (!tenant) redirect("/portal/login");
+  if (tenants.length === 0) redirect("/portal/login");
 
-  const hasInsurance = !!tenant.insuranceUploadedAt;
+  // Vérifier si au moins un locataire a une assurance
+  const hasInsurance = tenants.some((t) => !!t.insuranceUploadedAt);
+  // Prendre le premier qui a une assurance pour afficher les infos
+  const tenantWithInsurance = tenants.find((t) => !!t.insuranceUploadedAt);
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Attestation d'assurance</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Attestation d&apos;assurance</h1>
         <p className="text-muted-foreground">
-          Déposez votre attestation d'assurance en cours de validité
+          D&eacute;posez votre attestation d&apos;assurance en cours de validit&eacute;
         </p>
       </div>
 
-      {hasInsurance && (
+      {hasInsurance && tenantWithInsurance && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -47,19 +53,19 @@ export default async function PortalAssurancePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
-              <Badge variant="success">Déposée</Badge>
+              <Badge variant="success">D&eacute;pos&eacute;e</Badge>
               <span className="text-sm text-muted-foreground">
-                le {formatDate(tenant.insuranceUploadedAt!)}
+                le {formatDate(tenantWithInsurance.insuranceUploadedAt!)}
               </span>
             </div>
-            {tenant.insuranceExpiresAt && (
+            {tenantWithInsurance.insuranceExpiresAt && (
               <p className="text-sm text-muted-foreground">
-                Expire le {formatDate(tenant.insuranceExpiresAt)}
+                Expire le {formatDate(tenantWithInsurance.insuranceExpiresAt)}
               </p>
             )}
-            {tenant.insuranceFileUrl && (
+            {tenantWithInsurance.insuranceFileUrl && (
               <a
-                href={tenant.insuranceFileUrl}
+                href={tenantWithInsurance.insuranceFileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
@@ -76,7 +82,7 @@ export default async function PortalAssurancePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4" />
-            {hasInsurance ? "Mettre à jour l'attestation" : "Déposer une attestation"}
+            {hasInsurance ? "Mettre \u00e0 jour l\u2019attestation" : "D\u00e9poser une attestation"}
           </CardTitle>
           <CardDescription>
             Fichier PDF uniquement, 10 Mo maximum

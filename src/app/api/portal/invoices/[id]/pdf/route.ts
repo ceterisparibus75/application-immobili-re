@@ -5,11 +5,18 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await requirePortalAuth();
+    const session = await requirePortalAuth();
     const { id } = await params;
 
+    // Trouver TOUS les locataires avec cet email (multi-société)
+    const tenants = await prisma.tenant.findMany({
+      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+      select: { id: true },
+    });
+    const tenantIds = tenants.map((t) => t.id);
+
     const invoice = await prisma.invoice.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: { in: tenantIds } },
       select: { fileUrl: true, invoiceNumber: true },
     });
 

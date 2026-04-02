@@ -17,11 +17,14 @@ export async function POST(req: NextRequest) {
 
     const { email, code } = parsed.data;
 
-    // Trouver le locataire par email
-    const tenant = await prisma.tenant.findFirst({
-      where: { email, isActive: true },
+    // Trouver tous les locataires avec cet email (multi-société)
+    const tenants = await prisma.tenant.findMany({
+      where: { email: { equals: email, mode: "insensitive" }, isActive: true },
       include: { portalAccess: true },
     });
+
+    // Trouver celui qui a un portalAccess avec un code d’activation
+    const tenant = tenants.find((t) => t.portalAccess?.activationCode) ?? tenants.find((t) => t.portalAccess);
 
     if (!tenant || !tenant.portalAccess) {
       return NextResponse.json(
@@ -63,7 +66,8 @@ export async function POST(req: NextRequest) {
     });
 
     // Créer la session portail
-    await createPortalSession(tenant.id);
+    // Créer la session avec l’email (accès multi-société)
+    await createPortalSession(tenant.id, email);
 
     return NextResponse.json({ success: true });
   } catch (error) {

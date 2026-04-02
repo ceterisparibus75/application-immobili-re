@@ -140,6 +140,8 @@ const LEASE_TYPE_OPTIONS = [
 const PAYMENT_FREQ_OPTIONS = [
   { value: "MENSUEL", label: "Mensuel" },
   { value: "TRIMESTRIEL", label: "Trimestriel" },
+  { value: "SEMESTRIEL", label: "Semestriel" },
+  { value: "ANNUEL", label: "Annuel" },
 ];
 
 const INDEX_TYPE_OPTIONS = [

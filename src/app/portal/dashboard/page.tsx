@@ -15,8 +15,9 @@ export default async function PortalDashboardPage() {
     redirect("/portal/login");
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.tenantId },
+  // Trouver TOUS les locataires avec cet email (multi-société)
+  const tenants = await prisma.tenant.findMany({
+    where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     include: {
       leases: {
         where: { status: "EN_COURS" },
@@ -26,26 +27,34 @@ export default async function PortalDashboardPage() {
               building: { select: { name: true, addressLine1: true, city: true } },
             },
           },
+          society: { select: { name: true } },
         },
-      },
-      invoices: {
-        where: { status: { in: ["EN_ATTENTE", "EN_RETARD"] } },
-        orderBy: { dueDate: "asc" },
-        take: 5,
       },
     },
   });
 
-  if (!tenant) redirect("/portal/login");
+  if (tenants.length === 0) redirect("/portal/login");
 
+  // Agréger les IDs de tous les tenants
+  const tenantIds = tenants.map((t) => t.id);
+
+  // Récupérer les factures impayées de tous les tenants
+  const unpaidInvoices = await prisma.invoice.findMany({
+    where: { tenantId: { in: tenantIds }, status: { in: ["EN_ATTENTE", "EN_RETARD"] } },
+    orderBy: { dueDate: "asc" },
+    take: 10,
+  });
+
+  // Nom d'affichage (premier locataire trouvé)
+  const firstTenant = tenants[0];
   const tenantName =
-    tenant.entityType === "PERSONNE_MORALE"
-      ? (tenant.companyName ?? "Locataire")
-      : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "Locataire";
+    firstTenant.entityType === "PERSONNE_MORALE"
+      ? (firstTenant.companyName ?? "Locataire")
+      : `${firstTenant.firstName ?? ""} ${firstTenant.lastName ?? ""}`.trim() || "Locataire";
 
-  const activeLease = tenant.leases[0];
-  const unpaidInvoices = tenant.invoices;
-  const hasInsurance = !!tenant.insuranceUploadedAt;
+  // Agréger tous les baux actifs
+  const allLeases = tenants.flatMap((t) => t.leases);
+  const hasInsurance = tenants.some((t) => !!t.insuranceUploadedAt);
 
   return (
     <div className="space-y-6">
@@ -65,10 +74,10 @@ export default async function PortalDashboardPage() {
             <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             <div>
               <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                Attestation d'assurance manquante
+                Attestation d&apos;assurance manquante
               </p>
               <p className="text-xs text-orange-700 dark:text-orange-400">
-                Merci de déposer votre attestation d'assurance dans la rubrique{" "}
+                Merci de d&eacute;poser votre attestation d&apos;assurance dans la rubrique{" "}
                 <Link href="/portal/assurance" className="underline font-medium">
                   Assurance
                 </Link>
@@ -84,7 +93,7 @@ export default async function PortalDashboardPage() {
             <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
             <div>
               <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                {unpaidInvoices.length} facture{unpaidInvoices.length > 1 ? "s" : ""} en attente de règlement
+                {unpaidInvoices.length} facture{unpaidInvoices.length > 1 ? "s" : ""} en attente de r&egrave;glement
               </p>
               <Link href="/portal/documents" className="text-xs text-red-700 dark:text-red-400 underline">
                 Voir les factures
@@ -95,49 +104,54 @@ export default async function PortalDashboardPage() {
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Bail actif */}
+        {/* Baux actifs */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Building2 className="h-4 w-4" />
-              Mon bail
+              Mes baux ({allLeases.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {activeLease ? (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {activeLease.lot.building.name} — Lot {activeLease.lot.number}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {activeLease.lot.building.addressLine1}, {activeLease.lot.building.city}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Loyer mensuel</p>
-                    <p className="text-sm font-medium">{formatCurrency(activeLease.currentRentHT)} HT</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Début du bail</p>
-                    <p className="text-sm font-medium">{formatDate(activeLease.startDate)}</p>
-                  </div>
-                </div>
-                {activeLease.leaseFileUrl && (
-                  <a
-                    href={activeLease.leaseFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Télécharger le bail
-                  </a>
-                )}
-              </div>
-            ) : (
+            {allLeases.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun bail actif</p>
+            ) : (
+              <div className="space-y-4">
+                {allLeases.map((lease) => (
+                  <div key={lease.id} className="space-y-1">
+                    <p className="text-sm font-medium">
+                      {lease.lot.building.name} &mdash; Lot {lease.lot.number}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {lease.lot.building.addressLine1}, {lease.lot.building.city}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 mt-1">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Loyer mensuel</p>
+                        <p className="text-sm font-medium">{formatCurrency(lease.currentRentHT)} HT</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">D&eacute;but du bail</p>
+                        <p className="text-sm font-medium">{formatDate(lease.startDate)}</p>
+                      </div>
+                    </div>
+                    {lease.society && (
+                      <Badge variant="outline" className="text-xs mt-1">{lease.society.name}</Badge>
+                    )}
+                    {lease.leaseFileUrl && (
+                      <a
+                        href={lease.leaseFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        T&eacute;l&eacute;charger le bail
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -153,30 +167,22 @@ export default async function PortalDashboardPage() {
           <CardContent>
             {hasInsurance ? (
               <div className="space-y-2">
-                <Badge variant="success">Attestation déposée</Badge>
-                <p className="text-xs text-muted-foreground">
-                  Déposée le {formatDate(tenant.insuranceUploadedAt!)}
-                </p>
-                {tenant.insuranceExpiresAt && (
-                  <p className="text-xs text-muted-foreground">
-                    Expire le {formatDate(tenant.insuranceExpiresAt)}
-                  </p>
-                )}
+                <Badge variant="success">Attestation d&eacute;pos&eacute;e</Badge>
                 <Link href="/portal/assurance" className="text-sm text-primary hover:underline">
-                  Mettre à jour
+                  Mettre &agrave; jour
                 </Link>
               </div>
             ) : (
               <div className="space-y-2">
                 <Badge variant="warning">Non fournie</Badge>
                 <p className="text-xs text-muted-foreground">
-                  Veuillez déposer votre attestation d'assurance
+                  Veuillez d&eacute;poser votre attestation d&apos;assurance
                 </p>
                 <Link
                   href="/portal/assurance"
                   className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
                 >
-                  Déposer maintenant
+                  D&eacute;poser maintenant
                 </Link>
               </div>
             )}

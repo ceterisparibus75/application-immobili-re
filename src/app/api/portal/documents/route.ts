@@ -4,11 +4,18 @@ import { requirePortalAuth } from "@/lib/portal-auth";
 
 export async function GET() {
   try {
-    const { tenantId } = await requirePortalAuth();
+    const session = await requirePortalAuth();
+
+    // Trouver TOUS les locataires avec cet email (multi-société)
+    const tenants = await prisma.tenant.findMany({
+      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+      select: { id: true },
+    });
+    const tenantIds = tenants.map((t) => t.id);
 
     // Baux avec PDF
     const leases = await prisma.lease.findMany({
-      where: { tenantId },
+      where: { tenantId: { in: tenantIds } },
       select: {
         id: true,
         leaseType: true,
@@ -29,7 +36,7 @@ export async function GET() {
 
     // Factures (appels de loyer + quittances)
     const invoices = await prisma.invoice.findMany({
-      where: { tenantId },
+      where: { tenantId: { in: tenantIds } },
       select: {
         id: true,
         invoiceNumber: true,

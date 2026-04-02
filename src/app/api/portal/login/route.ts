@@ -22,10 +22,14 @@ export async function POST(req: NextRequest) {
 
       const { email, code } = parsed.data;
 
-      const tenant = await prisma.tenant.findFirst({
-        where: { email, isActive: true },
+      // Recherche multi-société : trouver tous les locataires avec cet email
+      const tenants = await prisma.tenant.findMany({
+        where: { email: { equals: email, mode: "insensitive" }, isActive: true },
         include: { portalAccess: true },
       });
+
+      // Trouver celui avec un code d'activation en attente, sinon un portail actif
+      const tenant = tenants.find((t) => t.portalAccess?.activationCode) ?? tenants.find((t) => t.portalAccess?.isActive);
 
       if (!tenant?.portalAccess?.isActive) {
         return NextResponse.json({ error: "Compte portail introuvable ou inactif" }, { status: 404 });
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      await createPortalSession(tenant.id);
+      await createPortalSession(tenant.id, email);
       return NextResponse.json({ success: true });
     }
 
@@ -71,10 +75,14 @@ export async function POST(req: NextRequest) {
 
     const { email } = parsed.data;
 
-    const tenant = await prisma.tenant.findFirst({
-      where: { email, isActive: true },
+    // Recherche multi-société : trouver tous les locataires avec cet email
+    const tenants = await prisma.tenant.findMany({
+      where: { email: { equals: email, mode: "insensitive" }, isActive: true },
       include: { portalAccess: true },
     });
+
+    // Trouver un locataire avec un portail actif
+    const tenant = tenants.find((t) => t.portalAccess?.isActive);
 
     if (!tenant?.portalAccess?.isActive) {
       // Ne pas révéler si le compte existe ou non

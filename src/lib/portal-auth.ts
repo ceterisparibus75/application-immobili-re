@@ -9,13 +9,14 @@ const TOKEN_EXPIRY = "24h";
 
 interface PortalSession {
   tenantId: string;
+  email: string;
 }
 
 /**
  * Crée un JWT pour une session portail locataire et le stocke en cookie.
  */
-export async function createPortalSession(tenantId: string): Promise<void> {
-  const token = await new SignJWT({ tenantId })
+export async function createPortalSession(tenantId: string, email: string): Promise<void> {
+  const token = await new SignJWT({ tenantId, email: email.toLowerCase() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer("portal")
@@ -47,8 +48,9 @@ export async function getPortalSession(): Promise<PortalSession | null> {
     });
 
     if (!payload.tenantId || typeof payload.tenantId !== "string") return null;
+    if (!payload.email || typeof payload.email !== "string") return null;
 
-    return { tenantId: payload.tenantId };
+    return { tenantId: payload.tenantId, email: payload.email };
   } catch {
     return null;
   }
