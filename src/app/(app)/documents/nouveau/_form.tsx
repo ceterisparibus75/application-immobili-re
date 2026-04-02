@@ -56,6 +56,19 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       setFolderName(first.webkitRelativePath?.split("/")[0] ?? "Dossier");
     }
   }
+  function extractErrorMsg(body: unknown): string {
+    if (!body || typeof body !== "object") return "Erreur serveur";
+    const obj = body as Record<string, unknown>;
+    if (typeof obj.error === "string") return obj.error;
+    if (obj.error && typeof obj.error === "object") {
+      const nested = obj.error as Record<string, unknown>;
+      if (typeof nested.message === "string") return nested.message;
+      return JSON.stringify(obj.error);
+    }
+    if (typeof obj.message === "string") return obj.message;
+    return JSON.stringify(body);
+  }
+
   async function uploadOne(f: File, baseFolder: string) {
     const relPath = (f as File & { webkitRelativePath: string }).webkitRelativePath;
     let entityFolder = baseFolder;
@@ -72,8 +85,8 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       body: JSON.stringify({ filename: f.name, mimeType: f.type, fileSize: f.size, societyId, entityFolder }),
     });
     if (!initRes.ok) {
-      const err = await initRes.json() as { error?: string };
-      throw new Error("[préparation] " + (err.error ?? "Erreur serveur"));
+      const err = await initRes.json().catch(() => ({}));
+      throw new Error("Préparation : " + extractErrorMsg(err));
     }
     const { tusUrl, storagePath } = await initRes.json() as { tusUrl: string; storagePath: string };
 
@@ -92,8 +105,8 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
         body: slice,
       });
       if (!chunkRes.ok) {
-        const err = await chunkRes.json() as { error?: string };
-        throw new Error("[upload] " + (err.error ?? "Erreur chunk"));
+        const err = await chunkRes.json().catch(() => ({}));
+        throw new Error("Upload : " + extractErrorMsg(err));
       }
       offset += slice.size;
     }
@@ -113,8 +126,8 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
       }),
     });
     if (!regRes.ok) {
-      const err = await regRes.json() as { error?: string };
-      throw new Error("[enregistrement] " + (err.error ?? "Erreur serveur"));
+      const err = await regRes.json().catch(() => ({}));
+      throw new Error("Enregistrement : " + extractErrorMsg(err));
     }
     const regData = await regRes.json() as { document?: { id: string }; success?: boolean };
     const docId = regData.document?.id;
