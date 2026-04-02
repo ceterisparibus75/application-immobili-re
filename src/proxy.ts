@@ -65,7 +65,11 @@ export default auth(async (req) => {
     let limiter: Ratelimit | undefined;
     if (pathname === "/login" || pathname.startsWith("/api/auth") || pathname === "/login/two-factor") {
       limiter = getLoginRatelimit();
-    } else if (pathname.startsWith("/api/")) {
+    } else if (
+      pathname.startsWith("/api/") &&
+      !pathname.startsWith("/api/storage/") &&
+      !pathname.startsWith("/api/documents/register")
+    ) {
       limiter = getApiRatelimit();
     }
     if (limiter) {
