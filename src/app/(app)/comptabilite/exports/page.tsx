@@ -15,7 +15,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i);
 
 const YEAR_OPTIONS = [
-  { value: "all", label: "Toutes les ann\u00e9es" },
+  { value: "all", label: "Toutes les années" },
   ...YEARS.map((y) => ({ value: String(y), label: String(y) })),
 ];
 
@@ -23,7 +23,7 @@ const JOURNAL_OPTIONS = [
   { value: "all", label: "Tous les journaux" },
   { value: "VENTES", label: "Ventes" },
   { value: "BANQUE", label: "Banque" },
-  { value: "OPERATIONS_DIVERSES", label: "Op\u00e9rations diverses" },
+  { value: "OPERATIONS_DIVERSES", label: "Opérations diverses" },
 ];
 
 interface FecAnomaly {
@@ -101,7 +101,7 @@ export default function ExportsFecPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Export FEC</h1>
           <p className="text-muted-foreground">
-            Fichier des \u00c9critures Comptables \u2014 Format DGFiP
+            Fichier des Écritures Comptables — Format DGFiP
           </p>
         </div>
       </div>
@@ -109,10 +109,10 @@ export default function ExportsFecPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">
-            Param\u00e8tres d&apos;export
+            Paramètres d&apos;export
           </CardTitle>
           <CardDescription>
-            S\u00e9lectionnez la p\u00e9riode et le journal \u00e0 exporter
+            Sélectionnez la période et le journal à exporter
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -145,7 +145,7 @@ export default function ExportsFecPage() {
               className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
             />
             <Label htmlFor="validated-only" className="cursor-pointer">
-              \u00c9critures valid\u00e9es uniquement
+              Écritures validées uniquement
             </Label>
           </div>
           <div className="flex gap-2 pt-2">
@@ -155,18 +155,18 @@ export default function ExportsFecPage() {
               ) : (
                 <FileText className="h-4 w-4" />
               )}
-              {loading ? "Validation..." : "Valider les donn\u00e9es"}
+              {loading ? "Validation..." : "Valider les données"}
             </Button>
             <a href={downloadUrl} download>
               <Button disabled={!result || errorCount > 0}>
                 <Download className="h-4 w-4" />
-                T\u00e9l\u00e9charger le FEC
+                Télécharger le FEC
               </Button>
             </a>
           </div>
           {result && errorCount > 0 && (
             <p className="text-xs text-destructive">
-              Le t\u00e9l\u00e9chargement est bloqu\u00e9 : corrigez les erreurs avant
+              Le téléchargement est bloqué : corrigez les erreurs avant
               d&apos;exporter.
             </p>
           )}
@@ -177,7 +177,7 @@ export default function ExportsFecPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-4">
             <Card><CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">\u00c9critures</p>
+              <p className="text-xs text-muted-foreground">Écritures</p>
               <p className="text-2xl font-bold">{result.stats.totalEntries}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6">
@@ -185,12 +185,12 @@ export default function ExportsFecPage() {
               <p className="text-2xl font-bold">{result.lineCount}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">Total d\u00e9bit</p>
-              <p className="text-2xl font-bold">{fmt(result.stats.totalDebit)} \u20ac</p>
+              <p className="text-xs text-muted-foreground">Total débit</p>
+              <p className="text-2xl font-bold">{fmt(result.stats.totalDebit)} €</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">Total cr\u00e9dit</p>
-              <p className="text-2xl font-bold">{fmt(result.stats.totalCredit)} \u20ac</p>
+              <p className="text-xs text-muted-foreground">Total crédit</p>
+              <p className="text-2xl font-bold">{fmt(result.stats.totalCredit)} €</p>
             </CardContent></Card>
           </div>
 
@@ -205,7 +205,7 @@ export default function ExportsFecPage() {
               {result.stats.balanced ? (
                 <Badge className="bg-green-500">Balance OK</Badge>
               ) : (
-                <Badge variant="destructive">D\u00e9s\u00e9quilibre</Badge>
+                <Badge variant="destructive">Déséquilibre</Badge>
               )}
             </CardContent>
           </Card>
@@ -218,11 +218,11 @@ export default function ExportsFecPage() {
                 ) : (
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                 )}
-                Contr\u00f4les DGFiP
+                Contrôles DGFiP
               </CardTitle>
               <CardDescription>
                 {errorCount === 0 && warningCount === 0
-                  ? "Aucune anomalie d\u00e9tect\u00e9e \u2014 FEC conforme"
+                  ? "Aucune anomalie détectée — FEC conforme"
                   : errorCount + " erreur" + (errorCount !== 1 ? "s" : "") + ", " + warningCount + " avertissement" + (warningCount !== 1 ? "s" : "")}
               </CardDescription>
             </CardHeader>
@@ -230,7 +230,7 @@ export default function ExportsFecPage() {
               {result.anomalies.length === 0 ? (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <CheckCircle2 className="h-4 w-4" />
-                  Toutes les \u00e9critures sont conformes au format FEC DGFiP
+                  Toutes les écritures sont conformes au format FEC DGFiP
                 </div>
               ) : (
                 <div className="space-y-2">

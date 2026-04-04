@@ -63,7 +63,7 @@ export default function ImportGrandLivrePage() {
     const allowed = [".fec", ".txt", ".csv", ".xlsx", ".xls", ".ods"];
     if (!allowed.some((e) => ext.endsWith(e))) {
       toast.error(
-        "Format non support\u00e9. Utilisez FEC (.txt, .csv) ou Excel (.xlsx, .xls)."
+        "Format non supporté. Utilisez FEC (.txt, .csv) ou Excel (.xlsx, .xls)."
       );
       return;
     }
@@ -87,7 +87,7 @@ export default function ImportGrandLivrePage() {
       );
       setSelected(allIdx);
       setExpanded(new Set());
-      toast.success(data.total + " \u00e9criture(s) d\u00e9tect\u00e9e(s)");
+      toast.success(data.total + " écriture(s) détectée(s)");
     });
   }
 
@@ -144,14 +144,14 @@ export default function ImportGrandLivrePage() {
         })),
       }));
     if (!toImport.length) {
-      toast.error("Aucune \u00e9criture s\u00e9lectionn\u00e9e");
+      toast.error("Aucune écriture sélectionnée");
       return;
     }
     startImporting(async () => {
       const res = await bulkImportJournalEntries(activeSociety.id, toImport);
       if (res.success && res.data) {
         setResult(res.data);
-        toast.success(res.data.imported + " \u00e9criture(s) import\u00e9e(s)");
+        toast.success(res.data.imported + " écriture(s) importée(s)");
       } else {
         toast.error(res.error ?? "Erreur d'import");
       }
@@ -171,7 +171,7 @@ export default function ImportGrandLivrePage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Importer des \u00e9critures
+            Importer des écritures
           </h1>
           <p className="text-muted-foreground text-sm">
             Format FEC (.txt, .csv) ou Excel (.xlsx, .xls)
@@ -220,7 +220,7 @@ export default function ImportGrandLivrePage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2 max-w-md text-center">
-              Le format FEC est le standard fran\u00e7ais export\u00e9 depuis Sage, EBP,
+              Le format FEC est le standard français exporté depuis Sage, EBP,
               Ciel, QuadraCompta...
             </p>
           </CardContent>
@@ -235,8 +235,8 @@ export default function ImportGrandLivrePage() {
             <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
             <div className="flex-1">
               <p className="font-medium">
-                {result.imported} \u00e9criture(s) import\u00e9e(s), {result.skipped}{" "}
-                ignor\u00e9e(s)
+                {result.imported} écriture(s) importée(s), {result.skipped}{" "}
+                ignorée(s)
               </p>
               {result.errors.length > 0 && (
                 <ul className="text-xs text-destructive mt-1 space-y-0.5">
@@ -268,7 +268,7 @@ export default function ImportGrandLivrePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                {entries.length} \u00e9criture(s) \u2014 {balancedCount} \u00e9quilibr\u00e9e(s)
+                {entries.length} écriture(s) — {balancedCount} équilibrée(s)
                 {source === "fec" && (
                   <Badge variant="secondary" className="ml-2">
                     Format FEC
@@ -287,10 +287,10 @@ export default function ImportGrandLivrePage() {
                     className="flex items-center gap-1"
                   >
                     <AlertTriangle className="h-3 w-3" />
-                    {unbalancedCount} d\u00e9s\u00e9quilibr\u00e9e(s)
+                    {unbalancedCount} déséquilibrée(s)
                   </Badge>
                 )}
-                <Badge variant="outline">{selected.size} s\u00e9lectionn\u00e9e(s)</Badge>
+                <Badge variant="outline">{selected.size} sélectionnée(s)</Badge>
               </div>
             </div>
           </CardHeader>
@@ -307,11 +307,11 @@ export default function ImportGrandLivrePage() {
                   <TableHead className="w-8"></TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Journal</TableHead>
-                  <TableHead>Pi\u00e8ce</TableHead>
-                  <TableHead>Libell\u00e9</TableHead>
+                  <TableHead>Pièce</TableHead>
+                  <TableHead>Libellé</TableHead>
                   <TableHead>Lignes</TableHead>
-                  <TableHead className="text-right">D\u00e9bit</TableHead>
-                  <TableHead className="text-right">Cr\u00e9dit</TableHead>
+                  <TableHead className="text-right">Débit</TableHead>
+                  <TableHead className="text-right">Crédit</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -343,7 +343,7 @@ export default function ImportGrandLivrePage() {
                       <TableCell className="text-sm">
                         {entry.entryDate
                           ? formatDate(new Date(entry.entryDate))
-                          : "\u2014"}
+                          : "—"}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
@@ -429,7 +429,7 @@ export default function ImportGrandLivrePage() {
                 Import en cours...
               </>
             ) : (
-              "Importer " + selected.size + " \u00e9criture(s)"
+              "Importer " + selected.size + " écriture(s)"
             )}
           </Button>
         </div>

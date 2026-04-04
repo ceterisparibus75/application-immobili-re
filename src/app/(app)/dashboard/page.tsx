@@ -311,6 +311,24 @@ export default async function DashboardPage() {
                       <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
                     </div>
                   </div>
+                  {kpis.ltv !== null && (
+                    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                      <span className="text-sm">LTV (Loan-to-Value)</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-semibold tabular-nums ${kpis.ltv > 80 ? "text-destructive" : kpis.ltv > 60 ? "text-amber-600" : "text-emerald-600"}`}>{kpis.ltv}%</span>
+                        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.ltv > 80 ? "bg-red-500" : kpis.ltv > 60 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                      </div>
+                    </div>
+                  )}
+                  {kpis.patrimonyValue > 0 && (
+                    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                      <span className="text-sm">Valeur patrimoine</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums">{fmt(kpis.patrimonyValue)}</span>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-violet-500" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

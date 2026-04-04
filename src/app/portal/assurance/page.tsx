@@ -39,7 +39,7 @@ export default async function PortalAssurancePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Attestation d&apos;assurance</h1>
         <p className="text-muted-foreground">
-          D&eacute;posez votre attestation d&apos;assurance en cours de validit&eacute;
+          Déposez votre attestation d&apos;assurance en cours de validité
         </p>
       </div>
 
@@ -53,7 +53,7 @@ export default async function PortalAssurancePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
-              <Badge variant="success">D&eacute;pos&eacute;e</Badge>
+              <Badge variant="success">Déposée</Badge>
               <span className="text-sm text-muted-foreground">
                 le {formatDate(tenantWithInsurance.insuranceUploadedAt!)}
               </span>
@@ -82,7 +82,7 @@ export default async function PortalAssurancePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4" />
-            {hasInsurance ? "Mettre \u00e0 jour l\u2019attestation" : "D\u00e9poser une attestation"}
+            {hasInsurance ? "Mettre à jour l\u2019attestation" : "Déposer une attestation"}
           </CardTitle>
           <CardDescription>
             Fichier PDF uniquement, 10 Mo maximum

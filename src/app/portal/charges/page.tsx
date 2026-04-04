@@ -13,7 +13,7 @@ export default async function PortalChargesPage() {
     redirect("/portal/login");
   }
 
-  // Trouver TOUS les locataires avec cet email (multi-soci&eacute;t&eacute;)
+  // Trouver TOUS les locataires avec cet email (multi-société)
   const tenants = await prisma.tenant.findMany({
     where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: { id: true },
@@ -69,7 +69,7 @@ export default async function PortalChargesPage() {
             <FileBarChart2 className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucun compte rendu disponible</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md">
-              Vos comptes rendus annuels de charges appara&icirc;tront ici d&egrave;s qu&apos;ils seront &eacute;tablis par votre
+              Vos comptes rendus annuels de charges apparaîtront ici dès qu&apos;ils seront établis par votre
               gestionnaire.
             </p>
           </CardContent>
@@ -122,13 +122,13 @@ export default async function PortalChargesPage() {
                               </p>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {balancePositive ? "Compl\u00e9ment \u00e0 payer" : "Remboursement \u00e0 venir"}
+                              {balancePositive ? "Complément à payer" : "Remboursement à venir"}
                             </p>
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        {/* R&eacute;sum&eacute; */}
+                        {/* Résumé */}
                         <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 p-3">
                           <div className="text-center">
                             <p className="text-xs text-muted-foreground">Charges totales</p>
@@ -141,16 +141,16 @@ export default async function PortalChargesPage() {
                             </p>
                           </div>
                           <div className="text-center">
-                            <p className="text-xs text-muted-foreground">Provisions vers&eacute;es</p>
+                            <p className="text-xs text-muted-foreground">Provisions versées</p>
                             <p className="text-sm font-semibold">{formatCurrency(report.totalProvisions)}</p>
                           </div>
                         </div>
 
-                        {/* D&eacute;tail par cat&eacute;gorie */}
+                        {/* Détail par catégorie */}
                         {categories.length > 0 && (
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                              D&eacute;tail par poste
+                              Détail par poste
                             </p>
                             <div className="divide-y text-sm">
                               {categories.map((cat, i) => (
@@ -178,7 +178,7 @@ export default async function PortalChargesPage() {
                               : "bg-green-50 dark:bg-green-950/20"
                           }`}
                         >
-                          <span className="text-sm font-medium">Solde de r&eacute;gularisation</span>
+                          <span className="text-sm font-medium">Solde de régularisation</span>
                           <span
                             className={`text-sm font-bold ${
                               balancePositive
@@ -187,8 +187,8 @@ export default async function PortalChargesPage() {
                             }`}
                           >
                             {balancePositive
-                              ? `${formatCurrency(report.balance)} \u00e0 payer`
-                              : `${formatCurrency(Math.abs(report.balance))} \u00e0 rembourser`}
+                              ? `${formatCurrency(report.balance)} à payer`
+                              : `${formatCurrency(Math.abs(report.balance))} à rembourser`}
                           </span>
                         </div>
                       </CardContent>

@@ -10,7 +10,10 @@ import {
 import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft,
+  ArrowDownLeft,
+  ArrowUpRight,
   CheckCircle2,
+  Clock,
   GitMerge,
   Plus,
   RefreshCw,
@@ -157,46 +160,75 @@ export default async function BankAccountDetailPage({
                 Transactions récentes ({account.transactions.length})
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {account.transactions.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Aucune transaction enregistrée
                 </p>
               ) : (
                 <div className="divide-y">
-                  {account.transactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center justify-between py-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{transaction.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(transaction.transactionDate).toLocaleDateString("fr-FR")}
-                          {transaction.reference && ` — ${transaction.reference}`}
-                          {transaction.category && ` — ${transaction.category}`}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p
-                          className={`text-sm font-medium tabular-nums ${
-                            transaction.amount >= 0
+                  {account.transactions.map((transaction) => {
+                    const isCredit = transaction.amount >= 0;
+                    return (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
+                      >
+                        {/* Icône direction */}
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          isCredit
+                            ? "bg-green-100 dark:bg-green-950/40"
+                            : "bg-red-50 dark:bg-red-950/30"
+                        }`}>
+                          {isCredit
+                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                            : <ArrowUpRight className="h-3.5 w-3.5 text-destructive" />
+                          }
+                        </div>
+
+                        {/* Libellé + méta */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" title={transaction.label}>
+                            {transaction.label}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(transaction.transactionDate).toLocaleDateString("fr-FR")}
+                            </span>
+                            {transaction.reference && (
+                              <span className="text-xs text-muted-foreground truncate max-w-32" title={transaction.reference}>
+                                · {transaction.reference}
+                              </span>
+                            )}
+                            {transaction.category && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
+                                {transaction.category}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Montant */}
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm font-semibold tabular-nums ${
+                            isCredit
                               ? "text-green-600 dark:text-green-400"
                               : "text-destructive"
-                          }`}
-                        >
-                          {transaction.amount >= 0 ? "+" : ""}
-                          {transaction.amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
-                        </p>
-                        <Badge
-                          variant={transaction.isReconciled ? "success" : "secondary"}
-                          className="text-xs"
-                        >
-                          {transaction.isReconciled ? "Rapproché" : "En attente"}
-                        </Badge>
+                          }`}>
+                            {isCredit ? "+" : ""}{transaction.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </p>
+                        </div>
+
+                        {/* Statut */}
+                        <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
+                          {transaction.isReconciled
+                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            : <Clock className="h-4 w-4 text-muted-foreground/40" />
+                          }
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

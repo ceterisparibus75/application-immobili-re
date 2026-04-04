@@ -42,12 +42,12 @@ function tenantName(lease: {
     lastName: string | null;
   };
 } | null) {
-  if (!lease?.tenant) return "\u2014";
+  if (!lease?.tenant) return "—";
   if (lease.tenant.entityType === "PERSONNE_MORALE")
-    return lease.tenant.companyName ?? "\u2014";
+    return lease.tenant.companyName ?? "—";
   const first = lease.tenant.firstName ?? "";
   const last = lease.tenant.lastName ?? "";
-  return `${first} ${last}`.trim() || "\u2014";
+  return `${first} ${last}`.trim() || "—";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,7 +186,7 @@ export function FacturationTabs({
           <CardContent>
             {reminders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                Aucune relance enregistr&eacute;e
+                Aucune relance enregistrée
               </p>
             ) : (
               <div className="divide-y">
@@ -216,7 +216,7 @@ export function FacturationTabs({
                       <p className="text-xs text-muted-foreground">
                         {r.sentAt
                           ? new Date(r.sentAt).toLocaleDateString("fr-FR")
-                          : "Non envoy\u00e9e"}
+                          : "Non envoyée"}
                       </p>
                     </div>
                   </div>

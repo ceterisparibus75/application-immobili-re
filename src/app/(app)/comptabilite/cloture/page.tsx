@@ -34,7 +34,7 @@ export default function CloturePage() {
     startTransition(async () => {
       const res = await createFiscalYear(activeSociety.id, newYear);
       if (res.success) {
-        toast.success("Exercice cr\u00e9\u00e9");
+        toast.success("Exercice créé");
         setShowCreate(false);
         reload();
       } else {
@@ -48,10 +48,10 @@ export default function CloturePage() {
     startTransition(async () => {
       const res = await closeFiscalYear(activeSociety.id, fiscalYearId);
       if (res.success) {
-        toast.success(`Exercice ${year} cl\u00f4tur\u00e9 avec succ\u00e8s`);
+        toast.success(`Exercice ${year} clôturé avec succès`);
         reload();
       } else {
-        toast.error(res.error ?? "Erreur lors de la cl\u00f4ture");
+        toast.error(res.error ?? "Erreur lors de la clôture");
       }
     });
   }
@@ -62,8 +62,8 @@ export default function CloturePage() {
         <div className="flex items-center gap-3">
           <Archive className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Exercices et Cl\u00f4ture</h1>
-            <p className="text-sm text-muted-foreground">Gestion des exercices comptables et cl\u00f4ture annuelle</p>
+            <h1 className="text-2xl font-semibold">Exercices et Clôture</h1>
+            <p className="text-sm text-muted-foreground">Gestion des exercices comptables et clôture annuelle</p>
           </div>
         </div>
         <Button onClick={() => setShowCreate(s => !s)} variant="outline" size="sm">
@@ -74,18 +74,18 @@ export default function CloturePage() {
       {showCreate && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Cr\u00e9er un exercice</CardTitle>
-            <CardDescription>Un exercice doit \u00eatre cr\u00e9\u00e9 avant de pouvoir saisir des \u00e9critures pour cette p\u00e9riode.</CardDescription>
+            <CardTitle className="text-base">Créer un exercice</CardTitle>
+            <CardDescription>Un exercice doit être créé avant de pouvoir saisir des écritures pour cette période.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Ann\u00e9e</Label>
+                <Label>Année</Label>
                 <Input type="number" value={newYear.year} min={2000} max={2100}
                   onChange={e => setNewYear(s => ({ ...s, year: parseInt(e.target.value) }))} />
               </div>
               <div>
-                <Label>Date de d\u00e9but</Label>
+                <Label>Date de début</Label>
                 <Input type="date" value={newYear.startDate}
                   onChange={e => setNewYear(s => ({ ...s, startDate: e.target.value }))} />
               </div>
@@ -97,7 +97,7 @@ export default function CloturePage() {
             </div>
             <div className="flex gap-2">
               <Button onClick={handleCreate} disabled={isPending || !newYear.startDate || !newYear.endDate}>
-                {isPending ? "Cr\u00e9ation..." : "Cr\u00e9er l'exercice"}
+                {isPending ? "Création..." : "Créer l'exercice"}
               </Button>
               <Button variant="outline" onClick={() => setShowCreate(false)}>Annuler</Button>
             </div>
@@ -113,19 +113,19 @@ export default function CloturePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ann\u00e9e</TableHead>
-                <TableHead>D\u00e9but</TableHead>
+                <TableHead>Année</TableHead>
+                <TableHead>Début</TableHead>
                 <TableHead>Fin</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead>Cl\u00f4tur\u00e9 par</TableHead>
-                <TableHead>Date cl\u00f4ture</TableHead>
+                <TableHead>Clôturé par</TableHead>
+                <TableHead>Date clôture</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fiscalYears.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Aucun exercice cr\u00e9\u00e9</TableCell>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Aucun exercice créé</TableCell>
                 </TableRow>
               )}
               {fiscalYears.map(fy => (
@@ -135,44 +135,44 @@ export default function CloturePage() {
                   <TableCell>{formatDate(fy.endDate)}</TableCell>
                   <TableCell>
                     {fy.isClosed
-                      ? <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />Cl\u00f4tur\u00e9</Badge>
+                      ? <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />Clôturé</Badge>
                       : <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" />En cours</Badge>
                     }
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {fy.closedBy ? `${fy.closedBy.firstName ?? ""} ${fy.closedBy.name ?? ""}`.trim() : "\u2014"}
+                    {fy.closedBy ? `${fy.closedBy.firstName ?? ""} ${fy.closedBy.name ?? ""}`.trim() : "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {fy.closedAt ? formatDateTime(fy.closedAt) : "\u2014"}
+                    {fy.closedAt ? formatDateTime(fy.closedAt) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {!fy.isClosed && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="sm" disabled={isPending}>
-                            <Lock className="h-3 w-3 mr-1" />Cl\u00f4turer
+                            <Lock className="h-3 w-3 mr-1" />Clôturer
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle className="flex items-center gap-2">
                               <AlertTriangle className="h-5 w-5 text-destructive" />
-                              Cl\u00f4turer l'exercice {fy.year}\u00a0?
+                              Clôturer l&apos;exercice {fy.year}&nbsp;?
                             </AlertDialogTitle>
                             <AlertDialogDescription className="space-y-2">
-                              <p>Cette op\u00e9ration est <strong>irr\u00e9versible</strong>. Elle va\u00a0:</p>
+                              <p>Cette opération est <strong>irréversible</strong>. Elle va&nbsp;:</p>
                               <ul className="list-disc pl-4 space-y-1">
-                                <li>Verrouiller toutes les \u00e9critures de l'exercice {fy.year}</li>
-                                <li>Interdire toute nouvelle \u00e9criture sur cet exercice</li>
-                                <li>V\u00e9rifier l'\u00e9quilibre global (d\u00e9bit = cr\u00e9dit)</li>
+                                <li>Verrouiller toutes les écritures de l&apos;exercice {fy.year}</li>
+                                <li>Interdire toute nouvelle écriture sur cet exercice</li>
+                                <li>Vérifier l&apos;équilibre global (débit = crédit)</li>
                               </ul>
-                              <p className="font-medium text-destructive">Toutes les \u00e9critures doivent \u00eatre valid\u00e9es avant la cl\u00f4ture.</p>
+                              <p className="font-medium text-destructive">Toutes les écritures doivent être validées avant la clôture.</p>
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Annuler</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleClose(fy.id, fy.year)} className="bg-destructive hover:bg-destructive/90">
-                              Confirmer la cl\u00f4ture
+                              Confirmer la clôture
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -191,7 +191,7 @@ export default function CloturePage() {
         <CardContent className="py-4 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-muted-foreground">
-            <strong>Dur\u00e9e de conservation\u00a0:</strong> Les donn\u00e9es comptables doivent \u00eatre conserv\u00e9es pendant 10 ans (obligation l\u00e9gale, article L123-22 du Code de commerce). La cl\u00f4ture d'un exercice ne supprime pas les donn\u00e9es.
+            <strong>Durée de conservation&nbsp;:</strong> Les données comptables doivent être conservées pendant 10 ans (obligation légale, article L123-22 du Code de commerce). La clôture d&apos;un exercice ne supprime pas les données.
           </div>
         </CardContent>
       </Card>

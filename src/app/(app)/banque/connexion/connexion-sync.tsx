@@ -25,7 +25,7 @@ export function ConnexionSync({
         setSynced(result.data?.synced ?? 0);
       } else {
         setStatus("error");
-        setMessage(result.error ?? "La banque n'a pas encore autoris\u00e9 l'acc\u00e8s. Revenez dans quelques instants.");
+        setMessage(result.error ?? "La banque n'a pas encore autorisé l'accès. Revenez dans quelques instants.");
       }
     });
   }, [societyId, connectionId]);
@@ -45,21 +45,21 @@ export function ConnexionSync({
           )}
           <CardTitle>
             {status === "loading" && "Synchronisation en cours..."}
-            {status === "success" && "Connexion r\u00e9ussie !"}
+            {status === "success" && "Connexion réussie !"}
             {status === "error" && "Connexion en attente"}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
           {status === "loading" && (
             <p className="text-muted-foreground">
-              R&eacute;cup&eacute;ration de vos comptes bancaires...
+              Récupération de vos comptes bancaires...
             </p>
           )}
           {status === "success" && (
             <p className="text-muted-foreground">
               {synced === 0
-                ? "Aucun nouveau compte synchronis\u00e9."
-                : `${synced} compte${synced > 1 ? "s synchronis\u00e9s" : " synchronis\u00e9"} avec succ\u00e8s. Les transactions des 90 derniers jours ont \u00e9t\u00e9 import\u00e9es.`}
+                ? "Aucun nouveau compte synchronisé."
+                : `${synced} compte${synced > 1 ? "s synchronisés" : " synchronisé"} avec succès. Les transactions des 90 derniers jours ont été importées.`}
             </p>
           )}
           {status === "error" && (

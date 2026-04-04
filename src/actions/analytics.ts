@@ -11,7 +11,7 @@ export type OverdueByAge = { label: string; count: number; amount: number };
 export type PatrimonyPoint = { date: string; value: number };
 export type TopTenant = { name: string; total: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[] };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
@@ -235,6 +235,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     select: {
       id: true,
       amount: true,
+      purchaseValue: true,
       amortizationLines: {
         orderBy: { period: "desc" },
         where: { dueDate: { lte: now } },
@@ -245,7 +246,9 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   });
   let totalDebt = 0;
   let monthlyLoanPayment = 0;
+  let patrimonyValue = 0;
   for (const loan of activeLoansForDebt) {
+    patrimonyValue += Number(loan.purchaseValue ?? loan.amount ?? 0);
     if (loan.amortizationLines.length > 0) {
       totalDebt += loan.amortizationLines[0].remainingBalance;
       monthlyLoanPayment += loan.amortizationLines[0].totalPayment;
@@ -254,9 +257,10 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     }
   }
   const activeLoanCount = activeLoansForDebt.length;
+  const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
 
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline,
   };
 }

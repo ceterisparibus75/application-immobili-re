@@ -7,10 +7,10 @@ import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
-  BROUILLON: "Brouillon", VALIDEE: "Valid\u00e9e", ENVOYEE: "Envoy\u00e9e",
-  EN_ATTENTE: "En attente", PAYE: "Pay\u00e9", PARTIELLEMENT_PAYE: "Partiel",
-  EN_RETARD: "En retard", RELANCEE: "Relanc\u00e9e", LITIGIEUX: "Litigieux",
-  IRRECOUVRABLE: "Irr\u00e9couvrable", ANNULEE: "Annul\u00e9e",
+  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
+  EN_ATTENTE: "En attente", PAYE: "Payé", PARTIELLEMENT_PAYE: "Partiel",
+  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
+  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
 };
 
 const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive" | "secondary" | "default" | "outline"> = {
@@ -28,7 +28,7 @@ export default async function PortalDocumentsPage() {
     redirect("/portal/login");
   }
 
-  // Trouver TOUS les locataires avec cet email (multi-soci&eacute;t&eacute;)
+  // Trouver TOUS les locataires avec cet email (multi-société)
   const tenants = await prisma.tenant.findMany({
     where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: { id: true },
@@ -57,7 +57,7 @@ export default async function PortalDocumentsPage() {
 
   const ownLeaseIds = leases.map((l) => l.id);
 
-  // 2. Documents GED li&eacute;s &agrave; ces locataires ou &agrave; leurs baux
+  // 2. Documents GED liés à ces locataires ou à leurs baux
   const gedDocuments = await prisma.document.findMany({
     where: {
       OR: [
@@ -125,7 +125,7 @@ export default async function PortalDocumentsPage() {
                 <div key={lease.id} className="flex items-center justify-between py-3">
                   <div>
                     <p className="text-sm font-medium">
-                      {lease.lot.building.name} &mdash; Lot {lease.lot.number}
+                      {lease.lot.building.name} — Lot {lease.lot.number}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Depuis le {formatDate(lease.startDate)}
@@ -160,7 +160,7 @@ export default async function PortalDocumentsPage() {
         </CardContent>
       </Card>
 
-      {/* Autres documents (GED sans bail associ&eacute;) */}
+      {/* Autres documents (GED sans bail associé) */}
       {gedDocuments.filter((d) => !d.leaseId).length > 0 && (
         <Card>
           <CardHeader>
@@ -205,7 +205,7 @@ export default async function PortalDocumentsPage() {
                   <div>
                     <p className="text-sm font-medium">{inv.invoiceNumber}</p>
                     <p className="text-xs text-muted-foreground">
-                      &Eacute;mise le {formatDate(inv.issueDate)} &mdash; &Eacute;ch&eacute;ance {formatDate(inv.dueDate)}
+                      Émise le {formatDate(inv.issueDate)} — Échéance {formatDate(inv.dueDate)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -246,7 +246,7 @@ export default async function PortalDocumentsPage() {
                   <div>
                     <p className="text-sm font-medium">{inv.invoiceNumber}</p>
                     <p className="text-xs text-muted-foreground">
-                      {inv.payments?.[0]?.paidAt ? `Pay\u00e9 le ${formatDate(inv.payments[0].paidAt)}` : formatDate(inv.issueDate)}
+                      {inv.payments?.[0]?.paidAt ? `Payé le ${formatDate(inv.payments[0].paidAt)}` : formatDate(inv.issueDate)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

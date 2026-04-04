@@ -228,14 +228,28 @@ function FileGridCard({ doc, selected, onSelect, societyId, checked, onCheckedCh
   );
 }
 // ─── Preview Panel ────────────────────────────────────────────────────────────
+function extractStoragePath(fileUrl: string | null): string | null {
+  if (!fileUrl) return null;
+  // Chemin brut (pas une URL)
+  if (!fileUrl.startsWith("http")) return fileUrl;
+  try {
+    const url = new URL(fileUrl);
+    // URL Supabase signée : /storage/v1/object/sign/{bucket}/{path}
+    // URL Supabase publique : /storage/v1/object/public/{bucket}/{path}
+    const match = url.pathname.match(/\/storage\/v1\/object\/(?:sign|public)\/[^/]+\/(.+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 function PreviewContent({ doc }: { doc: DocumentItem }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const isImage = doc.mimeType?.startsWith("image/");
   const isPdf = doc.mimeType === "application/pdf" || doc.fileName?.toLowerCase().endsWith(".pdf");
-  // Utiliser storagePath, sinon fileUrl s'il ressemble à un chemin de stockage (pas une URL signée expirée)
-  const storageLikePath = doc.storagePath ?? (doc.fileUrl && !doc.fileUrl.startsWith("http") ? doc.fileUrl : null);
+  const storageLikePath = doc.storagePath ?? extractStoragePath(doc.fileUrl);
   const previewUrl = storageLikePath
     ? `/api/storage/view?path=${encodeURIComponent(storageLikePath)}`
     : null;
