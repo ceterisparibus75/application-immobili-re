@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck } from "lucide-react";
+import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck, Clock } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Emprunts" };
@@ -43,6 +43,13 @@ export default async function EmpruntsPage() {
   const totalMonthly = enCours.reduce((s, l) => {
     const line = l.amortizationLines[0];
     return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
+  }, 0);
+
+  // Calcul fin la plus lointaine pour les emprunts en cours
+  const maxRemainingMonths = enCours.reduce((max, l) => {
+    const currentPeriod = l.amortizationLines[0]?.period ?? 0;
+    const remaining = l.durationMonths - currentPeriod;
+    return Math.max(max, remaining);
   }, 0);
 
   // Regrouper par preteur
@@ -128,6 +135,71 @@ export default async function EmpruntsPage() {
         </Card>
       </div>
 
+      {/* Tableau récapitulatif encours par banque */}
+      {sortedLenders.length > 1 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Encours par établissement</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left py-2 px-4 font-medium text-muted-foreground">Établissement</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Emprunts</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Capital emprunté</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Restant dû</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Remboursé</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">% remboursé</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedLenders.map(([lender, lenderLoans]) => {
+                  const gCapital = lenderLoans.reduce((s, l) => s + l.amount, 0);
+                  const gRemaining = lenderLoans.reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
+                  const gPaid = gCapital - gRemaining;
+                  const gPct = gCapital > 0 ? Math.round((gPaid / gCapital) * 100) : 0;
+                  return (
+                    <tr key={lender} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="py-2.5 px-4 font-medium">{lender}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums">{lenderLoans.length}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums">{fmt(gCapital)}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-destructive font-semibold">{fmt(gRemaining)}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(gPaid)}</td>
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-primary" style={{ width: gPct + "%" }} />
+                          </div>
+                          <span className="tabular-nums text-xs text-muted-foreground w-8 text-right">{gPct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/40 font-semibold">
+                  <td className="py-2.5 px-4">Total</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums">{loans.length}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums">{fmt(totalCapital)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums text-destructive">{fmt(totalRemaining)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</td>
+                  <td className="py-2.5 px-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: (totalCapital > 0 ? Math.round(((totalCapital - totalRemaining) / totalCapital) * 100) : 0) + "%" }} />
+                      </div>
+                      <span className="tabular-nums text-xs w-8 text-right">{totalCapital > 0 ? Math.round(((totalCapital - totalRemaining) / totalCapital) * 100) : 0}%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
       {loans.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -152,6 +224,10 @@ export default async function EmpruntsPage() {
               return s + (last?.remainingBalance ?? l.amount);
             }, 0);
             const groupCapital = lenderLoans.reduce((s, l) => s + l.amount, 0);
+            const groupMonthly = lenderLoans.filter((l) => l.status === "EN_COURS").reduce((s, l) => {
+              const line = l.amortizationLines[0];
+              return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
+            }, 0);
 
             return (
               <Card key={lender}>
@@ -163,6 +239,7 @@ export default async function EmpruntsPage() {
                         <CardTitle className="text-base">{lender}</CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {lenderLoans.length} emprunt{lenderLoans.length !== 1 ? "s" : ""}
+                          {groupMonthly > 0 && <> · {fmt(groupMonthly)}/mois</>}
                         </p>
                       </div>
                     </div>
@@ -180,6 +257,10 @@ export default async function EmpruntsPage() {
                       const paid = loan.amount - remaining;
                       const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
                       const statusInfo = STATUS_LABELS[loan.status];
+                      const currentPeriod = last?.period ?? 0;
+                      const remainingMonths = loan.durationMonths - currentPeriod;
+                      const remainingYears = Math.floor(remainingMonths / 12);
+                      const remainingMo = remainingMonths % 12;
 
                       return (
                         <Link
@@ -207,9 +288,22 @@ export default async function EmpruntsPage() {
                                 style={{ width: Math.min(100, progress) + "%" }}
                               />
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {Math.round(progress)}% remboursé
-                            </p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <p className="text-xs text-muted-foreground">
+                                {Math.round(progress)}% remboursé
+                              </p>
+                              {loan.status === "EN_COURS" && remainingMonths > 0 && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {remainingMonths} mois restants
+                                  {remainingYears > 0 && (
+                                    <span className="text-muted-foreground/60">
+                                      ({remainingYears} an{remainingYears > 1 ? "s" : ""}{remainingMo > 0 ? ` ${remainingMo} mois` : ""})
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="text-right ml-4 shrink-0">
                             <p className="text-sm font-semibold">{fmt(remaining)}</p>

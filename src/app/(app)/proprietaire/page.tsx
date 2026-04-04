@@ -110,45 +110,88 @@ export default async function ProprietaireDashboardPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Banknote className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-base">Endettement consolide</CardTitle>
+                  <CardTitle className="text-base">Endettement consolidé</CardTitle>
                 </div>
-                <CardDescription>Capital restant du et mensualites par societe</CardDescription>
+                <CardDescription>Capital restant dû et mensualités</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-4">
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">Capital restant du</p>
+                    <p className="text-xs text-muted-foreground">Capital restant dû</p>
                     <p className="text-lg font-bold tabular-nums">{fmt(data.totalDebt)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">Mensualite totale</p>
+                    <p className="text-xs text-muted-foreground">Mensualité totale</p>
                     <p className="text-lg font-bold tabular-nums">{fmt(data.totalMonthlyLoanPayment)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">LTV consolide</p>
+                    <p className="text-xs text-muted-foreground">LTV consolidé</p>
                     <p className={"text-lg font-bold tabular-nums " + (data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-destructive" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-600" : "text-emerald-600")}>
                       {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
-                    <div key={s.id} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {s.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="font-medium">{s.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4 tabular-nums text-xs">
-                        <span>{fmt(s.totalDebt)}</span>
-                        <span className="text-muted-foreground">{fmt(s.monthlyLoanPayment)}/mois</span>
-                        <Badge variant={s.ltv !== null && s.ltv > 80 ? "destructive" : s.ltv !== null && s.ltv > 60 ? "warning" : "secondary"} className="text-[10px] min-w-[50px] justify-center">
-                          LTV {s.ltv !== null ? `${s.ltv}%` : "—"}
-                        </Badge>
-                      </div>
+
+                {/* Encours par établissement */}
+                {data.lenderSummaries.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Encours par établissement</p>
+                    <div className="rounded-lg border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/30 text-xs">
+                            <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Établissement</th>
+                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Emprunts</th>
+                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Restant dû</th>
+                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Mensualité</th>
+                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Remboursé</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.lenderSummaries.map((ls) => (
+                            <tr key={ls.lender} className="border-t hover:bg-muted/20">
+                              <td className="py-2 px-3 font-medium">{ls.lender}</td>
+                              <td className="py-2 px-3 text-right tabular-nums">{ls.loanCount}</td>
+                              <td className="py-2 px-3 text-right tabular-nums text-destructive font-semibold">{fmt(ls.remainingBalance)}</td>
+                              <td className="py-2 px-3 text-right tabular-nums">{fmt(ls.monthlyPayment)}</td>
+                              <td className="py-2 px-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full bg-primary" style={{ width: ls.pctRepaid + "%" }} />
+                                  </div>
+                                  <span className="tabular-nums text-xs text-muted-foreground w-7 text-right">{ls.pctRepaid}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {/* Détail par société */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Détail par société</p>
+                  <div className="space-y-2">
+                    {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
+                      <div key={s.id} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {s.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="font-medium">{s.name}</span>
+                        </div>
+                        <div className="flex items-center gap-4 tabular-nums text-xs">
+                          <span>{fmt(s.totalDebt)}</span>
+                          <span className="text-muted-foreground">{fmt(s.monthlyLoanPayment)}/mois</span>
+                          <Badge variant={s.ltv !== null && s.ltv > 80 ? "destructive" : s.ltv !== null && s.ltv > 60 ? "warning" : "secondary"} className="text-[10px] min-w-[50px] justify-center">
+                            LTV {s.ltv !== null ? `${s.ltv}%` : "—"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>

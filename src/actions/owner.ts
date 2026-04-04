@@ -39,6 +39,15 @@ export type ExpiringLease = {
   daysLeft: number;
 };
 
+export type LenderSummary = {
+  lender: string;
+  loanCount: number;
+  totalCapital: number;
+  remainingBalance: number;
+  monthlyPayment: number;
+  pctRepaid: number;
+};
+
 export type OwnerAnalytics = {
   totalSocieties: number;
   totalBuildings: number;
@@ -59,6 +68,7 @@ export type OwnerAnalytics = {
   overdueByAge: OverdueAgeBucket[];
   expiringLeases: ExpiringLease[];
   societies: OwnerSocietySummary[];
+  lenderSummaries: LenderSummary[];
 };
 
 export async function getOwnerSocieties(): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string; city: string; isActive: boolean; logoUrl: string | null }[]>> {
@@ -95,6 +105,7 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
         totalPatrimonyValue: 0,
         grossYield: null, consolidatedLTV: null, occupancyRate: 0,
         overdueByAge: [], expiringLeases: [], societies: [],
+        lenderSummaries: [],
       },
     };
   }
@@ -147,7 +158,9 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
         societyId: true,
         purchaseValue: true,
         amount: true,
+        lender: true,
         amortizationLines: {
+          where: { dueDate: { lte: now } },
           orderBy: { period: "desc" },
           take: 1,
           select: { remainingBalance: true, totalPayment: true },
@@ -292,6 +305,27 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
     })(),
   }));
 
+  // Encours par établissement prêteur (consolidé toutes sociétés)
+  const lenderMap = new Map<string, { loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number }>();
+  for (const loan of loans) {
+    const lender = loan.lender || "Autre";
+    const prev = lenderMap.get(lender) ?? { loanCount: 0, totalCapital: 0, remainingBalance: 0, monthlyPayment: 0 };
+    const line = loan.amortizationLines[0];
+    lenderMap.set(lender, {
+      loanCount: prev.loanCount + 1,
+      totalCapital: prev.totalCapital + Number(loan.amount),
+      remainingBalance: prev.remainingBalance + (line ? Number(line.remainingBalance) : Number(loan.amount)),
+      monthlyPayment: prev.monthlyPayment + (line ? Number(line.totalPayment) : 0),
+    });
+  }
+  const lenderSummaries: LenderSummary[] = [...lenderMap.entries()]
+    .map(([lender, v]) => ({
+      lender,
+      ...v,
+      pctRepaid: v.totalCapital > 0 ? Math.round(((v.totalCapital - v.remainingBalance) / v.totalCapital) * 100) : 0,
+    }))
+    .sort((a, b) => b.remainingBalance - a.remainingBalance);
+
   const totalLots = societies.reduce((s, x) => s + x.lots, 0);
   const totalOccupied = societies.reduce((s, x) => s + x.occupiedLots, 0);
   const annualRevenue = societies.reduce((s, x) => s + x.currentMonthRevenue, 0) * 12;
@@ -320,6 +354,7 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
       overdueByAge,
       expiringLeases,
       societies,
+      lenderSummaries,
     },
   };
 }
