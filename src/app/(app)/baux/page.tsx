@@ -42,10 +42,17 @@ const STATUS_VARIANTS: Record<
 };
 
 const TYPE_LABELS: Record<LeaseType, string> = {
+  HABITATION: "Habitation",
+  MEUBLE: "Meublé",
+  MOBILITE: "Mobilité",
+  SAISONNIER: "Saisonnier",
+  ANAH: "ANAH",
   COMMERCIAL_369: "3-6-9",
-  BAIL_PROFESSIONNEL: "Professionnel",
   DEROGATOIRE: "Dérogatoire",
   PRECAIRE: "Précaire",
+  BAIL_PROFESSIONNEL: "Professionnel",
+  MIXTE: "Mixte",
+  RURAL: "Rural",
 };
 
 function tenantName(t: {
@@ -74,7 +81,7 @@ export default async function BauxPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Baux commerciaux</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Baux</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {actifs.length} {actifs.length > 1 ? "baux actifs" : "bail actif"}
           </p>
@@ -103,7 +110,7 @@ export default async function BauxPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun bail</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Créez votre premier bail commercial en associant un lot et un
+              Créez votre premier bail en associant un lot et un
               locataire.
             </p>
             <Link href="/baux/nouveau">

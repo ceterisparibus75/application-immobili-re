@@ -43,7 +43,7 @@ Structure exacte :
     "mobile": "Mobile ou null"
   },
   "bail": {
-    "leaseType": "COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL",
+    "leaseType": "HABITATION|MEUBLE|MOBILITE|SAISONNIER|ANAH|COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL|MIXTE|RURAL",
     "startDate": "YYYY-MM-DD",
     "durationMonths": 108,
     "baseRentHT": 0.0,
@@ -51,7 +51,7 @@ Structure exacte :
     "paymentFrequency": "MENSUEL|TRIMESTRIEL",
     "vatApplicable": true,
     "vatRate": 20.0,
-    "indexType": "ILC|ILAT|ICC|null",
+    "indexType": "IRL|ILC|ILAT|ICC|null",
     "rentFreeMonths": 0,
     "entryFee": 0.0,
     "tenantWorksClauses": "Clauses travaux preneur ou null"
@@ -60,8 +60,8 @@ Structure exacte :
 
 Règles :
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
-- leaseType : COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales)
-- durationMonths : 108 pour bail 3-6-9 (9 ans), 36 pour bail dérogatoire 3 ans
+- leaseType : HABITATION pour bail vide loi 1989, MEUBLE pour bail meublé ALUR, MOBILITE pour bail mobilité ELAN, SAISONNIER pour location saisonnière, ANAH pour convention ANAH, COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales), MIXTE pour bail mixte habitation+professionnel, RURAL pour bail rural/agricole
+- durationMonths : 36 pour habitation (3 ans), 12 pour meublé (1 an), 108 pour bail 3-6-9 (9 ans), 72 pour professionnel (6 ans), 36 pour dérogatoire (3 ans max)
 - Les montants sont en euros HT/an si loyer annuel, /mois si mensuel — converti toujours en euros HT/MOIS
 - Si une info est absente, mets null pour les champs optionnels
 - startDate au format ISO YYYY-MM-DD`;

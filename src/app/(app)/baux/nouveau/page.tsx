@@ -19,13 +19,35 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+import {
+  getDefaultDuration,
+  getDefaultIndexType,
+  getDefaultVat,
+  getDefaultDepositMonths,
+  type LeaseType,
+} from "@/validations/lease";
 
-const LEASE_TYPES = [
-  { value: "COMMERCIAL_369", label: "Bail commercial 3-6-9" },
-  { value: "DEROGATOIRE", label: "Bail dérogatoire" },
-  { value: "PRECAIRE", label: "Convention d'occupation précaire" },
-  { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel" },
+const LEASE_TYPE_OPTIONS = [
+  { group: "Habitation", items: [
+    { value: "HABITATION", label: "Bail d'habitation vide (loi 1989)" },
+    { value: "MEUBLE", label: "Bail meublé (ALUR)" },
+    { value: "MOBILITE", label: "Bail mobilité (ELAN)" },
+    { value: "SAISONNIER", label: "Location saisonnière" },
+    { value: "ANAH", label: "Convention ANAH (loyer maîtrisé)" },
+  ]},
+  { group: "Commercial / Professionnel", items: [
+    { value: "COMMERCIAL_369", label: "Bail commercial 3/6/9" },
+    { value: "DEROGATOIRE", label: "Bail dérogatoire (< 3 ans)" },
+    { value: "PRECAIRE", label: "Convention d'occupation précaire" },
+    { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel (6 ans)" },
+  ]},
+  { group: "Autre", items: [
+    { value: "MIXTE", label: "Bail mixte (habitation + professionnel)" },
+    { value: "RURAL", label: "Bail rural / agricole" },
+  ]},
 ];
+
+const FLAT_LEASE_TYPES = LEASE_TYPE_OPTIONS.flatMap((g) => g.items);
 
 const PAYMENT_FREQUENCIES = [
   { value: "MENSUEL", label: "Mensuel" },
@@ -53,6 +75,7 @@ const BILLING_TERMS = [
 ];
 
 const INDEX_TYPES = [
+  { value: "IRL", label: "IRL — Indice de Référence des Loyers" },
   { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
   { value: "ILAT", label: "ILAT — Indice des Loyers des Activités Tertiaires" },
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
@@ -83,8 +106,21 @@ export default function NouveauBailPage() {
   const [error, setError] = useState("");
   const [lots, setLots] = useState<LotOption[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
-  const [vatApplicable, setVatApplicable] = useState(true);
+  const [leaseType, setLeaseType] = useState<LeaseType>("HABITATION");
+  const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
+  const [durationMonths, setDurationMonths] = useState(36);
+  const [indexType, setIndexType] = useState<string>("IRL");
+
+  function handleLeaseTypeChange(type: LeaseType) {
+    setLeaseType(type);
+    const dur = getDefaultDuration(type);
+    setDurationMonths(dur);
+    const vat = getDefaultVat(type);
+    setVatApplicable(vat.applicable);
+    const idx = getDefaultIndexType(type);
+    setIndexType(idx ?? "");
+  }
 
   const defaultLotId = searchParams.get("lotId") ?? "";
   const defaultTenantId = searchParams.get("tenantId") ?? "";
@@ -133,16 +169,16 @@ export default function NouveauBailPage() {
     const result = await createLease(activeSociety.id, {
       lotId: data.lotId,
       tenantId: data.tenantId,
-      leaseType: data.leaseType as "COMMERCIAL_369" | "DEROGATOIRE" | "PRECAIRE" | "BAIL_PROFESSIONNEL",
+      leaseType: data.leaseType as LeaseType,
       startDate: data.startDate,
-      durationMonths: parseInt(data.durationMonths) || 108,
+      durationMonths: parseInt(data.durationMonths) || 36,
       baseRentHT: parseFloat(data.baseRentHT),
       depositAmount: parseFloat(data.depositAmount) || 0,
       paymentFrequency: data.paymentFrequency as "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL",
       billingTerm: (data.billingTerm as "ECHU" | "A_ECHOIR") || "A_ECHOIR",
       vatApplicable: data.vatApplicable === "on",
-      vatRate: parseFloat(data.vatRate) || 20,
-      indexType: (data.indexType as "ILC" | "ILAT" | "ICC") || null,
+      vatRate: parseFloat(data.vatRate) || 0,
+      indexType: (data.indexType as "IRL" | "ILC" | "ILAT" | "ICC") || null,
       baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
       baseIndexQuarter: data.baseIndexQuarter || null,
       revisionFrequency: parseInt(data.revisionFrequency) || 12,
@@ -170,7 +206,7 @@ export default function NouveauBailPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Nouveau bail</h1>
-          <p className="text-muted-foreground">Créer un bail commercial</p>
+          <p className="text-muted-foreground">Créer un bail</p>
         </div>
       </div>
 
@@ -250,12 +286,24 @@ export default function NouveauBailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="leaseType">Type de bail *</Label>
-                <NativeSelect
+                <select
                   id="leaseType"
                   name="leaseType"
-                  options={LEASE_TYPES}
+                  value={leaseType}
+                  onChange={(e) => handleLeaseTypeChange(e.target.value as LeaseType)}
                   required
-                />
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {LEASE_TYPE_OPTIONS.map((group) => (
+                    <optgroup key={group.group} label={group.group}>
+                      {group.items.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="durationMonths">Durée (mois) *</Label>
@@ -264,7 +312,8 @@ export default function NouveauBailPage() {
                   name="durationMonths"
                   type="number"
                   min={1}
-                  defaultValue={108}
+                  value={durationMonths}
+                  onChange={(e) => setDurationMonths(parseInt(e.target.value) || 1)}
                   required
                 />
               </div>
@@ -341,7 +390,7 @@ export default function NouveauBailPage() {
                 type="checkbox"
                 id="vatApplicable"
                 name="vatApplicable"
-                defaultChecked
+                checked={vatApplicable}
                 className="h-4 w-4 rounded border-input"
                 onChange={(e) => setVatApplicable(e.target.checked)}
               />
@@ -398,7 +447,7 @@ export default function NouveauBailPage() {
           <CardHeader>
             <CardTitle>Indexation</CardTitle>
             <CardDescription>
-              Indice de révision du loyer (ILC, ILAT ou ICC)
+              Indice de révision du loyer (IRL, ILC, ILAT ou ICC)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -409,6 +458,8 @@ export default function NouveauBailPage() {
                   id="indexType"
                   name="indexType"
                   options={INDEX_TYPES}
+                  value={indexType}
+                  onChange={(e) => setIndexType(e.target.value)}
                   placeholder="Sans indexation"
                 />
               </div>

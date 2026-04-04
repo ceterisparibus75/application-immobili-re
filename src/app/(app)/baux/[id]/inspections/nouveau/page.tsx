@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createInspection } from "@/actions/inspection";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -30,6 +31,57 @@ const CONDITION_OPTIONS = [
   { value: "TRES_DEGRADE", label: "Très dégradé" },
 ];
 
+/** Modèles de pièces par type de bail */
+const ROOM_TEMPLATES: Record<string, string[]> = {
+  HABITATION: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC", "Balcon / Terrasse", "Cave / Parking",
+  ],
+  MEUBLE: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine équipée", "Chambre 1",
+    "Salle de bain", "WC", "Balcon / Terrasse",
+  ],
+  MOBILITE: [
+    "Entrée", "Pièce principale", "Cuisine / Kitchenette",
+    "Salle d'eau", "WC",
+  ],
+  SAISONNIER: [
+    "Entrée", "Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "Extérieur",
+  ],
+  ANAH: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC", "Parties communes",
+  ],
+  COMMERCIAL_369: [
+    "Accueil / Réception", "Bureau principal", "Salle de réunion",
+    "Sanitaires", "Local technique", "Réserve / Stockage",
+    "Parking", "Façade / Vitrine",
+  ],
+  DEROGATOIRE: [
+    "Espace principal", "Sanitaires", "Réserve",
+  ],
+  PRECAIRE: [
+    "Espace principal", "Sanitaires",
+  ],
+  BAIL_PROFESSIONNEL: [
+    "Accueil", "Bureau 1", "Bureau 2", "Salle de réunion",
+    "Sanitaires", "Cuisine / Office", "Local technique",
+  ],
+  MIXTE: [
+    "Entrée commune", "Espace professionnel", "Salon / Séjour",
+    "Cuisine", "Chambre", "Salle de bain", "WC",
+  ],
+  RURAL: [
+    "Habitation — Entrée", "Habitation — Cuisine", "Habitation — Séjour",
+    "Habitation — Chambre", "Habitation — Sanitaires",
+    "Bâtiment agricole 1", "Bâtiment agricole 2",
+    "Terrain / Parcelle",
+  ],
+};
+
+const DEFAULT_ROOMS = ["Entrée / Couloir", "Pièce principale"];
+
 type Room = { name: string; condition: string; notes: string };
 
 export default function NouvelleInspectionPage() {
@@ -38,10 +90,31 @@ export default function NouvelleInspectionPage() {
   const { activeSociety } = useSociety();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [leaseType, setLeaseType] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[]>([
     { name: "Entrée / Couloir", condition: "BON", notes: "" },
     { name: "Salon", condition: "BON", notes: "" },
   ]);
+  const [templateApplied, setTemplateApplied] = useState(false);
+
+  useEffect(() => {
+    async function fetchLeaseType() {
+      try {
+        const res = await fetch(`/api/leases/${params.id}`);
+        if (res.ok) {
+          const json = await res.json() as { data: { leaseType: string } };
+          setLeaseType(json.data.leaseType);
+        }
+      } catch { /* ignore */ }
+    }
+    void fetchLeaseType();
+  }, [params.id]);
+
+  function applyTemplate() {
+    const template = ROOM_TEMPLATES[leaseType ?? ""] ?? DEFAULT_ROOMS;
+    setRooms(template.map((name) => ({ name, condition: "BON", notes: "" })));
+    setTemplateApplied(true);
+  }
 
   function addRoom() {
     setRooms([...rooms, { name: "", condition: "BON", notes: "" }]);
@@ -161,7 +234,21 @@ export default function NouvelleInspectionPage() {
         {/* Pièces */}
         <Card>
           <CardHeader>
-            <CardTitle>État par pièce</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>État par pièce</CardTitle>
+                <CardDescription>
+                  {leaseType && !templateApplied
+                    ? "Un modèle de pièces est disponible pour ce type de bail"
+                    : `${rooms.length} pièce${rooms.length > 1 ? "s" : ""}`}
+                </CardDescription>
+              </div>
+              {leaseType && !templateApplied && (
+                <Button type="button" variant="outline" size="sm" onClick={applyTemplate}>
+                  Appliquer le modèle
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {rooms.map((room, index) => (

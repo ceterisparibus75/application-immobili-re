@@ -73,10 +73,22 @@ enum LotStatus {
 }
 
 enum LeaseType {
-  COMMERCIAL_369
-  DEROGATOIRE
-  PRECAIRE
-  BAIL_PROFESSIONNEL
+  // Baux d'habitation
+  HABITATION         // Bail vide — loi du 6 juillet 1989 (3 ans / 6 ans)
+  MEUBLE             // Bail meublé — loi ALUR (1 an, 9 mois étudiant)
+  MOBILITE           // Bail mobilité — loi ELAN (1 à 10 mois, non renouvelable)
+  SAISONNIER         // Location saisonnière (< 90 jours)
+  ANAH               // Convention ANAH — loyer maîtrisé
+
+  // Baux commerciaux et professionnels
+  COMMERCIAL_369     // Bail commercial 3/6/9 ans
+  DEROGATOIRE        // Bail dérogatoire (< 3 ans)
+  PRECAIRE           // Convention d'occupation précaire
+  BAIL_PROFESSIONNEL // Bail professionnel (6 ans)
+  MIXTE              // Bail mixte habitation + professionnel
+
+  // Bail rural
+  RURAL              // Bail rural / agricole (9 ans min.)
 }
 
 enum LeaseStatus {

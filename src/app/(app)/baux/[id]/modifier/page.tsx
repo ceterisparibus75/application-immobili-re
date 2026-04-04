@@ -29,6 +29,7 @@ const STATUS_OPTIONS = [
 ];
 
 const INDEX_TYPES = [
+  { value: "IRL", label: "IRL — Indice de Référence des Loyers" },
   { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
   { value: "ILAT", label: "ILAT — Indice des Loyers des Activités Tertiaires" },
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
@@ -117,7 +118,7 @@ export default function ModifierBailPage() {
       depositAmount: parseFloat(data.depositAmount) || 0,
       vatApplicable: data.vatApplicable === "on",
       vatRate: parseFloat(data.vatRate) || 20,
-      indexType: (data.indexType as "ILC" | "ILAT" | "ICC") || null,
+      indexType: (data.indexType as "IRL" | "ILC" | "ILAT" | "ICC") || null,
       baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
       baseIndexQuarter: data.baseIndexQuarter || null,
       revisionFrequency: parseInt(data.revisionFrequency) || 12,
@@ -329,7 +330,7 @@ export default function ModifierBailPage() {
           <CardHeader>
             <CardTitle>Indexation</CardTitle>
             <CardDescription>
-              Indice de révision du loyer (ILC, ILAT ou ICC)
+              Indice de révision du loyer (IRL, ILC, ILAT ou ICC)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

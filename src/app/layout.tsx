@@ -10,14 +10,14 @@ export const metadata: Metadata = {
     default: "Gestion Immobiliere MTG",
     template: "%s | MTG Immo",
   },
-  description: "Application de gestion de baux commerciaux et patrimoine immobilier",
+  description: "Application de gestion locative et patrimoine immobilier",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "MTG Immo",
   },
-  themeColor: "#007AFF",
+  themeColor: "#6347d6",
   viewport: {
     width: "device-width",
     initialScale: 1,
