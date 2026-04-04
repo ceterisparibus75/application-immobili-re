@@ -123,7 +123,7 @@ export async function syncOpenBankingAccounts(
         const created = await prisma.bankAccount.create({ data: {
           societyId, bankName: connection.institutionName, accountName: account.name ?? "Compte",
           ibanEncrypted: encrypt(account.iban ?? "IBAN_NON_DISPONIBLE"),
-          initialBalance: 0, currentBalance: account.balance ?? 0,
+          initialBalance: account.balance ?? 0, currentBalance: account.balance ?? 0,
           powensAccountId: String(account.id), connectionId,
         } });
         bankAccountId = created.id;
@@ -184,6 +184,7 @@ export async function syncAccountTransactionsInternal(
   userToken: string
 ): Promise<number> {
   const row = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { lastSyncAt: true } });
+  const isFirstSync = !row?.lastSyncAt;
   const dateFrom = row?.lastSyncAt
     ? row.lastSyncAt.toISOString().split("T")[0]
     : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -205,13 +206,25 @@ export async function syncAccountTransactionsInternal(
     balanceDelta += amount;
     imported++;
   }
-  await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
-    ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
-    lastSyncAt: new Date(),
-  } });
+  if (isFirstSync && imported > 0) {
+    // Première sync : le solde Powens (currentBalance) inclut déjà ces transactions.
+    // On ajuste initialBalance pour que initialBalance + somme_transactions = currentBalance.
+    const account = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { currentBalance: true } });
+    const correctInitial = (account?.currentBalance ?? 0) - balanceDelta;
+    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
+      initialBalance: correctInitial,
+      lastSyncAt: new Date(),
+    } });
+  } else {
+    // Syncs suivantes : incrémenter le solde avec les nouvelles transactions.
+    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
+      ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
+      lastSyncAt: new Date(),
+    } });
+  }
   await prisma.auditLog.create({ data: {
     societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
-    details: { imported, source: "powens_sync" },
+    details: { imported, source: "powens_sync", isFirstSync },
   } });
   return imported;
 }

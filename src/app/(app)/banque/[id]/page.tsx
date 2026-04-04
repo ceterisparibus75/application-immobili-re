@@ -23,6 +23,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AddTransactionForm from "./_components/add-transaction-form";
 import SyncButton from "./_components/sync-button";
+import RecalculateButton from "./_components/recalculate-button";
 
 export default async function BankAccountDetailPage({
   params,
@@ -80,6 +81,7 @@ export default async function BankAccountDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <RecalculateButton bankAccountId={account.id} societyId={societyId} />
           {account.powensAccountId && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}

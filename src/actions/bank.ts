@@ -238,3 +238,111 @@ export async function createBankTransaction(
     return { success: false, error: "Erreur lors de la création de la transaction" };
   }
 }
+
+// ─── Recalculer le solde d'un compte ─────────────────────────────────────────
+
+export async function recalculateBankBalance(
+  societyId: string,
+  bankAccountId: string
+): Promise<ActionResult<{ newBalance: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const account = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+      select: { id: true, initialBalance: true, currentBalance: true },
+    });
+    if (!account) return { success: false, error: "Compte introuvable" };
+
+    const txAgg = await prisma.bankTransaction.aggregate({
+      where: { bankAccountId },
+      _sum: { amount: true },
+    });
+
+    const newBalance = account.initialBalance + (txAgg._sum.amount ?? 0);
+
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { currentBalance: newBalance },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "BankAccount",
+      entityId: bankAccountId,
+      details: { action: "recalculate_balance", oldBalance: account.currentBalance, newBalance },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${bankAccountId}`);
+
+    return { success: true, data: { newBalance } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[recalculateBankBalance]", error);
+    return { success: false, error: "Erreur lors du recalcul du solde" };
+  }
+}
+
+// ─── Corriger manuellement le solde d'un compte ─────────────────────────────
+
+export async function correctBankBalance(
+  societyId: string,
+  bankAccountId: string,
+  correctBalance: number
+): Promise<ActionResult<{ newBalance: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const account = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+      select: { id: true, initialBalance: true, currentBalance: true },
+    });
+    if (!account) return { success: false, error: "Compte introuvable" };
+
+    // Ajuster initialBalance pour que initialBalance + sum(transactions) = correctBalance
+    const txAgg = await prisma.bankTransaction.aggregate({
+      where: { bankAccountId },
+      _sum: { amount: true },
+    });
+    const txSum = txAgg._sum.amount ?? 0;
+    const newInitialBalance = correctBalance - txSum;
+
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { initialBalance: newInitialBalance, currentBalance: correctBalance },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "BankAccount",
+      entityId: bankAccountId,
+      details: {
+        action: "correct_balance",
+        oldBalance: account.currentBalance,
+        newBalance: correctBalance,
+        oldInitialBalance: account.initialBalance,
+        newInitialBalance,
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${bankAccountId}`);
+
+    return { success: true, data: { newBalance: correctBalance } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[correctBankBalance]", error);
+    return { success: false, error: "Erreur lors de la correction du solde" };
+  }
+}
