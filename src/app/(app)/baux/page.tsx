@@ -24,9 +24,9 @@ export const metadata = { title: "Baux" };
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
-  RESILIE: "Resilie",
-  RENOUVELE: "Renouvele",
-  EN_NEGOCIATION: "En negociation",
+  RESILIE: "Résilié",
+  RENOUVELE: "Renouvelé",
+  EN_NEGOCIATION: "En négociation",
   CONTENTIEUX: "Contentieux",
 };
 
@@ -44,8 +44,8 @@ const STATUS_VARIANTS: Record<
 const TYPE_LABELS: Record<LeaseType, string> = {
   COMMERCIAL_369: "3-6-9",
   BAIL_PROFESSIONNEL: "Professionnel",
-  DEROGATOIRE: "Derogatoire",
-  PRECAIRE: "Precaire",
+  DEROGATOIRE: "Dérogatoire",
+  PRECAIRE: "Précaire",
 };
 
 function tenantName(t: {
@@ -55,8 +55,8 @@ function tenantName(t: {
   lastName?: string | null;
 }) {
   return t.entityType === "PERSONNE_MORALE"
-    ? (t.companyName ?? "\u2014")
-    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "\u2014";
+    ? (t.companyName ?? "—")
+    : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
 }
 
 export default async function BauxPage() {
@@ -76,8 +76,7 @@ export default async function BauxPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Baux commerciaux</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {actifs.length} bail{actifs.length !== 1 ? "x" : ""} actif
-            {actifs.length !== 1 ? "s" : ""}
+            {actifs.length} {actifs.length > 1 ? "baux actifs" : "bail actif"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -104,13 +103,13 @@ export default async function BauxPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun bail</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Creez votre premier bail commercial en associant un lot et un
+              Créez votre premier bail commercial en associant un lot et un
               locataire.
             </p>
             <Link href="/baux/nouveau">
               <Button>
                 <Plus className="h-4 w-4" />
-                Creer un bail
+                Créer un bail
               </Button>
             </Link>
           </CardContent>
@@ -141,7 +140,7 @@ export default async function BauxPage() {
                             {tenantName(lease.tenant)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {lease.lot.building.name} \u2014 Lot {lease.lot.number},{" "}
+                            {lease.lot.building.name} — Lot {lease.lot.number},{" "}
                             {lease.lot.building.city}
                           </p>
                         </div>
@@ -184,7 +183,7 @@ export default async function BauxPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base text-muted-foreground">
-                  Baux termines / autres ({autres.length})
+                  Baux terminés / autres ({autres.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -200,7 +199,7 @@ export default async function BauxPage() {
                           {tenantName(lease.tenant)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {lease.lot.building.name} \u2014 Lot {lease.lot.number}
+                          {lease.lot.building.name} — Lot {lease.lot.number}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">

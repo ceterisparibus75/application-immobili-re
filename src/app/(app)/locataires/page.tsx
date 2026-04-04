@@ -28,8 +28,8 @@ function tenantName(tenant: {
   lastName?: string | null;
 }) {
   return tenant.entityType === "PERSONNE_MORALE"
-    ? (tenant.companyName ?? "\u2014")
-    : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "\u2014";
+    ? (tenant.companyName ?? "—")
+    : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—";
 }
 
 export default async function LocatairesPage() {
@@ -70,12 +70,12 @@ export default async function LocatairesPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun locataire</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Creez votre premier dossier locataire pour preparer un bail.
+              Créez votre premier dossier locataire pour préparer un bail.
             </p>
             <Link href="/locataires/nouveau">
               <Button>
                 <Plus className="h-4 w-4" />
-                Creer un locataire
+                Créer un locataire
               </Button>
             </Link>
           </CardContent>
@@ -120,12 +120,11 @@ export default async function LocatairesPage() {
                       <div className="flex items-center gap-2.5">
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <FileText className="h-3.5 w-3.5" />
-                          {tenant._count.leases} bail
-                          {tenant._count.leases !== 1 ? "x" : ""}
+                          {tenant._count.leases} {tenant._count.leases > 1 ? "baux" : "bail"}
                         </span>
                         <Badge variant="outline">
                           {tenant.entityType === "PERSONNE_MORALE"
-                            ? "Societe"
+                            ? "Société"
                             : "Particulier"}
                         </Badge>
                         <Badge variant={RISK_VARIANTS[tenant.riskIndicator]}>

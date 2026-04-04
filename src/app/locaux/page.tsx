@@ -56,8 +56,8 @@ export default async function LocauxPage() {
           <h1 className="text-3xl font-bold mb-2">Locaux disponibles</h1>
           <p className="text-muted-foreground">
             {lots.length > 0
-              ? `${lots.length} local${lots.length > 1 ? "x" : ""} disponible${lots.length > 1 ? "s" : ""}`
-              : "Consultez nos disponibilites"}
+              ? `${lots.length} ${lots.length > 1 ? "locaux disponibles" : "local disponible"}`
+              : "Consultez nos disponibilités"}
           </p>
         </div>
 
