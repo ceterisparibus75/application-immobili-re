@@ -529,6 +529,8 @@ export type InvoicePreview = {
   lotLabel: string;
   lotNumber: string;
   periodLabel: string;
+  periodStartISO: string;
+  periodEndISO: string;
   issueDate: string;
   dueDate: string;
   lines: InvoicePreviewLine[];
@@ -788,6 +790,8 @@ async function computeInvoicePreview(
     lotLabel,
     lotNumber,
     periodLabel,
+    periodStartISO: periodStart.toISOString(),
+    periodEndISO: periodEnd.toISOString(),
     issueDate: issueDate.toISOString(),
     dueDate: dueDate.toISOString(),
     lines,

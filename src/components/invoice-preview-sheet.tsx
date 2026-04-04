@@ -115,7 +115,7 @@ export function InvoicePreviewSheet({
             {/* Infos */}
             <div className="space-y-0.5 text-xs">
               <p>Date d&apos;échéance : {fmtDate(preview.dueDate)}</p>
-              <p>Pour la période : <span className="font-medium capitalize">{preview.periodLabel}</span></p>
+              <p>Pour la période : <span className="font-medium">du {fmtDate(preview.periodStartISO)} au {fmtDate(preview.periodEndISO)}</span></p>
               {preview.lotLabel && (
                 <>
                   <p>Lot(s) concerné(s) :</p>

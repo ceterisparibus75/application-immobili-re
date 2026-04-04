@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
 import { OwnerProfileForm } from "./_components/owner-profile-form";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
+import { SocietyCardLink } from "./_components/society-card-link";
 
 export const metadata = { title: "Vue proprietaire" };
 
@@ -110,7 +111,7 @@ export default async function ProprietaireDashboardPage() {
             const occ = pct(s.occupiedLots, s.lots);
             const isActive = s.id === activeSocietyId;
             return (
-              <Link key={s.id} href="/dashboard">
+              <SocietyCardLink key={s.id} societyId={s.id}>
                 <Card className={"transition-all hover:shadow-md cursor-pointer " + (isActive ? "border-primary ring-1 ring-primary" : "")}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -164,7 +165,7 @@ export default async function ProprietaireDashboardPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </SocietyCardLink>
             );
           })}
 
