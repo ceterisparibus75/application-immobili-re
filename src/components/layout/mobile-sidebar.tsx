@@ -60,7 +60,7 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
               <Building2 className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm text-white">GestImmo</span>
+            <span className="font-bold text-sm text-white">Propriétaire</span>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10">
             <X className="h-4 w-4" />

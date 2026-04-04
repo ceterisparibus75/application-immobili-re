@@ -82,9 +82,9 @@ export function Sidebar() {
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
           <Building2 className="h-4.5 w-4.5 text-white" />
         </div>
-        <Link href="/dashboard">
-          <span className="font-bold text-[15px] text-white tracking-tight">GestImmo</span>
-          <span className="block text-[10px] text-white/40 font-medium -mt-0.5">Gestion immobiliere</span>
+        <Link href="/proprietaire">
+          <span className="font-bold text-[15px] text-white tracking-tight">Propriétaire</span>
+          <span className="block text-[10px] text-white/40 font-medium -mt-0.5">Vue consolidée</span>
         </Link>
       </div>
 
