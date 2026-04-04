@@ -1,9 +1,10 @@
 "use client";
 
 import { useSociety } from "@/providers/society-provider";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Settings } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 function getInitials(name: string) {
@@ -90,6 +91,16 @@ export function SocietySwitcher() {
                 </button>
               );
             })}
+          </div>
+          <div className="border-t p-1.5">
+            <Link
+              href={`/societes/${activeSociety.id}/modifier`}
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-accent transition-colors"
+            >
+              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Modifier la societe</span>
+            </Link>
           </div>
         </div>
       )}

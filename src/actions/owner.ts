@@ -146,6 +146,7 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
       select: {
         societyId: true,
         purchaseValue: true,
+        amount: true,
         amortizationLines: {
           orderBy: { period: "desc" },
           take: 1,
@@ -199,10 +200,10 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
   for (const b of buildings) {
     bMap.set(b.societyId, (bMap.get(b.societyId) ?? 0) + 1);
   }
-  // Patrimoine = somme des valeurs d'acquisition (champ purchaseValue sur Loan)
+  // Patrimoine = somme des valeurs d'acquisition (purchaseValue, fallback sur amount)
   let totalPatrimonyValue = 0;
   for (const loan of loans) {
-    totalPatrimonyValue += Number(loan.purchaseValue ?? 0);
+    totalPatrimonyValue += Number(loan.purchaseValue ?? loan.amount ?? 0);
   }
   const lMap = new Map<string, { total: number; occupied: number }>();
   for (const l of lots) {
@@ -229,7 +230,7 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
   const loanPayMap = new Map<string, number>();
   const patrimonyMap = new Map<string, number>();
   for (const loan of loans) {
-    patrimonyMap.set(loan.societyId, (patrimonyMap.get(loan.societyId) ?? 0) + Number(loan.purchaseValue ?? 0));
+    patrimonyMap.set(loan.societyId, (patrimonyMap.get(loan.societyId) ?? 0) + Number(loan.purchaseValue ?? loan.amount ?? 0));
     const line = loan.amortizationLines[0];
     if (line) {
       debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));

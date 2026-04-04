@@ -117,7 +117,9 @@ export default async function FactureDetailPage({
               PDF
             </Button>
           </a>
-          <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
+          {invoice.status !== "BROUILLON" && (
+            <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
+          )}
           {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
             <Link href={`/facturation/${invoice.id}/avoir`}>
               <Button variant="outline" size="sm">
