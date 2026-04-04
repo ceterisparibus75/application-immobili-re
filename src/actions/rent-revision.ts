@@ -340,6 +340,8 @@ export async function detectPendingRevisions(): Promise<{
 
   try {
     const now = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const in30Days = new Date();
     in30Days.setDate(in30Days.getDate() + 30);
 
@@ -390,7 +392,7 @@ export async function detectPendingRevisions(): Promise<{
           lease.rentRevisions[0]?.effectiveDate
         );
 
-        if (nextRevisionDate > in30Days || nextRevisionDate < now) continue;
+        if (nextRevisionDate > in30Days || nextRevisionDate < threeMonthsAgo) continue;
 
         const existingPending = await prisma.rentRevision.findFirst({
           where: { leaseId: lease.id, isValidated: false },

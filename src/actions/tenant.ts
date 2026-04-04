@@ -300,6 +300,22 @@ export async function getTenants(societyId: string) {
     where: { societyId },
     include: {
       _count: { select: { leases: true } },
+      leases: {
+        where: { status: "EN_COURS" },
+        select: {
+          id: true,
+          currentRentHT: true,
+          startDate: true,
+          lot: {
+            select: {
+              number: true,
+              building: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { startDate: "desc" },
+        take: 3,
+      },
     },
     orderBy: [{ companyName: "asc" }, { lastName: "asc" }],
   });

@@ -283,8 +283,17 @@ export default async function ImmeubleDetailPage({
               </Link>
             </div>
           ) : (
-            <div className="divide-y">
-              {building.lots.map((lot) => {
+            <div>
+              {/* En-tête du tableau (desktop) */}
+              <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_120px_28px] gap-3 items-center px-4 py-2.5 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Lot</span>
+                <span className="text-right">Surface</span>
+                <span className="text-center">Étage</span>
+                <span className="text-center">Statut</span>
+                <span className="text-right">Loyer</span>
+                <span />
+              </div>
+              {building.lots.map((lot, index) => {
                 const activeLease = lot.leases[0] ?? null;
                 const tenantName = activeLease?.tenant
                   ? activeLease.tenant.entityType === "PERSONNE_MORALE"
@@ -296,48 +305,79 @@ export default async function ImmeubleDetailPage({
                   <Link
                     key={lot.id}
                     href={`/patrimoine/immeubles/${id}/lots/${lot.id}`}
-                    className="flex items-center justify-between px-4 py-3.5 hover:bg-accent/50 transition-colors group"
+                    className={`block transition-colors hover:bg-accent/50 group ${index < building.lots.length - 1 ? "border-b" : ""}`}
                   >
-                    {/* Gauche : numéro + type + locataire */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                        {lot.number}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">Lot {lot.number}</span>
-                          <Badge variant="outline" className="text-xs">{LOT_TYPE_LABELS[lot.lotType]}</Badge>
-                          {lot.floor && (
-                            <span className="text-xs text-muted-foreground">Ét. {lot.floor}</span>
-                          )}
+                    {/* Desktop */}
+                    <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_120px_28px] gap-3 items-center px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          {lot.number}
                         </div>
-                        {tenantName ? (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground truncate">{tenantName}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold">Lot {lot.number}</span>
+                            <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{LOT_TYPE_LABELS[lot.lotType]}</span>
                           </div>
-                        ) : lot.status === "VACANT" ? (
-                          <span className="text-xs text-muted-foreground">Vacant — pas de locataire</span>
-                        ) : null}
+                          {tenantName ? (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <User className="h-3 w-3 text-muted-foreground/60" />
+                              <span className="text-xs text-muted-foreground truncate">{tenantName}</span>
+                            </div>
+                          ) : lot.status === "VACANT" ? (
+                            <span className="text-xs text-muted-foreground/60 italic">Pas de locataire</span>
+                          ) : null}
+                        </div>
                       </div>
+                      <span className="text-sm tabular-nums text-right text-muted-foreground">
+                        {lot.area ? `${lot.area} m²` : "—"}
+                      </span>
+                      <span className="text-sm tabular-nums text-center text-muted-foreground">
+                        {lot.floor ? `Ét. ${lot.floor}` : "RDC"}
+                      </span>
+                      <div className="flex justify-center">
+                        <Badge variant={LOT_STATUS_VARIANTS[lot.status]} className="text-[11px]">
+                          {LOT_STATUS_LABELS[lot.status]}
+                        </Badge>
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums text-right">
+                        {lot.currentRent
+                          ? `${lot.currentRent.toLocaleString("fr-FR")} €/mois`
+                          : <span className="text-muted-foreground font-normal">—</span>}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                     </div>
 
-                    {/* Droite : surface + statut + loyer + chevron */}
-                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                      {lot.area && (
-                        <span className="text-sm text-muted-foreground hidden sm:block">
-                          {lot.area} m²
-                        </span>
-                      )}
-                      <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>
-                        {LOT_STATUS_LABELS[lot.status]}
-                      </Badge>
-                      {lot.currentRent && (
-                        <span className="text-sm font-medium hidden md:block">
-                          {lot.currentRent.toLocaleString("fr-FR")} €/mois
-                        </span>
-                      )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    {/* Mobile */}
+                    <div className="flex items-center justify-between px-4 py-3 md:hidden">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
+                          {lot.number}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold">Lot {lot.number}</span>
+                            <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{LOT_TYPE_LABELS[lot.lotType]}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                            {tenantName && <span className="truncate max-w-[150px]">{tenantName}</span>}
+                            {lot.area && <span>{lot.area} m²</span>}
+                            {lot.floor && <span>Ét. {lot.floor}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <div className="text-right">
+                          <Badge variant={LOT_STATUS_VARIANTS[lot.status]} className="text-[11px]">
+                            {LOT_STATUS_LABELS[lot.status]}
+                          </Badge>
+                          {lot.currentRent && (
+                            <p className="text-xs font-semibold tabular-nums mt-0.5">
+                              {lot.currentRent.toLocaleString("fr-FR")} €
+                            </p>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                      </div>
                     </div>
                   </Link>
                 );
