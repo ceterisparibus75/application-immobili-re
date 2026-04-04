@@ -8,7 +8,7 @@ export default auth(async (req) => {
   // Routes publiques - pas de verification
   if (
     pathname.startsWith("/locaux") ||
-    pathname.startsWith("/contact") ||
+    (pathname === "/contact" || pathname.startsWith("/contact/")) ||
     pathname.startsWith("/mentions-legales") ||
     pathname.startsWith("/politique-confidentialite") ||
     pathname.startsWith("/api/public") ||
