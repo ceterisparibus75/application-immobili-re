@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
-  { name: "Sociétés", href: "/societes" },
   { name: "RGPD", href: "/rgpd" },
 ];
 

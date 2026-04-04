@@ -39,7 +39,6 @@ const navigation = [
   ]},
   { title: "Conformite", items: [{ name: "RGPD", href: "/rgpd", icon: Shield }] },
   { title: "Administration", items: [
-    { name: "Societes", href: "/societes", icon: Building2 },
     { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
     { name: "Fusions", href: "/administration/fusions", icon: Merge },
     { name: "Audit", href: "/administration/audit", icon: ScrollText },
