@@ -396,6 +396,7 @@ export default async function BailDetailPage({
                 isActive={isActive}
                 leaseVatRate={lease.vatRate ?? 20}
                 leaseVatApplicable={lease.vatApplicable}
+                paymentFrequency={lease.paymentFrequency}
               />
             </CardContent>
           </Card>

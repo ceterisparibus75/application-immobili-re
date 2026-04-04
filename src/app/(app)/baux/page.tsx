@@ -121,59 +121,66 @@ export default async function BauxPage() {
             <CardHeader>
               <CardTitle className="text-base">Baux actifs ({actifs.length})</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {actifs.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Aucun bail actif
                 </p>
               ) : (
-                <>
-                  <div className="divide-y divide-border/50">
-                    {actifs.map((lease) => (
-                      <Link
-                        key={lease.id}
-                        href={`/baux/${lease.id}`}
-                        className="flex items-center justify-between py-3 px-2 -mx-2 hover:bg-accent/40 rounded-lg transition-colors"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
-                            {tenantName(lease.tenant)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {lease.lot.building.name} — Lot {lease.lot.number},{" "}
-                            {lease.lot.building.city}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-sm font-medium tabular-nums">
-                              {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Depuis le{" "}
-                              {new Date(lease.startDate).toLocaleDateString("fr-FR")}
-                            </p>
-                          </div>
-                          <Badge variant="outline">
-                            {TYPE_LABELS[lease.leaseType]}
-                          </Badge>
-                          <Badge variant={STATUS_VARIANTS[lease.status]}>
-                            {STATUS_LABELS[lease.status]}
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2.5">
-                    <span className="text-sm font-medium text-muted-foreground">Total loyers mensuels (base)</span>
-                    <span className="text-sm font-bold tabular-nums">
-                      {actifs.reduce((sum, l) => {
-                        const mult: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
-                        return sum + l.currentRentHT / (mult[l.paymentFrequency] ?? 1);
-                      }, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro; HT/mois
-                    </span>
-                  </div>
-                </>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground">Locataire</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Loyer HT</th>
+                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Type</th>
+                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actifs.map((lease) => (
+                        <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                          <td className="py-2.5 px-4">
+                            <Link href={`/baux/${lease.id}`} className="block">
+                              <p className="font-medium">{tenantName(lease.tenant)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {lease.lot.building.name} — Lot {lease.lot.number}, {lease.lot.building.city}
+                              </p>
+                            </Link>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <Link href={`/baux/${lease.id}`} className="block">
+                              <p className="font-medium tabular-nums">
+                                {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Depuis le {new Date(lease.startDate).toLocaleDateString("fr-FR")}
+                              </p>
+                            </Link>
+                          </td>
+                          <td className="py-2.5 px-4 text-center">
+                            <Badge variant="outline">{TYPE_LABELS[lease.leaseType]}</Badge>
+                          </td>
+                          <td className="py-2.5 px-4 text-center">
+                            <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/40 font-semibold">
+                        <td className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums">
+                          {actifs.reduce((sum, l) => {
+                            const mult: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
+                            return sum + l.currentRentHT / (mult[l.paymentFrequency] ?? 1);
+                          }, 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro; HT/mois
+                        </td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -186,33 +193,29 @@ export default async function BauxPage() {
                   Baux terminés / autres ({autres.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="divide-y divide-border/50">
-                  {autres.map((lease) => (
-                    <Link
-                      key={lease.id}
-                      href={`/baux/${lease.id}`}
-                      className="flex items-center justify-between py-3 px-2 -mx-2 hover:bg-accent/40 rounded-lg transition-colors opacity-60"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {tenantName(lease.tenant)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {lease.lot.building.name} — Lot {lease.lot.number}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground tabular-nums">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {autres.map((lease) => (
+                      <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors opacity-60">
+                        <td className="py-2.5 px-4">
+                          <Link href={`/baux/${lease.id}`} className="block">
+                            <p className="font-medium">{tenantName(lease.tenant)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {lease.lot.building.name} — Lot {lease.lot.number}
+                            </p>
+                          </Link>
+                        </td>
+                        <td className="py-2.5 px-4 text-right tabular-nums text-muted-foreground">
                           {lease.baseRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
-                        </span>
-                        <Badge variant={STATUS_VARIANTS[lease.status]}>
-                          {STATUS_LABELS[lease.status]}
-                        </Badge>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
           )}

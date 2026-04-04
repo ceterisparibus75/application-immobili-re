@@ -21,6 +21,28 @@ import { Plus, Pencil, Trash2, Loader2, Link2, Info } from "lucide-react";
 import Link from "next/link";
 import { PROVISION_LABELS } from "@/validations/chargeProvision";
 import { formatCurrency } from "@/lib/utils";
+import type { PaymentFrequency } from "@/generated/prisma/client";
+
+const FREQ_MULTIPLIERS: Record<PaymentFrequency, number> = {
+  MENSUEL: 1,
+  TRIMESTRIEL: 3,
+  SEMESTRIEL: 6,
+  ANNUEL: 12,
+};
+
+const FREQ_PERIOD_LABELS: Record<PaymentFrequency, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
+
+const FREQ_AMOUNT_LABELS: Record<PaymentFrequency, string> = {
+  MENSUEL: "mensuel",
+  TRIMESTRIEL: "trimestriel",
+  SEMESTRIEL: "semestriel",
+  ANNUEL: "annuel",
+};
 
 const VAT_RATES = [
   { value: "0", label: "0 % (exonéré)" },
@@ -49,6 +71,7 @@ type Props = {
   isActive: boolean;
   leaseVatRate: number;
   leaseVatApplicable: boolean;
+  paymentFrequency: PaymentFrequency;
 };
 
 type FormState = {
@@ -71,15 +94,19 @@ function toDateString(d: Date) {
   return new Date(d).toISOString().split("T")[0]!;
 }
 
-export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActive, leaseVatRate, leaseVatApplicable }: Props) {
+export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActive, leaseVatRate, leaseVatApplicable, paymentFrequency }: Props) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  const mult = FREQ_MULTIPLIERS[paymentFrequency];
+  const periodLabel = FREQ_PERIOD_LABELS[paymentFrequency];
+  const amountLabel = FREQ_AMOUNT_LABELS[paymentFrequency];
+
   const activeProvisions = provisions.filter((p) => p.isActive);
-  const monthlyTotal = activeProvisions.reduce((s, p) => s + p.monthlyAmount, 0);
+  const periodTotal = activeProvisions.reduce((s, p) => s + p.monthlyAmount * mult, 0);
 
   function defaultVatRateForLabel(label: string): string {
     if (label === "Taxe foncière") return "0";
@@ -107,7 +134,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
     setEditingId(p.id);
     setForm({
       label: p.label,
-      monthlyAmount: String(p.monthlyAmount),
+      monthlyAmount: String(+(p.monthlyAmount * mult).toFixed(2)),
       vatRate: String(p.vatRate),
       startDate: toDateString(p.startDate),
       endDate: p.endDate ? toDateString(p.endDate) : "",
@@ -122,11 +149,15 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
 
     startTransition(async () => {
       let result;
+      // Convertir le montant saisi (par période) en montant mensuel pour le stockage
+      const periodAmount = parseFloat(form.monthlyAmount);
+      const storedMonthlyAmount = +(periodAmount / mult).toFixed(2);
+
       if (editingId) {
         result = await updateChargeProvision(societyId, {
           id: editingId,
           label: form.label,
-          monthlyAmount: parseFloat(form.monthlyAmount),
+          monthlyAmount: storedMonthlyAmount,
           vatRate: parseFloat(form.vatRate),
           startDate: form.startDate,
           endDate: form.endDate || null,
@@ -136,7 +167,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
           leaseId,
           lotId,
           label: form.label,
-          monthlyAmount: parseFloat(form.monthlyAmount),
+          monthlyAmount: storedMonthlyAmount,
           vatRate: parseFloat(form.vatRate),
           startDate: form.startDate,
           endDate: form.endDate || null,
@@ -163,9 +194,9 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
       {activeProvisions.length > 0 && (
         <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
           <span className="text-muted-foreground">
-            Total provisions actives / mois
+            Total provisions actives / {periodLabel}
           </span>
-          <span className="font-semibold">{formatCurrency(monthlyTotal)}</span>
+          <span className="font-semibold">{formatCurrency(periodTotal)}</span>
         </div>
       )}
 
@@ -204,7 +235,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
               <div className="flex items-center gap-3 ml-4 shrink-0">
                 <div className="text-right">
                   <span className="text-sm font-semibold tabular-nums">
-                    {formatCurrency(p.monthlyAmount)}<span className="text-xs text-muted-foreground font-normal"> / mois</span>
+                    {formatCurrency(p.monthlyAmount * mult)}<span className="text-xs text-muted-foreground font-normal"> / {periodLabel}</span>
                   </span>
                   <p className="text-xs text-muted-foreground">TVA {p.vatRate} %</p>
                 </div>
@@ -287,7 +318,7 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="monthlyAmount">Montant mensuel HT (€) *</Label>
+                <Label htmlFor="monthlyAmount">Montant {amountLabel} HT (€) *</Label>
                 <Input
                   id="monthlyAmount"
                   type="number"
@@ -298,9 +329,6 @@ export function ChargeProvisions({ leaseId, lotId, societyId, provisions, isActi
                   placeholder="Ex: 150.00"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Pour une taxe annuelle, divisez par 12.
-                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="vatRate">Taux de TVA *</Label>
