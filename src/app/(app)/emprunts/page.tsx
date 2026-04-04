@@ -249,70 +249,78 @@ export default async function EmpruntsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="divide-y">
-                    {lenderLoans.map((loan) => {
-                      const last = loan.amortizationLines[0];
-                      const remaining = last?.remainingBalance ?? loan.amount;
-                      const paid = loan.amount - remaining;
-                      const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
-                      const statusInfo = STATUS_LABELS[loan.status];
-                      const currentPeriod = last?.period ?? 0;
-                      const remainingMonths = loan.durationMonths - currentPeriod;
-                      const remainingYears = Math.floor(remainingMonths / 12);
-                      const remainingMo = remainingMonths % 12;
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left py-2 px-4 font-medium text-muted-foreground">Emprunt</th>
+                          <th className="text-center py-2 px-4 font-medium text-muted-foreground">Avancement</th>
+                          <th className="text-right py-2 px-4 font-medium text-muted-foreground">Restant dû</th>
+                          <th className="text-center py-2 px-4 font-medium text-muted-foreground">Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lenderLoans.map((loan) => {
+                          const last = loan.amortizationLines[0];
+                          const remaining = last?.remainingBalance ?? loan.amount;
+                          const paid = loan.amount - remaining;
+                          const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
+                          const statusInfo = STATUS_LABELS[loan.status];
+                          const currentPeriod = last?.period ?? 0;
+                          const remainingMonths = loan.durationMonths - currentPeriod;
+                          const remainingYears = Math.floor(remainingMonths / 12);
+                          const remainingMo = remainingMonths % 12;
 
-                      return (
-                        <Link
-                          key={loan.id}
-                          href={"/emprunts/" + loan.id}
-                          className="flex items-center justify-between py-4 hover:bg-accent/50 rounded-md px-2 -mx-2 transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium truncate">{loan.label}</p>
-                              <Badge variant={statusInfo?.variant ?? "outline"} className="shrink-0">
-                                {statusInfo?.label ?? loan.status}
-                              </Badge>
-                              <Badge variant="secondary" className="shrink-0">
-                                {TYPE_LABELS[loan.loanType] ?? loan.loanType}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {loan.building ? loan.building.name + ", " + loan.building.city + " · " : ""}
-                              {loan.interestRate}% · {loan.durationMonths} mois
-                            </p>
-                            <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-primary transition-all"
-                                style={{ width: Math.min(100, progress) + "%" }}
-                              />
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <p className="text-xs text-muted-foreground">
-                                {Math.round(progress)}% remboursé
-                              </p>
-                              {loan.status === "EN_COURS" && remainingMonths > 0 && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {remainingMonths} mois restants
-                                  {remainingYears > 0 && (
-                                    <span className="text-muted-foreground/60">
-                                      ({remainingYears} an{remainingYears > 1 ? "s" : ""}{remainingMo > 0 ? ` ${remainingMo} mois` : ""})
+                          return (
+                            <tr key={loan.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-4">
+                                <Link href={"/emprunts/" + loan.id} className="block">
+                                  <p className="font-medium">{loan.label}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {loan.building ? loan.building.name + ", " + loan.building.city + " · " : ""}
+                                    {loan.interestRate}% · {loan.durationMonths} mois
+                                    {" · "}{TYPE_LABELS[loan.loanType] ?? loan.loanType}
+                                  </p>
+                                </Link>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="min-w-[140px]">
+                                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-primary transition-all"
+                                      style={{ width: Math.min(100, progress) + "%" }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-muted-foreground tabular-nums">
+                                      {Math.round(progress)}%
                                     </span>
-                                  )}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4 shrink-0">
-                            <p className="text-sm font-semibold">{fmt(remaining)}</p>
-                            <p className="text-xs text-muted-foreground">restant dû</p>
-                            <p className="text-xs text-muted-foreground">/ {fmt(loan.amount)}</p>
-                          </div>
-                        </Link>
-                      );
-                    })}
+                                    {loan.status === "EN_COURS" && remainingMonths > 0 && (
+                                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {remainingYears > 0
+                                          ? `${remainingYears} an${remainingYears > 1 ? "s" : ""}${remainingMo > 0 ? ` ${remainingMo} m` : ""}`
+                                          : `${remainingMonths} mois`}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <p className="font-semibold tabular-nums">{fmt(remaining)}</p>
+                                <p className="text-xs text-muted-foreground tabular-nums">/ {fmt(loan.amount)}</p>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <Badge variant={statusInfo?.variant ?? "outline"} className="shrink-0">
+                                  {statusInfo?.label ?? loan.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
