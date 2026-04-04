@@ -13,8 +13,14 @@ export async function GET() {
     if (!societyId) return NextResponse.json({ error: "Société non sélectionnée" }, { status: 400 });
     await requireSocietyAccess(session.user.id, societyId);
     const categories = await prisma.societyChargeCategory.findMany({
-      where: { societyId, isActive: true },
-      orderBy: { name: "asc" },
+      where: {
+        OR: [
+          { societyId },
+          { societyId: null, isGlobal: true },
+        ],
+        isActive: true,
+      },
+      orderBy: [{ isGlobal: "desc" }, { name: "asc" }],
     });
     return NextResponse.json({ data: categories });
   } catch {

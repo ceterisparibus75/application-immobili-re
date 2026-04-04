@@ -328,8 +328,14 @@ export async function getSocietyChargeCategories(societyId: string) {
   if (!session?.user?.id) return [];
   await requireSocietyAccess(session.user.id, societyId);
   return prisma.societyChargeCategory.findMany({
-    where: { societyId },
-    orderBy: { name: "asc" },
+    where: {
+      OR: [
+        { societyId },
+        { societyId: null, isGlobal: true },
+      ],
+      isActive: true,
+    },
+    orderBy: [{ isGlobal: "desc" }, { name: "asc" }],
   });
 }
 
@@ -367,6 +373,8 @@ export async function updateSocietyChargeCategory(
     const parsed = updateSocietyChargeCategorySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
     const { id, ...data } = parsed.data;
+    const existing = await prisma.societyChargeCategory.findUnique({ where: { id } });
+    if (existing?.isGlobal) return { success: false, error: "Les catégories standards ne peuvent pas être modifiées" };
     await prisma.societyChargeCategory.update({ where: { id }, data });
     revalidatePath("/charges/bibliotheque");
     return { success: true };
@@ -381,6 +389,8 @@ export async function deleteSocietyChargeCategory(societyId: string, id: string)
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const existing = await prisma.societyChargeCategory.findUnique({ where: { id } });
+    if (existing?.isGlobal) return { success: false, error: "Les catégories standards ne peuvent pas être supprimées" };
     await prisma.societyChargeCategory.delete({ where: { id } });
     revalidatePath("/charges/bibliotheque");
     return { success: true };

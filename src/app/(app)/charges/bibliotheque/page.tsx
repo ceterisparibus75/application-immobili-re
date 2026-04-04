@@ -2,9 +2,9 @@ import { getSocietyChargeCategories } from "@/actions/charge";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BookOpen, Pencil } from "lucide-react";
+import { Plus, BookOpen, Pencil, Lock } from "lucide-react";
 import Link from "next/link";
 import { DeleteSocietyCategoryButton } from "./_components/delete-button";
 
@@ -21,13 +21,22 @@ export default async function BibliothequeChargesPage() {
 
   const categories = await getSocietyChargeCategories(societyId);
 
+  const globalCategories = categories.filter((c) => c.isGlobal);
+  const customCategories = categories.filter((c) => !c.isGlobal);
+
+  const globalByNature = {
+    RECUPERABLE: globalCategories.filter((c) => c.nature === "RECUPERABLE"),
+    MIXTE: globalCategories.filter((c) => c.nature === "MIXTE"),
+    PROPRIETAIRE: globalCategories.filter((c) => c.nature === "PROPRIETAIRE"),
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bibliothèque de charges</h1>
           <p className="text-muted-foreground">
-            Catalogue de catégories partagées entre tous vos immeubles
+            {globalCategories.length} catégories standards · {customCategories.length} personnalisée{customCategories.length > 1 ? "s" : ""}
           </p>
         </div>
         <div className="flex gap-2">
@@ -57,38 +66,93 @@ export default async function BibliothequeChargesPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>{categories.length} catégorie{categories.length > 1 ? "s" : ""} dans la bibliothèque</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between py-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{cat.name}</p>
-                      <Badge variant={NATURE_VARIANTS[cat.nature]}>{NATURE_LABELS[cat.nature]}</Badge>
-                      <Badge variant="outline">{METHOD_LABELS[cat.allocationMethod]}</Badge>
-                      {cat.nature === "MIXTE" && cat.recoverableRate != null && (
-                        <Badge variant="secondary">{cat.recoverableRate}% récupérable</Badge>
-                      )}
+        <>
+          {/* Catégories personnalisées (modifiables) */}
+          {customCategories.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Catégories personnalisées</CardTitle>
+                <CardDescription>Catégories spécifiques à votre société — modifiables</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {customCategories.map((cat) => (
+                    <div key={cat.id} className="flex items-center justify-between py-3 px-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{cat.name}</p>
+                          <Badge variant={NATURE_VARIANTS[cat.nature]}>{NATURE_LABELS[cat.nature]}</Badge>
+                          <Badge variant="outline">{METHOD_LABELS[cat.allocationMethod]}</Badge>
+                          {cat.nature === "MIXTE" && cat.recoverableRate != null && (
+                            <Badge variant="secondary">{cat.recoverableRate}% récupérable</Badge>
+                          )}
+                        </div>
+                        {cat.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/charges/bibliotheque/${cat.id}/modifier`}>
+                          <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+                        </Link>
+                        <DeleteSocietyCategoryButton id={cat.id} societyId={societyId} name={cat.name} />
+                      </div>
                     </div>
-                    {cat.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link href={`/charges/bibliotheque/${cat.id}/modifier`}>
-                      <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
-                    </Link>
-                    <DeleteSocietyCategoryButton id={cat.id} societyId={societyId} name={cat.name} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Catégories globales (lecture seule) */}
+          {globalCategories.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <CardTitle className="text-base">Catégories standards</CardTitle>
+                    <CardDescription>Bibliothèque commune à toutes les sociétés (décret 87-713 et pratique courante)</CardDescription>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent className="p-0">
+                {(["RECUPERABLE", "MIXTE", "PROPRIETAIRE"] as const).map((nature) => {
+                  const list = globalByNature[nature];
+                  if (list.length === 0) return null;
+                  return (
+                    <div key={nature}>
+                      <div className="bg-muted/30 px-6 py-2 border-y">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={NATURE_VARIANTS[nature]}>{NATURE_LABELS[nature]}</Badge>
+                          <span className="text-xs text-muted-foreground">{list.length} catégorie{list.length > 1 ? "s" : ""}</span>
+                        </div>
+                      </div>
+                      <div className="divide-y">
+                        {list.map((cat) => (
+                          <div key={cat.id} className="flex items-center justify-between py-2.5 px-6">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">{cat.name}</p>
+                                <Badge variant="outline" className="text-[10px]">{METHOD_LABELS[cat.allocationMethod]}</Badge>
+                                {cat.nature === "MIXTE" && cat.recoverableRate != null && (
+                                  <Badge variant="secondary" className="text-[10px]">{cat.recoverableRate}%</Badge>
+                                )}
+                              </div>
+                              {cat.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

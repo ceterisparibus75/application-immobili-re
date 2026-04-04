@@ -1022,20 +1022,22 @@ model RentRevision {
 /// Bibliothèque de catégories de charges au niveau société
 model SocietyChargeCategory {
   id               String           @id @default(cuid())
-  societyId        String
+  societyId        String?          // null = catégorie globale partagée entre toutes les sociétés
   name             String
   nature           ChargeNature
   recoverableRate  Float?
   allocationMethod AllocationMethod @default(TANTIEME)
   description      String?
   isActive         Boolean          @default(true)
+  isGlobal         Boolean          @default(false) // true = catégorie par défaut, non modifiable
   createdAt        DateTime         @default(now())
 
-  society          Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  society          Society?         @relation(fields: [societyId], references: [id], onDelete: Cascade)
   chargeCategories ChargeCategory[]
 
   @@unique([societyId, name])
   @@index([societyId])
+  @@index([isGlobal])
 }
 
 /// Catégorie de charge par immeuble
