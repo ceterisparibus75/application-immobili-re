@@ -53,7 +53,6 @@ const navigation = [
   {
     title: "Communication",
     items: [
-      { name: "Notifications", href: "/notifications", icon: BellDot },
       { name: "Contacts", href: "/contacts", icon: Contact },
     ],
   },

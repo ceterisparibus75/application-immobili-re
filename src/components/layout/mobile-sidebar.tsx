@@ -35,7 +35,6 @@ const navigation = [
     { name: "Rapports", href: "/rapports", icon: FileBarChart },
   ]},
   { title: "Communication", items: [
-    { name: "Notifications", href: "/notifications", icon: BellDot },
     { name: "Contacts", href: "/contacts", icon: Contact },
   ]},
   { title: "Conformite", items: [{ name: "RGPD", href: "/rgpd", icon: Shield }] },

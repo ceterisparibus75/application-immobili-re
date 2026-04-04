@@ -16,6 +16,7 @@ import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
+import { DashboardNotifications } from "@/components/dashboard/dashboard-notifications";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -210,6 +211,7 @@ export default async function DashboardPage() {
         {/* Colonne droite : Panneau de suivi (1/3) */}
         <div className="space-y-5">
           <TodayTasks societyId={societyId} />
+          <DashboardNotifications />
 
           {/* Panneau de suivi style ORISHA */}
           <Card>
