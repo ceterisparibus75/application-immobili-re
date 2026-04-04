@@ -208,8 +208,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const pdfBuffer = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
 
     // 10. Upload dans Supabase Storage (si configuré)
+    const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
+    const lotAddr = lot?.building?.addressLine1 ?? "";
+    const pdfFileName = [invoice.invoiceNumber, sanitize(lotAddr), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
     const year = new Date(invoice.issueDate).getFullYear();
-    const pdfPath = `invoices/${societyId}/${year}/${invoice.invoiceNumber}.pdf`;
+    const pdfPath = `invoices/${societyId}/${year}/${pdfFileName}`;
     if (supabase) {
       try {
         await supabase.storage.from(STORAGE_BUCKET).upload(pdfPath, pdfBuffer, {
@@ -234,7 +237,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     // 12. Réponse
-    const filename = `FACTURE-${invoice.invoiceNumber}.pdf`;
+    const filename = pdfFileName;
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",

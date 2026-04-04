@@ -403,10 +403,18 @@ export default async function BailDetailPage({
           {/* Révisions de loyer */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Révisions de loyer ({lease._count.rentRevisions})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Révisions de loyer ({lease._count.rentRevisions})
+                </CardTitle>
+                <Link href="/indices">
+                  <Button variant="outline" size="sm" className="text-xs gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Indices IRL/ILC
+                  </Button>
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
               <RentRevisions

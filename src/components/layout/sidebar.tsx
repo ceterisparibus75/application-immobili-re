@@ -35,7 +35,7 @@ const navigation = [
       { name: "Locataires", href: "/locataires", icon: Users },
       { name: "Facturation", href: "/facturation", icon: Receipt },
       { name: "Charges", href: "/charges", icon: ScrollText },
-      { name: "Indices", href: "/indices", icon: TrendingUp },
+      { name: "Revisions / Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],

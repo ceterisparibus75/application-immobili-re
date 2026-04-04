@@ -53,6 +53,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         lines: true,
         payments: { orderBy: { paidAt: "asc" } },
         creditNoteFor: { select: { invoiceNumber: true } },
+        lease: { select: { lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
       },
     });
     if (!invoice)
@@ -168,6 +169,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     const typeLabel = TYPE_LABELS[invoice.invoiceType as string] ?? "votre facture";
 
+    // Nom de fichier enrichi : numéro_adresse_locataire
+    const lotAddress = invoice.lease?.lot?.building?.addressLine1 ?? "";
+    const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
+    const pdfFileName = [
+      invoice.invoiceNumber,
+      sanitize(lotAddress),
+      sanitize(tenantName),
+    ].filter(Boolean).join("_") + ".pdf";
+
     const emailResult = await sendInvoiceEmail({
       to,
       tenantName,
@@ -178,7 +188,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       societyName: soc?.name ?? "",
       typeLabel,
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
-      pdfAttachment: { filename: `FACTURE-${invoice.invoiceNumber}.pdf`, content: pdfBuffer },
+      pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
     });
 
     if (!emailResult.success)
@@ -189,7 +199,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       try {
         const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
         const year = new Date(invoice.issueDate).getFullYear();
-        const docStoragePath = `invoices/${societyId}/${year}/${invoice.invoiceNumber}.pdf`;
+        const docStoragePath = `invoices/${societyId}/${year}/${pdfFileName}`;
 
         await supabase.storage
           .from(bucketName)
@@ -205,8 +215,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             societyId,
             tenantId: invoice.tenantId,
             ...(invoice.leaseId ? { leaseId: invoice.leaseId } : {}),
-            fileName: `FACTURE-${invoice.invoiceNumber}.pdf`,
+            fileName: pdfFileName,
             fileUrl: docStoragePath,
+            storagePath: docStoragePath,
             fileSize: pdfBuffer.length,
             mimeType: "application/pdf",
             category: "facture",

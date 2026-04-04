@@ -233,9 +233,11 @@ function PreviewContent({ doc }: { doc: DocumentItem }) {
   const [error, setError] = useState(false);
 
   const isImage = doc.mimeType?.startsWith("image/");
-  const isPdf = doc.mimeType === "application/pdf";
-  const previewUrl = doc.storagePath
-    ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}`
+  const isPdf = doc.mimeType === "application/pdf" || doc.fileName?.toLowerCase().endsWith(".pdf");
+  // Utiliser storagePath, sinon fileUrl s'il ressemble à un chemin de stockage (pas une URL signée expirée)
+  const storageLikePath = doc.storagePath ?? (doc.fileUrl && !doc.fileUrl.startsWith("http") ? doc.fileUrl : null);
+  const previewUrl = storageLikePath
+    ? `/api/storage/view?path=${encodeURIComponent(storageLikePath)}`
     : null;
 
   if (!previewUrl || (!isImage && !isPdf)) {
@@ -869,6 +871,26 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             >
               {bulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               Supprimer la sélection
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => {
+                const selected = documents.filter((d) => selectedIds.has(d.id));
+                for (const doc of selected) {
+                  const path = doc.storagePath ?? (!doc.fileUrl?.startsWith("http") ? doc.fileUrl : null);
+                  if (path) {
+                    const a = document.createElement("a");
+                    a.href = `/api/storage/view?path=${encodeURIComponent(path)}&dl=1`;
+                    a.download = doc.fileName;
+                    a.click();
+                  }
+                }
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Télécharger ({selectedIds.size})
             </Button>
             <Button
               size="sm"
