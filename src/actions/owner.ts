@@ -17,6 +17,26 @@ export type OwnerSocietySummary = {
   currentMonthRevenue: number;
   overdueAmount: number;
   activeLeases: number;
+  cashBalance: number;
+  totalDebt: number;
+  monthlyLoanPayment: number;
+  monthlyRentHT: number;
+  patrimonyValue: number;
+  ltv: number | null;
+};
+
+export type OverdueAgeBucket = {
+  label: string;
+  amount: number;
+};
+
+export type ExpiringLease = {
+  id: string;
+  societyName: string;
+  tenantName: string;
+  lotLabel: string;
+  endDate: string;
+  daysLeft: number;
 };
 
 export type OwnerAnalytics = {
@@ -27,6 +47,17 @@ export type OwnerAnalytics = {
   totalMonthRevenue: number;
   totalOverdue: number;
   totalActiveLeases: number;
+  totalCash: number;
+  totalDebt: number;
+  totalMonthlyLoanPayment: number;
+  totalMonthlyRentHT: number;
+  totalRecoverableCharges: number;
+  totalPatrimonyValue: number;
+  grossYield: number | null;
+  consolidatedLTV: number | null;
+  occupancyRate: number;
+  overdueByAge: OverdueAgeBucket[];
+  expiringLeases: ExpiringLease[];
   societies: OwnerSocietySummary[];
 };
 
@@ -57,14 +88,13 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
     return {
       success: true,
       data: {
-        totalSocieties: 0,
-        totalBuildings: 0,
-        totalLots: 0,
-        totalOccupied: 0,
-        totalMonthRevenue: 0,
-        totalOverdue: 0,
-        totalActiveLeases: 0,
-        societies: [],
+        totalSocieties: 0, totalBuildings: 0, totalLots: 0, totalOccupied: 0,
+        totalMonthRevenue: 0, totalOverdue: 0, totalActiveLeases: 0,
+        totalCash: 0, totalDebt: 0, totalMonthlyLoanPayment: 0,
+        totalMonthlyRentHT: 0, totalRecoverableCharges: 0,
+        totalPatrimonyValue: 0,
+        grossYield: null, consolidatedLTV: null, occupancyRate: 0,
+        overdueByAge: [], expiringLeases: [], societies: [],
       },
     };
   }
@@ -72,8 +102,12 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
   const ids = ownedSocieties.map((s) => s.id);
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-  const [buildings, lots, activeLeases, monthRevAgg, overdueInvoices] = await Promise.all([
+  const [
+    buildings, lots, activeLeases, monthRevAgg, overdueInvoices,
+    bankAccounts, loans, allOverdue, expiringLeasesRaw, rentAgg, chargeAgg,
+  ] = await Promise.all([
     prisma.building.findMany({
       where: { societyId: { in: ids } },
       select: { societyId: true },
@@ -82,7 +116,6 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
       where: { building: { societyId: { in: ids } } },
       select: { status: true, building: { select: { societyId: true } } },
     }),
-
     prisma.lease.groupBy({
       by: ["societyId"],
       where: { societyId: { in: ids }, status: "EN_COURS" },
@@ -97,15 +130,80 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
       by: ["societyId"],
       where: {
         societyId: { in: ids },
-        status: { in: ["EN_ATTENTE", "PARTIELLEMENT_PAYE"] },
+        status: { in: ["EN_ATTENTE", "PARTIELLEMENT_PAYE", "EN_RETARD"] },
         dueDate: { lt: now },
       },
       _sum: { totalTTC: true },
     }),
+    // Trésorerie
+    prisma.bankAccount.findMany({
+      where: { societyId: { in: ids }, isActive: true },
+      select: { societyId: true, currentBalance: true },
+    }),
+    // Emprunts actifs avec dernière ligne d'amortissement
+    prisma.loan.findMany({
+      where: { societyId: { in: ids }, status: "EN_COURS" },
+      select: {
+        societyId: true,
+        purchaseValue: true,
+        amortizationLines: {
+          orderBy: { period: "desc" },
+          take: 1,
+          select: { remainingBalance: true, totalPayment: true },
+        },
+      },
+    }),
+    // Tous les impayés pour ventilation par ancienneté
+    prisma.invoice.findMany({
+      where: {
+        societyId: { in: ids },
+        status: { in: ["EN_ATTENTE", "PARTIELLEMENT_PAYE", "EN_RETARD"] },
+        dueDate: { lt: now },
+      },
+      select: { dueDate: true, totalTTC: true },
+    }),
+    // Baux expirant dans 90 jours
+    prisma.lease.findMany({
+      where: {
+        societyId: { in: ids },
+        status: "EN_COURS",
+        endDate: { lte: in90Days, gte: now },
+      },
+      select: {
+        id: true, endDate: true, societyId: true,
+        tenant: { select: { firstName: true, lastName: true, companyName: true, entityType: true } },
+        lot: { select: { number: true, building: { select: { name: true } } } },
+      },
+      orderBy: { endDate: "asc" },
+      take: 10,
+    }),
+    // Loyers mensuels HT
+    prisma.lease.groupBy({
+      by: ["societyId"],
+      where: { societyId: { in: ids }, status: "EN_COURS" },
+      _sum: { currentRentHT: true },
+    }),
+    // Charges récupérables (12 derniers mois)
+    prisma.charge.aggregate({
+      where: {
+        societyId: { in: ids },
+        date: { gte: new Date(now.getFullYear() - 1, now.getMonth(), 1) },
+        category: { nature: { in: ["RECUPERABLE", "MIXTE"] } },
+      },
+      _sum: { amount: true },
+    }),
   ]);
 
+  // Maps par société
   const bMap = new Map<string, number>();
-  for (const b of buildings) bMap.set(b.societyId, (bMap.get(b.societyId) ?? 0) + 1);
+  for (const b of buildings) {
+    bMap.set(b.societyId, (bMap.get(b.societyId) ?? 0) + 1);
+  }
+  // Patrimoine = somme des valeurs d'acquisition (champ purchaseValue sur Loan)
+  let totalPatrimonyValue = 0;
+  for (const loan of loans) {
+    totalPatrimonyValue += Number(loan.purchaseValue ?? 0);
+  }
   const lMap = new Map<string, { total: number; occupied: number }>();
   for (const l of lots) {
     const sid = l.building.societyId;
@@ -118,6 +216,56 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
   const leaseMap = new Map(activeLeases.map((l) => [l.societyId, l._count.id]));
   const revMap = new Map(monthRevAgg.map((r) => [r.societyId, r._sum.totalTTC ?? 0]));
   const overdueMap = new Map(overdueInvoices.map((o) => [o.societyId, o._sum.totalTTC ?? 0]));
+  const rentMap = new Map(rentAgg.map((r) => [r.societyId, r._sum.currentRentHT ?? 0]));
+
+  // Trésorerie par société
+  const cashMap = new Map<string, number>();
+  for (const ba of bankAccounts) {
+    cashMap.set(ba.societyId, (cashMap.get(ba.societyId) ?? 0) + Number(ba.currentBalance));
+  }
+
+  // Dette et patrimoine par société
+  const debtMap = new Map<string, number>();
+  const loanPayMap = new Map<string, number>();
+  const patrimonyMap = new Map<string, number>();
+  for (const loan of loans) {
+    patrimonyMap.set(loan.societyId, (patrimonyMap.get(loan.societyId) ?? 0) + Number(loan.purchaseValue ?? 0));
+    const line = loan.amortizationLines[0];
+    if (line) {
+      debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));
+      loanPayMap.set(loan.societyId, (loanPayMap.get(loan.societyId) ?? 0) + Number(line.totalPayment));
+    }
+  }
+
+  // Impayés par ancienneté
+  const buckets = { lt30: 0, lt60: 0, lt90: 0, gt90: 0 };
+  for (const inv of allOverdue) {
+    const days = Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+    const amt = Number(inv.totalTTC);
+    if (days < 30) buckets.lt30 += amt;
+    else if (days < 60) buckets.lt60 += amt;
+    else if (days < 90) buckets.lt90 += amt;
+    else buckets.gt90 += amt;
+  }
+  const overdueByAge: OverdueAgeBucket[] = [
+    { label: "< 30 jours", amount: buckets.lt30 },
+    { label: "30-60 jours", amount: buckets.lt60 },
+    { label: "60-90 jours", amount: buckets.lt90 },
+    { label: "> 90 jours", amount: buckets.gt90 },
+  ];
+
+  // Baux expirant
+  const socNameMap = new Map(ownedSocieties.map((s) => [s.id, s.name]));
+  const expiringLeases: ExpiringLease[] = expiringLeasesRaw.map((l) => ({
+    id: l.id,
+    societyName: socNameMap.get(l.societyId) ?? "",
+    tenantName: l.tenant.entityType === "PERSONNE_MORALE"
+      ? (l.tenant.companyName ?? "—")
+      : `${l.tenant.firstName ?? ""} ${l.tenant.lastName ?? ""}`.trim() || "—",
+    lotLabel: l.lot ? `${l.lot.building.name} – Lot ${l.lot.number}` : "—",
+    endDate: l.endDate.toISOString(),
+    daysLeft: Math.max(0, Math.floor((l.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))),
+  }));
 
   const societies: OwnerSocietySummary[] = ownedSocieties.map((s) => ({
     id: s.id,
@@ -131,18 +279,45 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
     currentMonthRevenue: Number(revMap.get(s.id) ?? 0),
     overdueAmount: Number(overdueMap.get(s.id) ?? 0),
     activeLeases: leaseMap.get(s.id) ?? 0,
+    cashBalance: cashMap.get(s.id) ?? 0,
+    totalDebt: debtMap.get(s.id) ?? 0,
+    monthlyLoanPayment: loanPayMap.get(s.id) ?? 0,
+    monthlyRentHT: Number(rentMap.get(s.id) ?? 0),
+    patrimonyValue: patrimonyMap.get(s.id) ?? 0,
+    ltv: (() => {
+      const debt = debtMap.get(s.id) ?? 0;
+      const patri = patrimonyMap.get(s.id) ?? 0;
+      return patri > 0 ? Math.round((debt / patri) * 1000) / 10 : null;
+    })(),
   }));
+
+  const totalLots = societies.reduce((s, x) => s + x.lots, 0);
+  const totalOccupied = societies.reduce((s, x) => s + x.occupiedLots, 0);
+  const annualRevenue = societies.reduce((s, x) => s + x.currentMonthRevenue, 0) * 12;
 
   return {
     success: true,
     data: {
       totalSocieties: ownedSocieties.length,
       totalBuildings: societies.reduce((s, x) => s + x.buildings, 0),
-      totalLots: societies.reduce((s, x) => s + x.lots, 0),
-      totalOccupied: societies.reduce((s, x) => s + x.occupiedLots, 0),
+      totalLots,
+      totalOccupied,
       totalMonthRevenue: societies.reduce((s, x) => s + x.currentMonthRevenue, 0),
       totalOverdue: societies.reduce((s, x) => s + x.overdueAmount, 0),
       totalActiveLeases: societies.reduce((s, x) => s + x.activeLeases, 0),
+      totalCash: societies.reduce((s, x) => s + x.cashBalance, 0),
+      totalDebt: societies.reduce((s, x) => s + x.totalDebt, 0),
+      totalMonthlyLoanPayment: societies.reduce((s, x) => s + x.monthlyLoanPayment, 0),
+      totalMonthlyRentHT: societies.reduce((s, x) => s + x.monthlyRentHT, 0),
+      totalRecoverableCharges: Number(chargeAgg._sum.amount ?? 0),
+      totalPatrimonyValue,
+      grossYield: totalPatrimonyValue > 0 ? Math.round((annualRevenue / totalPatrimonyValue) * 1000) / 10 : null,
+      consolidatedLTV: totalPatrimonyValue > 0
+        ? Math.round((societies.reduce((s, x) => s + x.totalDebt, 0) / totalPatrimonyValue) * 1000) / 10
+        : null,
+      occupancyRate: totalLots > 0 ? Math.round((totalOccupied / totalLots) * 100) : 0,
+      overdueByAge,
+      expiringLeases,
       societies,
     },
   };
