@@ -1,27 +1,35 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import { syncAccountTransactionsInternal } from "@/actions/bank-connection";
+import {
+  syncAccountTransactionsInternal,
+  syncQontoTransactionsInternal,
+} from "@/actions/bank-connection";
 
 /**
  * Route CRON : synchronise automatiquement les transactions de tous les comptes
- * Open Banking actifs de toutes les societes.
+ * bancaires connectés (Powens + Qonto) de toutes les sociétés.
  *
- * Planifie via Vercel Cron (vercel.json) :
+ * Planifié via Vercel Cron (vercel.json) :
  * { "crons": [{ "path": "/api/cron/sync-bank", "schedule": "0 6 * * *" }] }
  *
- * Protegee par le header Authorization: Bearer CRON_SECRET
+ * Protégée par le header Authorization: Bearer CRON_SECRET
  */
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || authHeader !== "Bearer " + cronSecret) {
-    return NextResponse.json({ error: "Non autorise" }, { status: 401 });
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  // Recuperer tous les comptes Powens actifs
-  const accounts = await prisma.bankAccount.findMany({
+  let totalImported = 0;
+  const errors: string[] = [];
+  let accountsSynced = 0;
+
+  // ─── Powens ────────────────────────────────────────────────────────────────
+
+  const powensAccounts = await prisma.bankAccount.findMany({
     where: {
       powensAccountId: { not: null },
       isActive: true,
@@ -36,10 +44,7 @@ export async function POST(request: Request) {
     },
   });
 
-  let totalImported = 0;
-  const errors: string[] = [];
-
-  for (const account of accounts) {
+  for (const account of powensAccounts) {
     if (!account.powensAccountId) continue;
     if (!account.connection || account.connection.status !== "active") continue;
     if (!account.connection.powensAccessToken || !account.connection.powensUserId) continue;
@@ -57,8 +62,56 @@ export async function POST(request: Request) {
         userToken
       );
       totalImported += imported;
+      accountsSynced++;
     } catch (error) {
-      const msg = "Compte " + account.id + ": " + (error instanceof Error ? error.message : "Erreur inconnue");
+      const msg = "Powens " + account.id + ": " + (error instanceof Error ? error.message : "Erreur inconnue");
+      errors.push(msg);
+      console.error("[cron/sync-bank]", msg);
+    }
+  }
+
+  // ─── Qonto ─────────────────────────────────────────────────────────────────
+
+  const qontoAccounts = await prisma.bankAccount.findMany({
+    where: {
+      qontoAccountId: { not: null },
+      isActive: true,
+    },
+    select: {
+      id: true,
+      societyId: true,
+      qontoAccountId: true,
+      connection: {
+        select: {
+          provider: true,
+          qontoSlugEncrypted: true,
+          qontoSecretKeyEncrypted: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  for (const account of qontoAccounts) {
+    if (!account.qontoAccountId) continue;
+    if (!account.connection || account.connection.status !== "active") continue;
+    if (!account.connection.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) continue;
+
+    try {
+      const slug = decrypt(account.connection.qontoSlugEncrypted);
+      const secretKey = decrypt(account.connection.qontoSecretKeyEncrypted);
+
+      const imported = await syncQontoTransactionsInternal(
+        account.societyId,
+        account.id,
+        account.qontoAccountId,
+        slug,
+        secretKey
+      );
+      totalImported += imported;
+      accountsSynced++;
+    } catch (error) {
+      const msg = "Qonto " + account.id + ": " + (error instanceof Error ? error.message : "Erreur inconnue");
       errors.push(msg);
       console.error("[cron/sync-bank]", msg);
     }
@@ -66,7 +119,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
-    accountsSynced: accounts.length,
+    accountsSynced,
     transactionsImported: totalImported,
     errors: errors.length > 0 ? errors : undefined,
   });

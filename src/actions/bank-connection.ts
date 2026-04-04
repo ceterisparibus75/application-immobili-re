@@ -14,6 +14,10 @@ import {
   getPowensConnectors,
   type PowensConnector,
 } from "@/lib/powens";
+import {
+  getQontoOrganization,
+  getQontoTransactions,
+} from "@/lib/qonto";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 
@@ -144,27 +148,60 @@ export async function syncOpenBankingAccounts(
   }
 }
 
-// syncAccountTransactions (appel UI)
+// syncAccountTransactions (appel UI — détecte automatiquement Powens ou Qonto)
 export async function syncAccountTransactions(
   societyId: string,
   bankAccountId: string
 ): Promise<ActionResult<{ imported: number }>> {
   try {
     const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
-      include: { connection: { select: { powensUserId: true, powensAccessToken: true } } },
+      include: {
+        connection: {
+          select: {
+            provider: true,
+            powensUserId: true,
+            powensAccessToken: true,
+            qontoSlugEncrypted: true,
+            qontoSecretKeyEncrypted: true,
+          },
+        },
+      },
     });
     if (!account) return { success: false, error: "Compte introuvable" };
-    if (!account.powensAccountId) return { success: false, error: "Compte non lie a Open Banking" };
-    if (!account.connection?.powensAccessToken || !account.connection.powensUserId)
-      return { success: false, error: "Token Powens manquant" };
-    const userToken = decrypt(account.connection.powensAccessToken);
-    const userId = parseInt(account.connection.powensUserId, 10);
-    const powensAccountId = parseInt(account.powensAccountId, 10);
-    const imported = await syncAccountTransactionsInternal(societyId, bankAccountId, powensAccountId, userId, userToken);
+
+    let imported: number;
+
+    // Qonto
+    if (account.qontoAccountId && account.connection?.provider === "QONTO") {
+      if (!account.connection.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) {
+        return { success: false, error: "Identifiants Qonto manquants" };
+      }
+      const slug = decrypt(account.connection.qontoSlugEncrypted);
+      const secretKey = decrypt(account.connection.qontoSecretKeyEncrypted);
+      imported = await syncQontoTransactionsInternal(
+        societyId, bankAccountId, account.qontoAccountId, slug, secretKey
+      );
+    }
+    // Powens
+    else if (account.powensAccountId) {
+      if (!account.connection?.powensAccessToken || !account.connection.powensUserId) {
+        return { success: false, error: "Token Powens manquant" };
+      }
+      const userToken = decrypt(account.connection.powensAccessToken);
+      const userId = parseInt(account.connection.powensUserId, 10);
+      const powensAccountId = parseInt(account.powensAccountId, 10);
+      imported = await syncAccountTransactionsInternal(
+        societyId, bankAccountId, powensAccountId, userId, userToken
+      );
+    } else {
+      return { success: false, error: "Compte non lié à un service bancaire" };
+    }
+
     revalidatePath("/banque");
     revalidatePath("/banque/" + bankAccountId);
     return { success: true, data: { imported } };
@@ -226,6 +263,228 @@ export async function syncAccountTransactionsInternal(
     societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
     details: { imported, source: "powens_sync", isFirstSync },
   } });
+  return imported;
+}
+
+// ─── Qonto : connexion directe ──────────────────────────────────────────────
+
+export async function connectQonto(
+  societyId: string,
+  qontoSlug: string,
+  qontoSecretKey: string
+): Promise<ActionResult<{ connectionId: string; accountsCreated: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    if (!qontoSlug.trim() || !qontoSecretKey.trim()) {
+      return { success: false, error: "Le slug et la clé secrète Qonto sont requis" };
+    }
+
+    // Vérifier les identifiants en appelant l'API
+    const org = await getQontoOrganization(qontoSlug, qontoSecretKey);
+
+    // Créer la connexion
+    const connection = await prisma.bankConnection.create({
+      data: {
+        societyId,
+        provider: "QONTO",
+        institutionName: "Qonto — " + org.legal_name,
+        status: "active",
+        qontoSlugEncrypted: encrypt(qontoSlug),
+        qontoSecretKeyEncrypted: encrypt(qontoSecretKey),
+      },
+    });
+
+    // Créer les comptes bancaires
+    let accountsCreated = 0;
+    for (const account of org.bank_accounts) {
+      if (account.status !== "active") continue;
+
+      const existing = await prisma.bankAccount.findFirst({
+        where: { qontoAccountId: account.slug, societyId },
+      });
+      if (existing) continue;
+
+      const bankAccount = await prisma.bankAccount.create({
+        data: {
+          societyId,
+          bankName: "Qonto",
+          accountName: account.name || "Compte Qonto",
+          ibanEncrypted: encrypt(account.iban),
+          initialBalance: account.balance,
+          currentBalance: account.balance,
+          qontoAccountId: account.slug,
+          connectionId: connection.id,
+        },
+      });
+
+      await createAuditLog({
+        societyId,
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "BankAccount",
+        entityId: bankAccount.id,
+        details: { bankName: "Qonto", qontoAccountSlug: account.slug },
+      });
+      accountsCreated++;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "BankConnection",
+      entityId: connection.id,
+      details: { provider: "QONTO", legalName: org.legal_name, accountsCreated },
+    });
+
+    revalidatePath("/banque");
+    return { success: true, data: { connectionId: connection.id, accountsCreated } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[connectQonto]", msg);
+    if (msg.includes("401")) {
+      return { success: false, error: "Identifiants Qonto invalides. Vérifiez le slug et la clé secrète." };
+    }
+    return { success: false, error: "Erreur lors de la connexion Qonto : " + msg };
+  }
+}
+
+// syncQontoAccountTransactions (appel UI — un seul compte)
+export async function syncQontoAccountTransactions(
+  societyId: string,
+  bankAccountId: string
+): Promise<ActionResult<{ imported: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const account = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+      include: {
+        connection: {
+          select: {
+            provider: true,
+            qontoSlugEncrypted: true,
+            qontoSecretKeyEncrypted: true,
+          },
+        },
+      },
+    });
+    if (!account) return { success: false, error: "Compte introuvable" };
+    if (!account.qontoAccountId) return { success: false, error: "Compte non lié à Qonto" };
+    if (!account.connection?.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) {
+      return { success: false, error: "Identifiants Qonto manquants" };
+    }
+
+    const slug = decrypt(account.connection.qontoSlugEncrypted);
+    const secretKey = decrypt(account.connection.qontoSecretKeyEncrypted);
+
+    const imported = await syncQontoTransactionsInternal(
+      societyId,
+      bankAccountId,
+      account.qontoAccountId,
+      slug,
+      secretKey
+    );
+
+    revalidatePath("/banque");
+    revalidatePath("/banque/" + bankAccountId);
+    return { success: true, data: { imported } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[syncQontoAccountTransactions]", error);
+    return { success: false, error: "Erreur sync transactions Qonto" };
+  }
+}
+
+// syncQontoTransactionsInternal (partagé avec le cron)
+export async function syncQontoTransactionsInternal(
+  societyId: string,
+  bankAccountId: string,
+  qontoAccountSlug: string,
+  slug: string,
+  secretKey: string
+): Promise<number> {
+  const row = await prisma.bankAccount.findUnique({
+    where: { id: bankAccountId },
+    select: { lastSyncAt: true },
+  });
+  const isFirstSync = !row?.lastSyncAt;
+  const dateFrom = row?.lastSyncAt
+    ? row.lastSyncAt.toISOString()
+    : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  const transactions = await getQontoTransactions(slug, secretKey, qontoAccountSlug, dateFrom);
+
+  let imported = 0;
+  let balanceDelta = 0;
+
+  for (const tx of transactions) {
+    if (!tx.settled_at) continue; // Ignorer les transactions non réglées
+
+    const externalId = tx.transaction_id;
+    const dup = await prisma.bankTransaction.findFirst({
+      where: { bankAccountId, externalId },
+    });
+    if (dup) continue;
+
+    const amount = tx.side === "debit" ? -Math.abs(tx.amount) : Math.abs(tx.amount);
+    const label = tx.label || "Transaction Qonto";
+
+    await prisma.bankTransaction.create({
+      data: {
+        bankAccountId,
+        transactionDate: new Date(tx.settled_at),
+        valueDate: tx.emitted_at ? new Date(tx.emitted_at) : null,
+        amount,
+        label,
+        reference: tx.reference || externalId,
+        category: tx.category || null,
+        externalId,
+        importBatch: "qonto-sync-" + String(Date.now()),
+      },
+    });
+    balanceDelta += amount;
+    imported++;
+  }
+
+  if (isFirstSync && imported > 0) {
+    // Première sync : ajuster le solde initial
+    const acct = await prisma.bankAccount.findUnique({
+      where: { id: bankAccountId },
+      select: { currentBalance: true },
+    });
+    const correctInitial = (acct?.currentBalance ?? 0) - balanceDelta;
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { initialBalance: correctInitial, lastSyncAt: new Date() },
+    });
+  } else {
+    // Syncs suivantes : incrémenter le solde
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: {
+        ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
+        lastSyncAt: new Date(),
+      },
+    });
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      societyId,
+      action: "CREATE",
+      entity: "BankTransaction",
+      entityId: bankAccountId,
+      details: { imported, source: "qonto_sync", isFirstSync },
+    },
+  });
+
   return imported;
 }
 

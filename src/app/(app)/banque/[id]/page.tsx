@@ -68,7 +68,7 @@ export default async function BankAccountDetailPage({
               </Badge>
               {account.connection && (
                 <Badge variant="outline" className="text-xs">
-                  Open Banking · {account.connection.institutionName}
+                  {account.qontoAccountId ? "Qonto" : "Open Banking"} · {account.connection.institutionName}
                 </Badge>
               )}
             </div>
@@ -85,7 +85,7 @@ export default async function BankAccountDetailPage({
 
         <div className="flex items-center gap-2">
           <RecalculateButton bankAccountId={account.id} societyId={societyId} />
-          {account.powensAccountId && (
+          {(account.powensAccountId || account.qontoAccountId) && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}
           <Link href={`/banque/${id}/rapprochement`}>
@@ -271,9 +271,11 @@ export default async function BankAccountDetailPage({
                   {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                 </p>
               </div>
-              {account.powensAccountId && (
+              {(account.powensAccountId || account.qontoAccountId) && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Open Banking</p>
+                  <p className="text-xs text-muted-foreground">
+                    {account.qontoAccountId ? "Qonto" : "Open Banking"}
+                  </p>
                   <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                     <RefreshCw className="h-3 w-3" />
                     Synchronisation automatique active

@@ -1290,13 +1290,20 @@ model BankConnection {
   updatedAt DateTime @updatedAt
   societyId String
 
-  powensUserId       String    @unique // ID utilisateur Powens (id_user)
-  connectorId        String // ID du connecteur Powens (banque)
-  institutionName    String // ex: "BNP Paribas"
+  provider           String    @default("POWENS") // POWENS | QONTO
+  institutionName    String // ex: "BNP Paribas", "Qonto"
   status             String    @default("pending") // pending/active/error/expired
+  expiresAt          DateTime? // Date d'expiration (90 jours PSD2)
+
+  // Powens (Open Banking PSD2)
+  powensUserId       String?   @unique // ID utilisateur Powens (id_user)
+  connectorId        String? // ID du connecteur Powens (banque)
   powensAccessToken  String?   @db.Text // Token d'accès Powens chiffré AES-256
   powensConnectionId String? // ID connexion Powens (après callback)
-  expiresAt          DateTime? // Date d'expiration (90 jours)
+
+  // Qonto (API directe)
+  qontoSlugEncrypted      String?  @db.Text // Slug organisation chiffré AES-256
+  qontoSecretKeyEncrypted String?  @db.Text // Secret key chiffrée AES-256
 
   society      Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   bankAccounts BankAccount[]
@@ -1320,6 +1327,8 @@ model BankAccount {
 
   // Open Banking (Powens)
   powensAccountId String?   @unique // ID du compte Powens
+  // Qonto
+  qontoAccountId  String?   @unique // UUID du compte Qonto
   connectionId    String? // Lien vers BankConnection
   lastSyncAt      DateTime? // Dernière synchronisation
 

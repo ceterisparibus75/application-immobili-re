@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBankAccount } from "@/actions/bank";
-import { getGocardlessInstitutions, initiateOpenBanking } from "@/actions/bank-connection";
+import { getGocardlessInstitutions, initiateOpenBanking, connectQonto } from "@/actions/bank-connection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import { useSociety } from "@/providers/society-provider";
 import { toast } from "sonner";
 import type { PowensConnector as GocardlessInstitution } from "@/lib/powens";
 
-type Tab = "manuel" | "openbanking";
+type Tab = "manuel" | "openbanking" | "qonto";
 
 export default function NouveauComptePage() {
   const router = useRouter();
@@ -150,6 +150,17 @@ export default function NouveauComptePage() {
         >
           <Wifi className="h-4 w-4" />
           Open Banking
+        </button>
+        <button
+          onClick={() => setTab("qonto")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === "qonto"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Building2 className="h-4 w-4" />
+          Qonto
         </button>
       </div>
 
@@ -331,6 +342,123 @@ export default function NouveauComptePage() {
           )}
         </div>
       )}
+      {/* ─── Onglet Qonto ───────────────────────────────────────────────── */}
+      {tab === "qonto" && (
+        <QontoConnectForm
+          societyId={activeSociety?.id ?? ""}
+          onError={setError}
+        />
+      )}
     </div>
+  );
+}
+
+// ─── Composant formulaire Qonto ─────────────────────────────────────────────
+
+function QontoConnectForm({
+  societyId,
+  onError,
+}: {
+  societyId: string;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!societyId) {
+      onError("Aucune société sélectionnée");
+      return;
+    }
+
+    onError("");
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const qontoSlug = (formData.get("qontoSlug") as string).trim();
+    const qontoSecretKey = (formData.get("qontoSecretKey") as string).trim();
+
+    const result = await connectQonto(societyId, qontoSlug, qontoSecretKey);
+    setIsLoading(false);
+
+    if (result.success && result.data) {
+      toast.success(
+        `Qonto connecté — ${result.data.accountsCreated} compte${result.data.accountsCreated > 1 ? "s" : ""} importé${result.data.accountsCreated > 1 ? "s" : ""}`
+      );
+      router.push("/banque");
+    } else {
+      onError(result.error ?? "Erreur inconnue");
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-muted-foreground" />
+            Connexion Qonto
+          </CardTitle>
+          <CardDescription>
+            Connectez votre compte Qonto pour importer automatiquement vos transactions.
+            Les identifiants sont chiffrés en AES-256-GCM.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-md bg-muted/50 p-4 text-sm space-y-2">
+            <p className="font-medium">Comment trouver vos identifiants API ?</p>
+            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+              <li>Connectez-vous à <strong>app.qonto.com</strong></li>
+              <li>Allez dans <strong>Paramètres &gt; Intégrations &gt; API</strong></li>
+              <li>Copiez le <strong>slug</strong> (identifiant organisation) et la <strong>clé secrète</strong></li>
+            </ol>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="qontoSlug">Slug organisation *</Label>
+            <Input
+              id="qontoSlug"
+              name="qontoSlug"
+              placeholder="mon-entreprise-123"
+              required
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Identifiant unique de votre organisation Qonto
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="qontoSecretKey">Clé secrète API *</Label>
+            <Input
+              id="qontoSecretKey"
+              name="qontoSecretKey"
+              type="password"
+              placeholder="••••••••••••••••"
+              required
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Chiffrée en AES-256 — jamais stockée en clair
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-3">
+        <Link href="/banque">
+          <Button variant="outline" type="button">Annuler</Button>
+        </Link>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <><Loader2 className="h-4 w-4 animate-spin" />Connexion...</>
+          ) : (
+            "Connecter Qonto"
+          )}
+        </Button>
+      </div>
+    </form>
   );
 }
