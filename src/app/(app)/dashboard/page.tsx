@@ -2,11 +2,9 @@ import { getAnalyticsData } from "@/actions/analytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowDown, ArrowUp, Building2, Euro, TrendingUp, AlertTriangle, Calendar,
-  FileText, Users, Wallet, Landmark, Receipt, Shield, Layers,
-  Banknote, ClipboardList, Contact, BookOpen, FolderOpen, Crown,
+  ArrowDown, ArrowUp, Building2, TrendingUp, AlertTriangle, Calendar,
+  Banknote,
 } from "lucide-react";
-import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -23,23 +21,6 @@ export const metadata = { title: "Tableau de bord" };
 function fmt(n: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 }
-
-const MODULES = [
-  { label: "Propriétaire", href: "/proprietaire", icon: Crown },
-  { label: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
-  { label: "Lots", href: "/patrimoine/lots", icon: Layers },
-  { label: "Baux", href: "/baux", icon: FileText },
-  { label: "Locataires", href: "/locataires", icon: Users },
-  { label: "Facturation", href: "/facturation", icon: Receipt },
-  { label: "Charges", href: "/charges", icon: Wallet },
-  { label: "Banque", href: "/banque", icon: Landmark },
-  { label: "Emprunts", href: "/emprunts", icon: Banknote },
-  { label: "Comptabilité", href: "/comptabilite", icon: BookOpen },
-  { label: "Documents", href: "/documents", icon: FolderOpen },
-  { label: "Contacts", href: "/contacts", icon: Contact },
-  { label: "Indices", href: "/indices", icon: TrendingUp },
-  { label: "RGPD", href: "/rgpd", icon: Shield },
-] as const;
 
 export default async function DashboardPage() {
   const headersList = await headers();
@@ -58,101 +39,51 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-1">Vue d&apos;ensemble de votre patrimoine immobilier</p>
       </div>
 
-      {/* ── Tuiles d'acces rapide ── */}
-      <section>
-        <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Accès rapide</h2>
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-1.5">
-          {MODULES.map((mod) => {
-            const Icon = mod.icon;
-            return (
-              <Link
-                key={mod.href}
-                href={mod.href}
-                className="group flex flex-col items-center gap-1 rounded-lg bg-gradient-to-b from-primary to-primary/85 px-2 py-2.5 text-primary-foreground shadow-[0_1px_3px_0_rgb(0_0_0/0.2),inset_0_1px_0_0_rgb(255_255_255/0.1)] hover:shadow-[0_2px_8px_0_rgb(0_0_0/0.25)] hover:brightness-110 active:scale-[0.96] transition-all"
-              >
-                <Icon className="h-4 w-4 opacity-80 group-hover:opacity-100 transition-opacity" />
-                <span className="text-[10px] font-medium leading-tight text-center opacity-80 group-hover:opacity-100 transition-opacity">{mod.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-
       {/* ── KPI Cards ── */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Revenus */}
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-blue-50/80 to-card dark:from-blue-950/20 dark:to-card p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Revenus du mois</span>
-            <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <Euro className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold tabular-nums">{fmt(kpis.currentMonthRevenue)}</p>
-          <div className="flex items-center gap-1.5 mt-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl border bg-border/50 overflow-hidden">
+        <div className="bg-card p-4">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Revenus du mois</p>
+          <p className="text-xl font-bold tabular-nums">{fmt(kpis.currentMonthRevenue)}</p>
+          <div className="flex items-center gap-1.5 mt-1">
             {kpis.revenueChange >= 0 ? (
-              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-600">
                 <ArrowUp className="h-3 w-3" />+{kpis.revenueChange}%
               </span>
             ) : (
-              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded-md">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive">
                 <ArrowDown className="h-3 w-3" />{kpis.revenueChange}%
               </span>
             )}
-            <span className="text-xs text-muted-foreground">vs mois dernier</span>
+            <span className="text-[10px] text-muted-foreground">vs mois dernier</span>
           </div>
         </div>
-
-        {/* Occupation */}
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-emerald-50/80 to-card dark:from-emerald-950/20 dark:to-card p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Taux d&apos;occupation</span>
-            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-              <Building2 className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-            </div>
+        <div className="bg-card p-4">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Occupation</p>
+          <p className="text-xl font-bold tabular-nums">{kpis.occupancyRate}%</p>
+          <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${kpis.occupancyRate}%` }} />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{kpis.occupancyRate}%</p>
-          <div className="mt-3 h-2 w-full rounded-full bg-emerald-100 dark:bg-emerald-950/40">
-            <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${kpis.occupancyRate}%` }} />
-          </div>
-          <p className="text-xs text-muted-foreground mt-1.5">lots occupés</p>
         </div>
-
-        {/* Impayes */}
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-amber-50/80 to-card dark:from-amber-950/20 dark:to-card p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Impayés</span>
-            <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <AlertTriangle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{fmt(kpis.totalOverdueAmount)}</p>
-          <p className="text-xs text-muted-foreground mt-2">en attente de règlement</p>
+        <div className="bg-card p-4">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Impayés</p>
+          <p className={"text-xl font-bold tabular-nums " + (kpis.totalOverdueAmount > 0 ? "text-destructive" : "")}>{fmt(kpis.totalOverdueAmount)}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">en attente de règlement</p>
         </div>
-
-        {/* Rendement / Tresorerie */}
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-violet-50/80 to-card dark:from-violet-950/20 dark:to-card p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {kpis.grossYield !== null ? "Rendement brut" : "Trésorerie"}
-            </span>
-            <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
-              <TrendingUp className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold tabular-nums">
+        <div className="bg-card p-4">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+            {kpis.grossYield !== null ? "Rendement brut" : "Trésorerie"}
+          </p>
+          <p className="text-xl font-bold tabular-nums">
             {kpis.grossYield !== null ? `${kpis.grossYield.toFixed(1)}%` : fmt(kpis.availableCash)}
           </p>
-          <div className="mt-2">
-            {kpis.expiringLeaseCount > 0 ? (
-              <Badge variant="warning" className="text-[10px] gap-1">
-                <Calendar className="h-3 w-3" />
-                {kpis.expiringLeaseCount} bail expirant dans 90j
-              </Badge>
-            ) : (
-              <p className="text-xs text-muted-foreground">aucun bail expirant prochainement</p>
-            )}
-          </div>
+          {kpis.expiringLeaseCount > 0 ? (
+            <Badge variant="warning" className="text-[10px] gap-1 mt-1">
+              <Calendar className="h-3 w-3" />
+              {kpis.expiringLeaseCount} bail expirant sous 90j
+            </Badge>
+          ) : (
+            <p className="text-[10px] text-muted-foreground mt-0.5">aucun bail expirant</p>
+          )}
         </div>
       </div>
 
