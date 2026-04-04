@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { buildLenderMapping } from "@/lib/utils";
 
 export type OwnerSocietySummary = {
   id: string;
@@ -306,9 +307,12 @@ export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>>
   }));
 
   // Encours par établissement prêteur (consolidé toutes sociétés)
+  const rawLenderNames = loans.map((l) => l.lender || "Autre");
+  const lenderNameMapping = buildLenderMapping(rawLenderNames);
   const lenderMap = new Map<string, { loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number }>();
   for (const loan of loans) {
-    const lender = loan.lender || "Autre";
+    const rawName = loan.lender || "Autre";
+    const lender = lenderNameMapping.get(rawName) ?? rawName;
     const prev = lenderMap.get(lender) ?? { loanCount: 0, totalCapital: 0, remainingBalance: 0, monthlyPayment: 0 };
     const line = loan.amortizationLines[0];
     lenderMap.set(lender, {

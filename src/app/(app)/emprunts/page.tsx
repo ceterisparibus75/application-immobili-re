@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck, Clock } from "lucide-react";
 import Link from "next/link";
+import { buildLenderMapping } from "@/lib/utils";
 
 export const metadata = { title: "Emprunts" };
 
@@ -52,10 +53,13 @@ export default async function EmpruntsPage() {
     return Math.max(max, remaining);
   }, 0);
 
-  // Regrouper par preteur
+  // Regrouper par preteur (normalisation des noms identiques)
+  const rawLenderNames = loans.map((l) => l.lender || "Autre");
+  const lenderNameMapping = buildLenderMapping(rawLenderNames);
   const lenderGroups = new Map<string, typeof loans>();
   for (const loan of loans) {
-    const lender = loan.lender || "Autre";
+    const rawName = loan.lender || "Autre";
+    const lender = lenderNameMapping.get(rawName) ?? rawName;
     if (!lenderGroups.has(lender)) lenderGroups.set(lender, []);
     lenderGroups.get(lender)!.push(loan);
   }

@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   const data = await getAnalyticsData(societyId);
   if (!data) redirect("/login");
 
-  const { kpis, monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline } = data;
+  const { kpis, monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline, lenderSummaries } = data;
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -155,6 +155,66 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Endettement ── */}
+      {kpis.activeLoanCount > 0 && lenderSummaries.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Banknote className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Endettement</CardTitle>
+            </div>
+            <CardDescription>Capital restant dû et mensualités</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-3 gap-px bg-border/50">
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
+                <p className="text-lg font-bold tabular-nums text-destructive">{fmt(kpis.totalDebt)}</p>
+              </div>
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
+                <p className="text-lg font-bold tabular-nums">{fmt(kpis.monthlyLoanPayment)}</p>
+              </div>
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">LTV</p>
+                <p className={"text-lg font-bold tabular-nums " + (kpis.ltv !== null && kpis.ltv > 80 ? "text-destructive" : kpis.ltv !== null && kpis.ltv > 60 ? "text-amber-600" : "text-emerald-600")}>
+                  {kpis.ltv !== null ? `${kpis.ltv}%` : "—"}
+                </p>
+              </div>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-y bg-muted/30">
+                  <th className="text-left py-2 px-4 font-medium text-muted-foreground">Établissement</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Emprunts</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Restant dû</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Mensualité</th>
+                  <th className="text-right py-2 px-4 font-medium text-muted-foreground">Remboursé</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lenderSummaries.map((ls) => (
+                  <tr key={ls.lender} className="border-b last:border-0 hover:bg-muted/20">
+                    <td className="py-2.5 px-4 font-medium">{ls.lender}</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{ls.loanCount}</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums text-destructive font-semibold">{fmt(ls.remainingBalance)}</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{fmt(ls.monthlyPayment)}</td>
+                    <td className="py-2.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-primary" style={{ width: ls.pctRepaid + "%" }} />
+                        </div>
+                        <span className="tabular-nums text-xs text-muted-foreground w-8 text-right">{ls.pctRepaid}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Contenu principal : Graphiques + Panneau de suivi ── */}
       <div className="grid gap-5 lg:grid-cols-3">

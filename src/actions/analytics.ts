@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { unstable_cache } from "next/cache";
+import { buildLenderMapping } from "@/lib/utils";
 
 export type MonthlyRevenue = { month: string; revenue: number };
 export type BuildingOccupancy = { name: string; occupied: number; vacant: number; total: number; rate: number };
@@ -12,7 +13,8 @@ export type PatrimonyPoint = { date: string; value: number };
 export type TopTenant = { name: string; total: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
 export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null };
-export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[] };
+export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
+export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
   if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "—";
@@ -236,6 +238,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
       id: true,
       amount: true,
       purchaseValue: true,
+      lender: true,
       amortizationLines: {
         orderBy: { period: "desc" },
         where: { dueDate: { lte: now } },
@@ -259,9 +262,33 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   const activeLoanCount = activeLoansForDebt.length;
   const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
 
+  // Encours par établissement prêteur
+  const rawLenderNames = activeLoansForDebt.map((l) => l.lender || "Autre");
+  const lenderNameMapping = buildLenderMapping(rawLenderNames);
+  const lenderMap = new Map<string, { loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number }>();
+  for (const loan of activeLoansForDebt) {
+    const rawName = loan.lender || "Autre";
+    const lender = lenderNameMapping.get(rawName) ?? rawName;
+    const prev = lenderMap.get(lender) ?? { loanCount: 0, totalCapital: 0, remainingBalance: 0, monthlyPayment: 0 };
+    const line = loan.amortizationLines[0];
+    lenderMap.set(lender, {
+      loanCount: prev.loanCount + 1,
+      totalCapital: prev.totalCapital + Number(loan.amount),
+      remainingBalance: prev.remainingBalance + (line ? Number(line.remainingBalance) : Number(loan.amount)),
+      monthlyPayment: prev.monthlyPayment + (line ? Number(line.totalPayment) : 0),
+    });
+  }
+  const lenderSummaries: LenderSummary[] = [...lenderMap.entries()]
+    .map(([lender, v]) => ({
+      lender,
+      ...v,
+      pctRepaid: v.totalCapital > 0 ? Math.round(((v.totalCapital - v.remainingBalance) / v.totalCapital) * 100) : 0,
+    }))
+    .sort((a, b) => b.remainingBalance - a.remainingBalance);
+
   return {
     kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv },
-    monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline,
+    monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline, lenderSummaries,
   };
 }
 

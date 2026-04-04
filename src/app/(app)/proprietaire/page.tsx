@@ -114,18 +114,19 @@ export default async function ProprietaireDashboardPage() {
                 </div>
                 <CardDescription>Capital restant dû et mensualités</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">Capital restant dû</p>
-                    <p className="text-lg font-bold tabular-nums">{fmt(data.totalDebt)}</p>
+              <CardContent className="p-0 space-y-0">
+                {/* KPI dette */}
+                <div className="grid grid-cols-3 gap-px bg-border/50">
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
+                    <p className="text-lg font-bold tabular-nums text-destructive">{fmt(data.totalDebt)}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">Mensualité totale</p>
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
                     <p className="text-lg font-bold tabular-nums">{fmt(data.totalMonthlyLoanPayment)}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <p className="text-xs text-muted-foreground">LTV consolidé</p>
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">LTV consolidé</p>
                     <p className={"text-lg font-bold tabular-nums " + (data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-destructive" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-600" : "text-emerald-600")}>
                       {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
                     </p>
@@ -134,65 +135,71 @@ export default async function ProprietaireDashboardPage() {
 
                 {/* Encours par établissement */}
                 {data.lenderSummaries.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Encours par établissement</p>
-                    <div className="rounded-lg border overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-muted/30 text-xs">
-                            <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Établissement</th>
-                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Emprunts</th>
-                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Restant dû</th>
-                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Mensualité</th>
-                            <th className="text-right py-1.5 px-3 font-medium text-muted-foreground">Remboursé</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.lenderSummaries.map((ls) => (
-                            <tr key={ls.lender} className="border-t hover:bg-muted/20">
-                              <td className="py-2 px-3 font-medium">{ls.lender}</td>
-                              <td className="py-2 px-3 text-right tabular-nums">{ls.loanCount}</td>
-                              <td className="py-2 px-3 text-right tabular-nums text-destructive font-semibold">{fmt(ls.remainingBalance)}</td>
-                              <td className="py-2 px-3 text-right tabular-nums">{fmt(ls.monthlyPayment)}</td>
-                              <td className="py-2 px-3 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full bg-primary" style={{ width: ls.pctRepaid + "%" }} />
-                                  </div>
-                                  <span className="tabular-nums text-xs text-muted-foreground w-7 text-right">{ls.pctRepaid}%</span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-y bg-muted/30">
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground">Établissement</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Emprunts</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Restant dû</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Mensualité</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Remboursé</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.lenderSummaries.map((ls) => (
+                        <tr key={ls.lender} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="py-2.5 px-4 font-medium">{ls.lender}</td>
+                          <td className="py-2.5 px-4 text-right tabular-nums">{ls.loanCount}</td>
+                          <td className="py-2.5 px-4 text-right tabular-nums text-destructive font-semibold">{fmt(ls.remainingBalance)}</td>
+                          <td className="py-2.5 px-4 text-right tabular-nums">{fmt(ls.monthlyPayment)}</td>
+                          <td className="py-2.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-14 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full bg-primary" style={{ width: ls.pctRepaid + "%" }} />
+                              </div>
+                              <span className="tabular-nums text-xs text-muted-foreground w-8 text-right">{ls.pctRepaid}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
 
                 {/* Détail par société */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Détail par société</p>
-                  <div className="space-y-2">
-                    {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
-                      <div key={s.id} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {s.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium">{s.name}</span>
-                        </div>
-                        <div className="flex items-center gap-4 tabular-nums text-xs">
-                          <span>{fmt(s.totalDebt)}</span>
-                          <span className="text-muted-foreground">{fmt(s.monthlyLoanPayment)}/mois</span>
-                          <Badge variant={s.ltv !== null && s.ltv > 80 ? "destructive" : s.ltv !== null && s.ltv > 60 ? "warning" : "secondary"} className="text-[10px] min-w-[50px] justify-center">
-                            LTV {s.ltv !== null ? `${s.ltv}%` : "—"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {data.societies.filter((s) => s.totalDebt > 0).length > 0 && (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-y bg-muted/30">
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground">Société</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Restant dû</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Mensualité</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">LTV</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
+                        <tr key={s.id} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="py-2.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {s.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <span className="font-medium">{s.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-4 text-right tabular-nums font-semibold">{fmt(s.totalDebt)}</td>
+                          <td className="py-2.5 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.monthlyLoanPayment)}/mois</td>
+                          <td className="py-2.5 px-4 text-right">
+                            <Badge variant={s.ltv !== null && s.ltv > 80 ? "destructive" : s.ltv !== null && s.ltv > 60 ? "warning" : "secondary"} className="text-[10px] min-w-[50px] justify-center">
+                              {s.ltv !== null ? `${s.ltv}%` : "—"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </CardContent>
             </Card>
           )}
@@ -202,30 +209,52 @@ export default async function ProprietaireDashboardPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Landmark className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-base">Tresorerie par societe</CardTitle>
+                <CardTitle className="text-base">Trésorerie par société</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {data.societies.map((s) => {
-                const total = data.totalCash || 1;
-                const pctBar = Math.max(0, Math.min(100, (s.cashBalance / total) * 100));
-                return (
-                  <div key={s.id} className="flex items-center gap-3 py-1.5 px-3 rounded-md bg-muted/30">
-                    <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {s.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between text-sm mb-0.5">
-                        <span className="font-medium truncate">{s.name}</span>
-                        <span className={"tabular-nums font-semibold " + (s.cashBalance < 0 ? "text-destructive" : "")}>{fmt(s.cashBalance)}</span>
-                      </div>
-                      <div className="h-1 rounded-full bg-secondary">
-                        <div className={"h-1 rounded-full " + (s.cashBalance >= 0 ? "bg-emerald-500" : "bg-red-500")} style={{ width: pctBar + "%" }} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left py-2 px-4 font-medium text-muted-foreground">Société</th>
+                    <th className="text-right py-2 px-4 font-medium text-muted-foreground">Solde</th>
+                    <th className="py-2 px-4 w-24"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.societies.map((s) => {
+                    const total = Math.abs(data.totalCash) || 1;
+                    const pctBar = Math.max(0, Math.min(100, (Math.abs(s.cashBalance) / total) * 100));
+                    return (
+                      <tr key={s.id} className="border-b last:border-0 hover:bg-muted/20">
+                        <td className="py-2.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {s.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-medium truncate">{s.name}</span>
+                          </div>
+                        </td>
+                        <td className={"py-2.5 px-4 text-right tabular-nums font-semibold " + (s.cashBalance < 0 ? "text-destructive" : "")}>
+                          {fmt(s.cashBalance)}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                            <div className={"h-full rounded-full " + (s.cashBalance >= 0 ? "bg-emerald-500" : "bg-red-500")} style={{ width: pctBar + "%" }} />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-muted/40 font-semibold">
+                    <td className="py-2.5 px-4 text-muted-foreground">Total</td>
+                    <td className={"py-2.5 px-4 text-right tabular-nums " + (data.totalCash < 0 ? "text-destructive" : "")}>{fmt(data.totalCash)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
             </CardContent>
           </Card>
 
