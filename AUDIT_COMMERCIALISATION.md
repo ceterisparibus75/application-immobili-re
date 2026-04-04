@@ -246,9 +246,63 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 ---
 
-## 4. Points faibles et axes d'amélioration
+## 4. Audit de sécurité détaillé
 
-### 4.1 Couverture de tests — INSUFFISANTE pour une commercialisation
+### 4.0.1 Vulnérabilités identifiées
+
+| Sévérité | Problème | Localisation | Impact |
+|----------|----------|-------------|--------|
+| **CRITIQUE** | Rate limiting désactivé si Redis non configuré | `src/proxy.ts` | Attaques brute-force (login, 2FA, portail) |
+| **HAUTE** | Pas de rate limiting sur la vérification 2FA | `src/proxy.ts`, `src/lib/rate-limit.ts` | Brute-force des codes 6 chiffres (1M combinaisons) |
+| **HAUTE** | Timing attack sur bcrypt.compare du portail | `src/app/api/portal/login/route.ts` | Énumération de comptes valides |
+| **HAUTE** | Requêtes raw SQL contournent le tenant filtering | `src/actions/analytics.ts` | Fuite potentielle de données cross-tenant |
+| **HAUTE** | Tokens bancaires stockés en clair | Schema Prisma | Exposition si BDD compromise |
+| **MOYENNE** | Endpoint admin non protégé par rôle | `src/app/api/admin/email-diagnostics/route.ts` | Tout utilisateur authentifié y accède |
+| **MOYENNE** | CSP autorise `unsafe-inline` pour les styles | `src/proxy.ts` | Attaques par injection CSS |
+| **MOYENNE** | Pas de rotation de clé de chiffrement | `src/lib/encryption.ts` | Compromission = toutes les données historiques |
+| **MOYENNE** | Tokens dataroom prédictibles (CUID) | `src/app/api/dataroom/[token]/route.ts` | Énumération de tokens |
+| **MOYENNE** | Pas de vérification MIME pour les uploads | `src/app/api/documents/upload/route.ts` | Upload de fichiers malveillants |
+| **BASSE** | Secret portail avec fallback en dur | `src/lib/portal-auth.ts` | Secret par défaut exposé |
+| **BASSE** | Session non liée à l'IP/user-agent | `src/lib/auth.ts` | Interception de token moins détectable |
+| **BASSE** | Suppression RGPD non implémentée | `src/app/api/rgpd/requests/route.ts` | Risque de non-conformité RGPD |
+
+### 4.0.2 Points forts sécurité
+
+- Chiffrement AES-256-GCM pour IBAN/BIC avec IV aléatoire par opération
+- RBAC hiérarchique vérifié sur chaque Server Action
+- Multi-tenancy automatique via Prisma middleware (22 modèles scopés)
+- CSP avec nonce, HSTS, X-Frame-Options DENY, Permissions-Policy
+- 2FA TOTP avec codes de récupération chiffrés
+- Validation Zod systématique sur toutes les entrées
+- Webhooks DocuSign/GoCardless validés par HMAC-SHA256 + timingSafeEqual
+- Politique de mot de passe forte (12 car., majuscule, minuscule, chiffre, spécial, blacklist)
+- Audit trail systématique sur toutes les mutations
+
+### 4.0.3 Recommandations sécurité prioritaires
+
+**Actions immédiates (P0) :**
+1. Rendre le rate limiting obligatoire (pas optionnel selon Redis)
+2. Ajouter rate limiting sur : vérification 2FA, login portail, reset mot de passe
+3. Protéger les endpoints admin avec `requireSuperAdmin()`
+4. Chiffrer les tokens bancaires (Powens, Qonto) avec `encryptBankData()`
+
+**Court terme (P1) :**
+5. Vérification MIME (magic numbers) pour les uploads de fichiers
+6. Rotation de token JWT (refresh token)
+7. Historique de mots de passe (empêcher la réutilisation)
+8. Verrouillage de compte après 5 tentatives échouées
+
+**Moyen terme (P2) :**
+9. Mécanisme de rotation de clé de chiffrement
+10. Jti (JWT ID) pour révocation de tokens
+11. Workflow de suppression RGPD effectif
+12. Scan antimalware pour les documents uploadés
+
+---
+
+## 5. Points faibles et axes d'amélioration
+
+### 5.1 Couverture de tests — INSUFFISANTE pour une commercialisation
 
 | Constat | Détail |
 |---------|--------|
@@ -261,21 +315,21 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 **Verdict :** La couverture de tests est le point faible majeur. Pour une commercialisation, un minimum de 60-70% sur les chemins critiques est attendu (facturation, paiements, comptabilité, banque). L'absence totale de tests E2E est un risque important.
 
-### 4.2 Documentation utilisateur — ABSENTE
+### 5.2 Documentation utilisateur — ABSENTE
 
 - Pas de documentation utilisateur / guide d'utilisation
 - Pas de centre d'aide / FAQ
 - Pas de tooltips ou d'onboarding in-app
 - Pas de vidéos tutorielles
 
-### 4.3 Internationalisation — LIMITÉE
+### 5.3 Internationalisation — LIMITÉE
 
 - Application entièrement en français
 - Pas de framework i18n (messages hardcodés dans le code)
 - Si commercialisation uniquement France : OK
 - Si ambition internationale : refactoring nécessaire
 
-### 4.4 Gestion des abonnements et paiements SaaS — ABSENTE
+### 5.4 Gestion des abonnements et paiements SaaS — ABSENTE
 
 - **Aucun système de facturation SaaS** (Stripe, etc.)
 - Pas de plans tarifaires / tiers
@@ -286,32 +340,32 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 **Verdict :** C'est un bloqueur majeur pour la commercialisation. Sans système de monétisation, l'application ne peut pas générer de revenus.
 
-### 4.5 Onboarding utilisateur — MINIMAL
+### 5.5 Onboarding utilisateur — MINIMAL
 
 - Login + création de société, mais pas de wizard d'onboarding
 - Pas de données de démonstration interactives
 - Seed limité (1 société, 1 utilisateur admin)
 
-### 4.6 Performance et scalabilité
+### 5.6 Performance et scalabilité
 
 - Pas de pagination visible sur certaines listes (à vérifier)
 - Pas de cache applicatif systématique (Redis optionnel)
 - Pas de tests de charge
 - Certaines requêtes analytics utilisent du raw SQL sans index explicite
 
-### 4.7 Accessibilité (a11y)
+### 5.7 Accessibilité (a11y)
 
 - Composants Radix UI (bonne base d'accessibilité)
 - Pas d'audit WCAG visible
 - Pas de tests d'accessibilité automatisés
 
-### 4.8 CI/CD
+### 5.8 CI/CD
 
 - Pas de pipeline CI visible (GitHub Actions, etc.)
 - Les tests ne sont pas exécutés automatiquement avant déploiement
 - Pas de déploiement preview par PR
 
-### 4.9 Mentions légales SaaS
+### 5.9 Mentions légales SaaS
 
 - CGU/CGV absentes (les mentions légales actuelles sont celles de l'éditeur, pas du service SaaS)
 - Pas de DPA (Data Processing Agreement) pour les clients
@@ -319,13 +373,13 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 ---
 
-## 5. Évaluation de maturité par domaine
+## 6. Évaluation de maturité par domaine
 
 | Domaine | Maturité | Prêt pour commercialisation ? |
 |---------|----------|-------------------------------|
 | **Fonctionnalités métier** | Excellente (98%) | OUI |
 | **Architecture technique** | Très bonne | OUI |
-| **Sécurité** | Très bonne | OUI |
+| **Sécurité** | Bonne (vulnérabilités identifiées) | OUI (après corrections P0) |
 | **Multi-tenancy** | Excellente | OUI |
 | **UI/UX** | Bonne | OUI (avec réserves sur l'onboarding) |
 | **Tests** | Faible (~5%) | NON |
@@ -338,7 +392,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 ---
 
-## 6. Verdict global
+## 7. Verdict global
 
 ### L'application est-elle suffisamment développée pour une commercialisation ?
 
@@ -346,7 +400,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 L'application est **fonctionnellement très complète** — c'est son point fort majeur. Tous les modules métier sont implémentés de bout en bout, avec une architecture solide, une sécurité robuste et un code de qualité professionnelle. Le périmètre fonctionnel couvert est celui d'un logiciel mature sur le marché de la gestion immobilière.
 
-Cependant, **3 chantiers bloquants** doivent être menés avant commercialisation :
+Cependant, **4 chantiers bloquants** doivent être menés avant commercialisation :
 
 ### Chantier 1 : Monétisation SaaS (priorité critique — ~2-4 semaines)
 - Intégration Stripe (abonnements récurrents)
@@ -356,13 +410,21 @@ Cependant, **3 chantiers bloquants** doivent être menés avant commercialisatio
 - Gestion du cycle de vie (trial, upgrade, downgrade, annulation)
 - Facturation et reçus clients
 
-### Chantier 2 : Tests et CI/CD (priorité haute — ~3-4 semaines)
+### Chantier 2 : Corrections de sécurité (priorité critique — ~1-2 semaines)
+- Rendre le rate limiting obligatoire (pas optionnel selon Redis)
+- Ajouter rate limiting sur 2FA, portail locataire, reset mot de passe
+- Protéger les endpoints admin avec vérification de rôle
+- Chiffrer les tokens bancaires (Powens, Qonto) en BDD
+- Corriger le timing attack sur le portail locataire
+- Vérification MIME pour les uploads de fichiers
+
+### Chantier 3 : Tests et CI/CD (priorité haute — ~3-4 semaines)
 - Monter la couverture à 60%+ sur les chemins critiques
 - Ajouter des tests E2E (Playwright) pour les parcours principaux
 - Mettre en place GitHub Actions (lint + tests + build)
 - Déploiement preview par PR
 
-### Chantier 3 : Documentation et onboarding (priorité haute — ~2-3 semaines)
+### Chantier 4 : Documentation et onboarding (priorité haute — ~2-3 semaines)
 - Centre d'aide / documentation utilisateur
 - Wizard d'onboarding première connexion
 - CGU/CGV du service SaaS
@@ -376,15 +438,15 @@ Cependant, **3 chantiers bloquants** doivent être menés avant commercialisatio
 
 ---
 
-## 7. Synthèse
+## 8. Synthèse
 
 | | |
 |---|---|
 | **Maturité fonctionnelle** | 9/10 |
 | **Maturité technique** | 8/10 |
-| **Maturité sécurité** | 8.5/10 |
+| **Maturité sécurité** | 7/10 (vulnérabilités corrigeables) |
 | **Maturité commerciale** | 3/10 |
 | **Score global** | **7/10** |
-| **Estimation avant lancement** | 6-10 semaines de travail |
+| **Estimation avant lancement** | 8-12 semaines de travail |
 
 L'application est un **excellent produit technique** qui nécessite un habillage commercial (monétisation, documentation, onboarding, CGU) pour être mis sur le marché. Le coeur métier est solide et différenciant — c'est un atout majeur.
