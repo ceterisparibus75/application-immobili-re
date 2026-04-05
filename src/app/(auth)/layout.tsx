@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <Building2 className="h-7 w-7 text-white" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold text-foreground tracking-tight">GestImmo</h1>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">MyGestia</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Gestion de baux commerciaux</p>
           </div>
         </div>

@@ -30,7 +30,7 @@ async function getVacantLots() {
 }
 
 export const metadata = {
-  title: "Locaux disponibles | GestImmo",
+  title: "Locaux disponibles | MyGestia",
 };
 
 export default async function LocauxPage() {
@@ -42,7 +42,7 @@ export default async function LocauxPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">GestImmo</span>
+            <span className="font-bold text-lg">MyGestia</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link>
@@ -115,7 +115,7 @@ export default async function LocauxPage() {
 
       <footer className="border-t py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between gap-4 text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} MTG Groupe.</p>
+          <p>&copy; {new Date().getFullYear()} MyGestia.</p>
           <div className="flex gap-4">
             <Link href="/mentions-legales" className="hover:text-foreground">Mentions legales</Link>
             <Link href="/politique-confidentialite" className="hover:text-foreground">Confidentialite</Link>

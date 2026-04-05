@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata: Metadata = {
   title: `Contact | ${APP_NAME}`,

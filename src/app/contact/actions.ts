@@ -29,8 +29,8 @@ export async function sendContactEmail(input: {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const from = process.env.EMAIL_FROM ?? "noreply@mtggroupe.org";
-    const to = process.env.EMAIL_CONTACT ?? process.env.EMAIL_FROM ?? "contact@mtggroupe.org";
+    const from = process.env.EMAIL_FROM ?? "noreply@mygestia.immo";
+    const to = process.env.EMAIL_CONTACT ?? process.env.EMAIL_FROM ?? "contact@mygestia.immo";
 
     await resend.emails.send({
       from,

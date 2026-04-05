@@ -136,7 +136,7 @@ export function Sidebar() {
 
       {/* Pied de sidebar */}
       <div className="px-4 py-3 border-t border-sidebar-border">
-        <p className="text-[10px] text-sidebar-muted/50 font-medium">GestImmo v2.0</p>
+        <p className="text-[10px] text-sidebar-muted/50 font-medium">MyGestia v1.0</p>
       </div>
     </aside>
   );
