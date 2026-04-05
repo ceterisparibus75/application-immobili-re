@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
   createLeaseSchema,
@@ -24,6 +25,9 @@ export async function createLease(
     }
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
 
     const parsed = createLeaseSchema.safeParse(input);
     if (!parsed.success) {

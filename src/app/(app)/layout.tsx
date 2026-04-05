@@ -6,6 +6,7 @@ import { SocietyProvider } from "@/providers/society-provider";
 import { TopNav } from "@/components/layout/top-nav";
 import { Header } from "@/components/layout/header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { SubscriptionBanner } from "@/components/layout/subscription-banner";
 
 export default async function AppLayout({
   children,
@@ -36,6 +37,7 @@ export default async function AppLayout({
       <div className="flex flex-col h-screen overflow-hidden">
         <TopNav />
         <Header />
+        <SubscriptionBanner />
         <Breadcrumb />
         <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
       </div>

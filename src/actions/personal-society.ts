@@ -108,6 +108,19 @@ export async function createPersonalSociety(
       },
     });
 
+    // Créer un abonnement d'essai implicite (14 jours)
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+    await prisma.subscription.create({
+      data: {
+        societyId: society.id,
+        planId: "STARTER",
+        status: "TRIALING",
+        trialStart: new Date(),
+        trialEnd,
+      },
+    });
+
     await createAuditLog({
       societyId: society.id,
       userId: session.user.id,

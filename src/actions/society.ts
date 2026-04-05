@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { checkSocietyLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
   createSocietySchema,
@@ -37,6 +38,10 @@ export async function createSociety(
     }
 
     const data = parsed.data;
+
+    // Vérifier la limite de sociétés du plan
+    const socLimit = await checkSocietyLimit(session.user.id);
+    if (!socLimit.allowed) return { success: false, error: socLimit.message };
 
     // Vérifier que le SIRET n'existe pas déjà
     const existing = await prisma.society.findUnique({
@@ -86,6 +91,19 @@ export async function createSociety(
         userId: session.user.id,
         societyId: society.id,
         role: "ADMIN_SOCIETE",
+      },
+    });
+
+    // Créer un abonnement d'essai implicite (14 jours)
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+    await prisma.subscription.create({
+      data: {
+        societyId: society.id,
+        planId: "STARTER",
+        status: "TRIALING",
+        trialStart: new Date(),
+        trialEnd,
       },
     });
 

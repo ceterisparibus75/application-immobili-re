@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
   createLotSchema,
@@ -24,6 +25,12 @@ export async function createLot(
     }
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // Vérifier abonnement actif et limite de lots
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+    const lotCheck = await checkLotLimit(societyId);
+    if (!lotCheck.allowed) return { success: false, error: lotCheck.message };
 
     const parsed = createLotSchema.safeParse(input);
     if (!parsed.success) {

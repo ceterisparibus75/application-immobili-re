@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
+import { checkSubscriptionActive, checkUserLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { hash, compare } from "bcryptjs";
 import {
@@ -94,6 +95,12 @@ export async function assignUserToSociety(
 
     // Seuls ADMIN_SOCIETE+ peuvent assigner des utilisateurs
     await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    // Vérifier abonnement actif et limite d'utilisateurs
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+    const userCheck = await checkUserLimit(societyId);
+    if (!userCheck.allowed) return { success: false, error: userCheck.message };
 
     // Un ADMIN_SOCIETE ne peut pas créer de SUPER_ADMIN
     if (role === "SUPER_ADMIN") {

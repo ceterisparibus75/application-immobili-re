@@ -2211,8 +2211,8 @@ model Subscription {
   societyId String  @unique
   society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
-  // Stripe
-  stripeCustomerId     String  @unique
+  // Stripe (nullable pour les essais implicites sans passage par Stripe)
+  stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
   stripePriceId        String?
 
