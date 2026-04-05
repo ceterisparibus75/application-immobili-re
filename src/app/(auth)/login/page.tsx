@@ -78,7 +78,7 @@ function LoginForm() {
 
       <div className="flex justify-end">
         <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
-          Mot de passe oublie ?
+          Mot de passe oublié ?
         </Link>
       </div>
 

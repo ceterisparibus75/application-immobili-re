@@ -59,7 +59,7 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="text-center space-y-4">
-        <p className="text-sm text-destructive">Lien de reinitialisation invalide.</p>
+        <p className="text-sm text-destructive">Lien de réinitialisation invalide.</p>
         <Link href="/forgot-password" className="text-sm text-primary hover:underline">
           Demander un nouveau lien
         </Link>
@@ -136,7 +136,7 @@ function ResetPasswordForm() {
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Reinitialisation...
+              Réinitialisation...
             </>
           ) : (
             "Reinitialiser le mot de passe"

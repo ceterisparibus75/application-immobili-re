@@ -57,7 +57,7 @@ export default function ContactPage() {
         {sent ? (
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500" />
-            <h2 className="text-xl font-semibold">Message envoye !</h2>
+            <h2 className="text-xl font-semibold">Message envoyé !</h2>
             <p className="text-muted-foreground">Nous vous recontacterons rapidement.</p>
             <Button variant="outline" asChild>
               <Link href="/">Retour a l'accueil</Link>

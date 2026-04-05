@@ -73,7 +73,7 @@ export default function PricingPage() {
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-foreground">Fonctionnalités</Link>
             <Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link>
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="sm" className="gap-1.5">
                 Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
