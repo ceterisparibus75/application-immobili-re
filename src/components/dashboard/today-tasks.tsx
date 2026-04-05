@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Calendar, FileWarning, CheckSquare } from "lucide-react";
 
@@ -11,7 +10,6 @@ async function getTodayTasks(societyId: string) {
   const ago30days = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
 
   const [expiringDiagnostics, expiringLeases, overdueInvoices] = await Promise.all([
-    // Diagnostics expirant dans les 30 jours (via building → societyId)
     prisma.diagnostic.findMany({
       where: {
         building: { societyId },
@@ -26,7 +24,6 @@ async function getTodayTasks(societyId: string) {
       orderBy: { expiresAt: "asc" },
       take: 5,
     }),
-    // Baux se terminant dans les 90 jours
     prisma.lease.findMany({
       where: {
         societyId,
@@ -42,7 +39,6 @@ async function getTodayTasks(societyId: string) {
       orderBy: { endDate: "asc" },
       take: 5,
     }),
-    // Factures impayées depuis plus de 30 jours
     prisma.invoice.findMany({
       where: {
         societyId,
@@ -69,9 +65,9 @@ async function getTodayTasks(societyId: string) {
 }
 
 function tenantName(tenant: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null } | null) {
-  if (!tenant) return "—";
-  if (tenant.entityType === "PERSONNE_MORALE") return tenant.companyName ?? "—";
-  return `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—";
+  if (!tenant) return "\u2014";
+  if (tenant.entityType === "PERSONNE_MORALE") return tenant.companyName ?? "\u2014";
+  return `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "\u2014";
 }
 
 function daysUntil(date: Date) {
@@ -90,30 +86,32 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
   if (totalTasks === 0) return null;
 
   return (
-    <Card className="border-orange-200 bg-orange-50/30 dark:border-orange-900/40 dark:bg-orange-900/10">
+    <Card className="border-0 shadow-brand bg-white rounded-xl">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <CheckSquare className="h-4 w-4 text-orange-600" />
+        <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+            <CheckSquare className="h-4 w-4 text-amber-600" />
+          </div>
           À traiter
-          <Badge className="ml-auto bg-orange-100 text-orange-700 border-orange-200 text-xs">{totalTasks}</Badge>
+          <span className="ml-auto inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{totalTasks}</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2">
         {/* Diagnostics expirant */}
         {expiringDiagnostics.map((d) => (
           <Link
             key={d.id}
             href={`/patrimoine/immeubles/${d.building.id}`}
-            className="flex items-center gap-3 text-sm hover:bg-orange-100/60 rounded-md p-2 -mx-2 transition-colors group"
+            className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
-              <FileWarning className="h-3.5 w-3.5" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+              <FileWarning className="h-3.5 w-3.5 text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">Diagnostic {d.type} — {d.building.name}</p>
+              <p className="font-medium truncate text-[#0C2340]">Diagnostic {d.type} — {d.building.name}</p>
               <p className="text-xs text-muted-foreground">Expire dans {daysUntil(d.expiresAt!)} jour{daysUntil(d.expiresAt!) > 1 ? "s" : ""}</p>
             </div>
-            <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px] shrink-0">J-{daysUntil(d.expiresAt!)}</Badge>
+            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 shrink-0">J-{daysUntil(d.expiresAt!)}</span>
           </Link>
         ))}
 
@@ -122,18 +120,18 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
           <Link
             key={l.id}
             href={`/baux/${l.id}`}
-            className="flex items-center gap-3 text-sm hover:bg-orange-100/60 rounded-md p-2 -mx-2 transition-colors group"
+            className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-              <Calendar className="h-3.5 w-3.5" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F0F9FF]">
+              <Calendar className="h-3.5 w-3.5 text-[#1B4F8A]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">Bail — {tenantName(l.tenant)}</p>
+              <p className="font-medium truncate text-[#0C2340]">Bail — {tenantName(l.tenant)}</p>
               <p className="text-xs text-muted-foreground">
                 {l.lot?.building?.name ?? ""} · Fin le {new Date(l.endDate).toLocaleDateString("fr-FR")}
               </p>
             </div>
-            <Badge variant="outline" className="text-blue-600 border-blue-300 text-[10px] shrink-0">J-{daysUntil(l.endDate)}</Badge>
+            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F0F9FF] text-[#1B4F8A] shrink-0">J-{daysUntil(l.endDate)}</span>
           </Link>
         ))}
 
@@ -142,18 +140,18 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
           <Link
             key={inv.id}
             href={`/facturation/${inv.id}`}
-            className="flex items-center gap-3 text-sm hover:bg-orange-100/60 rounded-md p-2 -mx-2 transition-colors group"
+            className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-              <AlertTriangle className="h-3.5 w-3.5" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-50">
+              <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">Impayé — {tenantName(inv.lease?.tenant ?? null)}</p>
+              <p className="font-medium truncate text-[#0C2340]">Impayé — {tenantName(inv.lease?.tenant ?? null)}</p>
               <p className="text-xs text-muted-foreground">
                 {inv.invoiceNumber} · {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(inv.totalTTC)}
               </p>
             </div>
-            <Badge variant="destructive" className="text-[10px] shrink-0">J+{daysOver(inv.dueDate)}</Badge>
+            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500 shrink-0">J+{daysOver(inv.dueDate)}</span>
           </Link>
         ))}
       </CardContent>

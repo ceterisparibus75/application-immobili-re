@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import type { LeaseTimelineItem } from "@/actions/analytics";
 
 function DaysBadge({ days }: { days: number }) {
-  if (days <= 0) return <Badge variant="destructive">Expiré</Badge>;
-  if (days <= 30) return <Badge variant="destructive">J-{days}</Badge>;
-  if (days <= 90) return <Badge variant="warning">J-{days}</Badge>;
-  return <Badge variant="secondary">J-{days}</Badge>;
+  if (days <= 0) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">Expiré</span>;
+  if (days <= 30) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">J-{days}</span>;
+  if (days <= 90) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">J-{days}</span>;
+  return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F0F9FF] text-[#1B4F8A]">J-{days}</span>;
 }
 
 export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
@@ -30,7 +30,7 @@ export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
         >
           <div className="flex items-center justify-between mb-1">
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+              <p className="text-sm font-medium truncate text-[#0C2340] group-hover:text-[#1B4F8A] transition-colors">
                 {lease.tenantName}
               </p>
               <p className="text-xs text-muted-foreground truncate">{lease.lotRef}</p>
@@ -38,17 +38,17 @@ export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
             <DaysBadge days={lease.daysRemaining} />
           </div>
           {/* Barre de progression du bail */}
-          <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div
               className="absolute left-0 top-0 h-full rounded-full transition-all"
               style={{
                 width: `${lease.progressPct}%`,
-                backgroundColor:
+                background:
                   lease.daysRemaining <= 30
-                    ? "#ef4444"
+                    ? "#F87171"
                     : lease.daysRemaining <= 90
-                    ? "#f59e0b"
-                    : "#3b82f6",
+                    ? "#FBBF24"
+                    : "linear-gradient(90deg, #1B4F8A, #22B8CF)",
               }}
             />
           </div>

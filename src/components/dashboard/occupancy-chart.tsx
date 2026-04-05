@@ -20,10 +20,12 @@ export function OccupancyChart({ data, globalRate }: Props) {
   const totalVacant = data.reduce((s, b) => s + b.vacant, 0);
   const totalLots = totalOccupied + totalVacant;
 
-  // Angle pour le cercle SVG (circumference = 2πr)
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (globalRate / 100) * circumference;
+
+  // Couleur du donut selon le taux
+  const donutColor = globalRate >= 80 ? "#10B981" : globalRate >= 50 ? "#F59E0B" : "#EF4444";
 
   return (
     <div className="space-y-4">
@@ -35,13 +37,13 @@ export function OccupancyChart({ data, globalRate }: Props) {
             <circle
               cx="48" cy="48" r={radius}
               fill="none"
-              stroke="hsl(var(--muted))"
+              stroke="#F1F5F9"
               strokeWidth="8"
             />
             <circle
               cx="48" cy="48" r={radius}
               fill="none"
-              stroke={globalRate >= 80 ? "#22c55e" : globalRate >= 50 ? "#f59e0b" : "#ef4444"}
+              stroke={donutColor}
               strokeWidth="8"
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -50,7 +52,7 @@ export function OccupancyChart({ data, globalRate }: Props) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-lg font-bold tabular-nums leading-none">{globalRate}%</span>
+            <span className="text-lg font-semibold tabular-nums leading-none text-[#0C2340]">{globalRate}%</span>
           </div>
         </div>
 
@@ -58,12 +60,12 @@ export function OccupancyChart({ data, globalRate }: Props) {
         <div className="flex-1 grid grid-cols-2 gap-3">
           <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Occupés</p>
-            <p className="text-lg font-bold tabular-nums text-emerald-600">{totalOccupied}</p>
+            <p className="text-lg font-semibold tabular-nums text-emerald-600">{totalOccupied}</p>
             <p className="text-[10px] text-muted-foreground">lot{totalOccupied > 1 ? "s" : ""}</p>
           </div>
           <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Vacants</p>
-            <p className="text-lg font-bold tabular-nums text-amber-500">{totalVacant}</p>
+            <p className="text-lg font-semibold tabular-nums text-amber-500">{totalVacant}</p>
             <p className="text-[10px] text-muted-foreground">lot{totalVacant > 1 ? "s" : ""} sur {totalLots}</p>
           </div>
         </div>
@@ -71,27 +73,27 @@ export function OccupancyChart({ data, globalRate }: Props) {
 
       {/* Détail par immeuble */}
       {data.length > 0 && (
-        <div className="space-y-2.5 pt-2 border-t">
+        <div className="space-y-2.5 pt-2 border-t border-gray-100">
           {data.map((b) => {
             const total = b.occupied + b.vacant;
             return (
               <div key={b.name} className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium truncate max-w-[65%]">{b.name}</span>
+                  <span className="text-xs font-medium truncate max-w-[65%] text-[#0C2340]">{b.name}</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
-                    {b.occupied}/{total} — <span className={b.rate >= 80 ? "text-emerald-600 font-medium" : b.rate >= 50 ? "text-amber-600 font-medium" : "text-destructive font-medium"}>{b.rate}%</span>
+                    {b.occupied}/{total} — <span className={b.rate >= 80 ? "text-emerald-600 font-semibold" : b.rate >= 50 ? "text-amber-600 font-semibold" : "text-red-500 font-semibold"}>{b.rate}%</span>
                   </span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
+                <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
                   {b.occupied > 0 && (
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-300"
+                      className="h-full bg-emerald-400 transition-all duration-300"
                       style={{ width: `${b.rate}%` }}
                     />
                   )}
                   {b.vacant > 0 && (
                     <div
-                      className="h-full bg-amber-400/50 transition-all duration-300"
+                      className="h-full bg-amber-200 transition-all duration-300"
                       style={{ width: `${100 - b.rate}%` }}
                     />
                   )}
