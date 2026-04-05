@@ -7,15 +7,15 @@ import * as Sentry from "@sentry/nextjs";
 
 export const metadata: Metadata = {
   title: {
-    default: "Gestion Immobiliere MTG",
-    template: "%s | MTG Immo",
+    default: "MyGestia — Gestion immobiliere SaaS",
+    template: "%s | MyGestia",
   },
   description: "Application de gestion locative et patrimoine immobilier",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MTG Immo",
+    title: "MyGestia",
   },
   themeColor: "#6347d6",
   viewport: {

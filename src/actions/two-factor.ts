@@ -64,7 +64,7 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     // Verifier le code avec le secret temporaire (dechiffre)
     const { TOTP, Secret } = await import("otpauth");
     const totp = new TOTP({
-      issuer: process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo",
+      issuer: process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia",
       label: "account",
       algorithm: "SHA1",
       digits: 6,

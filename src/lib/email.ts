@@ -1,8 +1,8 @@
 import { Resend } from "resend";
 
 function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
-const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobilière"}" <${process.env.EMAIL_FROM ?? "contact@mtggroupe.org"}>`;
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobilière";
+const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "contact@mygestia.immo"}>`;
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 // ============================================================
 // TEMPLATE DE BASE
@@ -67,7 +67,7 @@ async function sendMail(
   replyTo?: string
 ): Promise<EmailResult> {
   try {
-    const fromAddress = process.env.EMAIL_FROM ?? "contact@mtggroupe.org";
+    const fromAddress = process.env.EMAIL_FROM ?? "contact@mygestia.immo";
     const { data, error } = await getResend().emails.send({
       from: FROM,
       to,

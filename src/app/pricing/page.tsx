@@ -1,7 +1,7 @@
 import { Building2, Check } from "lucide-react";
 import Link from "next/link";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata = {
   title: `Tarifs | ${APP_NAME}`,
