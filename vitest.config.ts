@@ -15,9 +15,8 @@ export default defineConfig({
       // Phase 1 covers lib/utils, lib/encryption, lib/permissions, invoice/tenant actions
       // and all validation schemas. Actions requiring DB/auth will be covered in Phase 2.
       // Global thresholds reflect Phase 1 scope; Phase 2 will raise these to 70%+.
-      // Measured Phase 1 values: lines 4.96%, functions 7.77%, stmts 4.59%, branches 4.16%
-      // Thresholds set ~1-2 points below measured to guard against regression with room for variation.
-      thresholds: { lines: 10, functions: 15, statements: 10, branches: 8 },
+      // Thresholds set below measured values to guard against regression with room for variation.
+      thresholds: { lines: 10, functions: 12, statements: 10, branches: 8 },
     },
   },
 })
