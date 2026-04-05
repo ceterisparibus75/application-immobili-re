@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, KeyRound, ArrowLeft } from "lucide-react";
 import { registerUser } from "@/actions/register";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -26,10 +26,14 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setAccountExists(false);
     setIsLoading(true);
     try {
       const result = await registerUser({
@@ -39,8 +43,9 @@ function SignupForm() {
         plan: plan as "STARTER" | "PRO" | "ENTERPRISE",
       });
       if (result.success && result.data) {
-        // Rediriger vers la page de confirmation avec l'email
         router.push(`/signup/confirm?email=${encodeURIComponent(result.data.email)}`);
+      } else if (result.code === "ACCOUNT_EXISTS") {
+        setAccountExists(true);
       } else {
         setError(result.error || "Une erreur est survenue");
       }
@@ -49,6 +54,108 @@ function SignupForm() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleSendReset() {
+    setResetLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        setResetSent(true);
+      } else {
+        setError("Erreur lors de l'envoi. Réessayez.");
+      }
+    } catch {
+      setError("Erreur lors de l'envoi. Réessayez.");
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  // État : compte existant détecté
+  if (accountExists) {
+    if (resetSent) {
+      return (
+        <div className="text-center space-y-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mx-auto">
+            <Mail className="h-7 w-7 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Email envoyé !</h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Un lien de réinitialisation a été envoyé à <strong className="text-foreground">{email}</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Vérifiez votre boîte de réception et vos spams.
+            </p>
+          </div>
+          <Link href="/login">
+            <Button className="w-full h-11 rounded-xl font-semibold text-sm mt-2">
+              Se connecter
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 mx-auto mb-3">
+            <KeyRound className="h-5 w-5 text-amber-600" />
+          </div>
+          <p className="text-sm font-medium text-amber-900">
+            Un compte existe déjà avec l&apos;adresse
+          </p>
+          <p className="text-sm font-semibold text-amber-900 mt-1">{email}</p>
+        </div>
+
+        <p className="text-sm text-muted-foreground text-center">
+          Mot de passe oublié ? Nous pouvons vous envoyer un lien pour en définir un nouveau.
+        </p>
+
+        <Button
+          onClick={handleSendReset}
+          className="w-full h-11 rounded-xl font-semibold text-sm"
+          disabled={resetLoading}
+        >
+          {resetLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Envoi en cours...
+            </>
+          ) : (
+            <>
+              <Mail className="h-4 w-4 mr-2" />
+              Recevoir un lien de réinitialisation
+            </>
+          )}
+        </Button>
+
+        <div className="flex gap-3">
+          <Link href="/login" className="flex-1">
+            <Button variant="outline" className="w-full h-11 rounded-xl text-sm">
+              Se connecter
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            className="flex-1 h-11 rounded-xl text-sm"
+            onClick={() => {
+              setAccountExists(false);
+              setEmail("");
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Autre email
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

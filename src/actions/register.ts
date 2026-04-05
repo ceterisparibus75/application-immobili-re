@@ -15,6 +15,13 @@ const registerSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export type RegisterResult = {
+  success: boolean;
+  data?: { email: string };
+  error?: string;
+  code?: "ACCOUNT_EXISTS";
+};
+
 /** Génère un code de confirmation à 6 chiffres */
 function generateConfirmationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -22,7 +29,7 @@ function generateConfirmationCode(): string {
 
 export async function registerUser(
   input: RegisterInput
-): Promise<ActionResult<{ email: string }>> {
+): Promise<RegisterResult> {
   try {
     const parsed = registerSchema.safeParse(input);
     if (!parsed.success) {
@@ -45,7 +52,7 @@ export async function registerUser(
       if (!existing.isActive && existing.resetToken) {
         await prisma.user.delete({ where: { id: existing.id } });
       } else {
-        return { success: false, error: "Un compte existe déjà avec cette adresse email" };
+        return { success: false, error: "Un compte existe déjà avec cette adresse email", code: "ACCOUNT_EXISTS" };
       }
     }
 
@@ -98,7 +105,7 @@ export async function registerUser(
     console.error("[registerUser]", error);
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("Unique constraint")) {
-      return { success: false, error: "Un compte existe déjà avec cette adresse email" };
+      return { success: false, error: "Un compte existe déjà avec cette adresse email", code: "ACCOUNT_EXISTS" };
     }
     return { success: false, error: `Erreur lors de la création du compte : ${message.slice(0, 200)}` };
   }
