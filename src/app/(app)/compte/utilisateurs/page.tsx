@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { UserPlus, Users, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { UserPlus, Users, AlertTriangle, ArrowUpRight, ShieldAlert } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/utils";
 import type { UserRole } from "@/generated/prisma/client";
@@ -18,6 +18,7 @@ import { PLANS } from "@/lib/stripe";
 import type { PlanId } from "@/lib/stripe";
 import UsersClient from "@/app/(app)/administration/utilisateurs/_components/users-client";
 import Link from "next/link";
+import { ForbiddenError } from "@/lib/permissions";
 
 export const metadata = { title: "Utilisateurs" };
 
@@ -27,13 +28,28 @@ export default async function CompteUtilisateursPage() {
 
   if (!societyId) redirect("/societes");
 
-  const [members, subscription] = await Promise.all([
-    getUsers(societyId),
-    prisma.subscription.findUnique({
-      where: { societyId },
-      select: { planId: true, status: true },
-    }),
-  ]);
+  let members: Awaited<ReturnType<typeof getUsers>>;
+  try {
+    members = await getUsers(societyId);
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4" />
+          <h2 className="text-lg font-semibold mb-2">Accès restreint</h2>
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Vous devez avoir le rôle Administrateur Société ou supérieur pour gérer les utilisateurs.
+          </p>
+        </div>
+      );
+    }
+    throw error;
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { societyId },
+    select: { planId: true, status: true },
+  });
 
   const planId = (subscription?.planId ?? "STARTER") as PlanId;
   const plan = PLANS[planId];

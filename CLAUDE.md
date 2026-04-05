@@ -96,13 +96,25 @@ La logique middleware est dans `src/proxy.ts` (exportée depuis `middleware.ts`)
 6. Injecte `x-society-id` et `x-nonce` dans les headers pour les Server Components
 7. Routes portail (`/portal`, `/api/portal`) utilisent une auth JWT séparée (`src/lib/portal-auth.ts`)
 
-### Multi-tenant
+### Multi-tenant & Multi-propriétaire
 
 Toute l'application est multi-société. Chaque entité Prisma est scopée par `societyId`.
 
 - **Côté client** : `SocietyProvider` (`src/providers/society-provider.tsx`) + hook `useSociety()` gère le cookie `active-society-id`
 - **Côté serveur** : `requireSocietyAccess(userId, societyId, minRole?)` dans `src/lib/permissions.ts`
 - **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` injecte automatiquement `societyId` dans toutes les requêtes (find, create, update, delete)
+- **Propriétaires** : Un utilisateur peut avoir plusieurs entités `Proprietaire` (SCI, SARL, personne physique), chacune regroupant des sociétés. Actions CRUD dans `src/actions/proprietaire.ts`. Migration automatique des sociétés existantes via `migrateOwnerToProprietaire()`.
+
+### Abonnements & Essai gratuit
+
+Chaque société dispose d'un abonnement (`Subscription`) géré par `src/lib/plan-limits.ts` :
+
+- **Essai implicite** : 14 jours, créé automatiquement à la création de société (sans Stripe, `stripeCustomerId` null)
+- **Cycle de vie** : TRIALING → ACTIVE (via Stripe checkout) ou TRIALING → CANCELED (expiration)
+- **Enforcement** : `checkSubscriptionActive()` vérifié avant toute mutation critique (lot, building, lease, tenant, invoice, user, society)
+- **Limites par plan** : `checkLotLimit()`, `checkUserLimit()`, `checkSocietyLimit()` dans `src/lib/plan-limits.ts`
+- **Bannière** : `SubscriptionBanner` (`src/components/layout/subscription-banner.tsx`) affiche les alertes (trial ≤5j, expiration, impayé)
+- **Cron** : `/api/cron/sync-subscriptions` (quotidien 6h30) expire les trials et resynchronise les statuts Stripe
 
 ### RBAC
 
@@ -246,6 +258,8 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Fusion entités | `/administration/fusions` | `merge.ts` |
 | Administration | `/administration/...` | `user.ts`, `auth.ts` |
 | Dashboard + Analytiques | `/dashboard` | `dashboard.ts`, `analytics.ts` |
+| Propriétaires | `/proprietaire` | `proprietaire.ts` |
+| Abonnements | `/compte/abonnement` | `subscription.ts` |
 
 ## Cron Jobs (Vercel)
 
@@ -255,6 +269,7 @@ Définis dans `vercel.json`, protégés par `CRON_SECRET` :
 |-----|----------|-------------|
 | `/api/cron/generate-drafts` | Quotidien 7h | Génération auto brouillons factures |
 | `/api/cron/sync-bank` | Quotidien 6h | Synchronisation transactions bancaires |
+| `/api/cron/sync-subscriptions` | Quotidien 6h30 | Expiration trials + sync statuts Stripe |
 | `/api/cron/invoice-reminder` | Lundi 8h | Relances factures impayées |
 | `/api/cron/insurance-reminder` | Lundi 9h | Rappels assurances |
 | `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |

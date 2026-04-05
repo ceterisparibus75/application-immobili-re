@@ -67,7 +67,7 @@ export async function createCheckout(
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
 
     const priceId = PRICE_IDS[planId]?.[billingPeriod];
     if (!priceId || priceId.trim() === "") {

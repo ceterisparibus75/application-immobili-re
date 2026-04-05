@@ -5,7 +5,7 @@ import { useSociety } from "@/providers/society-provider";
 import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers } from "lucide-react";
+import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star } from "lucide-react";
 import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -23,6 +23,57 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   INCOMPLETE: { label: "Incomplet", color: "text-gray-600 bg-gray-50" },
 };
 
+const PLANS_INFO = [
+  {
+    id: "STARTER" as const,
+    name: "Starter",
+    description: "Pour les petits patrimoines",
+    priceMonthly: 19,
+    priceYearly: 190,
+    limits: { lots: 20, societies: 1, users: 2 },
+    features: [
+      "Gestion de patrimoine",
+      "Baux et locataires",
+      "Facturation et quittances PDF",
+      "Tableau de bord analytique",
+      "Support par email",
+    ],
+  },
+  {
+    id: "PRO" as const,
+    name: "Pro",
+    description: "Pour les gestionnaires professionnels",
+    priceMonthly: 79,
+    priceYearly: 790,
+    limits: { lots: 50, societies: 3, users: 5 },
+    features: [
+      "Tout Starter +",
+      "Comptabilité complète & export FEC",
+      "Connexion bancaire automatique",
+      "Relances automatiques",
+      "Portail locataire",
+      "Support prioritaire",
+    ],
+    popular: true,
+  },
+  {
+    id: "ENTERPRISE" as const,
+    name: "Enterprise",
+    description: "Pour les grands portefeuilles",
+    priceMonthly: 199,
+    priceYearly: 1990,
+    limits: { lots: -1, societies: -1, users: -1 },
+    features: [
+      "Tout Pro +",
+      "Lots et sociétés illimités",
+      "Signature électronique",
+      "Import IA de documents",
+      "Accès API",
+      "Support dédié & SLA 99,9%",
+    ],
+  },
+];
+
 interface SubscriptionData {
   planId: string;
   status: string;
@@ -39,6 +90,7 @@ export default function AbonnementPage() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -56,10 +108,10 @@ export default function AbonnementPage() {
     setLoading(false);
   }
 
-  async function handleUpgrade(planId: "STARTER" | "PRO" | "ENTERPRISE", period: "monthly" | "yearly") {
+  async function handleUpgrade(planId: "STARTER" | "PRO" | "ENTERPRISE") {
     if (!activeSociety?.id) return;
     setActionLoading(true);
-    const result = await createCheckout(activeSociety.id, planId, period);
+    const result = await createCheckout(activeSociety.id, planId, billingPeriod);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
     } else {
@@ -95,11 +147,11 @@ export default function AbonnementPage() {
     return <div className="animate-pulse space-y-4"><div className="h-32 bg-muted rounded-lg" /><div className="h-48 bg-muted rounded-lg" /></div>;
   }
 
+  const currentPlanId = subscription?.planId ?? "STARTER";
   const statusInfo = STATUS_LABELS[subscription?.status ?? "TRIALING"] ?? STATUS_LABELS.INCOMPLETE;
-  const limits = subscription?.limits;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Plan actuel */}
       <Card>
         <CardHeader>
@@ -107,7 +159,7 @@ export default function AbonnementPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-primary" />
-                Plan {PLAN_LABELS[subscription?.planId ?? "STARTER"]}
+                Plan {PLAN_LABELS[currentPlanId]}
               </CardTitle>
               <CardDescription>
                 Société : {activeSociety?.name}
@@ -145,21 +197,21 @@ export default function AbonnementPage() {
               <Layers className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Lots</p>
-                <p className="text-sm font-semibold">{limits?.maxLots === -1 ? "Illimités" : limits?.maxLots}</p>
+                <p className="text-sm font-semibold">{subscription?.limits?.maxLots === -1 ? "Illimités" : subscription?.limits?.maxLots ?? 20}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Building2 className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Sociétés</p>
-                <p className="text-sm font-semibold">{limits?.maxSocieties === -1 ? "Illimitées" : limits?.maxSocieties}</p>
+                <p className="text-sm font-semibold">{subscription?.limits?.maxSocieties === -1 ? "Illimitées" : subscription?.limits?.maxSocieties ?? 1}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Users className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Utilisateurs</p>
-                <p className="text-sm font-semibold">{limits?.maxUsers === -1 ? "Illimités" : limits?.maxUsers}</p>
+                <p className="text-sm font-semibold">{subscription?.limits?.maxUsers === -1 ? "Illimités" : subscription?.limits?.maxUsers ?? 2}</p>
               </div>
             </div>
           </div>
@@ -181,66 +233,109 @@ export default function AbonnementPage() {
         </CardContent>
       </Card>
 
-      {/* Fonctionnalités incluses */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Fonctionnalités incluses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {subscription?.features.map((feature) => (
-              <li key={feature} className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-primary" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      {/* Choix des plans */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold">Choisir un plan</h2>
+            <p className="text-sm text-muted-foreground">14 jours d&apos;essai gratuit. Sans engagement, sans carte bancaire.</p>
+          </div>
+          {/* Toggle mensuel / annuel */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setBillingPeriod("monthly")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                billingPeriod === "monthly" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Mensuel
+            </button>
+            <button
+              onClick={() => setBillingPeriod("yearly")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                billingPeriod === "yearly" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Annuel <span className="text-xs text-primary font-semibold ml-1">-17%</span>
+            </button>
+          </div>
+        </div>
 
-      {/* Upgrade */}
-      {subscription?.planId !== "ENTERPRISE" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Passer au plan supérieur</CardTitle>
-            <CardDescription>
-              Débloquez plus de fonctionnalités et augmentez vos limites
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {subscription?.planId === "STARTER" && (
-                <>
-                  <Button onClick={() => handleUpgrade("PRO", "monthly")} disabled={actionLoading}>
-                    Passer au Pro (79€/mois)
-                  </Button>
-                  <Button variant="outline" onClick={() => handleUpgrade("PRO", "yearly")} disabled={actionLoading}>
-                    Pro annuel (790€/an)
-                  </Button>
-                </>
-              )}
-              {(subscription?.planId === "STARTER" || subscription?.planId === "PRO") && (
-                <>
-                  <Button
-                    variant={subscription?.planId === "PRO" ? "default" : "outline"}
-                    onClick={() => handleUpgrade("ENTERPRISE", "monthly")}
-                    disabled={actionLoading}
-                  >
-                    Passer à Enterprise (199€/mois)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleUpgrade("ENTERPRISE", "yearly")}
-                    disabled={actionLoading}
-                  >
-                    Enterprise annuel (1 990€/an)
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {PLANS_INFO.map((plan) => {
+            const isCurrent = plan.id === currentPlanId;
+            const isDowngrade = PLANS_INFO.findIndex((p) => p.id === currentPlanId) > PLANS_INFO.findIndex((p) => p.id === plan.id);
+            const price = billingPeriod === "monthly" ? plan.priceMonthly : plan.priceYearly;
+            const priceLabel = billingPeriod === "monthly" ? "/mois" : "/an";
+
+            return (
+              <Card
+                key={plan.id}
+                className={`relative flex flex-col transition-all ${
+                  plan.popular ? "border-primary shadow-lg ring-1 ring-primary" : ""
+                } ${isCurrent ? "border-primary/50 bg-primary/5" : ""}`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
+                    <Star className="h-3 w-3" /> Le plus populaire
+                  </div>
+                )}
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                  <div className="pt-3">
+                    <span className="text-4xl font-extrabold">{price}</span>
+                    <span className="text-base text-muted-foreground ml-1">&euro;{priceLabel}</span>
+                    {billingPeriod === "yearly" && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        soit {Math.round(plan.priceYearly / 12)}&euro;/mois
+                      </p>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col">
+                  <p className="text-xs font-semibold text-muted-foreground mb-4 pb-4 border-b">
+                    {plan.limits.lots === -1 ? "Lots illimités" : `${plan.limits.lots} lots`}
+                    {" · "}
+                    {plan.limits.societies === -1 ? "Sociétés illimitées" : `${plan.limits.societies} société${plan.limits.societies > 1 ? "s" : ""}`}
+                    {" · "}
+                    {plan.limits.users === -1 ? "Utilisateurs illimités" : `${plan.limits.users} utilisateur${plan.limits.users > 1 ? "s" : ""}`}
+                  </p>
+
+                  <ul className="space-y-2.5 flex-1 mb-6">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {isCurrent ? (
+                    <Button variant="outline" disabled className="w-full">
+                      Plan actuel
+                    </Button>
+                  ) : isDowngrade ? (
+                    <Button variant="ghost" disabled className="w-full text-muted-foreground">
+                      Plan inférieur
+                    </Button>
+                  ) : (
+                    <Button
+                      className={`w-full ${plan.popular ? "shadow-lg shadow-primary/25" : ""}`}
+                      variant={plan.popular ? "default" : "outline"}
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={actionLoading}
+                    >
+                      {subscription?.status === "TRIALING" ? "Souscrire" : "Passer au plan"} {plan.name}
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
