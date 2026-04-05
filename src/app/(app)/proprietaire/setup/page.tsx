@@ -6,13 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, ArrowRight, User } from "lucide-react";
+import { Building2, ArrowRight, User, Briefcase } from "lucide-react";
 import { updateOwnerProfile } from "@/actions/owner";
 import { toast } from "sonner";
+
+type OwnerType = null | "societe" | "physique";
 
 export default function ProprietaireSetupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [ownerType, setOwnerType] = useState<OwnerType>(null);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -33,7 +36,7 @@ export default function ProprietaireSetupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      toast.error("Le prenom et le nom sont obligatoires");
+      toast.error("Le prénom et le nom sont obligatoires");
       return;
     }
     setLoading(true);
@@ -43,7 +46,13 @@ export default function ProprietaireSetupPage() {
       toast.error(result.error ?? "Erreur lors de la sauvegarde");
       return;
     }
-    router.push("/societes/nouvelle");
+
+    if (ownerType === "societe") {
+      router.push("/societes/nouvelle");
+    } else {
+      // Pour une personne physique, créer une société "personnelle" automatiquement
+      router.push("/societes/nouvelle?type=physique");
+    }
   }
 
   return (
@@ -55,9 +64,9 @@ export default function ProprietaireSetupPage() {
               <User className="h-8 w-8 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Votre fiche proprietaire</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Votre profil propriétaire</h1>
           <p className="text-muted-foreground text-sm">
-            Renseignez vos informations personnelles avant de creer votre premiere societe.
+            Renseignez vos informations personnelles pour commencer.
           </p>
         </div>
 
@@ -65,15 +74,15 @@ export default function ProprietaireSetupPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                Identite
+                <User className="h-4 w-4 text-primary" />
+                Identité
               </CardTitle>
               <CardDescription>Vos informations personnelles</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="firstName">Prenom *</Label>
+                  <Label htmlFor="firstName">Prénom *</Label>
                   <Input
                     id="firstName"
                     name="firstName"
@@ -97,7 +106,7 @@ export default function ProprietaireSetupPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="phone">Telephone</Label>
+                <Label htmlFor="phone">Téléphone</Label>
                 <Input
                   id="phone"
                   name="phone"
@@ -132,13 +141,13 @@ export default function ProprietaireSetupPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="nationality">Nationalite</Label>
+                <Label htmlFor="nationality">Nationalité</Label>
                 <Input
                   id="nationality"
                   name="nationality"
                   value={form.nationality}
                   onChange={handleChange}
-                  placeholder="Francaise"
+                  placeholder="Française"
                 />
               </div>
 
@@ -195,9 +204,66 @@ export default function ProprietaireSetupPage() {
             </CardContent>
           </Card>
 
-          <Button type="submit" size="lg" className="w-full gap-2" disabled={loading}>
-            {loading ? "Enregistrement..." : "Continuer vers ma premiere societe"}
-            {!loading && <ArrowRight className="h-4 w-4" />}
+          {/* Choix du type de gestion */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Comment gérez-vous vos biens ?</CardTitle>
+              <CardDescription>
+                Vous pourrez toujours ajouter une société plus tard.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOwnerType("physique")}
+                  className={`flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all hover:border-primary/50 ${
+                    ownerType === "physique"
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border"
+                  }`}
+                >
+                  <User className={`h-8 w-8 ${ownerType === "physique" ? "text-primary" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className="font-semibold text-sm">En nom propre</p>
+                    <p className="text-xs text-muted-foreground mt-1">Personne physique, sans société</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOwnerType("societe")}
+                  className={`flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all hover:border-primary/50 ${
+                    ownerType === "societe"
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border"
+                  }`}
+                >
+                  <Briefcase className={`h-8 w-8 ${ownerType === "societe" ? "text-primary" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className="font-semibold text-sm">Via une société</p>
+                    <p className="text-xs text-muted-foreground mt-1">SCI, SARL, SAS, etc.</p>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full gap-2"
+            disabled={loading || !ownerType}
+          >
+            {loading ? (
+              "Enregistrement..."
+            ) : ownerType === "societe" ? (
+              <>Continuer vers la création de société <ArrowRight className="h-4 w-4" /></>
+            ) : ownerType === "physique" ? (
+              <>Créer mon espace propriétaire <ArrowRight className="h-4 w-4" /></>
+            ) : (
+              "Sélectionnez un mode de gestion"
+            )}
           </Button>
         </form>
       </div>

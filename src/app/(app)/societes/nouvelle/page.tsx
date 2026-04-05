@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSociety } from "@/actions/society";
+import { createPersonalSociety } from "@/actions/personal-society";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,13 +18,63 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LEGAL_FORMS, TAX_REGIMES, VAT_REGIMES } from "@/lib/constants";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Check } from "lucide-react";
 import Link from "next/link";
 
 export default function NouvelleSocietePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPhysique = searchParams.get("type") === "physique";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Pour personne physique : créer automatiquement la société personnelle
+  useEffect(() => {
+    if (!isPhysique) return;
+
+    let cancelled = false;
+    async function autoCreate() {
+      setIsLoading(true);
+      const result = await createPersonalSociety();
+      if (cancelled) return;
+      setIsLoading(false);
+      if (result.success) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        setError(result.error ?? "Erreur lors de la création");
+      }
+    }
+    autoCreate();
+    return () => { cancelled = true; };
+  }, [isPhysique, router]);
+
+  if (isPhysique) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center space-y-4">
+          {isLoading ? (
+            <>
+              <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+              <p className="text-muted-foreground">Création de votre espace propriétaire...</p>
+            </>
+          ) : error ? (
+            <>
+              <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
+              <Button onClick={() => router.push("/proprietaire/setup")}>Retour</Button>
+            </>
+          ) : (
+            <>
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mx-auto">
+                <Check className="h-7 w-7 text-green-600" />
+              </div>
+              <p className="text-muted-foreground">Redirection vers votre tableau de bord...</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,7 +110,7 @@ export default function NouvelleSocietePage() {
     setIsLoading(false);
 
     if (result.success) {
-      router.push("/societes");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setError(result.error ?? "Erreur inconnue");
@@ -144,7 +195,7 @@ export default function NouvelleSocietePage() {
               <Input id="addressLine1" name="addressLine1" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressLine2">Complément d'adresse</Label>
+              <Label htmlFor="addressLine2">Complément d&apos;adresse</Label>
               <Input id="addressLine2" name="addressLine2" />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -174,7 +225,7 @@ export default function NouvelleSocietePage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="taxRegime">Régime d'imposition *</Label>
+                <Label htmlFor="taxRegime">Régime d&apos;imposition *</Label>
                 <NativeSelect
                   id="taxRegime"
                   name="taxRegime"

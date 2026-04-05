@@ -204,37 +204,82 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
 }
 
 // ============================================================
-// CONFIRMATION INSCRIPTION (signup public)
+// CODE DE CONFIRMATION INSCRIPTION (signup public)
 // ============================================================
 
-interface SignupConfirmationEmailParams {
+interface SignupCodeEmailParams {
   to: string;
   name: string;
-  email: string;
-  temporaryPassword: string;
-  appUrl: string;
+  code: string;
 }
 
-export async function sendSignupConfirmationEmail(params: SignupConfirmationEmailParams): Promise<EmailResult> {
-  const content = `
-    <h2>Bienvenue sur ${APP_NAME} !</h2>
-    <p>Bonjour <strong>${params.name}</strong>,</p>
-    <p>Votre compte a bien été créé. Voici vos identifiants de connexion :</p>
-    <table class="table">
-      <tr><th>Adresse email</th><td>${params.email}</td></tr>
-      <tr><th>Mot de passe provisoire</th><td><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${params.temporaryPassword}</strong></td></tr>
-    </table>
-    <p style="margin-top:24px">
-      <a href="${params.appUrl}/login" style="display:inline-block;padding:12px 32px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px">
-        Se connecter à ${APP_NAME}
-      </a>
-    </p>
-    <p style="color:#cc0000;font-size:13px;margin-top:16px">⚠️ Ce mot de passe est provisoire. Nous vous recommandons de le modifier dès votre première connexion depuis les paramètres de votre compte.</p>
-    <p style="color:#888888;font-size:13px">Une fois connecté, vous serez guidé pour créer votre première société et commencer à gérer votre patrimoine immobilier.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME} — Conçu par un multipropriétaire, pour les multipropriétaires.</p>
-  `;
+export async function sendSignupCodeEmail(params: SignupCodeEmailParams): Promise<EmailResult> {
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <tr>
+          <td style="background:#2563eb;padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</h1>
+            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Gestion locative intelligente</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 8px;color:#111;font-size:20px;font-weight:700;">Confirmez votre inscription</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:14.5px;line-height:1.6;">
+              Bonjour <strong>${params.name}</strong>, votre compte est presque prêt !<br/>
+              Saisissez le code ci-dessous pour confirmer votre adresse email et définir votre mot de passe.
+            </p>
 
-  return sendMail(params.to, `Bienvenue sur ${APP_NAME} — Vos identifiants`, baseTemplate(`Bienvenue sur ${APP_NAME}`, content));
+            <!-- Code box -->
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:24px 0;">
+                  <div style="display:inline-block;padding:20px 40px;background:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;">
+                    <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#2563eb;font-family:'Courier New',monospace;">${params.code}</span>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;text-align:center;">
+              Ce code est valable <strong>30 minutes</strong>.
+            </p>
+
+            <!-- Info box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-top:16px;">
+              <tr>
+                <td style="padding:12px 16px;">
+                  <p style="margin:0;color:#166534;font-size:13px;line-height:1.5;">
+                    Après confirmation, vous pourrez créer votre profil propriétaire et commencer à gérer votre patrimoine immobilier.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+            <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.5;">
+              ${APP_NAME} — Conçu par un multipropriétaire, pour les multipropriétaires.<br/>
+              Si vous n'avez pas créé de compte, ignorez cet email.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return sendMail(params.to, `${APP_NAME} — Votre code de confirmation : ${params.code}`, html);
 }
 
 // ============================================================
