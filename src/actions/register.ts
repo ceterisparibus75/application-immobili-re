@@ -83,6 +83,14 @@ export async function registerUser(
     return { success: true, data: { email: normalizedEmail } };
   } catch (error) {
     console.error("[registerUser]", error);
-    return { success: false, error: "Une erreur est survenue lors de la création du compte" };
+    const message = error instanceof Error ? error.message : String(error);
+    // Erreurs Prisma courantes
+    if (message.includes("Unique constraint")) {
+      return { success: false, error: "Un compte existe déjà avec cette adresse email" };
+    }
+    if (message.includes("column") || message.includes("field")) {
+      return { success: false, error: "Erreur de configuration base de données. Contactez le support." };
+    }
+    return { success: false, error: `Erreur lors de la création du compte : ${message.slice(0, 150)}` };
   }
 }
