@@ -1,4 +1,3 @@
-import type { Ratelimit } from "@upstash/ratelimit";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
@@ -11,6 +10,13 @@ export default auth(async (req) => {
     (pathname === "/contact" || pathname.startsWith("/contact/")) ||
     pathname.startsWith("/mentions-legales") ||
     pathname.startsWith("/politique-confidentialite") ||
+    pathname.startsWith("/cgu") ||
+    pathname.startsWith("/cgv") ||
+    pathname.startsWith("/dpa") ||
+    pathname.startsWith("/pricing") ||
+    pathname.startsWith("/aide") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
@@ -55,15 +61,17 @@ export default auth(async (req) => {
     return NextResponse.next();
   }
 
-  // Rate limiting (actif si Upstash configure)
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    const { getLoginRatelimit, getApiRatelimit } = await import("@/lib/rate-limit");
+  // Rate limiting — toujours actif (fallback in-memory si pas de Redis)
+  {
+    const { getLoginRatelimit, getApiRatelimit, get2FARatelimit } = await import("@/lib/rate-limit");
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("x-real-ip") ??
-      `anon-${crypto.randomUUID()}`;
-    let limiter: Ratelimit | undefined;
-    if (pathname === "/login" || pathname.startsWith("/api/auth") || pathname === "/login/two-factor") {
+      "127.0.0.1";
+    let limiter: { limit: (key: string) => Promise<{ success: boolean; reset: number }> } | undefined;
+    if (pathname === "/login/two-factor" || pathname === "/api/auth/callback/credentials") {
+      limiter = get2FARatelimit();
+    } else if (pathname === "/login" || pathname.startsWith("/api/auth")) {
       limiter = getLoginRatelimit();
     } else if (
       pathname.startsWith("/api/") &&
@@ -114,7 +122,7 @@ export default auth(async (req) => {
   const cspValue = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' blob: data: https:",
     "font-src 'self'",
     "object-src 'none'",

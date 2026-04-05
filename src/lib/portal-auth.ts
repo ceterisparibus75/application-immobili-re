@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const PORTAL_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "portal-secret-fallback"
-);
+const authSecret = process.env.AUTH_SECRET;
+if (!authSecret) {
+  throw new Error("AUTH_SECRET est requis pour l'authentification du portail");
+}
+const PORTAL_SECRET = new TextEncoder().encode(authSecret);
 const COOKIE_NAME = "portal-token";
 const TOKEN_EXPIRY = "24h";
 

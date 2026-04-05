@@ -459,3 +459,29 @@ export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParam
 
   return sendMail(params.to, `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`, baseTemplate("Rappel — Facture impayée", content));
 }
+
+// ============================================================
+// REINITIALISATION MOT DE PASSE
+// ============================================================
+
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  resetUrl: string;
+}): Promise<EmailResult> {
+  const content = `
+    <h2>Réinitialisation de votre mot de passe</h2>
+    <p>Bonjour <strong>${params.name}</strong>,</p>
+    <p>Vous avez demandé la réinitialisation de votre mot de passe ${APP_NAME}.</p>
+    <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
+    <p style="text-align:center;margin:32px 0;">
+      <a href="${params.resetUrl}" style="display:inline-block;padding:12px 32px;background:#111;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">
+        Réinitialiser mon mot de passe
+      </a>
+    </p>
+    <p style="color:#888888;font-size:12px;">Ce lien est valable pendant 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+    <p style="color:#888888;font-size:11px;word-break:break-all;">Lien direct : ${params.resetUrl}</p>
+  `;
+
+  return sendMail(params.to, `Réinitialisation de votre mot de passe — ${APP_NAME}`, baseTemplate("Réinitialisation mot de passe", content));
+}

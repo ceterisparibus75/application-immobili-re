@@ -26,6 +26,24 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
+// Vérification des magic bytes pour éviter les fichiers falsifiés
+const MAGIC_BYTES: Record<string, number[][]> = {
+  "application/pdf": [[0x25, 0x50, 0x44, 0x46]], // %PDF
+  "image/jpeg": [[0xFF, 0xD8, 0xFF]],
+  "image/png": [[0x89, 0x50, 0x4E, 0x47]], // .PNG
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF
+  "application/msword": [[0xD0, 0xCF, 0x11, 0xE0]], // OLE
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [[0x50, 0x4B, 0x03, 0x04]], // PK (zip)
+};
+
+function verifyMagicBytes(buffer: Buffer, declaredType: string): boolean {
+  const signatures = MAGIC_BYTES[declaredType];
+  if (!signatures) return true; // Type non vérifié, accepter
+  return signatures.some((sig) =>
+    sig.every((byte, i) => buffer[i] === byte)
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -59,6 +77,15 @@ export async function POST(req: NextRequest) {
     }
     if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
+    }
+
+    // Vérification magic bytes (anti-spoofing MIME)
+    const headerBytes = Buffer.from(await file.slice(0, 8).arrayBuffer());
+    if (!verifyMagicBytes(headerBytes, file.type)) {
+      return NextResponse.json(
+        { error: "Le contenu du fichier ne correspond pas au type déclaré" },
+        { status: 400 }
+      );
     }
 
     const entityFolder = buildingId
