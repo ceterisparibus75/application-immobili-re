@@ -15,6 +15,7 @@ export default auth(async (req) => {
     pathname.startsWith("/dpa") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/aide") ||
+    pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/public") ||

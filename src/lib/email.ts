@@ -204,6 +204,40 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
 }
 
 // ============================================================
+// CONFIRMATION INSCRIPTION (signup public)
+// ============================================================
+
+interface SignupConfirmationEmailParams {
+  to: string;
+  name: string;
+  email: string;
+  temporaryPassword: string;
+  appUrl: string;
+}
+
+export async function sendSignupConfirmationEmail(params: SignupConfirmationEmailParams): Promise<EmailResult> {
+  const content = `
+    <h2>Bienvenue sur ${APP_NAME} !</h2>
+    <p>Bonjour <strong>${params.name}</strong>,</p>
+    <p>Votre compte a bien été créé. Voici vos identifiants de connexion :</p>
+    <table class="table">
+      <tr><th>Adresse email</th><td>${params.email}</td></tr>
+      <tr><th>Mot de passe provisoire</th><td><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${params.temporaryPassword}</strong></td></tr>
+    </table>
+    <p style="margin-top:24px">
+      <a href="${params.appUrl}/login" style="display:inline-block;padding:12px 32px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px">
+        Se connecter à ${APP_NAME}
+      </a>
+    </p>
+    <p style="color:#cc0000;font-size:13px;margin-top:16px">⚠️ Ce mot de passe est provisoire. Nous vous recommandons de le modifier dès votre première connexion depuis les paramètres de votre compte.</p>
+    <p style="color:#888888;font-size:13px">Une fois connecté, vous serez guidé pour créer votre première société et commencer à gérer votre patrimoine immobilier.</p>
+    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME} — Conçu par un multipropriétaire, pour les multipropriétaires.</p>
+  `;
+
+  return sendMail(params.to, `Bienvenue sur ${APP_NAME} — Vos identifiants`, baseTemplate(`Bienvenue sur ${APP_NAME}`, content));
+}
+
+// ============================================================
 // BIENVENUE NOUVEL UTILISATEUR
 // ============================================================
 

@@ -29,16 +29,16 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-semibold mb-4">1. Éditeur du site</h2>
             <p className="text-muted-foreground">Le présent site est édité par :</p>
             <div className="mt-3 space-y-1 text-muted-foreground">
-              <p><strong className="text-foreground">Raison sociale :</strong> MyGestia</p>
-              <p><strong className="text-foreground">Forme juridique :</strong> SAS</p>
-              <p><strong className="text-foreground">Siège social :</strong> France</p>
+              <p><strong className="text-foreground">Raison sociale :</strong> MTG HOLDING</p>
+              <p><strong className="text-foreground">Siège social :</strong> 41 Rue de Paris, 97400 Saint-Denis</p>
+              <p><strong className="text-foreground">RCS :</strong> 913 038 717</p>
               <p><strong className="text-foreground">Email :</strong> contact@mygestia.immo</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-4">2. Directeur de publication</h2>
-            <p className="text-muted-foreground">Le directeur de publication est le représentant légal de MyGestia.</p>
+            <p className="text-muted-foreground">Le directeur de publication est le représentant légal de MTG HOLDING.</p>
           </section>
 
           <section>
@@ -54,7 +54,7 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-semibold mb-4">4. Propriété intellectuelle</h2>
             <p className="text-muted-foreground">
               L&apos;ensemble des contenus présents sur ce site (textes, images, graphismes, logo, icônes) est la propriété exclusive
-              de MyGestia et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
+              de MTG HOLDING et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
               Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.
             </p>
           </section>
@@ -62,8 +62,8 @@ export default function MentionsLegalesPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">5. Responsabilité</h2>
             <p className="text-muted-foreground">
-              MyGestia s&apos;efforce de fournir des informations exactes et à jour. Toutefois, nous ne garantissons pas l&apos;exactitude,
-              la complétude ou la pertinence des informations diffusées sur ce site. MyGestia ne saurait être tenu responsable
+              MTG HOLDING s&apos;efforce de fournir des informations exactes et à jour. Toutefois, nous ne garantissons pas l&apos;exactitude,
+              la complétude ou la pertinence des informations diffusées sur ce site. MTG HOLDING ne saurait être tenu responsable
               des dommages directs ou indirects résultant de l&apos;utilisation de ce site.
             </p>
           </section>

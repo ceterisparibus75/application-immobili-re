@@ -41,7 +41,7 @@ export default function CGVPage() {
             <div className="space-y-4">
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold mb-2">Starter</h3>
-                <p className="text-muted-foreground">Gestion de patrimoine, baux et locataires, facturation et tableau de bord. Jusqu&apos;a 10 lots, 1 societe, 2 utilisateurs.</p>
+                <p className="text-muted-foreground">Gestion de patrimoine, baux et locataires, facturation et tableau de bord. Jusqu&apos;a 20 lots, 1 societe, 2 utilisateurs.</p>
               </div>
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold mb-2">Pro</h3>
