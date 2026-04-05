@@ -43,7 +43,7 @@ export default async function ImmeublesPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun immeuble</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              Ajoutez votre premier immeuble pour commencer a gerer vos lots et baux commerciaux.
+              Ajoutez votre premier immeuble pour commencer a gerer vos lots et baux locatifs.
             </p>
             <Link href="/patrimoine/immeubles/nouveau">
               <Button><Plus className="h-4 w-4" />Ajouter un immeuble</Button>

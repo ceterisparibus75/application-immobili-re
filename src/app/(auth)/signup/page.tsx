@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Check, ArrowRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { registerUser } from "@/actions/register";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -17,6 +17,7 @@ const PLAN_LABELS: Record<string, string> = {
 
 function SignupForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const plan = searchParams.get("plan")?.toUpperCase() || "STARTER";
   const planLabel = PLAN_LABELS[plan] || PLAN_LABELS.STARTER;
 
@@ -25,8 +26,6 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,8 +39,8 @@ function SignupForm() {
         plan: plan as "STARTER" | "PRO" | "ENTERPRISE",
       });
       if (result.success && result.data) {
-        setSuccess(true);
-        setRegisteredEmail(result.data.email);
+        // Rediriger vers la page de confirmation avec l'email
+        router.push(`/signup/confirm?email=${encodeURIComponent(result.data.email)}`);
       } else {
         setError(result.error || "Une erreur est survenue");
       }
@@ -50,30 +49,6 @@ function SignupForm() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  if (success) {
-    return (
-      <div className="text-center space-y-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mx-auto">
-          <Check className="h-7 w-7 text-green-600" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold">Compte créé avec succès !</h2>
-          <p className="text-sm text-muted-foreground mt-2">
-            Un email a été envoyé à <strong className="text-foreground">{registeredEmail}</strong> avec votre mot de passe provisoire.
-          </p>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Consultez votre boîte de réception (et vos spams) puis connectez-vous pour configurer votre patrimoine.
-        </p>
-        <Link href="/login">
-          <Button className="w-full h-11 rounded-xl font-semibold text-sm mt-2 gap-2">
-            Se connecter <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
-    );
   }
 
   return (
