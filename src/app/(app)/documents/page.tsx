@@ -21,20 +21,20 @@ export default async function DocumentsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Documents</h1>
           <p className="text-muted-foreground text-sm">
             {documents.length} document{documents.length !== 1 ? "s" : ""} · GED intelligente
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/dataroom">
-            <Button variant="outline">
+            <Button variant="outline" className="rounded-lg border-border/60 gap-1.5">
               <FolderLock className="h-4 w-4" />
               Datarooms
             </Button>
           </Link>
           <Link href="/documents/nouveau">
-            <Button>
+            <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
               <Plus className="h-4 w-4" />
               Ajouter un document
             </Button>

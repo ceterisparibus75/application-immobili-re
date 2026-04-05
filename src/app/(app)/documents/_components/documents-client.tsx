@@ -96,9 +96,9 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 function FileTypeIcon({ mimeType, className }: { mimeType: string | null; className?: string }) {
-  if (mimeType === "application/pdf") return <FileText className={cn("text-red-500", className)} />;
-  if (mimeType?.startsWith("image/")) return <FileImage className={cn("text-blue-500", className)} />;
-  return <File className={cn("text-muted-foreground", className)} />;
+  if (mimeType === "application/pdf") return <FileText className={cn("text-[var(--color-brand-blue)]", className)} />;
+  if (mimeType?.startsWith("image/")) return <FileImage className={cn("text-[var(--color-brand-cyan)]", className)} />;
+  return <File className={cn("text-[#94A3B8]", className)} />;
 }
 // ─── Tree Sidebar ─────────────────────────────────────────────────────────────
 type TreeData = {
@@ -127,13 +127,15 @@ function TreeSidebar({ tree, selected, onSelect }: { tree: TreeData; selected: s
   const item = (key: string, label: string, count: number, icon: React.ReactNode) => (
     <button key={key} onClick={() => onSelect(key)}
       className={cn(
-        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left transition-colors",
-        selected === key ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground hover:text-foreground"
+        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left transition-colors",
+        selected === key
+          ? "bg-[#F0F7FF] text-[var(--color-brand-deep)] font-medium border-l-[3px] border-l-[var(--color-brand-blue)]"
+          : "hover:bg-[#F9FAFB] text-[#64748B] hover:text-[var(--color-brand-deep)]"
       )}
     >
       {icon}
       <span className="flex-1 truncate">{label}</span>
-      <span className={cn("text-xs tabular-nums", selected === key ? "text-primary-foreground/70" : "text-muted-foreground/60")}>
+      <span className={cn("text-xs tabular-nums", selected === key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>
         {count}
       </span>
     </button>
@@ -143,7 +145,7 @@ function TreeSidebar({ tree, selected, onSelect }: { tree: TreeData; selected: s
       {item("all", "Tous les documents", tree.total, <FolderOpen className="h-4 w-4 shrink-0" />)}
       {tree.buildings.length > 0 && (
         <div className="pt-2">
-          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Immeubles</p>
+          <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Immeubles</p>
           {tree.buildings.map((b) => item(b.key, b.name, b.count, <Building2 className="h-4 w-4 shrink-0" />))}
         </div>
       )}
@@ -173,7 +175,7 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
   const expiringSoon = !expired && isExpiringSoon(doc.expiresAt);
   return (
     <div onClick={() => onSelect(doc)}
-      className={cn("flex items-center gap-2 px-3 py-2 cursor-pointer select-none border-b border-border/50 last:border-0 hover:bg-accent/40 transition-colors group", selected && "bg-primary/10 hover:bg-primary/15")}
+      className={cn("flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none border-b border-gray-50 last:border-0 hover:bg-[#F9FAFB] transition-colors group", selected && "bg-[#F0F7FF] hover:bg-[#F0F7FF]")}
     >
       <div
         className={cn("shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", checked && "opacity-100")}
@@ -184,7 +186,7 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
       <FileTypeIcon mimeType={doc.mimeType} className="h-4 w-4 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={cn("text-sm truncate", selected && "font-medium")}>{doc.fileName}</span>
+          <span className={cn("text-sm truncate text-[var(--color-brand-deep)]", selected && "font-medium")}>{doc.fileName}</span>
           <AiBadge status={doc.aiStatus} id={doc.id} />
           {expired && <span title="Expiré"><AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label="Expiré" /></span>}
           {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" aria-label="Expire bientôt" /></span>}
@@ -207,16 +209,16 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
 function FileGridCard({ doc, selected, onSelect, societyId, checked, onCheckedChange }: { doc: DocumentItem; selected: boolean; onSelect: (d: DocumentItem) => void; societyId: string; checked: boolean; onCheckedChange: (id: string) => void; }) {
   return (
     <div onClick={() => onSelect(doc)}
-      className={cn("flex flex-col items-center gap-1.5 p-3 rounded-lg border cursor-pointer select-none hover:bg-accent/40 transition-colors group relative", selected && "border-primary bg-primary/10")}
+      className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border-0 shadow-brand bg-white cursor-pointer select-none hover:shadow-brand-lg transition-shadow group relative", selected && "ring-2 ring-[var(--color-brand-blue)]/30 bg-[#F0F7FF]")}
     >
       <div
-        className={cn("absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-10", checked && "opacity-100")}
+        className={cn("absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10", checked && "opacity-100")}
         onClick={(e) => { e.stopPropagation(); onCheckedChange(doc.id); }}
       >
         <Checkbox checked={checked} aria-label={`Sélectionner ${doc.fileName}`} />
       </div>
       <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10" />
-      <p className="text-xs text-center truncate w-full font-medium leading-tight">{doc.fileName}</p>
+      <p className="text-xs text-center truncate w-full font-medium leading-tight text-[var(--color-brand-deep)]">{doc.fileName}</p>
       <AiBadge status={doc.aiStatus} id={doc.id} />
       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -390,7 +392,7 @@ function EditForm({ doc, societyId, onSaved }: { doc: DocumentItem; societyId: s
         onClick={() => void handleSave()}
         disabled={saving || !isDirty}
         size="sm"
-        className="w-full h-8 text-xs gap-1"
+        className="w-full h-8 text-xs gap-1 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg"
       >
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
         Enregistrer
@@ -580,11 +582,11 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b flex items-start gap-2 shrink-0">
+      <div className="p-3 border-b border-gray-100 flex items-start gap-2 shrink-0">
         <FileTypeIcon mimeType={doc.mimeType} className="h-8 w-8 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold break-words leading-tight">{doc.fileName}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(doc.fileSize ?? 0)} · {getCategoryLabel(doc.category)}</p>
+          <p className="text-sm font-semibold break-words leading-tight text-[var(--color-brand-deep)]">{doc.fileName}</p>
+          <p className="text-xs text-[#94A3B8] mt-0.5">{formatFileSize(doc.fileSize ?? 0)} · {getCategoryLabel(doc.category)}</p>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             <AiBadge status={display.aiStatus} id={doc.id} />
             {isExpired(doc.expiresAt) && <Badge variant="destructive" className="text-[10px] py-0">Expiré</Badge>}
@@ -593,7 +595,7 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
         </div>
         <button onClick={onClose} className="shrink-0 text-muted-foreground hover:text-foreground mt-0.5"><X className="h-4 w-4" /></button>
       </div>
-      <div className="px-3 py-2 flex gap-2 border-b shrink-0">
+      <div className="px-3 py-2 flex gap-2 border-b border-gray-100 shrink-0">
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
           <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1"><ExternalLink className="h-3.5 w-3.5" />Ouvrir</Button>
         </a>
@@ -822,17 +824,17 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
   }
 
   return (
-    <div className="flex border rounded-lg overflow-hidden bg-background" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
-      <div className="hidden md:flex flex-col w-52 shrink-0 border-r overflow-y-auto bg-muted/20">
+    <div className="flex rounded-xl overflow-hidden bg-white shadow-brand" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
+      <div className="hidden md:flex flex-col w-56 shrink-0 border-r border-gray-100 overflow-y-auto bg-[#FAFBFC]">
         <div className="flex-1 overflow-y-auto">
           <TreeSidebar tree={tree} selected={selectedFolder} onSelect={(k) => { setSelectedFolder(k); setSelectedDoc(null); }} />
         </div>
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/10 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input className="pl-8 h-7 text-xs" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-brand-blue)] pointer-events-none" />
+            <Input className="pl-8 h-7 text-xs rounded-lg border-border/60" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setSearch("")}><X className="h-3.5 w-3.5" /></button>}
           </div>
           {usedCategories.length > 1 && (
@@ -861,10 +863,10 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("list")}><List className="h-3.5 w-3.5" /></Button>
             <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("grid")}><LayoutGrid className="h-3.5 w-3.5" /></Button>
           </div>
-          <Link href="/documents/nouveau"><Button size="sm" className="h-7 text-xs gap-1 shrink-0"><Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nouveau</span></Button></Link>
+          <Link href="/documents/nouveau"><Button size="sm" className="h-7 text-xs gap-1 shrink-0 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg"><Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nouveau</span></Button></Link>
         </div>
         {viewMode === "list" && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 border-b shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FAFBFC] border-b border-gray-100 shrink-0">
             <div className="w-4 shrink-0" />
             <div className="flex-1"><SortHeader label="Nom" sortKey="name" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
             <div className="hidden md:block w-28 shrink-0"><SortHeader label="Catégorie" sortKey="category" current={sortBy} dir={sortDir} onSort={handleSort} /></div>
@@ -874,8 +876,8 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
           </div>
         )}
         {selectedIds.size > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border-b shrink-0 flex-wrap">
-            <span className="text-xs font-medium text-primary">{selectedIds.size} élément{selectedIds.size !== 1 ? "s" : ""} sélectionné{selectedIds.size !== 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#F0F7FF] border-b border-gray-100 shrink-0 flex-wrap">
+            <span className="text-xs font-medium text-[var(--color-brand-blue)]">{selectedIds.size} élément{selectedIds.size !== 1 ? "s" : ""} sélectionné{selectedIds.size !== 1 ? "s" : ""}</span>
             <Button
               size="sm"
               variant="destructive"
@@ -928,9 +930,11 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
         <div className="flex-1 overflow-y-auto">
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <FolderOpen className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm font-medium mb-1">Aucun document</p>
-              <Link href="/documents/nouveau"><Button size="sm"><Plus className="h-4 w-4" />Ajouter</Button></Link>
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
+                <FolderOpen className="h-7 w-7 text-[var(--color-brand-blue)]" />
+              </div>
+              <p className="text-sm font-semibold text-[var(--color-brand-deep)] mb-1">Aucun document</p>
+              <Link href="/documents/nouveau"><Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5"><Plus className="h-4 w-4" />Ajouter</Button></Link>
             </div>
           ) : viewMode === "list" ? (
             <div>{sorted.map((doc) => <FileRow key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} checked={selectedIds.has(doc.id)} onCheckedChange={toggleSelection} />)}</div>
@@ -940,7 +944,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
             </div>
           )}
         </div>
-        <div className="border-t px-3 py-1 text-xs text-muted-foreground bg-muted/10 shrink-0 flex items-center gap-2">
+        <div className="border-t border-gray-100 px-3 py-1 text-xs text-[#94A3B8] bg-[#FAFBFC] shrink-0 flex items-center gap-2">
           <span>{sorted.length} élément{sorted.length !== 1 ? "s" : ""}</span>
           {categoryFilter !== "all" && (
             <Badge variant="secondary" className="text-[10px] py-0 gap-1">
@@ -957,7 +961,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
         </div>
       </div>
       {selectedDoc && (
-        <div className="hidden lg:flex flex-col w-72 shrink-0 border-l overflow-hidden">
+        <div className="hidden lg:flex flex-col w-72 shrink-0 border-l border-gray-100 overflow-hidden bg-white">
           <DetailsPanel doc={selectedDoc} societyId={societyId} onClose={() => setSelectedDoc(null)} />
         </div>
       )}
