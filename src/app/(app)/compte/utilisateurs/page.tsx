@@ -1,4 +1,4 @@
-import { getUsers, getUsersNotInSociety } from "@/actions/user";
+import { getUsers } from "@/actions/user";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -27,9 +27,8 @@ export default async function CompteUtilisateursPage() {
 
   if (!societyId) redirect("/societes");
 
-  const [members, availableUsers, subscription] = await Promise.all([
+  const [members, subscription] = await Promise.all([
     getUsers(societyId),
-    getUsersNotInSociety(societyId),
     prisma.subscription.findUnique({
       where: { societyId },
       select: { planId: true, status: true },
@@ -182,24 +181,6 @@ export default async function CompteUtilisateursPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Ajouter un utilisateur existant */}
-      {!isAtLimit && availableUsers.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="h-5 w-5" />
-              Ajouter un utilisateur existant
-            </CardTitle>
-            <CardDescription>
-              Donnez accès à un utilisateur déjà enregistré dans l&apos;application
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <UsersClient mode="add-existing" societyId={societyId} availableUsers={availableUsers} />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Créer un nouvel utilisateur */}
       {!isAtLimit ? (
