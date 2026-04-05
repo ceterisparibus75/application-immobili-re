@@ -1034,6 +1034,7 @@ model RentRevision {
 
   @@index([leaseId])
   @@index([leaseId, effectiveDate])
+  @@index([leaseId, isValidated])
 }
 
 // ============================================================
@@ -1255,6 +1256,8 @@ model Invoice {
   @@unique([societyId, invoiceNumber])
   @@index([societyId])
   @@index([societyId, status])
+  @@index([societyId, invoiceType, status])
+  @@index([societyId, issueDate])
   @@index([tenantId])
   @@index([leaseId])
   @@index([dueDate])
