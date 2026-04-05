@@ -44,6 +44,7 @@ export const createSocietySchema = z.object({
   email: z.string().email("Email invalide").optional().or(z.literal("")),
   shareCapital: z.coerce.number().min(0).optional().nullable(),
   signatoryName: z.string().max(100).optional().or(z.literal("")),
+  proprietaireId: z.string().cuid().optional(),
 });
 
 export const updateSocietySchema = createSocietySchema.partial().extend({

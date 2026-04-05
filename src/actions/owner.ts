@@ -72,12 +72,17 @@ export type OwnerAnalytics = {
   lenderSummaries: LenderSummary[];
 };
 
-export async function getOwnerSocieties(): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string; city: string; isActive: boolean; logoUrl: string | null }[]>> {
+export async function getOwnerSocieties(proprietaireId?: string): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string; city: string; isActive: boolean; logoUrl: string | null }[]>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
+  // Si proprietaireId fourni, filtrer par proprietaire (en vérifiant qu'il appartient à l'user)
+  const where = proprietaireId
+    ? { proprietaireId, proprietaire: { userId: session.user.id } }
+    : { ownerId: session.user.id };
+
   const societies = await prisma.society.findMany({
-    where: { ownerId: session.user.id },
+    where,
     select: { id: true, name: true, legalForm: true, siret: true, city: true, isActive: true, logoUrl: true },
     orderBy: { name: "asc" },
   });
@@ -85,12 +90,17 @@ export async function getOwnerSocieties(): Promise<ActionResult<{ id: string; na
   return { success: true, data: societies };
 }
 
-export async function getOwnerAnalytics(): Promise<ActionResult<OwnerAnalytics>> {
+export async function getOwnerAnalytics(proprietaireId?: string): Promise<ActionResult<OwnerAnalytics>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
+  // Filtrer par proprietaire si fourni, sinon toutes les sociétés de l'user
+  const where = proprietaireId
+    ? { proprietaireId, proprietaire: { userId: session.user.id } }
+    : { ownerId: session.user.id };
+
   const ownedSocieties = await prisma.society.findMany({
-    where: { ownerId: session.user.id },
+    where,
     select: { id: true, name: true, legalForm: true, city: true, logoUrl: true },
     orderBy: { name: "asc" },
   });
@@ -392,7 +402,7 @@ export async function getClaimableSocieties(): Promise<ActionResult<{ id: string
   return { success: true, data: memberships.map((m) => m.society) };
 }
 
-export async function claimSociety(societyId: string): Promise<ActionResult<void>> {
+export async function claimSociety(societyId: string, proprietaireId?: string): Promise<ActionResult<void>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
@@ -415,9 +425,21 @@ export async function claimSociety(societyId: string): Promise<ActionResult<void
   if (!society) return { success: false, error: "Societe introuvable" };
   if (society.ownerId) return { success: false, error: "Cette societe a deja un proprietaire" };
 
+  // Si proprietaireId fourni, vérifier qu'il appartient à l'user
+  if (proprietaireId) {
+    const prop = await prisma.proprietaire.findFirst({
+      where: { id: proprietaireId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!prop) return { success: false, error: "Propriétaire introuvable" };
+  }
+
   await prisma.society.update({
     where: { id: societyId },
-    data: { ownerId: session.user.id },
+    data: {
+      ownerId: session.user.id,
+      ...(proprietaireId ? { proprietaireId } : {}),
+    },
   });
 
   revalidatePath("/proprietaire");

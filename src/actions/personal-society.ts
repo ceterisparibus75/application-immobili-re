@@ -18,6 +18,7 @@ const personalSocietySchema = z.object({
   city: z.string().optional().or(z.literal("")),
   taxRegime: z.enum(["IS", "IR"]).optional().default("IR"),
   vatRegime: z.enum(["TVA", "FRANCHISE"]).optional().default("FRANCHISE"),
+  proprietaireId: z.string().cuid().optional(),
 });
 
 export type PersonalSocietyInput = z.infer<typeof personalSocietySchema>;
@@ -95,6 +96,7 @@ export async function createPersonalSociety(
         phone: user.phone ?? null,
         signatoryName: ownerName,
         ownerId: session.user.id,
+        proprietaireId: data.proprietaireId || null,
       },
     });
 
@@ -103,6 +105,19 @@ export async function createPersonalSociety(
         userId: session.user.id,
         societyId: society.id,
         role: "ADMIN_SOCIETE",
+      },
+    });
+
+    // Créer un abonnement d'essai implicite (14 jours)
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+    await prisma.subscription.create({
+      data: {
+        societyId: society.id,
+        planId: "STARTER",
+        status: "TRIALING",
+        trialStart: new Date(),
+        trialEnd,
       },
     });
 

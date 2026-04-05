@@ -19,6 +19,7 @@ export async function getSubscription(
   cancelAt: string | null;
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
+  hasStripeCustomer: boolean;
 }>> {
   try {
     const session = await auth();
@@ -47,6 +48,7 @@ export async function getSubscription(
           maxSocieties: plan.maxSocieties,
           maxUsers: plan.maxUsers,
         },
+        hasStripeCustomer: !!subscription?.stripeCustomerId,
       },
     };
   } catch (error) {
@@ -68,8 +70,8 @@ export async function createCheckout(
     await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
 
     const priceId = PRICE_IDS[planId]?.[billingPeriod];
-    if (!priceId) {
-      return { success: false, error: "Offre non configuree" };
+    if (!priceId || priceId.trim() === "") {
+      return { success: false, error: `L'offre ${planId} (${billingPeriod}) n'est pas encore configurée. Contactez le support.` };
     }
 
     const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
@@ -77,8 +79,8 @@ export async function createCheckout(
       societyId,
       userId: session.user.id,
       priceId,
-      successUrl: `${baseUrl}/parametres/facturation?success=true`,
-      cancelUrl: `${baseUrl}/parametres/facturation?canceled=true`,
+      successUrl: `${baseUrl}/compte/abonnement?success=true`,
+      cancelUrl: `${baseUrl}/compte/abonnement?canceled=true`,
     });
 
     return { success: true, data: { url } };
@@ -109,7 +111,7 @@ export async function openBillingPortal(
     const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
     const url = await createCustomerPortalSession({
       customerId: subscription.stripeCustomerId,
-      returnUrl: `${baseUrl}/parametres/facturation`,
+      returnUrl: `${baseUrl}/compte/abonnement`,
     });
 
     return { success: true, data: { url } };

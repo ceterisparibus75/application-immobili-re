@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
   createInvoiceSchema,
@@ -79,6 +80,9 @@ export async function createInvoice(
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
 
     const parsed = createInvoiceSchema.safeParse(input);
     if (!parsed.success) {

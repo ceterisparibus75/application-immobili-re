@@ -351,9 +351,13 @@ model Society {
   // Configuration
   isActive Boolean @default(true)
 
-  // Proprietaire
+  // Proprietaire (legacy — migration progressive)
   ownerId String?
   owner   User?   @relation("SocietyOwner", fields: [ownerId], references: [id])
+
+  // Nouveau lien multi-proprietaire
+  proprietaireId String?
+  proprietaire   Proprietaire? @relation(fields: [proprietaireId], references: [id])
 
   // Relations
   userSocieties           UserSociety[]
@@ -386,6 +390,38 @@ model Society {
   subscription            Subscription?
 
   @@index([siret])
+  @@index([proprietaireId])
+}
+
+/// Propriétaire — entité intermédiaire entre User et Society
+/// Un User peut créer plusieurs Proprietaires, chacun possédant plusieurs Sociétés
+/// Toutes les données sont isolées par proprietaireId
+model Proprietaire {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profil du propriétaire
+  label       String  // Nom d'affichage (ex: "Patrimoine personnel", "SCI familiale")
+  firstName   String?
+  lastName    String?
+  phone       String?
+  birthDate   DateTime?
+  birthPlace  String?
+  address     String?
+  postalCode  String?
+  city        String?
+  profession  String?
+  nationality String?
+
+  // Lien vers l'utilisateur créateur
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Sociétés rattachées
+  societies Society[]
+
+  @@index([userId])
 }
 
 /// Utilisateur de l'application
@@ -426,7 +462,8 @@ model User {
   pendingTwoFactorSecret String? // secret temporaire chiffre AES-256-GCM, en attente de confirmation
 
   // Relations
-  ownedSocieties    Society[]     @relation("SocietyOwner")
+  ownedSocieties    Society[]       @relation("SocietyOwner")
+  proprietaires     Proprietaire[]
   userSocieties     UserSociety[]
   accounts          Account[]
   sessions          Session[]
@@ -2177,8 +2214,8 @@ model Subscription {
   societyId String  @unique
   society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
-  // Stripe
-  stripeCustomerId     String  @unique
+  // Stripe (nullable pour les essais implicites sans passage par Stripe)
+  stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
   stripePriceId        String?
 

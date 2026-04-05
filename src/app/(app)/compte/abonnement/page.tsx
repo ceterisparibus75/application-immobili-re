@@ -6,6 +6,7 @@ import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscr
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers } from "lucide-react";
+import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
   STARTER: "Starter",
@@ -30,6 +31,7 @@ interface SubscriptionData {
   cancelAt: string | null;
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
+  hasStripeCustomer: boolean;
 }
 
 export default function AbonnementPage() {
@@ -60,6 +62,8 @@ export default function AbonnementPage() {
     const result = await createCheckout(activeSociety.id, planId, period);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
+    } else {
+      toast.error(result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.");
     }
     setActionLoading(false);
   }
@@ -70,6 +74,8 @@ export default function AbonnementPage() {
     const result = await openBillingPortal(activeSociety.id);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
+    } else {
+      toast.error(result.error ?? "Erreur lors de l'ouverture du portail de facturation");
     }
     setActionLoading(false);
   }
@@ -159,11 +165,13 @@ export default function AbonnementPage() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={actionLoading}>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Gérer la facturation
-              <ExternalLink className="h-3 w-3 ml-1" />
-            </Button>
+            {subscription?.hasStripeCustomer && (
+              <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={actionLoading}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Gérer la facturation
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            )}
             {subscription?.status === "ACTIVE" && !subscription.cancelAt && (
               <Button variant="ghost" size="sm" onClick={handleCancel} disabled={actionLoading} className="text-destructive hover:text-destructive">
                 Annuler l&apos;abonnement
@@ -212,13 +220,22 @@ export default function AbonnementPage() {
                 </>
               )}
               {(subscription?.planId === "STARTER" || subscription?.planId === "PRO") && (
-                <Button
-                  variant={subscription?.planId === "PRO" ? "default" : "outline"}
-                  onClick={() => handleUpgrade("ENTERPRISE", "monthly")}
-                  disabled={actionLoading}
-                >
-                  Passer à Enterprise (199€/mois)
-                </Button>
+                <>
+                  <Button
+                    variant={subscription?.planId === "PRO" ? "default" : "outline"}
+                    onClick={() => handleUpgrade("ENTERPRISE", "monthly")}
+                    disabled={actionLoading}
+                  >
+                    Passer à Enterprise (199€/mois)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleUpgrade("ENTERPRISE", "yearly")}
+                    disabled={actionLoading}
+                  >
+                    Enterprise annuel (1 990€/an)
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>

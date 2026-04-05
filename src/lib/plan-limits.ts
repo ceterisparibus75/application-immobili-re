@@ -18,7 +18,7 @@ export async function checkLotLimit(societyId: string): Promise<{ allowed: boole
   if (count >= limits.maxLots) {
     return {
       allowed: false,
-      message: `Limite de ${limits.maxLots} lots atteinte pour le plan ${limits.name}. Passez au plan superieur.`,
+      message: `Limite de ${limits.maxLots} lots atteinte pour le plan ${limits.name}. Passez au plan supérieur.`,
     };
   }
   return { allowed: true };
@@ -28,7 +28,6 @@ export async function checkLotLimit(societyId: string): Promise<{ allowed: boole
  * Verifie si un utilisateur a atteint la limite de societes de son plan.
  */
 export async function checkSocietyLimit(userId: string): Promise<{ allowed: boolean; message?: string }> {
-  // Trouver le plan le plus eleve parmi les societes de l'utilisateur
   const userSocieties = await prisma.userSociety.findMany({
     where: { userId },
     select: { societyId: true },
@@ -36,7 +35,6 @@ export async function checkSocietyLimit(userId: string): Promise<{ allowed: bool
 
   if (userSocieties.length === 0) return { allowed: true };
 
-  // Verifier le plan de la premiere societe (le plus restrictif s'applique)
   let maxAllowed = 1;
   for (const us of userSocieties) {
     const plan = await getSocietyPlan(us.societyId);
@@ -48,7 +46,7 @@ export async function checkSocietyLimit(userId: string): Promise<{ allowed: bool
   if (userSocieties.length >= maxAllowed) {
     return {
       allowed: false,
-      message: `Limite de ${maxAllowed} societes atteinte. Passez au plan superieur.`,
+      message: `Limite de ${maxAllowed} sociétés atteinte. Passez au plan supérieur.`,
     };
   }
   return { allowed: true };
@@ -67,7 +65,7 @@ export async function checkUserLimit(societyId: string): Promise<{ allowed: bool
   if (count >= limits.maxUsers) {
     return {
       allowed: false,
-      message: `Limite de ${limits.maxUsers} utilisateurs atteinte pour le plan ${limits.name}. Passez au plan superieur.`,
+      message: `Limite de ${limits.maxUsers} utilisateurs atteinte pour le plan ${limits.name}. Passez au plan supérieur.`,
     };
   }
   return { allowed: true };
@@ -75,22 +73,67 @@ export async function checkUserLimit(societyId: string): Promise<{ allowed: bool
 
 /**
  * Verifie si l'abonnement d'une societe est actif (non expire, non annule).
+ * Gère aussi l'expiration de l'essai implicite (trialEnd dépassé).
  */
-export async function checkSubscriptionActive(societyId: string): Promise<{ active: boolean; message?: string }> {
+export async function checkSubscriptionActive(societyId: string): Promise<{
+  active: boolean;
+  message?: string;
+  status?: string;
+  trialEnd?: Date | null;
+  daysLeft?: number;
+}> {
   const subscription = await prisma.subscription.findUnique({
     where: { societyId },
   });
 
-  // Pas d'abonnement = periode d'essai implicite (nouveau compte)
-  if (!subscription) return { active: true };
-
-  if (subscription.status === "ACTIVE" || subscription.status === "TRIALING") {
-    return { active: true };
+  // Pas d'abonnement du tout = pas de société valide
+  if (!subscription) {
+    return {
+      active: false,
+      status: "NONE",
+      message: "Aucun abonnement trouvé. Veuillez souscrire un plan.",
+    };
   }
 
+  // Statuts actifs
+  if (subscription.status === "ACTIVE") {
+    return { active: true, status: "ACTIVE" };
+  }
+
+  // Essai en cours : vérifier si la date d'expiration est dépassée
+  if (subscription.status === "TRIALING") {
+    if (subscription.trialEnd && new Date() > subscription.trialEnd) {
+      // Trial expiré — basculer en CANCELED automatiquement
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: "CANCELED" },
+      });
+      return {
+        active: false,
+        status: "TRIAL_EXPIRED",
+        trialEnd: subscription.trialEnd,
+        message: "Votre période d'essai est terminée. Souscrivez un abonnement pour continuer.",
+      };
+    }
+    // Trial encore actif
+    const daysLeft = subscription.trialEnd
+      ? Math.max(0, Math.ceil((subscription.trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+      : null;
+    return {
+      active: true,
+      status: "TRIALING",
+      trialEnd: subscription.trialEnd,
+      daysLeft: daysLeft ?? undefined,
+    };
+  }
+
+  // Tous les autres statuts (CANCELED, PAST_DUE, UNPAID, INCOMPLETE)
   return {
     active: false,
-    message: "Votre abonnement n'est plus actif. Veuillez mettre a jour votre moyen de paiement.",
+    status: subscription.status,
+    message: subscription.status === "PAST_DUE"
+      ? "Votre paiement a échoué. Veuillez mettre à jour votre moyen de paiement."
+      : "Votre abonnement n'est plus actif. Souscrivez un plan pour continuer.",
   };
 }
 
