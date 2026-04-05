@@ -602,3 +602,72 @@ export async function inviteOrReinviteTenant(
     return { success: false, error: "Erreur lors de l'envoi de l'invitation" };
   }
 }
+
+// ============================================================
+// MIGRATION : Synchroniser les locataires existants vers Contacts
+// ============================================================
+
+export async function syncTenantsToContacts(
+  societyId: string
+): Promise<ActionResult<{ created: number; updated: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // Récupérer tous les locataires de la société
+    const tenants = await prisma.tenant.findMany({
+      where: { societyId },
+      include: { contact: true },
+    });
+
+    let created = 0;
+    let updated = 0;
+
+    for (const tenant of tenants) {
+      const name =
+        tenant.entityType === "PERSONNE_MORALE"
+          ? (tenant.companyName ?? "—")
+          : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—";
+
+      const contactData = {
+        contactType: "LOCATAIRE" as const,
+        name,
+        company: tenant.entityType === "PERSONNE_MORALE" ? (tenant.legalRepName ?? null) : null,
+        email: tenant.email,
+        phone: tenant.phone ?? null,
+        mobile: tenant.mobile ?? null,
+        isActive: tenant.isActive,
+      };
+
+      if (!tenant.contact) {
+        // Pas de fiche Contact associée → en créer une
+        await prisma.contact.create({
+          data: {
+            societyId,
+            tenantId: tenant.id,
+            ...contactData,
+          },
+        });
+        created++;
+      } else {
+        // Fiche Contact existante → mettre à jour
+        await prisma.contact.update({
+          where: { id: tenant.contact.id },
+          data: contactData,
+        });
+        updated++;
+      }
+    }
+
+    revalidatePath("/contacts");
+    revalidatePath("/locataires");
+
+    return { success: true, data: { created, updated } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[syncTenantsToContacts]", error);
+    return { success: false, error: "Erreur lors de la synchronisation" };
+  }
+}
