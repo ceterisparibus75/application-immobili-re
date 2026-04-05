@@ -30,6 +30,7 @@ interface SiretResult {
   postalCode: string;
   city: string;
   tvaNumber: string;
+  representantLegal: string;
 }
 
 export default function NouvelleSocietePage() {
@@ -56,6 +57,7 @@ export default function NouvelleSocietePage() {
     addressLine1: "",
     postalCode: "",
     city: "",
+    signatoryName: "",
   });
 
   // Form state for personne physique
@@ -106,6 +108,7 @@ export default function NouvelleSocietePage() {
       addressLine1: result.addressLine1,
       postalCode: result.postalCode,
       city: result.city,
+      signatoryName: result.representantLegal,
     });
     setShowResults(false);
     setSiretQuery("");
@@ -477,6 +480,8 @@ export default function NouvelleSocietePage() {
                   name="signatoryName"
                   placeholder="M. DUPONT Jean, Gérant"
                   maxLength={100}
+                  value={formValues.signatoryName}
+                  onChange={(e) => setFormValues(prev => ({ ...prev, signatoryName: e.target.value }))}
                 />
               </div>
             </div>

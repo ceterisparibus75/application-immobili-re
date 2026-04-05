@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     // L'API recherche-entreprises accepte SIRET, SIREN, ou nom
-    const apiUrl = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(query)}&page=1&per_page=5`;
+    const apiUrl = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(query)}&page=1&per_page=15`;
     const res = await fetch(apiUrl, {
       headers: { Accept: "application/json" },
       next: { revalidate: 3600 }, // Cache 1h
@@ -54,6 +54,27 @@ export async function GET(request: Request) {
       else if (nj.includes("sa ") || natureJuridique === "5599") legalForm = "SA";
       else if (nj.includes("snc")) legalForm = "SNC";
 
+      // Extraire le dirigeant principal (personne physique ou morale)
+      const dirigeants = (r.dirigeants ?? []) as Array<Record<string, unknown>>;
+      let representantLegal = "";
+      if (dirigeants.length > 0) {
+        const d = dirigeants[0];
+        if (d.nom) {
+          // Personne physique : "M. DUPONT Jean, Gérant"
+          const prenoms = (d.prenoms ?? "") as string;
+          const nom_d = (d.nom ?? "") as string;
+          const qualite = (d.qualite ?? "") as string;
+          representantLegal = `${prenoms} ${nom_d}`.trim();
+          if (qualite) representantLegal += `, ${qualite}`;
+        } else if (d.denomination) {
+          // Personne morale
+          const denomination = (d.denomination ?? "") as string;
+          const qualite = (d.qualite ?? "") as string;
+          representantLegal = denomination;
+          if (qualite) representantLegal += `, ${qualite}`;
+        }
+      }
+
       return {
         siret: siret ?? "",
         siren: (r.siren ?? "") as string,
@@ -64,6 +85,7 @@ export async function GET(request: Request) {
         postalCode: codePostal,
         city: ville,
         tvaNumber: (r.numero_tva_intra ?? "") as string,
+        representantLegal,
       };
     });
 
