@@ -92,6 +92,15 @@ function LoginForm() {
           "Se connecter"
         )}
       </Button>
+
+      <div className="mt-4 pt-4 border-t text-center">
+        <p className="text-sm text-muted-foreground">
+          Pas encore de compte ?{" "}
+          <Link href="/signup" className="text-primary font-medium hover:underline">
+            Créer un compte
+          </Link>
+        </p>
+      </div>
     </form>
   );
 }
