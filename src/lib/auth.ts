@@ -47,16 +47,40 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
           return null;
         }
 
-        const isPasswordValid = compareSync(password, user.passwordHash);
-        if (!isPasswordValid) {
+        // Vérifier le verrouillage de compte
+        if (user.lockedUntil && new Date() < user.lockedUntil) {
           return null;
         }
 
-        // Mettre a jour la date de derniere connexion
+        const isPasswordValid = compareSync(password, user.passwordHash);
+        if (!isPasswordValid) {
+          // Incrémenter les tentatives échouées et verrouiller si >= 5
+          try {
+            const newAttempts = (user.failedLoginAttempts ?? 0) + 1;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                failedLoginAttempts: newAttempts,
+                ...(newAttempts >= 5
+                  ? { lockedUntil: new Date(Date.now() + 15 * 60 * 1000) } // 15 min
+                  : {}),
+              },
+            });
+          } catch (err) {
+            console.error("[auth] update failedLoginAttempts error:", err);
+          }
+          return null;
+        }
+
+        // Login réussi : réinitialiser les compteurs
         try {
           await prisma.user.update({
             where: { id: user.id },
-            data: { lastLoginAt: new Date() },
+            data: {
+              lastLoginAt: new Date(),
+              failedLoginAttempts: 0,
+              lockedUntil: null,
+            },
           });
         } catch (err) {
           console.error("[auth] update lastLoginAt error:", err);

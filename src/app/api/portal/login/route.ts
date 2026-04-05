@@ -5,10 +5,25 @@ import { randomInt } from "crypto";
 import { createPortalSession } from "@/lib/portal-auth";
 import { portalLoginRequestSchema, portalLoginVerifySchema } from "@/validations/portal";
 import { sendPortalLoginCodeEmail } from "@/lib/email";
+import { getPortalRatelimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Rate limiting sur le portail (par IP)
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      "127.0.0.1";
+    const limiter = getPortalRatelimit();
+    const { success: rateLimitOk } = await limiter.limit(ip);
+    if (!rateLimitOk) {
+      return NextResponse.json(
+        { error: "Trop de tentatives. Réessayez dans quelques minutes." },
+        { status: 429 }
+      );
+    }
 
     // Si un code est fourni → étape 2 (vérification)
     if (body.code) {

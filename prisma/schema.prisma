@@ -410,6 +410,10 @@ model User {
   isActive      Boolean   @default(true)
   lastLoginAt   DateTime?
 
+  // Account lockout (verrouillage apres 5 tentatives echouees)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   // 2FA TOTP
   twoFactorEnabled       Boolean  @default(false)
   twoFactorSecret        String? // chiffre AES-256-GCM

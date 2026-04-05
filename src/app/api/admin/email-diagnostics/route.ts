@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/permissions";
 import { Resend } from "resend";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
+
+  try {
+    await requireSuperAdmin(session.user.id);
+  } catch {
+    return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
+  }
 
   const apiKey = process.env.RESEND_API_KEY;
   const emailFrom = process.env.EMAIL_FROM ?? "(non configure)";
@@ -101,6 +108,12 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
+
+  try {
+    await requireSuperAdmin(session.user.id);
+  } catch {
+    return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
+  }
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey)
