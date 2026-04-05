@@ -4,8 +4,28 @@ import { NextResponse } from "next/server";
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
 
+  // Pages auth (signup, login, forgot-password, reset-password)
+  // Si l'utilisateur est déjà connecté → rediriger vers /dashboard
+  const isAuthPage =
+    pathname.startsWith("/signup") ||
+    pathname === "/login" ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
+
+  if (isAuthPage && req.auth) {
+    const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
+    // Si 2FA requis et non vérifié, laisser passer vers login/two-factor
+    if (authData.requires2FA && !authData.twoFactorVerified) {
+      if (pathname === "/login" || pathname.startsWith("/login/two-factor")) {
+        return NextResponse.next();
+      }
+    }
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
   // Routes publiques - pas de verification
   if (
+    isAuthPage ||
     pathname.startsWith("/locaux") ||
     (pathname === "/contact" || pathname.startsWith("/contact/")) ||
     pathname.startsWith("/mentions-legales") ||
@@ -15,9 +35,6 @@ export default auth(async (req) => {
     pathname.startsWith("/dpa") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/aide") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
@@ -35,19 +52,6 @@ export default auth(async (req) => {
 
   // Portail locataire - auth geree par JWT portail, pas NextAuth
   if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
-    return NextResponse.next();
-  }
-
-  // Pages de login - rediriger si deja connecte (sauf si 2FA requis)
-  if (pathname === "/login" || pathname === "/forgot-password") {
-    if (req.auth) {
-      const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
-      // Si 2FA requis, laisser passer pour ne pas bloquer le flux
-      if (authData.requires2FA && !authData.twoFactorVerified) {
-        return NextResponse.next();
-      }
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
     return NextResponse.next();
   }
 
