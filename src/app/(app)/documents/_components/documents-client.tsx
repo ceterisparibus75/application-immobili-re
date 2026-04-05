@@ -825,7 +825,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
 
   return (
     <div className="flex rounded-xl overflow-hidden bg-white shadow-brand" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
-      <div className="hidden md:flex flex-col w-56 shrink-0 border-r border-gray-100 overflow-y-auto bg-[#FAFBFC]">
+      <div className="hidden md:flex flex-col w-64 shrink-0 border-r border-gray-100 overflow-y-auto bg-[#FAFBFC]">
         <div className="flex-1 overflow-y-auto">
           <TreeSidebar tree={tree} selected={selectedFolder} onSelect={(k) => { setSelectedFolder(k); setSelectedDoc(null); }} />
         </div>
