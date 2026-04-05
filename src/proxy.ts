@@ -134,7 +134,14 @@ export default auth(async (req) => {
   ].join("; ");
 
   // Injecter les headers dans la reponse
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+  if (activeSocietyId) {
+    requestHeaders.set("x-society-id", activeSocietyId);
+  }
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   if (activeSocietyId) {
     response.headers.set("x-society-id", activeSocietyId);
   }

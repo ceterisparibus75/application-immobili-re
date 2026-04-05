@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getSocieties } from "@/actions/society";
 import { SocietyProvider } from "@/providers/society-provider";
 import { TopNav } from "@/components/layout/top-nav";
@@ -19,12 +20,12 @@ export default async function AppLayout({
   const societies = await getSocieties();
 
   if (societies.length === 0) {
-    const { headers: nextHeaders } = await import("next/headers");
-    const h = await nextHeaders();
-    const pathname = h.get("x-pathname") ?? "";
-    const isSetup = pathname.startsWith("/proprietaire/setup") || pathname.startsWith("/societes/nouvelle");
+    const h = await headers();
+    const pathname = h.get("x-pathname") ?? h.get("x-invoke-path") ?? "";
+    const isSetup =
+      pathname.startsWith("/proprietaire/setup") ||
+      pathname.startsWith("/societes/nouvelle");
     if (!isSetup) {
-      const { redirect } = await import("next/navigation");
       redirect("/proprietaire/setup");
     }
   }
