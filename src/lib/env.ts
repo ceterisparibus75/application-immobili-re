@@ -28,6 +28,10 @@ const envSchema = z.object({
   STRIPE_PRICE_ENTERPRISE_YEARLY: z.string().optional(),
 });
 
+const isBuildPhase =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.argv.some((a) => a === "build" || a.endsWith("/next") || a.includes("next build"));
+
 function validateEnv() {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
@@ -35,7 +39,7 @@ function validateEnv() {
       .map((i) => "  - " + i.path.join(".") + ": " + i.message)
       .join(", ");
     console.error("[env] Variables invalides: " + issues);
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && !isBuildPhase) {
       throw new Error("Variables invalides — demarrage annule");
     }
   }
