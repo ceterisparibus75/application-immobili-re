@@ -31,6 +31,7 @@ interface SubscriptionData {
   cancelAt: string | null;
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
+  hasStripeCustomer: boolean;
 }
 
 export default function AbonnementPage() {
@@ -164,11 +165,13 @@ export default function AbonnementPage() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={actionLoading}>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Gérer la facturation
-              <ExternalLink className="h-3 w-3 ml-1" />
-            </Button>
+            {subscription?.hasStripeCustomer && (
+              <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={actionLoading}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Gérer la facturation
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            )}
             {subscription?.status === "ACTIVE" && !subscription.cancelAt && (
               <Button variant="ghost" size="sm" onClick={handleCancel} disabled={actionLoading} className="text-destructive hover:text-destructive">
                 Annuler l&apos;abonnement

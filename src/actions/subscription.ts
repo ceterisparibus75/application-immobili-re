@@ -19,6 +19,7 @@ export async function getSubscription(
   cancelAt: string | null;
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
+  hasStripeCustomer: boolean;
 }>> {
   try {
     const session = await auth();
@@ -47,6 +48,7 @@ export async function getSubscription(
           maxSocieties: plan.maxSocieties,
           maxUsers: plan.maxUsers,
         },
+        hasStripeCustomer: !!subscription?.stripeCustomerId,
       },
     };
   } catch (error) {
