@@ -78,12 +78,9 @@ export function Sidebar() {
     <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:fixed lg:inset-y-0 bg-sidebar border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/20">
-          <Building2 className="h-4.5 w-4.5 text-primary-foreground" />
-        </div>
-        <Link href="/proprietaire">
-          <span className="font-bold text-sm text-sidebar-foreground tracking-tight">Propriétaire</span>
-          <span className="block text-[10px] text-sidebar-muted font-medium -mt-0.5">Gestion immobilière</span>
+        <Link href="/proprietaire" className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-8" />
         </Link>
       </div>
 

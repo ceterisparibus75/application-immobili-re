@@ -56,10 +56,8 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
       <div className="fixed inset-y-0 left-0 w-72 flex flex-col bg-sidebar border-r border-sidebar-border animate-slide-in-left">
         <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm shadow-primary/20">
-              <Building2 className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-sm text-sidebar-foreground">Propriétaire</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mygestia.svg" alt="MyGestia" className="h-7" />
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent">
             <X className="h-4 w-4" />

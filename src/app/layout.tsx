@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "MyGestia",
   },
-  themeColor: "#6347d6",
+  themeColor: "#1B4F8A",
   viewport: {
     width: "device-width",
     initialScale: 1,

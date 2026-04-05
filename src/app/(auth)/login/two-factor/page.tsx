@@ -45,8 +45,8 @@ export default function TwoFactorPage() {
   return (
     <>
       <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
-        <Building2 className="h-8 w-8 text-primary" />
-        <span className="text-2xl font-bold">MyGestia</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-mygestia.svg" alt="MyGestia" className="h-9" />
       </div>
       <Card>
         <CardHeader>

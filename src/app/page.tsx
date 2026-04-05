@@ -222,36 +222,34 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* ─── Navbar ─── */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-white/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Building2 className="h-4.5 w-4.5 text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">{APP_NAME}</span>
+          <Link href="/" className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" />
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm">
-            <a href="#fonctionnalites" className="text-muted-foreground hover:text-foreground transition-colors">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+            <a href="#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
               Fonctionnalités
             </a>
-            <a href="#tarifs" className="text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#tarifs" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
               Tarifs
             </a>
-            <a href="#temoignages" className="text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#temoignages" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
               Témoignages
             </a>
-            <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/contact" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
               Contact
             </Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="text-[var(--color-brand-deep)] font-semibold">
                 Se connecter
               </Button>
             </Link>
             <Link href="/signup">
-              <Button size="sm" className="gap-1.5">
+              <Button size="sm" className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
                 Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
@@ -260,42 +258,42 @@ export default function HomePage() {
       </header>
 
       {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,hsl(var(--primary)/0.15),transparent)]" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
+      <section className="relative overflow-hidden bg-white">
+        {/* Subtle radial glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(27,79,138,0.08),transparent)]" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[var(--color-brand-cyan)]/[0.04] rounded-full blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32">
           <div className="max-w-4xl mx-auto text-center">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-semibold px-5 py-2 rounded-full mb-8 ring-1 ring-primary/20">
+            <div className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full mb-8 ring-1 ring-[var(--color-brand-cyan)]/20">
               <Sparkles className="h-4 w-4" />
               Conçu par un multipropriétaire, pour les multipropriétaires
             </div>
 
             {/* Headline */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] mb-6">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 text-[var(--color-brand-deep)]">
               Gérez vos biens.
               <br />
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              <span className="text-brand-gradient">
                 Pas la paperasse.
               </span>
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-              Né du terrain, pensé par un multipropriétaire qui connaît vos défis. Patrimoine, baux, facturation, comptabilité, banque — <strong className="text-foreground">tout est centralisé</strong> dans un seul outil moderne et sécurisé.
+              Né du terrain, pensé par un multipropriétaire qui connaît vos défis. Patrimoine, baux, facturation, comptabilité, banque — <strong className="text-[var(--color-brand-deep)]">tout est centralisé</strong> dans un seul outil moderne et sécurisé.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
               <Link href="/signup">
-                <Button size="lg" className="w-full sm:w-auto text-base px-8 h-13 gap-2 shadow-lg shadow-primary/25">
+                <Button size="lg" className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg shadow-brand-lg">
                   Démarrer gratuitement
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="#fonctionnalites">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8 h-13">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8 h-13 rounded-lg border-[var(--color-brand-blue)]/20 text-[var(--color-brand-deep)] hover:bg-[var(--color-brand-light)]">
                   Découvrir les fonctionnalités
                 </Button>
               </Link>
@@ -307,10 +305,10 @@ export default function HomePage() {
 
           {/* Stats bar */}
           <div className="mt-20 max-w-4xl mx-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-card border rounded-2xl p-8 shadow-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-white border border-border/60 rounded-xl p-8 shadow-brand">
               {stats.map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <p className="text-3xl sm:text-4xl font-extrabold text-primary">{stat.value}</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-brand-gradient">{stat.value}</p>
                   <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
                 </div>
               ))}
@@ -320,34 +318,34 @@ export default function HomePage() {
       </section>
 
       {/* ─── Social Proof Banner ─── */}
-      <section className="border-y bg-muted/40 py-5">
+      <section className="border-y border-border/60 bg-white py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-muted-foreground font-medium">
             <span className="flex items-center gap-2">
-              <BadgeCheck className="h-4 w-4 text-primary" /> Conforme RGPD
+              <BadgeCheck className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Conforme RGPD
             </span>
             <span className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-primary" /> Chiffrement AES-256
+              <Lock className="h-4 w-4 text-[var(--color-brand-blue)]" /> Chiffrement AES-256
             </span>
             <span className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-primary" /> Hébergé en Europe
+              <Globe className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Hébergé en Europe
             </span>
             <span className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" /> Support réactif
+              <Zap className="h-4 w-4 text-[var(--color-brand-blue)]" /> Support réactif
             </span>
             <span className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" /> Uptime 99,9%
+              <Clock className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Uptime 99,9%
             </span>
           </div>
         </div>
       </section>
 
       {/* ─── Features Grid ─── */}
-      <section id="fonctionnalites" className="py-24 sm:py-32">
+      <section id="fonctionnalites" className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Fonctionnalités</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-5">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Fonctionnalités</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
               Tout ce dont vous avez besoin
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -358,12 +356,12 @@ export default function HomePage() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="group relative rounded-2xl border bg-card p-8 hover:border-primary/40 hover:shadow-xl transition-all duration-300"
+                className="group relative rounded-xl border border-border/60 bg-white p-8 shadow-brand hover:shadow-brand-lg hover:border-[var(--color-brand-cyan)]/30 transition-all duration-300"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-5 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-gradient-soft text-white mb-5 group-hover:scale-105 transition-transform duration-300">
                   <feature.icon className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
+                <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>
@@ -374,16 +372,16 @@ export default function HomePage() {
       </section>
 
       {/* ─── Highlights Banner ─── */}
-      <section className="py-16 bg-primary/[0.03] border-y">
+      <section className="py-16 bg-white border-y border-border/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-8">
             {highlights.map((h) => (
               <div key={h.title} className="flex items-start gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white flex-shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-gradient text-white flex-shrink-0">
                   <h.icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold mb-1">{h.title}</h3>
+                  <h3 className="font-semibold text-[var(--color-brand-deep)] mb-1">{h.title}</h3>
                   <p className="text-sm text-muted-foreground">{h.description}</p>
                 </div>
               </div>
@@ -393,11 +391,11 @@ export default function HomePage() {
       </section>
 
       {/* ─── How it works ─── */}
-      <section className="py-24 sm:py-32">
+      <section className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Démarrage rapide</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-5">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Démarrage rapide</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
               Prêt en 3 étapes
             </h2>
             <p className="text-lg text-muted-foreground">
@@ -408,12 +406,12 @@ export default function HomePage() {
             {steps.map((item, i) => (
               <div key={item.step} className="relative text-center">
                 {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] border-t-2 border-dashed border-primary/20" />
+                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] border-t-2 border-dashed border-[var(--color-brand-cyan)]/30" />
                 )}
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-white text-3xl font-extrabold mb-6 shadow-lg shadow-primary/20">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-xl bg-brand-gradient text-white text-3xl font-bold mb-6 shadow-brand-lg">
                   {item.step}
                 </div>
-                <h3 className="text-lg font-bold mb-2">{item.title}</h3>
+                <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">{item.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {item.description}
                 </p>
@@ -422,7 +420,7 @@ export default function HomePage() {
           </div>
           <div className="text-center mt-12">
             <Link href="/signup">
-              <Button size="lg" className="gap-2 shadow-lg shadow-primary/25">
+              <Button size="lg" className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg shadow-brand-lg">
                 Commencer maintenant <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -431,11 +429,11 @@ export default function HomePage() {
       </section>
 
       {/* ─── Pricing ─── */}
-      <section id="tarifs" className="py-24 sm:py-32 bg-muted/30">
+      <section id="tarifs" className="py-24 sm:py-32 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Tarifs</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-5">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Tarifs</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
               Des tarifs simples et transparents
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -447,20 +445,20 @@ export default function HomePage() {
             {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`rounded-2xl border p-8 flex flex-col bg-card transition-all duration-300 ${
+                className={`rounded-xl border p-8 flex flex-col bg-white transition-all duration-300 ${
                   plan.highlighted
-                    ? "border-primary shadow-2xl ring-2 ring-primary relative md:-mt-4 md:mb-4"
-                    : "border-border hover:shadow-lg hover:border-primary/20"
+                    ? "border-[var(--color-brand-cyan)] shadow-brand-lg ring-2 ring-[var(--color-brand-cyan)]/30 relative md:-mt-4 md:mb-4"
+                    : "border-border/60 shadow-brand hover:shadow-brand-lg"
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-5 py-1.5 rounded-full shadow-lg">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand-gradient-soft text-white text-xs font-bold px-5 py-1.5 rounded-full shadow-brand">
                     Le plus populaire
                   </div>
                 )}
 
                 <div className="mb-6">
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <h3 className="text-xl font-bold text-[var(--color-brand-deep)]">{plan.name}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {plan.description}
                   </p>
@@ -468,18 +466,18 @@ export default function HomePage() {
 
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-5xl font-extrabold">{plan.price}</span>
+                    <span className="text-5xl font-bold text-[var(--color-brand-deep)]">{plan.price}</span>
                     <span className="text-xl font-semibold text-muted-foreground">&euro;/mois</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     ou {plan.priceYearly}&euro;/an{" "}
-                    <span className="text-primary font-semibold">
+                    <span className="text-[var(--color-brand-cyan)] font-semibold">
                       (-{Math.round((1 - plan.priceYearly / (plan.price * 12)) * 100)}%)
                     </span>
                   </p>
                 </div>
 
-                <p className="text-xs font-semibold text-muted-foreground mb-5 pb-5 border-b">
+                <p className="text-xs font-semibold text-muted-foreground mb-5 pb-5 border-b border-border/60">
                   {plan.limits}
                 </p>
 
@@ -489,7 +487,7 @@ export default function HomePage() {
                       key={feature}
                       className="flex items-start gap-2.5 text-sm"
                     >
-                      <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <Check className="h-4 w-4 text-[var(--color-brand-cyan)] mt-0.5 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -497,7 +495,11 @@ export default function HomePage() {
 
                 <Link href={plan.name === "Enterprise" ? "/contact" : `/signup?plan=${plan.name.toLowerCase()}`} className="block">
                   <Button
-                    className={`w-full h-12 text-sm font-semibold ${plan.highlighted ? "shadow-lg shadow-primary/25" : ""}`}
+                    className={`w-full h-12 text-sm font-semibold rounded-lg ${
+                      plan.highlighted
+                        ? "bg-brand-gradient-soft hover:opacity-90 text-white shadow-brand"
+                        : "border-[var(--color-brand-blue)]/20 text-[var(--color-brand-deep)] hover:bg-[var(--color-brand-light)]"
+                    }`}
                     variant={plan.highlighted ? "default" : "outline"}
                   >
                     {plan.name === "Enterprise"
@@ -513,11 +515,11 @@ export default function HomePage() {
       </section>
 
       {/* ─── Testimonials ─── */}
-      <section id="temoignages" className="py-24 sm:py-32">
+      <section id="temoignages" className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Témoignages</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-5">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Témoignages</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
               Ils nous font confiance
             </h2>
             <p className="text-lg text-muted-foreground">
@@ -528,7 +530,7 @@ export default function HomePage() {
             {testimonials.map((t) => (
               <div
                 key={t.name}
-                className="rounded-2xl border bg-card p-8 hover:shadow-lg transition-shadow"
+                className="rounded-xl border border-border/60 bg-white p-8 shadow-brand hover:shadow-brand-lg transition-shadow"
               >
                 <div className="flex gap-0.5 mb-5">
                   {Array.from({ length: t.rating }).map((_, i) => (
@@ -541,8 +543,8 @@ export default function HomePage() {
                 <p className="text-sm leading-relaxed mb-6">
                   &ldquo;{t.text}&rdquo;
                 </p>
-                <div className="pt-4 border-t">
-                  <p className="font-bold text-sm">{t.name}</p>
+                <div className="pt-4 border-t border-border/60">
+                  <p className="font-semibold text-sm text-[var(--color-brand-deep)]">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.role}</p>
                 </div>
               </div>
@@ -552,18 +554,18 @@ export default function HomePage() {
       </section>
 
       {/* ─── FAQ ─── */}
-      <section className="py-24 sm:py-32 bg-muted/30">
+      <section className="py-24 sm:py-32 bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">FAQ</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold mb-5">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-brand-deep)] mb-5">
               Questions fréquentes
             </h2>
           </div>
           <div className="space-y-0">
             {faqs.map((faq) => (
-              <div key={faq.q} className="border-b last:border-b-0 py-6">
-                <h3 className="font-bold mb-2 text-base">{faq.q}</h3>
+              <div key={faq.q} className="border-b border-border/60 last:border-b-0 py-6">
+                <h3 className="font-semibold text-[var(--color-brand-deep)] mb-2 text-base">{faq.q}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {faq.a}
                 </p>
@@ -575,12 +577,11 @@ export default function HomePage() {
 
       {/* ─── Final CTA ─── */}
       <section className="relative overflow-hidden py-24 sm:py-32">
-        {/* Gradient background instead of flat primary */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,white/10,transparent)]" />
+        <div className="absolute inset-0 bg-brand-gradient" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.08),transparent)]" />
 
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-5 text-white">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-5 text-white">
             Prêt à simplifier votre gestion ?
           </h2>
           <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto leading-relaxed">
@@ -590,7 +591,7 @@ export default function HomePage() {
             <Link href="/signup">
               <Button
                 size="lg"
-                className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-white text-primary hover:bg-white/90 font-bold shadow-xl"
+                className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-white text-[var(--color-brand-deep)] hover:bg-white/90 font-bold rounded-lg shadow-xl"
               >
                 Commencer gratuitement
                 <ArrowRight className="h-4 w-4" />
@@ -599,7 +600,7 @@ export default function HomePage() {
             <Link href="/contact">
               <Button
                 size="lg"
-                className="w-full sm:w-auto text-base px-8 h-13 bg-white/15 text-white hover:bg-white/25 font-bold border-2 border-white/30"
+                className="w-full sm:w-auto text-base px-8 h-13 bg-white/15 text-white hover:bg-white/25 font-bold border-2 border-white/30 rounded-lg"
               >
                 Contacter l&apos;équipe
               </Button>
@@ -609,15 +610,13 @@ export default function HomePage() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t py-16 bg-background">
+      <footer className="border-t border-border/60 py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                  <Building2 className="h-4.5 w-4.5 text-white" />
-                </div>
-                <span className="font-bold text-lg">{APP_NAME}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 La plateforme SaaS de gestion immobilière pour les professionnels et les SCI.
