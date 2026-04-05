@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import QRCode from "qrcode";
 import { encrypt, decrypt } from "@/lib/encryption";
 
-const ISSUER = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+const ISSUER = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 /**
  * Genere un nouveau secret TOTP (base32).

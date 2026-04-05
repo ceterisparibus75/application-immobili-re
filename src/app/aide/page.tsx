@@ -1,7 +1,7 @@
 import { Building2, BookOpen, Mail, Shield, CreditCard, FileText, Users, BarChart3, Banknote, HelpCircle } from "lucide-react";
 import Link from "next/link";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata = {
   title: `Centre d'aide | ${APP_NAME}`,
@@ -108,7 +108,7 @@ const faqs = [
   },
   {
     q: "Comment contacter le support ?",
-    a: "Envoyez-nous un email a contact@mtggroupe.org. Les clients Enterprise beneficient d'un support prioritaire avec un temps de reponse garanti.",
+    a: "Envoyez-nous un email a contact@mygestia.immo. Les clients Enterprise beneficient d'un support prioritaire avec un temps de reponse garanti.",
   },
 ];
 
@@ -199,10 +199,10 @@ export default function AidePage() {
               Nous contacter
             </Link>
             <a
-              href="mailto:contact@mtggroupe.org"
+              href="mailto:contact@mygestia.immo"
               className="border px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-accent"
             >
-              contact@mtggroupe.org
+              contact@mygestia.immo
             </a>
           </div>
         </section>

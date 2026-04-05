@@ -46,7 +46,7 @@ export default function TwoFactorPage() {
     <>
       <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
         <Building2 className="h-8 w-8 text-primary" />
-        <span className="text-2xl font-bold">GestImmo</span>
+        <span className="text-2xl font-bold">MyGestia</span>
       </div>
       <Card>
         <CardHeader>

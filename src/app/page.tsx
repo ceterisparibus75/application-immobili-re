@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { Metadata } from "next";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata: Metadata = {
   title: `${APP_NAME} — Gestion immobiliere SaaS`,
@@ -23,7 +23,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">GestImmo</span>
+            <span className="font-bold text-lg">MyGestia</span>
           </div>
           <nav className="flex items-center gap-6">
             <Link
@@ -101,7 +101,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Building2 className="h-5 w-5 text-primary" />
-                <span className="font-bold">GestImmo</span>
+                <span className="font-bold">MyGestia</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-xs">
                 Gestion de patrimoine immobilier commercial

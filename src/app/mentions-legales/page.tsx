@@ -2,7 +2,7 @@ import { Building2 } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Mentions légales | GestImmo",
+  title: "Mentions légales | MyGestia",
 };
 
 export default function MentionsLegalesPage() {
@@ -12,7 +12,7 @@ export default function MentionsLegalesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">GestImmo</span>
+            <span className="font-bold text-lg">MyGestia</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/locaux" className="text-muted-foreground hover:text-foreground">Locaux disponibles</Link>
@@ -29,16 +29,16 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-semibold mb-4">1. Éditeur du site</h2>
             <p className="text-muted-foreground">Le présent site est édité par :</p>
             <div className="mt-3 space-y-1 text-muted-foreground">
-              <p><strong className="text-foreground">Raison sociale :</strong> MTG Groupe</p>
+              <p><strong className="text-foreground">Raison sociale :</strong> MyGestia</p>
               <p><strong className="text-foreground">Forme juridique :</strong> SAS</p>
               <p><strong className="text-foreground">Siège social :</strong> France</p>
-              <p><strong className="text-foreground">Email :</strong> contact@mtggroupe.org</p>
+              <p><strong className="text-foreground">Email :</strong> contact@mygestia.immo</p>
             </div>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-4">2. Directeur de publication</h2>
-            <p className="text-muted-foreground">Le directeur de publication est le représentant légal de MTG Groupe.</p>
+            <p className="text-muted-foreground">Le directeur de publication est le représentant légal de MyGestia.</p>
           </section>
 
           <section>
@@ -54,7 +54,7 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-semibold mb-4">4. Propriété intellectuelle</h2>
             <p className="text-muted-foreground">
               L&apos;ensemble des contenus présents sur ce site (textes, images, graphismes, logo, icônes) est la propriété exclusive
-              de MTG Groupe et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
+              de MyGestia et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
               Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.
             </p>
           </section>
@@ -62,8 +62,8 @@ export default function MentionsLegalesPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">5. Responsabilité</h2>
             <p className="text-muted-foreground">
-              MTG Groupe s&apos;efforce de fournir des informations exactes et à jour. Toutefois, nous ne garantissons pas l&apos;exactitude,
-              la complétude ou la pertinence des informations diffusées sur ce site. MTG Groupe ne saurait être tenu responsable
+              MyGestia s&apos;efforce de fournir des informations exactes et à jour. Toutefois, nous ne garantissons pas l&apos;exactitude,
+              la complétude ou la pertinence des informations diffusées sur ce site. MyGestia ne saurait être tenu responsable
               des dommages directs ou indirects résultant de l&apos;utilisation de ce site.
             </p>
           </section>
@@ -80,7 +80,7 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-semibold mb-4">7. Contact</h2>
             <p className="text-muted-foreground">
               Pour toute question relative aux mentions légales, vous pouvez nous contacter à :
-              <strong className="text-foreground"> contact@mtggroupe.org</strong>
+              <strong className="text-foreground"> contact@mygestia.immo</strong>
             </p>
           </section>
         </div>
@@ -88,7 +88,7 @@ export default function MentionsLegalesPage() {
 
       <footer className="border-t py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} MTG Groupe. Tous droits réservés.</p>
+          <p>© {new Date().getFullYear()} MyGestia. Tous droits réservés.</p>
           <div className="flex gap-4">
             <Link href="/mentions-legales" className="hover:text-foreground">Mentions légales</Link>
             <Link href="/politique-confidentialite" className="hover:text-foreground">Confidentialité</Link>
