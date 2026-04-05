@@ -90,7 +90,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0]?.price?.id ?? null;
-  const planId = priceId ? planIdFromPriceId(priceId) : null;
+  const planId = (priceId ? planIdFromPriceId(priceId) : null)
+    ?? (subscription.metadata?.planId as "STARTER" | "PRO" | "ENTERPRISE" | undefined)
+    ?? null;
   const period = getItemPeriod(subscription);
 
   await prisma.subscription.upsert({
@@ -176,7 +178,9 @@ async function updateSubscriptionFromStripe(
   subscription: Stripe.Subscription
 ) {
   const priceId = subscription.items.data[0]?.price?.id ?? null;
-  const planId = priceId ? planIdFromPriceId(priceId) : null;
+  const planId = (priceId ? planIdFromPriceId(priceId) : null)
+    ?? (subscription.metadata?.planId as "STARTER" | "PRO" | "ENTERPRISE" | undefined)
+    ?? null;
   const period = getItemPeriod(subscription);
 
   await prisma.subscription.upsert({

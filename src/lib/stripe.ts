@@ -102,6 +102,7 @@ export async function createCheckoutSession(params: {
   societyId: string;
   userId: string;
   priceId: string;
+  planId: string;
   successUrl: string;
   cancelUrl: string;
   trialDays?: number;
@@ -117,11 +118,13 @@ export async function createCheckoutSession(params: {
       metadata: {
         societyId: params.societyId,
         userId: params.userId,
+        planId: params.planId,
       },
     },
     metadata: {
       societyId: params.societyId,
       userId: params.userId,
+      planId: params.planId,
     },
     allow_promotion_codes: true,
   });

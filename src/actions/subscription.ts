@@ -31,7 +31,10 @@ async function syncFromStripeIfNeeded(subscription: {
   try {
     const stripeSub = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
     const priceId = stripeSub.items.data[0]?.price?.id ?? null;
-    const resolvedPlanId = priceId ? planIdFromPriceId(priceId) : null;
+    // Essayer de résoudre via price ID, sinon via metadata Stripe
+    const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
+      ?? (stripeSub.metadata?.planId as PlanId | undefined)
+      ?? null;
 
     const statusMap: Record<string, string> = {
       trialing: "TRIALING",
@@ -61,8 +64,8 @@ async function syncFromStripeIfNeeded(subscription: {
       await prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          planId: resolvedPlanId ?? subscription.planId,
-          status: mappedStatus,
+          planId: (resolvedPlanId ?? subscription.planId) as "STARTER" | "PRO" | "ENTERPRISE",
+          status: mappedStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
           stripePriceId: priceId,
           currentPeriodEnd: periodEnd,
           trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
@@ -116,7 +119,7 @@ export async function getSubscription(
 
     // Si une souscription Stripe existe, vérifier la sync
     let planId: PlanId = (subscription?.planId ?? "STARTER") as PlanId;
-    let status = subscription?.status ?? "TRIALING";
+    let status: string = subscription?.status ?? "TRIALING";
     let currentPeriodEnd = subscription?.currentPeriodEnd ?? null;
     let trialEnd = subscription?.trialEnd ?? null;
     let cancelAt = subscription?.cancelAt ?? null;
@@ -184,6 +187,7 @@ export async function createCheckout(
       societyId,
       userId: session.user.id,
       priceId,
+      planId,
       successUrl: `${baseUrl}/compte/abonnement?success=true`,
       cancelUrl: `${baseUrl}/compte/abonnement?canceled=true`,
     });
