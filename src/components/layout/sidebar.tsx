@@ -80,7 +80,7 @@ export function Sidebar() {
       <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
         <Link href="/proprietaire" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-8" />
+          <img src="/logo-mygestia.png" alt="MyGestia" className="h-8" />
         </Link>
       </div>
 

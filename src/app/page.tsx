@@ -226,7 +226,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" />
+            <img src="/logo-mygestia.png" alt={APP_NAME} className="h-9" />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
             <a href="#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
@@ -616,7 +616,7 @@ export default function HomePage() {
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" />
+                <img src="/logo-mygestia.png" alt={APP_NAME} className="h-8" />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 La plateforme SaaS de gestion immobilière pour les professionnels et les SCI.
