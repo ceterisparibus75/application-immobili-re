@@ -24,6 +24,10 @@ npm test -- src/actions/invoice.test.ts  # Lancer un seul fichier de test
 npm run test:watch         # Mode watch
 npm run test:coverage      # Avec rapport de couverture
 
+# Tests E2E (Playwright)
+npm run test:e2e           # Lancer les tests E2E
+npm run test:e2e:ui        # Mode UI interactif
+
 # Base de données
 npm run db:generate        # Régénérer le client Prisma après modif du schéma
 npm run db:push            # Appliquer le schéma sans migration (dev)
@@ -32,7 +36,7 @@ npm run db:seed            # Seeder la base (tsx prisma/seed.ts)
 npm run db:studio          # Ouvrir Prisma Studio
 ```
 
-**Note :** Le client Prisma est généré dans `src/generated/prisma/client` (pas le chemin par défaut). Toujours lancer `npm run db:generate` après modification du schéma.
+**Note :** Le client Prisma est généré dans `src/generated/prisma/client` (pas le chemin par défaut). Toujours lancer `npm run db:generate` après modification du schéma. `npm run build` exécute automatiquement `prisma generate` avant `next build`.
 
 ## Architecture
 
@@ -270,7 +274,7 @@ Configuré dans `sentry.*.config.ts` et `instrumentation.ts`. Actif uniquement e
 
 ## Tests (Vitest)
 
-Configuration dans `vitest.config.ts`. Setup file : `src/test/setup.ts`. Couverture sur `src/lib/**`, `src/actions/**`, `src/validations/**`.
+Configuration dans `vitest.config.ts`. Setup file : `src/test/setup.ts`. Couverture sur `src/lib/**`, `src/actions/**`, `src/validations/**`. Les tests E2E Playwright sont dans `e2e/` et exclus de Vitest.
 
 ## Tailwind CSS v4
 
