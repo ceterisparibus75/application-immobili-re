@@ -11,17 +11,6 @@ function getInitials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-const AVATAR_COLORS = [
-  "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-orange-500",
-  "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-indigo-500",
-];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
 export function SocietySwitcher() {
   const { societies, activeSociety, setActiveSociety } = useSociety();
   const router = useRouter();
@@ -51,25 +40,26 @@ export function SocietySwitcher() {
         onClick={() => canSwitch && setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors text-left",
-          canSwitch ? "hover:bg-sidebar-accent cursor-pointer" : "cursor-default",
+          canSwitch ? "hover:bg-[#F0F9FF] cursor-pointer" : "cursor-default",
         )}
       >
-        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white text-[10px] font-bold select-none shadow-sm", avatarColor(activeSociety.name))}>
+        {/* Avatar actif : dégradé brand */}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white text-[10px] font-bold select-none bg-brand-gradient-soft">
           {getInitials(activeSociety.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold leading-tight truncate text-sidebar-foreground">{activeSociety.name}</p>
-          <p className="text-[10px] leading-tight text-sidebar-muted/60 truncate">{activeSociety.legalForm}</p>
+          <p className="text-xs font-semibold leading-tight truncate text-[#0C2340]">{activeSociety.name}</p>
+          <p className="text-[10px] leading-tight text-[#94A3B8] truncate">{activeSociety.legalForm}</p>
         </div>
         {canSwitch && (
-          <ChevronDown className={cn("h-3 w-3 text-sidebar-muted/50 shrink-0 transition-transform duration-150", open && "rotate-180")} />
+          <ChevronDown className={cn("h-3 w-3 text-[#94A3B8] shrink-0 transition-transform duration-150", open && "rotate-180")} />
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-card text-card-foreground shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-white shadow-[0_4px_24px_rgba(12,35,64,0.12)] z-50 overflow-hidden">
           <div className="p-1.5">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
               Changer de société
             </p>
             {societies.map((s) => {
@@ -78,27 +68,43 @@ export function SocietySwitcher() {
                 <button
                   key={s.id}
                   onClick={() => handleSwitch(s)}
-                  className={cn("flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors", isActive ? "bg-primary/10" : "hover:bg-accent")}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors",
+                    isActive ? "bg-[#F0F9FF]" : "hover:bg-[#F9FAFB]",
+                  )}
                 >
-                  <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white text-[10px] font-bold shadow-sm", avatarColor(s.name))}>
+                  {/* Avatar : gris neutre par défaut, dégradé brand si actif */}
+                  <div className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold select-none",
+                    isActive
+                      ? "bg-brand-gradient-soft text-white"
+                      : "bg-[#F3F4F6] text-[#0C2340]",
+                  )}>
                     {getInitials(s.name)}
                   </div>
                   <div className="flex-1 text-left min-w-0">
-                    <p className={cn("font-medium truncate leading-tight text-sm", isActive && "text-primary")}>{s.name}</p>
-                    <p className="text-xs text-muted-foreground leading-tight">{s.legalForm} · {s.city}</p>
+                    <p className={cn(
+                      "font-semibold truncate leading-tight text-sm",
+                      isActive ? "text-[#1B4F8A]" : "text-[#0C2340]",
+                    )}>{s.name}</p>
+                    <p className="text-[11px] text-[#94A3B8] leading-tight">{s.legalForm} · {s.city}</p>
                   </div>
-                  {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                  {isActive && (
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-gradient-soft">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
-          <div className="border-t p-1.5">
+          <div className="border-t border-[#F1F5F9] p-1.5">
             <Link
               href={`/societes/${activeSociety.id}/modifier`}
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-accent transition-colors"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#94A3B8] hover:bg-[#F9FAFB] hover:text-[#64748B] transition-colors"
             >
-              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+              <Settings className="h-3.5 w-3.5" />
               <span>Modifier la société</span>
             </Link>
           </div>
