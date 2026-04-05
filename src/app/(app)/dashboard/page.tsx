@@ -14,7 +14,6 @@ import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
-import { DashboardNotifications } from "@/components/dashboard/dashboard-notifications";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 
 export const metadata = { title: "Tableau de bord" };
@@ -206,70 +205,44 @@ export default async function DashboardPage() {
         {/* Colonne droite : Panneau de suivi (1/3) */}
         <div className="space-y-5">
           <TodayTasks societyId={societyId} />
-          <DashboardNotifications />
 
-          {/* Panneau de suivi style ORISHA */}
+          {/* Panneau de suivi complet */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Suivi</CardTitle>
-              <CardDescription>Points d&apos;attention</CardDescription>
+              <CardDescription>Vue complète de votre activité</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Facturation */}
+              {/* Patrimoine */}
               <div className="space-y-2.5">
-                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Facturation</h4>
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Patrimoine</h4>
                 <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Impayés</span>
+                  <span className="text-sm">Immeubles</span>
+                  <span className="text-sm font-semibold tabular-nums">{kpis.totalBuildings}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Lots (occupés / vacants)</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.totalOverdueAmount)}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.totalOverdueAmount > 0 ? "bg-red-500 shadow-[0_0_6px_rgb(239_68_68/0.5)]" : "bg-emerald-500"}`} />
+                    <span className="text-sm font-semibold tabular-nums">{kpis.occupiedLots} / {kpis.vacantLots}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.vacantLots === 0 ? "bg-emerald-500" : kpis.vacantLots <= 2 ? "bg-amber-500" : "bg-red-500"}`} />
                   </div>
                 </div>
                 <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Loyers mensuels HT</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.monthlyRentHT)}</span>
-                    <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Charges récup.</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.recoverableCharges)}</span>
-                    <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Baux */}
-              <div className="border-t pt-4 space-y-2.5">
-                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Baux</h4>
-                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Expirant sous 90j</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{kpis.expiringLeaseCount}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.expiringLeaseCount > 0 ? "bg-amber-500 shadow-[0_0_6px_rgb(245_158_11/0.5)]" : "bg-emerald-500"}`} />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Taux occupation</span>
+                  <span className="text-sm">Taux d&apos;occupation</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums">{kpis.occupancyRate}%</span>
                     <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.occupancyRate >= 80 ? "bg-emerald-500" : kpis.occupancyRate >= 50 ? "bg-amber-500" : "bg-red-500"}`} />
                   </div>
                 </div>
-              </div>
-
-              {/* Tresorerie */}
-              <div className="border-t pt-4 space-y-2.5">
-                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Trésorerie</h4>
-                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                  <span className="text-sm">Solde disponible</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.availableCash)}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.availableCash >= 0 ? "bg-emerald-500" : "bg-red-500 shadow-[0_0_6px_rgb(239_68_68/0.5)]"}`} />
+                {kpis.patrimonyValue > 0 && (
+                  <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                    <span className="text-sm">Valeur patrimoine</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums">{fmt(kpis.patrimonyValue)}</span>
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-violet-500" />
+                    </div>
                   </div>
-                </div>
+                )}
                 {kpis.grossYield !== null && (
                   <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
                     <span className="text-sm">Rendement brut</span>
@@ -281,10 +254,100 @@ export default async function DashboardPage() {
                 )}
               </div>
 
-              {/* Dette SCI */}
+              {/* Locataires & Baux */}
+              <div className="border-t pt-4 space-y-2.5">
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Locataires &amp; Baux</h4>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Locataires actifs</span>
+                  <span className="text-sm font-semibold tabular-nums">{kpis.totalTenants}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Baux en cours</span>
+                  <span className="text-sm font-semibold tabular-nums">{kpis.activeLeaseCount}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Baux expirant sous 90j</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{kpis.expiringLeaseCount}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.expiringLeaseCount > 0 ? "bg-amber-500 shadow-[0_0_6px_rgb(245_158_11/0.5)]" : "bg-emerald-500"}`} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Facturation */}
+              <div className="border-t pt-4 space-y-2.5">
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Facturation</h4>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Loyers mensuels HT</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.monthlyRentHT)}</span>
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Factures impayées</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{kpis.unpaidInvoiceCount}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.unpaidInvoiceCount > 0 ? "bg-red-500 shadow-[0_0_6px_rgb(239_68_68/0.5)]" : "bg-emerald-500"}`} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Montant impayé</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.totalOverdueAmount)}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.totalOverdueAmount > 0 ? "bg-red-500 shadow-[0_0_6px_rgb(239_68_68/0.5)]" : "bg-emerald-500"}`} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Charges récup.</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.recoverableCharges)}</span>
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Trésorerie */}
+              <div className="border-t pt-4 space-y-2.5">
+                <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Trésorerie</h4>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                  <span className="text-sm">Solde disponible</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums">{fmt(kpis.availableCash)}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.availableCash >= 0 ? "bg-emerald-500" : "bg-red-500 shadow-[0_0_6px_rgb(239_68_68/0.5)]"}`} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Technique */}
+              {(kpis.expiringDiagnosticCount > 0 || kpis.openMaintenanceCount > 0) && (
+                <div className="border-t pt-4 space-y-2.5">
+                  <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Technique</h4>
+                  {kpis.expiringDiagnosticCount > 0 && (
+                    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                      <span className="text-sm">Diagnostics expirant 90j</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums">{kpis.expiringDiagnosticCount}</span>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-amber-500 shadow-[0_0_6px_rgb(245_158_11/0.5)]" />
+                      </div>
+                    </div>
+                  )}
+                  {kpis.openMaintenanceCount > 0 && (
+                    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
+                      <span className="text-sm">Maintenances en cours</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums">{kpis.openMaintenanceCount}</span>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-amber-500" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dette */}
               {kpis.activeLoanCount > 0 && (
                 <div className="border-t pt-4 space-y-2.5">
-                  <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Dette SCI</h4>
+                  <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Endettement</h4>
                   <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
                     <span className="text-sm">Capital restant dû</span>
                     <div className="flex items-center gap-2">
@@ -301,26 +364,14 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
                     <span className="text-sm">Emprunts actifs</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold tabular-nums">{kpis.activeLoanCount}</span>
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-blue-500" />
-                    </div>
+                    <span className="text-sm font-semibold tabular-nums">{kpis.activeLoanCount}</span>
                   </div>
                   {kpis.ltv !== null && (
                     <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                      <span className="text-sm">LTV (Loan-to-Value)</span>
+                      <span className="text-sm">LTV</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-semibold tabular-nums ${kpis.ltv > 80 ? "text-destructive" : kpis.ltv > 60 ? "text-amber-600" : "text-emerald-600"}`}>{kpis.ltv}%</span>
                         <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${kpis.ltv > 80 ? "bg-red-500" : kpis.ltv > 60 ? "bg-amber-500" : "bg-emerald-500"}`} />
-                      </div>
-                    </div>
-                  )}
-                  {kpis.patrimonyValue > 0 && (
-                    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/40">
-                      <span className="text-sm">Valeur patrimoine</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold tabular-nums">{fmt(kpis.patrimonyValue)}</span>
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-violet-500" />
                       </div>
                     </div>
                   )}
