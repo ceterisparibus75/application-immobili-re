@@ -8,7 +8,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
 import React from "react";
 
 export const maxDuration = 60;
@@ -181,18 +181,33 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       sanitize(tenantName),
     ].filter(Boolean).join("_") + ".pdf";
 
-    const emailResult = await sendInvoiceEmail({
-      to,
-      tenantName,
-      invoiceRef: invoice.invoiceNumber,
-      amount: invoice.totalTTC,
-      dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
-      period,
-      societyName: soc?.name ?? "",
-      typeLabel,
-      items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
-      pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
-    });
+    const isQuittance = invoice.invoiceType === "QUITTANCE";
+
+    const emailResult = isQuittance
+      ? await sendReceiptEmail({
+          to,
+          tenantName,
+          invoiceRef: invoice.invoiceNumber,
+          amount: invoice.totalTTC,
+          period,
+          paidAt: invoice.payments[0]
+            ? new Date(invoice.payments[0].paidAt).toLocaleDateString("fr-FR")
+            : new Date().toLocaleDateString("fr-FR"),
+          societyName: soc?.name ?? "",
+          pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
+        })
+      : await sendInvoiceEmail({
+          to,
+          tenantName,
+          invoiceRef: invoice.invoiceNumber,
+          amount: invoice.totalTTC,
+          dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
+          period,
+          societyName: soc?.name ?? "",
+          typeLabel,
+          items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
+          pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
+        });
 
     if (!emailResult.success)
       return NextResponse.json({ error: { code: "EMAIL_ERROR", message: emailResult.error ?? "Erreur d'envoi" } }, { status: 500 });
@@ -202,7 +217,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       try {
         const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
         const year = new Date(invoice.issueDate).getFullYear();
-        const docStoragePath = `invoices/${societyId}/${year}/${pdfFileName}`;
+        const folder = isQuittance ? "quittances" : "invoices";
+        const docStoragePath = `${folder}/${societyId}/${year}/${pdfFileName}`;
 
         await supabase.storage
           .from(bucketName)
@@ -223,8 +239,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             storagePath: docStoragePath,
             fileSize: pdfBuffer.length,
             mimeType: "application/pdf",
-            category: "facture",
-            description: `Facture ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`,
+            category: isQuittance ? "quittance" : "facture",
+            description: isQuittance
+              ? `Quittance ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`
+              : `Facture ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`,
           },
         });
       } catch (docError) {

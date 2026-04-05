@@ -339,19 +339,22 @@ interface ReceiptEmailParams {
   period: string;
   paidAt: string;
   societyName: string;
+  pdfAttachment?: { filename: string; content: Buffer };
 }
 
 export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<EmailResult> {
   const content = `
     ${heading(`Quittance de loyer — ${params.period}`)}
     ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
-    ${para("Nous accusons réception de votre paiement et vous adressons votre quittance.")}
+    ${para("Nous accusons réception de votre paiement et vous adressons votre quittance de loyer.")}
     ${infoTable([
       { label: "Référence", value: params.invoiceRef },
       { label: "Période", value: params.period },
       { label: "Montant réglé", value: fmt(params.amount), bold: true },
       { label: "Date de paiement", value: params.paidAt },
+      { label: "Statut", value: badge("Payé", "default") },
     ])}
+    ${params.pdfAttachment ? para("Vous trouverez votre quittance en pièce jointe de cet email. Ce document est également disponible dans votre espace locataire.") : ""}
     ${para("Nous vous remercions de votre règlement.")}
     ${signature(params.societyName)}
   `;
@@ -359,7 +362,8 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
   return sendMail(
     params.to,
     `Quittance de loyer ${params.period} — ${params.invoiceRef}`,
-    baseTemplate(`Quittance de loyer ${params.period}`, content, { societyName: params.societyName })
+    baseTemplate(`Quittance de loyer ${params.period}`, content, { societyName: params.societyName }),
+    params.pdfAttachment ? [params.pdfAttachment] : undefined
   );
 }
 
