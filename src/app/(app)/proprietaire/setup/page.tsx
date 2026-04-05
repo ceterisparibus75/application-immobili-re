@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, ArrowRight, User, Briefcase } from "lucide-react";
+import { ArrowRight, User, Briefcase, LogOut } from "lucide-react";
 import { updateOwnerProfile } from "@/actions/owner";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 
 type OwnerType = null | "societe" | "physique";
@@ -68,6 +69,15 @@ export default function ProprietaireSetupPage() {
           <p className="text-muted-foreground text-sm">
             Renseignez vos informations personnelles pour commencer.
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+          >
+            <LogOut className="h-3.5 w-3.5 mr-1.5" />
+            Se déconnecter
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
