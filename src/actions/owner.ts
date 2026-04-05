@@ -208,14 +208,14 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
       where: { societyId: { in: ids }, status: "EN_COURS" },
       _sum: { currentRentHT: true },
     }),
-    // Charges récupérables (12 derniers mois)
-    prisma.charge.aggregate({
+    // Charges récupérables (12 derniers mois) — findMany car aggregate ne supporte pas les filtres relationnels
+    prisma.charge.findMany({
       where: {
         societyId: { in: ids },
         date: { gte: new Date(now.getFullYear() - 1, now.getMonth(), 1) },
         category: { nature: { in: ["RECUPERABLE", "MIXTE"] } },
       },
-      _sum: { amount: true },
+      select: { amount: true },
     }),
   ]);
 
@@ -358,7 +358,7 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
       totalDebt: societies.reduce((s, x) => s + x.totalDebt, 0),
       totalMonthlyLoanPayment: societies.reduce((s, x) => s + x.monthlyLoanPayment, 0),
       totalMonthlyRentHT: societies.reduce((s, x) => s + x.monthlyRentHT, 0),
-      totalRecoverableCharges: Number(chargeAgg._sum.amount ?? 0),
+      totalRecoverableCharges: chargeAgg.reduce((sum, c) => sum + Number(c.amount ?? 0), 0),
       totalPatrimonyValue,
       grossYield: totalPatrimonyValue > 0 ? Math.round((annualRevenue / totalPatrimonyValue) * 1000) / 10 : null,
       consolidatedLTV: totalPatrimonyValue > 0
