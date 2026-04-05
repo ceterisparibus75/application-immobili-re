@@ -682,11 +682,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+          <div className="mt-12 pt-8 border-t flex justify-center items-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} MTG HOLDING · {APP_NAME}. Tous droits réservés.</p>
-            <p>
-              Fait avec soin en France
-            </p>
           </div>
         </div>
       </footer>
