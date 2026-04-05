@@ -4,19 +4,45 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { ActionResult } from "@/actions/society";
+
+const personalSocietySchema = z.object({
+  siret: z
+    .string()
+    .regex(/^\d{14}$/, "Le SIRET doit contenir exactement 14 chiffres")
+    .optional()
+    .or(z.literal("")),
+  addressLine1: z.string().optional().or(z.literal("")),
+  postalCode: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  taxRegime: z.enum(["IS", "IR"]).optional().default("IR"),
+  vatRegime: z.enum(["TVA", "FRANCHISE"]).optional().default("FRANCHISE"),
+});
+
+export type PersonalSocietyInput = z.infer<typeof personalSocietySchema>;
 
 /**
  * Crée une "société" pour un propriétaire personne physique.
- * Utilise les données du profil utilisateur pour pré-remplir.
- * Génère un SIRET fictif interne (00000000000000 + suffixe unique).
+ * SIRET optionnel (utile pour les LMNP par exemple).
  */
-export async function createPersonalSociety(): Promise<ActionResult<{ id: string }>> {
+export async function createPersonalSociety(
+  input?: PersonalSocietyInput
+): Promise<ActionResult<{ id: string }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return { success: false, error: "Non authentifié" };
     }
+
+    const parsed = personalSocietySchema.safeParse(input ?? {});
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+    const data = parsed.data;
 
     // Récupérer le profil utilisateur
     const user = await prisma.user.findUnique({
@@ -42,28 +68,36 @@ export async function createPersonalSociety(): Promise<ActionResult<{ id: string
       ? `${user.firstName} ${user.lastName}`
       : user.name ?? "Propriétaire";
 
-    // Générer un SIRET interne unique pour personne physique (préfixé 00000000)
-    const suffix = Date.now().toString().slice(-6);
-    const personalSiret = `00000000${suffix.padStart(6, "0")}`;
+    // SIRET : utiliser celui fourni, ou générer un interne
+    let siret = data.siret?.trim() || "";
+    if (!siret) {
+      const suffix = Date.now().toString().slice(-6);
+      siret = `00000000${suffix.padStart(6, "0")}`;
+    }
+
+    // Vérifier unicité SIRET
+    const existingSiret = await prisma.society.findUnique({ where: { siret } });
+    if (existingSiret) {
+      return { success: false, error: "Ce SIRET est déjà enregistré" };
+    }
 
     const society = await prisma.society.create({
       data: {
         name: `${ownerName} — Nom propre`,
         legalForm: "AUTRE",
-        siret: personalSiret,
-        addressLine1: user.address ?? "À compléter",
-        city: user.ownerCity ?? "À compléter",
-        postalCode: user.postalCode ?? "00000",
+        siret,
+        addressLine1: data.addressLine1?.trim() || user.address || "À compléter",
+        city: data.city?.trim() || user.ownerCity || "À compléter",
+        postalCode: data.postalCode?.trim() || user.postalCode || "00000",
         country: "France",
-        taxRegime: "IR",
-        vatRegime: "FRANCHISE",
+        taxRegime: data.taxRegime ?? "IR",
+        vatRegime: data.vatRegime ?? "FRANCHISE",
         phone: user.phone ?? null,
         signatoryName: ownerName,
         ownerId: session.user.id,
       },
     });
 
-    // Assigner le créateur comme ADMIN_SOCIETE
     await prisma.userSociety.create({
       data: {
         userId: session.user.id,
