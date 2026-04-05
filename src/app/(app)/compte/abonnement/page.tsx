@@ -217,13 +217,22 @@ export default function AbonnementPage() {
                 </>
               )}
               {(subscription?.planId === "STARTER" || subscription?.planId === "PRO") && (
-                <Button
-                  variant={subscription?.planId === "PRO" ? "default" : "outline"}
-                  onClick={() => handleUpgrade("ENTERPRISE", "monthly")}
-                  disabled={actionLoading}
-                >
-                  Passer à Enterprise (199€/mois)
-                </Button>
+                <>
+                  <Button
+                    variant={subscription?.planId === "PRO" ? "default" : "outline"}
+                    onClick={() => handleUpgrade("ENTERPRISE", "monthly")}
+                    disabled={actionLoading}
+                  >
+                    Passer à Enterprise (199€/mois)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleUpgrade("ENTERPRISE", "yearly")}
+                    disabled={actionLoading}
+                  >
+                    Enterprise annuel (1 990€/an)
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>
