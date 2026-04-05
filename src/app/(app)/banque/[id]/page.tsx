@@ -19,6 +19,8 @@ import {
   RefreshCw,
   TrendingDown,
   TrendingUp,
+  Wallet,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -54,22 +56,24 @@ export default async function BankAccountDetailPage({
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <Link href="/banque">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-[var(--color-brand-deep)]">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold tracking-tight">
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">
                 {account.accountName}
               </h1>
-              <Badge variant={account.isActive ? "success" : "secondary"}>
+              <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                account.isActive ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+              }`}>
                 {account.isActive ? "Actif" : "Inactif"}
-              </Badge>
+              </span>
               {account.connection && (
-                <Badge variant="outline" className="text-xs">
+                <span className="inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-brand-light)] text-[var(--color-brand-blue)]">
                   {account.qontoAccountId ? "Qonto" : "Open Banking"} · {account.connection.institutionName}
-                </Badge>
+                </span>
               )}
             </div>
             <p className="text-muted-foreground">
@@ -89,13 +93,13 @@ export default async function BankAccountDetailPage({
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}
           <Link href={`/banque/${id}/rapprochement`}>
-            <Button variant="outline">
+            <Button variant="outline" className="rounded-lg border-border/60">
               <GitMerge className="h-4 w-4" />
               Rapprochement
               {account.unreconciledCount > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                <span className="ml-1 inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
                   {account.unreconciledCount}
-                </Badge>
+                </span>
               )}
             </Button>
           </Link>
@@ -104,59 +108,55 @@ export default async function BankAccountDetailPage({
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Solde actuel</p>
-            <p
-              className={`text-2xl font-bold ${
-                account.currentBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
-              }`}
-            >
-              {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <p className="text-xs text-muted-foreground">Entrées</p>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <p className="text-xs text-muted-foreground mb-1">Solde actuel</p>
+          <p className={`text-2xl font-bold tabular-nums ${
+            account.currentBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-red-500"
+          }`}>
+            {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-emerald-50">
+              <TrendingUp className="h-3 w-3 text-emerald-600" />
             </div>
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">
-              +{credits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-destructive" />
-              <p className="text-xs text-muted-foreground">Sorties</p>
+            <p className="text-xs text-muted-foreground">Entrées</p>
+          </div>
+          <p className="text-xl font-bold tabular-nums text-emerald-600">
+            +{credits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-red-50">
+              <TrendingDown className="h-3 w-3 text-red-500" />
             </div>
-            <p className="text-xl font-bold text-destructive">
-              {debits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Non rapprochées</p>
+            <p className="text-xs text-muted-foreground">Sorties</p>
+          </div>
+          <p className="text-xl font-bold tabular-nums text-red-500">
+            {debits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-amber-50">
+              <Clock className="h-3 w-3 text-amber-600" />
             </div>
-            <p className={`text-xl font-bold ${account.unreconciledCount > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
-              {account.unreconciledCount}
-            </p>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-muted-foreground">Non rapprochées</p>
+          </div>
+          <p className={`text-xl font-bold tabular-nums ${account.unreconciledCount > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {account.unreconciledCount}
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Transactions */}
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader>
-              <CardTitle>
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
                 Transactions récentes ({account.transactions.length})
               </CardTitle>
             </CardHeader>
@@ -166,29 +166,29 @@ export default async function BankAccountDetailPage({
                   Aucune transaction enregistrée
                 </p>
               ) : (
-                <div className="divide-y">
+                <div className="divide-y divide-gray-50">
                   {account.transactions.map((transaction) => {
                     const isCredit = transaction.amount >= 0;
                     return (
                       <div
                         key={transaction.id}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors"
                       >
                         {/* Icône direction */}
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                           isCredit
-                            ? "bg-green-100 dark:bg-green-950/40"
-                            : "bg-red-50 dark:bg-red-950/30"
+                            ? "bg-emerald-50"
+                            : "bg-red-50"
                         }`}>
                           {isCredit
-                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                            : <ArrowUpRight className="h-3.5 w-3.5 text-destructive" />
+                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600" />
+                            : <ArrowUpRight className="h-3.5 w-3.5 text-red-500" />
                           }
                         </div>
 
                         {/* Libellé + méta */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" title={transaction.label}>
+                          <p className="text-sm font-medium truncate text-[var(--color-brand-deep)]" title={transaction.label}>
                             {transaction.label}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -201,9 +201,9 @@ export default async function BankAccountDetailPage({
                               </span>
                             )}
                             {transaction.category && (
-                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
+                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-muted-foreground">
                                 {transaction.category}
-                              </Badge>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -212,8 +212,8 @@ export default async function BankAccountDetailPage({
                         <div className="text-right shrink-0">
                           <p className={`text-sm font-semibold tabular-nums ${
                             isCredit
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-destructive"
+                              ? "text-emerald-600"
+                              : "text-red-500"
                           }`}>
                             {isCredit ? "+" : ""}{transaction.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </p>
@@ -222,8 +222,8 @@ export default async function BankAccountDetailPage({
                         {/* Statut */}
                         <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
                           {transaction.isReconciled
-                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            : <Clock className="h-4 w-4 text-muted-foreground/40" />
+                            ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            : <Clock className="h-4 w-4 text-gray-300" />
                           }
                         </div>
                       </div>
@@ -237,9 +237,9 @@ export default async function BankAccountDetailPage({
 
         {/* Panneau latéral */}
         <div className="space-y-6">
-          <Card>
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
                 <Plus className="h-4 w-4" />
                 Ajouter une transaction
               </CardTitle>
@@ -252,33 +252,36 @@ export default async function BankAccountDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader>
-              <CardTitle>Informations</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
+                <Info className="h-4 w-4 text-[var(--color-brand-blue)]" />
+                Informations
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
+              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
                 <p className="text-xs text-muted-foreground">Banque</p>
-                <p className="text-sm font-medium">{account.bankName}</p>
+                <p className="text-sm font-medium text-[var(--color-brand-deep)]">{account.bankName}</p>
               </div>
-              <div>
+              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
                 <p className="text-xs text-muted-foreground">IBAN (masqué)</p>
-                <p className="text-sm font-mono">{account.ibanMasked}</p>
+                <p className="text-sm font-mono text-[var(--color-brand-deep)]">{account.ibanMasked}</p>
               </div>
-              <div>
+              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
                 <p className="text-xs text-muted-foreground">Solde initial</p>
-                <p className="text-sm">
+                <p className="text-sm text-[var(--color-brand-deep)]">
                   {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                 </p>
               </div>
               {(account.powensAccountId || account.qontoAccountId) && (
-                <div>
+                <div className="py-2 px-3 rounded-lg bg-emerald-50/50">
                   <p className="text-xs text-muted-foreground">
                     {account.qontoAccountId ? "Qonto" : "Open Banking"}
                   </p>
-                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <p className="text-sm text-emerald-600 flex items-center gap-1">
                     <RefreshCw className="h-3 w-3" />
-                    Synchronisation automatique active
+                    Sync automatique active
                   </p>
                 </div>
               )}

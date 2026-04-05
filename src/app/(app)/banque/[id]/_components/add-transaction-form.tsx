@@ -48,25 +48,28 @@ export default function AddTransactionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <p className="text-xs font-medium text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+      )}
 
       <div className="space-y-1">
-        <Label htmlFor="transactionDate" className="text-xs">Date *</Label>
-        <Input id="transactionDate" name="transactionDate" type="date" required />
+        <Label htmlFor="transactionDate" className="text-xs text-[var(--color-brand-deep)]">Date *</Label>
+        <Input id="transactionDate" name="transactionDate" type="date" required className="border-border/60 rounded-lg focus:ring-[var(--color-brand-blue)]" />
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="label" className="text-xs">Libellé *</Label>
+        <Label htmlFor="label" className="text-xs text-[var(--color-brand-deep)]">Libellé *</Label>
         <Input
           id="label"
           name="label"
           placeholder="Ex: Loyer lot 12 - janvier"
           required
+          className="border-border/60 rounded-lg"
         />
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="amount" className="text-xs">
+        <Label htmlFor="amount" className="text-xs text-[var(--color-brand-deep)]">
           Montant (€) — négatif pour une sortie *
         </Label>
         <Input
@@ -76,19 +79,21 @@ export default function AddTransactionForm({
           step={0.01}
           placeholder="Ex: 1500 ou -350"
           required
+          className="border-border/60 rounded-lg"
         />
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="reference" className="text-xs">Référence</Label>
+        <Label htmlFor="reference" className="text-xs text-[var(--color-brand-deep)]">Référence</Label>
         <Input
           id="reference"
           name="reference"
           placeholder="N° de virement..."
+          className="border-border/60 rounded-lg"
         />
       </div>
 
-      <Button type="submit" size="sm" className="w-full" disabled={isLoading}>
+      <Button type="submit" size="sm" className="w-full bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg" disabled={isLoading}>
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
