@@ -3,9 +3,93 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS } from "@/lib/stripe";
+import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
 import type { ActionResult } from "@/actions/society";
 import type { PlanId } from "@/lib/stripe";
+
+// ─── Synchroniser depuis Stripe si desync detectee ────────────────────────
+
+async function syncFromStripeIfNeeded(subscription: {
+  id: string;
+  societyId: string;
+  stripeSubscriptionId: string | null;
+  planId: string;
+  status: string;
+  stripePriceId: string | null;
+}): Promise<{ planId: PlanId; status: string; currentPeriodEnd: Date | null; trialEnd: Date | null; cancelAt: Date | null }> {
+  // Pas de souscription Stripe → rien à sync
+  if (!subscription.stripeSubscriptionId) {
+    return {
+      planId: (subscription.planId ?? "STARTER") as PlanId,
+      status: subscription.status,
+      currentPeriodEnd: null,
+      trialEnd: null,
+      cancelAt: null,
+    };
+  }
+
+  try {
+    const stripeSub = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
+    const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+    const resolvedPlanId = priceId ? planIdFromPriceId(priceId) : null;
+
+    const statusMap: Record<string, string> = {
+      trialing: "TRIALING",
+      active: "ACTIVE",
+      past_due: "PAST_DUE",
+      canceled: "CANCELED",
+      unpaid: "UNPAID",
+      incomplete: "INCOMPLETE",
+      incomplete_expired: "CANCELED",
+      paused: "CANCELED",
+    };
+    const mappedStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+
+    // Extraire currentPeriodEnd depuis les items (Stripe v22+)
+    const item = stripeSub.items?.data?.[0];
+    const rawItem = item as unknown as Record<string, unknown>;
+    const periodEnd = typeof rawItem?.current_period_end === "number"
+      ? new Date(rawItem.current_period_end * 1000)
+      : null;
+
+    const needsUpdate =
+      (resolvedPlanId && resolvedPlanId !== subscription.planId) ||
+      mappedStatus !== subscription.status ||
+      (priceId && priceId !== subscription.stripePriceId);
+
+    if (needsUpdate) {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          planId: resolvedPlanId ?? subscription.planId,
+          status: mappedStatus,
+          stripePriceId: priceId,
+          currentPeriodEnd: periodEnd,
+          trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+          cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+        },
+      });
+    }
+
+    return {
+      planId: (resolvedPlanId ?? subscription.planId) as PlanId,
+      status: mappedStatus,
+      currentPeriodEnd: periodEnd,
+      trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+      cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+    };
+  } catch (error) {
+    console.error("[syncFromStripeIfNeeded]", error);
+    // En cas d'erreur Stripe, retourner les données locales
+    return {
+      planId: (subscription.planId ?? "STARTER") as PlanId,
+      status: subscription.status,
+      currentPeriodEnd: null,
+      trialEnd: null,
+      cancelAt: null,
+    };
+  }
+}
 
 // ─── Recuperer l'abonnement actuel ─────────────────────────────────────────
 
@@ -30,18 +114,39 @@ export async function getSubscription(
       where: { societyId },
     });
 
-    // Par defaut, plan Starter si pas d'abonnement
-    const planId = (subscription?.planId ?? "STARTER") as PlanId;
+    // Si une souscription Stripe existe, vérifier la sync
+    let planId: PlanId = (subscription?.planId ?? "STARTER") as PlanId;
+    let status = subscription?.status ?? "TRIALING";
+    let currentPeriodEnd = subscription?.currentPeriodEnd ?? null;
+    let trialEnd = subscription?.trialEnd ?? null;
+    let cancelAt = subscription?.cancelAt ?? null;
+
+    if (subscription?.stripeSubscriptionId) {
+      const synced = await syncFromStripeIfNeeded({
+        id: subscription.id,
+        societyId: subscription.societyId,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        planId: subscription.planId,
+        status: subscription.status,
+        stripePriceId: subscription.stripePriceId,
+      });
+      planId = synced.planId;
+      status = synced.status;
+      if (synced.currentPeriodEnd) currentPeriodEnd = synced.currentPeriodEnd;
+      if (synced.trialEnd) trialEnd = synced.trialEnd;
+      cancelAt = synced.cancelAt;
+    }
+
     const plan = PLANS[planId];
 
     return {
       success: true,
       data: {
         planId,
-        status: subscription?.status ?? "TRIALING",
-        trialEnd: subscription?.trialEnd?.toISOString() ?? null,
-        currentPeriodEnd: subscription?.currentPeriodEnd?.toISOString() ?? null,
-        cancelAt: subscription?.cancelAt?.toISOString() ?? null,
+        status,
+        trialEnd: trialEnd?.toISOString() ?? null,
+        currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
+        cancelAt: cancelAt?.toISOString() ?? null,
         features: plan.features,
         limits: {
           maxLots: plan.maxLots,
