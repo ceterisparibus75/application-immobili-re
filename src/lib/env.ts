@@ -39,7 +39,10 @@ function validateEnv() {
       .map((i) => "  - " + i.path.join(".") + ": " + i.message)
       .join(", ");
     console.error("[env] Variables invalides: " + issues);
-    if (process.env.NODE_ENV === "production") {
+    // Ne pas throw pendant le build Next.js
+    const isBuild = process.env.NEXT_PHASE === "phase-production-build"
+      || process.argv.some((a) => a.includes("next") && process.argv.includes("build"));
+    if (process.env.NODE_ENV === "production" && !isBuild) {
       throw new Error("Variables invalides — demarrage annule");
     }
   }

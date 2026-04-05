@@ -1,11 +1,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const authSecret = process.env.AUTH_SECRET;
-if (!authSecret) {
-  throw new Error("AUTH_SECRET est requis pour l'authentification du portail");
+function getPortalSecret() {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("AUTH_SECRET est requis pour l'authentification du portail");
+  }
+  return new TextEncoder().encode(secret);
 }
-const PORTAL_SECRET = new TextEncoder().encode(authSecret);
 const COOKIE_NAME = "portal-token";
 const TOKEN_EXPIRY = "24h";
 
@@ -23,7 +25,7 @@ export async function createPortalSession(tenantId: string, email: string): Prom
     .setIssuedAt()
     .setIssuer("portal")
     .setExpirationTime(TOKEN_EXPIRY)
-    .sign(PORTAL_SECRET);
+    .sign(getPortalSecret());
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -45,7 +47,7 @@ export async function getPortalSession(): Promise<PortalSession | null> {
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return null;
 
-    const { payload } = await jwtVerify(token, PORTAL_SECRET, {
+    const { payload } = await jwtVerify(token, getPortalSecret(), {
       issuer: "portal",
     });
 

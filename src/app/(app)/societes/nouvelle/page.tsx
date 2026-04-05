@@ -44,7 +44,7 @@ export default function NouvelleSocietePage() {
   const [siretResults, setSiretResults] = useState<SiretResult[]>([]);
   const [siretSearching, setSiretSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Form controlled values (for auto-fill)
