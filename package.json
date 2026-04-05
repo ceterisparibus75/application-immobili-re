@@ -45,6 +45,7 @@
     "@supabase/supabase-js": "^2.100.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^2",
     "class-variance-authority": "^0.7",
     "clsx": "^2",

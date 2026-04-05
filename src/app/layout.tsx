@@ -4,6 +4,7 @@ import { SessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -50,6 +51,7 @@ export default function RootLayout({
               {children}
             </Sentry.ErrorBoundary>
             <Toaster richColors closeButton />
+            <Analytics />
           </ThemeProvider>
         </SessionProvider>
       </body>
