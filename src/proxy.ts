@@ -10,6 +10,10 @@ export default auth(async (req) => {
     (pathname === "/contact" || pathname.startsWith("/contact/")) ||
     pathname.startsWith("/mentions-legales") ||
     pathname.startsWith("/politique-confidentialite") ||
+    pathname.startsWith("/cgu") ||
+    pathname.startsWith("/cgv") ||
+    pathname.startsWith("/dpa") ||
+    pathname.startsWith("/pricing") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||

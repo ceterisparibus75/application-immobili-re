@@ -383,6 +383,7 @@ model Society {
   notifications           Notification[]
   fiscalYears             FiscalYear[]
   datarooms               Dataroom[]
+  subscription            Subscription?
 
   @@index([siret])
 }
@@ -2035,6 +2036,21 @@ model SepaMandate {
 // PHASE 9 — NOTIFICATIONS
 // ============================================================
 
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+enum PlanId {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
 enum NotificationType {
   BAIL_EXPIRING
   INVOICE_OVERDUE
@@ -2139,4 +2155,39 @@ model DataroomAccess {
 
   @@index([dataroomId])
   @@index([dataroomId, createdAt])
+}
+
+// ============================================================
+// PHASE 10 — MONETISATION : ABONNEMENTS STRIPE
+// ============================================================
+
+/// Abonnement Stripe lie a une societe
+model Subscription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  societyId String  @unique
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  // Stripe
+  stripeCustomerId     String  @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId        String?
+
+  // Plan
+  planId PlanId             @default(STARTER)
+  status SubscriptionStatus @default(TRIALING)
+
+  // Periodes
+  trialStart       DateTime?
+  trialEnd         DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAt           DateTime?
+  canceledAt         DateTime?
+
+  @@index([societyId])
+  @@index([stripeCustomerId])
+  @@index([status])
 }

@@ -15,6 +15,7 @@ import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { DashboardNotifications } from "@/components/dashboard/dashboard-notifications";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -38,6 +39,9 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
         <p className="text-sm text-muted-foreground mt-1">Vue d&apos;ensemble de votre patrimoine immobilier</p>
       </div>
+
+      {/* ── Onboarding Checklist ── */}
+      <OnboardingChecklist />
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl border bg-border/50 overflow-hidden">

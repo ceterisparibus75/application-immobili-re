@@ -41,6 +41,7 @@
     "@radix-ui/react-tooltip": "^1",
     "@react-pdf/renderer": "^4.3.2",
     "@sentry/nextjs": "^10.45.0",
+    "@stripe/stripe-js": "^9.0.1",
     "@supabase/supabase-js": "^2.100.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
@@ -63,6 +64,7 @@
     "recharts": "^3.8.0",
     "resend": "^4",
     "sonner": "^2.0.7",
+    "stripe": "^22.0.0",
     "tailwind-merge": "^3",
     "zod": "^3"
   },
