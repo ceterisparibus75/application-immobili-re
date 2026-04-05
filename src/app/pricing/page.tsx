@@ -12,8 +12,8 @@ const plans = [
   {
     name: "Starter",
     description: "Pour les petits patrimoines",
-    price: { monthly: 29, yearly: 290 },
-    limits: "10 lots · 1 societe · 2 utilisateurs",
+    price: { monthly: 19, yearly: 190 },
+    limits: "20 lots · 1 societe · 2 utilisateurs",
     features: [
       "Gestion de patrimoine",
       "Baux et locataires",
