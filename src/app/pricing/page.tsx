@@ -140,7 +140,7 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link href={plan.name === "Enterprise" ? "/contact" : "/login"} className="block">
+              <Link href={plan.name === "Enterprise" ? "/contact" : `/signup?plan=${plan.name.toLowerCase()}`} className="block">
                 <Button
                   className={`w-full h-12 text-sm font-semibold ${plan.highlighted ? "shadow-lg shadow-primary/25" : ""}`}
                   variant={plan.highlighted ? "default" : "outline"}

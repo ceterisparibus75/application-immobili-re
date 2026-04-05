@@ -250,7 +250,7 @@ export default function HomePage() {
                 Se connecter
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="sm" className="gap-1.5">
                 Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
@@ -288,7 +288,7 @@ export default function HomePage() {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
-              <Link href="/login">
+              <Link href="/signup">
                 <Button size="lg" className="w-full sm:w-auto text-base px-8 h-13 gap-2 shadow-lg shadow-primary/25">
                   Démarrer gratuitement
                   <ArrowRight className="h-4 w-4" />
@@ -421,7 +421,7 @@ export default function HomePage() {
             ))}
           </div>
           <div className="text-center mt-12">
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="lg" className="gap-2 shadow-lg shadow-primary/25">
                 Commencer maintenant <ArrowRight className="h-4 w-4" />
               </Button>
@@ -495,7 +495,7 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <Link href={plan.name === "Enterprise" ? "/contact" : "/login"} className="block">
+                <Link href={plan.name === "Enterprise" ? "/contact" : `/signup?plan=${plan.name.toLowerCase()}`} className="block">
                   <Button
                     className={`w-full h-12 text-sm font-semibold ${plan.highlighted ? "shadow-lg shadow-primary/25" : ""}`}
                     variant={plan.highlighted ? "default" : "outline"}
@@ -587,7 +587,7 @@ export default function HomePage() {
             Un outil conçu par un multipropriétaire, pour les multipropriétaires. Essai gratuit 14 jours, sans engagement.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/login">
+            <Link href="/signup">
               <Button
                 size="lg"
                 className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-white text-primary hover:bg-white/90 font-bold shadow-xl"
