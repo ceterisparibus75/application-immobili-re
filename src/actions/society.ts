@@ -76,6 +76,7 @@ export async function createSociety(
         shareCapital: data.shareCapital ?? null,
         signatoryName: data.signatoryName || null,
         ownerId: session.user.id,
+        proprietaireId: data.proprietaireId || null,
       },
     });
 

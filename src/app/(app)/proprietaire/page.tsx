@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getOwnerAnalytics, getClaimableSocieties, getOwnerProfile } from "@/actions/owner";
+import { getProprietaires, migrateOwnerToProprietaire } from "@/actions/proprietaire";
 import { getSocieties } from "@/actions/society";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import type { UserRole } from "@/generated/prisma/client";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
 import { OwnerProfileForm } from "./_components/owner-profile-form";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
+import { ProprietaireSelector } from "./_components/proprietaire-selector";
 
 export const metadata = { title: "Vue proprietaire" };
 
@@ -27,29 +29,50 @@ function pct(occupied: number, total: number) {
   return Math.round((occupied / total) * 100);
 }
 
-export default async function ProprietaireDashboardPage() {
+export default async function ProprietaireDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pid?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [result, claimableResult, profileResult, societies] = await Promise.all([
-    getOwnerAnalytics(),
+  // Migration automatique : si l'utilisateur n'a pas de proprietaire, en créer un
+  const propList = await getProprietaires();
+  if (propList.success && (!propList.data || propList.data.length === 0)) {
+    await migrateOwnerToProprietaire();
+  }
+
+  const params = await searchParams;
+  const selectedPid = params.pid;
+
+  const [propResult, claimableResult, profileResult, societies] = await Promise.all([
+    getProprietaires(),
     getClaimableSocieties(),
     getOwnerProfile(),
     getSocieties(),
   ]);
+
+  const proprietaires = propResult.success ? (propResult.data ?? []) : [];
+  const activePid = selectedPid && proprietaires.find((p) => p.id === selectedPid)
+    ? selectedPid
+    : proprietaires[0]?.id ?? null;
+
+  // Charger les analytics pour le proprietaire sélectionné
+  const result = await getOwnerAnalytics(activePid ?? undefined);
   if (!result.success || !result.data) redirect("/login");
 
   const data = result.data;
   const claimable = claimableResult.success ? (claimableResult.data ?? []) : [];
   const profile = profileResult.success ? profileResult.data : null;
 
-  if (data.totalSocieties === 0 && claimable.length === 0) {
+  if (data.totalSocieties === 0 && claimable.length === 0 && proprietaires.length === 0) {
     redirect("/proprietaire/setup");
   }
 
   const dashboardContent = (
     <>
-      {/* ── KPI principaux ── */}
+      {/* KPI principaux */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl border bg-border/50 overflow-hidden">
         <div className="bg-card p-4">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Revenus mensuels</p>
@@ -79,7 +102,7 @@ export default async function ProprietaireDashboardPage() {
         </div>
       </div>
 
-      {/* ── Contenu principal : 2/3 + 1/3 ── */}
+      {/* Contenu principal : 2/3 + 1/3 */}
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Colonne gauche */}
         <div className="lg:col-span-2 space-y-5">
@@ -95,7 +118,6 @@ export default async function ProprietaireDashboardPage() {
                 <CardDescription>Capital restant dû et mensualités</CardDescription>
               </CardHeader>
               <CardContent className="p-0 space-y-0">
-                {/* KPI dette */}
                 <div className="grid grid-cols-3 gap-px bg-border/50">
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
@@ -113,7 +135,6 @@ export default async function ProprietaireDashboardPage() {
                   </div>
                 </div>
 
-                {/* Encours par établissement */}
                 {data.lenderSummaries.length > 0 && (
                   <table className="w-full text-sm">
                     <thead>
@@ -146,7 +167,6 @@ export default async function ProprietaireDashboardPage() {
                   </table>
                 )}
 
-                {/* Détail par société */}
                 {data.societies.filter((s) => s.totalDebt > 0).length > 0 && (
                   <table className="w-full text-sm">
                     <thead>
@@ -382,7 +402,7 @@ export default async function ProprietaireDashboardPage() {
         <p className="text-sm text-muted-foreground">
           {societies.length} société{societies.length > 1 ? "s" : ""}
         </p>
-        <Link href="/societes/nouvelle">
+        <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
           <Button size="sm">
             <Plus className="h-4 w-4" />
             Nouvelle société
@@ -398,7 +418,7 @@ export default async function ProprietaireDashboardPage() {
             <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
               Créez votre première société propriétaire pour commencer à gérer votre patrimoine immobilier.
             </p>
-            <Link href="/societes/nouvelle">
+            <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
               <Button>
                 <Plus className="h-4 w-4" />
                 Créer une société
@@ -441,13 +461,25 @@ export default async function ProprietaireDashboardPage() {
   return (
     <div className="space-y-5 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Propriétaire</h1>
-          <p className="text-sm text-muted-foreground">
-            {data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""} · {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Propriétaire</h1>
+            <p className="text-sm text-muted-foreground">
+              {data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""} · {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots
+            </p>
+          </div>
+          <ProprietaireSelector
+            proprietaires={proprietaires.map((p) => ({
+              id: p.id,
+              label: p.label,
+              societyCount: p.societyCount,
+            }))}
+            activeId={activePid}
+          />
         </div>
-        {claimable.length > 0 && <ClaimSocietyDialog societies={claimable} />}
+        <div className="flex items-center gap-2">
+          {claimable.length > 0 && <ClaimSocietyDialog societies={claimable} />}
+        </div>
       </div>
 
       <ProprietaireTabs

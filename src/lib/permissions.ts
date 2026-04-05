@@ -33,11 +33,12 @@ export async function requireSocietyAccess(
   minRole?: UserRole
 ) {
   // Le proprietaire de la societe a toujours acces en tant qu ADMIN_SOCIETE
+  // Vérifie ownerId direct OU via Proprietaire entity
   const society = await prisma.society.findUnique({
     where: { id: societyId },
-    select: { ownerId: true },
+    select: { ownerId: true, proprietaire: { select: { userId: true } } },
   });
-  if (society?.ownerId === userId) {
+  if (society?.ownerId === userId || society?.proprietaire?.userId === userId) {
     const ownerRole: UserRole = "ADMIN_SOCIETE";
     if (minRole && ROLE_HIERARCHY[ownerRole] < ROLE_HIERARCHY[minRole]) {
       throw new ForbiddenError("Permissions insuffisantes pour cette action");

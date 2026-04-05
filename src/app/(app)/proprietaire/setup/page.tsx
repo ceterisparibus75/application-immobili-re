@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, User, Briefcase, LogOut } from "lucide-react";
 import { updateOwnerProfile } from "@/actions/owner";
+import { createProprietaire } from "@/actions/proprietaire";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -41,18 +42,42 @@ export default function ProprietaireSetupPage() {
       return;
     }
     setLoading(true);
-    const result = await updateOwnerProfile(form);
-    setLoading(false);
-    if (!result.success) {
-      toast.error(result.error ?? "Erreur lors de la sauvegarde");
+
+    // 1. Mettre à jour le profil utilisateur
+    const profileResult = await updateOwnerProfile(form);
+    if (!profileResult.success) {
+      setLoading(false);
+      toast.error(profileResult.error ?? "Erreur lors de la sauvegarde");
       return;
     }
 
+    // 2. Créer un Proprietaire par défaut
+    const propResult = await createProprietaire({
+      label: `${form.firstName} ${form.lastName}`.trim(),
+      firstName: form.firstName,
+      lastName: form.lastName,
+      phone: form.phone || undefined,
+      birthDate: form.birthDate || undefined,
+      birthPlace: form.birthPlace || undefined,
+      address: form.address || undefined,
+      postalCode: form.postalCode || undefined,
+      city: form.ownerCity || undefined,
+      profession: form.profession || undefined,
+      nationality: form.nationality || undefined,
+    });
+
+    setLoading(false);
+
+    if (!propResult.success) {
+      toast.error(propResult.error ?? "Erreur lors de la création du profil propriétaire");
+      return;
+    }
+
+    const proprietaireId = propResult.data?.id;
     if (ownerType === "societe") {
-      router.push("/societes/nouvelle");
+      router.push(`/societes/nouvelle${proprietaireId ? `?proprietaireId=${proprietaireId}` : ""}`);
     } else {
-      // Pour une personne physique, créer une société "personnelle" automatiquement
-      router.push("/societes/nouvelle?type=physique");
+      router.push(`/societes/nouvelle?type=physique${proprietaireId ? `&proprietaireId=${proprietaireId}` : ""}`);
     }
   }
 

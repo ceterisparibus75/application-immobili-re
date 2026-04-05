@@ -37,6 +37,7 @@ export default function NouvelleSocietePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPhysique = searchParams.get("type") === "physique";
+  const proprietaireIdParam = searchParams.get("proprietaireId");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -136,6 +137,7 @@ export default function NouvelleSocietePage() {
       city: physForm.city || undefined,
       taxRegime: physForm.taxRegime,
       vatRegime: physForm.vatRegime,
+      proprietaireId: proprietaireIdParam || undefined,
     });
     setIsLoading(false);
     if (result.success) {
@@ -312,6 +314,7 @@ export default function NouvelleSocietePage() {
       legalMentions: data.legalMentions,
       shareCapital: data.shareCapital ? parseFloat(data.shareCapital) : undefined,
       signatoryName: data.signatoryName,
+      proprietaireId: proprietaireIdParam || undefined,
     });
 
     setIsLoading(false);

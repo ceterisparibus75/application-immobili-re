@@ -6,6 +6,7 @@ import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscr
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers } from "lucide-react";
+import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
   STARTER: "Starter",
@@ -60,6 +61,8 @@ export default function AbonnementPage() {
     const result = await createCheckout(activeSociety.id, planId, period);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
+    } else {
+      toast.error(result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.");
     }
     setActionLoading(false);
   }
@@ -70,6 +73,8 @@ export default function AbonnementPage() {
     const result = await openBillingPortal(activeSociety.id);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
+    } else {
+      toast.error(result.error ?? "Erreur lors de l'ouverture du portail de facturation");
     }
     setActionLoading(false);
   }

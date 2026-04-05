@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown } from "lucide-react";
+import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, Building2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { MobileSidebar } from "./mobile-sidebar";
 import { useSociety } from "@/providers/society-provider";
@@ -83,6 +83,14 @@ export function Header() {
                     <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
                   </div>
                   <div className="p-1.5">
+                    <Link
+                      href="/proprietaire"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      Vue propriétaire
+                    </Link>
                     <Link
                       href="/compte"
                       onClick={() => setProfileOpen(false)}
