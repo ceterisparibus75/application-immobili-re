@@ -12,7 +12,7 @@ export type OverdueByAge = { label: string; count: number; amount: number };
 export type PatrimonyPoint = { date: string; value: number };
 export type TopTenant = { name: string; total: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 
@@ -262,6 +262,18 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   const activeLoanCount = activeLoansForDebt.length;
   const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
 
+  // 14. Patrimoine détaillé : immeubles, lots, locataires, baux, diagnostics, maintenances
+  const in90DaysDiag = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const [totalBuildings, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount] = await Promise.all([
+    prisma.building.count({ where: { societyId } }),
+    prisma.tenant.count({ where: { societyId, isActive: true } }),
+    prisma.lease.count({ where: { societyId, status: "EN_COURS" } }),
+    prisma.diagnostic.count({ where: { building: { societyId }, expiresAt: { lte: in90DaysDiag, gte: now } } }),
+    prisma.maintenance.count({ where: { building: { societyId }, completedAt: null } }),
+    prisma.invoice.count({ where: { societyId, invoiceType: { not: "AVOIR" }, status: { in: ["EN_RETARD", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] }, dueDate: { lt: now } } }),
+  ]);
+  const vacantLots = totalLots - occupiedLots;
+
   // Encours par établissement prêteur
   const rawLenderNames = activeLoansForDebt.map((l) => l.lender || "Autre");
   const lenderNameMapping = buildLenderMapping(rawLenderNames);
@@ -287,7 +299,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     .sort((a, b) => b.remainingBalance - a.remainingBalance);
 
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline, lenderSummaries,
   };
 }
