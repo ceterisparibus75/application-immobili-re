@@ -21,10 +21,11 @@ export default async function AppLayout({
 
   if (societies.length === 0) {
     const h = await headers();
-    const pathname = h.get("x-pathname") ?? h.get("x-invoke-path") ?? "";
+    const pathname = h.get("x-pathname") ?? "";
     const isSetup =
       pathname.startsWith("/proprietaire/setup") ||
-      pathname.startsWith("/societes/nouvelle");
+      pathname.startsWith("/societes/nouvelle") ||
+      pathname.startsWith("/compte");
     if (!isSetup) {
       redirect("/proprietaire/setup");
     }
