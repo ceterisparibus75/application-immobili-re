@@ -3,51 +3,201 @@ import { Resend } from "resend";
 function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
 const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "contact@mygestia.immo"}>`;
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
 
 // ============================================================
-// TEMPLATE DE BASE
+// DESIGN SYSTEM — LOGO 2.4
 // ============================================================
 
-function baseTemplate(title: string, content: string): string {
+const BRAND = {
+  deep: "#0C2340",
+  blue: "#1B4F8A",
+  cyan: "#22B8CF",
+  light: "#E0F7FA",
+  text: "#334155",
+  muted: "#94A3B8",
+  bg: "#F9FAFB",
+  white: "#FFFFFF",
+  border: "#F1F5F9",
+  gradient: "linear-gradient(135deg, #1B4F8A 0%, #22B8CF 100%)",
+};
+
+/** Logo URL for emails — uses absolute URL to public asset */
+function logoUrl(): string {
+  return `${SITE_URL}/logo-mygestia.png`;
+}
+
+// ============================================================
+// BASE TEMPLATE — Table-based, inline CSS, responsive
+// ============================================================
+
+function baseTemplate(title: string, content: string, options?: { societyName?: string; borderLeftColor?: string }): string {
+  const footerName = options?.societyName ?? APP_NAME;
+  const borderLeft = options?.borderLeftColor ? `border-left:4px solid ${options.borderLeftColor};` : "";
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>${title}</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #f2f2f2; font-family: Arial, Helvetica, sans-serif; }
-    .outer { background: #f2f2f2; padding: 40px 16px; }
-    .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e0e0e0; }
-    .header { padding: 24px 40px; border-bottom: 1px solid #e8e8e8; }
-    .header h1 { margin: 0; color: #444444; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-    .body { padding: 40px; color: #222222; font-size: 14.5px; line-height: 1.75; }
-    .body h2 { margin: 0 0 20px; color: #111111; font-size: 15px; font-weight: 700; }
-    .body p { margin: 0 0 16px; }
-    .body strong { color: #111111; }
-    .table { width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 13.5px; border: 1px solid #e0e0e0; }
-    .table th { text-align: left; padding: 10px 16px; background: #f7f7f7; color: #666666; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #e0e0e0; }
-    .table td { padding: 12px 16px; border-bottom: 1px solid #e8e8e8; color: #222222; }
-    .table tr:last-child td { border-bottom: none; }
-    .amount { font-size: 18px !important; font-weight: 700; color: #111111 !important; }
-    .badge-red { display: inline-block; padding: 3px 10px; background: #fff0f0; color: #cc0000; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #ffcccc; }
-    .badge-yellow { display: inline-block; padding: 3px 10px; background: #fffbeb; color: #b45309; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a; }
-    .footer { padding: 16px 40px; background: #f7f7f7; color: #aaaaaa; font-size: 11px; border-top: 1px solid #e8e8e8; line-height: 1.5; }
-    hr { border: none; border-top: 1px solid #e8e8e8; margin: 24px 0; }
+    @media only screen and (max-width: 620px) {
+      .outer-table { width: 100% !important; }
+      .inner-pad { padding: 28px 20px !important; }
+      .header-pad { padding: 24px 20px !important; }
+      .footer-pad { padding: 16px 20px !important; }
+      .info-table { width: 100% !important; }
+      .code-text { font-size: 28px !important; letter-spacing: 6px !important; }
+      .cta-btn { padding: 14px 28px !important; font-size: 14px !important; }
+    }
   </style>
 </head>
-<body>
-  <div class="outer">
-    <div class="wrapper">
-      <div class="header"><h1>${APP_NAME}</h1></div>
-      <div class="body">${content}</div>
-      <div class="footer">Cet email a été envoyé par ${APP_NAME}. Pour toute question, répondez à cet email.</div>
-    </div>
-  </div>
+<body style="margin:0;padding:0;background-color:${BRAND.bg};font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:${BRAND.bg};padding:40px 16px;">
+    <tr><td align="center">
+      <table class="outer-table" width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background-color:${BRAND.white};border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(12,35,64,0.04),0 8px 24px rgba(12,35,64,0.06);${borderLeft}">
+
+        <!-- HEADER : Logo centré -->
+        <tr>
+          <td class="header-pad" align="center" style="padding:32px 40px 24px;">
+            <img src="${logoUrl()}" alt="${APP_NAME}" width="160" height="auto" style="display:block;max-width:160px;height:auto;border:0;" />
+          </td>
+        </tr>
+
+        <!-- BODY -->
+        <tr>
+          <td class="inner-pad" style="padding:0 40px 40px;">
+            ${content}
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td class="footer-pad" style="padding:20px 40px;background-color:${BRAND.bg};border-top:1px solid ${BRAND.border};">
+            <p style="margin:0 0 4px;color:${BRAND.muted};font-size:11px;text-align:center;line-height:1.6;">
+              ${footerName} — Gestion locative intelligente
+            </p>
+            <p style="margin:0;color:${BRAND.muted};font-size:11px;text-align:center;line-height:1.6;">
+              <a href="${SITE_URL}" style="color:${BRAND.blue};text-decoration:none;">mygestia.immo</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+
+      <!-- UNSUBSCRIBE / LEGAL -->
+      <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;">
+        <tr>
+          <td style="padding:16px 0;text-align:center;">
+            <p style="margin:0;color:#CBD5E1;font-size:10px;line-height:1.5;">
+              Cet email a été envoyé automatiquement par ${APP_NAME}. Pour toute question, répondez à cet email.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>`;
 }
+
+// ============================================================
+// COMPOSANTS RÉUTILISABLES
+// ============================================================
+
+/** Bouton CTA principal — dégradé bleu du logo */
+function ctaButton(label: string, href: string): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr><td align="center" style="padding:24px 0 8px;">
+        <a href="${href}" class="cta-btn" style="display:inline-block;padding:14px 36px;background:${BRAND.gradient};color:${BRAND.white};text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;letter-spacing:-0.2px;box-shadow:0 2px 8px rgba(27,79,138,0.25);" target="_blank">
+          ${label}
+        </a>
+      </td></tr>
+    </table>`;
+}
+
+/** Tableau d'informations (clé-valeur) */
+function infoTable(rows: Array<{ label: string; value: string; bold?: boolean }>): string {
+  const rowsHtml = rows.map((r) => `
+    <tr>
+      <td style="padding:10px 16px;color:${BRAND.muted};font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid ${BRAND.border};white-space:nowrap;vertical-align:top;">${r.label}</td>
+      <td style="padding:10px 16px;color:${r.bold ? BRAND.deep : BRAND.text};font-size:14px;font-weight:${r.bold ? "700" : "400"};border-bottom:1px solid ${BRAND.border};text-align:right;">${r.value}</td>
+    </tr>`).join("");
+
+  return `
+    <table class="info-table" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:8px;overflow:hidden;background:${BRAND.bg};margin:20px 0;">
+      ${rowsHtml}
+    </table>`;
+}
+
+/** Encadré de code (OTP, mot de passe...) */
+function codeBlock(code: string): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr><td align="center" style="padding:28px 0;">
+        <div style="display:inline-block;padding:20px 40px;background:${BRAND.bg};border:2px solid ${BRAND.border};border-radius:12px;">
+          <span class="code-text" style="font-size:36px;font-weight:800;letter-spacing:10px;color:${BRAND.deep};font-family:'JetBrains Mono','Courier New',monospace;">${code}</span>
+        </div>
+      </td></tr>
+    </table>`;
+}
+
+/** Encadré d'information */
+function infoBox(text: string, variant: "info" | "warning" | "success" = "info"): string {
+  const colors = {
+    info: { bg: BRAND.light, border: "#B2EBF2", text: BRAND.deep },
+    warning: { bg: "#FFFBEB", border: "#FDE68A", text: "#92400E" },
+    success: { bg: "#F0FDF4", border: "#BBF7D0", text: "#166534" },
+  };
+  const c = colors[variant];
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:${c.bg};border:1px solid ${c.border};border-radius:8px;margin:16px 0;">
+      <tr><td style="padding:12px 16px;">
+        <p style="margin:0;color:${c.text};font-size:13px;line-height:1.5;">${text}</p>
+      </td></tr>
+    </table>`;
+}
+
+/** Titre h2 */
+function heading(text: string): string {
+  return `<h2 style="margin:0 0 8px;color:${BRAND.deep};font-size:20px;font-weight:700;line-height:1.3;">${text}</h2>`;
+}
+
+/** Paragraphe */
+function para(text: string, opts?: { muted?: boolean; small?: boolean }): string {
+  const color = opts?.muted ? BRAND.muted : BRAND.text;
+  const size = opts?.small ? "12px" : "14.5px";
+  return `<p style="margin:0 0 16px;color:${color};font-size:${size};line-height:1.7;">${text}</p>`;
+}
+
+/** Badge de statut discret */
+function badge(text: string, variant: "default" | "amber" | "red" = "default"): string {
+  const colors = {
+    default: { bg: BRAND.bg, text: BRAND.deep },
+    amber: { bg: "#FFFBEB", text: "#D97706" },
+    red: { bg: "#FEF2F2", text: "#DC2626" },
+  };
+  const c = colors[variant];
+  return `<span style="display:inline-block;padding:3px 10px;background:${c.bg};color:${c.text};border-radius:4px;font-size:12px;font-weight:600;">${text}</span>`;
+}
+
+/** Signature société */
+function signature(name: string): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px;border-top:1px solid ${BRAND.border};padding-top:16px;">
+      <tr><td>
+        <p style="margin:0;color:${BRAND.muted};font-size:12px;line-height:1.5;">${name}</p>
+      </td></tr>
+    </table>`;
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
 
 function fmt(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
@@ -109,28 +259,33 @@ const REMINDER_LABELS = { 1: "Rappel amiable", 2: "Relance formelle", 3: "Mise e
 
 export async function sendReminderEmail(params: ReminderEmailParams): Promise<EmailResult> {
   const label = REMINDER_LABELS[params.reminderLevel];
-  const urgencyClass = params.reminderLevel === 3 ? "badge-red" : params.reminderLevel === 2 ? "badge-yellow" : "";
+  const badgeVariant = params.reminderLevel === 3 ? "red" : params.reminderLevel === 2 ? "amber" : "default";
 
   const content = `
-    <h2>${label} — Loyer impayé</h2>
-    ${urgencyClass ? `<p><span class="${urgencyClass}">${label}</span></p>` : ""}
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
+    ${heading(`${label} — Loyer impayé`)}
+    ${params.reminderLevel >= 2 ? `<p style="margin:0 0 16px;">${badge(label, badgeVariant)}</p>` : ""}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
     ${params.reminderLevel === 1
-      ? `<p>Nous vous informons que le règlement ci-dessous est en attente. Si vous avez déjà effectué ce paiement, veuillez ignorer ce message.</p>`
+      ? para("Nous vous informons que le règlement ci-dessous est en attente. Si vous avez déjà effectué ce paiement, veuillez ignorer ce message.")
       : params.reminderLevel === 2
-      ? `<p>Malgré notre précédent rappel, nous n'avons pas reçu le règlement. Nous vous demandons d'y remédier dans les plus brefs délais.</p>`
-      : `<p>En l'absence de règlement suite à nos précédentes relances, nous vous adressons la présente <strong>mise en demeure</strong> de régler immédiatement la somme due, faute de quoi nous serons contraints d'engager une procédure judiciaire.</p>`
+      ? para("Malgré notre précédent rappel, nous n'avons pas reçu le règlement. Nous vous demandons d'y remédier dans les plus brefs délais.")
+      : para("En l'absence de règlement suite à nos précédentes relances, nous vous adressons la présente <strong>mise en demeure</strong> de régler immédiatement la somme due, faute de quoi nous serons contraints d'engager une procédure judiciaire.")
     }
-    <table class="table">
-      <tr><th>Référence</th><td>${params.invoiceRef}</td></tr>
-      <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
-      <tr><th>Montant dû</th><td><strong>${fmt(params.amount)}</strong></td></tr>
-    </table>
-    ${params.contactEmail ? `<p>Pour toute question : <a href="mailto:${params.contactEmail}">${params.contactEmail}</a></p>` : ""}
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${infoTable([
+      { label: "Référence", value: params.invoiceRef },
+      { label: "Échéance", value: params.dueDate },
+      { label: "Montant dû", value: fmt(params.amount), bold: true },
+    ])}
+    ${params.contactEmail ? para(`Pour toute question : <a href="mailto:${params.contactEmail}" style="color:${BRAND.blue};text-decoration:none;">${params.contactEmail}</a>`) : ""}
+    ${signature(params.societyName)}
   `;
 
-  return sendMail(params.to, `[${label}] Loyer impayé — ${params.invoiceRef} — ${fmt(params.amount)}`, baseTemplate(`${label} — Loyer impayé`, content));
+  // Relances : bordure latérale bleu marine pour ton formel
+  return sendMail(
+    params.to,
+    `[${label}] Loyer impayé — ${params.invoiceRef} — ${fmt(params.amount)}`,
+    baseTemplate(`${label} — Loyer impayé`, content, { societyName: params.societyName, borderLeftColor: BRAND.deep })
+  );
 }
 
 // ============================================================
@@ -155,18 +310,19 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
   const typeLabelCapitalized = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1);
 
   const content = `
-    <p>Madame, Monsieur,</p>
-    <p>Nous vous prions de bien vouloir trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période de <strong>${params.period}</strong>.</p>
-    <p>Nous vous remercions de bien vouloir régler cette somme à la date d'échéance indiquée.</p>
-    <p>Pour toute question relative à ce document, n'hésitez pas à nous contacter.</p>
-    <p style="margin-bottom:32px;">Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
-    <p>Le gérant<br/>${params.societyName}</p>
+    ${heading(`${typeLabelCapitalized} — ${params.period}`)}
+    ${para("Madame, Monsieur,")}
+    ${para(`Nous vous prions de bien vouloir trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période de <strong>${params.period}</strong>.`)}
+    ${para("Nous vous remercions de bien vouloir régler cette somme à la date d'échéance indiquée.")}
+    ${para("Pour toute question relative à ce document, n'hésitez pas à nous contacter.")}
+    ${para("Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.")}
+    ${signature(`Le gérant — ${params.societyName}`)}
   `;
 
   return sendMail(
     params.to,
     `${typeLabelCapitalized} ${params.period} — ${params.invoiceRef}`,
-    baseTemplate(`${typeLabelCapitalized} ${params.period}`, content),
+    baseTemplate(`${typeLabelCapitalized} ${params.period}`, content, { societyName: params.societyName }),
     params.pdfAttachment ? [params.pdfAttachment] : undefined
   );
 }
@@ -187,24 +343,28 @@ interface ReceiptEmailParams {
 
 export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Quittance de loyer — ${params.period}</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Nous accusons réception de votre paiement et vous adressons votre quittance.</p>
-    <table class="table">
-      <tr><th>Référence</th><td>${params.invoiceRef}</td></tr>
-      <tr><th>Période</th><td>${params.period}</td></tr>
-      <tr><th>Montant réglé</th><td><strong>${fmt(params.amount)}</strong></td></tr>
-      <tr><th>Date de paiement</th><td>${params.paidAt}</td></tr>
-    </table>
-    <p>Nous vous remercions de votre règlement.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${heading(`Quittance de loyer — ${params.period}`)}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para("Nous accusons réception de votre paiement et vous adressons votre quittance.")}
+    ${infoTable([
+      { label: "Référence", value: params.invoiceRef },
+      { label: "Période", value: params.period },
+      { label: "Montant réglé", value: fmt(params.amount), bold: true },
+      { label: "Date de paiement", value: params.paidAt },
+    ])}
+    ${para("Nous vous remercions de votre règlement.")}
+    ${signature(params.societyName)}
   `;
 
-  return sendMail(params.to, `Quittance de loyer ${params.period} — ${params.invoiceRef}`, baseTemplate(`Quittance de loyer ${params.period}`, content));
+  return sendMail(
+    params.to,
+    `Quittance de loyer ${params.period} — ${params.invoiceRef}`,
+    baseTemplate(`Quittance de loyer ${params.period}`, content, { societyName: params.societyName })
+  );
 }
 
 // ============================================================
-// CODE DE CONFIRMATION INSCRIPTION (signup public)
+// CODE DE CONFIRMATION INSCRIPTION
 // ============================================================
 
 interface SignupCodeEmailParams {
@@ -214,72 +374,15 @@ interface SignupCodeEmailParams {
 }
 
 export async function sendSignupCodeEmail(params: SignupCodeEmailParams): Promise<EmailResult> {
-  const html = `<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr>
-          <td style="background:#2563eb;padding:32px 40px;text-align:center;">
-            <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Gestion locative intelligente</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:40px;">
-            <h2 style="margin:0 0 8px;color:#111;font-size:20px;font-weight:700;">Confirmez votre inscription</h2>
-            <p style="margin:0 0 24px;color:#555;font-size:14.5px;line-height:1.6;">
-              Bonjour <strong>${params.name}</strong>, votre compte est presque prêt !<br/>
-              Saisissez le code ci-dessous pour confirmer votre adresse email et définir votre mot de passe.
-            </p>
+  const content = `
+    ${heading("Confirmez votre inscription")}
+    ${para(`Bonjour <strong>${params.name}</strong>, votre compte est presque prêt ! Saisissez le code ci-dessous pour confirmer votre adresse email et définir votre mot de passe.`)}
+    ${codeBlock(params.code)}
+    ${para(`Ce code est valable <strong>30 minutes</strong>.`, { muted: true })}
+    ${infoBox("Après confirmation, vous pourrez créer votre profil propriétaire et commencer à gérer votre patrimoine immobilier.", "success")}
+  `;
 
-            <!-- Code box -->
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td align="center" style="padding:24px 0;">
-                  <div style="display:inline-block;padding:20px 40px;background:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;">
-                    <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#2563eb;font-family:'Courier New',monospace;">${params.code}</span>
-                  </div>
-                </td>
-              </tr>
-            </table>
-
-            <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;text-align:center;">
-              Ce code est valable <strong>30 minutes</strong>.
-            </p>
-
-            <!-- Info box -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-top:16px;">
-              <tr>
-                <td style="padding:12px 16px;">
-                  <p style="margin:0;color:#166534;font-size:13px;line-height:1.5;">
-                    Après confirmation, vous pourrez créer votre profil propriétaire et commencer à gérer votre patrimoine immobilier.
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-            <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.5;">
-              ${APP_NAME} — Conçu par un multipropriétaire, pour les multipropriétaires.<br/>
-              Si vous n'avez pas créé de compte, ignorez cet email.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-
-  return sendMail(params.to, `${APP_NAME} — Votre code de confirmation : ${params.code}`, html);
+  return sendMail(params.to, `${APP_NAME} — Votre code de confirmation : ${params.code}`, baseTemplate("Confirmez votre inscription", content));
 }
 
 // ============================================================
@@ -297,21 +400,17 @@ interface NewUserEmailParams {
 
 export async function sendNewUserEmail(params: NewUserEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Votre accès à ${APP_NAME}</h2>
-    <p>Bonjour <strong>${params.name}</strong>,</p>
-    <p>Un compte a été créé pour vous sur <strong>${APP_NAME}</strong>${params.societyName ? ` pour la société <strong>${params.societyName}</strong>` : ""}.</p>
-    <p>Voici vos identifiants de connexion :</p>
-    <table class="table">
-      <tr><th>Adresse email</th><td>${params.email}</td></tr>
-      <tr><th>Mot de passe</th><td><strong style="font-family:monospace;font-size:16px">${params.password}</strong></td></tr>
-    </table>
-    <p style="margin-top:24px">
-      <a href="${params.appUrl}" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
-        Se connecter
-      </a>
-    </p>
-    <p style="color:#cc0000;font-size:13px;margin-top:16px">⚠️ Pour des raisons de sécurité, nous vous recommandons de modifier votre mot de passe dès votre première connexion.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME}</p>
+    ${heading(`Votre accès à ${APP_NAME}`)}
+    ${para(`Bonjour <strong>${params.name}</strong>,`)}
+    ${para(`Un compte a été créé pour vous sur <strong>${APP_NAME}</strong>${params.societyName ? ` pour la société <strong>${params.societyName}</strong>` : ""}.`)}
+    ${para("Voici vos identifiants de connexion :")}
+    ${infoTable([
+      { label: "Adresse email", value: params.email },
+      { label: "Mot de passe", value: `<span style="font-family:'JetBrains Mono','Courier New',monospace;font-size:16px;font-weight:700;">${params.password}</span>`, bold: true },
+    ])}
+    ${ctaButton("Se connecter", params.appUrl)}
+    ${infoBox("Pour des raisons de sécurité, nous vous recommandons de modifier votre mot de passe dès votre première connexion.", "warning")}
+    ${signature(APP_NAME)}
   `;
 
   return sendMail(params.to, `Votre accès à ${APP_NAME}`, baseTemplate(`Votre accès à ${APP_NAME}`, content));
@@ -333,20 +432,24 @@ interface WelcomeEmailParams {
 
 export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Bienvenue dans votre nouveau logement</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Bienvenue à <strong>${params.propertyAddress}</strong>. Voici votre récapitulatif de bail :</p>
-    <table class="table">
-      <tr><th>Adresse</th><td>${params.propertyAddress}</td></tr>
-      <tr><th>Entrée dans les lieux</th><td>${params.leaseStart}</td></tr>
-      <tr><th>Loyer mensuel</th><td><strong>${fmt(params.monthlyRent)}</strong></td></tr>
-    </table>
-    ${params.contactEmail ? `<p>Contact : <a href="mailto:${params.contactEmail}">${params.contactEmail}</a></p>` : ""}
-    <p>Nous vous souhaitons un agréable séjour.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${heading("Bienvenue dans votre nouveau logement")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para(`Bienvenue à <strong>${params.propertyAddress}</strong>. Voici votre récapitulatif de bail :`)}
+    ${infoTable([
+      { label: "Adresse", value: params.propertyAddress },
+      { label: "Entrée dans les lieux", value: params.leaseStart },
+      { label: "Loyer mensuel", value: fmt(params.monthlyRent), bold: true },
+    ])}
+    ${params.contactEmail ? para(`Contact : <a href="mailto:${params.contactEmail}" style="color:${BRAND.blue};text-decoration:none;">${params.contactEmail}</a>`) : ""}
+    ${para("Nous vous souhaitons un agréable séjour.")}
+    ${signature(params.societyName)}
   `;
 
-  return sendMail(params.to, `Bienvenue — Votre bail au ${params.propertyAddress}`, baseTemplate("Bienvenue dans votre nouveau logement", content));
+  return sendMail(
+    params.to,
+    `Bienvenue — Votre bail au ${params.propertyAddress}`,
+    baseTemplate("Bienvenue dans votre nouveau logement", content, { societyName: params.societyName })
+  );
 }
 
 // ============================================================
@@ -362,22 +465,20 @@ interface PortalActivationEmailParams {
 
 export async function sendPortalActivationEmail(params: PortalActivationEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Activez votre espace locataire</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Votre espace locataire a été créé. Utilisez le code ci-dessous pour l'activer :</p>
-    <p style="text-align:center;margin:32px 0">
-      <span style="display:inline-block;padding:16px 32px;background:#333333;color:#ffffff;border-radius:8px;font-size:28px;font-weight:700;letter-spacing:8px;font-family:monospace">${params.activationCode}</span>
-    </p>
-    <p style="text-align:center">
-      <a href="${params.portalUrl}/portal/activate" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
-        Activer mon espace
-      </a>
-    </p>
-    <p style="color:#888888;font-size:13px">Ce code expire dans 48 heures.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME}</p>
+    ${heading("Activez votre espace locataire")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para("Votre espace locataire a été créé. Utilisez le code ci-dessous pour l'activer :")}
+    ${codeBlock(params.activationCode)}
+    ${ctaButton("Activer mon espace", `${params.portalUrl}/portal/activate`)}
+    ${para("Ce code expire dans <strong>48 heures</strong>.", { muted: true, small: true })}
+    ${signature(APP_NAME)}
   `;
 
-  return sendMail(params.to, `Activez votre espace locataire — ${APP_NAME}`, baseTemplate("Activez votre espace locataire", content));
+  return sendMail(
+    params.to,
+    `Activez votre espace locataire — ${APP_NAME}`,
+    baseTemplate("Activez votre espace locataire", content)
+  );
 }
 
 // ============================================================
@@ -392,17 +493,19 @@ interface PortalLoginCodeEmailParams {
 
 export async function sendPortalLoginCodeEmail(params: PortalLoginCodeEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Votre code de connexion</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Voici votre code de connexion à votre espace locataire :</p>
-    <p style="text-align:center;margin:32px 0">
-      <span style="display:inline-block;padding:16px 32px;background:#333333;color:#ffffff;border-radius:8px;font-size:28px;font-weight:700;letter-spacing:8px;font-family:monospace">${params.code}</span>
-    </p>
-    <p style="color:#888888;font-size:13px">Ce code expire dans 15 minutes. Si vous n'avez pas demandé ce code, ignorez cet email.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME}</p>
+    ${heading("Votre code de connexion")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para("Voici votre code de connexion à votre espace locataire :")}
+    ${codeBlock(params.code)}
+    ${para("Ce code expire dans <strong>15 minutes</strong>. Si vous n'avez pas demandé ce code, ignorez cet email.", { muted: true, small: true })}
+    ${signature(APP_NAME)}
   `;
 
-  return sendMail(params.to, `Code de connexion — ${APP_NAME}`, baseTemplate("Code de connexion", content));
+  return sendMail(
+    params.to,
+    `Code de connexion — ${APP_NAME}`,
+    baseTemplate("Code de connexion", content)
+  );
 }
 
 // ============================================================
@@ -418,19 +521,19 @@ interface InsuranceReminderEmailParams {
 
 export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Attestation d'assurance requise</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Conformément à votre bail, vous devez nous fournir une <strong>attestation d'assurance</strong> en cours de validité.</p>
-    <p>À ce jour, nous n'avons pas reçu ce document. Nous vous invitons à le déposer dans votre espace locataire dans les meilleurs délais.</p>
-    <p style="text-align:center;margin:24px 0">
-      <a href="${params.portalUrl}/portal/assurance" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
-        Déposer mon attestation
-      </a>
-    </p>
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${heading("Attestation d'assurance requise")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para("Conformément à votre bail, vous devez nous fournir une <strong>attestation d'assurance</strong> en cours de validité.")}
+    ${para("À ce jour, nous n'avons pas reçu ce document. Nous vous invitons à le déposer dans votre espace locataire dans les meilleurs délais.")}
+    ${ctaButton("Déposer mon attestation", `${params.portalUrl}/portal/assurance`)}
+    ${signature(params.societyName)}
   `;
 
-  return sendMail(params.to, `Rappel — Attestation d'assurance requise`, baseTemplate("Attestation d'assurance requise", content));
+  return sendMail(
+    params.to,
+    `Rappel — Attestation d'assurance requise`,
+    baseTemplate("Attestation d'assurance requise", content, { societyName: params.societyName })
+  );
 }
 
 // ============================================================
@@ -450,25 +553,21 @@ interface DataroomDocumentAddedEmailParams {
 export async function sendDataroomDocumentAddedEmail(params: DataroomDocumentAddedEmailParams): Promise<EmailResult> {
   const greeting = params.recipientName ? `Bonjour <strong>${params.recipientName}</strong>,` : "Bonjour,";
   const content = `
-    <h2>Nouveau document disponible</h2>
-    <p>${greeting}</p>
-    <p>Un nouveau document a été ajouté à la dataroom <strong>${params.dataroomName}</strong> qui vous a été partagée.</p>
-    <table class="table">
-      <tr><th>Document ajouté</th><td>${params.documentName}</td></tr>
-      <tr><th>Total documents</th><td>${params.documentCount}</td></tr>
-    </table>
-    <p style="margin-top:24px">
-      <a href="${params.dataroomUrl}" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
-        Accéder à la dataroom
-      </a>
-    </p>
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${heading("Nouveau document disponible")}
+    ${para(greeting)}
+    ${para(`Un nouveau document a été ajouté à la dataroom <strong>${params.dataroomName}</strong> qui vous a été partagée.`)}
+    ${infoTable([
+      { label: "Document ajouté", value: params.documentName },
+      { label: "Total documents", value: String(params.documentCount) },
+    ])}
+    ${ctaButton("Accéder à la dataroom", params.dataroomUrl)}
+    ${signature(params.societyName)}
   `;
 
   return sendMail(
     params.to,
     `[${params.dataroomName}] Nouveau document disponible`,
-    baseTemplate(`Nouveau document disponible`, content)
+    baseTemplate("Nouveau document disponible", content, { societyName: params.societyName })
   );
 }
 
@@ -486,26 +585,24 @@ interface DataroomAccessEmailParams {
 }
 
 export async function sendDataroomAccessEmail(params: DataroomAccessEmailParams): Promise<EmailResult> {
+  const rows: Array<{ label: string; value: string; bold?: boolean }> = [
+    { label: "Date", value: params.accessedAt },
+  ];
+  if (params.viewerIp) rows.push({ label: "Adresse IP", value: params.viewerIp });
+  if (params.viewerEmail) rows.push({ label: "Email du visiteur", value: params.viewerEmail });
+
   const content = `
-    <h2>Accès à votre dataroom</h2>
-    <p>Votre dataroom <strong>${params.dataroomName}</strong> vient d'être consultée.</p>
-    <table class="table">
-      <tr><th>Date</th><td>${params.accessedAt}</td></tr>
-      ${params.viewerIp ? `<tr><th>Adresse IP</th><td>${params.viewerIp}</td></tr>` : ""}
-      ${params.viewerEmail ? `<tr><th>Email du visiteur</th><td>${params.viewerEmail}</td></tr>` : ""}
-    </table>
-    <p style="margin-top:24px">
-      <a href="${params.dataroomUrl}" style="display:inline-block;padding:10px 24px;background:#333333;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600">
-        Voir la dataroom
-      </a>
-    </p>
-    <hr/><p style="color:#888888;font-size:12px;">${APP_NAME}</p>
+    ${heading("Accès à votre dataroom")}
+    ${para(`Votre dataroom <strong>${params.dataroomName}</strong> vient d'être consultée.`)}
+    ${infoTable(rows)}
+    ${ctaButton("Voir la dataroom", params.dataroomUrl)}
+    ${signature(APP_NAME)}
   `;
 
   return sendMail(
     params.to,
     `[Dataroom] Accès à "${params.dataroomName}"`,
-    baseTemplate(`Accès à votre dataroom`, content)
+    baseTemplate("Accès à votre dataroom", content)
   );
 }
 
@@ -524,19 +621,23 @@ interface InvoiceReminderEmailParams {
 
 export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParams): Promise<EmailResult> {
   const content = `
-    <h2>Rappel — Facture en attente de règlement</h2>
-    <p>Bonjour <strong>${params.tenantName}</strong>,</p>
-    <p>Nous vous informons que la facture ci-dessous est en attente de règlement :</p>
-    <table class="table">
-      <tr><th>N° Facture</th><td>${params.invoiceNumber}</td></tr>
-      <tr><th>Échéance</th><td>${params.dueDate}</td></tr>
-      <tr><th>Montant dû</th><td><strong>${fmt(params.amount)}</strong></td></tr>
-    </table>
-    <p>Si vous avez déjà effectué ce paiement, merci de ne pas tenir compte de ce message.</p>
-    <hr/><p style="color:#888888;font-size:12px;">${params.societyName}</p>
+    ${heading("Rappel — Facture en attente de règlement")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para("Nous vous informons que la facture ci-dessous est en attente de règlement :")}
+    ${infoTable([
+      { label: "N° Facture", value: params.invoiceNumber },
+      { label: "Échéance", value: params.dueDate },
+      { label: "Montant dû", value: fmt(params.amount), bold: true },
+    ])}
+    ${para("Si vous avez déjà effectué ce paiement, merci de ne pas tenir compte de ce message.")}
+    ${signature(params.societyName)}
   `;
 
-  return sendMail(params.to, `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`, baseTemplate("Rappel — Facture impayée", content));
+  return sendMail(
+    params.to,
+    `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`,
+    baseTemplate("Rappel — Facture impayée", content, { societyName: params.societyName, borderLeftColor: BRAND.deep })
+  );
 }
 
 // ============================================================
@@ -548,71 +649,18 @@ export async function sendPasswordResetEmail(params: {
   name: string;
   resetUrl: string;
 }): Promise<EmailResult> {
-  const html = `<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr>
-          <td style="background:#2563eb;padding:32px 40px;text-align:center;">
-            <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Gestion locative intelligente</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:40px;">
-            <h2 style="margin:0 0 8px;color:#111;font-size:20px;font-weight:700;">Réinitialisation de votre mot de passe</h2>
-            <p style="margin:0 0 24px;color:#555;font-size:14.5px;line-height:1.6;">
-              Bonjour <strong>${params.name}</strong>,<br/>
-              Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en définir un nouveau.
-            </p>
+  const content = `
+    ${heading("Réinitialisation de votre mot de passe")}
+    ${para(`Bonjour <strong>${params.name}</strong>,`)}
+    ${para("Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en définir un nouveau.")}
+    ${ctaButton("Réinitialiser mon mot de passe", params.resetUrl)}
+    ${infoBox("Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.", "warning")}
+    ${para(`Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br/><a href="${params.resetUrl}" style="color:${BRAND.blue};word-break:break-all;">${params.resetUrl}</a>`, { muted: true, small: true })}
+  `;
 
-            <!-- CTA Button -->
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td align="center" style="padding:8px 0 32px;">
-                  <a href="${params.resetUrl}" style="display:inline-block;padding:16px 40px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;letter-spacing:-0.2px;">
-                    Réinitialiser mon mot de passe
-                  </a>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Warning box -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;">
-              <tr>
-                <td style="padding:12px 16px;">
-                  <p style="margin:0;color:#854d0e;font-size:13px;line-height:1.5;">
-                    Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            <p style="margin:24px 0 0;color:#94a3b8;font-size:11px;line-height:1.5;word-break:break-all;">
-              Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br/>
-              <a href="${params.resetUrl}" style="color:#2563eb;">${params.resetUrl}</a>
-            </p>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-            <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.5;">
-              ${APP_NAME} — Gestion locative intelligente.<br/>
-              Si vous n'avez pas demandé cette réinitialisation, aucune action n'est requise.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-
-  return sendMail(params.to, `Réinitialisation de votre mot de passe — ${APP_NAME}`, html);
+  return sendMail(
+    params.to,
+    `Réinitialisation de votre mot de passe — ${APP_NAME}`,
+    baseTemplate("Réinitialisation de votre mot de passe", content)
+  );
 }
