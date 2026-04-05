@@ -15,6 +15,8 @@ import {
   sendPasswordResetEmail,
 } from "@/lib/email";
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function POST(request: NextRequest) {
   const { secret } = await request.json();
   if (secret !== process.env.CRON_SECRET) {
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
     contactEmail: "contact@ajhold.fr",
   });
 
+  await delay(300);
   // 2. Relance niveau 2 (Relance formelle)
   results["2_relance_formelle"] = await sendReminderEmail({
     to: TO,
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
     contactEmail: "contact@ajhold.fr",
   });
 
+  await delay(300);
   // 3. Relance niveau 3 (Mise en demeure)
   results["3_mise_en_demeure"] = await sendReminderEmail({
     to: TO,
@@ -61,6 +65,7 @@ export async function POST(request: NextRequest) {
     contactEmail: "contact@ajhold.fr",
   });
 
+  await delay(300);
   // 4. Appel de loyer / Facture
   results["4_appel_loyer"] = await sendInvoiceEmail({
     to: TO,
@@ -77,6 +82,7 @@ export async function POST(request: NextRequest) {
     ],
   });
 
+  await delay(300);
   // 5. Quittance de loyer
   results["5_quittance"] = await sendReceiptEmail({
     to: TO,
@@ -88,6 +94,7 @@ export async function POST(request: NextRequest) {
     societyName: "SCI AJ HOLD",
   });
 
+  await delay(300);
   // 6. Code de confirmation inscription
   results["6_signup_code"] = await sendSignupCodeEmail({
     to: TO,
@@ -95,6 +102,7 @@ export async function POST(request: NextRequest) {
     code: "847293",
   });
 
+  await delay(300);
   // 7. Bienvenue nouvel utilisateur
   results["7_nouvel_utilisateur"] = await sendNewUserEmail({
     to: TO,
@@ -105,6 +113,7 @@ export async function POST(request: NextRequest) {
     societyName: "SCI AJ HOLD",
   });
 
+  await delay(300);
   // 8. Bienvenue nouveau locataire
   results["8_bienvenue_locataire"] = await sendWelcomeEmail({
     to: TO,
@@ -116,6 +125,7 @@ export async function POST(request: NextRequest) {
     contactEmail: "contact@ajhold.fr",
   });
 
+  await delay(300);
   // 9. Activation portail locataire
   results["9_portail_activation"] = await sendPortalActivationEmail({
     to: TO,
@@ -124,6 +134,7 @@ export async function POST(request: NextRequest) {
     portalUrl: baseUrl,
   });
 
+  await delay(300);
   // 10. Code de connexion portail locataire
   results["10_portail_code_connexion"] = await sendPortalLoginCodeEmail({
     to: TO,
@@ -131,6 +142,7 @@ export async function POST(request: NextRequest) {
     code: "482916",
   });
 
+  await delay(300);
   // 11. Relance attestation d'assurance
   results["11_relance_assurance"] = await sendInsuranceReminderEmail({
     to: TO,
@@ -139,6 +151,7 @@ export async function POST(request: NextRequest) {
     portalUrl: baseUrl,
   });
 
+  await delay(300);
   // 12. Dataroom — document ajouté
   results["12_dataroom_document"] = await sendDataroomDocumentAddedEmail({
     to: TO,
@@ -150,6 +163,7 @@ export async function POST(request: NextRequest) {
     societyName: "SCI AJ HOLD",
   });
 
+  await delay(300);
   // 13. Dataroom — notification d'accès
   results["13_dataroom_acces"] = await sendDataroomAccessEmail({
     to: TO,
@@ -160,6 +174,7 @@ export async function POST(request: NextRequest) {
     dataroomUrl: `${baseUrl}/dataroom/example-token`,
   });
 
+  await delay(300);
   // 14. Relance facture impayée (cron)
   results["14_relance_facture_cron"] = await sendInvoiceReminderEmail({
     to: TO,
@@ -170,6 +185,7 @@ export async function POST(request: NextRequest) {
     societyName: "SCI AJ HOLD",
   });
 
+  await delay(300);
   // 15. Réinitialisation mot de passe
   results["15_reset_password"] = await sendPasswordResetEmail({
     to: TO,
