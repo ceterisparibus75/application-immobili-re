@@ -8,129 +8,115 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  // 1. Lire toutes les subscriptions
-  const subscriptions = await prisma.subscription.findMany({
-    select: {
-      id: true,
-      societyId: true,
-      planId: true,
-      status: true,
-      stripeCustomerId: true,
-      stripeSubscriptionId: true,
-      stripePriceId: true,
-    },
-  });
-
   const results: Record<string, unknown> = {};
 
-  for (const sub of subscriptions) {
-    const key = sub.societyId;
+  try {
+    // 1. Lister les souscriptions Stripe récentes (dernières 100)
+    const stripeSubscriptions = await getStripe().subscriptions.list({
+      limit: 100,
+      status: "all",
+      expand: ["data.customer"],
+    });
 
-    // Cas 1: pas de stripeCustomerId → pas de Stripe, rien à faire
-    if (!sub.stripeCustomerId) {
-      results[key] = { action: "skip", reason: "no stripeCustomerId", planId: sub.planId, status: sub.status };
-      continue;
-    }
+    results["stripe_subscriptions_found"] = stripeSubscriptions.data.length;
 
-    // Cas 2: a un stripeCustomerId mais pas de stripeSubscriptionId → chercher via API Stripe
-    if (!sub.stripeSubscriptionId) {
-      try {
-        const stripeSubscriptions = await getStripe().subscriptions.list({
-          customer: sub.stripeCustomerId,
+    for (const stripeSub of stripeSubscriptions.data) {
+      const societyId = stripeSub.metadata?.societyId;
+      if (!societyId) {
+        // Chercher via le checkout session
+        const sessions = await getStripe().checkout.sessions.list({
+          subscription: stripeSub.id,
           limit: 1,
         });
-        const stripeSub = stripeSubscriptions.data[0];
-        if (!stripeSub) {
-          results[key] = { action: "skip", reason: "no Stripe subscription found for customer", customerId: sub.stripeCustomerId };
+        const session = sessions.data[0];
+        const sid = session?.metadata?.societyId;
+
+        if (!sid) {
+          results[`stripe_${stripeSub.id}`] = {
+            action: "skip",
+            reason: "no societyId in metadata",
+            customerEmail: typeof stripeSub.customer === "object" ? (stripeSub.customer as { email?: string }).email : null,
+          };
           continue;
         }
 
-        const priceId = stripeSub.items.data[0]?.price?.id ?? null;
-        const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
-          ?? (stripeSub.metadata?.planId as string | undefined)
-          ?? null;
-
-        const statusMap: Record<string, string> = {
-          trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
-          canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
-        };
-
-        await prisma.subscription.update({
-          where: { id: sub.id },
-          data: {
-            stripeSubscriptionId: stripeSub.id,
-            stripePriceId: priceId,
-            planId: (resolvedPlanId ?? sub.planId) as "STARTER" | "PRO" | "ENTERPRISE",
-            status: (statusMap[stripeSub.status] ?? sub.status) as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
-          },
-        });
-
-        results[key] = {
-          action: "fixed_missing_subscription_id",
-          stripeSubId: stripeSub.id,
-          priceId,
-          resolvedPlanId,
-          stripeStatus: stripeSub.status,
-          oldPlanId: sub.planId,
-          newPlanId: resolvedPlanId ?? sub.planId,
-        };
-        continue;
-      } catch (err) {
-        results[key] = { action: "error", reason: String(err) };
+        // Traiter avec le societyId trouvé via la session
+        await syncSubscription(sid, stripeSub, results);
         continue;
       }
+
+      await syncSubscription(societyId, stripeSub, results);
     }
 
-    // Cas 3: a un stripeSubscriptionId → vérifier la sync
-    try {
-      const stripeSub = await getStripe().subscriptions.retrieve(sub.stripeSubscriptionId);
-      const priceId = stripeSub.items.data[0]?.price?.id ?? null;
-      const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
-        ?? (stripeSub.metadata?.planId as string | undefined)
-        ?? null;
+    // 2. Afficher l'état final des subscriptions en BDD
+    const dbSubs = await prisma.subscription.findMany({
+      select: {
+        societyId: true,
+        planId: true,
+        status: true,
+        stripeCustomerId: true,
+        stripeSubscriptionId: true,
+      },
+    });
+    results["db_subscriptions"] = dbSubs;
 
-      const statusMap: Record<string, string> = {
-        trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
-        canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
-      };
-      const mappedStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
-
-      const needsUpdate = resolvedPlanId !== sub.planId || mappedStatus !== sub.status;
-
-      if (needsUpdate) {
-        await prisma.subscription.update({
-          where: { id: sub.id },
-          data: {
-            stripePriceId: priceId,
-            planId: (resolvedPlanId ?? sub.planId) as "STARTER" | "PRO" | "ENTERPRISE",
-            status: mappedStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
-          },
-        });
-
-        results[key] = {
-          action: "synced",
-          oldPlanId: sub.planId,
-          newPlanId: resolvedPlanId ?? sub.planId,
-          oldStatus: sub.status,
-          newStatus: mappedStatus,
-          priceId,
-          resolvedPlanId,
-          planIdFromPriceIdResult: priceId ? planIdFromPriceId(priceId) : "no_price",
-          metadataPlanId: stripeSub.metadata?.planId ?? "none",
-        };
-      } else {
-        results[key] = {
-          action: "already_synced",
-          planId: sub.planId,
-          status: sub.status,
-          priceId,
-          resolvedPlanId,
-        };
-      }
-    } catch (err) {
-      results[key] = { action: "error", reason: String(err) };
-    }
+  } catch (err) {
+    results["error"] = String(err);
   }
 
-  return NextResponse.json({ subscriptions: subscriptions.length, results });
+  return NextResponse.json(results);
+}
+
+async function syncSubscription(
+  societyId: string,
+  stripeSub: { id: string; status: string; customer: string | { id: string }; items: { data: Array<{ price?: { id: string } }> }; metadata: Record<string, string>; trial_start: number | null; trial_end: number | null; cancel_at: number | null; canceled_at: number | null },
+  results: Record<string, unknown>
+) {
+  const customerId = typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer.id;
+  const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+  const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
+    ?? (stripeSub.metadata?.planId as string | undefined)
+    ?? null;
+
+  const statusMap: Record<string, string> = {
+    trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+    canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+  };
+  const mappedStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+
+  // Vérifier qu'une subscription existe en BDD pour cette société
+  const existing = await prisma.subscription.findUnique({ where: { societyId } });
+  if (!existing) {
+    results[`society_${societyId}`] = { action: "skip", reason: "no subscription record in DB" };
+    return;
+  }
+
+  await prisma.subscription.update({
+    where: { societyId },
+    data: {
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: stripeSub.id,
+      stripePriceId: priceId,
+      planId: (resolvedPlanId ?? existing.planId) as "STARTER" | "PRO" | "ENTERPRISE",
+      status: mappedStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+      trialStart: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000) : existing.trialStart,
+      trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : existing.trialEnd,
+      cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+      canceledAt: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
+    },
+  });
+
+  results[`society_${societyId}`] = {
+    action: "synced",
+    stripeSubId: stripeSub.id,
+    customerId,
+    priceId,
+    resolvedPlanId,
+    planIdFromPriceResult: priceId ? planIdFromPriceId(priceId) : "no_price",
+    metadataPlanId: stripeSub.metadata?.planId ?? "none",
+    stripeStatus: stripeSub.status,
+    mappedStatus,
+    oldPlanId: existing.planId,
+    newPlanId: resolvedPlanId ?? existing.planId,
+  };
 }
