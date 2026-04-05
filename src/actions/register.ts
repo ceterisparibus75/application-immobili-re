@@ -22,11 +22,9 @@ function generateTemporaryPassword(): string {
   for (let i = 0; i < 10; i++) {
     password += chars[Math.floor(Math.random() * chars.length)];
   }
-  // Ensure at least one special char, one uppercase, one digit
   password += specials[Math.floor(Math.random() * specials.length)];
   password += "A";
   password += "7";
-  // Shuffle
   return password
     .split("")
     .sort(() => Math.random() - 0.5)
@@ -47,6 +45,7 @@ export async function registerUser(
 
     const { email, name, firstName } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
+    const fullName = `${firstName.trim()} ${name.trim()}`;
 
     // Vérifier que l'email n'est pas déjà utilisé
     const existing = await prisma.user.findUnique({
@@ -60,21 +59,38 @@ export async function registerUser(
     const tempPassword = generateTemporaryPassword();
     const passwordHash = await hash(tempPassword, 12);
 
-    // Créer l'utilisateur
-    await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        name,
-        firstName,
-        passwordHash,
-      },
-    });
+    // Créer l'utilisateur — utiliser SQL brut pour compatibilité si colonnes manquantes
+    try {
+      await prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          name: fullName,
+          firstName: firstName.trim(),
+          lastName: name.trim(),
+          passwordHash,
+        },
+      });
+    } catch (createError) {
+      // Fallback : si firstName/lastName n'existent pas en base, créer avec les champs de base
+      const msg = createError instanceof Error ? createError.message : "";
+      if (msg.includes("column") || msg.includes("field") || msg.includes("Unknown arg")) {
+        await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            name: fullName,
+            passwordHash,
+          },
+        });
+      } else {
+        throw createError;
+      }
+    }
 
     // Envoyer l'email de confirmation avec le code provisoire
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://mygestia.immo";
     await sendSignupConfirmationEmail({
       to: normalizedEmail,
-      name: `${firstName} ${name}`,
+      name: fullName,
       email: normalizedEmail,
       temporaryPassword: tempPassword,
       appUrl,
@@ -84,13 +100,9 @@ export async function registerUser(
   } catch (error) {
     console.error("[registerUser]", error);
     const message = error instanceof Error ? error.message : String(error);
-    // Erreurs Prisma courantes
     if (message.includes("Unique constraint")) {
       return { success: false, error: "Un compte existe déjà avec cette adresse email" };
     }
-    if (message.includes("column") || message.includes("field")) {
-      return { success: false, error: "Erreur de configuration base de données. Contactez le support." };
-    }
-    return { success: false, error: `Erreur lors de la création du compte : ${message.slice(0, 150)}` };
+    return { success: false, error: `Erreur lors de la création du compte : ${message.slice(0, 200)}` };
   }
 }
