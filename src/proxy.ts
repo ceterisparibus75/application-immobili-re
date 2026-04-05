@@ -137,12 +137,16 @@ export default auth(async (req) => {
     "upgrade-insecure-requests",
   ].join("; ");
 
-  // Injecter les headers dans la reponse
-  const response = NextResponse.next();
+  // Injecter les headers dans la requete (accessibles via headers() dans les Server Components)
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+  requestHeaders.set("x-nonce", nonce);
   if (activeSocietyId) {
-    response.headers.set("x-society-id", activeSocietyId);
+    requestHeaders.set("x-society-id", activeSocietyId);
   }
-  response.headers.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // CSP est un header de reponse
   response.headers.set("Content-Security-Policy", cspValue);
 
   return response;
