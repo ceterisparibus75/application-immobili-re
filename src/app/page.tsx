@@ -1,6 +1,19 @@
 import { Building2, MapPin, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import type { Metadata } from "next";
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "GestImmo";
+
+export const metadata: Metadata = {
+  title: `${APP_NAME} — Gestion immobiliere SaaS`,
+  description: "Plateforme SaaS de gestion locative : patrimoine, baux, locataires, facturation, comptabilite. Essai gratuit 14 jours.",
+  openGraph: {
+    title: `${APP_NAME} — Gestion immobiliere SaaS`,
+    description: "Gerez votre patrimoine immobilier en toute simplicite. Baux, locataires, facturation, comptabilite.",
+    type: "website",
+  },
+};
 
 export default function HomePage() {
   return (

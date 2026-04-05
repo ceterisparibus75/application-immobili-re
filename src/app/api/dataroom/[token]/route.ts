@@ -8,12 +8,27 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { sendDataroomAccessEmail } from "@/lib/email";
+import { getApiRatelimit } from "@/lib/rate-limit";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  // Rate limiting par IP
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "127.0.0.1";
+  const limiter = getApiRatelimit();
+  const { success: rateLimitOk } = await limiter.limit(ip);
+  if (!rateLimitOk) {
+    return NextResponse.json(
+      { error: "Trop de requêtes. Réessayez dans quelques instants." },
+      { status: 429 }
+    );
+  }
 
   const dataroom = await prisma.dataroom.findUnique({
     where: { shareToken: token },
@@ -89,14 +104,14 @@ export async function GET(
   );
 
   // Enregistrer l'accès + incrémenter le compteur
-  const ip =
+  const clientIp =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("x-real-ip") ??
     null;
 
   await Promise.all([
     prisma.dataroomAccess.create({
-      data: { dataroomId: dataroom.id, ipAddress: ip },
+      data: { dataroomId: dataroom.id, ipAddress: clientIp },
     }),
     prisma.dataroom.update({
       where: { id: dataroom.id },

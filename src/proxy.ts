@@ -14,6 +14,9 @@ export default auth(async (req) => {
     pathname.startsWith("/cgv") ||
     pathname.startsWith("/dpa") ||
     pathname.startsWith("/pricing") ||
+    pathname.startsWith("/aide") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
@@ -119,7 +122,7 @@ export default auth(async (req) => {
   const cspValue = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' blob: data: https:",
     "font-src 'self'",
     "object-src 'none'",

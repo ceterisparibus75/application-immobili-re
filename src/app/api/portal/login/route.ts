@@ -52,16 +52,18 @@ export async function POST(req: NextRequest) {
 
       const portal = tenant.portalAccess;
 
-      if (!portal.activationCode || !portal.activationCodeExpiresAt) {
-        return NextResponse.json({ error: "Aucun code en attente. Redemandez un code." }, { status: 400 });
-      }
-
-      if (new Date() > portal.activationCodeExpiresAt) {
+      if (portal.activationCodeExpiresAt && new Date() > portal.activationCodeExpiresAt) {
+        // Still run bcrypt to avoid timing leak on expiry check
+        const dummyHash = "$2b$10$dummyhashvaluefortimingattttttttttttttttttttttt";
+        await compare(code, dummyHash);
         return NextResponse.json({ error: "Code expiré. Redemandez un code." }, { status: 400 });
       }
 
-      const isValid = await compare(code, portal.activationCode);
-      if (!isValid) {
+      // Constant-time comparison: always run bcrypt even if no code exists
+      const dummyHash = "$2b$10$dummyhashvaluefortimingattttttttttttttttttttttt";
+      const hashToCompare = portal.activationCode ?? dummyHash;
+      const isValid = await compare(code, hashToCompare);
+      if (!portal.activationCode || !isValid) {
         return NextResponse.json({ error: "Code invalide" }, { status: 400 });
       }
 

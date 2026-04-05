@@ -415,6 +415,10 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
+  // Password reset
+  resetToken          String?   @unique
+  resetTokenExpiresAt DateTime?
+
   // 2FA TOTP
   twoFactorEnabled       Boolean  @default(false)
   twoFactorSecret        String? // chiffre AES-256-GCM

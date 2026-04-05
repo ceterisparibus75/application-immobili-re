@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +74,12 @@ function LoginForm() {
           disabled={isLoading}
           className="rounded-xl h-11"
         />
+      </div>
+
+      <div className="flex justify-end">
+        <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
+          Mot de passe oublie ?
+        </Link>
       </div>
 
       <Button type="submit" className="w-full h-11 rounded-xl font-semibold text-sm mt-2" disabled={isLoading}>
