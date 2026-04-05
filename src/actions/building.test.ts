@@ -14,6 +14,7 @@ const validInput = {
   addressLine1: "10 rue de la Paix",
   city: "Paris",
   postalCode: "75001",
+  country: "France",
   buildingType: "BUREAU" as const,
 }
 

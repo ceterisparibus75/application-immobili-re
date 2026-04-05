@@ -41,6 +41,7 @@ const validChargeInput = {
 const validSocietyCategoryInput = {
   name: "Eau froide",
   nature: "RECUPERABLE" as const,
+  allocationMethod: "TANTIEME" as const,
 }
 
 // ─── createChargeCategory ────────────────────────────────────────────────────

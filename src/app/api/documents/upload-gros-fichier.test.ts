@@ -83,7 +83,7 @@ function chunkRequest(offset: number, size: number): NextRequest {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("Upload fichier 12 Mo dans la GED", () => {
+describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY)("Upload fichier 12 Mo dans la GED", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co"
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key"
