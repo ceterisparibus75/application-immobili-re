@@ -7,6 +7,7 @@ import { TopNav } from "@/components/layout/top-nav";
 import { Header } from "@/components/layout/header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { SubscriptionBanner } from "@/components/layout/subscription-banner";
+import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
 
 export default async function AppLayout({
   children,
@@ -34,13 +35,15 @@ export default async function AppLayout({
 
   return (
     <SocietyProvider initialSocieties={societies}>
-      <div className="flex flex-col h-screen overflow-hidden">
-        <TopNav />
-        <Header />
-        <SubscriptionBanner />
-        <Breadcrumb />
-        <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
-      </div>
+      <IdleTimeoutProvider>
+        <div className="flex flex-col h-screen overflow-hidden">
+          <TopNav />
+          <Header />
+          <SubscriptionBanner />
+          <Breadcrumb />
+          <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
+        </div>
+      </IdleTimeoutProvider>
     </SocietyProvider>
   );
 }

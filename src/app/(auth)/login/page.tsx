@@ -13,11 +13,13 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const reason = searchParams.get("reason");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const idleMessage = reason === "idle" ? "Vous avez été déconnecté pour inactivité." : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +42,11 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {idleMessage && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 text-center">
+          {idleMessage}
+        </div>
+      )}
       {error && (
         <div className="rounded-xl bg-destructive/8 border border-destructive/20 p-3 text-sm text-destructive text-center">
           {error}
