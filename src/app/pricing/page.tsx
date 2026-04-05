@@ -1,61 +1,60 @@
-import { Building2, Check } from "lucide-react";
+import { Building2, Check, ChevronRight, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata = {
   title: `Tarifs | ${APP_NAME}`,
-  description: "Decouvrez nos offres de gestion immobiliere SaaS",
+  description: "Découvrez nos offres de gestion immobilière SaaS. 14 jours d'essai gratuit.",
 };
 
 const plans = [
   {
     name: "Starter",
     description: "Pour les petits patrimoines",
-    price: { monthly: 29, yearly: 290 },
-    limits: "10 lots · 1 societe · 2 utilisateurs",
+    price: { monthly: 19, yearly: 190 },
+    limits: "20 lots · 1 société · 2 utilisateurs",
     features: [
       "Gestion de patrimoine",
       "Baux et locataires",
-      "Facturation et quittances",
-      "Tableau de bord",
+      "Facturation et quittances PDF",
+      "Tableau de bord analytique",
       "Support par email",
     ],
-    cta: "Commencer l'essai gratuit",
+    cta: "Démarrer l\u2019essai gratuit",
     highlighted: false,
   },
   {
     name: "Pro",
     description: "Pour les gestionnaires professionnels",
     price: { monthly: 79, yearly: 790 },
-    limits: "50 lots · 3 societes · 5 utilisateurs",
+    limits: "50 lots · 3 sociétés · 5 utilisateurs",
     features: [
       "Tout Starter +",
-      "Comptabilite complete",
-      "Connexion bancaire",
+      "Comptabilité complète & export FEC",
+      "Connexion bancaire automatique",
       "Relances automatiques",
-      "Export FEC",
       "Portail locataire",
       "Support prioritaire",
     ],
-    cta: "Commencer l'essai gratuit",
+    cta: "Démarrer l\u2019essai gratuit",
     highlighted: true,
   },
   {
     name: "Enterprise",
     description: "Pour les grands portefeuilles",
     price: { monthly: 199, yearly: 1990 },
-    limits: "Lots et societes illimites",
+    limits: "Lots et sociétés illimités",
     features: [
       "Tout Pro +",
-      "Lots et societes illimites",
-      "Signature electronique",
+      "Lots et sociétés illimités",
+      "Signature électronique",
       "Import IA de documents",
-      "Support dedie",
-      "Acces API",
-      "SLA 99,9%",
+      "Accès API",
+      "Support dédié & SLA 99,9%",
     ],
-    cta: "Contacter l'equipe commerciale",
+    cta: "Contacter l\u2019équipe commerciale",
     highlighted: false,
   },
 ];
@@ -63,28 +62,30 @@ const plans = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">{APP_NAME}</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <Building2 className="h-4.5 w-4.5 text-white" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">{APP_NAME}</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
-            <Link href="/locaux" className="text-muted-foreground hover:text-foreground">Locaux disponibles</Link>
+            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-foreground">Fonctionnalités</Link>
             <Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link>
-            <Link
-              href="/login"
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90"
-            >
-              Se connecter
+            <Link href="/login">
+              <Button size="sm" className="gap-1.5">
+                Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
             </Link>
           </nav>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center mb-16">
+          <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Tarifs</p>
+          <h1 className="text-4xl sm:text-5xl font-extrabold mb-5">
             Des tarifs simples et transparents
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -92,18 +93,18 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-start">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-2xl border p-8 flex flex-col ${
+              className={`rounded-2xl border p-8 flex flex-col bg-card transition-all duration-300 ${
                 plan.highlighted
-                  ? "border-primary shadow-lg ring-1 ring-primary relative"
-                  : "border-border"
+                  ? "border-primary shadow-2xl ring-2 ring-primary relative md:-mt-4 md:mb-4"
+                  : "border-border hover:shadow-lg hover:border-primary/20"
               }`}
             >
               {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-5 py-1.5 rounded-full shadow-lg">
                   Le plus populaire
                 </div>
               )}
@@ -115,59 +116,61 @@ export default function PricingPage() {
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">{plan.price.monthly}&euro;</span>
-                  <span className="text-muted-foreground">/mois</span>
+                  <span className="text-5xl font-extrabold">{plan.price.monthly}</span>
+                  <span className="text-xl font-semibold text-muted-foreground">&euro;/mois</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  ou {plan.price.yearly}&euro;/an (economisez {Math.round((1 - plan.price.yearly / (plan.price.monthly * 12)) * 100)}%)
+                <p className="text-xs text-muted-foreground mt-2">
+                  ou {plan.price.yearly}&euro;/an{" "}
+                  <span className="text-primary font-semibold">
+                    (-{Math.round((1 - plan.price.yearly / (plan.price.monthly * 12)) * 100)}%)
+                  </span>
                 </p>
               </div>
 
-              <p className="text-xs font-medium text-muted-foreground mb-4 pb-4 border-b">
+              <p className="text-xs font-semibold text-muted-foreground mb-5 pb-5 border-b">
                 {plan.limits}
               </p>
 
               <ul className="space-y-3 flex-1 mb-8">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
+                  <li key={feature} className="flex items-start gap-2.5 text-sm">
                     <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <Link
-                href="/login"
-                className={`w-full text-center py-3 rounded-lg font-medium text-sm transition-colors ${
-                  plan.highlighted
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border border-border hover:bg-accent"
-                }`}
-              >
-                {plan.cta}
+              <Link href={plan.name === "Enterprise" ? "/contact" : "/login"} className="block">
+                <Button
+                  className={`w-full h-12 text-sm font-semibold ${plan.highlighted ? "shadow-lg shadow-primary/25" : ""}`}
+                  variant={plan.highlighted ? "default" : "outline"}
+                >
+                  {plan.cta}
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
               </Link>
             </div>
           ))}
         </div>
 
-        <div className="mt-16 text-center">
-          <h3 className="text-lg font-semibold mb-4">Questions frequentes</h3>
+        <div className="mt-20 text-center">
+          <h3 className="text-2xl font-bold mb-8">Questions fréquentes</h3>
           <div className="max-w-2xl mx-auto space-y-6 text-sm text-left">
-            <div>
-              <p className="font-medium">Puis-je changer d&apos;offre a tout moment ?</p>
-              <p className="text-muted-foreground mt-1">Oui. Les upgrades sont immediats avec un prorata. Les downgrades prennent effet a la fin de la periode en cours.</p>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">Puis-je changer d&apos;offre à tout moment ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Les upgrades sont immédiats avec un prorata. Les downgrades prennent effet à la fin de la période en cours.</p>
+            </div>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">L&apos;essai gratuit est-il vraiment sans engagement ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Aucune carte bancaire n&apos;est requise pour commencer. Vous pouvez annuler à tout moment pendant les 14 jours d&apos;essai.</p>
+            </div>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">Mes données sont-elles en sécurité ?</p>
+              <p className="text-muted-foreground mt-2">Absolument. Chiffrement AES-256 pour les données sensibles, hébergement en Europe (Frankfurt), audit logs complets et conformité RGPD.</p>
             </div>
             <div>
-              <p className="font-medium">L&apos;essai gratuit est-il vraiment sans engagement ?</p>
-              <p className="text-muted-foreground mt-1">Oui. Aucune carte bancaire n&apos;est requise pour commencer. Vous pouvez annuler a tout moment pendant les 14 jours d&apos;essai.</p>
-            </div>
-            <div>
-              <p className="font-medium">Mes donnees sont-elles en securite ?</p>
-              <p className="text-muted-foreground mt-1">Absolument. Chiffrement AES-256 pour les donnees sensibles, hebergement en Europe (Supabase Frankfurt), audit logs complets et conformite RGPD.</p>
-            </div>
-            <div>
-              <p className="font-medium">Que se passe-t-il si je depasse les limites de mon plan ?</p>
-              <p className="text-muted-foreground mt-1">Vous serez invite a passer au plan superieur. Vos donnees existantes ne seront jamais supprimees.</p>
+              <p className="font-bold text-base">Que se passe-t-il si je dépasse les limites de mon plan ?</p>
+              <p className="text-muted-foreground mt-2">Vous serez invité à passer au plan supérieur. Vos données existantes ne seront jamais supprimées.</p>
             </div>
           </div>
         </div>
@@ -176,8 +179,8 @@ export default function PricingPage() {
           <Link href="/cgu" className="hover:underline">CGU</Link>
           <Link href="/cgv" className="hover:underline">CGV</Link>
           <Link href="/dpa" className="hover:underline">DPA</Link>
-          <Link href="/politique-confidentialite" className="hover:underline">Confidentialite</Link>
-          <Link href="/mentions-legales" className="hover:underline">Mentions legales</Link>
+          <Link href="/politique-confidentialite" className="hover:underline">Confidentialité</Link>
+          <Link href="/mentions-legales" className="hover:underline">Mentions légales</Link>
         </div>
       </main>
     </div>

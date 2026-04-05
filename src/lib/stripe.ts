@@ -23,7 +23,7 @@ export function getStripe(): Stripe {
 export const PLANS = {
   STARTER: {
     name: "Starter",
-    maxLots: 10,
+    maxLots: 20,
     maxSocieties: 1,
     maxUsers: 2,
     features: [
