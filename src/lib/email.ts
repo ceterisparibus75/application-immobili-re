@@ -548,19 +548,71 @@ export async function sendPasswordResetEmail(params: {
   name: string;
   resetUrl: string;
 }): Promise<EmailResult> {
-  const content = `
-    <h2>Réinitialisation de votre mot de passe</h2>
-    <p>Bonjour <strong>${params.name}</strong>,</p>
-    <p>Vous avez demandé la réinitialisation de votre mot de passe ${APP_NAME}.</p>
-    <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
-    <p style="text-align:center;margin:32px 0;">
-      <a href="${params.resetUrl}" style="display:inline-block;padding:12px 32px;background:#111;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">
-        Réinitialiser mon mot de passe
-      </a>
-    </p>
-    <p style="color:#888888;font-size:12px;">Ce lien est valable pendant 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-    <p style="color:#888888;font-size:11px;word-break:break-all;">Lien direct : ${params.resetUrl}</p>
-  `;
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <tr>
+          <td style="background:#2563eb;padding:32px 40px;text-align:center;">
+            <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">${APP_NAME}</h1>
+            <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Gestion locative intelligente</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 8px;color:#111;font-size:20px;font-weight:700;">Réinitialisation de votre mot de passe</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:14.5px;line-height:1.6;">
+              Bonjour <strong>${params.name}</strong>,<br/>
+              Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en définir un nouveau.
+            </p>
 
-  return sendMail(params.to, `Réinitialisation de votre mot de passe — ${APP_NAME}`, baseTemplate("Réinitialisation mot de passe", content));
+            <!-- CTA Button -->
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:8px 0 32px;">
+                  <a href="${params.resetUrl}" style="display:inline-block;padding:16px 40px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;letter-spacing:-0.2px;">
+                    Réinitialiser mon mot de passe
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Warning box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;">
+              <tr>
+                <td style="padding:12px 16px;">
+                  <p style="margin:0;color:#854d0e;font-size:13px;line-height:1.5;">
+                    Ce lien est valable <strong>1 heure</strong>. Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:24px 0 0;color:#94a3b8;font-size:11px;line-height:1.5;word-break:break-all;">
+              Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br/>
+              <a href="${params.resetUrl}" style="color:#2563eb;">${params.resetUrl}</a>
+            </p>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+            <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.5;">
+              ${APP_NAME} — Gestion locative intelligente.<br/>
+              Si vous n'avez pas demandé cette réinitialisation, aucune action n'est requise.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return sendMail(params.to, `Réinitialisation de votre mot de passe — ${APP_NAME}`, html);
 }
