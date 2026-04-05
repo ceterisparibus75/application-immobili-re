@@ -307,6 +307,8 @@ export default function NouvelleSocietePage() {
       accountantPhone: data.accountantPhone,
       invoicePrefix: data.invoicePrefix,
       legalMentions: data.legalMentions,
+      shareCapital: data.shareCapital ? parseFloat(data.shareCapital) : undefined,
+      signatoryName: data.signatoryName,
     });
 
     setIsLoading(false);
@@ -452,6 +454,29 @@ export default function NouvelleSocietePage() {
                   placeholder="FR12345678901"
                   value={formValues.vatNumber}
                   onChange={(e) => setFormValues(prev => ({ ...prev, vatNumber: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="shareCapital">Capital social (€)</Label>
+                <Input
+                  id="shareCapital"
+                  name="shareCapital"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="1000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signatoryName">Représentant légal</Label>
+                <Input
+                  id="signatoryName"
+                  name="signatoryName"
+                  placeholder="M. DUPONT Jean, Gérant"
+                  maxLength={100}
                 />
               </div>
             </div>
