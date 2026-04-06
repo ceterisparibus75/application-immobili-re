@@ -54,6 +54,7 @@ const navigation = [
   {
     title: "Communication",
     items: [
+      { name: "Courriers", href: "/courriers", icon: FileText },
       { name: "Contacts", href: "/contacts", icon: Contact },
     ],
   },

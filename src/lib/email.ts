@@ -730,3 +730,33 @@ export async function sendPasswordResetEmail(params: {
     baseTemplate("Réinitialisation de votre mot de passe", content)
   );
 }
+
+// ============================================================
+// COURRIER TYPE
+// ============================================================
+
+interface SendLetterEmailParams {
+  to: string;
+  tenantName: string;
+  subject: string;
+  societyName: string;
+  attachment: { filename: string; content: Buffer };
+}
+
+export async function sendLetterEmail(params: SendLetterEmailParams): Promise<EmailResult> {
+  const content = `
+    ${heading(params.subject)}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para(`Veuillez trouver ci-joint un courrier de la part de <strong>${params.societyName}</strong>.`)}
+    ${para(`Objet : <strong>${params.subject}</strong>`)}
+    ${infoBox("Ce courrier est également disponible en pièce jointe au format PDF.", "info")}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `${params.subject} — ${params.societyName}`,
+    baseTemplate(params.subject, content, { societyName: params.societyName }),
+    [params.attachment]
+  );
+}
