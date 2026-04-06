@@ -243,11 +243,22 @@ export default async function ImmeubleDetailPage({
                   : null
               }
             />
-            {building.propertyValuations?.[0] && (
-              <div className="text-[11px] text-muted-foreground -mt-2">
-                Estimation IA du {new Date(building.propertyValuations[0].valuationDate).toLocaleDateString("fr-FR")}
-              </div>
-            )}
+            {building.propertyValuations?.[0] && (() => {
+              const v = building.propertyValuations[0];
+              const expert = v.expertReports?.[0];
+              if (expert) {
+                return (
+                  <div className="text-[11px] text-muted-foreground -mt-2">
+                    Expertise {expert.expertName} du {new Date(expert.reportDate).toLocaleDateString("fr-FR")}
+                  </div>
+                );
+              }
+              return (
+                <div className="text-[11px] text-muted-foreground -mt-2">
+                  Estimation IA du {new Date(v.valuationDate).toLocaleDateString("fr-FR")}
+                </div>
+              );
+            })()}
             <InfoRow
               label="Valeur comptable nette"
               value={

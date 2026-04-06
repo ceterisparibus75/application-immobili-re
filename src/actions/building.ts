@@ -251,7 +251,17 @@ export async function getBuildingById(societyId: string, buildingId: string) {
         where: { status: "COMPLETED" },
         orderBy: { valuationDate: "desc" },
         take: 1,
-        select: { id: true, valuationDate: true, estimatedValueMid: true, status: true },
+        select: {
+          id: true,
+          valuationDate: true,
+          estimatedValueMid: true,
+          status: true,
+          expertReports: {
+            orderBy: { reportDate: "desc" },
+            take: 1,
+            select: { reportDate: true, expertName: true },
+          },
+        },
       },
     },
   });

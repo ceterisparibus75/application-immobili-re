@@ -362,6 +362,14 @@ export async function uploadExpertReport(
       },
     });
 
+    // Mettre à jour la valeur vénale de l'immeuble si l'expert fournit une estimation
+    if (estimatedValue) {
+      await prisma.building.update({
+        where: { id: valuation.buildingId },
+        data: { marketValue: estimatedValue },
+      });
+    }
+
     await createAuditLog({
       societyId,
       userId: session.user.id,
