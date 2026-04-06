@@ -1,54 +1,64 @@
 import type { DvfTransaction, DvfSearchParams } from "./types";
 
 /**
- * API DVF officielle Etalab — recherche par code commune.
- * Documentation : https://app.dvf.etalab.gouv.fr/api
+ * Recherche DVF multi-sources.
+ * Essaie plusieurs APIs publiques DVF dans l'ordre :
+ * 1. API DVF data.gouv.fr (Etalab)
+ * 2. API DVF CEREMA
+ * 3. API cquest (fallback, par lat/lon)
  */
-const DVF_API_URL = "https://app.dvf.etalab.gouv.fr/api/mutations";
 const GEO_API_URL = "https://geo.api.gouv.fr";
 
-/**
- * Recherche les transactions DVF pour une commune donnée.
- * 1. Résout le code INSEE à partir du code postal via geo.api.gouv.fr
- * 2. Interroge l'API DVF officielle Etalab par code commune
- * 3. Calcule les distances si les coordonnées du bien sont fournies
- */
 export async function searchDvfTransactions(
   params: DvfSearchParams
 ): Promise<DvfTransaction[]> {
   const { postalCode, city, latitude, longitude, periodYears, propertyTypes } = params;
 
   try {
-    // 1. Résoudre le code INSEE depuis le code postal
+    // 1. Résoudre le code INSEE et les coordonnées de la commune
     const commune = await getCommuneInfo(postalCode, city);
     if (!commune) {
       console.error("[DVF] Commune introuvable pour", postalCode, city);
       return [];
     }
 
-    // 2. Chercher les mutations DVF par code département + code commune
-    const allTransactions: DvfTransaction[] = [];
-    const currentYear = new Date().getFullYear();
-    const startYear = currentYear - periodYears;
+    const centerLat = latitude ?? commune.lat;
+    const centerLng = longitude ?? commune.lon;
 
-    // L'API Etalab nécessite de requêter année par année
-    for (let year = Math.max(startYear, 2019); year <= currentYear; year++) {
+    const dateMin = new Date();
+    dateMin.setFullYear(dateMin.getFullYear() - periodYears);
+    const dateMinStr = dateMin.toISOString().split("T")[0];
+
+    // 2. Essayer les APIs DVF dans l'ordre
+    let transactions: DvfTransaction[] = [];
+
+    // Tentative 1: API Etalab DVF
+    try {
+      transactions = await fetchFromEtalab(commune.code, dateMinStr, centerLat, centerLng);
+    } catch (e) {
+      console.error("[DVF] Etalab failed:", e);
+    }
+
+    // Tentative 2: API CEREMA si Etalab n'a rien retourné
+    if (transactions.length === 0 && centerLat && centerLng) {
       try {
-        const yearTransactions = await fetchDvfByCommune(
-          commune.codeDepartement,
-          commune.code,
-          year,
-          latitude,
-          longitude
-        );
-        allTransactions.push(...yearTransactions);
-      } catch (error) {
-        console.error(`[DVF] Erreur année ${year}:`, error);
+        transactions = await fetchFromCerema(centerLat, centerLng, 5, dateMinStr);
+      } catch (e) {
+        console.error("[DVF] CEREMA failed:", e);
       }
     }
 
-    // 3. Filtrer par type de bien et trier
-    return allTransactions
+    // Tentative 3: API cquest si toujours rien
+    if (transactions.length === 0 && centerLat && centerLng) {
+      try {
+        transactions = await fetchFromCquest(centerLat, centerLng, 5000, dateMinStr);
+      } catch (e) {
+        console.error("[DVF] cquest failed:", e);
+      }
+    }
+
+    // 3. Filtrer et trier
+    return transactions
       .filter((t) => filterByPropertyType(t, propertyTypes))
       .filter((t) => t.salePrice > 0)
       .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime())
@@ -59,15 +69,16 @@ export async function searchDvfTransactions(
   }
 }
 
-/**
- * Résout le code INSEE et le département depuis le code postal
- */
+// ============================================================
+// Résolution commune
+// ============================================================
+
 async function getCommuneInfo(
   postalCode: string,
   city: string
-): Promise<{ code: string; codeDepartement: string; nom: string; centre?: { coordinates: [number, number] } } | null> {
+): Promise<{ code: string; nom: string; lat: number | null; lon: number | null } | null> {
   try {
-    const url = `${GEO_API_URL}/communes?codePostal=${postalCode}&fields=nom,code,codeDepartement,centre&limit=10`;
+    const url = `${GEO_API_URL}/communes?codePostal=${postalCode}&fields=nom,code,centre&limit=10`;
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
 
     if (!response.ok) return null;
@@ -75,82 +86,148 @@ async function getCommuneInfo(
     const communes = await response.json() as Array<{
       nom: string;
       code: string;
-      codeDepartement: string;
-      centre?: { type: string; coordinates: [number, number] };
+      centre?: { coordinates: [number, number] };
     }>;
     if (communes.length === 0) return null;
 
-    if (communes.length === 1) return communes[0];
-
-    // Si plusieurs communes, chercher par nom
     const normalized = city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const match = communes.find((c) =>
-      c.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normalized) ||
-      normalized.includes(c.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-    );
+    const match = communes.find((c) => {
+      const n = c.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return n.includes(normalized) || normalized.includes(n);
+    });
 
-    return match ?? communes[0];
+    const selected = match ?? communes[0];
+    return {
+      code: selected.code,
+      nom: selected.nom,
+      lat: selected.centre?.coordinates[1] ?? null,
+      lon: selected.centre?.coordinates[0] ?? null,
+    };
   } catch {
     return null;
   }
 }
 
-/**
- * Interroge l'API DVF Etalab par département + code commune + année
- */
-async function fetchDvfByCommune(
-  codeDepartement: string,
-  codeCommune: string,
-  year: number,
-  centerLat?: number | null,
-  centerLng?: number | null
+// ============================================================
+// API 1: Etalab DVF (data.gouv.fr)
+// ============================================================
+
+async function fetchFromEtalab(
+  codeInsee: string,
+  dateMin: string,
+  centerLat: number | null,
+  centerLng: number | null
 ): Promise<DvfTransaction[]> {
-  // API: https://app.dvf.etalab.gouv.fr/api/mutations?code_commune=76540&annee_min=2023&annee_max=2023
-  const url = new URL(DVF_API_URL);
-  url.searchParams.set("code_commune", codeCommune);
-  url.searchParams.set("annee_min", String(year));
-  url.searchParams.set("annee_max", String(year));
+  // L'API Etalab retourne les mutations par code commune
+  const url = `https://app.dvf.etalab.gouv.fr/api/mutations?code_commune=${codeInsee}`;
 
-  const response = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(20000),
-  });
+  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new Error(`Etalab API: ${response.status}`);
 
-  if (!response.ok) {
-    throw new Error(`DVF Etalab API error: ${response.status}`);
-  }
-
-  const mutations = await response.json() as EtalabMutation[];
+  const data = await response.json();
+  const mutations = Array.isArray(data) ? data : (data.mutations ?? data.resultats ?? []);
 
   return mutations
-    .filter((m) => m.nature_mutation === "Vente")
-    .map((m) => mapEtalabMutation(m, centerLat, centerLng));
+    .filter((m: Record<string, unknown>) => {
+      const date = String(m.date_mutation ?? "");
+      return date >= dateMin && (m.nature_mutation === "Vente" || !m.nature_mutation);
+    })
+    .map((m: Record<string, unknown>) => mapGenericMutation(m, centerLat, centerLng));
 }
 
 // ============================================================
-// Mapping
+// API 2: CEREMA (bbox)
 // ============================================================
 
-function mapEtalabMutation(
-  mutation: EtalabMutation,
-  centerLat?: number | null,
-  centerLng?: number | null
+async function fetchFromCerema(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  dateMin: string
+): Promise<DvfTransaction[]> {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+
+  const url = new URL("https://apidf-preprod.cerema.fr/dvf/geomutations/");
+  url.searchParams.set("in_bbox", `${lng - lngDelta},${lat - latDelta},${lng + lngDelta},${lat + latDelta}`);
+  url.searchParams.set("date_mutation_min", dateMin);
+  url.searchParams.set("nature_mutation", "Vente");
+  url.searchParams.set("page_size", "100");
+
+  const response = await fetch(url.toString(), { signal: AbortSignal.timeout(20000) });
+  if (!response.ok) throw new Error(`CEREMA API: ${response.status}`);
+
+  const data = await response.json() as { features?: Array<{ properties: Record<string, unknown>; geometry?: { coordinates: [number, number] } }> };
+  const features = data.features ?? [];
+
+  return features.map((f) => {
+    const p = f.properties;
+    const coords = f.geometry?.coordinates;
+    return mapGenericMutation(
+      {
+        ...p,
+        latitude: coords ? coords[1] : null,
+        longitude: coords ? coords[0] : null,
+      },
+      lat,
+      lng
+    );
+  });
+}
+
+// ============================================================
+// API 3: cquest (fallback, par lat/lon/dist)
+// ============================================================
+
+async function fetchFromCquest(
+  lat: number,
+  lng: number,
+  distMeters: number,
+  dateMin: string
+): Promise<DvfTransaction[]> {
+  const url = `https://api.cquest.org/dvf?lat=${lat}&lon=${lng}&dist=${distMeters}`;
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`cquest API: ${response.status}`);
+
+  const data = await response.json() as { resultats?: Array<Record<string, unknown>> };
+  const results = data.resultats ?? [];
+
+  return results
+    .filter((r) => String(r.date_mutation ?? "") >= dateMin)
+    .map((r) => mapGenericMutation(r, lat, lng));
+}
+
+// ============================================================
+// Mapping générique
+// ============================================================
+
+function mapGenericMutation(
+  m: Record<string, unknown>,
+  centerLat: number | null,
+  centerLng: number | null
 ): DvfTransaction {
-  const builtArea = mutation.surface_reelle_bati ?? null;
-  const salePrice = mutation.valeur_fonciere ?? 0;
-  const lat = mutation.latitude ?? null;
-  const lng = mutation.longitude ?? null;
+  const builtArea = toNumber(m.surface_reelle_bati);
+  const salePrice = toNumber(m.valeur_fonciere) ?? 0;
+  const lat = toNumber(m.latitude);
+  const lng = toNumber(m.longitude);
+
+  const address = [m.adresse_numero ?? m.numero_voie, m.adresse_suffixe, m.adresse_nom_voie ?? m.type_voie ? `${m.type_voie ?? ""} ${m.nom_voie ?? ""}` : m.nom_voie]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   return {
-    id: mutation.id_mutation ?? `dvf-${Date.now()}-${Math.random()}`,
-    address: [mutation.adresse_numero, mutation.adresse_suffixe, mutation.adresse_nom_voie].filter(Boolean).join(" "),
-    city: mutation.nom_commune ?? "",
-    postalCode: mutation.code_postal ?? "",
-    saleDate: mutation.date_mutation ?? "",
+    id: String(m.id_mutation ?? `dvf-${Date.now()}-${Math.random()}`),
+    address: address || "Adresse non renseignée",
+    city: String(m.nom_commune ?? ""),
+    postalCode: String(m.code_postal ?? ""),
+    saleDate: String(m.date_mutation ?? ""),
     salePrice,
     builtArea,
-    landArea: mutation.surface_terrain ?? null,
+    landArea: toNumber(m.surface_terrain),
     pricePerSqm: builtArea && builtArea > 0 ? Math.round(salePrice / builtArea) : null,
-    propertyType: mapPropertyType(mutation.type_local),
+    propertyType: mapPropertyType(String(m.type_local ?? "")),
     latitude: lat,
     longitude: lng,
     distanceKm:
@@ -160,67 +237,27 @@ function mapEtalabMutation(
   };
 }
 
-function mapPropertyType(typeLocal: string | null | undefined): string {
-  switch (typeLocal) {
-    case "Maison":
-    case "Appartement":
-      return "HABITATION";
-    case "Local industriel. commercial ou assimilé":
-    case "Local commercial":
-      return "COMMERCIAL";
-    case "Dépendance":
-      return "MIXTE";
-    default:
-      return "MIXTE";
-  }
+function toNumber(val: unknown): number | null {
+  if (val == null) return null;
+  const n = Number(val);
+  return isNaN(n) ? null : n;
 }
 
-function filterByPropertyType(
-  transaction: DvfTransaction,
-  propertyTypes?: string[]
-): boolean {
-  if (!propertyTypes || propertyTypes.length === 0) return true;
-  return propertyTypes.includes(transaction.propertyType);
+function mapPropertyType(typeLocal: string): string {
+  if (typeLocal.includes("Maison") || typeLocal.includes("Appartement")) return "HABITATION";
+  if (typeLocal.includes("Local") || typeLocal.includes("commercial") || typeLocal.includes("industriel")) return "COMMERCIAL";
+  return "MIXTE";
 }
 
-/** Calcul de distance Haversine entre deux points GPS (en km) */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+function filterByPropertyType(t: DvfTransaction, types?: string[]): boolean {
+  if (!types || types.length === 0) return true;
+  return types.includes(t.propertyType);
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 100) / 100;
-}
-
-// ============================================================
-// Types API Etalab
-// ============================================================
-
-interface EtalabMutation {
-  id_mutation?: string;
-  date_mutation?: string;
-  nature_mutation?: string;
-  valeur_fonciere?: number;
-  adresse_numero?: string;
-  adresse_suffixe?: string;
-  adresse_nom_voie?: string;
-  code_postal?: string;
-  nom_commune?: string;
-  code_commune?: string;
-  type_local?: string;
-  surface_reelle_bati?: number;
-  surface_terrain?: number;
-  nombre_pieces_principales?: number;
-  latitude?: number;
-  longitude?: number;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 100) / 100;
 }
