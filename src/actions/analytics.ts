@@ -127,15 +127,29 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   const totalOverdueAmount = overdueInvoices.reduce((s, i) => s + i.totalTTC, 0);
 
   // 5. Evolution patrimoine (cumul par date acquisition)
+  // Récupérer la dernière évaluation COMPLETED pour chaque immeuble
   const buildingsForPatrimony = await prisma.building.findMany({
     where: { societyId },
-    select: { acquisitionDate: true, marketValue: true, acquisitionPrice: true },
+    select: {
+      id: true,
+      acquisitionDate: true,
+      marketValue: true,
+      acquisitionPrice: true,
+      propertyValuations: {
+        where: { status: "COMPLETED" },
+        orderBy: { valuationDate: "desc" },
+        take: 1,
+        select: { estimatedValueMid: true },
+      },
+    },
     orderBy: { acquisitionDate: "asc" },
   });
   let cumulative = 0;
   const patrimonyPoints: PatrimonyPoint[] = [];
   for (const b of buildingsForPatrimony) {
-    cumulative += b.marketValue ?? b.acquisitionPrice ?? 0;
+    // Priorité : évaluation IA > marketValue > acquisitionPrice
+    const aiValue = b.propertyValuations[0]?.estimatedValueMid;
+    cumulative += aiValue ?? b.marketValue ?? b.acquisitionPrice ?? 0;
     if (b.acquisitionDate) {
       patrimonyPoints.push({
         date: new Date(b.acquisitionDate).toLocaleDateString("fr-FR", { month: "short", year: "numeric" }),
@@ -194,9 +208,12 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     };
   });
 
-  // 8. Rendement brut
+  // 8. Rendement brut (basé sur la valeur vénale actualisée)
   const annualRevenue = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
-  const totalPatrimony = buildingsForPatrimony.reduce((s, b) => s + (b.marketValue ?? b.acquisitionPrice ?? 0), 0);
+  const totalPatrimony = buildingsForPatrimony.reduce((s, b) => {
+    const aiValue = b.propertyValuations[0]?.estimatedValueMid;
+    return s + (aiValue ?? b.marketValue ?? b.acquisitionPrice ?? 0);
+  }, 0);
   const grossYield = totalPatrimony > 0 ? Math.round((annualRevenue / totalPatrimony) * 1000) / 10 : null;
 
   // 9. Tresorerie
@@ -259,15 +276,8 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   }
   const activeLoanCount = activeLoansForDebt.length;
 
-  // Valeur patrimoine = somme des valeurs vénales (marketValue) des immeubles
-  const buildingValues = await prisma.building.findMany({
-    where: { societyId },
-    select: { marketValue: true },
-  });
-  const patrimonyValue = buildingValues.reduce(
-    (sum, b) => sum + (b.marketValue ?? 0),
-    0
-  );
+  // Valeur patrimoine = dernière évaluation IA ou marketValue
+  const patrimonyValue = totalPatrimony;
   const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
 
   // 14. Patrimoine détaillé : immeubles, lots, locataires, baux, diagnostics, maintenances
