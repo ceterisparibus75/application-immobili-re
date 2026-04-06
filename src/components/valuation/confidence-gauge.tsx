@@ -1,7 +1,10 @@
 "use client";
 
 export function ConfidenceGauge({ value }: { value: number }) {
-  const percentage = Math.round(value * 100);
+  // Normaliser : si l'IA retourne 75 au lieu de 0.75, corriger
+  const normalized = value > 1 ? value / 100 : value;
+  const percentage = Math.round(normalized * 100);
+
   const color =
     percentage >= 75 ? "text-[var(--color-status-positive)]" :
     percentage >= 50 ? "text-[var(--color-status-caution)]" :
@@ -38,12 +41,12 @@ export function ConfidenceGauge({ value }: { value: number }) {
           />
         </svg>
         <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold ${color}`}>
-          {percentage}
+          {percentage}%
         </span>
       </div>
       <div>
-        <p className="text-xs font-semibold text-[var(--color-brand-deep)]">Score de confiance</p>
-        <p className={`text-[10px] font-medium ${color}`}>{label}</p>
+        <p className="text-xs font-semibold text-[var(--color-brand-deep)]">Confiance IA</p>
+        <p className={`text-[10px] font-medium ${color}`}>{label} — fiabilité de l&apos;estimation</p>
       </div>
     </div>
   );

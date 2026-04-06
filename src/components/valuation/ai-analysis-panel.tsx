@@ -108,7 +108,11 @@ export function AiAnalysisPanel({
                     { label: "Valeur locative", render: (a: AiAnalysis) => a.rentalValue ? formatCurrency(a.rentalValue) : "—" },
                     { label: "Prix/m²", render: (a: AiAnalysis) => a.pricePerSqm ? `${Math.round(a.pricePerSqm)} €` : "—" },
                     { label: "Taux cap.", render: (a: AiAnalysis) => a.capRate ? `${a.capRate.toFixed(1)}%` : "—" },
-                    { label: "Confiance", render: (a: AiAnalysis) => a.confidence ? `${Math.round(a.confidence * 100)}%` : "—" },
+                    { label: "Confiance", render: (a: AiAnalysis) => {
+                      if (!a.confidence) return "—";
+                      const pct = a.confidence > 1 ? a.confidence : Math.round(a.confidence * 100);
+                      return `${Math.round(pct)}%`;
+                    }},
                   ].map((row) => (
                     <tr key={row.label} className="border-b last:border-0">
                       <td className="py-2.5 px-4 text-sm text-[#94A3B8]">{row.label}</td>
