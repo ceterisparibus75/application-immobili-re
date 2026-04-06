@@ -36,6 +36,7 @@ import { DeleteLeaseButton } from "./_components/delete-lease-button";
 import { ChargeProvisions } from "./_components/charge-provisions";
 import { RentRevisions } from "./_components/rent-revisions";
 import { LeaseAmendments } from "./_components/lease-amendments";
+import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -449,6 +450,12 @@ export default async function BailDetailPage({
                 isActive={isActive}
                 currentRentHT={lease.currentRentHT}
               />
+            </CardContent>
+          </Card>
+          {/* Évaluation des loyers IA */}
+          <Card>
+            <CardContent className="pt-6">
+              <RentValuationPanelWrapper leaseId={lease.id} societyId={societyId} />
             </CardContent>
           </Card>
           {/* États des lieux */}
