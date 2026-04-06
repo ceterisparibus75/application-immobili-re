@@ -59,8 +59,13 @@ Tu DOIS fournir un référentiel de prix au m² pour la commune :
 ### 1. Méthode par comparaison directe
 - Analyser les transactions comparables fournies (DVF et autres)
 - Citer le prix moyen au m² de la commune et du quartier
+- **Pondération par surface** : les comparables de surface similaire au bien évalué
+  doivent avoir un poids plus important. Appliquer un coefficient de pondération :
+  - Surface comparable à ±20% du bien : pondération forte (coeff 1.0)
+  - Surface comparable à ±50% du bien : pondération moyenne (coeff 0.7)
+  - Surface très différente (>±50%) : pondération faible (coeff 0.3)
 - Appliquer des coefficients d'ajustement (localisation, état, surface, date, étage)
-- Calculer une valeur unitaire au m² ajustée
+- Calculer une valeur unitaire au m² ajustée pondérée
 - En déduire une valeur vénale par comparaison
 
 ### 2. Méthode par capitalisation du revenu
