@@ -8,6 +8,8 @@ import { Header } from "@/components/layout/header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { SubscriptionBanner } from "@/components/layout/subscription-banner";
 import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
+import { requiresTwoFactor } from "@/lib/plan-limits";
+import { prisma } from "@/lib/prisma";
 
 export default async function AppLayout({
   children,
@@ -19,11 +21,28 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  // Verifier si le 2FA est obligatoire (plan Enterprise) mais pas encore active
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const isSecurityPage = pathname.startsWith("/settings/security");
+
+  if (!isSecurityPage) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { twoFactorEnabled: true },
+    });
+
+    if (!user?.twoFactorEnabled) {
+      const mustEnable2FA = await requiresTwoFactor(session.user.id);
+      if (mustEnable2FA) {
+        redirect("/settings/security?setup2fa=required");
+      }
+    }
+  }
+
   const societies = await getSocieties();
 
   if (societies.length === 0) {
-    const h = await headers();
-    const pathname = h.get("x-pathname") ?? "";
     const isSetup =
       pathname.startsWith("/proprietaire/setup") ||
       pathname.startsWith("/societes/nouvelle") ||

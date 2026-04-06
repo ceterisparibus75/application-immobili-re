@@ -137,6 +137,29 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
   };
 }
 
+/**
+ * Verifie si un utilisateur doit obligatoirement avoir le 2FA active.
+ * C'est le cas si l'une de ses societes a un plan ENTERPRISE actif.
+ */
+export async function requiresTwoFactor(userId: string): Promise<boolean> {
+  const memberships = await prisma.userSociety.findMany({
+    where: { userId },
+    include: {
+      society: {
+        include: {
+          subscription: { select: { planId: true, status: true } },
+        },
+      },
+    },
+  });
+
+  return memberships.some(
+    (m) =>
+      m.society.subscription?.planId === "ENTERPRISE" &&
+      ["ACTIVE", "TRIALING"].includes(m.society.subscription?.status ?? "")
+  );
+}
+
 /** Retrouve le planId d'une societe (STARTER par defaut) */
 async function getSocietyPlan(societyId: string): Promise<PlanId> {
   const subscription = await prisma.subscription.findUnique({

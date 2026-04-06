@@ -11,7 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, ShieldX, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ShieldCheck, ShieldX, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import {
@@ -22,9 +23,10 @@ import {
 
 interface TwoFactorSectionProps {
   twoFactorEnabled: boolean;
+  twoFactorRequired?: boolean;
 }
 
-export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactorSectionProps) {
+export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRequired = false }: TwoFactorSectionProps) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [step, setStep] = useState<"idle" | "setup" | "disable" | "recovery-codes">("idle");
   const [qrCode, setQrCode] = useState("");
@@ -93,6 +95,9 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
             <ShieldX className="h-5 w-5 text-muted-foreground" />
           )}
           <CardTitle>Authentification a deux facteurs</CardTitle>
+          {twoFactorRequired && (
+            <Badge variant="secondary" className="ml-2">Obligatoire</Badge>
+          )}
         </div>
         <CardDescription>
           {enabled
@@ -101,10 +106,23 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled }: TwoFactor
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {twoFactorRequired && (
+          <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-4">
+            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-blue-800">
+              L&apos;authentification a deux facteurs est obligatoire pour votre plan Institutionnel.
+              {!enabled && " Veuillez l'activer pour continuer a utiliser l'application."}
+            </p>
+          </div>
+        )}
         {step === "idle" && (
           <>
             {enabled ? (
-              <Button variant="destructive" onClick={() => setStep("disable")}>
+              <Button
+                variant="destructive"
+                onClick={() => setStep("disable")}
+                disabled={twoFactorRequired}
+              >
                 Desactiver le 2FA
               </Button>
             ) : (

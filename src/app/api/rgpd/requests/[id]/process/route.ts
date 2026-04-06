@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
+import { exportTenantData } from "@/lib/rgpd-export";
 
 export async function POST(
   request: NextRequest,
@@ -53,9 +54,27 @@ export async function POST(
         await processDataDeletion(societyId, gdprRequest.requesterEmail);
         break;
       case "access":
-      case "portability":
-        // L'export se fait via l'interface — marquer comme traitee
+      case "portability": {
+        // Export automatique des donnees du locataire
+        const exportData = await exportTenantData(
+          societyId,
+          gdprRequest.requesterEmail
+        );
+
+        await createAuditLog({
+          societyId,
+          userId: session.user.id,
+          action: "EXPORT",
+          entity: "GdprRequest",
+          entityId: id,
+          details: {
+            type: gdprRequest.requestType,
+            email: gdprRequest.requesterEmail,
+            tenantCount: exportData.tenants.length,
+          },
+        });
         break;
+      }
       case "rectification":
         // La rectification est manuelle — marquer comme traitee
         break;
