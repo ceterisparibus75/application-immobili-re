@@ -238,17 +238,25 @@ export async function runAiAnalysis(
 
       const values = analyses.filter((a) => a.estimatedValue != null).map((a) => a.estimatedValue!);
       if (values.length > 0) {
+        const estimatedValueMid = values.reduce((a, b) => a + b, 0) / values.length;
+
         await prisma.propertyValuation.update({
           where: { id: valuationId },
           data: {
             status: "COMPLETED",
             estimatedValueLow: Math.min(...values),
-            estimatedValueMid: values.reduce((a, b) => a + b, 0) / values.length,
+            estimatedValueMid,
             estimatedValueHigh: Math.max(...values),
             estimatedRentalValue: average(analyses.map((a) => a.rentalValue)),
             pricePerSqm: average(analyses.map((a) => a.pricePerSqm)),
             capitalizationRate: average(analyses.map((a) => a.capRate)),
           },
+        });
+
+        // Mettre à jour la valeur vénale de l'immeuble (impacte LTV et ratios financiers)
+        await prisma.building.update({
+          where: { id: valuation.buildingId },
+          data: { marketValue: estimatedValueMid },
         });
       }
     }
@@ -263,6 +271,9 @@ export async function runAiAnalysis(
     });
 
     revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}/valorisation`);
+    revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/proprietaire");
     return { success: true, data: { analysisCount } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -480,6 +491,14 @@ export async function updateValuationResults(
       data: parsed.data,
     });
 
+    // Mettre à jour la valeur vénale de l'immeuble si estimatedValueMid est modifié
+    if (parsed.data.estimatedValueMid != null) {
+      await prisma.building.update({
+        where: { id: valuation.buildingId },
+        data: { marketValue: parsed.data.estimatedValueMid },
+      });
+    }
+
     await createAuditLog({
       societyId,
       userId: session.user.id,
@@ -490,6 +509,8 @@ export async function updateValuationResults(
     });
 
     revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}/valorisation`);
+    revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}`);
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
