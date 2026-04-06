@@ -18,8 +18,8 @@ import { toast } from "sonner";
 import type { ReminderLevel } from "@/generated/prisma/client";
 
 const LEVEL_OPTIONS: { value: ReminderLevel; label: string }[] = [
-  { value: "RELANCE_1", label: "1\u00e8re relance (amiable)" },
-  { value: "RELANCE_2", label: "2\u00e8me relance (formelle)" },
+  { value: "RELANCE_1", label: "1ère relance (amiable)" },
+  { value: "RELANCE_2", label: "2ème relance (formelle)" },
   { value: "MISE_EN_DEMEURE", label: "Mise en demeure" },
 ];
 
@@ -90,11 +90,11 @@ export function RelancesOverdue({
       const { sent, failed } = result.data!;
       if (failed > 0) {
         toast.warning(
-          `${sent} relance${sent > 1 ? "s" : ""} envoy\u00e9e${sent > 1 ? "s" : ""}, ${failed} \u00e9chec${failed > 1 ? "s" : ""}`
+          `${sent} relance${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""}, ${failed} échec${failed > 1 ? "s" : ""}`
         );
       } else {
         toast.success(
-          `${sent} relance${sent > 1 ? "s" : ""} envoy\u00e9e${sent > 1 ? "s" : ""}`
+          `${sent} relance${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""}`
         );
       }
       setSelectedIds(new Set());
@@ -114,7 +114,7 @@ export function RelancesOverdue({
     setSendingId(null);
 
     if (result.success) {
-      toast.success(`Relance envoy\u00e9e \u00e0 ${inv.tenantName}`);
+      toast.success(`Relance envoyée à ${inv.tenantName}`);
     } else {
       toast.error(result.error ?? "Erreur lors de l'envoi");
     }
@@ -131,7 +131,7 @@ export function RelancesOverdue({
         <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
         <p className="text-sm font-medium">Aucune facture en retard</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Les factures impay\u00e9es appara\u00eetront ici
+          Les factures impayées apparaîtront ici
         </p>
       </div>
     );
@@ -145,13 +145,13 @@ export function RelancesOverdue({
           <Checkbox
             checked={allSelected}
             onCheckedChange={toggleAll}
-            aria-label="Tout s\u00e9lectionner"
+            aria-label="Tout sélectionner"
             className="h-4 w-4"
           />
           <span className="text-xs text-muted-foreground">
             {someSelected
-              ? `${selectedIds.size} s\u00e9lectionn\u00e9${selectedIds.size > 1 ? "s" : ""}`
-              : "Tout s\u00e9lectionner"}
+              ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}`
+              : "Tout sélectionner"}
           </span>
         </div>
 
@@ -197,7 +197,7 @@ export function RelancesOverdue({
               onClick={() => setSelectedIds(new Set())}
               disabled={sending}
             >
-              D\u00e9s\u00e9lectionner
+              Désélectionner
             </Button>
           </>
         )}
@@ -258,7 +258,7 @@ export function RelancesOverdue({
                     {fmt(remaining)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    \u00c9ch.{" "}
+                    Éch.{" "}
                     {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
                   </p>
                 </div>

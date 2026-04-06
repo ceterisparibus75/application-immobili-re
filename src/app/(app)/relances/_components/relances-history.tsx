@@ -16,8 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 
 const LEVEL_LABELS: Record<string, string> = {
-  RELANCE_1: "1\u00e8re relance",
-  RELANCE_2: "2\u00e8me relance",
+  RELANCE_1: "1ère relance",
+  RELANCE_2: "2ème relance",
   MISE_EN_DEMEURE: "Mise en demeure",
   CONTENTIEUX: "Contentieux",
 };
@@ -97,9 +97,9 @@ export function RelancesHistory({
     return (
       <div className="text-center py-8">
         <Clock className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-        <p className="text-sm font-medium">Aucune relance enregistr\u00e9e</p>
+        <p className="text-sm font-medium">Aucune relance enregistrée</p>
         <p className="text-xs text-muted-foreground mt-1">
-          L&apos;historique des relances appara\u00eetra ici
+          L&apos;historique des relances apparaîtra ici
         </p>
       </div>
     );
@@ -133,7 +133,7 @@ export function RelancesHistory({
 
           return (
             <div key={group.tenantId}>
-              {/* En-t\u00eate du locataire */}
+              {/* En-tête du locataire */}
               <button
                 type="button"
                 className="flex items-center gap-3 w-full py-3 text-left hover:bg-muted/30 transition-colors rounded -mx-1 px-1"
@@ -175,7 +175,7 @@ export function RelancesHistory({
                   </Badge>
                   {group.lastReminderDate && (
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Derni\u00e8re :{" "}
+                      Dernière :{" "}
                       {new Date(group.lastReminderDate).toLocaleDateString(
                         "fr-FR"
                       )}
@@ -184,7 +184,7 @@ export function RelancesHistory({
                 </div>
               </button>
 
-              {/* D\u00e9tail des relances */}
+              {/* Détail des relances */}
               {isExpanded && (
                 <div className="pl-8 pb-3 space-y-1.5">
                   {group.reminders.map((r) => (
@@ -247,7 +247,7 @@ export function RelancesHistory({
 
       {filtered.length === 0 && search && (
         <p className="text-sm text-muted-foreground text-center py-4">
-          Aucun locataire trouv\u00e9 pour &laquo; {search} &raquo;
+          Aucun locataire trouvé pour « {search} »
         </p>
       )}
     </div>
