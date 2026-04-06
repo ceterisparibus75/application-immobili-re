@@ -5,56 +5,56 @@ import Link from "next/link";
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata = {
-  title: `Offres | ${APP_NAME}`,
-  description: "Tarification adaptée à votre structure patrimoniale. Chaque déploiement fait l\u2019objet d\u2019un audit préalable.",
+  title: `Tarifs | ${APP_NAME}`,
+  description: "Découvrez nos offres de gestion immobilière SaaS. 14 jours d'essai gratuit.",
 };
 
 const plans = [
   {
-    name: "Fondation",
-    description: "Structure patrimoniale jusqu\u2019à 20 actifs",
-    priceLabel: "Sur audit",
-    limits: "20 lots \u00b7 1 entité \u00b7 2 utilisateurs",
+    name: "Starter",
+    description: "Pour les petits patrimoines",
+    price: { monthly: 19, yearly: 190 },
+    limits: "20 lots · 1 société · 2 utilisateurs",
     features: [
-      "Gestion de patrimoine complète",
+      "Gestion de patrimoine",
       "Baux et locataires",
       "Facturation et quittances PDF",
       "Tableau de bord analytique",
       "Support par email",
     ],
-    cta: "Demander une démonstration",
+    cta: "Démarrer l\u2019essai gratuit",
     highlighted: false,
   },
   {
-    name: "Pilotage",
-    description: "Multi-sociétés avec comptabilité intégrée",
-    priceLabel: "Sur audit",
-    limits: "50 lots \u00b7 3 entités \u00b7 5 utilisateurs",
+    name: "Pro",
+    description: "Pour les gestionnaires professionnels",
+    price: { monthly: 79, yearly: 790 },
+    limits: "50 lots · 3 sociétés · 5 utilisateurs",
     features: [
-      "Tout Fondation +",
+      "Tout Starter +",
       "Comptabilité complète & export FEC",
       "Connexion bancaire automatique",
       "Relances automatiques",
-      "Portail locataire sécurisé",
+      "Portail locataire",
       "Support prioritaire",
     ],
-    cta: "Demander une démonstration",
+    cta: "Démarrer l\u2019essai gratuit",
     highlighted: true,
   },
   {
-    name: "Infrastructure",
-    description: "Portefeuilles sans limites, SLA dédié",
-    priceLabel: "Sur mesure",
-    limits: "Actifs et entités illimités",
+    name: "Enterprise",
+    description: "Pour les grands portefeuilles",
+    price: { monthly: 199, yearly: 1990 },
+    limits: "Lots et sociétés illimités",
     features: [
-      "Tout Pilotage +",
-      "Actifs et entités illimités",
+      "Tout Pro +",
+      "Lots et sociétés illimités",
       "Signature électronique",
       "Import IA de documents",
       "Accès API",
       "Support dédié & SLA 99,9%",
     ],
-    cta: "Organiser un échange",
+    cta: "Contacter l\u2019équipe commerciale",
     highlighted: false,
   },
 ];
@@ -71,11 +71,11 @@ export default function PricingPage() {
             <span className="font-bold text-lg tracking-tight">{APP_NAME}</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
-            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-foreground">Plateforme</Link>
+            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-foreground">Fonctionnalités</Link>
             <Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link>
-            <Link href="/contact">
+            <Link href="/signup">
               <Button size="sm" className="gap-1.5">
-                Demander une démonstration <ArrowRight className="h-3.5 w-3.5" />
+                Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </nav>
@@ -84,12 +84,12 @@ export default function PricingPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
-          <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Offres</p>
+          <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Tarifs</p>
           <h1 className="text-4xl sm:text-5xl font-extrabold mb-5">
-            Tarification adaptée à votre structure
+            Des tarifs simples et transparents
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Chaque déploiement fait l&apos;objet d&apos;un audit préalable pour dimensionner l&apos;offre à vos besoins réels.
+            14 jours d&apos;essai gratuit sur toutes les offres. Sans engagement, sans carte bancaire.
           </p>
         </div>
 
@@ -105,7 +105,7 @@ export default function PricingPage() {
             >
               {plan.highlighted && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-5 py-1.5 rounded-full shadow-lg">
-                  Recommandé
+                  Le plus populaire
                 </div>
               )}
 
@@ -116,10 +116,14 @@ export default function PricingPage() {
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold">{plan.priceLabel}</span>
+                  <span className="text-5xl font-extrabold">{plan.price.monthly}</span>
+                  <span className="text-xl font-semibold text-muted-foreground">&euro;/mois</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Tarification annuelle personnalisée
+                  ou {plan.price.yearly}&euro;/an{" "}
+                  <span className="text-primary font-semibold">
+                    (-{Math.round((1 - plan.price.yearly / (plan.price.monthly * 12)) * 100)}%)
+                  </span>
                 </p>
               </div>
 
@@ -136,7 +140,7 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link href="/contact" className="block">
+              <Link href={plan.name === "Enterprise" ? "/contact" : `/signup?plan=${plan.name.toLowerCase()}`} className="block">
                 <Button
                   className={`w-full h-12 text-sm font-semibold ${plan.highlighted ? "shadow-lg shadow-primary/25" : ""}`}
                   variant={plan.highlighted ? "default" : "outline"}
@@ -153,20 +157,20 @@ export default function PricingPage() {
           <h3 className="text-2xl font-bold mb-8">Questions fréquentes</h3>
           <div className="max-w-2xl mx-auto space-y-6 text-sm text-left">
             <div className="border-b pb-5">
-              <p className="font-bold text-base">Comment se déroule le déploiement ?</p>
-              <p className="text-muted-foreground mt-2">Après un audit de votre structure patrimoniale, nous configurons la plateforme selon votre organisation. L&apos;import de vos données existantes est accompagné.</p>
+              <p className="font-bold text-base">Puis-je changer d&apos;offre à tout moment ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Les upgrades sont immédiats avec un prorata. Les downgrades prennent effet à la fin de la période en cours.</p>
             </div>
             <div className="border-b pb-5">
-              <p className="font-bold text-base">La plateforme s&apos;intègre-t-elle à nos outils existants ?</p>
-              <p className="text-muted-foreground mt-2">Oui. Connexion bancaire automatique, export FEC pour la comptabilité, API d&apos;accès pour les plans Infrastructure. Import CSV/Excel pour la reprise de données.</p>
+              <p className="font-bold text-base">L&apos;essai gratuit est-il vraiment sans engagement ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Aucune carte bancaire n&apos;est requise pour commencer. Vous pouvez annuler à tout moment pendant les 14 jours d&apos;essai.</p>
             </div>
             <div className="border-b pb-5">
-              <p className="font-bold text-base">Quel est le niveau de sécurité ?</p>
-              <p className="text-muted-foreground mt-2">Chiffrement AES-256-GCM sur les données sensibles, authentification multifactorielle, hébergement en Europe (Frankfurt), audit logs complets et conformité RGPD native.</p>
+              <p className="font-bold text-base">Mes données sont-elles en sécurité ?</p>
+              <p className="text-muted-foreground mt-2">Absolument. Chiffrement AES-256 pour les données sensibles, hébergement en Europe (Frankfurt), audit logs complets et conformité RGPD.</p>
             </div>
             <div>
-              <p className="font-bold text-base">Proposez-vous un accompagnement personnalisé ?</p>
-              <p className="text-muted-foreground mt-2">Chaque déploiement est accompagné. Les clients Infrastructure bénéficient d&apos;un onboarding dédié avec un interlocuteur unique.</p>
+              <p className="font-bold text-base">Que se passe-t-il si je dépasse les limites de mon plan ?</p>
+              <p className="text-muted-foreground mt-2">Vous serez invité à passer au plan supérieur. Vos données existantes ne seront jamais supprimées.</p>
             </div>
           </div>
         </div>
