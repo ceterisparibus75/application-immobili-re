@@ -26,6 +26,8 @@ const envSchema = z.object({
   STRIPE_PRICE_PRO_YEARLY: z.string().optional(),
   STRIPE_PRICE_ENTERPRISE_MONTHLY: z.string().optional(),
   STRIPE_PRICE_ENTERPRISE_YEARLY: z.string().optional(),
+  BRAINTRUST_API_KEY: z.string().optional(),
+  BRAINTRUST_PROJECT_ID: z.string().optional(),
 });
 
 const isBuildPhase =
