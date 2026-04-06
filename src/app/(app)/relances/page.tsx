@@ -13,9 +13,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangle,
+  ArrowRight,
   Bell,
   Clock,
   CheckCircle2,
+  Info,
   Mail,
   Users,
 } from "lucide-react";
@@ -316,6 +318,77 @@ export default async function RelancesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cycle de vie des factures */}
+      <Card className="border-blue-200/50 bg-blue-50/30 dark:border-blue-900/50 dark:bg-blue-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-400">
+            <Info className="h-4 w-4" />
+            Cycle de vie d&apos;une facture
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Flux visuel */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              Brouillon
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              Validée
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Badge variant="outline" className="text-[10px] font-normal">
+              En attente
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Badge variant="destructive" className="text-[10px] font-normal">
+              En retard
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Badge variant="destructive" className="text-[10px] font-normal border-orange-300 bg-orange-100 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400">
+              Relancée
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Badge className="text-[10px] font-normal bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+              Payée
+            </Badge>
+          </div>
+
+          {/* Règles */}
+          <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
+            <div className="flex gap-2">
+              <span className="font-semibold text-foreground shrink-0">En retard :</span>
+              <span>
+                Une facture passe automatiquement en retard dès que sa
+                <strong className="text-foreground"> date d&apos;échéance est dépassée</strong>.
+                Vérification chaque lundi matin.
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-semibold text-foreground shrink-0">Relancée :</span>
+              <span>
+                Après envoi d&apos;une relance (manuelle ou automatique),
+                la facture passe en statut « Relancée ».
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-semibold text-foreground shrink-0">Payée :</span>
+              <span>
+                Dès que le total des paiements enregistrés couvre le montant TTC.
+                Un paiement partiel la passe en « Partiellement payée ».
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-semibold text-foreground shrink-0">Relances auto :</span>
+              <span>
+                Les relances automatiques sont envoyées chaque lundi selon le scénario
+                configuré (J+5, J+15, J+30…).
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Factures à relancer */}
       <Card>
