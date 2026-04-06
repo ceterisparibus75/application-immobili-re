@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { name: "Comptabilité", href: "/comptabilite" },
   { name: "Prévisionnel", href: "/comptabilite/previsionnel" },
   { name: "Rapports", href: "/rapports" },
+  { name: "Courriers", href: "/courriers" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
   { name: "RGPD", href: "/rgpd" },
