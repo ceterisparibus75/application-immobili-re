@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { getTenantsForSelect } from "@/actions/tenant";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       setSuccess(true);
 
       // Le message de succès disparaît après 3 secondes
@@ -219,6 +220,11 @@ export default function RapportsPage() {
   const [year, setYear]       = useState(String(CURRENT_YEAR));
   const [tenantId, setTenantId] = useState("");
   const [format, setFormat]   = useState<"pdf" | "xlsx">("pdf");
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    getTenantsForSelect().then(setTenants);
+  }, []);
 
   const byType = Object.fromEntries(REPORTS.map(r => [r.type, r]));
 
@@ -254,13 +260,15 @@ export default function RapportsPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">ID Locataire <span className="text-muted-foreground">(rapport charges)</span></Label>
-            <input
-              type="text"
+            <Label className="text-xs">Locataire <span className="text-muted-foreground">(rapport charges)</span></Label>
+            <NativeSelect
+              options={[
+                { value: "", label: "Sélectionner un locataire" },
+                ...tenants.map(t => ({ value: t.id, label: t.name })),
+              ]}
               value={tenantId}
               onChange={e => setTenantId(e.target.value)}
-              placeholder="cuid du locataire"
-              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm w-56 focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-56"
             />
           </div>
         </CardContent>
