@@ -123,6 +123,11 @@ enum TenantEntityType {
   PERSONNE_PHYSIQUE
 }
 
+enum ProprietaireEntityType {
+  PERSONNE_PHYSIQUE
+  PERSONNE_MORALE
+}
+
 enum DocumentCheckStatus {
   RECU
   MANQUANT
@@ -402,8 +407,13 @@ model Proprietaire {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Profil du propriétaire
-  label       String  // Nom d'affichage (ex: "Patrimoine personnel", "SCI familiale")
+  // Type d'entité
+  entityType ProprietaireEntityType @default(PERSONNE_PHYSIQUE)
+
+  // Nom d'affichage (ex: "Patrimoine personnel", "SCI familiale")
+  label       String
+
+  // Champs personne physique
   firstName   String?
   lastName    String?
   phone       String?
@@ -414,6 +424,17 @@ model Proprietaire {
   city        String?
   profession  String?
   nationality String?
+
+  // Champs personne morale (holding, SCI, etc.)
+  companyName         String?
+  legalForm           String?   // SCI, SARL, SAS, SA, holding, etc.
+  siret               String?
+  siren               String?
+  vatNumber           String?   // Numéro TVA intracommunautaire
+  shareCapital        Float?    // Capital social en euros
+  registrationCity    String?   // Ville du RCS
+  representativeName  String?   // Nom du représentant légal
+  representativeRole  String?   // Fonction (Gérant, Président, DG...)
 
   // Lien vers l'utilisateur créateur
   userId String

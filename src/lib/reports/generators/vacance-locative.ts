@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW, CORAL, GREEN, CHART_COLORS } from "../constants";

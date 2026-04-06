@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Building2, CheckCircle2, Loader2 } from "lucide-react";
+import { Link2, CheckCircle2, Loader2 } from "lucide-react";
 import { claimSociety } from "@/actions/owner";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

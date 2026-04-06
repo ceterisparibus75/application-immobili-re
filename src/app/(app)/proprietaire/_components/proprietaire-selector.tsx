@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, User, Building2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import type { ProprietaireEntityType } from "@/generated/prisma/client";
 
 type ProprietaireItem = {
   id: string;
   label: string;
+  entityType: ProprietaireEntityType;
   societyCount: number;
 };
 
@@ -49,6 +50,11 @@ export function ProprietaireSelector({ proprietaires, activeId }: Props) {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium border rounded-lg hover:bg-muted/50 transition-colors"
       >
+        {active?.entityType === "PERSONNE_MORALE" ? (
+          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        ) : (
+          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        )}
         {active?.label ?? "Sélectionner"}
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
@@ -63,7 +69,14 @@ export function ProprietaireSelector({ proprietaires, activeId }: Props) {
                 p.id === activeId ? "bg-primary/5 text-primary font-medium" : ""
               }`}
             >
-              <span>{p.label}</span>
+              <span className="flex items-center gap-2">
+                {p.entityType === "PERSONNE_MORALE" ? (
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                ) : (
+                  <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+                {p.label}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {p.societyCount} société{p.societyCount > 1 ? "s" : ""}
               </span>

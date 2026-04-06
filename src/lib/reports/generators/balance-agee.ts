@@ -1,4 +1,3 @@
- 
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW, CORAL, CHART_COLORS } from "../constants";

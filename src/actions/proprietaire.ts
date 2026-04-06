@@ -4,14 +4,18 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { ProprietaireEntityType } from "@/generated/prisma/client";
 
 // ── Types ──
 
 export type ProprietaireListItem = {
   id: string;
   label: string;
+  entityType: ProprietaireEntityType;
   firstName: string | null;
   lastName: string | null;
+  companyName: string | null;
+  legalForm: string | null;
   city: string | null;
   societyCount: number;
   createdAt: Date;
@@ -20,6 +24,8 @@ export type ProprietaireListItem = {
 export type ProprietaireDetail = {
   id: string;
   label: string;
+  entityType: ProprietaireEntityType;
+  // Personne physique
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
@@ -30,10 +36,22 @@ export type ProprietaireDetail = {
   city: string | null;
   profession: string | null;
   nationality: string | null;
+  // Personne morale
+  companyName: string | null;
+  legalForm: string | null;
+  siret: string | null;
+  siren: string | null;
+  vatNumber: string | null;
+  shareCapital: number | null;
+  registrationCity: string | null;
+  representativeName: string | null;
+  representativeRole: string | null;
 };
 
 export type CreateProprietaireInput = {
   label: string;
+  entityType?: ProprietaireEntityType;
+  // Personne physique
   firstName?: string;
   lastName?: string;
   phone?: string;
@@ -44,6 +62,16 @@ export type CreateProprietaireInput = {
   city?: string;
   profession?: string;
   nationality?: string;
+  // Personne morale
+  companyName?: string;
+  legalForm?: string;
+  siret?: string;
+  siren?: string;
+  vatNumber?: string;
+  shareCapital?: number;
+  registrationCity?: string;
+  representativeName?: string;
+  representativeRole?: string;
 };
 
 export type UpdateProprietaireInput = CreateProprietaireInput & { id: string };
@@ -59,8 +87,11 @@ export async function getProprietaires(): Promise<ActionResult<ProprietaireListI
     select: {
       id: true,
       label: true,
+      entityType: true,
       firstName: true,
       lastName: true,
+      companyName: true,
+      legalForm: true,
       city: true,
       createdAt: true,
       _count: { select: { societies: true } },
@@ -73,8 +104,11 @@ export async function getProprietaires(): Promise<ActionResult<ProprietaireListI
     data: proprietaires.map((p) => ({
       id: p.id,
       label: p.label,
+      entityType: p.entityType,
       firstName: p.firstName,
       lastName: p.lastName,
+      companyName: p.companyName,
+      legalForm: p.legalForm,
       city: p.city,
       societyCount: p._count.societies,
       createdAt: p.createdAt,
@@ -91,6 +125,7 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
     select: {
       id: true,
       label: true,
+      entityType: true,
       firstName: true,
       lastName: true,
       phone: true,
@@ -101,6 +136,15 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
       city: true,
       profession: true,
       nationality: true,
+      companyName: true,
+      legalForm: true,
+      siret: true,
+      siren: true,
+      vatNumber: true,
+      shareCapital: true,
+      registrationCity: true,
+      representativeName: true,
+      representativeRole: true,
     },
   });
 
@@ -120,6 +164,8 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
     data: {
       userId: session.user.id,
       label: input.label.trim(),
+      entityType: input.entityType ?? "PERSONNE_PHYSIQUE",
+      // Personne physique
       firstName: input.firstName?.trim() || null,
       lastName: input.lastName?.trim() || null,
       phone: input.phone?.trim() || null,
@@ -130,6 +176,16 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
       city: input.city?.trim() || null,
       profession: input.profession?.trim() || null,
       nationality: input.nationality?.trim() || null,
+      // Personne morale
+      companyName: input.companyName?.trim() || null,
+      legalForm: input.legalForm?.trim() || null,
+      siret: input.siret?.trim() || null,
+      siren: input.siren?.trim() || null,
+      vatNumber: input.vatNumber?.trim() || null,
+      shareCapital: input.shareCapital ?? null,
+      registrationCity: input.registrationCity?.trim() || null,
+      representativeName: input.representativeName?.trim() || null,
+      representativeRole: input.representativeRole?.trim() || null,
     },
   });
 
@@ -156,6 +212,8 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
     where: { id: input.id },
     data: {
       label: input.label.trim(),
+      entityType: input.entityType ?? undefined,
+      // Personne physique
       firstName: input.firstName?.trim() || null,
       lastName: input.lastName?.trim() || null,
       phone: input.phone?.trim() || null,
@@ -166,6 +224,16 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
       city: input.city?.trim() || null,
       profession: input.profession?.trim() || null,
       nationality: input.nationality?.trim() || null,
+      // Personne morale
+      companyName: input.companyName?.trim() || null,
+      legalForm: input.legalForm?.trim() || null,
+      siret: input.siret?.trim() || null,
+      siren: input.siren?.trim() || null,
+      vatNumber: input.vatNumber?.trim() || null,
+      shareCapital: input.shareCapital ?? null,
+      registrationCity: input.registrationCity?.trim() || null,
+      representativeName: input.representativeName?.trim() || null,
+      representativeRole: input.representativeRole?.trim() || null,
     },
   });
 

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
+import type { PaymentFrequency } from "@/generated/prisma/client";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW } from "../constants";
 import { initPdf, drawCoverPage, pdfCur, contentStartY, minY } from "../pdf-core";
@@ -14,8 +15,19 @@ import {
   drawEmptyMessage,
 } from "../pdf-helpers";
 
+/** Number of periods per year for a given payment frequency */
+function periodsPerYear(freq: PaymentFrequency): number {
+  switch (freq) {
+    case "ANNUEL": return 1;
+    case "SEMESTRIEL": return 2;
+    case "TRIMESTRIEL": return 4;
+    case "MENSUEL":
+    default: return 12;
+  }
+}
+
 const HEADERS = ["Étage", "Lot", "Type", "m2", "Locataire", "Effet", "Loyer an. HT", "Évol.%", "Loyer/m2", "VLM", "Prov.ch."];
-const WIDTHS  = [30, 35, 50, 32, 82, 48, 58, 38, 42, 50, CW - 465];
+const WIDTHS  = [28, 32, 45, 30, 90, 48, 60, 36, 42, 50, CW - 461];
 const ALIGNS: ColAlign[] = ["left", "left", "left", "right", "left", "left", "right", "right", "right", "right", "right"];
 
 export async function generateSituationLocative(opts: ReportOptions): Promise<ReportResult> {
@@ -33,6 +45,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
               chargeProvisions: { where: { isActive: true } },
             },
             take: 1,
+            orderBy: { startDate: "desc" },
           },
         },
         orderBy: { number: "asc" },
@@ -62,7 +75,11 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     if (y < 160) { p = ctx.np(); y = contentStartY(); }
 
     const occ = b.lots.filter((l) => l.leases.length > 0).length;
-    const totalRentAnnuel = b.lots.reduce((s, l) => s + (l.leases[0]?.currentRentHT ?? 0) * 12, 0);
+    const totalRentAnnuel = b.lots.reduce((s, l) => {
+      const lease = l.leases[0];
+      if (!lease) return s;
+      return s + lease.currentRentHT * periodsPerYear(lease.paymentFrequency);
+    }, 0);
 
     y = drawSectionHeader(p, ctx.serifBold, y, `${b.name} - ${b.lots.length} lot(s)`);
     y = drawSubText(p, ctx.reg, y, `Occupation : ${occ}/${b.lots.length} | Loyers annuels HC : ${pdfCur(totalRentAnnuel)}`);
@@ -94,10 +111,14 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
         : "Vacant";
 
       const area = (lot as any).area ?? 0;
-      const loyerAnnuel = (lease?.currentRentHT ?? 0) * 12;
+      const freq = lease?.paymentFrequency ?? "MENSUEL";
+      const periods = periodsPerYear(freq);
+      const loyerAnnuel = (lease?.currentRentHT ?? 0) * periods;
       const baseRent = (lease as any)?.baseRentHT ?? lease?.currentRentHT ?? 0;
       const evol = baseRent > 0 ? ((lease!.currentRentHT - baseRent) / baseRent) * 100 : 0;
-      const loyerM2 = area > 0 && lease ? lease.currentRentHT / area : 0;
+      // Loyer mensuel equivalent for rent/m2
+      const loyerMensuel = lease ? lease.currentRentHT * periods / 12 : 0;
+      const loyerM2 = area > 0 && lease ? loyerMensuel / area : 0;
       const vlm = (lot as any).marketRentValue ?? 0;
       const provCharges = lease?.chargeProvisions?.reduce((s: number, cp: any) => s + cp.monthlyAmount, 0) ?? 0;
 
@@ -124,8 +145,8 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
       ], WIDTHS, ALIGNS, { rowIndex: lotCount - 1 });
     }
 
-    // Totaux row
-    if (y < minY()) { p = ctx.np(); y = contentStartY(); }
+    // Totaux + Moyennes rows (need ~40pt for both, check before rendering)
+    if (y < minY() + 40) { p = ctx.np(); y = contentStartY(); }
     y = drawTotalsRow(p, ctx.bold, y, [
       "TOTAUX", "", "", totalSurface > 0 ? totalSurface.toFixed(0) : "", "",
       "", pdfCur(totalLoyer), "", "", totalVLM > 0 ? pdfCur(totalVLM) : "", totalProv > 0 ? pdfCur(totalProv) : "",

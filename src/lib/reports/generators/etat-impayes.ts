@@ -1,4 +1,3 @@
- 
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
@@ -46,7 +45,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   if (format === "xlsx") {
     const wb = new ExcelJS.Workbook();
     wb.creator = "MyGestia";
-    const ws = wb.addWorksheet("Impayes");
+    const ws = wb.addWorksheet("Impayés");
     const hF: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC8302E" } };
     const hFn: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
     ws.mergeCells("A1:H1");
@@ -56,7 +55,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     ws.getCell("A1").font = { bold: true, size: 13, color: { argb: "FFC8302E" } };
     ws.getCell("A1").alignment = { horizontal: "center" };
     ws.getRow(1).height = 28;
-    const hdr = ["N° facture", "Locataire", "Immeuble / Lot", "Echeance", "Montant TTC", "Retard (j)", "Tranche", "Statut"];
+    const hdr = ["N° facture", "Locataire", "Immeuble / Lot", "Échéance", "Montant TTC", "Retard (j)", "Tranche", "Statut"];
     ws.addRow(hdr).eachCell((c) => { c.fill = hF; c.font = hFn; c.alignment = { horizontal: "center" }; });
     ws.getRow(2).height = 22;
     [16, 25, 28, 14, 16, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
@@ -117,7 +116,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
 
   // Table grouped by building → tenant
   const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
-  y = drawSectionHeader(p, ctx.serifBold, y, `Detail - Total : ${pdfCur(total)}`);
+  y = drawSectionHeader(p, ctx.serifBold, y, `Détail - Total : ${pdfCur(total)}`);
 
   const WS = [90, 85, 52, 52, 52, 52, 52, CW - 435];
   const WA: ColAlign[] = ["left", "left", "right", "right", "right", "right", "right", "right"];
