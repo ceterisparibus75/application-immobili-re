@@ -16,7 +16,10 @@ type ReportType =
   | "RENTABILITE_LOT"
   | "ETAT_IMPAYES"
   | "RECAP_CHARGES_LOCATAIRE"
-  | "SUIVI_TRAVAUX";
+  | "SUIVI_TRAVAUX"
+  | "BALANCE_AGEE"
+  | "SUIVI_MENSUEL"
+  | "VACANCE_LOCATIVE";
 
 interface ReportDef {
   type: ReportType;
@@ -68,6 +71,25 @@ const REPORTS: ReportDef[] = [
     description: "Toutes les interventions de l'année avec coûts et dates, synthèse par immeuble.",
     format: "xlsx",
     requiresYear: true,
+  },
+  {
+    type: "BALANCE_AGEE",
+    label: "Balance âgée",
+    description: "Analyse de l'ancienneté des créances impayées par tranche (0-30j, 31-60j, etc.) avec graphiques.",
+    format: "pdf",
+  },
+  {
+    type: "SUIVI_MENSUEL",
+    label: "Tableau de suivi mensuel",
+    description: "Suivi mensuel par immeuble : loyers facturés/encaissés, charges et taux de recouvrement.",
+    format: "pdf",
+    requiresYear: true,
+  },
+  {
+    type: "VACANCE_LOCATIVE",
+    label: "Vacance locative et financière",
+    description: "Taux d'occupation/vacance par immeuble avec graphiques et analyse par surface.",
+    format: "pdf",
   },
 ];
 
@@ -200,11 +222,11 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
 const CATEGORIES = [
   {
     label: "Patrimoine et occupation",
-    reports: ["SITUATION_LOCATIVE", "RENTABILITE_LOT"] as ReportType[],
+    reports: ["SITUATION_LOCATIVE", "RENTABILITE_LOT", "VACANCE_LOCATIVE"] as ReportType[],
   },
   {
     label: "Comptabilité et finances",
-    reports: ["COMPTE_RENDU_GESTION", "ETAT_IMPAYES"] as ReportType[],
+    reports: ["COMPTE_RENDU_GESTION", "ETAT_IMPAYES", "BALANCE_AGEE", "SUIVI_MENSUEL"] as ReportType[],
   },
   {
     label: "Par locataire",
