@@ -10,7 +10,7 @@ export const createValuationSchema = z.object({
 
 export const runAiAnalysisSchema = z.object({
   providers: z
-    .array(z.enum(["CLAUDE", "GEMINI"]))
+    .array(z.enum(["CLAUDE", "MISTRAL"]))
     .min(1, "Au moins un fournisseur IA requis"),
 });
 
@@ -56,7 +56,7 @@ export const createRentValuationSchema = z.object({
 
 export const runRentAiAnalysisSchema = z.object({
   providers: z
-    .array(z.enum(["CLAUDE", "GEMINI"]))
+    .array(z.enum(["CLAUDE", "MISTRAL"]))
     .min(1, "Au moins un fournisseur IA requis"),
 });
 

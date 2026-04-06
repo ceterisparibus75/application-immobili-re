@@ -44,7 +44,7 @@ export function AiAnalysisPanel({
   function handleRunAnalysis() {
     startTransition(async () => {
       const result = await runAiAnalysis(societyId, valuationId, {
-        providers: ["CLAUDE", "GEMINI"],
+        providers: ["CLAUDE", "MISTRAL"],
       });
       if (result.success) {
         toast.success(`${result.data?.analysisCount ?? 0} analyse(s) terminée(s)`);

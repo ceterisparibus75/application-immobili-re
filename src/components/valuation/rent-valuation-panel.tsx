@@ -54,7 +54,7 @@ export function RentValuationPanel({
       if (result.success && result.data) {
         // Auto-launch AI analysis
         const aiResult = await runRentAiAnalysis(societyId, result.data.id, {
-          providers: ["CLAUDE", "GEMINI"],
+          providers: ["CLAUDE", "MISTRAL"],
         });
         if (aiResult.success) {
           toast.success("Évaluation de loyer terminée");

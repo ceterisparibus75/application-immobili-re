@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Mistral } from "@mistralai/mistralai";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/lib/env";
 import { CLAUDE_VALUATION_SYSTEM_PROMPT } from "./prompts/claude-valuation";
@@ -45,28 +45,28 @@ export async function callClaude(
   return { result, rawResponse, durationMs, tokenCount };
 }
 
-export async function callGemini(
+export async function callMistral(
   input: ValuationInput
 ): Promise<{ result: AiValuationResult; rawResponse: string; durationMs: number; tokenCount: number }> {
-  assertGoogleKey();
+  assertMistralKey();
 
-  const genAI = new GoogleGenerativeAI(env.GOOGLE_AI_API_KEY!);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-001",
-    systemInstruction: GEMINI_VALUATION_SYSTEM_PROMPT,
-  });
-
+  const client = new Mistral({ apiKey: env.MISTRAL_API_KEY! });
   const userMessage = `Voici les données de l'immeuble à évaluer :\n\n${JSON.stringify(input, null, 2)}`;
 
   const start = Date.now();
-  const response = await model.generateContent(userMessage);
+  const response = await client.chat.complete({
+    model: "mistral-large-latest",
+    messages: [
+      { role: "system", content: GEMINI_VALUATION_SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+    temperature: 0.3,
+    maxTokens: 8000,
+  });
+
   const durationMs = Date.now() - start;
-
-  const rawResponse = response.response.text();
-  const tokenCount =
-    (response.response.usageMetadata?.promptTokenCount ?? 0) +
-    (response.response.usageMetadata?.candidatesTokenCount ?? 0);
-
+  const rawResponse = response.choices?.[0]?.message?.content as string ?? "";
+  const tokenCount = (response.usage?.promptTokens ?? 0) + (response.usage?.completionTokens ?? 0);
   const result = parseAiValuationResult(rawResponse);
 
   return { result, rawResponse, durationMs, tokenCount };
@@ -104,28 +104,28 @@ export async function callClaudeRentValuation(
   return { result, rawResponse, durationMs, tokenCount };
 }
 
-export async function callGeminiRentValuation(
+export async function callMistralRentValuation(
   input: RentValuationInput
 ): Promise<{ result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }> {
-  assertGoogleKey();
+  assertMistralKey();
 
-  const genAI = new GoogleGenerativeAI(env.GOOGLE_AI_API_KEY!);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-001",
-    systemInstruction: RENT_VALUATION_SYSTEM_PROMPT,
-  });
-
+  const client = new Mistral({ apiKey: env.MISTRAL_API_KEY! });
   const userMessage = `Voici les données du bail à évaluer :\n\n${JSON.stringify(input, null, 2)}`;
 
   const start = Date.now();
-  const response = await model.generateContent(userMessage);
+  const response = await client.chat.complete({
+    model: "mistral-large-latest",
+    messages: [
+      { role: "system", content: RENT_VALUATION_SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+    temperature: 0.3,
+    maxTokens: 8000,
+  });
+
   const durationMs = Date.now() - start;
-
-  const rawResponse = response.response.text();
-  const tokenCount =
-    (response.response.usageMetadata?.promptTokenCount ?? 0) +
-    (response.response.usageMetadata?.candidatesTokenCount ?? 0);
-
+  const rawResponse = response.choices?.[0]?.message?.content as string ?? "";
+  const tokenCount = (response.usage?.promptTokens ?? 0) + (response.usage?.completionTokens ?? 0);
   const result = parseRentValuationResult(rawResponse);
 
   return { result, rawResponse, durationMs, tokenCount };
@@ -135,16 +135,11 @@ export async function callGeminiRentValuation(
 // EXTRACTION DE RAPPORT PDF
 // ============================================================
 
-/**
- * Extrait les données structurées d'un rapport d'expertise PDF.
- * Approche hybride : texte d'abord, vision Claude si le texte est trop court.
- */
 export async function extractReportData(
   pdfBuffer: Buffer
 ): Promise<{ result: ExtractedReportData; rawResponse: string }> {
   assertAnthropicKey();
 
-  // Tentative 1 : extraction textuelle via pdf-parse
   let textContent = "";
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -157,12 +152,10 @@ export async function extractReportData(
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-  // Si texte trop court, fallback vers Claude Vision
   if (textContent.length < 100) {
     return extractReportWithVision(client, pdfBuffer);
   }
 
-  // Extraction via texte
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4000,
@@ -232,7 +225,6 @@ function parseAiValuationResult(raw: string): AiValuationResult {
   const json = extractAndRepairJson(raw);
   const parsed = JSON.parse(json) as AiValuationResult;
 
-  // Vérification minimale de la structure
   if (!parsed.summary || typeof parsed.summary.estimatedValueMid !== "number") {
     throw new Error("Réponse IA invalide : champ summary.estimatedValueMid manquant");
   }
@@ -256,20 +248,14 @@ function parseExtractedReport(raw: string): ExtractedReportData {
   return JSON.parse(json) as ExtractedReportData;
 }
 
-/**
- * Extrait le JSON d'une réponse potentiellement enveloppée dans du markdown,
- * et utilise jsonrepair pour corriger les erreurs mineures.
- */
 function extractAndRepairJson(raw: string): string {
   let cleaned = raw.trim();
 
-  // Retirer les blocs markdown ```json ... ```
   const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonBlockMatch) {
     cleaned = jsonBlockMatch[1].trim();
   }
 
-  // Trouver le premier { et le dernier }
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace !== -1) {
@@ -289,12 +275,12 @@ function extractAndRepairJson(raw: string): string {
 
 function assertAnthropicKey(): void {
   if (!env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY non configurée. Configurez la variable d'environnement pour utiliser les évaluations IA.");
+    throw new Error("ANTHROPIC_API_KEY non configurée.");
   }
 }
 
-function assertGoogleKey(): void {
-  if (!env.GOOGLE_AI_API_KEY) {
-    throw new Error("GOOGLE_AI_API_KEY non configurée. Configurez la variable d'environnement pour utiliser Gemini.");
+function assertMistralKey(): void {
+  if (!env.MISTRAL_API_KEY) {
+    throw new Error("MISTRAL_API_KEY non configurée. Configurez la variable d'environnement pour utiliser Mistral.");
   }
 }

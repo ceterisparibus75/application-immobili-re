@@ -17,7 +17,7 @@ import {
 } from "@/validations/valuation";
 import { collectLeaseData } from "@/lib/valuation/data-collector";
 import { searchDvfTransactions } from "@/lib/valuation/dvf-service";
-import { callClaudeRentValuation, callGeminiRentValuation } from "@/lib/valuation/ai-service";
+import { callClaudeRentValuation, callMistralRentValuation } from "@/lib/valuation/ai-service";
 import type { AiRentValuationResult } from "@/lib/valuation/types";
 
 // ============================================================
@@ -109,16 +109,16 @@ export async function runRentAiAnalysis(
 
     // Lancer les analyses en parallèle
     const providers = parsed.data.providers;
-    const promises: Promise<{ provider: "CLAUDE" | "GEMINI"; result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
+    const promises: Promise<{ provider: "CLAUDE" | "MISTRAL"; result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
 
     if (providers.includes("CLAUDE")) {
       promises.push(
         callClaudeRentValuation(leaseData).then((r) => ({ provider: "CLAUDE" as const, ...r }))
       );
     }
-    if (providers.includes("GEMINI")) {
+    if (providers.includes("MISTRAL")) {
       promises.push(
-        callGeminiRentValuation(leaseData).then((r) => ({ provider: "GEMINI" as const, ...r }))
+        callMistralRentValuation(leaseData).then((r) => ({ provider: "MISTRAL" as const, ...r }))
       );
     }
 
@@ -132,7 +132,7 @@ export async function runRentAiAnalysis(
           data: {
             rentValuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.0-flash-001",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "mistral-large-latest",
             inputPayload: leaseData as object,
             rawResponse,
             structuredResult: result as object,

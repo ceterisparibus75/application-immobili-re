@@ -29,6 +29,7 @@ const envSchema = z.object({
   BRAINTRUST_API_KEY: z.string().optional(),
   BRAINTRUST_PROJECT_ID: z.string().optional(),
   GOOGLE_AI_API_KEY: z.string().optional(),
+  MISTRAL_API_KEY: z.string().optional(),
 });
 
 const isBuildPhase =
