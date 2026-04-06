@@ -388,6 +388,7 @@ model Society {
   fiscalYears             FiscalYear[]
   datarooms               Dataroom[]
   subscription            Subscription?
+  reportSchedules         ReportSchedule[]
 
   @@index([siret])
   @@index([proprietaireId])
@@ -476,6 +477,7 @@ model User {
   validatedEntries  JournalEntry[] @relation("JournalEntryValidator")
   closedFiscalYears FiscalYear[]   @relation("FiscalYearCloser")
   datarooms         Dataroom[]
+  reportSchedules   ReportSchedule[]
 
   @@index([email])
 }
@@ -2239,4 +2241,42 @@ model Subscription {
   @@index([societyId])
   @@index([stripeCustomerId])
   @@index([status])
+}
+
+// ============================================================
+// PHASE 11 — RAPPORTS CONSOLIDÉS ET ENVOI AUTOMATIQUE
+// ============================================================
+
+enum ReportFrequency {
+  MENSUEL
+  TRIMESTRIEL
+  SEMESTRIEL
+  ANNUEL
+}
+
+/// Planification d'envoi automatique de rapports consolidés
+model ReportSchedule {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  societyId String
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  name        String           // Nom de la planification (ex: "Rapport trimestriel investisseurs")
+  frequency   ReportFrequency
+  reportTypes String[]         // Types de rapports inclus (ex: ["COMPTE_RENDU_GESTION", "ETAT_IMPAYES"])
+  recipients  String[]         // Adresses email des destinataires
+
+  isActive    Boolean  @default(true)
+
+  // Suivi d'exécution
+  lastSentAt  DateTime?
+  nextRunAt   DateTime
+
+  @@index([societyId])
+  @@index([isActive, nextRunAt])
 }
