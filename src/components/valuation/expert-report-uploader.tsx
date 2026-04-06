@@ -51,7 +51,7 @@ export function ExpertReportUploader({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Rapports d&apos;experts</h3>
+        <h3 className="text-base font-semibold text-[var(--color-brand-deep)]">Rapports d&apos;experts</h3>
         <Button variant="outline" onClick={() => setShowForm(!showForm)}>
           <Upload className="h-4 w-4 mr-2" />
           Importer un rapport
@@ -59,35 +59,40 @@ export function ExpertReportUploader({
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="border-0 shadow-brand bg-white rounded-xl">
           <CardHeader>
-            <CardTitle className="text-base">Importer un rapport d&apos;expertise PDF</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+                <FileText className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
+              </div>
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Importer un rapport d&apos;expertise PDF</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <form ref={formRef} action={handleSubmit} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="expertName">Nom de l&apos;expert *</Label>
-                  <Input id="expertName" name="expertName" required placeholder="Cabinet Dupont" />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Nom de l&apos;expert *</Label>
+                  <Input name="expertName" required placeholder="Cabinet Dupont" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reportDate">Date du rapport *</Label>
-                  <Input id="reportDate" name="reportDate" type="date" required />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Date du rapport *</Label>
+                  <Input name="reportDate" type="date" required />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reportReference">Référence</Label>
-                  <Input id="reportReference" name="reportReference" placeholder="REF-2024-001" />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Référence</Label>
+                  <Input name="reportReference" placeholder="REF-2024-001" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="file">Fichier PDF *</Label>
-                <Input id="file" name="file" type="file" accept=".pdf" required />
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Fichier PDF *</Label>
+                <Input name="file" type="file" accept=".pdf" required />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                   Annuler
                 </Button>
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending} className="bg-[var(--color-brand-blue)] hover:bg-[var(--color-brand-deep)] text-white">
                   {isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -104,32 +109,30 @@ export function ExpertReportUploader({
       )}
 
       {reports.length === 0 && !showForm && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <FileText className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-3 text-sm text-muted-foreground">Aucun rapport d&apos;expert importé.</p>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-xl shadow-brand py-10 text-center">
+          <FileText className="mx-auto h-10 w-10 text-[#94A3B8]/50" />
+          <p className="mt-3 text-sm text-[#94A3B8]">Aucun rapport d&apos;expert importé.</p>
+        </div>
       )}
 
       {reports.map((report) => (
-        <Card key={report.id}>
+        <Card key={report.id} className="border-0 shadow-brand bg-white rounded-xl">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-medium">{report.expertName}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-semibold text-[var(--color-brand-deep)]">{report.expertName}</p>
+                <p className="text-xs text-[#94A3B8]">
                   {formatDate(report.reportDate)}
                   {report.reportReference && ` — Réf. ${report.reportReference}`}
                 </p>
-                <p className="text-sm text-muted-foreground">{report.fileName}</p>
+                <p className="text-xs text-[#94A3B8]">{report.fileName}</p>
               </div>
               <div className="text-right">
                 {report.estimatedValue && (
-                  <p className="font-semibold">{formatCurrency(report.estimatedValue)}</p>
+                  <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{formatCurrency(report.estimatedValue)}</p>
                 )}
                 {report.methodology && (
-                  <p className="text-xs text-muted-foreground">{report.methodology}</p>
+                  <p className="text-[10px] text-[#94A3B8]">{report.methodology}</p>
                 )}
               </div>
             </div>

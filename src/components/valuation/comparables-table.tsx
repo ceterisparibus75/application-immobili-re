@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, MapPin } from "lucide-react";
 import { useState, useTransition } from "react";
 import { searchComparables } from "@/actions/valuation";
 import { toast } from "sonner";
@@ -54,17 +54,22 @@ export function ComparablesTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Transactions comparables</h3>
+        <h3 className="text-base font-semibold text-[var(--color-brand-deep)]">Transactions comparables</h3>
       </div>
 
-      <Card>
+      <Card className="border-0 shadow-brand bg-white rounded-xl">
         <CardHeader>
-          <CardTitle className="text-base">Recherche DVF</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+              <MapPin className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
+            </div>
+            <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Recherche DVF</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-end gap-4">
-            <div className="space-y-2">
-              <Label>Rayon (km)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Rayon (km)</Label>
               <Input
                 type="number"
                 min={0.5}
@@ -75,8 +80,8 @@ export function ComparablesTable({
                 className="w-24"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Période (années)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Période (années)</Label>
               <Input
                 type="number"
                 min={1}
@@ -86,7 +91,7 @@ export function ComparablesTable({
                 className="w-24"
               />
             </div>
-            <Button onClick={handleSearch} disabled={isPending}>
+            <Button onClick={handleSearch} disabled={isPending} className="bg-[var(--color-brand-blue)] hover:bg-[var(--color-brand-deep)] text-white">
               {isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -99,37 +104,37 @@ export function ComparablesTable({
       </Card>
 
       {comparables.length > 0 && (
-        <Card>
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
           <CardContent className="pt-6">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left">
-                    <th className="py-2 font-medium">Adresse</th>
-                    <th className="py-2 font-medium">Ville</th>
-                    <th className="py-2 font-medium text-right">Date</th>
-                    <th className="py-2 font-medium text-right">Prix</th>
-                    <th className="py-2 font-medium text-right">Surface</th>
-                    <th className="py-2 font-medium text-right">€/m²</th>
-                    <th className="py-2 font-medium text-right">Distance</th>
+                  <tr className="border-b">
+                    <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Adresse</th>
+                    <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Ville</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Date</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Prix</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Surface</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">€/m²</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Dist.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {comparables.map((c) => (
-                    <tr key={c.id} className="border-b hover:bg-muted/30">
-                      <td className="py-2 max-w-48 truncate">{c.address}</td>
-                      <td className="py-2">{c.city}</td>
-                      <td className="py-2 text-right">{formatDate(c.saleDate)}</td>
-                      <td className="py-2 text-right font-medium">{formatCurrency(c.salePrice)}</td>
-                      <td className="py-2 text-right">{c.builtArea ? `${c.builtArea} m²` : "—"}</td>
-                      <td className="py-2 text-right">{c.pricePerSqm ? `${Math.round(c.pricePerSqm)} €` : "—"}</td>
-                      <td className="py-2 text-right text-muted-foreground">{c.distanceKm ? `${c.distanceKm} km` : "—"}</td>
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50/50">
+                      <td className="py-2.5 px-4 max-w-48 truncate text-[var(--color-brand-deep)]">{c.address}</td>
+                      <td className="py-2.5 px-4 text-[var(--color-brand-deep)]">{c.city}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-[#94A3B8]">{formatDate(c.saleDate)}</td>
+                      <td className="py-2.5 px-4 text-right font-medium tabular-nums text-[var(--color-brand-deep)]">{formatCurrency(c.salePrice)}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-[#94A3B8]">{c.builtArea ? `${c.builtArea} m²` : "—"}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-[var(--color-brand-deep)]">{c.pricePerSqm ? `${Math.round(c.pricePerSqm)} €` : "—"}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-[#94A3B8]">{c.distanceKm ? `${c.distanceKm} km` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-3 text-[10px] text-[#94A3B8]">
               {comparables.length} transaction(s) — Source : DVF (Etalab)
             </p>
           </CardContent>

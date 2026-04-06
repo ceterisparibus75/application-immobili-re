@@ -14,10 +14,30 @@ export function SwotChart({ strengths, weaknesses, opportunities, threats }: Swo
 
   return (
     <div className="grid grid-cols-2 gap-2 text-xs">
-      <SwotQuadrant title="Forces" items={strengths} bgClass="bg-green-50 dark:bg-green-950/30" textClass="text-green-800 dark:text-green-300" />
-      <SwotQuadrant title="Faiblesses" items={weaknesses} bgClass="bg-yellow-50 dark:bg-yellow-950/30" textClass="text-yellow-800 dark:text-yellow-300" />
-      <SwotQuadrant title="Opportunités" items={opportunities} bgClass="bg-blue-50 dark:bg-blue-950/30" textClass="text-blue-800 dark:text-blue-300" />
-      <SwotQuadrant title="Menaces" items={threats} bgClass="bg-red-50 dark:bg-red-950/30" textClass="text-red-800 dark:text-red-300" />
+      <SwotQuadrant
+        title="Forces"
+        items={strengths}
+        bgClass="bg-[var(--color-status-positive-bg)]"
+        textClass="text-[var(--color-status-positive)]"
+      />
+      <SwotQuadrant
+        title="Faiblesses"
+        items={weaknesses}
+        bgClass="bg-[var(--color-status-caution-bg)]"
+        textClass="text-[var(--color-status-caution)]"
+      />
+      <SwotQuadrant
+        title="Opportunités"
+        items={opportunities}
+        bgClass="bg-[var(--color-brand-light)]"
+        textClass="text-[var(--color-brand-blue)]"
+      />
+      <SwotQuadrant
+        title="Menaces"
+        items={threats}
+        bgClass="bg-[var(--color-status-negative-bg)]"
+        textClass="text-[var(--color-status-negative)]"
+      />
     </div>
   );
 }
@@ -34,19 +54,19 @@ function SwotQuadrant({
   textClass: string;
 }) {
   return (
-    <div className={`rounded-md p-2.5 ${bgClass}`}>
-      <p className={`font-semibold mb-1 ${textClass}`}>{title}</p>
+    <div className={`rounded-lg p-3 ${bgClass}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-wide mb-1.5 ${textClass}`}>{title}</p>
       {items.length > 0 ? (
         <ul className="space-y-0.5">
           {items.slice(0, 4).map((item, i) => (
-            <li key={i} className={`${textClass} opacity-80`}>• {item}</li>
+            <li key={i} className={`text-[11px] ${textClass} opacity-80`}>- {item}</li>
           ))}
           {items.length > 4 && (
-            <li className={`${textClass} opacity-60`}>+ {items.length - 4} autre(s)</li>
+            <li className={`text-[10px] ${textClass} opacity-60`}>+ {items.length - 4} autre(s)</li>
           )}
         </ul>
       ) : (
-        <p className={`${textClass} opacity-50`}>Aucun</p>
+        <p className={`text-[10px] ${textClass} opacity-50`}>Aucun</p>
       )}
     </div>
   );

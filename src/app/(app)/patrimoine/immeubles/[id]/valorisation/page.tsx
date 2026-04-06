@@ -27,23 +27,23 @@ export default async function ValorisationPage({
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/patrimoine/immeubles" className="hover:text-foreground transition-colors">
+      <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+        <Link href="/patrimoine/immeubles" className="hover:text-[var(--color-brand-deep)] transition-colors">
           Immeubles
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link href={`/patrimoine/immeubles/${id}`} className="hover:text-foreground transition-colors">
+        <Link href={`/patrimoine/immeubles/${id}`} className="hover:text-[var(--color-brand-deep)] transition-colors">
           {building.name}
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-foreground font-medium">Valorisation</span>
+        <span className="text-[var(--color-brand-deep)] font-medium">Valorisation</span>
       </div>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Valorisation</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Valorisation</h1>
+          <p className="text-sm text-[#94A3B8]">
             Avis de valeur IA pour {building.name}
           </p>
         </div>

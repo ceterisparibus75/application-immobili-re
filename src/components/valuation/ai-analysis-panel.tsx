@@ -57,8 +57,8 @@ export function AiAnalysisPanel({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Analyses IA</h3>
-        <Button onClick={handleRunAnalysis} disabled={isPending}>
+        <h3 className="text-base font-semibold text-[var(--color-brand-deep)]">Analyses IA</h3>
+        <Button onClick={handleRunAnalysis} disabled={isPending} className="bg-[var(--color-brand-blue)] hover:bg-[var(--color-brand-deep)] text-white">
           {isPending ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -74,77 +74,51 @@ export function AiAnalysisPanel({
       </div>
 
       {isPending && (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">
-              Analyse en cours par Claude et Gemini...
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Cela peut prendre 30 à 60 secondes.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-xl shadow-brand border-dashed border p-12 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[var(--color-brand-blue)]" />
+          <p className="mt-4 text-sm text-[var(--color-brand-deep)]">
+            Analyse en cours par Claude et Gemini...
+          </p>
+          <p className="text-[10px] text-[#94A3B8] mt-1">
+            Cela peut prendre 30 à 60 secondes.
+          </p>
+        </div>
       )}
 
       {/* Tableau comparatif */}
       {analyses.length > 1 && (
-        <Card>
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-base">Comparaison des résultats</CardTitle>
+            <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Comparaison des résultats</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 font-medium">Critère</th>
+                    <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Critère</th>
                     {analyses.map((a) => (
-                      <th key={a.id} className="text-right py-2 font-medium">{a.provider}</th>
+                      <th key={a.id} className="text-right py-2.5 px-4 text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">{a.provider}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b">
-                    <td className="py-2 text-muted-foreground">Valeur vénale</td>
-                    {analyses.map((a) => (
-                      <td key={a.id} className="py-2 text-right font-medium">
-                        {a.estimatedValue ? formatCurrency(a.estimatedValue) : "—"}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="border-b">
-                    <td className="py-2 text-muted-foreground">Valeur locative</td>
-                    {analyses.map((a) => (
-                      <td key={a.id} className="py-2 text-right">
-                        {a.rentalValue ? formatCurrency(a.rentalValue) : "—"}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="border-b">
-                    <td className="py-2 text-muted-foreground">Prix/m²</td>
-                    {analyses.map((a) => (
-                      <td key={a.id} className="py-2 text-right">
-                        {a.pricePerSqm ? `${Math.round(a.pricePerSqm)} €` : "—"}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="border-b">
-                    <td className="py-2 text-muted-foreground">Taux cap.</td>
-                    {analyses.map((a) => (
-                      <td key={a.id} className="py-2 text-right">
-                        {a.capRate ? `${a.capRate.toFixed(1)}%` : "—"}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-2 text-muted-foreground">Confiance</td>
-                    {analyses.map((a) => (
-                      <td key={a.id} className="py-2 text-right">
-                        {a.confidence ? `${Math.round(a.confidence * 100)}%` : "—"}
-                      </td>
-                    ))}
-                  </tr>
+                  {[
+                    { label: "Valeur vénale", render: (a: AiAnalysis) => a.estimatedValue ? formatCurrency(a.estimatedValue) : "—" },
+                    { label: "Valeur locative", render: (a: AiAnalysis) => a.rentalValue ? formatCurrency(a.rentalValue) : "—" },
+                    { label: "Prix/m²", render: (a: AiAnalysis) => a.pricePerSqm ? `${Math.round(a.pricePerSqm)} €` : "—" },
+                    { label: "Taux cap.", render: (a: AiAnalysis) => a.capRate ? `${a.capRate.toFixed(1)}%` : "—" },
+                    { label: "Confiance", render: (a: AiAnalysis) => a.confidence ? `${Math.round(a.confidence * 100)}%` : "—" },
+                  ].map((row) => (
+                    <tr key={row.label} className="border-b last:border-0">
+                      <td className="py-2.5 px-4 text-sm text-[#94A3B8]">{row.label}</td>
+                      {analyses.map((a) => (
+                        <td key={a.id} className="py-2.5 px-4 text-right font-medium text-[var(--color-brand-deep)] tabular-nums">
+                          {row.render(a)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -155,35 +129,41 @@ export function AiAnalysisPanel({
       {/* Détail par fournisseur */}
       <div className="grid gap-4 md:grid-cols-2">
         {analyses.map((analysis) => (
-          <Card key={analysis.id}>
+          <Card key={analysis.id} className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Bot className="h-4 w-4" />
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)] flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+                    <Bot className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
+                  </div>
                   {analysis.provider}
                 </CardTitle>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-[10px] font-normal">
                   {analysis.modelVersion}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-muted-foreground">Valeur estimée</p>
-                  <p className="font-semibold">{analysis.estimatedValue ? formatCurrency(analysis.estimatedValue) : "—"}</p>
+                  <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Valeur estimée</p>
+                  <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">
+                    {analysis.estimatedValue ? formatCurrency(analysis.estimatedValue) : "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Valeur locative</p>
-                  <p className="font-semibold">{analysis.rentalValue ? formatCurrency(analysis.rentalValue) : "—"}</p>
+                  <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Valeur locative</p>
+                  <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">
+                    {analysis.rentalValue ? formatCurrency(analysis.rentalValue) : "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Méthode</p>
-                  <p className="text-xs">{analysis.methodology ?? "—"}</p>
+                  <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Méthode</p>
+                  <p className="text-xs text-[var(--color-brand-deep)]">{analysis.methodology ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Temps / Tokens</p>
-                  <p className="text-xs">
+                  <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Temps / Tokens</p>
+                  <p className="text-xs text-[var(--color-brand-deep)]">
                     {analysis.durationMs ? `${(analysis.durationMs / 1000).toFixed(1)}s` : "—"}
                     {analysis.tokenCount ? ` / ${analysis.tokenCount} tokens` : ""}
                   </p>

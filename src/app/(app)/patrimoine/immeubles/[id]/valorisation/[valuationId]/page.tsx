@@ -20,13 +20,6 @@ const STATUS_LABELS: Record<string, string> = {
   ARCHIVED: "Archivée",
 };
 
-const STATUS_VARIANTS: Record<string, "secondary" | "warning" | "success" | "destructive"> = {
-  DRAFT: "secondary",
-  IN_PROGRESS: "warning",
-  COMPLETED: "success",
-  ARCHIVED: "destructive",
-};
-
 export default async function ValuationDetailPage({
   params,
 }: {
@@ -44,20 +37,20 @@ export default async function ValuationDetailPage({
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/patrimoine/immeubles" className="hover:text-foreground transition-colors">
+      <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+        <Link href="/patrimoine/immeubles" className="hover:text-[var(--color-brand-deep)] transition-colors">
           Immeubles
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link href={`/patrimoine/immeubles/${id}`} className="hover:text-foreground transition-colors">
+        <Link href={`/patrimoine/immeubles/${id}`} className="hover:text-[var(--color-brand-deep)] transition-colors">
           {valuation.building.name}
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link href={`/patrimoine/immeubles/${id}/valorisation`} className="hover:text-foreground transition-colors">
+        <Link href={`/patrimoine/immeubles/${id}/valorisation`} className="hover:text-[var(--color-brand-deep)] transition-colors">
           Valorisation
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-foreground font-medium">
+        <span className="text-[var(--color-brand-deep)] font-medium">
           Avis du {formatDate(valuation.valuationDate)}
         </span>
       </div>
@@ -66,14 +59,23 @@ export default async function ValuationDetailPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">
               Avis de valeur — {valuation.building.name}
             </h1>
-            <Badge variant={STATUS_VARIANTS[valuation.status] ?? "secondary"}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-medium ${
+                valuation.status === "COMPLETED"
+                  ? "border-[var(--color-status-positive)] text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)]"
+                  : valuation.status === "IN_PROGRESS"
+                    ? "border-[var(--color-status-caution)] text-[var(--color-status-caution)] bg-[var(--color-status-caution-bg)]"
+                    : ""
+              }`}
+            >
               {STATUS_LABELS[valuation.status] ?? valuation.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-0.5">
+          <p className="text-sm text-[#94A3B8] mt-0.5">
             {valuation.building.addressLine1}, {valuation.building.postalCode} {valuation.building.city}
           </p>
         </div>

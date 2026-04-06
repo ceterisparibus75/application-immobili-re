@@ -30,7 +30,7 @@ export function CreateValuationButton({
   }
 
   return (
-    <Button onClick={handleCreate} disabled={isPending}>
+    <Button onClick={handleCreate} disabled={isPending} className="bg-[var(--color-brand-blue)] hover:bg-[var(--color-brand-deep)] text-white">
       <Plus className="h-4 w-4 mr-2" />
       {isPending ? "Création..." : "Nouvel avis de valeur"}
     </Button>
