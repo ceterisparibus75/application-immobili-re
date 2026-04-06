@@ -72,9 +72,9 @@ export default async function ProprietaireDashboardPage({
   }
 
   const dashboardContent = (
-    <>
+    <div className="space-y-4">
       {/* KPI principaux — 4 cartes identiques, hauteur fixe */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
@@ -134,70 +134,9 @@ export default async function ProprietaireDashboardPage({
         </div>
       </div>
 
-      {/* Contenu principal : 2/3 + 1/3 */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Colonne gauche */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Endettement consolidé — KPIs compacts + liste établissements */}
-          {data.totalDebt > 0 && (
-            <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
-              <CardHeader className="pb-3 px-6 pt-5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
-                    <Banknote className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-                  </div>
-                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="px-6 pb-5 space-y-4">
-                {/* Totaux compacts */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">Capital restant dû</p>
-                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</p>
-                  </div>
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">Mensualité totale</p>
-                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyLoanPayment)}</p>
-                  </div>
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">LTV consolidé</p>
-                    <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-500" : "text-emerald-500"}`}>
-                      {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Liste épurée des établissements bancaires */}
-                {data.lenderSummaries.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Par établissement</p>
-                    <div className="divide-y divide-gray-50">
-                      {data.lenderSummaries.map((ls) => (
-                        <div key={ls.lender} className="flex items-center gap-3 py-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[var(--color-brand-deep)] truncate">{ls.lender}</p>
-                            <p className="text-[10px] text-[#94A3B8]">{ls.loanCount} emprunt{ls.loanCount > 1 ? "s" : ""} · {fmt(ls.monthlyPayment)}/mois</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(ls.remainingBalance)}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 w-20">
-                            <div className="h-1.5 flex-1 rounded-full bg-[#F1F5F9] overflow-hidden">
-                              <div className="h-full rounded-full bg-brand-gradient-soft" style={{ width: ls.pctRepaid + "%" }} />
-                            </div>
-                            <span className="tabular-nums text-[10px] text-[#94A3B8] w-7 text-right">{ls.pctRepaid}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
+      {/* Section 1 : Revenus & Trésorerie (2/3) + Occupation & Patrimoine (1/3) */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           {/* Performance par société */}
           <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader className="pb-3 px-6 pt-5">
@@ -275,9 +214,8 @@ export default async function ProprietaireDashboardPage({
             </CardContent>
           </Card>
         </div>
-
         {/* Colonne droite : Occupation + Patrimoine */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Occupation visuelle */}
           <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader className="pb-3 px-5 pt-5">
@@ -341,9 +279,9 @@ export default async function ProprietaireDashboardPage({
         </div>
       </div>
 
-      {/* ── SECTION ENDETTEMENT CONSOLIDÉ ── */}
+      {/* Section 2 : Endettement consolidé (2/3) + Par établissement (1/3) */}
       {data.totalDebt > 0 && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Endettement — colonne large */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
@@ -467,9 +405,9 @@ export default async function ProprietaireDashboardPage({
         </div>
       )}
 
-      {/* ── SECTION ALERTES (Impayés + Baux expirant) ── */}
+      {/* Section 3 : Alertes (Impayés + Baux expirant) */}
       {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Impayés par ancienneté */}
           {data.totalOverdue > 0 && (
             <Card className="border-0 shadow-brand bg-white rounded-xl">
@@ -526,7 +464,7 @@ export default async function ProprietaireDashboardPage({
           )}
         </div>
       )}
-    </>
+    </div>
   );
 
   const societiesContent = (
