@@ -2321,6 +2321,7 @@ enum AiProvider {
   CLAUDE
   GEMINI
   MISTRAL
+  OPENAI
 }
 
 /// Avis de valeur IA pour un immeuble

@@ -20,7 +20,7 @@ import {
 } from "@/validations/valuation";
 import { collectBuildingData } from "@/lib/valuation/data-collector";
 import { searchDvfTransactions } from "@/lib/valuation/dvf-service";
-import { callClaude, callMistral, extractReportData } from "@/lib/valuation/ai-service";
+import { callClaude, callOpenAI, extractReportData } from "@/lib/valuation/ai-service";
 import type { AiValuationResult } from "@/lib/valuation/types";
 
 // ============================================================
@@ -170,16 +170,16 @@ export async function runAiAnalysis(
 
     // 3. Lancer les analyses IA en parallèle
     const providers = parsed.data.providers;
-    const promises: Promise<{ provider: "CLAUDE" | "MISTRAL"; result: AiValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
+    const promises: Promise<{ provider: "CLAUDE" | "OPENAI"; result: AiValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
 
     if (providers.includes("CLAUDE")) {
       promises.push(
         callClaude(buildingData).then((r) => ({ provider: "CLAUDE" as const, ...r }))
       );
     }
-    if (providers.includes("MISTRAL")) {
+    if (providers.includes("OPENAI")) {
       promises.push(
-        callMistral(buildingData).then((r) => ({ provider: "MISTRAL" as const, ...r }))
+        callOpenAI(buildingData).then((r) => ({ provider: "OPENAI" as const, ...r }))
       );
     }
 
@@ -193,7 +193,7 @@ export async function runAiAnalysis(
           data: {
             valuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "mistral-large-latest",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gpt-4o-mini",
             inputPayload: buildingData as object,
             rawResponse,
             structuredResult: result as object,

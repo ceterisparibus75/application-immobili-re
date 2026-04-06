@@ -17,7 +17,7 @@ import {
 } from "@/validations/valuation";
 import { collectLeaseData } from "@/lib/valuation/data-collector";
 import { searchDvfTransactions } from "@/lib/valuation/dvf-service";
-import { callClaudeRentValuation, callMistralRentValuation } from "@/lib/valuation/ai-service";
+import { callClaudeRentValuation, callOpenAIRentValuation } from "@/lib/valuation/ai-service";
 import type { AiRentValuationResult } from "@/lib/valuation/types";
 
 // ============================================================
@@ -109,16 +109,16 @@ export async function runRentAiAnalysis(
 
     // Lancer les analyses en parallèle
     const providers = parsed.data.providers;
-    const promises: Promise<{ provider: "CLAUDE" | "MISTRAL"; result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
+    const promises: Promise<{ provider: "CLAUDE" | "OPENAI"; result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
 
     if (providers.includes("CLAUDE")) {
       promises.push(
         callClaudeRentValuation(leaseData).then((r) => ({ provider: "CLAUDE" as const, ...r }))
       );
     }
-    if (providers.includes("MISTRAL")) {
+    if (providers.includes("OPENAI")) {
       promises.push(
-        callMistralRentValuation(leaseData).then((r) => ({ provider: "MISTRAL" as const, ...r }))
+        callOpenAIRentValuation(leaseData).then((r) => ({ provider: "OPENAI" as const, ...r }))
       );
     }
 
@@ -132,7 +132,7 @@ export async function runRentAiAnalysis(
           data: {
             rentValuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "mistral-large-latest",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gpt-4o-mini",
             inputPayload: leaseData as object,
             rawResponse,
             structuredResult: result as object,

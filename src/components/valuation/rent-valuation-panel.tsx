@@ -54,7 +54,7 @@ export function RentValuationPanel({
       if (result.success && result.data) {
         // Auto-launch AI analysis
         const aiResult = await runRentAiAnalysis(societyId, result.data.id, {
-          providers: ["CLAUDE", "MISTRAL"],
+          providers: ["CLAUDE", "OPENAI"],
         });
         if (aiResult.success) {
           toast.success("Évaluation de loyer terminée");
@@ -98,7 +98,7 @@ export function RentValuationPanel({
           <CardContent className="py-8 text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              Analyse par Claude et Mistral en cours (30-60s)...
+              Analyse par Claude et GPT-4o en cours (30-60s)...
             </p>
           </CardContent>
         </Card>

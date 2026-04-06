@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Mistral } from "@mistralai/mistralai";
+import OpenAI from "openai";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/lib/env";
 import { CLAUDE_VALUATION_SYSTEM_PROMPT } from "./prompts/claude-valuation";
@@ -45,28 +45,28 @@ export async function callClaude(
   return { result, rawResponse, durationMs, tokenCount };
 }
 
-export async function callMistral(
+export async function callOpenAI(
   input: ValuationInput
 ): Promise<{ result: AiValuationResult; rawResponse: string; durationMs: number; tokenCount: number }> {
-  assertMistralKey();
+  assertOpenAIKey();
 
-  const client = new Mistral({ apiKey: env.MISTRAL_API_KEY! });
+  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
   const userMessage = `Voici les données de l'immeuble à évaluer :\n\n${JSON.stringify(input, null, 2)}`;
 
   const start = Date.now();
-  const response = await client.chat.complete({
-    model: "mistral-large-latest",
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: GEMINI_VALUATION_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
     temperature: 0.3,
-    maxTokens: 8000,
+    max_tokens: 8000,
   });
 
   const durationMs = Date.now() - start;
-  const rawResponse = response.choices?.[0]?.message?.content as string ?? "";
-  const tokenCount = (response.usage?.promptTokens ?? 0) + (response.usage?.completionTokens ?? 0);
+  const rawResponse = response.choices[0]?.message?.content ?? "";
+  const tokenCount = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
   const result = parseAiValuationResult(rawResponse);
 
   return { result, rawResponse, durationMs, tokenCount };
@@ -104,28 +104,28 @@ export async function callClaudeRentValuation(
   return { result, rawResponse, durationMs, tokenCount };
 }
 
-export async function callMistralRentValuation(
+export async function callOpenAIRentValuation(
   input: RentValuationInput
 ): Promise<{ result: AiRentValuationResult; rawResponse: string; durationMs: number; tokenCount: number }> {
-  assertMistralKey();
+  assertOpenAIKey();
 
-  const client = new Mistral({ apiKey: env.MISTRAL_API_KEY! });
+  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
   const userMessage = `Voici les données du bail à évaluer :\n\n${JSON.stringify(input, null, 2)}`;
 
   const start = Date.now();
-  const response = await client.chat.complete({
-    model: "mistral-large-latest",
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: RENT_VALUATION_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
     temperature: 0.3,
-    maxTokens: 8000,
+    max_tokens: 8000,
   });
 
   const durationMs = Date.now() - start;
-  const rawResponse = response.choices?.[0]?.message?.content as string ?? "";
-  const tokenCount = (response.usage?.promptTokens ?? 0) + (response.usage?.completionTokens ?? 0);
+  const rawResponse = response.choices[0]?.message?.content ?? "";
+  const tokenCount = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
   const result = parseRentValuationResult(rawResponse);
 
   return { result, rawResponse, durationMs, tokenCount };
@@ -279,8 +279,8 @@ function assertAnthropicKey(): void {
   }
 }
 
-function assertMistralKey(): void {
-  if (!env.MISTRAL_API_KEY) {
-    throw new Error("MISTRAL_API_KEY non configurée. Configurez la variable d'environnement pour utiliser Mistral.");
+function assertOpenAIKey(): void {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY non configurée. Configurez la variable d'environnement pour utiliser GPT-4o.");
   }
 }

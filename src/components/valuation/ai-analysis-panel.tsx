@@ -44,7 +44,7 @@ export function AiAnalysisPanel({
   function handleRunAnalysis() {
     startTransition(async () => {
       const result = await runAiAnalysis(societyId, valuationId, {
-        providers: ["CLAUDE", "MISTRAL"],
+        providers: ["CLAUDE", "OPENAI"],
       });
       if (result.success) {
         toast.success(`${result.data?.analysisCount ?? 0} analyse(s) terminée(s)`);
@@ -77,7 +77,7 @@ export function AiAnalysisPanel({
         <div className="bg-white rounded-xl shadow-brand border-dashed border p-12 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-[var(--color-brand-blue)]" />
           <p className="mt-4 text-sm text-[var(--color-brand-deep)]">
-            Recherche des comparables DVF puis analyse par Claude et Mistral...
+            Recherche des comparables DVF puis analyse par Claude et GPT-4o...
           </p>
           <p className="text-[10px] text-[#94A3B8] mt-1">
             Cela peut prendre 30 à 60 secondes.
