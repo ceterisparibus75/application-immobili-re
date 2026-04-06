@@ -51,6 +51,19 @@ export async function createValuation(
     });
     if (!building) return { success: false, error: "Immeuble introuvable" };
 
+    // Limite : 2 avis de valeur par an et par immeuble
+    const yearStart = new Date(new Date().getFullYear(), 0, 1);
+    const valuationsThisYear = await prisma.propertyValuation.count({
+      where: {
+        buildingId: parsed.data.buildingId,
+        societyId,
+        createdAt: { gte: yearStart },
+      },
+    });
+    if (valuationsThisYear >= 2) {
+      return { success: false, error: "Limite atteinte : 2 avis de valeur maximum par an et par immeuble" };
+    }
+
     const valuation = await prisma.propertyValuation.create({
       data: {
         buildingId: parsed.data.buildingId,
