@@ -47,6 +47,40 @@ export async function collectBuildingData(
           scheduledAt: true,
         },
       },
+      diagnostics: {
+        select: {
+          type: true,
+          result: true,
+          performedAt: true,
+          expiresAt: true,
+        },
+        orderBy: { performedAt: "desc" },
+      },
+      documents: {
+        select: {
+          category: true,
+          description: true,
+          aiSummary: true,
+        },
+        where: {
+          aiSummary: { not: null },
+        },
+        take: 20,
+        orderBy: { createdAt: "desc" },
+      },
+      loans: {
+        where: { status: "EN_COURS" },
+        select: {
+          amount: true,
+          interestRate: true,
+          lender: true,
+          amortizationLines: {
+            orderBy: { period: "desc" },
+            take: 1,
+            select: { remainingBalance: true, totalPayment: true },
+          },
+        },
+      },
     },
   });
 
@@ -173,6 +207,31 @@ export async function collectBuildingData(
           propertyType: c.propertyType,
         }))
       : undefined,
+    diagnostics: building.diagnostics.length > 0
+      ? building.diagnostics.map((d) => ({
+          type: d.type,
+          result: d.result ?? undefined,
+          performedAt: d.performedAt.toISOString().split("T")[0],
+          expiresAt: d.expiresAt?.toISOString().split("T")[0],
+        }))
+      : undefined,
+    documents: building.documents.length > 0
+      ? building.documents.map((d) => ({
+          category: d.category ?? "Autre",
+          description: d.description ?? undefined,
+          aiSummary: d.aiSummary ?? undefined,
+        }))
+      : undefined,
+    loans: building.loans.length > 0
+      ? building.loans.map((l) => ({
+          amount: l.amount,
+          remainingBalance: l.amortizationLines[0]?.remainingBalance ?? undefined,
+          monthlyPayment: l.amortizationLines[0]?.totalPayment ?? undefined,
+          interestRate: l.interestRate ?? undefined,
+          lender: l.lender ?? undefined,
+        }))
+      : undefined,
+    acquisitionAnalysis: building.acquisitionPdfAnalysis ?? undefined,
   };
 }
 

@@ -57,6 +57,29 @@ export interface ValuationInput {
     }>;
   };
 
+  diagnostics?: Array<{
+    type: string;
+    result?: string;
+    performedAt: string;
+    expiresAt?: string;
+  }>;
+
+  documents?: Array<{
+    category: string;
+    description?: string;
+    aiSummary?: string;
+  }>;
+
+  loans?: Array<{
+    amount: number;
+    remainingBalance?: number;
+    monthlyPayment?: number;
+    interestRate?: number;
+    lender?: string;
+  }>;
+
+  acquisitionAnalysis?: string;
+
   expertReports?: Array<{
     expertName: string;
     reportDate: string;
