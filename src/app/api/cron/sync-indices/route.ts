@@ -52,7 +52,7 @@ function parsePeriod(period: string): { year: number; quarter: number } | null {
   return null;
 }
 
-async function fetchInseeSeriesLastN(seriesId: string, lastN = 8): Promise<Array<{ period: string; value: string }>> {
+async function fetchInseeSeriesLastN(seriesId: string, lastN = 20): Promise<Array<{ period: string; value: string }>> {
   const url = `https://api.insee.fr/series/BDM/data/SERIES_BDM/${seriesId}?lastNObservations=${lastN}`;
   const response = await fetch(url, {
     headers: { Accept: "application/xml, text/xml, */*" },
