@@ -235,23 +235,6 @@ export default function HomePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" />
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-            <a href="#solutions" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Solutions
-            </a>
-            <a href="#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Fonctionnalités
-            </a>
-            <a href="#tarifs" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Tarifs
-            </a>
-            <Link href="/securite" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Sécurité
-            </Link>
-            <Link href="/contact" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Contact
-            </Link>
-          </nav>
           <div className="flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" size="sm" className="text-[var(--color-brand-deep)] font-semibold">
