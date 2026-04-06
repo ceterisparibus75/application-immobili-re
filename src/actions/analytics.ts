@@ -127,28 +127,30 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   const totalOverdueAmount = overdueInvoices.reduce((s, i) => s + i.totalTTC, 0);
 
   // 5. Evolution patrimoine (cumul par date acquisition)
-  // Récupérer la dernière évaluation COMPLETED pour chaque immeuble
   const buildingsForPatrimony = await prisma.building.findMany({
     where: { societyId },
-    select: {
-      id: true,
-      acquisitionDate: true,
-      marketValue: true,
-      acquisitionPrice: true,
-      propertyValuations: {
-        where: { status: "COMPLETED" },
-        orderBy: { valuationDate: "desc" },
-        take: 1,
-        select: { estimatedValueMid: true },
-      },
-    },
+    select: { id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true },
     orderBy: { acquisitionDate: "asc" },
   });
+
+  // Récupérer la dernière évaluation COMPLETED pour chaque immeuble
+  const latestValuations = await prisma.propertyValuation.findMany({
+    where: { societyId, status: "COMPLETED", estimatedValueMid: { not: null } },
+    orderBy: { valuationDate: "desc" },
+    select: { buildingId: true, estimatedValueMid: true },
+  });
+  const valuationMap = new Map<string, number>();
+  for (const v of latestValuations) {
+    if (!valuationMap.has(v.buildingId) && v.estimatedValueMid != null) {
+      valuationMap.set(v.buildingId, v.estimatedValueMid);
+    }
+  }
+
   let cumulative = 0;
   const patrimonyPoints: PatrimonyPoint[] = [];
   for (const b of buildingsForPatrimony) {
     // Priorité : évaluation IA > marketValue > acquisitionPrice
-    const aiValue = b.propertyValuations[0]?.estimatedValueMid;
+    const aiValue = valuationMap.get(b.id);
     cumulative += aiValue ?? b.marketValue ?? b.acquisitionPrice ?? 0;
     if (b.acquisitionDate) {
       patrimonyPoints.push({
@@ -211,7 +213,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   // 8. Rendement brut (basé sur la valeur vénale actualisée)
   const annualRevenue = monthlyRevenue.reduce((s, m) => s + m.revenue, 0);
   const totalPatrimony = buildingsForPatrimony.reduce((s, b) => {
-    const aiValue = b.propertyValuations[0]?.estimatedValueMid;
+    const aiValue = valuationMap.get(b.id);
     return s + (aiValue ?? b.marketValue ?? b.acquisitionPrice ?? 0);
   }, 0);
   const grossYield = totalPatrimony > 0 ? Math.round((annualRevenue / totalPatrimony) * 1000) / 10 : null;
