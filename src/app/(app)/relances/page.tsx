@@ -320,9 +320,9 @@ export default async function RelancesPage() {
       </div>
 
       {/* Cycle de vie des factures */}
-      <Card className="border-blue-200/50 bg-blue-50/30 dark:border-blue-900/50 dark:bg-blue-950/20">
+      <Card className="border-[var(--color-brand-blue)]/15 bg-[var(--color-brand-light)]/30 dark:border-[var(--color-brand-blue)]/25 dark:bg-[var(--color-brand-deep)]/15">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-400">
+          <CardTitle className="text-sm flex items-center gap-2 text-[var(--color-brand-blue)] dark:text-[var(--color-brand-cyan)]">
             <Info className="h-4 w-4" />
             Cycle de vie d&apos;une facture
           </CardTitle>
@@ -342,15 +342,24 @@ export default async function RelancesPage() {
               En attente
             </Badge>
             <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            <Badge variant="destructive" className="text-[10px] font-normal">
+            <Badge
+              className="text-[10px] font-normal"
+              style={{ backgroundColor: "var(--color-status-negative-bg)", color: "var(--color-status-negative)", borderColor: "var(--color-status-negative)" }}
+            >
               En retard
             </Badge>
             <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            <Badge variant="destructive" className="text-[10px] font-normal border-orange-300 bg-orange-100 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400">
+            <Badge
+              className="text-[10px] font-normal"
+              style={{ backgroundColor: "var(--color-status-caution-bg)", color: "var(--color-status-caution)", borderColor: "var(--color-status-caution)" }}
+            >
               Relancée
             </Badge>
             <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            <Badge className="text-[10px] font-normal bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+            <Badge
+              className="text-[10px] font-normal"
+              style={{ backgroundColor: "var(--color-status-positive-bg)", color: "var(--color-status-positive)", borderColor: "var(--color-status-positive)" }}
+            >
               Payée
             </Badge>
           </div>
