@@ -129,6 +129,18 @@ export default auth(async (req) => {
   // Lire la societe active depuis le cookie
   const activeSocietyId = req.cookies.get("active-society-id")?.value;
 
+  // Les routes de fichiers binaires (storage/view, invoices PDF) n'ont pas besoin de CSP
+  // La CSP interfere avec le lecteur PDF integre du navigateur dans les iframes
+  const isBinaryRoute = pathname.startsWith("/api/storage/view") || pathname.match(/\/api\/invoices\/[^/]+\/pdf/);
+  if (isBinaryRoute) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-pathname", pathname);
+    if (activeSocietyId) {
+      requestHeaders.set("x-society-id", activeSocietyId);
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   // Generer un nonce unique par requete pour Content-Security-Policy
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const cspValue = [
