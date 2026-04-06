@@ -9,6 +9,7 @@ import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
 import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
+import { getAllEmailCopyBcc } from "@/lib/email-copy";
 import React from "react";
 
 export const maxDuration = 60;
@@ -182,6 +183,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     ].filter(Boolean).join("_") + ".pdf";
 
     const isQuittance = invoice.invoiceType === "QUITTANCE";
+    const bcc = await getAllEmailCopyBcc(societyId);
 
     const emailResult = isQuittance
       ? await sendReceiptEmail({
@@ -195,6 +197,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             : new Date().toLocaleDateString("fr-FR"),
           societyName: soc?.name ?? "",
           pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
+          bcc,
         })
       : await sendInvoiceEmail({
           to,
@@ -207,6 +210,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           typeLabel,
           items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
           pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
+          bcc,
         });
 
     if (!emailResult.success)

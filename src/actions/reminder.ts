@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { sendReminderEmail } from "@/lib/email";
+import { getAllEmailCopyBcc } from "@/lib/email-copy";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "./society";
 import type { ReminderLevel } from "@/generated/prisma/client";
@@ -94,6 +95,7 @@ export async function sendManualReminder(
     });
 
     // Envoyer l'email
+    const bcc = await getAllEmailCopyBcc(societyId);
     const emailResult = await sendReminderEmail({
       to: tenant.email,
       tenantName,
@@ -102,6 +104,7 @@ export async function sendManualReminder(
       invoiceRef: invoice.invoiceNumber ?? invoiceId,
       reminderLevel: LEVEL_MAP[level],
       societyName,
+      bcc,
     });
 
     // Marquer comme envoyée

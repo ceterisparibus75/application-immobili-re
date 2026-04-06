@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { updateOwnerProfile } from "@/actions/owner";
 import { toast } from "sonner";
-import { Pencil, X, Save, User } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Pencil, X, Save, User, Mail } from "lucide-react";
 
 type Props = {
   profile: {
@@ -22,6 +23,8 @@ type Props = {
     ownerCity: string | null;
     profession: string | null;
     nationality: string | null;
+    emailCopyEnabled: boolean;
+    emailCopyAddress: string | null;
   };
 };
 function formatDateForInput(date: Date | null): string {
@@ -56,6 +59,8 @@ export function OwnerProfileForm({ profile }: Props) {
   const [ownerCity, setOwnerCity] = useState(profile.ownerCity ?? "");
   const [profession, setProfession] = useState(profile.profession ?? "");
   const [nationality, setNationality] = useState(profile.nationality ?? "");
+  const [emailCopyEnabled, setEmailCopyEnabled] = useState(profile.emailCopyEnabled);
+  const [emailCopyAddress, setEmailCopyAddress] = useState(profile.emailCopyAddress ?? "");
 
   function handleCancel() {
     setFirstName(profile.firstName ?? "");
@@ -68,6 +73,8 @@ export function OwnerProfileForm({ profile }: Props) {
     setOwnerCity(profile.ownerCity ?? "");
     setProfession(profile.profession ?? "");
     setNationality(profile.nationality ?? "");
+    setEmailCopyEnabled(profile.emailCopyEnabled);
+    setEmailCopyAddress(profile.emailCopyAddress ?? "");
     setEditing(false);
   }
 
@@ -85,6 +92,8 @@ export function OwnerProfileForm({ profile }: Props) {
         ownerCity: ownerCity || undefined,
         profession: profession || undefined,
         nationality: nationality || undefined,
+        emailCopyEnabled,
+        emailCopyAddress: emailCopyAddress || undefined,
       });
       if (result.success) {
         toast.success("Profil mis a jour avec succes");
@@ -153,6 +162,26 @@ export function OwnerProfileForm({ profile }: Props) {
             <div>
               <p className="text-sm text-muted-foreground">Nationalite</p>
               <p className="text-sm font-medium">{profile.nationality || "-"}</p>
+            </div>
+          </div>
+
+          {/* Section copie emails */}
+          <div className="mt-6 pt-6 border-t">
+            <div className="flex items-center gap-2 mb-4">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Copie des emails locataires</h3>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-sm text-muted-foreground">Recevoir une copie</p>
+                <p className="text-sm font-medium">{profile.emailCopyEnabled ? "Activé" : "Désactivé"}</p>
+              </div>
+              {profile.emailCopyEnabled && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Adresse de copie</p>
+                  <p className="text-sm font-medium">{profile.emailCopyAddress || profile.email}</p>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -273,6 +302,45 @@ export function OwnerProfileForm({ profile }: Props) {
               />
             </div>
           </div>
+
+          {/* Section copie emails */}
+          <div className="pt-6 border-t">
+            <div className="flex items-center gap-2 mb-4">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Copie des emails locataires</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Recevez automatiquement en copie (BCC) tous les emails envoyés a vos locataires : factures, quittances, relances, etc.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center space-x-3">
+                <Switch
+                  id="emailCopyEnabled"
+                  checked={emailCopyEnabled}
+                  onCheckedChange={setEmailCopyEnabled}
+                />
+                <Label htmlFor="emailCopyEnabled" className="cursor-pointer">
+                  Recevoir une copie des emails
+                </Label>
+              </div>
+              {emailCopyEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="emailCopyAddress">Adresse de copie (optionnel)</Label>
+                  <Input
+                    id="emailCopyAddress"
+                    type="email"
+                    value={emailCopyAddress}
+                    onChange={(e) => setEmailCopyAddress(e.target.value)}
+                    placeholder={profile.email}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Laissez vide pour utiliser votre email principal
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-2 justify-end">
             <Button
               type="button"
