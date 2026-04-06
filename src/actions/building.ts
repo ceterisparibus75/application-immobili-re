@@ -247,6 +247,12 @@ export async function getBuildingById(societyId: string, buildingId: string) {
         select: { id: true, fileName: true, fileUrl: true, category: true, description: true, createdAt: true, expiresAt: true },
       },
       _count: { select: { lots: true, diagnostics: true, maintenances: true, documents: true } },
+      propertyValuations: {
+        where: { status: "COMPLETED" },
+        orderBy: { valuationDate: "desc" },
+        take: 1,
+        select: { id: true, valuationDate: true, estimatedValueMid: true, status: true },
+      },
     },
   });
 }
