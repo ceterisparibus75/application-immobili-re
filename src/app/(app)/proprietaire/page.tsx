@@ -198,35 +198,52 @@ export default async function ProprietaireDashboardPage({
             </Card>
           )}
 
-          {/* Performance par société — fusionne endettement + trésorerie */}
+          {/* Performance par société */}
           <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader className="pb-3 px-6 pt-5">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
-                  <PieChart className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                 </div>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Performance par société</CardTitle>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Revenus & Trésorerie</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-6 pb-5 space-y-4">
+              {/* KPIs revenus */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Loyers mensuels HT</p>
+                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyRentHT)}</p>
+                </div>
+                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Charges récupérables</p>
+                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalRecoverableCharges)}</p>
+                </div>
+                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Trésorerie nette</p>
+                  <p className={`text-lg font-bold tabular-nums ${data.totalCash >= 0 ? "text-emerald-600" : "text-red-500"}`}>{fmt(data.totalCash)}</p>
+                </div>
+                {data.grossYield !== null && (
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Rendement brut</p>
+                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{data.grossYield}%</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Tableau revenus par société */}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-[#FAFBFC]">
-                    <th className="text-left py-2.5 px-5 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Société</th>
+                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Société</th>
                     <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Trésorerie</th>
-                    {data.totalDebt > 0 && (
-                      <>
-                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Restant dû</th>
-                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Mensualité</th>
-                        <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">LTV</th>
-                      </>
-                    )}
+                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Occupation</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.societies.map((s) => (
                     <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-[#F9FAFB] transition-colors">
-                      <td className="py-3 px-5">
+                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
                           <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
                             {s.name.slice(0, 2).toUpperCase()}
@@ -237,54 +254,31 @@ export default async function ProprietaireDashboardPage({
                       <td className={`py-3 px-4 text-right tabular-nums font-semibold ${s.cashBalance < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>
                         {fmt(s.cashBalance)}
                       </td>
-                      {data.totalDebt > 0 && (
-                        <>
-                          <td className="py-3 px-4 text-right tabular-nums text-[var(--color-brand-deep)]">
-                            {s.totalDebt > 0 ? fmt(s.totalDebt) : <span className="text-[#CBD5E1]">—</span>}
-                          </td>
-                          <td className="py-3 px-4 text-right tabular-nums text-[#64748B]">
-                            {s.monthlyLoanPayment > 0 ? <>{fmt(s.monthlyLoanPayment)}<span className="text-[#94A3B8]">/mois</span></> : <span className="text-[#CBD5E1]">—</span>}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            {s.ltv !== null ? (
-                              <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-red-500" : s.ltv > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
-                                {s.ltv}%
-                              </span>
-                            ) : <span className="text-[#CBD5E1]">—</span>}
-                          </td>
-                        </>
-                      )}
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-semibold tabular-nums text-[var(--color-brand-blue)]">{pct(s.occupiedLots, s.lots)}%</span>
+                        <span className="text-[10px] text-[#94A3B8] ml-1">{s.occupiedLots}/{s.lots}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#FAFBFC] border-t border-gray-100">
-                    <td className="py-3 px-5 font-semibold text-[#94A3B8]">Total</td>
+                    <td className="py-3 px-4 font-semibold text-[#94A3B8]">Total</td>
                     <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.totalCash < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</td>
-                    {data.totalDebt > 0 && (
-                      <>
-                        <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</td>
-                        <td className="py-3 px-4 text-right tabular-nums font-bold text-[#64748B]">{fmt(data.totalMonthlyLoanPayment)}</td>
-                        <td className="py-3 px-4 text-right">
-                          {data.consolidatedLTV !== null && (
-                            <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
-                              {data.consolidatedLTV}%
-                            </span>
-                          )}
-                        </td>
-                      </>
-                    )}
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-bold tabular-nums text-[var(--color-brand-blue)]">{data.occupancyRate}%</span>
+                      <span className="text-[10px] text-[#94A3B8] ml-1">{data.totalOccupied}/{data.totalLots}</span>
+                    </td>
                   </tr>
                 </tfoot>
               </table>
             </CardContent>
           </Card>
-
         </div>
 
-        {/* Colonne droite : occupation + synthèse fusionnés */}
+        {/* Colonne droite : Occupation + Patrimoine */}
         <div className="space-y-6">
-          {/* Occupation + Synthèse financière fusionnés */}
+          {/* Occupation visuelle */}
           <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader className="pb-3 px-5 pt-5">
               <div className="flex items-center gap-2">
@@ -310,54 +304,172 @@ export default async function ProprietaireDashboardPage({
                   </div>
                 ))}
               </div>
-
-              {/* Synthèse financière intégrée */}
-              <div className="pt-3 border-t border-gray-100 space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Synthèse financière</p>
-                <div className="space-y-1.5">
-                  {([
-                    ["Loyers mensuels HT", fmt(data.totalMonthlyRentHT), null],
-                    ["Charges récupérables", fmt(data.totalRecoverableCharges), null],
-                    ...(data.totalDebt > 0 ? [["Mensualités emprunts", fmt(data.totalMonthlyLoanPayment), "text-amber-500"]] : []),
-                  ] as [string, string, string | null][]).map(([label, value, color]) => (
-                    <div key={label} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                      <span className="text-[#64748B]">{label}</span>
-                      <span className={`font-semibold tabular-nums ${color ?? "text-[var(--color-brand-deep)]"}`}>{value}</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-[var(--color-brand-light)] text-sm">
-                    <span className="font-medium text-[var(--color-brand-deep)]">Trésorerie nette</span>
-                    <span className={`font-bold tabular-nums ${data.totalCash >= 0 ? "text-emerald-600" : "text-red-500"}`}>{fmt(data.totalCash)}</span>
-                  </div>
-                  {data.grossYield !== null && (
-                    <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                      <span className="text-[#64748B]">Rendement brut</span>
-                      <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.grossYield}%</span>
-                    </div>
-                  )}
-                  {data.consolidatedLTV !== null && (
-                    <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                      <span className="text-[#64748B]">LTV consolidé</span>
-                      <span className={`font-semibold tabular-nums ${data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV > 60 ? "text-amber-500" : "text-emerald-500"}`}>
-                        {data.consolidatedLTV}%
-                      </span>
-                    </div>
-                  )}
-                  {data.totalPatrimonyValue > 0 && (
-                    <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                      <span className="text-[#64748B]">Valeur patrimoine</span>
-                      <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalPatrimonyValue)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                    <span className="text-[#64748B]">Taux occupation</span>
-                    <span className="font-semibold tabular-nums text-[var(--color-brand-blue)]">{data.occupancyRate}%</span>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
+          {/* Patrimoine */}
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <CardHeader className="pb-3 px-5 pt-5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+                  <Building2 className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
+                </div>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Patrimoine</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pb-5 space-y-1.5">
+              {data.totalPatrimonyValue > 0 && (
+                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[var(--color-brand-light)] text-sm">
+                  <span className="font-medium text-[var(--color-brand-deep)]">Valeur patrimoine</span>
+                  <span className="font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalPatrimonyValue)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
+                <span className="text-[#64748B]">Immeubles</span>
+                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalBuildings}</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
+                <span className="text-[#64748B]">Lots</span>
+                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalLots}</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
+                <span className="text-[#64748B]">Baux actifs</span>
+                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalActiveLeases}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ── SECTION ENDETTEMENT CONSOLIDÉ ── */}
+      {data.totalDebt > 0 && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Endettement — colonne large */}
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+              <CardHeader className="pb-3 px-6 pt-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-50">
+                    <Banknote className="h-3.5 w-3.5 text-red-500" />
+                  </div>
+                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="px-6 pb-5 space-y-4">
+                {/* KPIs endettement */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Capital restant dû</p>
+                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Mensualité totale</p>
+                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyLoanPayment)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">LTV consolidé</p>
+                    <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-500" : "text-emerald-500"}`}>
+                      {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tableau endettement par société */}
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-[#FAFBFC]">
+                      <th className="text-left py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Société</th>
+                      <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Restant dû</th>
+                      <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Mensualité</th>
+                      <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">LTV</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
+                      <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-[#F9FAFB] transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                              {s.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">
+                          {fmt(s.totalDebt)}
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#64748B]">
+                          {fmt(s.monthlyLoanPayment)}<span className="text-[#94A3B8]">/mois</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {s.ltv !== null ? (
+                            <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-red-500" : s.ltv > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
+                              {s.ltv}%
+                            </span>
+                          ) : <span className="text-[#CBD5E1]">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#FAFBFC] border-t border-gray-100">
+                      <td className="py-3 px-4 font-semibold text-[#94A3B8]">Total</td>
+                      <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</td>
+                      <td className="py-3 px-4 text-right tabular-nums font-bold text-[#64748B]">{fmt(data.totalMonthlyLoanPayment)}</td>
+                      <td className="py-3 px-4 text-right">
+                        {data.consolidatedLTV !== null && (
+                          <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
+                            {data.consolidatedLTV}%
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Par établissement bancaire */}
+          <div>
+            <Card className="border-0 shadow-brand bg-white rounded-xl">
+              <CardHeader className="pb-3 px-5 pt-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-50">
+                    <Landmark className="h-3.5 w-3.5 text-red-500" />
+                  </div>
+                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Par établissement</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-5">
+                <div className="divide-y divide-gray-50">
+                  {data.lenderSummaries.map((ls) => (
+                    <div key={ls.lender} className="flex items-center gap-3 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[var(--color-brand-deep)] truncate">{ls.lender}</p>
+                        <p className="text-[10px] text-[#94A3B8]">{ls.loanCount} emprunt{ls.loanCount > 1 ? "s" : ""} · {fmt(ls.monthlyPayment)}/mois</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(ls.remainingBalance)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 w-20">
+                        <div className="h-1.5 flex-1 rounded-full bg-[#F1F5F9] overflow-hidden">
+                          <div className="h-full rounded-full bg-brand-gradient-soft" style={{ width: ls.pctRepaid + "%" }} />
+                        </div>
+                        <span className="tabular-nums text-[10px] text-[#94A3B8] w-7 text-right">{ls.pctRepaid}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION ALERTES (Impayés + Baux expirant) ── */}
+      {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
+        <div className="grid gap-6 sm:grid-cols-2">
           {/* Impayés par ancienneté */}
           {data.totalOverdue > 0 && (
             <Card className="border-0 shadow-brand bg-white rounded-xl">
@@ -413,7 +525,7 @@ export default async function ProprietaireDashboardPage({
             </Card>
           )}
         </div>
-      </div>
+      )}
     </>
   );
 

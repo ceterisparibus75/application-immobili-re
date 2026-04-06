@@ -18,7 +18,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Logo */}
         <div className="flex flex-col items-center gap-3 mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-10" />
+          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-10" width={156} height={40} />
           <p className="text-sm text-muted-foreground mt-0.5">Gestion locative intelligente</p>
         </div>
 

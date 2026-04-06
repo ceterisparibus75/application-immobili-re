@@ -44,6 +44,40 @@ export const changePasswordSchema = z
     path: ["confirmPassword"],
   });
 
+// ─── RBAC v2 : Module permissions validation ─────────────────────────────────
+
+const moduleEnum = z.enum([
+  "patrimoine",
+  "baux",
+  "locataires",
+  "facturation",
+  "comptabilite",
+  "banque",
+  "relances",
+  "rapports",
+  "rgpd",
+  "administration",
+  "contacts",
+  "documents",
+]);
+
+const permissionEnum = z.enum(["read", "write", "delete"]);
+
+const modulePermissionsSchema = z.record(
+  moduleEnum,
+  z.array(permissionEnum)
+);
+
+export const updateModulePermissionsSchema = z.object({
+  userId: z.string().cuid("ID utilisateur invalide"),
+  societyId: z.string().cuid("ID société invalide"),
+  modulePermissions: modulePermissionsSchema,
+});
+
+export type UpdateModulePermissionsInput = z.infer<typeof updateModulePermissionsSchema>;
+
+// ─── Type exports ─────────────────────────────────────────────────────────────
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

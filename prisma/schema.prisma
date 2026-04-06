@@ -485,9 +485,10 @@ model UserSociety {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  userId    String
-  societyId String
-  role      UserRole
+  userId            String
+  societyId         String
+  role              UserRole
+  modulePermissions Json?    /// RBAC v2 — overrides per-module permissions (null = derive from role)
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)

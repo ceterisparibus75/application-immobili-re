@@ -12,9 +12,10 @@ import {
   deleteUser,
 } from "@/actions/user";
 import { toast } from "sonner";
-import { Loader2, Pencil, UserMinus, Check, X } from "lucide-react";
+import { Loader2, Pencil, UserMinus, Check, X, ShieldCheck } from "lucide-react";
 import type { UserRole } from "@/generated/prisma/client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const ROLE_OPTIONS = [
   { value: "ADMIN_SOCIETE", label: "Administrateur Société" },
@@ -131,6 +132,16 @@ function ManageUser({
 
   return (
     <div className="flex items-center gap-1 justify-end">
+      <Link href={`/administration/utilisateurs/${userId}/permissions`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          title="Permissions par module"
+        >
+          <ShieldCheck className="h-3 w-3" />
+        </Button>
+      </Link>
       <Button
         variant="ghost"
         size="sm"

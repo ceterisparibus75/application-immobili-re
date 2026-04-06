@@ -23,6 +23,15 @@ export type ReportType =
   | "RECAP_CHARGES_LOCATAIRE"
   | "SUIVI_TRAVAUX";
 
+export interface ReportSociety {
+  name: string;
+  logoBase64?: string | null;
+  siret?: string | null;
+  addressLine1?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+}
+
 export interface ReportOptions {
   societyId: string;
   type: ReportType;
@@ -30,6 +39,7 @@ export interface ReportOptions {
   buildingId?: string;
   tenantId?: string;
   format?: "pdf" | "xlsx";
+  society?: ReportSociety | null;
 }
 
 export interface ReportResult {
@@ -39,14 +49,30 @@ export interface ReportResult {
 }
 
 export async function generateReport(options: ReportOptions): Promise<ReportResult> {
-  switch (options.type) {
-    case "SITUATION_LOCATIVE":      return generateSituationLocative(options);
-    case "COMPTE_RENDU_GESTION":    return generateCompteRenduGestion(options);
-    case "RENTABILITE_LOT":         return generateRentabiliteLot(options);
-    case "ETAT_IMPAYES":            return generateEtatImpayes(options);
-    case "RECAP_CHARGES_LOCATAIRE": return generateRecapChargesLocataire(options);
-    case "SUIVI_TRAVAUX":           return generateSuiviTravaux(options);
-    default: throw new Error("Type de rapport inconnu");
+  try {
+    // Fetch society data for white-label branding
+    if (!options.society) {
+      const societyData = await prisma.society.findUnique({
+        where: { id: options.societyId },
+        select: { name: true, siret: true, addressLine1: true, city: true, postalCode: true },
+      });
+      if (societyData) {
+        options.society = societyData;
+      }
+    }
+
+    switch (options.type) {
+      case "SITUATION_LOCATIVE":      return await generateSituationLocative(options);
+      case "COMPTE_RENDU_GESTION":    return await generateCompteRenduGestion(options);
+      case "RENTABILITE_LOT":         return await generateRentabiliteLot(options);
+      case "ETAT_IMPAYES":            return await generateEtatImpayes(options);
+      case "RECAP_CHARGES_LOCATAIRE": return await generateRecapChargesLocataire(options);
+      case "SUIVI_TRAVAUX":           return await generateSuiviTravaux(options);
+      default: throw new Error("Type de rapport inconnu");
+    }
+  } catch (error) {
+    console.error(`[generateReport] Erreur lors de la génération du rapport ${options.type}:`, error);
+    throw new Error(`Erreur lors de la génération du rapport. Veuillez réessayer.`);
   }
 }
 
@@ -56,21 +82,41 @@ const GRAY  = rgb(0.55, 0.55, 0.55); const WHITE = rgb(1, 1, 1);
 const BLACK = rgb(0.1, 0.1, 0.1);   const RED   = rgb(0.78, 0.18, 0.18);
 const PW = 595.28; const PH = 841.89; const MRG = 40; const CW = PW - 2 * MRG;
 
-async function initPdf(title: string, subtitle: string) {
+async function initPdf(title: string, subtitle: string, society?: ReportSociety | null) {
   const doc  = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg  = await doc.embedFont(StandardFonts.Helvetica);
   const ds   = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
+  const societyName = society?.name ?? null;
+  const societyFooterParts: string[] = [];
+  if (society?.addressLine1) societyFooterParts.push(society.addressLine1);
+  if (society?.postalCode || society?.city) societyFooterParts.push([society.postalCode, society.city].filter(Boolean).join(" "));
+  if (society?.siret) societyFooterParts.push(`SIRET : ${society.siret}`);
+  const societyFooter = societyFooterParts.length > 0 ? societyFooterParts.join(" — ") : null;
   let pageCount = 0;
   const np = (): any => {
     pageCount++;
     const p: any = doc.addPage([PW, PH]);
+    // Header background
     p.drawRectangle({ x: 0, y: PH-60, width: PW, height: 60, color: BLUE });
+    // Society name in top-right if available
+    if (societyName) {
+      const nameWidth = bold.widthOfTextAtSize(societyName, 10);
+      p.drawText(societyName, { x: PW - MRG - nameWidth, y: PH-22, size: 10, font: bold, color: WHITE });
+    }
     p.drawText(title,    { x: MRG, y: PH-28, size: 14, font: bold, color: WHITE });
     p.drawText(subtitle, { x: MRG, y: PH-48, size: 9,  font: reg,  color: rgb(0.82,0.87,0.96) });
-    p.drawText(`Généré le ${ds}`, { x: PW-150, y: PH-38, size: 8, font: reg, color: rgb(0.82,0.87,0.96) });
+    p.drawText(`Généré le ${ds}`, { x: PW-150, y: PH-48, size: 8, font: reg, color: rgb(0.82,0.87,0.96) });
+    // Footer
     p.drawLine({ start:{x:MRG,y:30}, end:{x:PW-MRG,y:30}, thickness:0.5, color:GRAY });
-    p.drawText(`Application de gestion immobiliere - Page ${pageCount}`, { x: MRG, y:18, size:7, font:reg, color:GRAY });
+    const footerLabel = societyName
+      ? `${societyName} — Généré le ${ds} — Page ${pageCount}`
+      : `Application de gestion immobiliere — Généré le ${ds} — Page ${pageCount}`;
+    p.drawText(footerLabel, { x: MRG, y:18, size:7, font:reg, color:GRAY });
+    // Society address / SIRET line in footer
+    if (societyFooter) {
+      p.drawText(societyFooter, { x: MRG, y:9, size:6, font:reg, color:GRAY });
+    }
     return p;
   };
   return { bold, reg, np, save: async (): Promise<Buffer> => Buffer.from(await doc.save()) };
@@ -121,7 +167,7 @@ async function generateSituationLocative(opts: ReportOptions): Promise<ReportRes
     orderBy: { name: "asc" },
   });
   const { bold, reg, np, save } = await initPdf(
-    "Situation locative", "État des lots et baux actifs par immeuble"
+    "Situation locative", "État des lots et baux actifs par immeuble", opts.society
   );
   const WS  = [70, 120, 90, 75, 60, CW - 415];
   const HDR = ["Lot", "Locataire", "Type", "Loyer HC/m", "Statut", "Fin bail"];
@@ -183,10 +229,12 @@ async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportRe
     prisma.building.findMany({ where: { societyId }, include: { lots: { select: { id: true } } } }),
   ]);
 
+  if (!society) throw new Error("Société introuvable");
+
   const paid  = invoices.filter(i => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
   const pend  = invoices.filter(i => i.status !== "PAYE").reduce((s, i) => s + i.totalTTC, 0);
   const tchg  = charges.reduce((s, c) => s + c.amount, 0);
-  const { bold, reg, np, save } = await initPdf(`Compte-rendu de gestion ${year}`, society?.name ?? "");
+  const { bold, reg, np, save } = await initPdf(`Compte-rendu de gestion ${year}`, society.name, opts.society);
   let p: any = np(); let y = PH - 80;
 
   if (invoices.length === 0 && charges.length === 0) {
@@ -261,7 +309,9 @@ async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult
 
   ws.mergeCells("A1:H1");
   const tc = ws.getCell("A1");
-  tc.value = `Tableau de rentabilité par lot — ${year}`;
+  tc.value = opts.society?.name
+    ? `${opts.society.name} — Tableau de rentabilité par lot — ${year}`
+    : `Tableau de rentabilité par lot — ${year}`;
   tc.font = { bold:true, size:13, color:{argb:"FF1E4A94"} };
   tc.alignment = { horizontal:"center" };
   ws.getRow(1).height = 28;
@@ -294,9 +344,11 @@ async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult
   const tRow = ws.addRow(["TOTAL","","","","",totRev,null,""]);
   tRow.eachCell((c,ci) => { c.fill=tFill; c.font={bold:true}; if(ci===6) c.numFmt=EUR; });
 
-  ws.addConditionalFormatting({ ref:"D3:D"+(lots.length+2), rules:[
-    { type:"containsText", operator:"containsText", text:"Vacant", priority:1, style:{fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFFCE8E8"}}} },
-  ]});
+  if (lots.length > 0) {
+    ws.addConditionalFormatting({ ref:`D3:D${lots.length+2}`, rules:[
+      { type:"containsText", operator:"containsText", text:"Vacant", priority:1, style:{fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFFCE8E8"}}} },
+    ]});
+  }
 
   const buf = Buffer.from(await wb.xlsx.writeBuffer() as ArrayBuffer);
   return { buffer:buf, filename:`rentabilite-lots-${year}.xlsx`, contentType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
@@ -328,7 +380,9 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     const ws = wb.addWorksheet("Impayés");
     const hF: ExcelJS.Fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFC8302E"} };
     const hFn: Partial<ExcelJS.Font> = { bold:true, color:{argb:"FFFFFFFF"}, size:10 };
-    ws.mergeCells("A1:G1"); ws.getCell("A1").value = `État des impayés — ${today.toLocaleDateString("fr-FR")}`;
+    ws.mergeCells("A1:G1"); ws.getCell("A1").value = opts.society?.name
+      ? `${opts.society.name} — État des impayés — ${today.toLocaleDateString("fr-FR")}`
+      : `État des impayés — ${today.toLocaleDateString("fr-FR")}`;
     ws.getCell("A1").font={bold:true,size:13,color:{argb:"FFC8302E"}}; ws.getCell("A1").alignment={horizontal:"center"};
     ws.getRow(1).height=28;
     const hdr=["N° facture","Locataire","Immeuble / Lot","Échéance","Montant TTC","Retard (j)","Statut"];
@@ -354,7 +408,7 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
   }
 
   // PDF
-  const { bold, reg, np, save } = await initPdf("État des impayés", `Factures impayées au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`);
+  const { bold, reg, np, save } = await initPdf("État des impayés", `Factures impayées au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`, opts.society);
   let p: any = np(); let y = PH - 80;
   const total = invoices.reduce((s,i) => s+i.totalTTC, 0);
 
@@ -406,7 +460,7 @@ async function generateRecapChargesLocataire(opts: ReportOptions): Promise<Repor
     : `${tenant.firstName??""} ${tenant.lastName??""}`.trim()||"-";
 
   const { bold, reg: regFont, np, save } = await initPdf(
-    `Recap charges - ${tenantName}`, `Exercice ${year}`
+    `Recap charges - ${tenantName}`, `Exercice ${year}`, opts.society
   );
   let p: any = np(); let y = PH - 80;
 
@@ -485,7 +539,9 @@ async function generateSuiviTravaux(opts: ReportOptions): Promise<ReportResult> 
   const hF: ExcelJS.Fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF1E4A94"} };
   const hFn: Partial<ExcelJS.Font> = { bold:true, color:{argb:"FFFFFFFF"}, size:10 };
 
-  ws.mergeCells("A1:G1"); ws.getCell("A1").value=`Suivi des travaux — ${year}`;
+  ws.mergeCells("A1:G1"); ws.getCell("A1").value = opts.society?.name
+    ? `${opts.society.name} — Suivi des travaux — ${year}`
+    : `Suivi des travaux — ${year}`;
   ws.getCell("A1").font={bold:true,size:13,color:{argb:"FF1E4A94"}}; ws.getCell("A1").alignment={horizontal:"center"};
   ws.getRow(1).height=28;
   const hdrs=["Immeuble","Titre","Description","Coût","Payé","Planifié le","Réalisé le"];

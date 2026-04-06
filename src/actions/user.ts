@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive, checkUserLimit } from "@/lib/plan-limits";
@@ -11,9 +12,12 @@ import {
   updateUserSchema,
   assignUserToSocietySchema,
   changePasswordSchema,
+  updateModulePermissionsSchema,
   type CreateUserInput,
   type AssignUserToSocietyInput,
+  type UpdateModulePermissionsInput,
 } from "@/validations/user";
+import type { ModulePermissions } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { sendNewUserEmail } from "@/lib/email";
 import type { ActionResult } from "./society";
@@ -349,4 +353,178 @@ export async function getUsers(societyId?: string) {
     },
     orderBy: { name: "asc" },
   });
+}
+
+// ─── RBAC v2 : Module permissions ─────────────────────────────────────────────
+
+/**
+ * Retrieves the module permissions for a user in a society.
+ * Returns the role and effective permissions (custom or defaults).
+ */
+export async function getModulePermissions(
+  userId: string,
+  societyId: string
+): Promise<ActionResult<{ role: string; modulePermissions: ModulePermissions; isCustom: boolean }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const membership = await prisma.userSociety.findUnique({
+      where: { userId_societyId: { userId, societyId } },
+    });
+
+    if (!membership) {
+      return { success: false, error: "Utilisateur non membre de cette société" };
+    }
+
+    const { getDefaultPermissions } = await import("@/lib/permissions");
+    const raw = membership.modulePermissions;
+    const isCustom = raw != null;
+    const modulePermissions: ModulePermissions = isCustom
+      ? (raw as ModulePermissions)
+      : getDefaultPermissions(membership.role);
+
+    return {
+      success: true,
+      data: { role: membership.role, modulePermissions, isCustom },
+    };
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[getModulePermissions]", error);
+    return { success: false, error: "Erreur lors de la récupération des permissions" };
+  }
+}
+
+/**
+ * Updates the per-module permissions for a user in a society.
+ * Only ADMIN_SOCIETE+ can update permissions.
+ * Setting permissions to null resets to role defaults.
+ */
+export async function updateModulePermissions(
+  input: UpdateModulePermissionsInput
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    const parsed = updateModulePermissionsSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const { userId, societyId, modulePermissions } = parsed.data;
+
+    // Only ADMIN_SOCIETE+ can change permissions
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    // Verify target user is a member
+    const membership = await prisma.userSociety.findUnique({
+      where: { userId_societyId: { userId, societyId } },
+    });
+    if (!membership) {
+      return { success: false, error: "Utilisateur non membre de cette société" };
+    }
+
+    // Cannot modify SUPER_ADMIN permissions unless you are one
+    if (membership.role === "SUPER_ADMIN") {
+      await requireSuperAdmin(session.user.id);
+    }
+
+    // Cannot modify your own permissions
+    if (userId === session.user.id) {
+      return { success: false, error: "Vous ne pouvez pas modifier vos propres permissions" };
+    }
+
+    await prisma.userSociety.update({
+      where: { userId_societyId: { userId, societyId } },
+      data: { modulePermissions: modulePermissions as Record<string, string[]> },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "UserSociety",
+      entityId: `${userId}-${societyId}`,
+      details: {
+        targetUserId: userId,
+        action: "UPDATE_MODULE_PERMISSIONS",
+        modulePermissions,
+      },
+    });
+
+    revalidatePath(`/administration/utilisateurs/${userId}/permissions`);
+    revalidatePath("/administration/utilisateurs");
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[updateModulePermissions]", error);
+    return { success: false, error: "Erreur lors de la mise à jour des permissions" };
+  }
+}
+
+/**
+ * Resets module permissions for a user back to role defaults (sets to null).
+ */
+export async function resetModulePermissions(
+  userId: string,
+  societyId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const membership = await prisma.userSociety.findUnique({
+      where: { userId_societyId: { userId, societyId } },
+    });
+    if (!membership) {
+      return { success: false, error: "Utilisateur non membre de cette société" };
+    }
+
+    await prisma.userSociety.update({
+      where: { userId_societyId: { userId, societyId } },
+      data: { modulePermissions: Prisma.DbNull },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "UserSociety",
+      entityId: `${userId}-${societyId}`,
+      details: {
+        targetUserId: userId,
+        action: "RESET_MODULE_PERMISSIONS",
+      },
+    });
+
+    revalidatePath(`/administration/utilisateurs/${userId}/permissions`);
+    revalidatePath("/administration/utilisateurs");
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[resetModulePermissions]", error);
+    return { success: false, error: "Erreur lors de la réinitialisation des permissions" };
+  }
 }

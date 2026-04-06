@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, FileText, UserCheck, Plus } from "lucide-react";
+import { Shield, FileText, UserCheck, Plus, Download } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "RGPD" };
@@ -165,6 +165,17 @@ export default async function RgpdPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    {(r.requestType === "access" ||
+                      r.requestType === "portability") && (
+                      <a
+                        href={`/api/rgpd/requests/${r.id}/export`}
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                        title="Exporter les donnees du locataire"
+                      >
+                        <Download className="h-3 w-3" />
+                        Exporter
+                      </a>
+                    )}
                     <Badge variant={STATUS_VARIANTS[r.status] ?? "outline"}>
                       {STATUS_LABELS[r.status] ?? r.status}
                     </Badge>
