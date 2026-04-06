@@ -792,6 +792,9 @@ export default function HomePage() {
             <div>
               <p className="font-semibold text-sm mb-4">Ressources</p>
               <div className="space-y-2.5 text-sm text-muted-foreground">
+                <Link href="/blog" className="block hover:text-foreground transition-colors">
+                  Blog
+                </Link>
                 <Link href="/securite" className="block hover:text-foreground transition-colors">
                   Sécurité & Conformité
                 </Link>
