@@ -43,8 +43,7 @@ import { CONSOLIDABLE_REPORT_TYPES, REPORT_FREQUENCIES } from "@/validations/rep
 const REPORT_LABELS: Record<string, string> = {
   SITUATION_LOCATIVE: "Situation locative",
   COMPTE_RENDU_GESTION: "Compte-rendu de gestion",
-  ETAT_IMPAYES: "État des impayés",
-  BALANCE_AGEE: "Balance âgée",
+  BALANCE_AGEE: "Balance âgée & impayés",
   SUIVI_MENSUEL: "Suivi mensuel",
   VACANCE_LOCATIVE: "Vacance locative",
 };
@@ -316,20 +315,37 @@ function CreateScheduleDialog({
   };
 
   const addRecipient = () => {
-    const email = emailInput.trim().toLowerCase();
-    if (!email) return;
-    // Validation simple
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Adresse email invalide");
-      return;
+    const raw = emailInput.trim();
+    if (!raw) return;
+
+    // Découper sur ; , ou espace pour accepter plusieurs emails d'un coup
+    const emails = raw
+      .split(/[;,\s]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    const invalids: string[] = [];
+    const added: string[] = [];
+
+    for (const email of emails) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        invalids.push(email);
+        continue;
+      }
+      if (recipients.includes(email) || added.includes(email)) continue;
+      added.push(email);
     }
-    if (recipients.includes(email)) {
-      setError("Ce destinataire est déjà ajouté");
-      return;
+
+    if (invalids.length > 0) {
+      setError(`Adresse${invalids.length > 1 ? "s" : ""} invalide${invalids.length > 1 ? "s" : ""} : ${invalids.join(", ")}`);
+    } else {
+      setError(null);
     }
-    setRecipients((prev) => [...prev, email]);
-    setEmailInput("");
-    setError(null);
+
+    if (added.length > 0) {
+      setRecipients((prev) => [...prev, ...added]);
+      setEmailInput("");
+    }
   };
 
   const removeRecipient = (email: string) => {
@@ -425,14 +441,33 @@ function CreateScheduleDialog({
             <Label className="text-xs">Destinataires</Label>
             <div className="flex gap-2">
               <Input
-                type="email"
-                placeholder="email@exemple.com"
+                type="text"
+                placeholder="email@exemple.com (séparez par ; ou ,)"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === "Enter" || e.key === ";") {
                     e.preventDefault();
                     addRecipient();
+                  }
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  if (pasted.includes(";") || pasted.includes(",") || pasted.includes(" ")) {
+                    e.preventDefault();
+                    setEmailInput(pasted);
+                    setTimeout(() => {
+                      const emails = pasted
+                        .split(/[;,\s]+/)
+                        .map((em) => em.trim().toLowerCase())
+                        .filter((em) => em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em));
+                      const newEmails = emails.filter((em) => !recipients.includes(em));
+                      if (newEmails.length > 0) {
+                        setRecipients((prev) => [...prev, ...newEmails]);
+                        setEmailInput("");
+                        setError(null);
+                      }
+                    }, 0);
                   }
                 }}
                 className="flex-1"
@@ -441,6 +476,9 @@ function CreateScheduleDialog({
                 Ajouter
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Entrez une ou plusieurs adresses séparées par ; ou , puis appuyez sur Entrée
+            </p>
             {recipients.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {recipients.map((email) => (

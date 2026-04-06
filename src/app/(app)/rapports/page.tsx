@@ -54,8 +54,8 @@ const REPORTS: ReportDef[] = [
   },
   {
     type: "ETAT_IMPAYES",
-    label: "État des impayés",
-    description: "Toutes les factures impayées ou en retard avec nombre de jours de retard.",
+    label: "État des impayés (détail)",
+    description: "Liste simple de toutes les factures impayées ou en retard avec nombre de jours de retard.",
     format: "both",
   },
   {
@@ -75,8 +75,8 @@ const REPORTS: ReportDef[] = [
   },
   {
     type: "BALANCE_AGEE",
-    label: "Balance âgée",
-    description: "Analyse de l'ancienneté des créances impayées par tranche (0-30j, 31-60j, etc.) avec graphiques.",
+    label: "Balance âgée & impayés",
+    description: "Analyse complète des créances : liste détaillée des impayés + classement par ancienneté (0-30j, 31-60j, 61-90j, 90j+).",
     format: "pdf",
   },
   {
@@ -227,7 +227,7 @@ const CATEGORIES = [
   },
   {
     label: "Comptabilité et finances",
-    reports: ["COMPTE_RENDU_GESTION", "ETAT_IMPAYES", "BALANCE_AGEE", "SUIVI_MENSUEL"] as ReportType[],
+    reports: ["COMPTE_RENDU_GESTION", "BALANCE_AGEE", "ETAT_IMPAYES", "SUIVI_MENSUEL"] as ReportType[],
   },
   {
     label: "Par locataire",

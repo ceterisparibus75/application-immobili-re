@@ -6,8 +6,7 @@ import type { ReportType, ReportResult } from "./types";
 const REPORT_LABELS: Record<string, string> = {
   SITUATION_LOCATIVE: "Situation locative",
   COMPTE_RENDU_GESTION: "Compte-rendu de gestion",
-  ETAT_IMPAYES: "État des impayés",
-  BALANCE_AGEE: "Balance âgée",
+  BALANCE_AGEE: "Balance âgée & impayés",
   SUIVI_MENSUEL: "Suivi mensuel",
   VACANCE_LOCATIVE: "Vacance locative",
 };
