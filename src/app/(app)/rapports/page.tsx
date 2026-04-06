@@ -223,7 +223,7 @@ export default function RapportsPage() {
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    getTenantsForSelect().then(setTenants);
+    getTenantsForSelect().then(setTenants).catch(() => {});
   }, []);
 
   const byType = Object.fromEntries(REPORTS.map(r => [r.type, r]));
