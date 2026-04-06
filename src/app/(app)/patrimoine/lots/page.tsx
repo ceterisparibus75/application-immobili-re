@@ -11,7 +11,14 @@ import { Home } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LotType, LotStatus } from "@/generated/prisma/client";
+import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
+
+const FREQUENCY_SHORT: Record<PaymentFrequency, string> = {
+  MENSUEL: "€/mois",
+  TRIMESTRIEL: "€/trim.",
+  SEMESTRIEL: "€/sem.",
+  ANNUEL: "€/an",
+};
 
 export const metadata = { title: "Lots" };
 
@@ -136,7 +143,7 @@ export default async function LotsPage() {
                         </span>
                         {lot.currentRent && (
                           <span className="font-medium">
-                            {lot.currentRent.toLocaleString("fr-FR")} €/mois
+                            {lot.currentRent.toLocaleString("fr-FR")} {FREQUENCY_SHORT[lot.leases[0]?.paymentFrequency as PaymentFrequency] ?? "€/mois"}
                           </span>
                         )}
                         <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>

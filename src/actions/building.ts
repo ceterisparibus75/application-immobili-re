@@ -235,6 +235,7 @@ export async function getBuildingById(societyId: string, buildingId: string) {
             select: {
               id: true,
               status: true,
+              paymentFrequency: true,
               tenant: { select: { firstName: true, lastName: true, companyName: true, entityType: true } },
             },
           },

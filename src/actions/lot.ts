@@ -213,6 +213,11 @@ export async function getLots(societyId: string) {
     where: { building: { societyId } },
     include: {
       building: { select: { id: true, name: true, city: true } },
+      leases: {
+        where: { status: "EN_COURS" },
+        select: { paymentFrequency: true },
+        take: 1,
+      },
       _count: { select: { leases: true } },
     },
     orderBy: [{ building: { name: "asc" } }, { number: "asc" }],

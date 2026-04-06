@@ -30,7 +30,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { BuildingType, LotStatus, LotType } from "@/generated/prisma/client";
+import type { BuildingType, LotStatus, LotType, PaymentFrequency } from "@/generated/prisma/client";
+
+const FREQUENCY_SHORT: Record<PaymentFrequency, string> = {
+  MENSUEL: "€/mois",
+  TRIMESTRIEL: "€/trim.",
+  SEMESTRIEL: "€/sem.",
+  ANNUEL: "€/an",
+};
 import { DeleteBuildingButton } from "./_components/delete-building-button";
 
 const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
@@ -365,7 +372,7 @@ export default async function ImmeubleDetailPage({
                       </div>
                       <span className="text-sm font-semibold tabular-nums text-right">
                         {lot.currentRent
-                          ? `${lot.currentRent.toLocaleString("fr-FR")} €/mois`
+                          ? `${lot.currentRent.toLocaleString("fr-FR")} ${FREQUENCY_SHORT[activeLease?.paymentFrequency as PaymentFrequency] ?? "€/mois"}`
                           : <span className="text-muted-foreground font-normal">—</span>}
                       </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />

@@ -22,8 +22,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LotType, LotStatus } from "@/generated/prisma/client";
+import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
 import { DeleteLotButton } from "./_components/delete-lot-button";
+
+const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
+  MENSUEL: "mois",
+  TRIMESTRIEL: "trimestre",
+  SEMESTRIEL: "semestre",
+  ANNUEL: "an",
+};
 
 const LOT_TYPE_LABELS: Record<LotType, string> = {
   LOCAL_COMMERCIAL: "Local commercial",
@@ -74,6 +81,9 @@ export default async function LotDetailPage({
   }
 
   const activeLease = lot.leases[0] ?? null;
+  const freqLabel = activeLease
+    ? FREQUENCY_LABELS[activeLease.paymentFrequency as PaymentFrequency] ?? "mois"
+    : "mois";
 
   return (
     <div className="space-y-6">
@@ -201,7 +211,7 @@ export default async function LotDetailPage({
               label="Valeur de marché"
               value={
                 lot.marketRentValue
-                  ? `${lot.marketRentValue.toLocaleString("fr-FR")} € HT/mois`
+                  ? `${lot.marketRentValue.toLocaleString("fr-FR")} € HT/${freqLabel}`
                   : null
               }
             />
@@ -209,7 +219,7 @@ export default async function LotDetailPage({
               label="Loyer pratiqué"
               value={
                 lot.currentRent
-                  ? `${lot.currentRent.toLocaleString("fr-FR")} € HT/mois`
+                  ? `${lot.currentRent.toLocaleString("fr-FR")} € HT/${freqLabel}`
                   : null
               }
             />
