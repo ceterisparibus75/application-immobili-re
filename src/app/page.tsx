@@ -7,13 +7,16 @@ import {
   Banknote,
   ArrowRight,
   Check,
+  Star,
+  Zap,
   Clock,
   Lock,
   Globe,
   ChevronRight,
   BadgeCheck,
+  Sparkles,
   TrendingUp,
-  Landmark,
+  CreditCard,
   BellRing,
   Receipt,
 } from "lucide-react";
@@ -24,13 +27,13 @@ import type { Metadata } from "next";
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+  title: `${APP_NAME} — Infrastructure de pilotage du patrimoine immobilier`,
   description:
-    "Pilotez votre patrimoine immobilier avec rigueur. Baux, facturation, comptabilité FEC, rapprochement bancaire, reporting consolidé. Conforme RGPD, hébergement européen, chiffrement AES-256.",
+    "Plateforme unifiée pour la consolidation, l\u2019analyse et la sécurisation des actifs immobiliers. Conçue pour les foncières, family offices et opérateurs multi-sociétés.",
   openGraph: {
-    title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+    title: `${APP_NAME} — Infrastructure de pilotage du patrimoine immobilier`,
     description:
-      "Plateforme souveraine de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
+      "Plateforme unifiée pour la consolidation, l\u2019analyse et la sécurisation des actifs immobiliers. Conçue pour les foncières, family offices et opérateurs multi-sociétés.",
     type: "website",
   },
 };
@@ -38,124 +41,117 @@ export const metadata: Metadata = {
 /* ─── Data ─────────────────────────────────────────────────────────────── */
 
 const stats = [
-  { value: "99,9%", label: "de disponibilité garantie" },
-  { value: "AES-256", label: "chiffrement bancaire" },
+  { value: "Multi-entités", label: "consolidation en temps réel" },
+  { value: "AES-256", label: "chiffrement des données" },
+  { value: "99,9%", label: "de disponibilité" },
   { value: "RGPD", label: "conformité native" },
-  { value: "UE", label: "hébergement souverain" },
 ];
 
 const features = [
   {
     icon: Building2,
-    title: "Pilotage du patrimoine",
+    title: "Vision multi-entités",
     description:
-      "Vision consolidée multi-sociétés. Immeubles, lots, diagnostics, maintenances — chaque actif est tracé et documenté.",
+      "Suivi des immeubles, traçabilité des diagnostics, structuration par société et portefeuille. Consolidation transversale de l\u2019ensemble des actifs.",
   },
   {
-    icon: FileText,
-    title: "Rigueur comptable & FEC",
+    icon: Banknote,
+    title: "Rigueur comptable",
     description:
-      "Plan comptable immobilier, export FEC conforme, régularisations de charges et prévisionnel budgétaire intégrés.",
+      "Plan comptable immobilier intégré, export FEC conforme, rapprochement bancaire automatisé. Chaque écriture est tracée et auditable.",
   },
   {
     icon: Users,
     title: "Relation locataire structurée",
     description:
-      "Portail locataire sécurisé, envoi automatisé des quittances et factures, suivi des échanges et documents.",
-  },
-  {
-    icon: Banknote,
-    title: "Rapprochement bancaire",
-    description:
-      "Synchronisation des comptes, lettrage automatique des encaissements, suivi de trésorerie par société.",
+      "Portail sécurisé pour les locataires, facturation automatisée, centralisation documentaire. Communication maîtrisée et traçable.",
   },
   {
     icon: BarChart3,
-    title: "Reporting & consolidation",
+    title: "Reporting et KPI consolidés",
     description:
-      "Tableaux de bord propriétaire, KPI par société, rendement brut, LTV consolidé, taux d'occupation en temps réel.",
+      "Tableaux de bord par entité, KPI consolidés (rendement, occupation, LTV), suivi en temps réel de la performance du portefeuille.",
+  },
+  {
+    icon: FileText,
+    title: "Gestion locative complète",
+    description:
+      "Tous types de baux français, facturation automatique, révisions indicielles IRL/ILC/ILAT, relances programmées.",
   },
   {
     icon: Shield,
-    title: "Sécurité & conformité",
+    title: "Environnement sécurisé et conforme",
     description:
-      "Chiffrement AES-256-GCM, authentification multifacteur, audit logs exhaustifs, conformité RGPD native.",
+      "Chiffrement AES-256-GCM, authentification multifactorielle, logs d\u2019audit exhaustifs, conformité RGPD native, infrastructure hébergée en Europe.",
   },
 ];
 
 const highlights = [
   {
     icon: BellRing,
-    title: "Recouvrement maîtrisé",
-    description: "Trois niveaux de relance progressive, de l'amiable à la mise en demeure, avec traçabilité complète.",
+    title: "Alertes et suivi proactif",
+    description: "Échéances de bail, diagnostics, assurances, impayés — rien n\u2019échappe au système.",
   },
   {
     icon: TrendingUp,
-    title: "Révisions indicielles",
-    description: "Indices IRL, ILC, ILAT et ICC synchronisés automatiquement depuis l'INSEE. Conformité garantie.",
+    title: "Révisions indicielles automatisées",
+    description: "Indices IRL/ILC/ILAT synchronisés depuis l\u2019INSEE. Détection et calcul automatique.",
   },
   {
     icon: Receipt,
-    title: "Conformité FEC",
-    description: "Fichier des Écritures Comptables généré nativement, conforme aux exigences de l'administration fiscale.",
+    title: "Export comptable normalisé",
+    description: "Fichier des Écritures Comptables conforme, prêt pour transmission à vos équipes comptables.",
   },
 ];
 
 const steps = [
   {
     step: "1",
-    title: "Paramétrage initial",
-    description: "Créez vos sociétés, importez votre patrimoine via CSV/Excel. Aucune carte bancaire requise.",
+    title: "Audit et cadrage",
+    description: "Analyse de votre structure patrimoniale et définition du périmètre de déploiement.",
   },
   {
     step: "2",
-    title: "Structuration des données",
-    description: "Baux, locataires, charges, comptes bancaires — configurez votre environnement de gestion.",
+    title: "Paramétrage et import",
+    description: "Configuration multi-sociétés, import des données existantes et intégrations bancaires.",
   },
   {
     step: "3",
     title: "Pilotage opérationnel",
-    description: "Facturation automatique, rapprochement bancaire, reporting consolidé — votre gestion est en place.",
+    description: "Consolidation des actifs, automatisation des flux et reporting en temps réel.",
   },
 ];
 
-const caseStudies = [
+const testimonials = [
   {
-    title: "Optimisation d'un parc de 45 lots en gestion déléguée",
-    sector: "Cabinet de gestion",
-    challenge: "Processus de facturation manuel chronophage, taux d'impayés élevé faute de relances structurées.",
-    solution: "Déploiement de la facturation automatique et du module de relances progressives à trois niveaux.",
-    result: "Réduction de 40% des impayés et gain de 2 heures hebdomadaires sur le traitement administratif.",
-    author: "Sophie L., Gestionnaire",
+    name: "Directeur de gestion",
+    role: "Foncière privée, 180 lots",
+    text: "MyGestia a unifié nos quatre outils en une seule plateforme. La consolidation multi-sociétés et l\u2019export FEC nous font gagner un temps considérable chaque trimestre.",
+    rating: 5,
   },
   {
-    title: "Pilotage consolidé d'une SCI familiale de 12 lots",
-    sector: "SCI familiale",
-    challenge: "Absence de vision consolidée sur la trésorerie et les encaissements, rapprochements manuels.",
-    solution: "Connexion bancaire automatique et rapprochement intelligent des paiements par société.",
-    result: "Visibilité en temps réel sur la trésorerie, suppression des erreurs de lettrage.",
-    author: "Thomas R., Gérant",
+    name: "Gestionnaire patrimonial",
+    role: "Family office, 3 sociétés",
+    text: "La structuration par entité et le rapprochement bancaire automatisé ont transformé notre reporting. Nos associés ont enfin une vision claire et en temps réel.",
+    rating: 5,
   },
   {
-    title: "Remplacement de 3 outils pour un portefeuille de 200+ lots",
-    sector: "Foncière privée",
-    challenge: "Fragmentation des données entre tableur, logiciel comptable et outil de quittancement.",
-    solution: "Migration vers MyGestia : patrimoine, comptabilité FEC et relation locataire unifiés.",
-    result: "Un seul référentiel de données, export FEC conforme et reporting consolidé multi-sociétés.",
-    author: "Marie D., Directrice de gestion",
+    name: "Responsable opérationnel",
+    role: "Opérateur multi-sites, 250+ lots",
+    text: "L\u2019intégrité des données et la traçabilité complète étaient nos priorités. MyGestia répond à ces exigences avec un niveau de rigueur que nous n\u2019avions pas trouvé ailleurs.",
+    rating: 5,
   },
 ];
 
 const plans = [
   {
-    name: "Essentiel",
-    description: "Patrimoine en gestion directe",
-    price: 19,
-    priceYearly: 190,
-    limits: "20 lots · 1 société · 2 utilisateurs",
+    name: "Fondation",
+    description: "Structure patrimoniale jusqu\u2019à 20 actifs",
+    priceLabel: "Sur audit",
+    limits: "20 lots \u00b7 1 entité \u00b7 2 utilisateurs",
     features: [
-      "Pilotage du patrimoine",
-      "Gestion des baux et locataires",
+      "Gestion de patrimoine complète",
+      "Baux et locataires",
       "Facturation et quittances PDF",
       "Tableau de bord analytique",
       "Support par email",
@@ -163,33 +159,31 @@ const plans = [
     highlighted: false,
   },
   {
-    name: "Professionnel",
-    description: "Cabinets et multi-sociétés",
-    price: 79,
-    priceYearly: 790,
-    limits: "50 lots · 3 sociétés · 5 utilisateurs",
+    name: "Pilotage",
+    description: "Multi-sociétés avec comptabilité intégrée",
+    priceLabel: "Sur audit",
+    limits: "50 lots \u00b7 3 entités \u00b7 5 utilisateurs",
     features: [
-      "Tout Essentiel +",
-      "Comptabilité intégrée & export FEC",
-      "Rapprochement bancaire automatique",
-      "Recouvrement par relances progressives",
+      "Tout Fondation +",
+      "Comptabilité complète & export FEC",
+      "Connexion bancaire automatique",
+      "Relances automatiques",
       "Portail locataire sécurisé",
       "Support prioritaire",
     ],
     highlighted: true,
   },
   {
-    name: "Institutionnel",
-    description: "Foncières et grands portefeuilles",
-    price: 199,
-    priceYearly: 1990,
-    limits: "Lots et sociétés illimités",
+    name: "Infrastructure",
+    description: "Portefeuilles sans limites, SLA dédié",
+    priceLabel: "Sur mesure",
+    limits: "Actifs et entités illimités",
     features: [
-      "Tout Professionnel +",
-      "Lots et sociétés illimités",
+      "Tout Pilotage +",
+      "Actifs et entités illimités",
       "Signature électronique",
-      "Import documentaire assisté",
-      "Accès API & intégrations",
+      "Import IA de documents",
+      "Accès API",
       "Support dédié & SLA 99,9%",
     ],
     highlighted: false,
@@ -198,105 +192,49 @@ const plans = [
 
 const faqs = [
   {
-    q: "La période d'évaluation est-elle sans engagement ?",
-    a: "Oui. 14 jours d'accès complet à l'ensemble des fonctionnalités, sans carte bancaire. Aucun engagement contractuel.",
+    q: "À qui s\u2019adresse MyGestia ?",
+    a: "MyGestia est conçu pour les foncières privées, family offices, investisseurs institutionnels et opérateurs multi-sociétés qui ont besoin d\u2019une infrastructure de pilotage fiable et consolidée.",
   },
   {
-    q: "Est-il possible de migrer nos données existantes ?",
-    a: "MyGestia permet l'import structuré via CSV et Excel : immeubles, lots, locataires, baux et écritures comptables.",
+    q: "Comment se déroule le déploiement ?",
+    a: "Après un audit de votre structure patrimoniale, nous configurons la plateforme selon votre organisation (sociétés, portefeuilles, droits d\u2019accès). L\u2019import de vos données existantes est accompagné.",
   },
   {
-    q: "Quelle est la politique de sécurité des données ?",
-    a: "Chiffrement AES-256-GCM pour les données bancaires, authentification multifacteur, audit logs exhaustifs, hébergement européen (Frankfurt) et conformité RGPD native. Consultez notre page Sécurité & Conformité pour le détail.",
+    q: "Quel est le niveau de sécurité de la plateforme ?",
+    a: "Chiffrement AES-256-GCM sur les données sensibles, authentification multifactorielle, logs d\u2019audit complets, conformité RGPD native. Infrastructure hébergée en Europe (Frankfurt).",
   },
   {
-    q: "L'export FEC est-il conforme aux exigences fiscales ?",
-    a: "Le Fichier des Écritures Comptables est généré nativement au format requis par l'administration fiscale française, prêt à transmettre à votre expert-comptable.",
+    q: "La plateforme s\u2019intègre-t-elle à nos outils existants ?",
+    a: "Oui. Connexion bancaire automatique, export FEC pour la comptabilité, API d\u2019accès pour les plans Infrastructure. Import CSV/Excel pour la reprise de données.",
   },
   {
-    q: "Proposez-vous un accompagnement au déploiement ?",
-    a: "Les clients Institutionnel bénéficient d'un onboarding personnalisé avec un interlocuteur dédié. Les autres plans disposent d'une documentation complète et d'un support par email.",
-  },
-  {
-    q: "Puis-je gérer plusieurs sociétés et structures juridiques ?",
-    a: "Oui. MyGestia est conçu pour le multi-sociétés. Chaque structure (SCI, SARL, SAS) dispose de sa propre comptabilité, avec consolidation au niveau propriétaire.",
+    q: "Proposez-vous un accompagnement personnalisé ?",
+    a: "Chaque déploiement est accompagné. Les clients Infrastructure bénéficient d\u2019un onboarding dédié avec un interlocuteur unique. Un support prioritaire est disponible sur tous les plans.",
   },
 ];
-
-/* ─── JSON-LD Structured Data ──────────────────────────────────────── */
-
-const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
-
-const jsonLdOrganization = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "MTG HOLDING",
-  brand: { "@type": "Brand", name: APP_NAME },
-  url: SITE_URL,
-  logo: `${SITE_URL}/logo-mygestia.svg`,
-  description: "Plateforme souveraine de gestion d'actifs immobiliers pour les foncières privées, les cabinets de gestion et les family offices.",
-  address: { "@type": "PostalAddress", addressCountry: "FR" },
-};
-
-const jsonLdSoftware = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: APP_NAME,
-  applicationCategory: "BusinessApplication",
-  operatingSystem: "Web",
-  offers: plans.map((p) => ({
-    "@type": "Offer",
-    name: p.name,
-    price: p.price,
-    priceCurrency: "EUR",
-    description: p.description,
-  })),
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    reviewCount: "47",
-  },
-};
-
-const jsonLdFaq = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faqs.map((f) => ({
-    "@type": "Question",
-    name: f.q,
-    acceptedAnswer: { "@type": "Answer", text: f.a },
-  })),
-};
 
 /* ─── Page ──────────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* JSON-LD Structured Data */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrganization) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSoftware) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
       {/* ─── Navbar ─── */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-white/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" width={140} height={36} />
+            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-            <a href="#solutions" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Solutions
-            </a>
             <a href="#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Fonctionnalités
+              Plateforme
             </a>
             <a href="#tarifs" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Tarifs
+              Offres
             </a>
-            <Link href="/securite" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
-              Sécurité
-            </Link>
+            <a href="#temoignages" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Références
+            </a>
             <Link href="/contact" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
               Contact
             </Link>
@@ -304,12 +242,12 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" size="sm" className="text-[var(--color-brand-deep)] font-semibold">
-                Se connecter
+                Accès client
               </Button>
             </Link>
-            <Link href="/signup">
+            <Link href="/contact">
               <Button size="sm" className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
-                Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
+                Demander une démonstration <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
@@ -326,39 +264,39 @@ export default function HomePage() {
           <div className="max-w-4xl mx-auto text-center">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full mb-8 ring-1 ring-[var(--color-brand-cyan)]/20">
-              <Shield className="h-4 w-4" />
-              Plateforme souveraine de gestion d&apos;actifs immobiliers
+              <Sparkles className="h-4 w-4" />
+              Foncières \u00b7 Family Offices \u00b7 Opérateurs multi-sociétés
             </div>
 
             {/* Headline */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 text-[var(--color-brand-deep)]">
-              La maîtrise de votre
+              Infrastructure de pilotage
               <br />
               <span className="text-brand-gradient">
-                patrimoine immobilier.
+                du patrimoine immobilier
               </span>
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-              Pilotage consolidé, rigueur comptable et conformité réglementaire — une plateforme conçue pour les <strong className="text-[var(--color-brand-deep)]">foncières privées</strong>, les <strong className="text-[var(--color-brand-deep)]">cabinets de gestion</strong> et les <strong className="text-[var(--color-brand-deep)]">family offices</strong>.
+              Plateforme unifiée pour la consolidation, l&apos;analyse et la sécurisation des actifs immobiliers. Conçue pour les environnements <strong className="text-[var(--color-brand-deep)]">multi-entités exigeants</strong>.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
-              <Link href="/signup">
+              <Link href="/contact">
                 <Button size="lg" className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg shadow-brand-lg">
-                  Évaluer la solution
+                  Demander une démonstration
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="#solutions">
+              <Link href="#fonctionnalites">
                 <Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8 h-13 rounded-lg border-[var(--color-brand-blue)]/20 text-[var(--color-brand-deep)] hover:bg-[var(--color-brand-light)]">
-                  Découvrir nos solutions
+                  Découvrir la plateforme
                 </Button>
               </Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              14 jours d&apos;évaluation complète · Sans engagement · Sans carte bancaire
+              Déploiement accompagné \u00b7 Tarification sur audit
             </p>
           </div>
 
@@ -376,25 +314,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── Social Proof Banner ─── */}
-      <section className="border-y border-border/60 bg-white py-5">
+      {/* ─── Problématique ─── */}
+      <section className="border-y border-border/60 bg-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-muted-foreground font-medium">
-            <span className="flex items-center gap-2">
-              <BadgeCheck className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Conformité RGPD
-            </span>
-            <span className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-[var(--color-brand-blue)]" /> Chiffrement AES-256-GCM
-            </span>
-            <span className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Hébergement souverain UE
-            </span>
-            <span className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[var(--color-brand-blue)]" /> Export FEC conforme
-            </span>
-            <span className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[var(--color-brand-cyan)]" /> SLA 99,9%
-            </span>
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Le constat</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-brand-deep)] mb-5">
+              Un pilotage encore fragmenté
+            </h2>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Les portefeuilles immobiliers reposent souvent sur des systèmes disjoints : données locataires séparées de la comptabilité, absence de vision consolidée multi-sociétés, reporting construit manuellement. Cette fragmentation limite la capacité de pilotage et de contrôle.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Positionnement ─── */}
+      <section className="py-16 bg-[#F9FAFB]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Notre approche</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-brand-deep)] mb-5">
+              Une infrastructure centrale de gestion et de contrôle
+            </h2>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              La plateforme constitue un système unique de consolidation et de pilotage du patrimoine immobilier. Elle structure l&apos;information autour de trois axes stratégiques : actifs, flux financiers et conformité opérationnelle.
+            </p>
           </div>
         </div>
       </section>
@@ -403,12 +348,12 @@ export default function HomePage() {
       <section id="fonctionnalites" className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Fonctionnalités</p>
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Plateforme</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Une vision complète de vos actifs
+              Capacités clés
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Chaque module est conçu pour garantir la pérennité de votre patrimoine, la conformité de vos opérations et la fiabilité de votre reporting.
+              Une infrastructure complète pour structurer, piloter et sécuriser la gestion de votre patrimoine immobilier.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -455,10 +400,10 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Déploiement</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Opérationnel en 3 étapes
+              Mise en place accompagnée
             </h2>
             <p className="text-lg text-muted-foreground">
-              Un déploiement progressif et structuré, adapté à la complexité de votre patrimoine.
+              Un processus structuré pour un déploiement maîtrisé.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -478,11 +423,34 @@ export default function HomePage() {
             ))}
           </div>
           <div className="text-center mt-12">
-            <Link href="/signup">
+            <Link href="/contact">
               <Button size="lg" className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg shadow-brand-lg">
-                Démarrer l&apos;évaluation <ArrowRight className="h-4 w-4" />
+                Organiser un échange <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Sécurité & Conformité ─── */}
+      <section className="border-y border-border/60 bg-white py-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-muted-foreground font-medium">
+            <span className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-[var(--color-brand-blue)]" /> Chiffrement AES-256-GCM
+            </span>
+            <span className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Authentification multifactorielle
+            </span>
+            <span className="flex items-center gap-2">
+              <BadgeCheck className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Conformité RGPD native
+            </span>
+            <span className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-[var(--color-brand-blue)]" /> Infrastructure européenne
+            </span>
+            <span className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-[var(--color-brand-cyan)]" /> Logs d&apos;audit exhaustifs
+            </span>
           </div>
         </div>
       </section>
@@ -493,10 +461,10 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Offres</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Une tarification lisible et prévisible
+              Tarification adaptée à votre structure
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              14 jours d&apos;évaluation complète sur toutes les offres. Sans engagement, sans carte bancaire.
+              Chaque déploiement fait l&apos;objet d&apos;un audit préalable pour dimensionner l&apos;offre à vos besoins réels.
             </p>
           </div>
 
@@ -525,14 +493,10 @@ export default function HomePage() {
 
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-5xl font-bold text-[var(--color-brand-deep)]">{plan.price}</span>
-                    <span className="text-xl font-semibold text-muted-foreground">&euro;/mois</span>
+                    <span className="text-3xl font-bold text-[var(--color-brand-deep)]">{plan.priceLabel}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    ou {plan.priceYearly}&euro;/an{" "}
-                    <span className="text-[var(--color-brand-cyan)] font-semibold">
-                      (-{Math.round((1 - plan.priceYearly / (plan.price * 12)) * 100)}%)
-                    </span>
+                    Tarification annuelle personnalisée
                   </p>
                 </div>
 
@@ -552,7 +516,7 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                <Link href={plan.name === "Institutionnel" ? "/contact" : `/signup?plan=${plan.name.toLowerCase()}`} className="block">
+                <Link href="/contact" className="block">
                   <Button
                     className={`w-full h-12 text-sm font-semibold rounded-lg ${
                       plan.highlighted
@@ -561,9 +525,7 @@ export default function HomePage() {
                     }`}
                     variant={plan.highlighted ? "default" : "outline"}
                   >
-                    {plan.name === "Institutionnel"
-                      ? "Contacter l\u2019équipe commerciale"
-                      : "Démarrer l\u2019évaluation"}
+                    Demander une démonstration
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </Link>
@@ -573,124 +535,38 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── Solutions (Segmentation) ─── */}
-      <section id="solutions" className="py-24 sm:py-32 bg-[#F9FAFB]">
+      {/* ─── Testimonials ─── */}
+      <section id="temoignages" className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Solutions</p>
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Références</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Une réponse adaptée à chaque métier
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Que vous pilotiez un patrimoine familial ou gériez pour compte de tiers, MyGestia s&apos;adapte à vos exigences opérationnelles.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {/* Foncières & Family Offices */}
-            <div className="rounded-xl border border-border/60 bg-white p-8 shadow-brand hover:shadow-brand-lg transition-shadow">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-gradient-soft text-white mb-6">
-                <Landmark className="h-6 w-6" />
-              </div>
-              <h3 className="text-xl font-bold text-[var(--color-brand-deep)] mb-2">Pour les Foncières & Family Offices</h3>
-              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                Pilotez le rendement de vos actifs avec une vision consolidée, multi-sociétés et multi-structures juridiques.
-              </p>
-              <ul className="space-y-3">
-                {[
-                  "Vision consolidée du patrimoine et de la trésorerie",
-                  "Rendement brut, LTV et taux d'occupation en temps réel",
-                  "Reporting propriétaire multi-sociétés",
-                  "Gestion des emprunts et de l'amortissement",
-                  "Préparation à la transmission patrimoniale",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-[var(--color-brand-cyan)] mt-0.5 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-8">
-                <Link href="/signup">
-                  <Button className="w-full bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
-                    Évaluer la solution <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Professionnels de la Gestion */}
-            <div className="rounded-xl border border-border/60 bg-white p-8 shadow-brand hover:shadow-brand-lg transition-shadow">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-gradient-soft text-white mb-6">
-                <Users className="h-6 w-6" />
-              </div>
-              <h3 className="text-xl font-bold text-[var(--color-brand-deep)] mb-2">Pour les Professionnels de la Gestion</h3>
-              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                Automatisez vos flux opérationnels et structurez la relation locataire avec rigueur et traçabilité.
-              </p>
-              <ul className="space-y-3">
-                {[
-                  "Facturation et quittancement automatisés",
-                  "Recouvrement par relances progressives",
-                  "Portail locataire sécurisé avec documents",
-                  "Comptabilité intégrée et export FEC conforme",
-                  "Rapprochement bancaire et suivi de trésorerie",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm">
-                    <Check className="h-4 w-4 text-[var(--color-brand-cyan)] mt-0.5 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-8">
-                <Link href="/signup">
-                  <Button className="w-full bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
-                    Évaluer la solution <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Case Studies ─── */}
-      <section id="etudes-de-cas" className="py-24 sm:py-32 bg-white border-t border-border/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Études de cas</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Retours d&apos;expérience clients
+              Adoptée par des opérateurs exigeants
             </h2>
             <p className="text-lg text-muted-foreground">
-              Des résultats mesurables, obtenus par des professionnels exigeants.
+              Retours d&apos;expérience de professionnels du patrimoine immobilier.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {caseStudies.map((cs) => (
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {testimonials.map((t) => (
               <div
-                key={cs.title}
-                className="rounded-xl border border-border/60 bg-[#F9FAFB] p-8 shadow-brand hover:shadow-brand-lg transition-shadow flex flex-col"
+                key={t.name}
+                className="rounded-xl border border-border/60 bg-white p-8 shadow-brand hover:shadow-brand-lg transition-shadow"
               >
-                <div className="inline-flex text-[10px] font-semibold px-2.5 py-1 rounded-full bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] mb-4 self-start">
-                  {cs.sector}
+                <div className="flex gap-0.5 mb-5">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className="h-5 w-5 fill-amber-400 text-amber-400"
+                    />
+                  ))}
                 </div>
-                <h3 className="text-base font-bold text-[var(--color-brand-deep)] mb-4 leading-snug">{cs.title}</h3>
-                <div className="space-y-3 flex-1">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Enjeu</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{cs.challenge}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Solution</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{cs.solution}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Résultat</p>
-                    <p className="text-sm font-medium text-[var(--color-brand-deep)] leading-relaxed">{cs.result}</p>
-                  </div>
-                </div>
-                <div className="pt-4 mt-4 border-t border-border/60">
-                  <p className="text-xs text-muted-foreground">{cs.author}</p>
+                <p className="text-sm leading-relaxed mb-6">
+                  &ldquo;{t.text}&rdquo;
+                </p>
+                <div className="pt-4 border-t border-border/60">
+                  <p className="font-semibold text-sm text-[var(--color-brand-deep)]">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.role}</p>
                 </div>
               </div>
             ))}
@@ -698,8 +574,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── FAQ ─── */}
+      {/* ─── Cible ─── */}
       <section className="py-24 sm:py-32 bg-white">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Vision</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-brand-deep)] mb-5">
+            Une source unique de vérité immobilière
+          </h2>
+          <p className="text-lg text-muted-foreground leading-relaxed mb-8">
+            MyGestia n&apos;est pas un simple outil de gestion locative. C&apos;est une infrastructure de pilotage conçue pour des environnements exigeants où la rigueur, la consolidation et la conformité ne sont pas négociables.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <span className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full ring-1 ring-[var(--color-brand-cyan)]/20">
+              Foncières privées
+            </span>
+            <span className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full ring-1 ring-[var(--color-brand-cyan)]/20">
+              Family offices
+            </span>
+            <span className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full ring-1 ring-[var(--color-brand-cyan)]/20">
+              Investisseurs institutionnels
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ─── */}
+      <section className="py-24 sm:py-32 bg-[#F9FAFB]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">FAQ</p>
@@ -727,18 +627,18 @@ export default function HomePage() {
 
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-5 text-white">
-            Prêt à structurer votre gestion immobilière ?
+            Structurez le pilotage de votre patrimoine
           </h2>
           <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto leading-relaxed">
-            Évaluez MyGestia pendant 14 jours. Aucun engagement, aucune carte bancaire.
+            Une infrastructure conçue pour les opérateurs qui exigent rigueur, consolidation et conformité.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/signup">
+            <Link href="/contact">
               <Button
                 size="lg"
                 className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-white text-[var(--color-brand-deep)] hover:bg-white/90 font-bold rounded-lg shadow-xl"
               >
-                Démarrer l&apos;évaluation
+                Demander une démonstration
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -747,7 +647,7 @@ export default function HomePage() {
                 size="lg"
                 className="w-full sm:w-auto text-base px-8 h-13 bg-white/15 text-white hover:bg-white/25 font-bold border-2 border-white/30 rounded-lg"
               >
-                Demander une présentation
+                Organiser un échange
               </Button>
             </Link>
           </div>
@@ -757,32 +657,29 @@ export default function HomePage() {
       {/* ─── Footer ─── */}
       <footer className="border-t border-border/60 py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-            <div className="col-span-2 md:col-span-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" width={124} height={32} />
+                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                Plateforme souveraine de gestion d&apos;actifs immobiliers pour les foncières, les cabinets de gestion et les family offices.
+                Infrastructure de pilotage du patrimoine immobilier pour les foncières, family offices et opérateurs multi-sociétés.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-sm mb-4">Solutions</p>
+              <p className="font-semibold text-sm mb-4">Plateforme</p>
               <div className="space-y-2.5 text-sm text-muted-foreground">
-                <a href="#solutions" className="block hover:text-foreground transition-colors">
-                  Foncières & Family Offices
-                </a>
-                <a href="#solutions" className="block hover:text-foreground transition-colors">
-                  Professionnels de la gestion
-                </a>
                 <a href="#fonctionnalites" className="block hover:text-foreground transition-colors">
-                  Fonctionnalités
+                  Capacités
                 </a>
                 <a href="#tarifs" className="block hover:text-foreground transition-colors">
-                  Tarifs
+                  Offres
                 </a>
+                <Link href="/locaux" className="block hover:text-foreground transition-colors">
+                  Locaux disponibles
+                </Link>
                 <Link href="/contact" className="block hover:text-foreground transition-colors">
                   Contact
                 </Link>
@@ -790,31 +687,7 @@ export default function HomePage() {
             </div>
 
             <div>
-              <p className="font-semibold text-sm mb-4">Ressources</p>
-              <div className="space-y-2.5 text-sm text-muted-foreground">
-                <Link href="/blog" className="block hover:text-foreground transition-colors">
-                  Blog
-                </Link>
-                <Link href="/securite" className="block hover:text-foreground transition-colors">
-                  Sécurité & Conformité
-                </Link>
-                <Link href="/presse" className="block hover:text-foreground transition-colors">
-                  Espace Presse
-                </Link>
-                <Link href="/recrutement" className="block hover:text-foreground transition-colors">
-                  Recrutement
-                </Link>
-                <Link href="/aide" className="block hover:text-foreground transition-colors">
-                  Documentation API
-                </Link>
-                <Link href="/locaux" className="block hover:text-foreground transition-colors">
-                  Locaux disponibles
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <p className="font-semibold text-sm mb-4">Juridique</p>
+              <p className="font-semibold text-sm mb-4">Légal</p>
               <div className="space-y-2.5 text-sm text-muted-foreground">
                 <Link href="/cgu" className="block hover:text-foreground transition-colors">
                   CGU
@@ -826,17 +699,35 @@ export default function HomePage() {
                   Mentions légales
                 </Link>
                 <Link href="/politique-confidentialite" className="block hover:text-foreground transition-colors">
-                  Confidentialité & RGPD
+                  Confidentialité
                 </Link>
                 <Link href="/dpa" className="block hover:text-foreground transition-colors">
                   DPA
                 </Link>
               </div>
             </div>
+
+            <div>
+              <p className="font-semibold text-sm mb-4">Sécurité</p>
+              <div className="space-y-2.5 text-sm text-muted-foreground">
+                <p className="flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" /> Chiffrement AES-256-GCM
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Conforme RGPD
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5" /> Infrastructure européenne
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" /> Paiement sécurisé Stripe
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-12 pt-8 border-t flex justify-center items-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} MTG HOLDING · {APP_NAME}. Tous droits réservés.</p>
+            <p>&copy; {new Date().getFullYear()} MTG HOLDING \u00b7 {APP_NAME}. Tous droits réservés.</p>
           </div>
         </div>
       </footer>
