@@ -12,7 +12,10 @@ export default auth(async (req) => {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
 
-  if (isAuthPage && req.auth) {
+  // Pages marketing (landing, pricing) : rediriger les utilisateurs connectés vers /dashboard
+  const isMarketingPage = pathname === "/" || pathname.startsWith("/pricing");
+
+  if ((isAuthPage || isMarketingPage) && req.auth) {
     const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
     // Si 2FA requis et non vérifié, laisser passer vers login/two-factor
     if (authData.requires2FA && !authData.twoFactorVerified) {
