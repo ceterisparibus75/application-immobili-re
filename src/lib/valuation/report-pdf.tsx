@@ -179,11 +179,10 @@ const s = StyleSheet.create({
 
 function eur(n: number | null | undefined): string {
   if (n == null) return "N/A";
-  // Remplacer les espaces insécables par des espaces normaux (react-pdf les affiche comme "/")
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })
-    .format(n)
-    .replace(/\u00A0/g, " ")
-    .replace(/\u202F/g, " ");
+  // Formater manuellement pour éviter les caractères Unicode problématiques avec react-pdf
+  const rounded = Math.round(n);
+  const parts = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${parts} €`;
 }
 
 function pct(n: number | null | undefined): string {
@@ -349,7 +348,7 @@ export function PropertyValuationReport({ data }: { data: ValuationReportData })
                 <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{eur(a.estimatedValue)}</Text>
                 <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.pricePerSqm ? Math.round(a.pricePerSqm) : "N/A"}</Text>
                 <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{pct(a.capRate)}</Text>
-                <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.confidence ? `${Math.round(a.confidence * 100)}%` : "N/A"}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.confidence ? `${Math.round(a.confidence > 1 ? a.confidence : a.confidence * 100)}%` : "N/A"}</Text>
               </View>
             ))}
           </>
@@ -522,7 +521,7 @@ export function RentValuationReport({ data }: { data: RentReportData }) {
                 <Text style={[s.tableCell, { flex: 1 }]}>{a.provider}</Text>
                 <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{eur(a.estimatedRent)}</Text>
                 <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.rentPerSqm ? Math.round(a.rentPerSqm) : "N/A"}</Text>
-                <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.confidence ? `${Math.round(a.confidence * 100)}%` : "N/A"}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: "right" }]}>{a.confidence ? `${Math.round(a.confidence > 1 ? a.confidence : a.confidence * 100)}%` : "N/A"}</Text>
               </View>
             ))}
           </>
