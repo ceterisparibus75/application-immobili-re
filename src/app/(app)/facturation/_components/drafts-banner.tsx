@@ -66,66 +66,66 @@ export function DraftsBanner({ drafts, societyId }: { drafts: DraftInvoice[]; so
   const totalBrouillons = drafts.reduce((s, d) => s + d.totalTTC, 0);
 
   return (
-    <div className="rounded-lg border-2 border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-700/40">
+    <div className="rounded-lg border-2 border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)]/50">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left"
       >
-        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/40">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-[var(--color-status-caution-bg)]">
+          <AlertTriangle className="h-4 w-4 text-[var(--color-status-caution)]" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+          <p className="text-sm font-semibold text-[var(--color-status-caution)]">
             {drafts.length} brouillon{drafts.length > 1 ? "s" : ""} en attente de validation
           </p>
-          <p className="text-xs text-amber-700/70 dark:text-amber-400/60">
+          <p className="text-xs text-[var(--color-status-caution)]/70">
             Total : {formatCurrency(totalBrouillons)} TTC
           </p>
         </div>
-        <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300 shrink-0">
+        <Badge variant="outline" className="border-[var(--color-status-caution)]/60 text-[var(--color-status-caution)] shrink-0">
           {drafts.length}
         </Badge>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-amber-600 shrink-0" />
+          <ChevronUp className="h-4 w-4 text-[var(--color-status-caution)] shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-amber-600 shrink-0" />
+          <ChevronDown className="h-4 w-4 text-[var(--color-status-caution)] shrink-0" />
         )}
       </button>
 
       {expanded && (
-        <div className="border-t border-amber-200/60 dark:border-amber-800/40">
-          <div className="divide-y divide-amber-200/40 dark:divide-amber-800/30">
+        <div className="border-t border-[var(--color-status-caution)]/20">
+          <div className="divide-y divide-[var(--color-status-caution)]/15">
             {drafts.map((draft) => {
               const isValidating = validating.has(draft.id);
               const building = draft.lease?.lot?.building?.name ?? "";
               return (
                 <div key={draft.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <FileText className="h-4 w-4 text-amber-500/70 shrink-0" />
+                  <FileText className="h-4 w-4 text-[var(--color-status-caution)]/70 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/facturation/${draft.id}`}
-                        className="text-sm font-medium hover:underline text-amber-900 dark:text-amber-200"
+                        className="text-sm font-medium hover:underline text-[var(--color-status-caution)]"
                       >
                         {draft.invoiceNumber}
                       </Link>
                       {building && (
-                        <span className="text-xs text-amber-600/60 dark:text-amber-500/50 truncate">
+                        <span className="text-xs text-[var(--color-status-caution)]/60 truncate">
                           {building}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-amber-700/60 dark:text-amber-400/50 truncate">
+                    <p className="text-xs text-[var(--color-status-caution)]/60 truncate">
                       {getTenantName(draft.tenant)} — Echeance {formatDate(draft.dueDate)}
                     </p>
                   </div>
-                  <span className="text-sm font-medium text-amber-900 dark:text-amber-200 shrink-0 hidden sm:block">
+                  <span className="text-sm font-medium text-[var(--color-status-caution)] shrink-0 hidden sm:block">
                     {formatCurrency(draft.totalTTC)}
                   </span>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1 border-amber-400/60 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30 shrink-0"
+                    className="gap-1 border-[var(--color-status-caution)]/60 text-[var(--color-status-caution)] hover:bg-[var(--color-status-caution-bg)] shrink-0"
                     onClick={() => handleValidate(draft.id)}
                     disabled={isValidating}
                   >

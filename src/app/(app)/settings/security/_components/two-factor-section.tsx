@@ -191,10 +191,10 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
         {step === "recovery-codes" && (
           <div className="space-y-4">
             <div className="rounded-md bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 p-4">
-              <p className="text-sm font-semibold text-amber-800 mb-2">
+              <p className="text-sm font-semibold text-[var(--color-status-caution)] mb-2">
                 Sauvegardez ces codes de recuperation
               </p>
-              <p className="text-xs text-amber-700 mb-3">
+              <p className="text-xs text-[var(--color-status-caution)] mb-3">
                 Chaque code ne peut etre utilise qu’une seule fois. Conservez-les dans un endroit sur (gestionnaire de mots de passe, papier sous clef...).
               </p>
               <div className="grid grid-cols-2 gap-2">

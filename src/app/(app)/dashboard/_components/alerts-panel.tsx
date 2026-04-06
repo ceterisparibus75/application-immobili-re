@@ -9,16 +9,16 @@ import type { DashboardAlert } from "@/actions/dashboard";
 const alertConfig = {
   danger: {
     icon: AlertTriangle,
-    bgColor: "bg-[var(--color-status-negative-bg)] dark:bg-red-950/30",
-    borderColor: "border-[var(--color-status-negative)]/30 dark:border-red-800",
-    iconColor: "text-[var(--color-status-negative)] dark:text-red-400",
+    bgColor: "bg-[var(--color-status-negative-bg)]",
+    borderColor: "border-[var(--color-status-negative)]/30",
+    iconColor: "text-[var(--color-status-negative)]",
     badgeVariant: "destructive" as const,
   },
   warning: {
     icon: AlertCircle,
-    bgColor: "bg-[var(--color-status-caution-bg)] dark:bg-orange-950/30",
-    borderColor: "border-[var(--color-status-caution)]/30 dark:border-orange-800",
-    iconColor: "text-[var(--color-status-caution)] dark:text-orange-400",
+    bgColor: "bg-[var(--color-status-caution-bg)]",
+    borderColor: "border-[var(--color-status-caution)]/30",
+    iconColor: "text-[var(--color-status-caution)]",
     badgeVariant: "outline" as const,
   },
   info: {
@@ -64,7 +64,7 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
             </Badge>
           )}
           {warningCount > 0 && (
-            <Badge variant="outline" className="gap-1 border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)] dark:border-orange-700 dark:text-orange-400">
+            <Badge variant="outline" className="gap-1 border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]">
               <AlertCircle className="h-3 w-3" />
               {warningCount}
             </Badge>

@@ -534,7 +534,7 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ScrollText className="h-4 w-4 text-orange-500" />
+          <ScrollText className="h-4 w-4 text-[var(--color-status-caution)]" />
           Bail
         </CardTitle>
       </CardHeader>

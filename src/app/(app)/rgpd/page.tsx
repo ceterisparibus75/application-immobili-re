@@ -93,8 +93,8 @@ export default async function RgpdPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[var(--color-status-caution-bg)] dark:bg-orange-900/30 p-2">
-                <UserCheck className="h-4 w-4 text-[var(--color-status-caution)] dark:text-orange-400" />
+              <div className="rounded-full bg-[var(--color-status-caution-bg)] p-2">
+                <UserCheck className="h-4 w-4 text-[var(--color-status-caution)]" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Demandes en attente</p>
@@ -119,8 +119,8 @@ export default async function RgpdPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[var(--color-status-positive-bg)] dark:bg-green-900/30 p-2">
-                <Shield className="h-4 w-4 text-[var(--color-status-positive)] dark:text-green-400" />
+              <div className="rounded-full bg-[var(--color-status-positive-bg)] p-2">
+                <Shield className="h-4 w-4 text-[var(--color-status-positive)]" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Consentements actifs</p>

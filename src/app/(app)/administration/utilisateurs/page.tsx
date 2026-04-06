@@ -79,7 +79,7 @@ export default async function UtilisateursPage() {
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    isOverLimit ? "bg-destructive" : isAtLimit ? "bg-amber-500" : "bg-primary"
+                    isOverLimit ? "bg-destructive" : isAtLimit ? "bg-[var(--color-status-caution)]" : "bg-primary"
                   }`}
                   style={{ width: maxUsers === -1 ? "10%" : `${usagePercent}%` }}
                 />
