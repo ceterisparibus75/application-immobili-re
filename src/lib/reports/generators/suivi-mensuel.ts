@@ -10,7 +10,7 @@ import {
   drawTotalsRow,
 } from "../pdf-helpers";
 
-const MONTHS = ["Jan", "Fev", "Mar", "Avr", "Mai", "Jun", "Jul", "Aou", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
 export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportResult> {
   const { societyId } = opts;
@@ -35,8 +35,8 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   const ctx = await initPdf(`Suivi mensuel ${year}`, "Tableau de suivi par immeuble", opts.society);
 
   drawCoverPage(ctx, "Tableau de Suivi Mensuel", `Exercice ${year}`, [
-    `Societe : ${opts.society?.name ?? ""}`,
-    `Periode : 01/01/${year} au 31/12/${year}`,
+    `Société : ${opts.society?.name ?? ""}`,
+    `Période : 01/01/${year} au 31/12/${year}`,
   ]);
 
   // Landscape pages for 14 columns
@@ -44,10 +44,10 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   const labelW = LCW - 12 * colW - colW; // remaining for label + annee
   const WIDTHS = [labelW, ...Array(12).fill(colW), colW];
   const ALIGNS: ColAlign[] = ["left", ...Array(13).fill("right") as ColAlign[]];
-  const HDR = ["", ...MONTHS, "Annee"];
+  const HDR = ["", ...MONTHS, "Année"];
 
   for (const building of buildings) {
-    let p = ctx.np(true);
+    const p = ctx.np(true);
     let y = contentStartY(true);
 
     y = drawSectionHeader(p, ctx.serifBold, y, building.name, 841.89);
@@ -82,14 +82,14 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     // Loyers facturés
     y = drawTableRow(p, ctx.reg, y, [
-      "Loyers factures",
+      "Loyers facturés",
       ...monthlyFact.map((v) => v > 0 ? pdfCur(v) : "-"),
       pdfCur(annFact),
     ], WIDTHS, ALIGNS, { rowIndex: 0 }, 841.89);
 
     // Loyers encaissés
     y = drawTableRow(p, ctx.reg, y, [
-      "Loyers encaisses",
+      "Loyers encaissés",
       ...monthlyEnc.map((v) => v > 0 ? pdfCur(v) : "-"),
       pdfCur(annEnc),
     ], WIDTHS, ALIGNS, { rowIndex: 1 }, 841.89);
@@ -117,7 +117,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     const monthlyNet = monthlyEnc.map((e, i) => e - monthlyChg[i]);
     const annNet = annEnc - annChg;
     y = drawTotalsRow(p, ctx.bold, y, [
-      "Resultat net",
+      "Résultat net",
       ...monthlyNet.map((v) => pdfCur(v)),
       pdfCur(annNet),
     ], WIDTHS, ALIGNS, 841.89);

@@ -38,7 +38,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     }),
   ]);
 
-  if (!society) throw new Error("Societe introuvable");
+  if (!society) throw new Error("Société introuvable");
 
   const paid = invoices.filter((i) => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
   const pend = invoices.filter((i) => i.status !== "PAYE").reduce((s, i) => s + i.totalTTC, 0);
@@ -49,8 +49,8 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
   // Cover page
   drawCoverPage(ctx, "Compte Rendu de Gestion", `Exercice ${year}`, [
-    `Societe : ${society.name}`,
-    `Periode : 01/01/${year} au 31/12/${year}`,
+    `Société : ${society.name}`,
+    `Période : 01/01/${year} au 31/12/${year}`,
   ]);
 
   // Page 1: Summary KPIs
@@ -58,32 +58,32 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   let y = contentStartY();
 
   if (invoices.length === 0 && charges.length === 0) {
-    drawEmptyMessage(p, ctx.reg, y, `Aucune donnee financiere trouvee pour l'annee ${year}.`);
+    drawEmptyMessage(p, ctx.reg, y, `Aucune donnée financière trouvée pour l'année ${year}.`);
   }
 
-  y = drawSectionHeader(p, ctx.serifBold, y, `Synthese ${year}`);
+  y = drawSectionHeader(p, ctx.serifBold, y, `Synthèse ${year}`);
   y -= 4;
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total facture", pdfCur(totalInv));
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers encaisses (payes)", pdfCur(paid), GREEN);
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total facturé", pdfCur(totalInv));
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers encaissés (payés)", pdfCur(paid), GREEN);
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers en attente / retard", pdfCur(pend), pend > 0 ? CORAL : undefined);
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total des charges", pdfCur(tchg));
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Resultat net (encaisse - charges)", pdfCur(paid - tchg));
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Résultat net (encaissé - charges)", pdfCur(paid - tchg));
   const recov = totalInv > 0 ? ((paid / totalInv) * 100).toFixed(1) + "%" : "N/A";
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Taux de recouvrement", recov);
   y -= 16;
 
   // Per-building summary
-  y = drawSectionHeader(p, ctx.serifBold, y, "Detail par immeuble");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Détail par immeuble");
   const BW = [110, 40, 75, 75, 75, CW - 375];
   const BA: ColAlign[] = ["left", "right", "right", "right", "right", "right"];
-  y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facture", "Encaisse", "Charges", "En attente"], BW, BA);
+  y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facturé", "Encaissé", "Charges", "En attente"], BW, BA);
 
   let ri = 0;
   for (const b of buildings) {
     if (y < minY()) {
       p = ctx.np();
       y = contentStartY();
-      y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facture", "Encaisse", "Charges", "En attente"], BW, BA);
+      y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facturé", "Encaissé", "Charges", "En attente"], BW, BA);
     }
     const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
     const bc = charges.filter((c) => (c as any).buildingId === b.id);
@@ -108,7 +108,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
     const DW = [100, 50, 80, 80, 80, CW - 390];
     const DA: ColAlign[] = ["left", "left", "right", "right", "right", "right"];
-    y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Regle", "Solde", "Statut"], DW, DA);
+    y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Réglé", "Solde", "Statut"], DW, DA);
 
     // Group by tenant
     const byTenant = new Map<string, typeof bi>();
@@ -137,12 +137,12 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       if (y < minY()) {
         p = ctx.np();
         y = contentStartY();
-        y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Regle", "Solde", "Statut"], DW, DA);
+        y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Réglé", "Solde", "Statut"], DW, DA);
       }
 
       y = drawTableRow(p, ctx.reg, y, [
         tn, lotNum, pdfCur(quittance), pdfCur(regle), pdfCur(solde),
-        solde > 0 ? "Impaye" : "Solde",
+        solde > 0 ? "Impayé" : "Soldé",
       ], DW, DA, {
         rowIndex: dri++,
         cellColors: [null, null, null, null, solde > 0 ? CORAL : GREEN, solde > 0 ? CORAL : GREEN],

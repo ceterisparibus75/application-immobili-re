@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult } from "../types";
@@ -37,7 +37,7 @@ export async function generateSuiviTravaux(opts: ReportOptions): Promise<ReportR
   ws.getCell("A1").font = { bold: true, size: 13, color: { argb: "FF0C2340" } };
   ws.getCell("A1").alignment = { horizontal: "center" };
   ws.getRow(1).height = 28;
-  const hdrs = ["Immeuble", "Titre", "Description", "Cout", "Paye", "Planifie le", "Realise le"];
+  const hdrs = ["Immeuble", "Titre", "Description", "Coût", "Payé", "Planifié le", "Réalisé le"];
   ws.addRow(hdrs).eachCell((c) => { c.fill = hF; c.font = hFn; c.alignment = { horizontal: "center" }; });
   ws.getRow(2).height = 22;
   [22, 25, 35, 14, 10, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
@@ -67,9 +67,9 @@ export async function generateSuiviTravaux(opts: ReportOptions): Promise<ReportR
   tRow.eachCell((c) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F7FA" } }; c.font = { bold: true }; });
 
   // Summary sheet
-  const ws2 = wb.addWorksheet("Synthese par immeuble");
+  const ws2 = wb.addWorksheet("Synthèse par immeuble");
   [30, 18, 18].forEach((w, i) => { ws2.getColumn(i + 1).width = w; });
-  ws2.addRow(["Immeuble", "Cout total", "Nb interventions"]).eachCell((c) => { c.fill = hF; c.font = hFn; });
+  ws2.addRow(["Immeuble", "Coût total", "Nb interventions"]).eachCell((c) => { c.fill = hF; c.font = hFn; });
   for (const [name, { cost, count }] of Object.entries(byBuilding)) {
     const r = ws2.addRow([name, cost, count]);
     r.getCell(2).numFmt = '#,##0.00 "€"';
