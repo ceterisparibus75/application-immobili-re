@@ -371,8 +371,8 @@ export default async function ImmeubleDetailPage({
                         </Badge>
                       </div>
                       <span className="text-sm font-semibold tabular-nums text-right">
-                        {lot.currentRent
-                          ? `${lot.currentRent.toLocaleString("fr-FR")} ${FREQUENCY_SHORT[activeLease?.paymentFrequency as PaymentFrequency] ?? "€/mois"}`
+                        {activeLease?.currentRentHT
+                          ? `${activeLease.currentRentHT.toLocaleString("fr-FR")} ${FREQUENCY_SHORT[activeLease.paymentFrequency as PaymentFrequency] ?? "€/mois"}`
                           : <span className="text-muted-foreground font-normal">—</span>}
                       </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
@@ -401,9 +401,9 @@ export default async function ImmeubleDetailPage({
                           <Badge variant={LOT_STATUS_VARIANTS[lot.status]} className="text-[11px]">
                             {LOT_STATUS_LABELS[lot.status]}
                           </Badge>
-                          {lot.currentRent && (
+                          {activeLease?.currentRentHT && (
                             <p className="text-xs font-semibold tabular-nums mt-0.5">
-                              {lot.currentRent.toLocaleString("fr-FR")} €
+                              {activeLease.currentRentHT.toLocaleString("fr-FR")} {FREQUENCY_SHORT[activeLease.paymentFrequency as PaymentFrequency] ?? "€/mois"}
                             </p>
                           )}
                         </div>

@@ -141,11 +141,15 @@ export default async function LotsPage() {
                         <span className="text-muted-foreground">
                           {lot.area} m²
                         </span>
-                        {lot.currentRent && (
+                        {lot.leases[0]?.currentRentHT ? (
                           <span className="font-medium">
-                            {lot.currentRent.toLocaleString("fr-FR")} {FREQUENCY_SHORT[lot.leases[0]?.paymentFrequency as PaymentFrequency] ?? "€/mois"}
+                            {lot.leases[0].currentRentHT.toLocaleString("fr-FR")} {FREQUENCY_SHORT[lot.leases[0].paymentFrequency as PaymentFrequency] ?? "€/mois"}
                           </span>
-                        )}
+                        ) : lot.currentRent ? (
+                          <span className="font-medium">
+                            {lot.currentRent.toLocaleString("fr-FR")} €/mois
+                          </span>
+                        ) : null}
                         <Badge variant={LOT_STATUS_VARIANTS[lot.status]}>
                           {LOT_STATUS_LABELS[lot.status]}
                         </Badge>

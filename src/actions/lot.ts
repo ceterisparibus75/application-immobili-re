@@ -215,7 +215,7 @@ export async function getLots(societyId: string) {
       building: { select: { id: true, name: true, city: true } },
       leases: {
         where: { status: "EN_COURS" },
-        select: { paymentFrequency: true },
+        select: { currentRentHT: true, paymentFrequency: true },
         take: 1,
       },
       _count: { select: { leases: true } },
