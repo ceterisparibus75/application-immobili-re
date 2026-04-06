@@ -224,7 +224,15 @@ export default async function ImmeubleDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Valorisation</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Valorisation</CardTitle>
+              <Link href={`/patrimoine/immeubles/${id}/valorisation`}>
+                <Button variant="outline" size="sm">
+                  <Bot className="h-4 w-4" />
+                  Avis de valeur IA
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <InfoRow

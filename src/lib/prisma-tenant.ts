@@ -39,6 +39,8 @@ const TENANT_SCOPED_MODELS: Prisma.ModelName[] = [
   "AuditLog",
   "LetterTemplate",
   "DepositMovement",
+  "PropertyValuation",
+  "RentValuation",
 ];
 
 // Modèles qui ont un societyId direct (pas via une relation)
@@ -59,6 +61,8 @@ const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
   "Document",
   "AuditLog",
   "LetterTemplate",
+  "PropertyValuation",
+  "RentValuation",
 ];
 
 /**

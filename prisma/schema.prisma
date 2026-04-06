@@ -394,6 +394,8 @@ model Society {
   datarooms               Dataroom[]
   subscription            Subscription?
   reportSchedules         ReportSchedule[]
+  propertyValuations      PropertyValuation[]
+  rentValuations          RentValuation[]
 
   @@index([siret])
   @@index([proprietaireId])
@@ -626,6 +628,7 @@ model Building {
   chargeCategories ChargeCategory[]
   documents        Document[]
   loans            Loan[]
+  propertyValuations PropertyValuation[]
 
   @@index([societyId])
   @@index([societyId, city])
@@ -777,6 +780,7 @@ model Lease {
   reminders             Reminder[]
   depositMovements      DepositMovement[]
   amendments            LeaseAmendment[]
+  rentValuations        RentValuation[]
 
   @@index([societyId])
   @@index([lotId])
@@ -2300,4 +2304,291 @@ model ReportSchedule {
 
   @@index([societyId])
   @@index([isActive, nextRunAt])
+}
+
+// ============================================================
+// AVIS DE VALEUR IA — Évaluation immobilière par IA
+// ============================================================
+
+enum ValuationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum AiProvider {
+  CLAUDE
+  GEMINI
+}
+
+/// Avis de valeur IA pour un immeuble
+model PropertyValuation {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  buildingId String
+  societyId  String
+
+  // Métadonnées
+  valuationDate DateTime        @default(now())
+  status        ValuationStatus @default(DRAFT)
+  createdBy     String // userId
+
+  // Résultats synthétiques
+  estimatedValueLow    Float? // Fourchette basse
+  estimatedValueMid    Float? // Valeur retenue
+  estimatedValueHigh   Float? // Fourchette haute
+  estimatedRentalValue Float? // Valeur locative annuelle estimée
+  pricePerSqm          Float? // Prix au m² retenu
+  capitalizationRate   Float? // Taux de capitalisation retenu (%)
+
+  // Relations
+  building           Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  society            Society               @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  aiAnalyses         AiValuationAnalysis[]
+  expertReports      ExpertReport[]
+  comparableSales    ComparableSale[]
+  consolidatedReport ConsolidatedReport?
+
+  @@index([buildingId])
+  @@index([societyId])
+  @@index([societyId, buildingId])
+}
+
+/// Analyse IA individuelle (Claude ou Gemini)
+model AiValuationAnalysis {
+  id          String @id @default(cuid())
+  valuationId String
+
+  provider     AiProvider // CLAUDE, GEMINI
+  modelVersion String // ex: "claude-sonnet-4-20250514", "gemini-2.0-flash"
+
+  // Données d'entrée envoyées à l'IA
+  inputPayload Json // Le JSON complet envoyé à l'IA
+
+  // Résultat structuré de l'IA
+  rawResponse      String @db.Text // Réponse brute
+  structuredResult Json // Résultat parsé en JSON structuré
+
+  // Valeurs extraites
+  estimatedValue Float? // Valeur vénale estimée
+  rentalValue    Float? // Valeur locative estimée
+  pricePerSqm    Float? // Prix au m²
+  capRate        Float? // Taux de capitalisation (%)
+  methodology    String? @db.Text // Description de la méthode utilisée
+  strengths      Json? // Points forts identifiés (string[])
+  weaknesses     Json? // Points faibles identifiés (string[])
+  opportunities  Json? // Opportunités identifiées (string[])
+  threats        Json? // Menaces identifiées (string[])
+  confidence     Float? // Score de confiance 0-1
+
+  executedAt DateTime @default(now())
+  durationMs Int? // Temps d'exécution en ms
+  tokenCount Int? // Tokens consommés
+  cost       Float? // Coût estimé en EUR
+
+  valuation PropertyValuation @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+
+  @@index([valuationId])
+}
+
+/// Rapport d'expertise importé (PDF)
+model ExpertReport {
+  id          String @id @default(cuid())
+  valuationId String
+
+  // Métadonnées du rapport
+  expertName      String // Nom de l'expert ou du cabinet
+  reportDate      DateTime // Date du rapport
+  reportReference String? // Référence du rapport
+
+  // Fichier PDF source
+  fileUrl  String // URL du fichier stocké (Supabase Storage)
+  fileName String
+  fileSize Int
+
+  // Données extraites par IA du PDF
+  extractedData Json // Données structurées extraites du rapport
+
+  // Valeurs clés extraites
+  estimatedValue Float? // Valeur vénale retenue par l'expert
+  rentalValue    Float? // Valeur locative
+  pricePerSqm    Float? // Prix au m²
+  capRate        Float? // Taux de capitalisation (%)
+  usableArea     Float? // Surface utile retenue
+  methodology    String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  valuation PropertyValuation @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+
+  @@index([valuationId])
+}
+
+/// Transaction comparable (DVF ou manuelle)
+model ComparableSale {
+  id          String @id @default(cuid())
+  valuationId String
+
+  // Source de la donnée
+  source          String // "DVF", "MANUAL", "AI_SEARCH"
+  sourceReference String? // Référence dans la source
+
+  // Données de la transaction
+  address    String
+  city       String
+  postalCode String
+  saleDate   DateTime
+  salePrice  Float
+  builtArea  Float? // Surface bâtie (m²)
+  landArea   Float? // Surface terrain (m²)
+  pricePerSqm  Float?
+  propertyType String // "BUREAUX", "HABITATION", "COMMERCIAL", "MIXTE"
+  buildingAge  String? // "NEUF", "RECENT", "ANCIEN"
+  distanceKm   Float? // Distance au bien évalué (km)
+
+  // Pertinence
+  relevanceScore   Float? // 0-1, calculé par l'IA
+  relevanceComment String? @db.Text
+
+  valuation PropertyValuation @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+
+  @@index([valuationId])
+}
+
+/// Rapport consolidé généré (PDF)
+model ConsolidatedReport {
+  id          String @id @default(cuid())
+  valuationId String @unique
+
+  // Fichier PDF généré
+  fileUrl  String?
+  fileName String?
+
+  // Contenu structuré du rapport
+  reportContent Json // Sections du rapport en JSON structuré
+
+  generatedAt DateTime @default(now())
+  generatedBy String // userId
+
+  valuation PropertyValuation @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// ÉVALUATION DES LOYERS PAR IA — Module Baux
+// ============================================================
+
+enum RentValuationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+/// Évaluation de loyer par IA pour un bail
+model RentValuation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leaseId   String
+  societyId String
+
+  // Métadonnées
+  valuationDate DateTime            @default(now())
+  status        RentValuationStatus @default(DRAFT)
+  createdBy     String // userId
+
+  // Résultats synthétiques
+  currentRent          Float? // Loyer actuel du bail
+  estimatedMarketRent  Float? // Loyer de marché estimé (annuel HT)
+  estimatedRentLow     Float? // Fourchette basse
+  estimatedRentHigh    Float? // Fourchette haute
+  rentPerSqm           Float? // Loyer au m² retenu
+  deviationPercent     Float? // Écart loyer actuel vs marché (%)
+
+  // Relations
+  lease              Lease                @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  society            Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  aiAnalyses         RentAiAnalysis[]
+  comparableRents    ComparableRent[]
+  consolidatedReport RentConsolidatedReport?
+
+  @@index([leaseId])
+  @@index([societyId])
+  @@index([societyId, leaseId])
+}
+
+/// Analyse IA de loyer (Claude ou Gemini)
+model RentAiAnalysis {
+  id               String @id @default(cuid())
+  rentValuationId  String
+
+  provider     AiProvider
+  modelVersion String
+
+  inputPayload     Json
+  rawResponse      String @db.Text
+  structuredResult Json
+
+  estimatedRent    Float? // Loyer de marché estimé
+  rentPerSqm       Float? // Loyer au m²
+  methodology      String? @db.Text
+  strengths        Json? // string[]
+  weaknesses       Json? // string[]
+  opportunities    Json? // string[]
+  threats          Json? // string[]
+  confidence       Float? // Score de confiance 0-1
+
+  executedAt DateTime @default(now())
+  durationMs Int?
+  tokenCount Int?
+  cost       Float?
+
+  rentValuation RentValuation @relation(fields: [rentValuationId], references: [id], onDelete: Cascade)
+
+  @@index([rentValuationId])
+}
+
+/// Loyer comparable (DVF / marché)
+model ComparableRent {
+  id               String @id @default(cuid())
+  rentValuationId  String
+
+  source          String // "DVF", "MANUAL", "AI_SEARCH", "CLAMEUR"
+  sourceReference String?
+
+  address      String
+  city         String
+  postalCode   String
+  rentDate     DateTime // Date du loyer ou de la transaction
+  annualRent   Float // Loyer annuel HT
+  area         Float? // Surface (m²)
+  rentPerSqm   Float?
+  propertyType String // "BUREAUX", "HABITATION", "COMMERCIAL", "MIXTE"
+  leaseType    String? // Type de bail
+  distanceKm   Float? // Distance au bien
+
+  relevanceScore   Float?
+  relevanceComment String? @db.Text
+
+  rentValuation RentValuation @relation(fields: [rentValuationId], references: [id], onDelete: Cascade)
+
+  @@index([rentValuationId])
+}
+
+/// Rapport consolidé d'évaluation de loyer
+model RentConsolidatedReport {
+  id               String @id @default(cuid())
+  rentValuationId  String @unique
+
+  fileUrl  String?
+  fileName String?
+
+  reportContent Json
+
+  generatedAt DateTime @default(now())
+  generatedBy String
+
+  rentValuation RentValuation @relation(fields: [rentValuationId], references: [id], onDelete: Cascade)
 }
