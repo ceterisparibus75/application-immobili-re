@@ -185,6 +185,7 @@ export async function validateRevision(
     revalidatePath("/baux");
     revalidatePath(`/baux/${revision.leaseId}`);
     revalidatePath("/revisions");
+    revalidatePath("/indices");
 
     return { success: true, data: { newRentHT: revision.newRentHT } };
   } catch (error) {
@@ -243,6 +244,7 @@ export async function rejectRevision(
 
     revalidatePath("/baux");
     revalidatePath("/revisions");
+    revalidatePath("/indices");
 
     return { success: true };
   } catch (error) {
@@ -319,6 +321,7 @@ export async function createManualRevision(
 
     revalidatePath(`/baux/${lease.id}`);
     revalidatePath("/revisions");
+    revalidatePath("/indices");
 
     return { success: true, data: { id: revision.id } };
   } catch (error) {

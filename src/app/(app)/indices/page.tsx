@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -15,36 +15,18 @@ import { Badge } from "@/components/ui/badge";
 import {
   TrendingUp,
   AlertTriangle,
-  CheckCircle2,
   Clock,
-  Building2,
-  CalendarClock,
 } from "lucide-react";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
+import { RevisionActions } from "./_components/revision-actions";
 
 export const metadata = { title: "Révisions / Indices" };
 
-const INDEX_INFO: Record<string, { name: string; description: string; badge: string }> = {
-  IRL: {
-    name: "Indice de Référence des Loyers",
-    description: "Référence légale pour réviser les loyers d'habitation",
-    badge: "Logements",
-  },
-  ILC: {
-    name: "Indice des Loyers Commerciaux",
-    description: "Utilisé pour réviser les loyers des locaux commerciaux",
-    badge: "Commerce",
-  },
-  ILAT: {
-    name: "Indice des Loyers des Activités Tertiaires",
-    description: "Utilisé pour les bureaux et activités tertiaires",
-    badge: "Tertiaire",
-  },
-  ICC: {
-    name: "Indice du Coût de la Construction",
-    description: "Ancien indice de référence, toujours utilisé dans certains baux",
-    badge: "Construction",
-  },
+const INDEX_INFO: Record<string, { name: string; badge: string }> = {
+  IRL: { name: "Indice de Référence des Loyers", badge: "Logements" },
+  ILC: { name: "Indice des Loyers Commerciaux", badge: "Commerce" },
+  ILAT: { name: "Indice des Loyers des Activités Tertiaires", badge: "Tertiaire" },
+  ICC: { name: "Indice du Coût de la Construction", badge: "Construction" },
 };
 
 function getNextRevisionDate(startDate: Date, revisionFrequency: number, lastRevisionDate?: Date | null): Date {
@@ -54,21 +36,15 @@ function getNextRevisionDate(startDate: Date, revisionFrequency: number, lastRev
   return next;
 }
 
-function getRevisionStatus(nextDate: Date): { label: string; variant: "destructive" | "warning" | "default" | "secondary"; icon: typeof AlertTriangle } {
+function getRevisionStatus(nextDate: Date): { label: string; variant: "destructive" | "warning" | "default" | "secondary" } {
   const now = new Date();
   const diffMs = nextDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) {
-    return { label: `En retard de ${Math.abs(diffDays)} jour${Math.abs(diffDays) > 1 ? "s" : ""}`, variant: "destructive", icon: AlertTriangle };
-  }
-  if (diffDays <= 30) {
-    return { label: `Dans ${diffDays} jour${diffDays > 1 ? "s" : ""}`, variant: "warning", icon: Clock };
-  }
-  if (diffDays <= 90) {
-    return { label: `Dans ${diffDays} jours`, variant: "secondary", icon: CalendarClock };
-  }
-  return { label: `Dans ${diffDays} jours`, variant: "default", icon: CheckCircle2 };
+  if (diffDays < 0) return { label: `En retard de ${Math.abs(diffDays)} j`, variant: "destructive" };
+  if (diffDays <= 30) return { label: `Dans ${diffDays} j`, variant: "warning" };
+  if (diffDays <= 90) return { label: `Dans ${diffDays} j`, variant: "secondary" };
+  return { label: `Dans ${diffDays} j`, variant: "default" };
 }
 
 export default async function IndicesPage() {
@@ -80,7 +56,7 @@ export default async function IndicesPage() {
   if (!session?.user?.id) redirect("/login");
   await requireSocietyAccess(session.user.id, societyId);
 
-  // Récupérer les baux actifs avec indexation
+  // Récupérer les baux actifs avec indexation + révisions en attente
   const leases = await prisma.lease.findMany({
     where: {
       societyId,
@@ -90,7 +66,6 @@ export default async function IndicesPage() {
     select: {
       id: true,
       startDate: true,
-      endDate: true,
       indexType: true,
       baseIndexValue: true,
       baseIndexQuarter: true,
@@ -114,50 +89,81 @@ export default async function IndicesPage() {
       rentRevisions: {
         orderBy: { effectiveDate: "desc" },
         take: 1,
-        select: { effectiveDate: true, newRentHT: true, newIndexValue: true },
+        select: {
+          id: true,
+          effectiveDate: true,
+          newRentHT: true,
+          newIndexValue: true,
+          isValidated: true,
+          formula: true,
+        },
       },
     },
     orderBy: { startDate: "asc" },
   });
 
-  // Types d'indices utilisés par les baux
+  // Types d'indices utilisés
   const usedIndexTypes = [...new Set(leases.map((l) => l.indexType).filter(Boolean))] as string[];
 
-  // Récupérer les derniers indices INSEE pour les types utilisés
-  const latestIndices = usedIndexTypes.length > 0
+  // Derniers indices INSEE
+  const allIndices = usedIndexTypes.length > 0
     ? await prisma.inseeIndex.findMany({
         where: { indexType: { in: usedIndexTypes as ("IRL" | "ILC" | "ILAT" | "ICC")[] } },
         orderBy: [{ year: "desc" }, { quarter: "desc" }],
       })
     : [];
 
-  // Grouper par type : dernière valeur + historique
-  const indexByType: Record<string, { latest: typeof latestIndices[0] | null; history: typeof latestIndices }> = {};
+  const indexByType: Record<string, { latest: typeof allIndices[0] | null; history: typeof allIndices }> = {};
   for (const type of usedIndexTypes) {
-    const entries = latestIndices.filter((i) => i.indexType === type);
+    const entries = allIndices.filter((i) => i.indexType === type);
     indexByType[type] = { latest: entries[0] ?? null, history: entries.slice(0, 8) };
   }
 
-  // Préparer les données par bail avec date de prochaine révision
-  const leasesWithRevision = leases.map((lease) => {
-    const lastRevision = lease.rentRevisions[0] ?? null;
+  // Préparer les données sérialisables pour le composant client
+  const leasesData = leases.map((lease) => {
+    const lastValidated = lease.rentRevisions.find((r) => r.isValidated);
+    const pendingRevision = lease.rentRevisions.find((r) => !r.isValidated);
+    const lastRevisionForDate = lease.rentRevisions[0] ?? null;
+
     const nextRevisionDate = getNextRevisionDate(
       lease.startDate,
       lease.revisionFrequency ?? 12,
-      lastRevision?.effectiveDate
+      lastRevisionForDate?.effectiveDate
     );
     const status = getRevisionStatus(nextRevisionDate);
     const tenantName = lease.tenant.entityType === "PERSONNE_MORALE"
       ? lease.tenant.companyName ?? "—"
       : [lease.tenant.firstName, lease.tenant.lastName].filter(Boolean).join(" ") || "—";
-    const lotLabel = `${lease.lot.building.name} — Lot ${lease.lot.number}`;
 
-    return { ...lease, lastRevision, nextRevisionDate, status, tenantName, lotLabel };
-  }).sort((a, b) => a.nextRevisionDate.getTime() - b.nextRevisionDate.getTime());
+    return {
+      id: lease.id,
+      tenantName,
+      lotLabel: `${lease.lot.building.name} — Lot ${lease.lot.number}`,
+      indexType: lease.indexType as string,
+      currentRentHT: lease.currentRentHT,
+      baseRentHT: lease.baseRentHT,
+      baseIndexValue: lease.baseIndexValue,
+      baseIndexQuarter: lease.baseIndexQuarter,
+      nextRevisionDate: nextRevisionDate.toISOString(),
+      statusVariant: status.variant,
+      statusLabel: status.label,
+      lastRevisionDate: lastValidated?.effectiveDate?.toISOString() ?? null,
+      lastRevisionNewRent: lastValidated?.newRentHT ?? null,
+      pendingRevisionId: pendingRevision?.id ?? null,
+      pendingNewRent: pendingRevision?.newRentHT ?? null,
+      pendingFormula: pendingRevision?.formula ?? null,
+    };
+  }).sort((a, b) => new Date(a.nextRevisionDate).getTime() - new Date(b.nextRevisionDate).getTime());
 
-  // Compteurs d'alertes
-  const overdueCount = leasesWithRevision.filter((l) => l.status.variant === "destructive").length;
-  const soonCount = leasesWithRevision.filter((l) => l.status.variant === "warning").length;
+  const latestIndicesData = usedIndexTypes.map((type) => {
+    const latest = indexByType[type]?.latest;
+    return latest ? { type, value: latest.value, quarter: latest.quarter, year: latest.year } : null;
+  }).filter(Boolean) as { type: string; value: number; quarter: number; year: number }[];
+
+  // Compteurs
+  const overdueCount = leasesData.filter((l) => l.statusVariant === "destructive").length;
+  const soonCount = leasesData.filter((l) => l.statusVariant === "warning").length;
+  const pendingCount = leasesData.filter((l) => l.pendingRevisionId).length;
 
   return (
     <div className="space-y-6">
@@ -166,13 +172,13 @@ export default async function IndicesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Révisions / Indices</h1>
           <p className="text-muted-foreground">
-            {leases.length} bail{leases.length !== 1 ? "x" : ""} avec indexation · Suivi des révisions de loyer
+            {leases.length} bail{leases.length !== 1 ? "x" : ""} avec indexation · Suivi et génération des révisions
           </p>
         </div>
       </div>
 
       {/* Alertes */}
-      {(overdueCount > 0 || soonCount > 0) && (
+      {(overdueCount > 0 || soonCount > 0 || pendingCount > 0) && (
         <div className="flex flex-wrap gap-3">
           {overdueCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-[var(--color-status-negative)]/30 bg-[var(--color-status-negative)]/5 px-4 py-2.5">
@@ -190,10 +196,18 @@ export default async function IndicesPage() {
               </span>
             </div>
           )}
+          {pendingCount > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">
+                {pendingCount} révision{pendingCount > 1 ? "s" : ""} en attente de validation
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* KPIs : indices utilisés */}
+      {/* KPIs indices */}
       {usedIndexTypes.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {usedIndexTypes.map((type) => {
@@ -201,9 +215,7 @@ export default async function IndicesPage() {
             const data = indexByType[type];
             const latest = data?.latest;
             const prev = data?.history[1];
-            const evol = latest && prev
-              ? (((latest.value - prev.value) / prev.value) * 100)
-              : null;
+            const evol = latest && prev ? (((latest.value - prev.value) / prev.value) * 100) : null;
             const leaseCount = leases.filter((l) => l.indexType === type).length;
 
             return (
@@ -221,9 +233,7 @@ export default async function IndicesPage() {
                   <CardDescription className="text-xs">{info?.name ?? type}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold tabular-nums">
-                    {latest ? latest.value.toFixed(2) : "—"}
-                  </p>
+                  <p className="text-2xl font-bold tabular-nums">{latest ? latest.value.toFixed(2) : "—"}</p>
                   <p className="text-xs text-muted-foreground">
                     {latest ? `T${latest.quarter} ${latest.year}` : "Non disponible"}
                   </p>
@@ -239,81 +249,21 @@ export default async function IndicesPage() {
         </div>
       )}
 
-      {/* Tableau des baux avec prochaine révision */}
-      {leasesWithRevision.length > 0 ? (
+      {/* Tableau interactif des révisions */}
+      {leasesData.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-primary" />
-              Prochaines révisions par bail
-            </CardTitle>
+            <CardTitle className="text-base">Révisions de loyer par bail</CardTitle>
             <CardDescription>
-              Classées par date de prochaine révision (les plus urgentes en premier)
+              Générer, valider ou rejeter les révisions · Le loyer est mis à jour uniquement après validation
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-xs text-muted-foreground">
-                    <th className="pb-2 text-left font-medium">Locataire</th>
-                    <th className="pb-2 text-left font-medium">Lot</th>
-                    <th className="pb-2 text-center font-medium">Indice</th>
-                    <th className="pb-2 text-right font-medium">Loyer actuel HT</th>
-                    <th className="pb-2 text-center font-medium">Base indice</th>
-                    <th className="pb-2 text-center font-medium">Dernière révision</th>
-                    <th className="pb-2 text-center font-medium">Prochaine révision</th>
-                    <th className="pb-2 text-center font-medium">Statut</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {leasesWithRevision.map((lease) => {
-                    const StatusIcon = lease.status.icon;
-                    return (
-                      <tr key={lease.id} className={lease.status.variant === "destructive" ? "bg-[var(--color-status-negative)]/5" : lease.status.variant === "warning" ? "bg-[var(--color-status-caution-bg)]/50" : ""}>
-                        <td className="py-2.5 font-medium">{lease.tenantName}</td>
-                        <td className="py-2.5 text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate max-w-[200px]">{lease.lotLabel}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 text-center">
-                          <Badge variant="outline" className="text-[10px]">{lease.indexType}</Badge>
-                        </td>
-                        <td className="py-2.5 text-right tabular-nums font-medium">
-                          {formatCurrency(lease.currentRentHT)}
-                        </td>
-                        <td className="py-2.5 text-center tabular-nums text-muted-foreground">
-                          {lease.baseIndexValue?.toFixed(2) ?? "—"}
-                          {lease.baseIndexQuarter && (
-                            <span className="text-[10px] ml-1">({lease.baseIndexQuarter})</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-center text-muted-foreground">
-                          {lease.lastRevision
-                            ? formatDate(lease.lastRevision.effectiveDate)
-                            : <span className="text-xs italic">Aucune</span>
-                          }
-                        </td>
-                        <td className="py-2.5 text-center font-medium">
-                          {formatDate(lease.nextRevisionDate)}
-                        </td>
-                        <td className="py-2.5 text-center">
-                          <Badge
-                            variant={lease.status.variant === "warning" ? "secondary" : lease.status.variant}
-                            className={`text-[10px] gap-1 ${lease.status.variant === "warning" ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] border-[var(--color-status-caution)]/30" : ""}`}
-                          >
-                            <StatusIcon className="h-3 w-3" />
-                            {lease.status.label}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <RevisionActions
+              societyId={societyId}
+              leases={leasesData}
+              latestIndices={latestIndicesData}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -322,14 +272,13 @@ export default async function IndicesPage() {
             <TrendingUp className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm font-medium">Aucun bail avec indexation</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Les baux avec un indice de révision (IRL, ILC, ILAT, ICC) apparaîtront ici
-              avec leurs dates de prochaine révision.
+              Les baux avec un indice de révision (IRL, ILC, ILAT, ICC) apparaîtront ici.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Historique des indices utilisés */}
+      {/* Historiques des indices */}
       {usedIndexTypes.map((type) => {
         const data = indexByType[type];
         if (!data?.history.length) return null;
@@ -338,9 +287,7 @@ export default async function IndicesPage() {
         return (
           <Card key={`hist-${type}`}>
             <CardHeader>
-              <CardTitle className="text-base">
-                Historique {type} — {info?.name ?? type}
-              </CardTitle>
+              <CardTitle className="text-base">Historique {type} — {info?.name ?? type}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -349,8 +296,8 @@ export default async function IndicesPage() {
                     <tr className="border-b text-xs text-muted-foreground">
                       <th className="pb-2 text-left font-medium">Période</th>
                       <th className="pb-2 text-right font-medium">Valeur</th>
-                      <th className="pb-2 text-right font-medium">Évolution trimestrielle</th>
-                      <th className="pb-2 text-right font-medium">Évolution annuelle</th>
+                      <th className="pb-2 text-right font-medium">Évol. trimestrielle</th>
+                      <th className="pb-2 text-right font-medium">Évol. annuelle</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
