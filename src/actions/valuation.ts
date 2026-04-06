@@ -150,7 +150,7 @@ export async function runAiAnalysis(
           data: {
             valuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.5-flash",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.0-flash-001",
             inputPayload: buildingData as object,
             rawResponse,
             structuredResult: result as object,

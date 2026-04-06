@@ -52,7 +52,7 @@ export async function callGemini(
 
   const genAI = new GoogleGenerativeAI(env.GOOGLE_AI_API_KEY!);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash-001",
     systemInstruction: GEMINI_VALUATION_SYSTEM_PROMPT,
   });
 
@@ -111,7 +111,7 @@ export async function callGeminiRentValuation(
 
   const genAI = new GoogleGenerativeAI(env.GOOGLE_AI_API_KEY!);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash-001",
     systemInstruction: RENT_VALUATION_SYSTEM_PROMPT,
   });
 
