@@ -169,16 +169,19 @@ export function OwnerProfileForm({ profile }: Props) {
           <div className="mt-6 pt-6 border-t">
             <div className="flex items-center gap-2 mb-4">
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Copie des emails locataires</h3>
+              <h3 className="text-sm font-semibold">Copie cachée des emails locataires (BCC)</h3>
             </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Recevez en copie cachée (BCC) tous les emails envoyés a vos locataires. Le destinataire ne verra pas votre adresse.
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm text-muted-foreground">Recevoir une copie</p>
+                <p className="text-sm text-muted-foreground">Copie cachée (BCC)</p>
                 <p className="text-sm font-medium">{profile.emailCopyEnabled ? "Activé" : "Désactivé"}</p>
               </div>
               {profile.emailCopyEnabled && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Adresse de copie</p>
+                  <p className="text-sm text-muted-foreground">Adresse de copie cachée</p>
                   <p className="text-sm font-medium">{profile.emailCopyAddress || profile.email}</p>
                 </div>
               )}
@@ -307,10 +310,10 @@ export function OwnerProfileForm({ profile }: Props) {
           <div className="pt-6 border-t">
             <div className="flex items-center gap-2 mb-4">
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Copie des emails locataires</h3>
+              <h3 className="text-sm font-semibold">Copie cachée des emails locataires (BCC)</h3>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Recevez automatiquement en copie (BCC) tous les emails envoyés a vos locataires : factures, quittances, relances, etc.
+              Recevez automatiquement en copie cachée (BCC) tous les emails envoyés a vos locataires : factures, quittances, relances, etc. Le destinataire ne verra pas votre adresse.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex items-center space-x-3">
@@ -320,12 +323,12 @@ export function OwnerProfileForm({ profile }: Props) {
                   onCheckedChange={setEmailCopyEnabled}
                 />
                 <Label htmlFor="emailCopyEnabled" className="cursor-pointer">
-                  Recevoir une copie des emails
+                  Recevoir une copie cachée des emails
                 </Label>
               </div>
               {emailCopyEnabled && (
                 <div className="space-y-2">
-                  <Label htmlFor="emailCopyAddress">Adresse de copie (optionnel)</Label>
+                  <Label htmlFor="emailCopyAddress">Adresse de copie cachée (optionnel)</Label>
                   <Input
                     id="emailCopyAddress"
                     type="email"
