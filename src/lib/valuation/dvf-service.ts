@@ -1,13 +1,18 @@
+import { gunzipSync } from "zlib";
+import Papa from "papaparse";
 import type { DvfTransaction, DvfSearchParams } from "./types";
 
 /**
- * Recherche DVF multi-sources.
- * Essaie plusieurs APIs publiques DVF dans l'ordre :
- * 1. API DVF data.gouv.fr (Etalab)
- * 2. API DVF CEREMA
- * 3. API cquest (fallback, par lat/lon)
+ * Recherche DVF via les fichiers CSV officiels data.gouv.fr (geo-dvf).
+ * Source fiable et toujours disponible : https://files.data.gouv.fr/geo-dvf/
+ *
+ * Workflow :
+ * 1. Résout le code INSEE et les coordonnées via geo.api.gouv.fr
+ * 2. Télécharge le CSV gzippé du département depuis data.gouv.fr
+ * 3. Parse et filtre par code commune
  */
 const GEO_API_URL = "https://geo.api.gouv.fr";
+const DVF_CSV_BASE = "https://files.data.gouv.fr/geo-dvf/latest/csv";
 
 export async function searchDvfTransactions(
   params: DvfSearchParams
@@ -15,7 +20,7 @@ export async function searchDvfTransactions(
   const { postalCode, city, latitude, longitude, periodYears, propertyTypes } = params;
 
   try {
-    // 1. Résoudre le code INSEE et les coordonnées de la commune
+    // 1. Résoudre la commune
     const commune = await getCommuneInfo(postalCode, city);
     if (!commune) {
       console.error("[DVF] Commune introuvable pour", postalCode, city);
@@ -24,43 +29,29 @@ export async function searchDvfTransactions(
 
     const centerLat = latitude ?? commune.lat;
     const centerLng = longitude ?? commune.lon;
+    const dept = commune.code.substring(0, 2);
 
-    const dateMin = new Date();
-    dateMin.setFullYear(dateMin.getFullYear() - periodYears);
-    const dateMinStr = dateMin.toISOString().split("T")[0];
+    // 2. Télécharger les CSV DVF pour chaque année
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - periodYears;
+    const allTransactions: DvfTransaction[] = [];
 
-    // 2. Essayer les APIs DVF dans l'ordre
-    let transactions: DvfTransaction[] = [];
-
-    // Tentative 1: API Etalab DVF
-    try {
-      transactions = await fetchFromEtalab(commune.code, dateMinStr, centerLat, centerLng);
-    } catch (e) {
-      console.error("[DVF] Etalab failed:", e);
-    }
-
-    // Tentative 2: API CEREMA si Etalab n'a rien retourné
-    if (transactions.length === 0 && centerLat && centerLng) {
+    // Les données DVF sont disponibles avec ~6 mois de retard
+    // On cherche les 3 dernières années de données disponibles
+    for (let year = Math.max(startYear, 2020); year <= currentYear; year++) {
       try {
-        transactions = await fetchFromCerema(centerLat, centerLng, 5, dateMinStr);
-      } catch (e) {
-        console.error("[DVF] CEREMA failed:", e);
-      }
-    }
-
-    // Tentative 3: API cquest si toujours rien
-    if (transactions.length === 0 && centerLat && centerLng) {
-      try {
-        transactions = await fetchFromCquest(centerLat, centerLng, 5000, dateMinStr);
-      } catch (e) {
-        console.error("[DVF] cquest failed:", e);
+        const yearTransactions = await fetchDvfCsv(dept, year, commune.code, centerLat, centerLng);
+        allTransactions.push(...yearTransactions);
+      } catch (error) {
+        // L'année peut ne pas être encore disponible
+        console.error(`[DVF] Année ${year} non disponible:`, error instanceof Error ? error.message : error);
       }
     }
 
     // 3. Filtrer et trier
-    return transactions
+    return allTransactions
       .filter((t) => filterByPropertyType(t, propertyTypes))
-      .filter((t) => t.salePrice > 0)
+      .filter((t) => t.salePrice > 0 && t.salePrice < 100_000_000) // Exclure les aberrations
       .sort((a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime())
       .slice(0, 100);
   } catch (error) {
@@ -70,7 +61,7 @@ export async function searchDvfTransactions(
 }
 
 // ============================================================
-// Résolution commune
+// Résolution commune via geo.api.gouv.fr
 // ============================================================
 
 async function getCommuneInfo(
@@ -80,7 +71,6 @@ async function getCommuneInfo(
   try {
     const url = `${GEO_API_URL}/communes?codePostal=${postalCode}&fields=nom,code,centre&limit=10`;
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-
     if (!response.ok) return null;
 
     const communes = await response.json() as Array<{
@@ -109,125 +99,79 @@ async function getCommuneInfo(
 }
 
 // ============================================================
-// API 1: Etalab DVF (data.gouv.fr)
+// Téléchargement et parsing CSV data.gouv.fr
 // ============================================================
 
-async function fetchFromEtalab(
-  codeInsee: string,
-  dateMin: string,
+async function fetchDvfCsv(
+  dept: string,
+  year: number,
+  codeCommune: string,
   centerLat: number | null,
   centerLng: number | null
 ): Promise<DvfTransaction[]> {
-  // L'API Etalab retourne les mutations par code commune
-  const url = `https://app.dvf.etalab.gouv.fr/api/mutations?code_commune=${codeInsee}`;
+  const url = `${DVF_CSV_BASE}/${year}/departements/${dept}.csv.gz`;
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`Etalab API: ${response.status}`);
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok) {
+    throw new Error(`data.gouv.fr ${response.status} pour ${url}`);
+  }
 
-  const data = await response.json();
-  const mutations = Array.isArray(data) ? data : (data.mutations ?? data.resultats ?? []);
+  const gzBuffer = Buffer.from(await response.arrayBuffer());
+  const csvBuffer = gunzipSync(gzBuffer);
+  const csvText = csvBuffer.toString("utf-8");
 
-  return mutations
-    .filter((m: Record<string, unknown>) => {
-      const date = String(m.date_mutation ?? "");
-      return date >= dateMin && (m.nature_mutation === "Vente" || !m.nature_mutation);
-    })
-    .map((m: Record<string, unknown>) => mapGenericMutation(m, centerLat, centerLng));
-}
-
-// ============================================================
-// API 2: CEREMA (bbox)
-// ============================================================
-
-async function fetchFromCerema(
-  lat: number,
-  lng: number,
-  radiusKm: number,
-  dateMin: string
-): Promise<DvfTransaction[]> {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-
-  const url = new URL("https://apidf-preprod.cerema.fr/dvf/geomutations/");
-  url.searchParams.set("in_bbox", `${lng - lngDelta},${lat - latDelta},${lng + lngDelta},${lat + latDelta}`);
-  url.searchParams.set("date_mutation_min", dateMin);
-  url.searchParams.set("nature_mutation", "Vente");
-  url.searchParams.set("page_size", "100");
-
-  const response = await fetch(url.toString(), { signal: AbortSignal.timeout(20000) });
-  if (!response.ok) throw new Error(`CEREMA API: ${response.status}`);
-
-  const data = await response.json() as { features?: Array<{ properties: Record<string, unknown>; geometry?: { coordinates: [number, number] } }> };
-  const features = data.features ?? [];
-
-  return features.map((f) => {
-    const p = f.properties;
-    const coords = f.geometry?.coordinates;
-    return mapGenericMutation(
-      {
-        ...p,
-        latitude: coords ? coords[1] : null,
-        longitude: coords ? coords[0] : null,
-      },
-      lat,
-      lng
-    );
+  // Parser le CSV
+  const parsed = Papa.parse<DvfCsvRow>(csvText, {
+    header: true,
+    skipEmptyLines: true,
   });
+
+  // Filtrer par code commune et type de mutation "Vente"
+  return parsed.data
+    .filter((row) => row.code_commune === codeCommune && row.nature_mutation === "Vente")
+    .map((row) => mapCsvRow(row, centerLat, centerLng));
 }
 
 // ============================================================
-// API 3: cquest (fallback, par lat/lon/dist)
+// Mapping CSV → DvfTransaction
 // ============================================================
 
-async function fetchFromCquest(
-  lat: number,
-  lng: number,
-  distMeters: number,
-  dateMin: string
-): Promise<DvfTransaction[]> {
-  const url = `https://api.cquest.org/dvf?lat=${lat}&lon=${lng}&dist=${distMeters}`;
-
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`cquest API: ${response.status}`);
-
-  const data = await response.json() as { resultats?: Array<Record<string, unknown>> };
-  const results = data.resultats ?? [];
-
-  return results
-    .filter((r) => String(r.date_mutation ?? "") >= dateMin)
-    .map((r) => mapGenericMutation(r, lat, lng));
+interface DvfCsvRow {
+  id_mutation?: string;
+  date_mutation?: string;
+  nature_mutation?: string;
+  valeur_fonciere?: string;
+  adresse_numero?: string;
+  adresse_suffixe?: string;
+  adresse_nom_voie?: string;
+  code_postal?: string;
+  nom_commune?: string;
+  code_commune?: string;
+  type_local?: string;
+  surface_reelle_bati?: string;
+  nombre_pieces_principales?: string;
+  surface_terrain?: string;
+  longitude?: string;
+  latitude?: string;
 }
 
-// ============================================================
-// Mapping générique
-// ============================================================
-
-function mapGenericMutation(
-  m: Record<string, unknown>,
-  centerLat: number | null,
-  centerLng: number | null
-): DvfTransaction {
-  const builtArea = toNumber(m.surface_reelle_bati);
-  const salePrice = toNumber(m.valeur_fonciere) ?? 0;
-  const lat = toNumber(m.latitude);
-  const lng = toNumber(m.longitude);
-
-  const address = [m.adresse_numero ?? m.numero_voie, m.adresse_suffixe, m.adresse_nom_voie ?? m.type_voie ? `${m.type_voie ?? ""} ${m.nom_voie ?? ""}` : m.nom_voie]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+function mapCsvRow(row: DvfCsvRow, centerLat: number | null, centerLng: number | null): DvfTransaction {
+  const salePrice = parseFloat(row.valeur_fonciere?.replace(",", ".") ?? "0") || 0;
+  const builtArea = parseFloat(row.surface_reelle_bati ?? "") || null;
+  const lat = parseFloat(row.latitude ?? "") || null;
+  const lng = parseFloat(row.longitude ?? "") || null;
 
   return {
-    id: String(m.id_mutation ?? `dvf-${Date.now()}-${Math.random()}`),
-    address: address || "Adresse non renseignée",
-    city: String(m.nom_commune ?? ""),
-    postalCode: String(m.code_postal ?? ""),
-    saleDate: String(m.date_mutation ?? ""),
+    id: row.id_mutation ?? `dvf-${Date.now()}-${Math.random()}`,
+    address: [row.adresse_numero, row.adresse_suffixe, row.adresse_nom_voie].filter(Boolean).join(" ").trim() || "Adresse non renseignée",
+    city: row.nom_commune ?? "",
+    postalCode: row.code_postal ?? "",
+    saleDate: row.date_mutation ?? "",
     salePrice,
     builtArea,
-    landArea: toNumber(m.surface_terrain),
+    landArea: parseFloat(row.surface_terrain ?? "") || null,
     pricePerSqm: builtArea && builtArea > 0 ? Math.round(salePrice / builtArea) : null,
-    propertyType: mapPropertyType(String(m.type_local ?? "")),
+    propertyType: mapPropertyType(row.type_local ?? ""),
     latitude: lat,
     longitude: lng,
     distanceKm:
@@ -237,15 +181,14 @@ function mapGenericMutation(
   };
 }
 
-function toNumber(val: unknown): number | null {
-  if (val == null) return null;
-  const n = Number(val);
-  return isNaN(n) ? null : n;
-}
+// ============================================================
+// Helpers
+// ============================================================
 
 function mapPropertyType(typeLocal: string): string {
   if (typeLocal.includes("Maison") || typeLocal.includes("Appartement")) return "HABITATION";
   if (typeLocal.includes("Local") || typeLocal.includes("commercial") || typeLocal.includes("industriel")) return "COMMERCIAL";
+  if (typeLocal.includes("Dépendance")) return "DEPENDANCE";
   return "MIXTE";
 }
 
