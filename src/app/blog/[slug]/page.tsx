@@ -432,7 +432,7 @@ export default async function BlogArticlePage({
           {article.title}
         </h1>
 
-        <div className="prose prose-slate max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-li:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900">
+        <div className="article-content space-y-5 text-base leading-relaxed text-gray-700 [&_h2]:mb-4 [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-gray-900 [&_h3]:mb-3 [&_h3]:mt-8 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-gray-900 [&_li]:ml-6 [&_li]:list-disc [&_li]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-gray-900 [&_ul]:space-y-2">
           {content}
         </div>
       </article>
