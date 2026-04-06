@@ -23,7 +23,7 @@ export default auth(async (req) => {
         return NextResponse.next();
       }
     }
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/proprietaire", req.url));
   }
 
   // Routes publiques - pas de verification
@@ -68,7 +68,7 @@ export default auth(async (req) => {
       return NextResponse.redirect(new URL("/login", req.url));
     }
     if (!(req.auth as { requires2FA?: boolean }).requires2FA) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/proprietaire", req.url));
     }
     return NextResponse.next();
   }

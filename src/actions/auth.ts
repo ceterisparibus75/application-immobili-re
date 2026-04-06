@@ -52,7 +52,7 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
       entityId: session.user.id,
       details: { event: "TWO_FACTOR_LOGIN" },
     });
-    return { success: true, data: { redirectTo: "/dashboard" } };
+    return { success: true, data: { redirectTo: "/proprietaire" } };
   } catch (error) {
     console.error("[completeTwoFactorLogin]", error);
     return { success: false, error: "Erreur lors de la verification" };
