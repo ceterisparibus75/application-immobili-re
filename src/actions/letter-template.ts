@@ -35,7 +35,7 @@ export async function getTenantsWithLease(
         firstName: true,
         lastName: true,
         leases: {
-          where: { status: "ACTIVE" },
+          where: { status: "EN_COURS" },
           select: { id: true },
           take: 1,
           orderBy: { startDate: "desc" },
@@ -149,43 +149,51 @@ export async function getAutoFillData(
     if (leaseId) {
       const lease = await prisma.lease.findFirst({
         where: { id: leaseId, societyId },
-        include: {
-          tenant: { select: { firstName: true, lastName: true, email: true, address: true, city: true, postalCode: true } },
-          lot: { include: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },
+        select: {
+          startDate: true, endDate: true, currentRentHT: true,
+          tenant: { select: { firstName: true, lastName: true, email: true, personalAddress: true } },
+          lot: { select: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },
+          chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
         },
       });
 
       if (lease) {
         data.tenantName = [lease.tenant.firstName, lease.tenant.lastName].filter(Boolean).join(" ");
-        data.tenantAddress = [lease.tenant.address, [lease.tenant.postalCode, lease.tenant.city].filter(Boolean).join(" ")].filter(Boolean).join("\n");
+        data.tenantAddress = lease.tenant.personalAddress ?? "";
         data.lotAddress = [lease.lot.building.addressLine1, [lease.lot.building.postalCode, lease.lot.building.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
         data.leaseStart = formatDate(lease.startDate);
         data.leaseEnd = lease.endDate ? formatDate(lease.endDate) : "";
-        data.rentAmount = formatCurrency(lease.rentAmount);
-        data.chargesAmount = formatCurrency(lease.chargesAmount ?? 0);
+        data.rentAmount = formatCurrency(lease.currentRentHT);
+        const totalCharges = lease.chargeProvisions.reduce((sum, cp) => sum + cp.monthlyAmount, 0);
+        data.chargesAmount = formatCurrency(totalCharges);
       }
     } else if (tenantId) {
       const tenant = await prisma.tenant.findFirst({
         where: { id: tenantId, societyId },
-        select: { firstName: true, lastName: true, address: true, city: true, postalCode: true },
+        select: { firstName: true, lastName: true, personalAddress: true },
       });
       if (tenant) {
         data.tenantName = [tenant.firstName, tenant.lastName].filter(Boolean).join(" ");
-        data.tenantAddress = [tenant.address, [tenant.postalCode, tenant.city].filter(Boolean).join(" ")].filter(Boolean).join("\n");
+        data.tenantAddress = tenant.personalAddress ?? "";
       }
 
       // Chercher le bail actif du locataire
       const activeLease = await prisma.lease.findFirst({
-        where: { tenantId, societyId, status: "ACTIVE" },
-        include: { lot: { include: { building: { select: { addressLine1: true, city: true, postalCode: true } } } } },
+        where: { tenantId, societyId, status: "EN_COURS" },
+        select: {
+          startDate: true, endDate: true, currentRentHT: true,
+          lot: { select: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },
+          chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
+        },
         orderBy: { startDate: "desc" },
       });
       if (activeLease) {
         data.lotAddress = [activeLease.lot.building.addressLine1, [activeLease.lot.building.postalCode, activeLease.lot.building.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
         data.leaseStart = formatDate(activeLease.startDate);
         data.leaseEnd = activeLease.endDate ? formatDate(activeLease.endDate) : "";
-        data.rentAmount = formatCurrency(activeLease.rentAmount);
-        data.chargesAmount = formatCurrency(activeLease.chargesAmount ?? 0);
+        data.rentAmount = formatCurrency(activeLease.currentRentHT);
+        const totalCharges = activeLease.chargeProvisions.reduce((sum, cp) => sum + cp.monthlyAmount, 0);
+        data.chargesAmount = formatCurrency(totalCharges);
       }
     }
 
