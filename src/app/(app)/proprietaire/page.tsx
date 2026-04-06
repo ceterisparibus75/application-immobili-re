@@ -151,18 +151,18 @@ export default async function ProprietaireDashboardPage({
                 </div>
               </CardHeader>
               <CardContent className="px-6 pb-5 space-y-4">
-                {/* Totaux compacts */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">Capital restant dû</p>
+                {/* Totaux compacts — hauteur uniforme */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Capital restant dû</p>
                     <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</p>
                   </div>
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">Mensualité totale</p>
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Mensualité totale</p>
                     <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyLoanPayment)}</p>
                   </div>
-                  <div className="rounded-lg bg-[#F9FAFB] p-3">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide mb-1">LTV consolidé</p>
+                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
+                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">LTV consolidé</p>
                     <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-500" : "text-emerald-500"}`}>
                       {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
                     </p>
