@@ -138,6 +138,7 @@ export default auth(async (req) => {
     "img-src 'self' blob: data: https:",
     "font-src 'self'",
     "object-src 'none'",
+    "frame-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
