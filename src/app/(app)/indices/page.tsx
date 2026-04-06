@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
+import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 
 export const metadata = { title: "Indices" };
 
@@ -58,6 +59,7 @@ export default async function IndicesPage() {
 
   return (
     <div className="space-y-6">
+      <GestionLocativeNav />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Indices de révision</h1>
         <p className="text-muted-foreground">

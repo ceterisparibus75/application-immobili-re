@@ -17,6 +17,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
+import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { BUILTIN_TEMPLATES, LETTER_CATEGORIES } from "@/lib/letter-templates";
 import type { LetterCategory } from "@/lib/letter-templates";
 
@@ -49,6 +50,7 @@ export default function CourriersPage() {
 
   return (
     <div className="space-y-6">
+      <GestionLocativeNav />
       {/* En-tête */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Courriers types</h1>
