@@ -179,7 +179,11 @@ const s = StyleSheet.create({
 
 function eur(n: number | null | undefined): string {
   if (n == null) return "N/A";
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  // Remplacer les espaces insécables par des espaces normaux (react-pdf les affiche comme "/")
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })
+    .format(n)
+    .replace(/\u00A0/g, " ")
+    .replace(/\u202F/g, " ");
 }
 
 function pct(n: number | null | undefined): string {

@@ -126,6 +126,11 @@ export function AiAnalysisPanel({
                 </tbody>
               </table>
             </div>
+            <div className="mt-3 pt-3 border-t text-[10px] text-[#94A3B8] space-y-0.5">
+              <p><span className="font-semibold text-[var(--color-status-positive)]">75-100%</span> Élevé — données suffisantes, comparables nombreux, estimation fiable</p>
+              <p><span className="font-semibold text-[var(--color-status-caution)]">50-74%</span> Modéré — données partielles, à confirmer par un expert</p>
+              <p><span className="font-semibold text-[var(--color-status-negative)]">0-49%</span> Faible — peu de données, estimation indicative uniquement</p>
+            </div>
           </CardContent>
         </Card>
       )}

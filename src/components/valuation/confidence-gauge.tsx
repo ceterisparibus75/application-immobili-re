@@ -46,7 +46,13 @@ export function ConfidenceGauge({ value }: { value: number }) {
       </div>
       <div>
         <p className="text-xs font-semibold text-[var(--color-brand-deep)]">Confiance IA</p>
-        <p className={`text-[10px] font-medium ${color}`}>{label} — fiabilité de l&apos;estimation</p>
+        <p className={`text-[10px] font-medium ${color}`}>
+          {percentage >= 75
+            ? "Élevé — données suffisantes, comparables nombreux"
+            : percentage >= 50
+              ? "Modéré — données partielles, à confirmer par un expert"
+              : "Faible — peu de données, estimation indicative uniquement"}
+        </p>
       </div>
     </div>
   );
