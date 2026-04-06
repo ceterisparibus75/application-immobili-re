@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -66,6 +67,7 @@ export default function RootLayout({
             </Sentry.ErrorBoundary>
             <Toaster richColors closeButton />
             <Analytics />
+            <SpeedInsights />
           </ThemeProvider>
         </SessionProvider>
       </body>
