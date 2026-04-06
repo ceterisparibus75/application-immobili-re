@@ -39,14 +39,19 @@ export interface ReportResult {
 }
 
 export async function generateReport(options: ReportOptions): Promise<ReportResult> {
-  switch (options.type) {
-    case "SITUATION_LOCATIVE":      return generateSituationLocative(options);
-    case "COMPTE_RENDU_GESTION":    return generateCompteRenduGestion(options);
-    case "RENTABILITE_LOT":         return generateRentabiliteLot(options);
-    case "ETAT_IMPAYES":            return generateEtatImpayes(options);
-    case "RECAP_CHARGES_LOCATAIRE": return generateRecapChargesLocataire(options);
-    case "SUIVI_TRAVAUX":           return generateSuiviTravaux(options);
-    default: throw new Error("Type de rapport inconnu");
+  try {
+    switch (options.type) {
+      case "SITUATION_LOCATIVE":      return await generateSituationLocative(options);
+      case "COMPTE_RENDU_GESTION":    return await generateCompteRenduGestion(options);
+      case "RENTABILITE_LOT":         return await generateRentabiliteLot(options);
+      case "ETAT_IMPAYES":            return await generateEtatImpayes(options);
+      case "RECAP_CHARGES_LOCATAIRE": return await generateRecapChargesLocataire(options);
+      case "SUIVI_TRAVAUX":           return await generateSuiviTravaux(options);
+      default: throw new Error("Type de rapport inconnu");
+    }
+  } catch (error) {
+    console.error(`[generateReport] Erreur lors de la génération du rapport ${options.type}:`, error);
+    throw new Error(`Erreur lors de la génération du rapport. Veuillez réessayer.`);
   }
 }
 
@@ -183,10 +188,12 @@ async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportRe
     prisma.building.findMany({ where: { societyId }, include: { lots: { select: { id: true } } } }),
   ]);
 
+  if (!society) throw new Error("Société introuvable");
+
   const paid  = invoices.filter(i => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
   const pend  = invoices.filter(i => i.status !== "PAYE").reduce((s, i) => s + i.totalTTC, 0);
   const tchg  = charges.reduce((s, c) => s + c.amount, 0);
-  const { bold, reg, np, save } = await initPdf(`Compte-rendu de gestion ${year}`, society?.name ?? "");
+  const { bold, reg, np, save } = await initPdf(`Compte-rendu de gestion ${year}`, society.name);
   let p: any = np(); let y = PH - 80;
 
   if (invoices.length === 0 && charges.length === 0) {
@@ -294,9 +301,11 @@ async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult
   const tRow = ws.addRow(["TOTAL","","","","",totRev,null,""]);
   tRow.eachCell((c,ci) => { c.fill=tFill; c.font={bold:true}; if(ci===6) c.numFmt=EUR; });
 
-  ws.addConditionalFormatting({ ref:"D3:D"+(lots.length+2), rules:[
-    { type:"containsText", operator:"containsText", text:"Vacant", priority:1, style:{fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFFCE8E8"}}} },
-  ]});
+  if (lots.length > 0) {
+    ws.addConditionalFormatting({ ref:`D3:D${lots.length+2}`, rules:[
+      { type:"containsText", operator:"containsText", text:"Vacant", priority:1, style:{fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFFCE8E8"}}} },
+    ]});
+  }
 
   const buf = Buffer.from(await wb.xlsx.writeBuffer() as ArrayBuffer);
   return { buffer:buf, filename:`rentabilite-lots-${year}.xlsx`, contentType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };

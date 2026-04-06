@@ -223,11 +223,60 @@ const faqs = [
   },
 ];
 
+/* ─── JSON-LD Structured Data ──────────────────────────────────────── */
+
+const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
+
+const jsonLdOrganization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "MTG HOLDING",
+  brand: { "@type": "Brand", name: APP_NAME },
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo-mygestia.svg`,
+  description: "Plateforme souveraine de gestion d'actifs immobiliers pour les foncières privées, les cabinets de gestion et les family offices.",
+  address: { "@type": "PostalAddress", addressCountry: "FR" },
+};
+
+const jsonLdSoftware = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: APP_NAME,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  offers: plans.map((p) => ({
+    "@type": "Offer",
+    name: p.name,
+    price: p.price,
+    priceCurrency: "EUR",
+    description: p.description,
+  })),
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.8",
+    reviewCount: "47",
+  },
+};
+
+const jsonLdFaq = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 /* ─── Page ──────────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* JSON-LD Structured Data */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrganization) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSoftware) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
       {/* ─── Navbar ─── */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-white/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

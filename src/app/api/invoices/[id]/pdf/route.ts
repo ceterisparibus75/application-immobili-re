@@ -193,14 +193,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     };
 
     // 8b. Correction de la date d'émission si elle est dans le futur (bug historique)
-    // Avant correction : issueDate = periodStart. Désormais : issueDate = date de création.
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (invoice.issueDate > today && ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(invoice.status)) {
       const newIssueDate = new Date();
+      newIssueDate.setHours(0, 0, 0, 0);
       await prisma.invoice.update({ where: { id }, data: { issueDate: newIssueDate } });
       pdfData.issueDate = newIssueDate.toISOString();
-      console.log("[pdf] issueDate corrigé de", invoice.issueDate.toISOString(), "à", newIssueDate.toISOString());
+      console.warn("[pdf] issueDate corrigé de", invoice.issueDate.toISOString(), "à", newIssueDate.toISOString());
+      await createAuditLog({
+        societyId,
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "Invoice",
+        entityId: id,
+        details: { field: "issueDate", from: invoice.issueDate.toISOString(), to: newIssueDate.toISOString(), reason: "date future corrigée automatiquement" },
+      });
     }
 
     // 9. Génération du PDF

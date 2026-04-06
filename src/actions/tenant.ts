@@ -671,3 +671,36 @@ export async function syncTenantsToContacts(
     return { success: false, error: "Erreur lors de la synchronisation" };
   }
 }
+
+/**
+ * Retourne la liste des locataires pour un sélecteur (id + nom).
+ * Utilise le cookie active-society-id pour déterminer la société.
+ */
+export async function getTenantsForSelect(): Promise<{ id: string; name: string }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const societyId = cookieStore.get("active-society-id")?.value;
+  if (!societyId) return [];
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId);
+  } catch {
+    return [];
+  }
+
+  const tenants = await prisma.tenant.findMany({
+    where: { societyId, isActive: true },
+    select: { id: true, entityType: true, companyName: true, firstName: true, lastName: true },
+    orderBy: [{ companyName: "asc" }, { lastName: "asc" }],
+  });
+
+  return tenants.map((t) => ({
+    id: t.id,
+    name: t.entityType === "PERSONNE_MORALE"
+      ? (t.companyName ?? "—")
+      : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—",
+  }));
+}
