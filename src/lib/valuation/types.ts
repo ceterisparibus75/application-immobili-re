@@ -305,8 +305,10 @@ export interface DvfTransaction {
 
 /** Paramètres de recherche DVF */
 export interface DvfSearchParams {
-  latitude: number;
-  longitude: number;
+  postalCode: string;
+  city: string;
+  latitude?: number | null;
+  longitude?: number | null;
   radiusKm: number;
   periodYears: number;
   propertyTypes?: string[];

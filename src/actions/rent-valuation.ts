@@ -230,7 +230,7 @@ export async function searchComparableRents(
           include: {
             lot: {
               include: {
-                building: { select: { latitude: true, longitude: true } },
+                building: { select: { latitude: true, longitude: true, city: true, postalCode: true } },
               },
             },
           },
@@ -239,12 +239,7 @@ export async function searchComparableRents(
     });
     if (!valuation) return { success: false, error: "Évaluation introuvable" };
 
-    const lat = valuation.lease.lot.building.latitude;
-    const lng = valuation.lease.lot.building.longitude;
-
-    if (!lat || !lng) {
-      return { success: false, error: "Coordonnées GPS de l'immeuble manquantes." };
-    }
+    const b = valuation.lease.lot.building;
 
     // Supprimer les anciens comparables DVF
     await prisma.comparableRent.deleteMany({
@@ -253,8 +248,10 @@ export async function searchComparableRents(
 
     // Utiliser les transactions DVF comme proxy pour les loyers comparables
     const transactions = await searchDvfTransactions({
-      latitude: lat,
-      longitude: lng,
+      postalCode: b.postalCode,
+      city: b.city,
+      latitude: b.latitude,
+      longitude: b.longitude,
       radiusKm: parsed.data.radiusKm,
       periodYears: parsed.data.periodYears,
       propertyTypes: parsed.data.propertyTypes,

@@ -133,6 +133,9 @@ export default async function ValuationDetailPage({
             comparables={valuation.comparableSales}
             valuationId={valuationId}
             societyId={societyId}
+            buildingLat={(valuation.building as { latitude?: number | null }).latitude}
+            buildingLng={(valuation.building as { longitude?: number | null }).longitude}
+            buildingName={valuation.building.name}
           />
         </TabsContent>
       </Tabs>

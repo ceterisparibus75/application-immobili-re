@@ -122,10 +122,53 @@ export async function runAiAnalysis(
       data: { status: "IN_PROGRESS" },
     });
 
-    // Collecter les données
+    // Récupérer les infos du building pour la recherche DVF
+    const building = await prisma.building.findFirst({
+      where: { id: valuation.buildingId, societyId },
+      select: { postalCode: true, city: true, latitude: true, longitude: true },
+    });
+
+    // 1. Rechercher automatiquement les comparables DVF si aucun n'existe
+    const existingComparables = await prisma.comparableSale.count({ where: { valuationId } });
+    if (existingComparables === 0 && building) {
+      try {
+        const transactions = await searchDvfTransactions({
+          postalCode: building.postalCode,
+          city: building.city,
+          latitude: building.latitude,
+          longitude: building.longitude,
+          radiusKm: 5,
+          periodYears: 3,
+        });
+        const toInsert = transactions.slice(0, 50);
+        if (toInsert.length > 0) {
+          await prisma.comparableSale.createMany({
+            data: toInsert.map((t) => ({
+              valuationId,
+              source: "DVF",
+              sourceReference: t.id,
+              address: t.address,
+              city: t.city,
+              postalCode: t.postalCode,
+              saleDate: new Date(t.saleDate),
+              salePrice: t.salePrice,
+              builtArea: t.builtArea,
+              landArea: t.landArea,
+              pricePerSqm: t.pricePerSqm,
+              propertyType: t.propertyType,
+              distanceKm: t.distanceKm,
+            })),
+          });
+        }
+      } catch (error) {
+        console.error("[runAiAnalysis] DVF search failed (non-blocking):", error);
+      }
+    }
+
+    // 2. Collecter les données du building (inclut automatiquement les comparables et rapports experts existants)
     const buildingData = await collectBuildingData(societyId, valuation.buildingId);
 
-    // Lancer les analyses en parallèle
+    // 3. Lancer les analyses IA en parallèle
     const providers = parsed.data.providers;
     const promises: Promise<{ provider: "CLAUDE" | "MISTRAL"; result: AiValuationResult; rawResponse: string; durationMs: number; tokenCount: number }>[] = [];
 
@@ -352,21 +395,16 @@ export async function searchComparables(
     });
     if (!valuation) return { success: false, error: "Évaluation introuvable" };
 
-    const lat = valuation.building.latitude;
-    const lng = valuation.building.longitude;
-
-    if (!lat || !lng) {
-      return { success: false, error: "Coordonnées GPS de l'immeuble manquantes. Mettez à jour la fiche immeuble." };
-    }
-
     // Supprimer les anciens comparables DVF pour cette évaluation
     await prisma.comparableSale.deleteMany({
       where: { valuationId, source: "DVF" },
     });
 
     const transactions = await searchDvfTransactions({
-      latitude: lat,
-      longitude: lng,
+      postalCode: valuation.building.postalCode,
+      city: valuation.building.city,
+      latitude: valuation.building.latitude,
+      longitude: valuation.building.longitude,
       radiusKm: parsed.data.radiusKm,
       periodYears: parsed.data.periodYears,
       propertyTypes: parsed.data.propertyTypes,
@@ -473,7 +511,7 @@ export async function getValuation(societyId: string, valuationId: string) {
   return prisma.propertyValuation.findFirst({
     where: { id: valuationId, societyId },
     include: {
-      building: { select: { id: true, name: true, addressLine1: true, city: true, postalCode: true, buildingType: true, totalArea: true } },
+      building: { select: { id: true, name: true, addressLine1: true, city: true, postalCode: true, buildingType: true, totalArea: true, latitude: true, longitude: true } },
       aiAnalyses: { orderBy: { executedAt: "desc" } },
       expertReports: { orderBy: { reportDate: "desc" } },
       comparableSales: { orderBy: { saleDate: "desc" } },
