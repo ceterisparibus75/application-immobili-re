@@ -141,7 +141,7 @@ export default auth(async (req) => {
     "frame-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "upgrade-insecure-requests",
   ].join("; ");
 
