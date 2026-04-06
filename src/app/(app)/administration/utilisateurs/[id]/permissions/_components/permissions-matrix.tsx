@@ -16,7 +16,7 @@ import {
   type ModulePermissions,
   type Module,
   type Permission,
-} from "@/lib/permissions";
+} from "@/lib/permissions-shared";
 import type { UserRole } from "@/generated/prisma/client";
 
 interface PermissionsMatrixProps {
