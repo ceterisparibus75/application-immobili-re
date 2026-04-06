@@ -199,8 +199,8 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
               </div>
             )}
             {mode === "file" && file && (
-              <div className={cn("flex items-center gap-3 rounded-lg bg-green-500/10 px-4 py-3")}>
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <div className={cn("flex items-center gap-3 rounded-lg bg-[var(--color-status-positive-bg)] px-4 py-3")}>
+                <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)] shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} Ko</p>
@@ -228,7 +228,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4 text-amber-500" />
+                    <FolderOpen className="h-4 w-4 text-[var(--color-status-caution)]" />
                     <span className="text-sm font-medium">{folderName}</span>
                     <span className="text-xs text-muted-foreground">({folderFiles.length} fichier{folderFiles.length > 1 ? "s" : ""})</span>
                   </div>

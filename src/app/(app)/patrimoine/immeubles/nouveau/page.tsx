@@ -437,17 +437,17 @@ export default function NouvelImmeubleePage() {
               </div>
 
               {analysisSuccess && (
-                <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-3 text-sm text-green-800 dark:text-green-200">
+                <div className="rounded-md bg-[var(--color-status-positive-bg)] p-3 text-sm text-[var(--color-status-positive)]">
                   Analyse terminée — les champs ont été pré-remplis. Vérifiez et complétez les informations ci-dessous.
                 </div>
               )}
 
               {/* Alertes doublons */}
               {duplicates && duplicates.buildings.length > 0 && (
-                <div className="rounded-md border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-900/20 p-4 space-y-2">
+                <div className="rounded-md border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                    <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                    <AlertTriangle className="h-4 w-4 text-[var(--color-status-caution)] shrink-0" />
+                    <p className="text-sm font-medium text-[var(--color-status-caution)]">
                       Immeubles similaires détectés
                     </p>
                   </div>
@@ -455,10 +455,10 @@ export default function NouvelImmeubleePage() {
                     {duplicates.buildings.map((b) => (
                       <div key={b.id} className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-orange-800 dark:text-orange-300">
+                          <p className="text-sm text-[var(--color-status-caution)]">
                             <span className="font-medium">{b.name}</span> — {b.addressLine1}, {b.city}
                           </p>
-                          <p className="text-xs text-orange-600 dark:text-orange-400">{b.matchReason}</p>
+                          <p className="text-xs text-[var(--color-status-caution)]">{b.matchReason}</p>
                         </div>
                         <Link href={`/patrimoine/immeubles/${b.id}`}>
                           <Badge variant="outline" className="cursor-pointer hover:bg-accent text-xs">
@@ -468,7 +468,7 @@ export default function NouvelImmeubleePage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 ml-6">
+                  <p className="text-xs text-[var(--color-status-caution)] ml-6">
                     Si cet immeuble existe déjà, utilisez le lien ci-dessus au lieu de le recréer.
                   </p>
                 </div>

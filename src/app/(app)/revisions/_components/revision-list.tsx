@@ -95,7 +95,7 @@ export function RevisionList({
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500 mb-3" />
+          <CheckCircle2 className="h-10 w-10 mx-auto text-[var(--color-status-positive)] mb-3" />
           <p className="text-sm text-muted-foreground">
             Aucune révision de loyer en attente de validation.
           </p>
@@ -156,7 +156,7 @@ export function RevisionList({
                               <ArrowRight className="h-3 w-3 text-muted-foreground" />
                               <span className="font-medium">{formatCurrency(rev.newRentHT)}</span>
                             </div>
-                            <p className={`text-xs font-medium ${isIncrease ? "text-amber-600" : "text-emerald-600"}`}>
+                            <p className={`text-xs font-medium ${isIncrease ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
                               {variation}
                             </p>
                           </div>

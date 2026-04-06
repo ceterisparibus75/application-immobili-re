@@ -90,7 +90,7 @@ export function AmortizationTableClient({
                     {new Date(line.dueDate).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}
                   </td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(line.principalPayment)}</td>
-                  <td className="py-1.5 pr-2 text-right tabular-nums text-amber-600">{fmt(line.interestPayment)}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums text-[var(--color-status-caution)]">{fmt(line.interestPayment)}</td>
                   {totalInsurance > 0 && (
                     <td className="py-1.5 pr-2 text-right tabular-nums text-muted-foreground">{fmt(line.insurancePayment)}</td>
                   )}
@@ -106,7 +106,7 @@ export function AmortizationTableClient({
                       title={line.isPaid ? "Marquer comme non réglée" : "Marquer comme réglée"}
                     >
                       {line.isPaid ? (
-                        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <CheckCircle className="h-4 w-4 text-[var(--color-status-positive)]" />
                       ) : (
                         <Circle className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -121,7 +121,7 @@ export function AmortizationTableClient({
             <tr className="border-t font-semibold text-xs">
               <td colSpan={2} className="pt-2 pr-2">Total</td>
               <td className="pt-2 pr-2 text-right tabular-nums">{fmt(totalPrincipal)}</td>
-              <td className="pt-2 pr-2 text-right tabular-nums text-amber-600">{fmt(totalInterest)}</td>
+              <td className="pt-2 pr-2 text-right tabular-nums text-[var(--color-status-caution)]">{fmt(totalInterest)}</td>
               {totalInsurance > 0 && <td className="pt-2 pr-2 text-right tabular-nums text-muted-foreground">{fmt(totalInsurance)}</td>}
               <td className="pt-2 pr-2 text-right tabular-nums">{fmt(totalPayment)}</td>
               <td className="pt-2 pr-2 text-right tabular-nums text-muted-foreground">—</td>

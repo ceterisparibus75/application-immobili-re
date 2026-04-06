@@ -1,9 +1,15 @@
 import { auth } from "@/lib/auth";
-import { getAuditLogs } from "@/lib/audit";
+import { getAuditLogsForExport, createAuditLog } from "@/lib/audit";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import type { AuditAction } from "@/generated/prisma/client";
+
+function escapeCsv(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,8 +20,6 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const societyId = searchParams.get("societyId");
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const perPage = Math.min(parseInt(searchParams.get("perPage") || "50", 10), 100);
     const action = searchParams.get("action") as AuditAction | null;
     const entity = searchParams.get("entity");
     const userId = searchParams.get("userId");
@@ -33,9 +37,7 @@ export async function GET(req: NextRequest) {
 
     await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
 
-    const result = await getAuditLogs(societyId, {
-      page,
-      perPage,
+    const logs = await getAuditLogsForExport(societyId, {
       ...(action ? { action } : {}),
       ...(entity ? { entity } : {}),
       ...(userId ? { userId } : {}),
@@ -44,32 +46,38 @@ export async function GET(req: NextRequest) {
       ...(search ? { search } : {}),
     });
 
-    // Also return distinct values for filter dropdowns
-    const [entities, users] = await Promise.all([
-      prisma.auditLog.findMany({
-        where: { societyId },
-        select: { entity: true },
-        distinct: ["entity"],
-        orderBy: { entity: "asc" },
-      }),
-      prisma.auditLog.findMany({
-        where: { societyId, userId: { not: null } },
-        select: { user: { select: { id: true, name: true, email: true } } },
-        distinct: ["userId"],
-      }),
-    ]);
+    // Build CSV
+    const header = "Date,Utilisateur,Email,Action,Entité,ID Entité,Détails";
+    const rows = logs.map((log) => {
+      const date = new Date(log.createdAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
+      const userName = log.user?.name ?? "Système";
+      const userEmail = log.user?.email ?? "";
+      const details = log.details ? JSON.stringify(log.details) : "";
+      return [date, userName, userEmail, log.action, log.entity, log.entityId, details]
+        .map(escapeCsv)
+        .join(",");
+    });
 
-    return NextResponse.json({
-      ...result,
-      filterOptions: {
-        entities: entities.map((e) => e.entity),
-        users: users
-          .filter((u) => u.user)
-          .map((u) => ({ id: u.user!.id, label: u.user!.name || u.user!.email })),
+    const csv = "\uFEFF" + [header, ...rows].join("\n");
+
+    // Audit the export itself
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "EXPORT",
+      entity: "AuditLog",
+      entityId: societyId,
+      details: { format: "csv", count: logs.length },
+    });
+
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="audit-logs-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   } catch (error) {
-    console.error("[GET /api/audit]", error);
+    console.error("[GET /api/audit/export]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

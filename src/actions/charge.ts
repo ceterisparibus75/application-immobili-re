@@ -287,6 +287,65 @@ export async function deleteCharge(
   }
 }
 
+export async function getChargesPaginated(
+  societyId: string,
+  params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+    filters?: Record<string, string>;
+  } = {}
+) {
+  const session = await auth();
+  if (!session?.user?.id) return { data: [], total: 0 };
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 25;
+  const skip = (page - 1) * pageSize;
+
+  const where: Record<string, unknown> = { societyId };
+
+  if (params.search) {
+    const q = params.search;
+    where.OR = [
+      { description: { contains: q, mode: "insensitive" } },
+      { supplierName: { contains: q, mode: "insensitive" } },
+      { category: { name: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  if (params.filters?.buildingId) where.buildingId = params.filters.buildingId;
+  if (params.filters?.isPaid === "true") where.isPaid = true;
+  else if (params.filters?.isPaid === "false") where.isPaid = false;
+  if (params.filters?.nature) where.category = { nature: params.filters.nature };
+
+  type OrderBy = Record<string, "asc" | "desc">;
+  let orderBy: OrderBy[] = [{ date: "desc" }];
+  if (params.sortBy) {
+    orderBy = [{ [params.sortBy]: params.sortOrder ?? "asc" }];
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.charge.findMany({
+      where,
+      include: {
+        category: { select: { id: true, name: true, nature: true, recoverableRate: true } },
+        building: { select: { id: true, name: true, city: true } },
+      },
+      orderBy,
+      skip,
+      take: pageSize,
+    }),
+    prisma.charge.count({ where }),
+  ]);
+
+  return { data, total };
+}
+
 export async function getCharges(societyId: string, buildingId?: string) {
   const session = await auth();
   if (!session?.user?.id) return [];

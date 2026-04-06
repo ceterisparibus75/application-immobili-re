@@ -126,18 +126,18 @@ export default async function LotDetailPage({
 
       {/* Bail actif */}
       {activeLease ? (
-        <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-900/20">
+        <div className="rounded-md border border-[var(--color-status-positive)]/30 bg-[var(--color-status-positive-bg)] p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-green-700 dark:text-green-400" />
+              <User className="h-5 w-5 text-[var(--color-status-positive)]" />
               <div>
-                <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                <p className="text-sm font-medium text-[var(--color-status-positive)]">
                   Bail en cours —{" "}
                   {activeLease.tenant.entityType === "PERSONNE_MORALE"
                     ? activeLease.tenant.companyName
                     : `${activeLease.tenant.firstName} ${activeLease.tenant.lastName}`}
                 </p>
-                <p className="text-xs text-green-700 dark:text-green-400">
+                <p className="text-xs text-[var(--color-status-positive)]">
                   Depuis le{" "}
                   {new Date(activeLease.startDate).toLocaleDateString("fr-FR")}
                 </p>

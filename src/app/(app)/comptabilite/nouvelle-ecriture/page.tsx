@@ -152,7 +152,7 @@ export default function NouvelleEcriturePage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Lignes d’écriture</CardTitle>
-          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-green-700" : diff > 0 ? "text-red-700" : "text-muted-foreground")}>
+          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-[var(--color-status-positive)]" : diff > 0 ? "text-[var(--color-status-negative)]" : "text-muted-foreground")}>
             {totalDebit > 0 && (isBalanced
               ? <><CheckCircle2 className="h-4 w-4" />Écriture équilibrée</>
               : <><AlertTriangle className="h-4 w-4" />Écart : {formatCurrency(diff)}</>
@@ -214,8 +214,8 @@ export default function NouvelleEcriturePage() {
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={2} className="font-semibold">Totaux</TableCell>
-                  <TableCell className={"text-right font-mono font-bold " + (totalDebit > 0 ? "text-green-700" : "")}>{formatCurrency(totalDebit)}</TableCell>
-                  <TableCell className={"text-right font-mono font-bold " + (totalCredit > 0 ? "text-red-700" : "")}>{formatCurrency(totalCredit)}</TableCell>
+                  <TableCell className={"text-right font-mono font-bold " + (totalDebit > 0 ? "text-[var(--color-status-positive)]" : "")}>{formatCurrency(totalDebit)}</TableCell>
+                  <TableCell className={"text-right font-mono font-bold " + (totalCredit > 0 ? "text-[var(--color-status-negative)]" : "")}>{formatCurrency(totalCredit)}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableFooter>

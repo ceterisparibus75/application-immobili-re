@@ -116,9 +116,9 @@ export default async function EmpruntsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400/70" />
+              <CheckCircle className="h-8 w-8 text-[var(--color-status-positive)]/70" />
               <div>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</p>
+                <p className="text-2xl font-bold text-[var(--color-status-positive)]">{fmt(totalCapital - totalRemaining)}</p>
                 <p className="text-xs text-muted-foreground">Capital remboursé</p>
               </div>
             </div>
@@ -169,7 +169,7 @@ export default async function EmpruntsPage() {
                       <td className="py-2.5 px-4 text-right tabular-nums">{lenderLoans.length}</td>
                       <td className="py-2.5 px-4 text-right tabular-nums">{fmt(gCapital)}</td>
                       <td className="py-2.5 px-4 text-right tabular-nums text-destructive font-semibold">{fmt(gRemaining)}</td>
-                      <td className="py-2.5 px-4 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(gPaid)}</td>
+                      <td className="py-2.5 px-4 text-right tabular-nums text-[var(--color-status-positive)]">{fmt(gPaid)}</td>
                       <td className="py-2.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
@@ -188,7 +188,7 @@ export default async function EmpruntsPage() {
                   <td className="py-2.5 px-4 text-right tabular-nums">{loans.length}</td>
                   <td className="py-2.5 px-4 text-right tabular-nums">{fmt(totalCapital)}</td>
                   <td className="py-2.5 px-4 text-right tabular-nums text-destructive">{fmt(totalRemaining)}</td>
-                  <td className="py-2.5 px-4 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(totalCapital - totalRemaining)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums text-[var(--color-status-positive)]">{fmt(totalCapital - totalRemaining)}</td>
                   <td className="py-2.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">

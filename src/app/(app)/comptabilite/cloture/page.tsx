@@ -189,7 +189,7 @@ export default function CloturePage() {
       {/* Info RGPD */}
       <Card className="border-muted bg-muted/20">
         <CardContent className="py-4 flex items-start gap-3">
-          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-[var(--color-status-caution)] mt-0.5 flex-shrink-0" />
           <div className="text-xs text-muted-foreground">
             <strong>Durée de conservation&nbsp;:</strong> Les données comptables doivent être conservées pendant 10 ans (obligation légale, article L123-22 du Code de commerce). La clôture d&apos;un exercice ne supprime pas les données.
           </div>

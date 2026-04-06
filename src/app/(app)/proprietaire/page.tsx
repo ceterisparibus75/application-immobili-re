@@ -95,21 +95,21 @@ export default async function ProprietaireDashboardPage({
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Trésorerie</p>
           </div>
           <div>
-            <p className={`text-2xl font-bold tabular-nums ${data.totalCash < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</p>
+            <p className={`text-2xl font-bold tabular-nums ${data.totalCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</p>
             <p className="text-[10px] text-[#94A3B8] mt-1">{data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 shrink-0">
-              <Clock className="h-3.5 w-3.5 text-amber-500" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)] shrink-0">
+              <Clock className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
             </div>
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Impayés</p>
           </div>
           <div>
             <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalOverdue)}</p>
             <p className="text-[10px] text-[#94A3B8] mt-1">
-              {data.totalOverdue > 0 && <span className="inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 mr-1">en attente</span>}
+              {data.totalOverdue > 0 && <span className="inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] mr-1">en attente</span>}
               {data.totalOverdue === 0 && "aucun impayé"}
             </p>
           </div>
@@ -141,8 +141,8 @@ export default async function ProprietaireDashboardPage({
           <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader className="pb-3 px-6 pt-5">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
+                  <TrendingUp className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
                 </div>
                 <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Revenus & Trésorerie</CardTitle>
               </div>
@@ -160,7 +160,7 @@ export default async function ProprietaireDashboardPage({
                 </div>
                 <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
                   <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Trésorerie nette</p>
-                  <p className={`text-lg font-bold tabular-nums ${data.totalCash >= 0 ? "text-emerald-600" : "text-red-500"}`}>{fmt(data.totalCash)}</p>
+                  <p className={`text-lg font-bold tabular-nums ${data.totalCash >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>{fmt(data.totalCash)}</p>
                 </div>
                 {data.grossYield !== null && (
                   <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
@@ -190,7 +190,7 @@ export default async function ProprietaireDashboardPage({
                           <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
                         </div>
                       </td>
-                      <td className={`py-3 px-4 text-right tabular-nums font-semibold ${s.cashBalance < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>
+                      <td className={`py-3 px-4 text-right tabular-nums font-semibold ${s.cashBalance < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>
                         {fmt(s.cashBalance)}
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -203,7 +203,7 @@ export default async function ProprietaireDashboardPage({
                 <tfoot>
                   <tr className="bg-[#FAFBFC] border-t border-gray-100">
                     <td className="py-3 px-4 font-semibold text-[#94A3B8]">Total</td>
-                    <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.totalCash < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</td>
+                    <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.totalCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</td>
                     <td className="py-3 px-4 text-right">
                       <span className="font-bold tabular-nums text-[var(--color-brand-blue)]">{data.occupancyRate}%</span>
                       <span className="text-[10px] text-[#94A3B8] ml-1">{data.totalOccupied}/{data.totalLots}</span>
@@ -287,8 +287,8 @@ export default async function ProprietaireDashboardPage({
             <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
               <CardHeader className="pb-3 px-6 pt-5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-50">
-                    <Banknote className="h-3.5 w-3.5 text-red-500" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
+                    <Banknote className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
                   </div>
                   <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
                 </div>
@@ -306,7 +306,7 @@ export default async function ProprietaireDashboardPage({
                   </div>
                   <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
                     <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">LTV consolidé</p>
-                    <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-amber-500" : "text-emerald-500"}`}>
+                    <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-[var(--color-status-negative)]" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
                       {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
                     </p>
                   </div>
@@ -341,7 +341,7 @@ export default async function ProprietaireDashboardPage({
                         </td>
                         <td className="py-3 px-4 text-right">
                           {s.ltv !== null ? (
-                            <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-red-500" : s.ltv > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
+                            <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>
                               {s.ltv}%
                             </span>
                           ) : <span className="text-[#CBD5E1]">—</span>}
@@ -356,7 +356,7 @@ export default async function ProprietaireDashboardPage({
                       <td className="py-3 px-4 text-right tabular-nums font-bold text-[#64748B]">{fmt(data.totalMonthlyLoanPayment)}</td>
                       <td className="py-3 px-4 text-right">
                         {data.consolidatedLTV !== null && (
-                          <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.consolidatedLTV > 80 ? "text-red-500" : data.consolidatedLTV > 60 ? "text-amber-500" : "text-[var(--color-brand-deep)]"}`}>
+                          <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.consolidatedLTV > 80 ? "text-[var(--color-status-negative)]" : data.consolidatedLTV > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>
                             {data.consolidatedLTV}%
                           </span>
                         )}
@@ -373,8 +373,8 @@ export default async function ProprietaireDashboardPage({
             <Card className="border-0 shadow-brand bg-white rounded-xl">
               <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-50">
-                    <Landmark className="h-3.5 w-3.5 text-red-500" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
+                    <Landmark className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
                   </div>
                   <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Par établissement</CardTitle>
                 </div>
@@ -413,8 +413,8 @@ export default async function ProprietaireDashboardPage({
             <Card className="border-0 shadow-brand bg-white rounded-xl">
               <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50">
-                    <Wallet className="h-3.5 w-3.5 text-amber-500" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
+                    <Wallet className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
                   </div>
                   <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Impayés par ancienneté</CardTitle>
                 </div>
@@ -423,14 +423,14 @@ export default async function ProprietaireDashboardPage({
                 {data.overdueByAge.map((bucket) => (
                   <div key={bucket.label} className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
                     <span className="text-[#64748B]">{bucket.label}</span>
-                    <span className={`font-semibold tabular-nums ${bucket.amount > 0 ? "text-amber-500" : "text-[#CBD5E1]"}`}>
+                    <span className={`font-semibold tabular-nums ${bucket.amount > 0 ? "text-[var(--color-status-caution)]" : "text-[#CBD5E1]"}`}>
                       {fmt(bucket.amount)}
                     </span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-amber-50 text-sm font-bold">
+                <div className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-[var(--color-status-caution-bg)] text-sm font-bold">
                   <span className="text-[var(--color-brand-deep)]">Total</span>
-                  <span className="tabular-nums text-amber-600">{fmt(data.totalOverdue)}</span>
+                  <span className="tabular-nums text-[var(--color-status-caution)]">{fmt(data.totalOverdue)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -452,7 +452,7 @@ export default async function ProprietaireDashboardPage({
                   <div key={l.id} className="rounded-lg bg-[#F9FAFB] px-3 py-2.5">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium truncate text-[var(--color-brand-deep)]">{l.tenantName}</p>
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2 ${l.daysLeft <= 30 ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2 ${l.daysLeft <= 30 ? "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]" : "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]"}`}>
                         {l.daysLeft}j
                       </span>
                     </div>
@@ -507,7 +507,7 @@ export default async function ProprietaireDashboardPage({
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg text-[var(--color-brand-deep)]">{society.name}</CardTitle>
-                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"}`}>
+                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-gray-100 text-gray-500"}`}>
                       {society.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>

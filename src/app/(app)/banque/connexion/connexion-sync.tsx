@@ -38,7 +38,7 @@ export function ConnexionSync({
             <Loader2 className="h-12 w-12 text-primary mx-auto mb-2 animate-spin" />
           )}
           {status === "success" && (
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+            <CheckCircle2 className="h-12 w-12 text-[var(--color-status-positive)] mx-auto mb-2" />
           )}
           {status === "error" && (
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-2" />

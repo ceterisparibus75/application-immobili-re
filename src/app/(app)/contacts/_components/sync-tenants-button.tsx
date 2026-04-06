@@ -45,7 +45,7 @@ export function SyncTenantsButton({ societyId }: { societyId: string }) {
       {loading ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : done ? (
-        <Check className="h-3.5 w-3.5 text-emerald-500" />
+        <Check className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
       ) : (
         <RefreshCw className="h-3.5 w-3.5" />
       )}

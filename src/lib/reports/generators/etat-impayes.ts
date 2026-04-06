@@ -109,7 +109,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.totalTTC;
   }
 
-  y = drawSectionHeader(p, ctx.bold, y, "Repartition par anciennete");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par anciennete");
   y -= 8;
   const pieSlices = BUCKETS.map((b, i) => ({ value: bucketTotals[b], label: b, color: CHART_COLORS[i] }));
   y = drawPieChart(p, 150, y - 60, 55, pieSlices, ctx.reg, ctx.bold);
@@ -117,7 +117,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
 
   // Table grouped by building → tenant
   const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
-  y = drawSectionHeader(p, ctx.bold, y, `Detail - Total : ${pdfCur(total)}`);
+  y = drawSectionHeader(p, ctx.serifBold, y, `Detail - Total : ${pdfCur(total)}`);
 
   const WS = [90, 85, 52, 52, 52, 52, 52, CW - 435];
   const WA: ColAlign[] = ["left", "left", "right", "right", "right", "right", "right", "right"];

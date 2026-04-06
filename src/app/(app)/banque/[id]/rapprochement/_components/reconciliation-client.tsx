@@ -56,7 +56,7 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
   }
   const totalRight = payments.length + pendingInvoices.length + loanLines.length;
   if (transactions.length === 0 && totalRight === 0) {
-    return (<Card><CardContent className="flex flex-col items-center justify-center py-12"><GitMerge className="h-12 w-12 text-green-500 mb-4" /><h3 className="text-lg font-semibold mb-2">Tout est à jour !</h3><p className="text-sm text-muted-foreground">Toutes les transactions et paiements sont rapprochés.</p></CardContent></Card>);
+    return (<Card><CardContent className="flex flex-col items-center justify-center py-12"><GitMerge className="h-12 w-12 text-[var(--color-status-positive)] mb-4" /><h3 className="text-lg font-semibold mb-2">Tout est à jour !</h3><p className="text-sm text-muted-foreground">Toutes les transactions et paiements sont rapprochés.</p></CardContent></Card>);
   }
   return (
     <div className="space-y-4">
@@ -80,7 +80,7 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
                     <p className="text-sm font-medium">{tx.label}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(tx.transactionDate)}{tx.reference && " · " + tx.reference}</p>
                   </div>
-                  <span className={"text-sm font-medium tabular-nums " + (tx.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>{tx.amount >= 0 ? "+" : ""}{formatCurrency(tx.amount)}</span>
+                  <span className={"text-sm font-medium tabular-nums " + (tx.amount >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive")}>{tx.amount >= 0 ? "+" : ""}{formatCurrency(tx.amount)}</span>
                 </button>
               ))}</div>
             )}
@@ -94,7 +94,7 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
                 <TabsList className="w-full">
                   <TabsTrigger value="payments" className="flex-1 gap-1.5">Paiements{payments.length > 0 && <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">{payments.length}</Badge>}</TabsTrigger>
                   <TabsTrigger value="invoices" className="flex-1 gap-1.5">Loyers{pendingInvoices.length > 0 && <Badge className="text-xs px-1.5 py-0 h-4 bg-blue-100 text-blue-700 hover:bg-blue-100">{pendingInvoices.length}</Badge>}</TabsTrigger>
-                  <TabsTrigger value="loans" className="flex-1 gap-1.5">Prêts{loanLines.length > 0 && <Badge className="text-xs px-1.5 py-0 h-4 bg-amber-100 text-amber-700 hover:bg-amber-100">{loanLines.length}</Badge>}</TabsTrigger>
+                  <TabsTrigger value="loans" className="flex-1 gap-1.5">Prêts{loanLines.length > 0 && <Badge className="text-xs px-1.5 py-0 h-4 bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] hover:bg-[var(--color-status-caution-bg)]">{loanLines.length}</Badge>}</TabsTrigger>
                 </TabsList>
               </div>
               <TabsContent value="payments" className="mt-0">
@@ -102,11 +102,11 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
                   <div className="divide-y">{payments.map((p) => {
                     const isSel = selectedRight?.kind === "payment" && selectedRight.id === p.id;
                     return (<button key={p.id} onClick={() => toggleRight({ kind: "payment", id: p.id })}
-                      className={"w-full flex items-center justify-between p-4 text-left transition-colors " + (isSel ? "bg-green-500/10 border-l-2 border-green-500" : "hover:bg-muted/50")}
+                      className={"w-full flex items-center justify-between p-4 text-left transition-colors " + (isSel ? "bg-[var(--color-status-positive-bg)] border-l-2 border-[var(--color-status-positive)]" : "hover:bg-muted/50")}
                     >
                       <div><p className="text-sm font-medium">{tenantLabel(p.invoice.tenant)}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(p.paidAt)}{p.method && " · " + p.method}{p.reference && " · " + p.reference}</p></div>
-                      <span className="text-sm font-medium tabular-nums text-green-600 dark:text-green-400">{formatCurrency(p.amount)}</span>
+                      <span className="text-sm font-medium tabular-nums text-[var(--color-status-positive)]">{formatCurrency(p.amount)}</span>
                     </button>);
                   })}</div>
                 )}
@@ -137,14 +137,14 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
                   <div className="divide-y">{loanLines.map((line) => {
                     const isSel = selectedRight?.kind === "loanLine" && selectedRight.id === line.id;
                     return (<button key={line.id} onClick={() => toggleRight({ kind: "loanLine", id: line.id })}
-                      className={"w-full flex items-start justify-between p-4 text-left transition-colors " + (isSel ? "bg-amber-500/10 border-l-2 border-amber-500" : "hover:bg-muted/50")}
+                      className={"w-full flex items-start justify-between p-4 text-left transition-colors " + (isSel ? "bg-[var(--color-status-caution-bg)] border-l-2 border-[var(--color-status-caution)]" : "hover:bg-muted/50")}
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">{line.loan.label}</p>
                         <p className="text-xs text-muted-foreground">{line.loan.lender} · Éch. n°{line.period} · {formatDate(line.dueDate)}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Capital {formatCurrency(line.principalPayment)} · Intérêts {formatCurrency(line.interestPayment)}{line.insurancePayment > 0 && " · Ass. " + formatCurrency(line.insurancePayment)}</p>
                       </div>
-                      <span className="text-sm font-medium tabular-nums text-amber-600 dark:text-amber-400 ml-2 shrink-0">{formatCurrency(line.totalPayment)}</span>
+                      <span className="text-sm font-medium tabular-nums text-[var(--color-status-caution)] ml-2 shrink-0">{formatCurrency(line.totalPayment)}</span>
                     </button>);
                   })}</div>
                 )}
@@ -158,7 +158,7 @@ export default function ReconciliationClient({ societyId, bankAccountId, transac
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline">Transaction sélectionnée</Badge>
             <span className="text-muted-foreground">+</span>
-            <Badge variant="outline" className={selectedRight.kind === "payment" ? "border-green-500 text-green-600" : selectedRight.kind === "invoice" ? "border-blue-500 text-blue-600" : "border-amber-500 text-amber-600"}>
+            <Badge variant="outline" className={selectedRight.kind === "payment" ? "border-[var(--color-status-positive)] text-[var(--color-status-positive)]" : selectedRight.kind === "invoice" ? "border-blue-500 text-blue-600" : "border-[var(--color-status-caution)] text-[var(--color-status-caution)]"}>
               {selectedRight.kind === "payment" ? "Paiement sélectionné" : selectedRight.kind === "invoice" ? "Facture sélectionnée" : "Échéance prêt sélectionnée"}
             </Badge>
           </div>

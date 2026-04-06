@@ -73,7 +73,7 @@ export default function BalancePage() {
           <h1 className="text-2xl font-semibold">Balance des comptes</h1>
         </div>
         {rows.length > 0 && (
-          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-green-700" : "text-red-700")}>
+          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]")}>
             {isBalanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
             {isBalanced ? "Balance équilibrée" : "Balance déséquilibrée"}
           </div>
@@ -128,8 +128,8 @@ export default function BalancePage() {
                         <TableCell className="text-sm">{r.label}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.totalDebit)}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(r.totalCredit)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-green-700">{r.soldeDebiteur > 0 ? formatCurrency(r.soldeDebiteur) : ""}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-700">{r.soldeCrediteur > 0 ? formatCurrency(r.soldeCrediteur) : ""}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-[var(--color-status-positive)]">{r.soldeDebiteur > 0 ? formatCurrency(r.soldeDebiteur) : ""}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-[var(--color-status-negative)]">{r.soldeCrediteur > 0 ? formatCurrency(r.soldeCrediteur) : ""}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -149,7 +149,7 @@ export default function BalancePage() {
       })}
 
       {rows.length > 0 && (
-        <Card className={isBalanced ? "border-green-500" : "border-red-500"}>
+        <Card className={isBalanced ? "border-[var(--color-status-positive)]" : "border-[var(--color-status-negative)]"}>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -158,8 +158,8 @@ export default function BalancePage() {
                     <TableCell colSpan={2}>TOTAUX GÉNÉRAUX</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(totalDebit)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(totalCredit)}</TableCell>
-                    <TableCell className="text-right font-mono text-green-700">{formatCurrency(totalDebiteur)}</TableCell>
-                    <TableCell className="text-right font-mono text-red-700">{formatCurrency(totalCrediteur)}</TableCell>
+                    <TableCell className="text-right font-mono text-[var(--color-status-positive)]">{formatCurrency(totalDebiteur)}</TableCell>
+                    <TableCell className="text-right font-mono text-[var(--color-status-negative)]">{formatCurrency(totalCrediteur)}</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>

@@ -156,8 +156,8 @@ export default function NouvelleSocietePage() {
       return (
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center space-y-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mx-auto">
-              <Check className="h-7 w-7 text-green-600" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-status-positive-bg)] mx-auto">
+              <Check className="h-7 w-7 text-[var(--color-status-positive)]" />
             </div>
             <h2 className="text-lg font-bold">Espace créé avec succès !</h2>
             <p className="text-muted-foreground">Redirection vers votre tableau de bord...</p>

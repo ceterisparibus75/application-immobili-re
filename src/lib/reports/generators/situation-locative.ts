@@ -64,7 +64,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     const occ = b.lots.filter((l) => l.leases.length > 0).length;
     const totalRentAnnuel = b.lots.reduce((s, l) => s + (l.leases[0]?.currentRentHT ?? 0) * 12, 0);
 
-    y = drawSectionHeader(p, ctx.bold, y, `${b.name} - ${b.lots.length} lot(s)`);
+    y = drawSectionHeader(p, ctx.serifBold, y, `${b.name} - ${b.lots.length} lot(s)`);
     y = drawSubText(p, ctx.reg, y, `Occupation : ${occ}/${b.lots.length} | Loyers annuels HC : ${pdfCur(totalRentAnnuel)}`);
     y -= 4;
     y = drawTableHeader(p, ctx.bold, y, HEADERS, WIDTHS, ALIGNS);

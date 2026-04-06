@@ -225,9 +225,9 @@ export default function PrevisionnelPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Minus className={`h-8 w-8 ${variance >= 0 ? "text-green-600 dark:text-green-400/70 dark:text-green-400/70" : "text-destructive/70"}`} />
+              <Minus className={`h-8 w-8 ${variance >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive/70"}`} />
               <div>
-                <p className={`text-2xl font-bold ${variance >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                <p className={`text-2xl font-bold ${variance >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
                   {variance >= 0 ? "+" : ""}{fmt(variance)}
                 </p>
                 <p className="text-xs text-muted-foreground">Écart réalisé − prévu</p>
@@ -371,7 +371,7 @@ export default function PrevisionnelPage() {
                                 <>
                                   <td className="py-2 pr-2 text-right tabular-nums">{fmt(line.budgetAmount)}</td>
                                   <td className="py-2 pr-2 text-right tabular-nums">{fmt(actual)}</td>
-                                  <td className={`py-2 pr-2 text-right tabular-nums font-medium ${ecart >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                                  <td className={`py-2 pr-2 text-right tabular-nums font-medium ${ecart >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
                                     {ecart >= 0 ? "+" : ""}{fmt(ecart)}
                                   </td>
                                   <td className="py-2 pr-2 text-right tabular-nums text-xs text-muted-foreground">

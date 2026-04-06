@@ -53,7 +53,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
 
   // KPIs
-  y = drawSectionHeader(p, ctx.bold, y, "Synthese");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Synthese");
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nombre de factures impayees", String(invoices.length));
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Montant total des creances", pdfCur(total), CORAL);
@@ -67,7 +67,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   }
 
   // Pie chart
-  y = drawSectionHeader(p, ctx.bold, y, "Repartition par tranche");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par tranche");
   y -= 8;
   const slices = BUCKETS.map((b, i) => ({ value: bucketTotals[b], label: b, color: CHART_COLORS[i] }));
   y = drawPieChart(p, 150, y - 60, 55, slices, ctx.reg, ctx.bold);
@@ -99,7 +99,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
 
   for (const [bName, tenants] of byBuilding) {
     if (y < 120) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.bold, y, bName);
+    y = drawSectionHeader(p, ctx.serifBold, y, bName);
     y = drawTableHeader(p, ctx.bold, y, hdr, WS, WA);
 
     let ri = 0;

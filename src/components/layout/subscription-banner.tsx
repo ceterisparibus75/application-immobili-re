@@ -36,10 +36,10 @@ export function SubscriptionBanner() {
   if (!banner.type || dismissed) return null;
 
   const styles = {
-    trial_warning: "bg-amber-50 border-amber-200 text-amber-800",
-    trial_expired: "bg-red-50 border-red-200 text-red-800",
-    past_due: "bg-orange-50 border-orange-200 text-orange-800",
-    canceled: "bg-red-50 border-red-200 text-red-800",
+    trial_warning: "bg-[var(--color-status-caution-bg)] border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]",
+    trial_expired: "bg-[var(--color-status-negative-bg)] border-[var(--color-status-negative)]/30 text-[var(--color-status-negative)]",
+    past_due: "bg-[var(--color-status-caution-bg)] border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]",
+    canceled: "bg-[var(--color-status-negative-bg)] border-[var(--color-status-negative)]/30 text-[var(--color-status-negative)]",
   };
 
   const icons = {
@@ -60,7 +60,7 @@ export function SubscriptionBanner() {
         {banner.type === "trial_warning" ? "Souscrire" : "Gérer l'abonnement"}
       </Link>
       {banner.type === "trial_warning" && (
-        <button onClick={() => setDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-amber-200/50">
+        <button onClick={() => setDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-[var(--color-status-caution)]/10">
           <X className="h-3.5 w-3.5" />
         </button>
       )}

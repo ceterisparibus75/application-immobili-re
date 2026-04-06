@@ -294,6 +294,83 @@ export async function deactivateTenant(
   }
 }
 
+export async function getTenantsPaginated(
+  societyId: string,
+  params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+    filters?: Record<string, string>;
+  } = {}
+) {
+  const session = await auth();
+  if (!session?.user?.id) return { data: [], total: 0 };
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 25;
+  const skip = (page - 1) * pageSize;
+
+  // Build where clause
+  const where: Record<string, unknown> = { societyId };
+
+  if (params.search) {
+    const q = params.search;
+    where.OR = [
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { companyName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  if (params.filters?.status === "active") where.isActive = true;
+  else if (params.filters?.status === "inactive") where.isActive = false;
+
+  if (params.filters?.entityType) where.entityType = params.filters.entityType;
+
+  // Build orderBy
+  type OrderBy = Record<string, "asc" | "desc">;
+  let orderBy: OrderBy[] = [{ companyName: "asc" }, { lastName: "asc" }];
+  if (params.sortBy) {
+    orderBy = [{ [params.sortBy]: params.sortOrder ?? "asc" }];
+  }
+
+  const [data, total] = await Promise.all([
+    prisma.tenant.findMany({
+      where,
+      include: {
+        _count: { select: { leases: true } },
+        leases: {
+          where: { status: "EN_COURS" },
+          select: {
+            id: true,
+            currentRentHT: true,
+            startDate: true,
+            lot: {
+              select: {
+                number: true,
+                building: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { startDate: "desc" },
+          take: 3,
+        },
+      },
+      orderBy,
+      skip,
+      take: pageSize,
+    }),
+    prisma.tenant.count({ where }),
+  ]);
+
+  return { data, total };
+}
+
 export async function getTenants(societyId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];

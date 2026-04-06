@@ -32,7 +32,7 @@ export function InviteTenantButton({ tenantId }: { tenantId: string }) {
         Inviter au portail
       </Button>
       {message && (
-        <p className={`text-xs mt-1 ${message.type === "success" ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+        <p className={`text-xs mt-1 ${message.type === "success" ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
           {message.text}
         </p>
       )}

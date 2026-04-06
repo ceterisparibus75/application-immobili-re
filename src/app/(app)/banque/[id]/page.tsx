@@ -66,7 +66,7 @@ export default async function BankAccountDetailPage({
                 {account.accountName}
               </h1>
               <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                account.isActive ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+                account.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-gray-100 text-gray-500"
               }`}>
                 {account.isActive ? "Actif" : "Inactif"}
               </span>
@@ -97,7 +97,7 @@ export default async function BankAccountDetailPage({
               <GitMerge className="h-4 w-4" />
               Rapprochement
               {account.unreconciledCount > 0 && (
-                <span className="ml-1 inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                <span className="ml-1 inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">
                   {account.unreconciledCount}
                 </span>
               )}
@@ -111,41 +111,41 @@ export default async function BankAccountDetailPage({
         <div className="bg-white rounded-xl p-5 shadow-brand">
           <p className="text-xs text-muted-foreground mb-1">Solde actuel</p>
           <p className={`text-2xl font-bold tabular-nums ${
-            account.currentBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-red-500"
+            account.currentBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"
           }`}>
             {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-emerald-50">
-              <TrendingUp className="h-3 w-3 text-emerald-600" />
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-positive-bg)]">
+              <TrendingUp className="h-3 w-3 text-[var(--color-status-positive)]" />
             </div>
             <p className="text-xs text-muted-foreground">Entrées</p>
           </div>
-          <p className="text-xl font-bold tabular-nums text-emerald-600">
+          <p className="text-xl font-bold tabular-nums text-[var(--color-status-positive)]">
             +{credits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-red-50">
-              <TrendingDown className="h-3 w-3 text-red-500" />
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-negative-bg)]">
+              <TrendingDown className="h-3 w-3 text-[var(--color-status-negative)]" />
             </div>
             <p className="text-xs text-muted-foreground">Sorties</p>
           </div>
-          <p className="text-xl font-bold tabular-nums text-red-500">
+          <p className="text-xl font-bold tabular-nums text-[var(--color-status-negative)]">
             {debits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-amber-50">
-              <Clock className="h-3 w-3 text-amber-600" />
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-caution-bg)]">
+              <Clock className="h-3 w-3 text-[var(--color-status-caution)]" />
             </div>
             <p className="text-xs text-muted-foreground">Non rapprochées</p>
           </div>
-          <p className={`text-xl font-bold tabular-nums ${account.unreconciledCount > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+          <p className={`text-xl font-bold tabular-nums ${account.unreconciledCount > 0 ? "text-[var(--color-status-caution)]" : "text-muted-foreground"}`}>
             {account.unreconciledCount}
           </p>
         </div>
@@ -177,12 +177,12 @@ export default async function BankAccountDetailPage({
                         {/* Icône direction */}
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                           isCredit
-                            ? "bg-emerald-50"
-                            : "bg-red-50"
+                            ? "bg-[var(--color-status-positive-bg)]"
+                            : "bg-[var(--color-status-negative-bg)]"
                         }`}>
                           {isCredit
-                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600" />
-                            : <ArrowUpRight className="h-3.5 w-3.5 text-red-500" />
+                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
+                            : <ArrowUpRight className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
                           }
                         </div>
 
@@ -212,8 +212,8 @@ export default async function BankAccountDetailPage({
                         <div className="text-right shrink-0">
                           <p className={`text-sm font-semibold tabular-nums ${
                             isCredit
-                              ? "text-emerald-600"
-                              : "text-red-500"
+                              ? "text-[var(--color-status-positive)]"
+                              : "text-[var(--color-status-negative)]"
                           }`}>
                             {isCredit ? "+" : ""}{transaction.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </p>
@@ -222,7 +222,7 @@ export default async function BankAccountDetailPage({
                         {/* Statut */}
                         <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
                           {transaction.isReconciled
-                            ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            ? <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
                             : <Clock className="h-4 w-4 text-gray-300" />
                           }
                         </div>
@@ -275,11 +275,11 @@ export default async function BankAccountDetailPage({
                 </p>
               </div>
               {(account.powensAccountId || account.qontoAccountId) && (
-                <div className="py-2 px-3 rounded-lg bg-emerald-50/50">
+                <div className="py-2 px-3 rounded-lg bg-[var(--color-status-positive-bg)]/50">
                   <p className="text-xs text-muted-foreground">
                     {account.qontoAccountId ? "Qonto" : "Open Banking"}
                   </p>
-                  <p className="text-sm text-emerald-600 flex items-center gap-1">
+                  <p className="text-sm text-[var(--color-status-positive)] flex items-center gap-1">
                     <RefreshCw className="h-3 w-3" />
                     Sync automatique active
                   </p>

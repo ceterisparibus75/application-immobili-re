@@ -26,14 +26,14 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   BAIL_EXPIRING: "bg-yellow-100 text-yellow-800",
-  INVOICE_OVERDUE: "bg-red-100 text-red-800",
-  DIAGNOSTIC_EXPIRING: "bg-orange-100 text-orange-800",
-  PAYMENT_RECEIVED: "bg-green-100 text-green-800",
+  INVOICE_OVERDUE: "bg-[var(--color-status-negative-bg)] text-red-800",
+  DIAGNOSTIC_EXPIRING: "bg-[var(--color-status-caution-bg)] text-orange-800",
+  PAYMENT_RECEIVED: "bg-[var(--color-status-positive-bg)] text-green-800",
   MAINTENANCE_COMPLETED: "bg-blue-100 text-blue-800",
   DOCUMENT_SIGNED: "bg-purple-100 text-purple-800",
-  SEPA_PAYMENT_FAILED: "bg-red-100 text-red-800",
-  SEPA_PAYMENT_CONFIRMED: "bg-green-100 text-green-800",
-  INSURANCE_EXPIRING: "bg-orange-100 text-orange-800",
+  SEPA_PAYMENT_FAILED: "bg-[var(--color-status-negative-bg)] text-red-800",
+  SEPA_PAYMENT_CONFIRMED: "bg-[var(--color-status-positive-bg)] text-green-800",
+  INSURANCE_EXPIRING: "bg-[var(--color-status-caution-bg)] text-orange-800",
 };
 
 export function DashboardNotifications() {

@@ -85,7 +85,7 @@ export function GenerateReportButton({ societyId }: { societyId: string }) {
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
           )}
           {success && (
-            <div className="rounded-md bg-green-50 dark:bg-green-950/20 p-3 text-sm text-green-700 dark:text-green-400">
+            <div className="rounded-md bg-[var(--color-status-positive-bg)] p-3 text-sm text-[var(--color-status-positive)]">
               {success}
             </div>
           )}

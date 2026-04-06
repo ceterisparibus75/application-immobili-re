@@ -351,7 +351,7 @@ function SectionLot({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Layers className="h-4 w-4 text-green-500" />
+          <Layers className="h-4 w-4 text-[var(--color-status-positive)]" />
           Lot
         </CardTitle>
         {lots.length > 0 && (
@@ -534,7 +534,7 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ScrollText className="h-4 w-4 text-orange-500" />
+          <ScrollText className="h-4 w-4 text-[var(--color-status-caution)]" />
           Bail
         </CardTitle>
       </CardHeader>
@@ -1004,7 +1004,7 @@ export default function ImportPage() {
         <Card>
           <CardContent className="pt-8 pb-8">
             <div className="flex flex-col items-center gap-4 text-center">
-              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <CheckCircle2 className="h-16 w-16 text-[var(--color-status-positive)]" />
               <div>
                 <h2 className="text-xl font-bold">Import réalisé avec succès</h2>
                 <p className="text-muted-foreground mt-1">
