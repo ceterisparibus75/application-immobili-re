@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
-import { generateReport, type ReportOptions } from "@/lib/report-generator";
+import { generateReport, type ReportOptions } from "@/lib/reports";
 import { generateReportSchema } from "@/validations/report";
 
 // POST /api/rapports — génère et renvoie un rapport en téléchargement

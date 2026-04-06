@@ -72,9 +72,9 @@ export default async function ProprietaireDashboardPage({
   }
 
   const dashboardContent = (
-    <>
+    <div className="space-y-4">
       {/* KPI principaux — 4 cartes identiques, hauteur fixe */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
@@ -134,10 +134,10 @@ export default async function ProprietaireDashboardPage({
         </div>
       </div>
 
-      {/* ── SECTION REVENUS & TRÉSORERIE ── */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Revenus par société */}
+      {/* Section 1 : Revenus & Trésorerie (2/3) + Occupation & Patrimoine (1/3) */}
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          {/* Performance par société */}
           <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
             <CardHeader className="pb-3 px-6 pt-5">
               <div className="flex items-center gap-2">
@@ -214,9 +214,8 @@ export default async function ProprietaireDashboardPage({
             </CardContent>
           </Card>
         </div>
-
         {/* Colonne droite : Occupation + Patrimoine */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Occupation visuelle */}
           <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader className="pb-3 px-5 pt-5">
@@ -280,9 +279,9 @@ export default async function ProprietaireDashboardPage({
         </div>
       </div>
 
-      {/* ── SECTION ENDETTEMENT CONSOLIDÉ ── */}
+      {/* Section 2 : Endettement consolidé (2/3) + Par établissement (1/3) */}
       {data.totalDebt > 0 && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {/* Endettement — colonne large */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
@@ -406,9 +405,9 @@ export default async function ProprietaireDashboardPage({
         </div>
       )}
 
-      {/* ── SECTION ALERTES (Impayés + Baux expirant) ── */}
+      {/* Section 3 : Alertes (Impayés + Baux expirant) */}
       {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Impayés par ancienneté */}
           {data.totalOverdue > 0 && (
             <Card className="border-0 shadow-brand bg-white rounded-xl">
@@ -465,7 +464,7 @@ export default async function ProprietaireDashboardPage({
           )}
         </div>
       )}
-    </>
+    </div>
   );
 
   const societiesContent = (

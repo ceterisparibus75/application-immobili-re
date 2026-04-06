@@ -11,6 +11,9 @@ export const REPORT_TYPES = [
   "ETAT_IMPAYES",
   "RECAP_CHARGES_LOCATAIRE",
   "SUIVI_TRAVAUX",
+  "BALANCE_AGEE",
+  "SUIVI_MENSUEL",
+  "VACANCE_LOCATIVE",
 ] as const;
 
 export const generateReportSchema = z
@@ -45,6 +48,7 @@ export const generateReportSchema = z
       "RENTABILITE_LOT",
       "RECAP_CHARGES_LOCATAIRE",
       "SUIVI_TRAVAUX",
+      "SUIVI_MENSUEL",
     ];
     if (yearRequired.includes(data.type) && !data.year) {
       ctx.addIssue({
