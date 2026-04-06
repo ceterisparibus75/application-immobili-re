@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
+import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 
 export const metadata = { title: "Facturation" };
 
@@ -102,6 +103,7 @@ export default async function FacturationPage() {
 
   return (
     <div className="space-y-6 max-w-7xl">
+      <GestionLocativeNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>

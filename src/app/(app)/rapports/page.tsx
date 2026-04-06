@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, CheckCircle2, CalendarClock } from "lucide-react";
 import { getTenantsForSelect } from "@/actions/tenant";
+import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -53,8 +54,8 @@ const REPORTS: ReportDef[] = [
   },
   {
     type: "ETAT_IMPAYES",
-    label: "État des impayés",
-    description: "Toutes les factures impayées ou en retard avec nombre de jours de retard.",
+    label: "État des impayés (détail)",
+    description: "Liste simple de toutes les factures impayées ou en retard avec nombre de jours de retard.",
     format: "both",
   },
   {
@@ -74,8 +75,8 @@ const REPORTS: ReportDef[] = [
   },
   {
     type: "BALANCE_AGEE",
-    label: "Balance âgée",
-    description: "Analyse de l'ancienneté des créances impayées par tranche (0-30j, 31-60j, etc.) avec graphiques.",
+    label: "Balance âgée & impayés",
+    description: "Analyse complète des créances : liste détaillée des impayés + classement par ancienneté (0-30j, 31-60j, 61-90j, 90j+).",
     format: "pdf",
   },
   {
@@ -226,7 +227,7 @@ const CATEGORIES = [
   },
   {
     label: "Comptabilité et finances",
-    reports: ["COMPTE_RENDU_GESTION", "ETAT_IMPAYES", "BALANCE_AGEE", "SUIVI_MENSUEL"] as ReportType[],
+    reports: ["COMPTE_RENDU_GESTION", "BALANCE_AGEE", "ETAT_IMPAYES", "SUIVI_MENSUEL"] as ReportType[],
   },
   {
     label: "Par locataire",
@@ -252,9 +253,17 @@ export default function RapportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Rapports</h1>
-        <p className="text-muted-foreground">Générez et téléchargez vos rapports PDF et Excel</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Rapports</h1>
+          <p className="text-muted-foreground">Générez et téléchargez vos rapports PDF et Excel</p>
+        </div>
+        <Link href="/rapports/planification">
+          <Button variant="outline" className="gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Planification
+          </Button>
+        </Link>
       </div>
 
       {/* Paramètres globaux */}

@@ -12,7 +12,10 @@ export default auth(async (req) => {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
 
-  if (isAuthPage && req.auth) {
+  // Pages marketing (landing, pricing) : rediriger les utilisateurs connectés vers /dashboard
+  const isMarketingPage = pathname === "/" || pathname.startsWith("/pricing");
+
+  if ((isAuthPage || isMarketingPage) && req.auth) {
     const authData = req.auth as { requires2FA?: boolean; twoFactorVerified?: boolean };
     // Si 2FA requis et non vérifié, laisser passer vers login/two-factor
     if (authData.requires2FA && !authData.twoFactorVerified) {
@@ -20,7 +23,7 @@ export default auth(async (req) => {
         return NextResponse.next();
       }
     }
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/proprietaire", req.url));
   }
 
   // Routes publiques - pas de verification
@@ -65,7 +68,7 @@ export default auth(async (req) => {
       return NextResponse.redirect(new URL("/login", req.url));
     }
     if (!(req.auth as { requires2FA?: boolean }).requires2FA) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/proprietaire", req.url));
     }
     return NextResponse.next();
   }
@@ -126,6 +129,18 @@ export default auth(async (req) => {
   // Lire la societe active depuis le cookie
   const activeSocietyId = req.cookies.get("active-society-id")?.value;
 
+  // Les routes de fichiers binaires (storage/view, invoices PDF) n'ont pas besoin de CSP
+  // La CSP interfere avec le lecteur PDF integre du navigateur dans les iframes
+  const isBinaryRoute = pathname.startsWith("/api/storage/view") || pathname.match(/\/api\/invoices\/[^/]+\/pdf/);
+  if (isBinaryRoute) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-pathname", pathname);
+    if (activeSocietyId) {
+      requestHeaders.set("x-society-id", activeSocietyId);
+    }
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   // Generer un nonce unique par requete pour Content-Security-Policy
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const cspValue = [
@@ -135,9 +150,10 @@ export default auth(async (req) => {
     "img-src 'self' blob: data: https:",
     "font-src 'self'",
     "object-src 'none'",
+    "frame-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "upgrade-insecure-requests",
   ].join("; ");
 

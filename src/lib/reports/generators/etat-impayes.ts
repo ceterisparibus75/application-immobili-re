@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
@@ -46,17 +45,17 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   if (format === "xlsx") {
     const wb = new ExcelJS.Workbook();
     wb.creator = "MyGestia";
-    const ws = wb.addWorksheet("Impayes");
+    const ws = wb.addWorksheet("Impayés");
     const hF: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC8302E" } };
     const hFn: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
     ws.mergeCells("A1:H1");
     ws.getCell("A1").value = opts.society?.name
-      ? `${opts.society.name} - Etat des impayes - ${today.toLocaleDateString("fr-FR")}`
-      : `Etat des impayes - ${today.toLocaleDateString("fr-FR")}`;
+      ? `${opts.society.name} - État des impayés - ${today.toLocaleDateString("fr-FR")}`
+      : `État des impayés - ${today.toLocaleDateString("fr-FR")}`;
     ws.getCell("A1").font = { bold: true, size: 13, color: { argb: "FFC8302E" } };
     ws.getCell("A1").alignment = { horizontal: "center" };
     ws.getRow(1).height = 28;
-    const hdr = ["N° facture", "Locataire", "Immeuble / Lot", "Echeance", "Montant TTC", "Retard (j)", "Tranche", "Statut"];
+    const hdr = ["N° facture", "Locataire", "Immeuble / Lot", "Échéance", "Montant TTC", "Retard (j)", "Tranche", "Statut"];
     ws.addRow(hdr).eachCell((c) => { c.fill = hF; c.font = hFn; c.alignment = { horizontal: "center" }; });
     ws.getRow(2).height = 22;
     [16, 25, 28, 14, 16, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
@@ -81,24 +80,24 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
 
   // PDF with aging columns
   const ctx = await initPdf(
-    "Etat des impayes",
-    `Factures impayees au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
+    "État des impayés",
+    `Factures impayées au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
     opts.society
   );
 
-  drawCoverPage(ctx, "Etat des Impayes", "Balance agee des creances", [
-    `Societe : ${opts.society?.name ?? ""}`,
+  drawCoverPage(ctx, "État des Impayés", "Balance âgée des créances", [
+    `Société : ${opts.society?.name ?? ""}`,
     `Au ${today.toLocaleDateString("fr-FR")}`,
-    `${invoices.length} facture(s) impayee(s)`,
+    `${invoices.length} facture(s) impayée(s)`,
   ]);
 
   let p = ctx.np();
   let y = contentStartY();
 
   if (invoices.length === 0) {
-    p.drawText("Aucune facture impayee", { x: 41, y, size: 10, font: ctx.bold, color: GREEN });
+    p.drawText("Aucune facture impayée", { x: 41, y, size: 10, font: ctx.bold, color: GREEN });
     y -= 16;
-    p.drawText("Toutes les factures sont a jour.", { x: 41, y, size: 9, font: ctx.reg, color: GREEN });
+    p.drawText("Toutes les factures sont à jour.", { x: 41, y, size: 9, font: ctx.reg, color: GREEN });
     return { buffer: await ctx.save(), filename: `impayes-${today.toISOString().slice(0, 10)}.pdf`, contentType: "application/pdf" };
   }
 
@@ -109,7 +108,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.totalTTC;
   }
 
-  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par anciennete");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Répartition par ancienneté");
   y -= 8;
   const pieSlices = BUCKETS.map((b, i) => ({ value: bucketTotals[b], label: b, color: CHART_COLORS[i] }));
   y = drawPieChart(p, 150, y - 60, 55, pieSlices, ctx.reg, ctx.bold);
@@ -117,7 +116,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
 
   // Table grouped by building → tenant
   const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
-  y = drawSectionHeader(p, ctx.serifBold, y, `Detail - Total : ${pdfCur(total)}`);
+  y = drawSectionHeader(p, ctx.serifBold, y, `Détail - Total : ${pdfCur(total)}`);
 
   const WS = [90, 85, 52, 52, 52, 52, 52, CW - 435];
   const WA: ColAlign[] = ["left", "left", "right", "right", "right", "right", "right", "right"];

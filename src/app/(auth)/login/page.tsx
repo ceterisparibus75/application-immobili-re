@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/proprietaire";
   const reason = searchParams.get("reason");
 
   const [email, setEmail] = useState("");

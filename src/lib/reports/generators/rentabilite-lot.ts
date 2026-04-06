@@ -29,7 +29,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   const wb = new ExcelJS.Workbook();
   wb.creator = "MyGestia";
   wb.created = new Date();
-  const ws = wb.addWorksheet("Rentabilite par lot");
+  const ws = wb.addWorksheet("Rentabilité par lot");
   const hFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0C2340" } };
   const hFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
   const tFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F7FA" } };
@@ -37,13 +37,13 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   ws.mergeCells("A1:H1");
   const tc = ws.getCell("A1");
   tc.value = opts.society?.name
-    ? `${opts.society.name} - Tableau de rentabilite par lot - ${year}`
-    : `Tableau de rentabilite par lot - ${year}`;
+    ? `${opts.society.name} - Tableau de rentabilité par lot - ${year}`
+    : `Tableau de rentabilité par lot - ${year}`;
   tc.font = { bold: true, size: 13, color: { argb: "FF0C2340" } };
   tc.alignment = { horizontal: "center" };
   ws.getRow(1).height = 28;
 
-  const hdrs = ["Immeuble", "Lot", "Type", "Statut", "Loyer mensuel HC", "Revenus annuels", "Valeur locative marche", "Occupation"];
+  const hdrs = ["Immeuble", "Lot", "Type", "Statut", "Loyer mensuel HC", "Revenus annuels", "Valeur locative marché", "Occupation"];
   const cw = [25, 12, 18, 12, 18, 18, 22, 12];
   const hr = ws.addRow(hdrs);
   hr.eachCell((c) => { c.fill = hFill; c.font = hFont; c.alignment = { horizontal: "center", vertical: "middle" }; c.border = { bottom: { style: "thin", color: { argb: "FF0C2340" } } }; });
@@ -58,7 +58,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
     totRev += rev;
     const row = ws.addRow([
       lot.building.name, lot.number, lot.lotType.replace(/_/g, " "),
-      lease ? "Occupe" : "Vacant",
+      lease ? "Occupé" : "Vacant",
       lease?.currentRentHT ?? 0,
       rev,
       (lot as any).marketRentValue ?? null,

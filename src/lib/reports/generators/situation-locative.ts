@@ -26,7 +26,7 @@ function periodsPerYear(freq: PaymentFrequency): number {
   }
 }
 
-const HEADERS = ["Etage", "Lot", "Type", "m2", "Locataire", "Effet", "Loyer an. HT", "Evol.%", "Loyer/m2", "VLM", "Prov.ch."];
+const HEADERS = ["Étage", "Lot", "Type", "m2", "Locataire", "Effet", "Loyer an. HT", "Évol.%", "Loyer/m2", "VLM", "Prov.ch."];
 const WIDTHS  = [28, 32, 45, 30, 90, 48, 60, 36, 42, 50, CW - 461];
 const ALIGNS: ColAlign[] = ["left", "left", "left", "right", "left", "left", "right", "right", "right", "right", "right"];
 
@@ -54,20 +54,20 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     orderBy: { name: "asc" },
   });
 
-  const ctx = await initPdf("Situation locative", "Etat des lots et baux actifs par immeuble", opts.society);
+  const ctx = await initPdf("Situation locative", "État des lots et baux actifs par immeuble", opts.society);
 
   // Cover page
-  drawCoverPage(ctx, "Situation Locative", "Etat des lots et baux actifs", [
-    `Societe : ${opts.society?.name ?? ""}`,
+  drawCoverPage(ctx, "Situation Locative", "État des lots et baux actifs", [
+    `Société : ${opts.society?.name ?? ""}`,
     `Date : ${new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
-    buildingId ? `Immeuble filtre` : `Tous les immeubles`,
+    buildingId ? `Immeuble filtré` : `Tous les immeubles`,
   ]);
 
   let p = ctx.np();
   let y = contentStartY();
 
   if (buildings.length === 0) {
-    drawEmptyMessage(p, ctx.reg, y, "Aucun immeuble trouve pour cette societe.");
+    drawEmptyMessage(p, ctx.reg, y, "Aucun immeuble trouvé pour cette société.");
     return { buffer: await ctx.save(), filename: `situation-locative-${new Date().toISOString().slice(0, 10)}.pdf`, contentType: "application/pdf" };
   }
 

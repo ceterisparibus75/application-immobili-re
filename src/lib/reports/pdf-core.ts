@@ -68,7 +68,7 @@ export async function initPdf(
     p.drawText(subtitle, { x: MRG, y: ph - 40, size: 8, font: reg, color: BRAND_LIGHT });
 
     // Generation date
-    const dateStr = `Genere le ${ds}`;
+    const dateStr = `Généré le ${ds}`;
     const dateW = reg.widthOfTextAtSize(dateStr, 7);
     p.drawText(dateStr, { x: pw - MRG - dateW, y: ph - 40, size: 7, font: reg, color: BRAND_LIGHT });
 
@@ -80,7 +80,7 @@ export async function initPdf(
     p.drawText(footerLabel, { x: MRG, y: 16, size: FONT_FOOTER, font: reg, color: GRAY });
 
     // Footer date right-aligned
-    const footerDate = `Genere le ${ds}`;
+    const footerDate = `Généré le ${ds}`;
     const fdW = reg.widthOfTextAtSize(footerDate, FONT_FOOTER);
     p.drawText(footerDate, { x: pw - MRG - fdW, y: 16, size: FONT_FOOTER, font: reg, color: GRAY });
 
@@ -146,7 +146,7 @@ export function drawCoverPage(
   }
 
   // Sidebar: generation date
-  p.drawText(`Genere le ${ds}`, { x: 25, y: 40, size: 7, font: ctx.reg, color: BRAND_LIGHT });
+  p.drawText(`Généré le ${ds}`, { x: 25, y: 40, size: 7, font: ctx.reg, color: BRAND_LIGHT });
 
   // Right area: report title (Serif)
   const rightX = COVER_SIDEBAR_W + 50;

@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/sync-subscriptions",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/send-reports",
+      "schedule": "0 8 * * *"
     }
   ]
 }

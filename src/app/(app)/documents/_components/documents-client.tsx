@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -774,7 +774,14 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
     else { setSortBy(key); setSortDir("asc"); }
   }
 
-  function selectDoc(doc: DocumentItem) { setSelectedDoc(doc); setMobileDetailsOpen(true); }
+  const selectDoc = useCallback((doc: DocumentItem) => {
+    setSelectedDoc(doc);
+    // N'ouvrir le Sheet (avec overlay gris) que sur mobile/tablette
+    // Sur desktop (lg: 1024px+), le panneau latéral s'affiche directement sans overlay
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setMobileDetailsOpen(true);
+    }
+  }, []);
 
   function toggleSelection(id: string) {
     setSelectedIds((prev) => {

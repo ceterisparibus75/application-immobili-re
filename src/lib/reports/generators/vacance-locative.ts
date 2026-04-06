@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW, CORAL, GREEN, CHART_COLORS } from "../constants";
@@ -33,7 +32,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   const ctx = await initPdf("Vacance locative", "Taux d'occupation et de vacance", opts.society);
 
   drawCoverPage(ctx, "Vacance Locative", "Analyse de l'occupation du patrimoine", [
-    `Societe : ${opts.society?.name ?? ""}`,
+    `Société : ${opts.society?.name ?? ""}`,
     `Date : ${new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
   ]);
 
@@ -68,10 +67,10 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   let y = contentStartY();
 
   // KPIs
-  y = drawSectionHeader(p, ctx.serifBold, y, "Synthese globale");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Synthèse globale");
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total lots", String(totalLots));
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Lots occupes", String(totalOcc), GREEN);
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Lots occupés", String(totalOcc), GREEN);
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Lots vacants", String(totalVac), totalVac > 0 ? CORAL : GREEN);
   const globalVacRate = totalLots > 0 ? (totalVac / totalLots) * 100 : 0;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Taux de vacance", globalVacRate.toFixed(1) + "%", globalVacRate > 10 ? CORAL : GREEN);
@@ -82,10 +81,10 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   y -= 16;
 
   // Pie chart: occupation by lot count
-  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par nombre de lots");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Répartition par nombre de lots");
   y -= 8;
   y = drawPieChart(p, 150, y - 60, 55, [
-    { value: totalOcc, label: "Occupes", color: CHART_COLORS[0] },
+    { value: totalOcc, label: "Occupés", color: CHART_COLORS[0] },
     { value: totalVac, label: "Vacants", color: CHART_COLORS[2] },
   ], ctx.reg, ctx.bold);
   y -= 16;
@@ -93,10 +92,10 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   // Pie chart: occupation by surface (if data available)
   if (totalSurface > 0) {
     if (y < 200) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par surface");
+    y = drawSectionHeader(p, ctx.serifBold, y, "Répartition par surface");
     y -= 8;
     y = drawPieChart(p, 150, y - 60, 55, [
-      { value: occSurface, label: "Occupee", color: CHART_COLORS[0] },
+      { value: occSurface, label: "Occupée", color: CHART_COLORS[0] },
       { value: vacSurface, label: "Vacante", color: CHART_COLORS[2] },
     ], ctx.reg, ctx.bold);
     y -= 16;
@@ -104,17 +103,17 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
 
   // Per-building table
   if (y < 160) { p = ctx.np(); y = contentStartY(); }
-  y = drawSectionHeader(p, ctx.serifBold, y, "Detail par immeuble");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Détail par immeuble");
   const WS = [120, 50, 55, 55, 60, 60, CW - 400];
   const WA: ColAlign[] = ["left", "right", "right", "right", "right", "right", "right"];
-  y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Occupes", "Vacants", "Taux vac.", "Surface", "Surf. vac."], WS, WA);
+  y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Occupés", "Vacants", "Taux vac.", "Surface", "Surf. vac."], WS, WA);
 
   let ri = 0;
   for (const bs of buildingStats) {
     if (y < minY()) {
       p = ctx.np();
       y = contentStartY();
-      y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Occupes", "Vacants", "Taux vac.", "Surface", "Surf. vac."], WS, WA);
+      y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Occupés", "Vacants", "Taux vac.", "Surface", "Surf. vac."], WS, WA);
     }
     y = drawTableRow(p, ctx.reg, y, [
       bs.name,

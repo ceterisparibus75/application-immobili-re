@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
@@ -37,10 +37,10 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
     ? (tenant.companyName ?? "-")
     : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
 
-  const ctx = await initPdf(`Recap charges - ${tenantName}`, `Exercice ${year}`, opts.society);
+  const ctx = await initPdf(`Récap charges - ${tenantName}`, `Exercice ${year}`, opts.society);
 
-  drawCoverPage(ctx, "Recapitulatif des Charges", `Locataire : ${tenantName}`, [
-    `Societe : ${opts.society?.name ?? ""}`,
+  drawCoverPage(ctx, "Récapitulatif des Charges", `Locataire : ${tenantName}`, [
+    `Société : ${opts.society?.name ?? ""}`,
     `Exercice : ${year}`,
   ]);
 
@@ -48,7 +48,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
   let y = contentStartY();
 
   if (leases.length === 0) {
-    drawEmptyMessage(p, ctx.reg, y, "Aucun bail trouve pour ce locataire.");
+    drawEmptyMessage(p, ctx.reg, y, "Aucun bail trouvé pour ce locataire.");
     return { buffer: await ctx.save(), filename: `charges-locataire-${tenantId.slice(0, 8)}-${year}.pdf`, contentType: "application/pdf" };
   }
 
@@ -56,7 +56,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nom / Raison sociale", tenantName);
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Email", tenant.email ?? "-");
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Telephone", tenant.phone ?? "-");
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Téléphone", tenant.phone ?? "-");
   y -= 12;
 
   for (const lease of leases) {
@@ -65,7 +65,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
 
     const totalInv = lease.invoices.reduce((s, i) => s + i.totalTTC, 0);
     y -= 4;
-    y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers appeles", pdfCur(totalInv));
+    y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers appelés", pdfCur(totalInv));
     y -= 8;
 
     if (lease.chargeProvisions.length > 0) {
@@ -87,7 +87,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
       if (y < minY()) { p = ctx.np(); y = contentStartY(); }
       const color = chargeReg.balance > 0 ? CORAL : undefined;
       y = drawKpiRow(p, ctx.bold, ctx.reg, y,
-        `Regularisation ${chargeReg.fiscalYear}`,
+        `Régularisation ${chargeReg.fiscalYear}`,
         `Charges ${pdfCur(chargeReg.totalCharges)} / Provisions ${pdfCur(chargeReg.totalProvisions)} - Solde ${pdfCur(chargeReg.balance)}`,
         color
       );

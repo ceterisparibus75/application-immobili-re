@@ -235,6 +235,7 @@ async function sendMail(
       console.error("[sendMail] Resend error:", error);
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
     }
+    // eslint-disable-next-line no-console
     console.log("[sendMail] Envoye OK, id:", data?.id, "| a:", to, "| sujet:", subject);
     return { success: true, emailId: data?.id };
   } catch (error) {
@@ -670,6 +671,42 @@ export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParam
 }
 
 // ============================================================
+// RAPPORT CONSOLIDÉ PLANIFIÉ
+// ============================================================
+
+interface ConsolidatedReportEmailParams {
+  to: string;
+  scheduleName: string;
+  frequencyLabel: string;
+  reportLabels: string[];
+  societyName: string;
+  attachment: { filename: string; content: Buffer };
+}
+
+export async function sendConsolidatedReportEmail(params: ConsolidatedReportEmailParams): Promise<EmailResult> {
+  const reportList = params.reportLabels.map((r) => `<li style="margin:4px 0;color:${BRAND.text};">${r}</li>`).join("");
+
+  const content = `
+    ${heading(`Rapport consolidé — ${params.frequencyLabel}`)}
+    ${para(`Bonjour,`)}
+    ${para(`Veuillez trouver ci-joint le rapport consolidé <strong>${params.scheduleName}</strong> pour la société <strong>${params.societyName}</strong>.`)}
+    ${para("Ce rapport inclut les sections suivantes :")}
+    <ul style="margin:0 0 16px;padding-left:24px;font-size:14px;">
+      ${reportList}
+    </ul>
+    ${infoBox("Ce rapport a été généré automatiquement selon votre planification. Vous pouvez modifier ou désactiver cet envoi depuis l'onglet <strong>Rapports > Planification</strong> de votre espace.", "info")}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `${params.scheduleName} — ${params.societyName}`,
+    baseTemplate("Rapport consolidé", content, { societyName: params.societyName }),
+    [params.attachment]
+  );
+}
+
+// ============================================================
 // REINITIALISATION MOT DE PASSE
 // ============================================================
 
@@ -691,5 +728,35 @@ export async function sendPasswordResetEmail(params: {
     params.to,
     `Réinitialisation de votre mot de passe — ${APP_NAME}`,
     baseTemplate("Réinitialisation de votre mot de passe", content)
+  );
+}
+
+// ============================================================
+// COURRIER TYPE
+// ============================================================
+
+interface SendLetterEmailParams {
+  to: string;
+  tenantName: string;
+  subject: string;
+  societyName: string;
+  attachment: { filename: string; content: Buffer };
+}
+
+export async function sendLetterEmail(params: SendLetterEmailParams): Promise<EmailResult> {
+  const content = `
+    ${heading(params.subject)}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para(`Veuillez trouver ci-joint un courrier de la part de <strong>${params.societyName}</strong>.`)}
+    ${para(`Objet : <strong>${params.subject}</strong>`)}
+    ${infoBox("Ce courrier est également disponible en pièce jointe au format PDF.", "info")}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `${params.subject} — ${params.societyName}`,
+    baseTemplate(params.subject, content, { societyName: params.societyName }),
+    [params.attachment]
   );
 }

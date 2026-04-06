@@ -60,3 +60,52 @@ export const generateReportSchema = z
   });
 
 export type GenerateReportInput = z.infer<typeof generateReportSchema>;
+
+// ── Planification de rapports consolidés ────────────────────────
+
+export const REPORT_FREQUENCIES = ["MENSUEL", "TRIMESTRIEL", "SEMESTRIEL", "ANNUEL"] as const;
+
+/** Rapports éligibles à la consolidation (PDF uniquement, pas de tenant-specific) */
+export const CONSOLIDABLE_REPORT_TYPES = [
+  "SITUATION_LOCATIVE",
+  "COMPTE_RENDU_GESTION",
+  "ETAT_IMPAYES",
+  "BALANCE_AGEE",
+  "SUIVI_MENSUEL",
+  "VACANCE_LOCATIVE",
+] as const;
+
+/** Types visibles dans l'UI de planification (ETAT_IMPAYES fusionné dans BALANCE_AGEE) */
+export const PLANIFICATION_VISIBLE_TYPES = [
+  "SITUATION_LOCATIVE",
+  "COMPTE_RENDU_GESTION",
+  "BALANCE_AGEE",
+  "SUIVI_MENSUEL",
+  "VACANCE_LOCATIVE",
+] as const;
+
+export const createReportScheduleSchema = z.object({
+  name: z
+    .string()
+    .min(2, "Le nom doit contenir au moins 2 caractères")
+    .max(100, "Le nom ne doit pas dépasser 100 caractères"),
+  frequency: z.enum(REPORT_FREQUENCIES, {
+    errorMap: () => ({ message: "Fréquence invalide" }),
+  }),
+  reportTypes: z
+    .array(z.enum(CONSOLIDABLE_REPORT_TYPES))
+    .min(1, "Sélectionnez au moins un type de rapport"),
+  recipients: z
+    .array(z.string().email("Adresse email invalide"))
+    .min(1, "Ajoutez au moins un destinataire"),
+});
+
+export const updateReportScheduleSchema = createReportScheduleSchema
+  .partial()
+  .extend({
+    id: z.string().cuid(),
+    isActive: z.boolean().optional(),
+  });
+
+export type CreateReportScheduleInput = z.infer<typeof createReportScheduleSchema>;
+export type UpdateReportScheduleInput = z.infer<typeof updateReportScheduleSchema>;

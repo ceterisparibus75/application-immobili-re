@@ -284,22 +284,23 @@ export default async function ProprietaireDashboardPage({
         </div>
       </div>
 
-      {/* Section 2 : Endettement consolidé (full width) + Par établissement */}
+      {/* Section 2 : Endettement consolidé + Par établissement */}
       {data.totalDebt > 0 && (
-        <div className="space-y-4">
-          {/* Endettement consolidé — full width */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
-            <CardHeader className="pb-3 px-6 pt-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
-                  <Banknote className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Endettement — colonne large */}
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+              <CardHeader className="pb-3 px-6 pt-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
+                    <Banknote className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
+                  </div>
+                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
                 </div>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="px-6 pb-5 space-y-4">
-              {/* KPIs endettement */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              </CardHeader>
+              <CardContent className="px-6 pb-5 space-y-4">
+                {/* KPIs endettement */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
                   <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Capital restant dû</p>
                   <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</p>
@@ -374,10 +375,11 @@ export default async function ProprietaireDashboardPage({
                   </tr>
                 </tfoot>
               </table>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Par établissement bancaire — full width grid */}
+          {/* Par établissement bancaire */}
           {data.lenderSummaries.length > 0 && (
             <Card className="border-0 shadow-brand bg-white rounded-xl">
               <CardHeader className="pb-3 px-6 pt-5">
@@ -416,10 +418,10 @@ export default async function ProprietaireDashboardPage({
 
       {/* Section 3 : Alertes (Impayés + Baux expirant) — side by side */}
       {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className={`grid gap-4 ${data.totalOverdue > 0 && data.expiringLeases.length > 0 ? "lg:grid-cols-3" : ""}`}>
           {/* Impayés par ancienneté */}
           {data.totalOverdue > 0 && (
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className={`border-0 shadow-brand bg-white rounded-xl ${data.expiringLeases.length > 0 ? "lg:col-span-2" : ""}`}>
               <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">

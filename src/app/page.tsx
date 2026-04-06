@@ -38,66 +38,66 @@ export const metadata: Metadata = {
 /* ─── Data ─────────────────────────────────────────────────────────────── */
 
 const stats = [
-  { value: "99,9%", label: "de disponibilité garantie" },
-  { value: "AES-256", label: "chiffrement bancaire" },
+  { value: "Multi-entités", label: "consolidation en temps réel" },
+  { value: "AES-256", label: "chiffrement des données" },
+  { value: "99,9%", label: "de disponibilité" },
   { value: "RGPD", label: "conformité native" },
-  { value: "UE", label: "hébergement souverain" },
 ];
 
 const features = [
   {
     icon: Building2,
-    title: "Pilotage du patrimoine",
+    title: "Vision multi-entités",
     description:
-      "Vision consolidée multi-sociétés. Immeubles, lots, diagnostics, maintenances — chaque actif est tracé et documenté.",
+      "Suivi des immeubles, traçabilité des diagnostics, structuration par société et portefeuille. Consolidation transversale de l\u2019ensemble des actifs.",
   },
   {
     icon: FileText,
-    title: "Rigueur comptable & FEC",
+    title: "Rigueur comptable",
     description:
-      "Plan comptable immobilier, export FEC conforme, régularisations de charges et prévisionnel budgétaire intégrés.",
+      "Plan comptable immobilier intégré, export FEC conforme, rapprochement bancaire automatisé. Chaque écriture est tracée et auditable.",
   },
   {
     icon: Users,
     title: "Relation locataire structurée",
     description:
-      "Portail locataire sécurisé, envoi automatisé des quittances et factures, suivi des échanges et documents.",
+      "Portail sécurisé pour les locataires, facturation automatisée, centralisation documentaire. Communication maîtrisée et traçable.",
   },
   {
     icon: Banknote,
-    title: "Rapprochement bancaire",
+    title: "Gestion locative complète",
     description:
-      "Synchronisation des comptes, lettrage automatique des encaissements, suivi de trésorerie par société.",
+      "Tous types de baux français, facturation automatique, révisions indicielles IRL/ILC/ILAT, relances programmées.",
   },
   {
     icon: BarChart3,
-    title: "Reporting & consolidation",
+    title: "Reporting et KPI consolidés",
     description:
-      "Tableaux de bord propriétaire, KPI par société, rendement brut, LTV consolidé, taux d'occupation en temps réel.",
+      "Tableaux de bord par entité, KPI consolidés (rendement, occupation, LTV), suivi en temps réel de la performance du portefeuille.",
   },
   {
     icon: Shield,
-    title: "Sécurité & conformité",
+    title: "Environnement sécurisé et conforme",
     description:
-      "Chiffrement AES-256-GCM, authentification multifacteur, audit logs exhaustifs, conformité RGPD native.",
+      "Chiffrement AES-256-GCM, authentification multifactorielle, logs d\u2019audit exhaustifs, conformité RGPD native, infrastructure hébergée en Europe.",
   },
 ];
 
 const highlights = [
   {
     icon: BellRing,
-    title: "Recouvrement maîtrisé",
-    description: "Trois niveaux de relance progressive, de l'amiable à la mise en demeure, avec traçabilité complète.",
+    title: "Alertes et suivi proactif",
+    description: "Échéances de bail, diagnostics, assurances, impayés — rien n\u2019échappe au système.",
   },
   {
     icon: TrendingUp,
-    title: "Révisions indicielles",
-    description: "Indices IRL, ILC, ILAT et ICC synchronisés automatiquement depuis l'INSEE. Conformité garantie.",
+    title: "Révisions indicielles automatisées",
+    description: "Indices IRL/ILC/ILAT synchronisés depuis l\u2019INSEE. Détection et calcul automatique.",
   },
   {
     icon: Receipt,
-    title: "Conformité FEC",
-    description: "Fichier des Écritures Comptables généré nativement, conforme aux exigences de l'administration fiscale.",
+    title: "Export comptable normalisé",
+    description: "Fichier des Écritures Comptables conforme, prêt pour transmission à vos équipes comptables.",
   },
 ];
 
@@ -340,25 +340,25 @@ export default function HomePage() {
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-              Pilotage consolidé, rigueur comptable et conformité réglementaire — une plateforme conçue pour les <strong className="text-[var(--color-brand-deep)]">foncières privées</strong>, les <strong className="text-[var(--color-brand-deep)]">cabinets de gestion</strong> et les <strong className="text-[var(--color-brand-deep)]">family offices</strong>.
+              Plateforme unifiée pour la consolidation, l&apos;analyse et la sécurisation des actifs immobiliers. Conçue pour les environnements multi-entités exigeants.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
-              <Link href="/signup">
+              <Link href="/contact">
                 <Button size="lg" className="w-full sm:w-auto text-base px-8 h-13 gap-2 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg shadow-brand-lg">
-                  Évaluer la solution
+                  Demander une démonstration
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="#solutions">
+              <Link href="#fonctionnalites">
                 <Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8 h-13 rounded-lg border-[var(--color-brand-blue)]/20 text-[var(--color-brand-deep)] hover:bg-[var(--color-brand-light)]">
-                  Découvrir nos solutions
+                  Découvrir la plateforme
                 </Button>
               </Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              14 jours d&apos;évaluation complète · Sans engagement · Sans carte bancaire
+              Déploiement accompagné · Tarification sur audit
             </p>
           </div>
 
@@ -399,16 +399,42 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── Le constat ─── */}
+      <section className="py-24 sm:py-32 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Le constat</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
+            Un pilotage encore fragmenté
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Les portefeuilles immobiliers reposent souvent sur des systèmes disjoints : données locataires séparées de la comptabilité, absence de vision consolidée multi-sociétés, reporting construit manuellement. Cette fragmentation limite la capacité de pilotage et de contrôle.
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Notre approche ─── */}
+      <section className="py-24 sm:py-32 bg-[#F9FAFB] border-y border-border/60">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Notre approche</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
+            Une infrastructure centrale de gestion et de contrôle
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            La plateforme constitue un système unique de consolidation et de pilotage du patrimoine immobilier. Elle structure l&apos;information autour de trois axes stratégiques : actifs, flux financiers et conformité opérationnelle.
+          </p>
+        </div>
+      </section>
+
       {/* ─── Features Grid ─── */}
-      <section id="fonctionnalites" className="py-24 sm:py-32 bg-[#F9FAFB]">
+      <section id="fonctionnalites" className="py-24 sm:py-32 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Fonctionnalités</p>
+            <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Plateforme</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Une vision complète de vos actifs
+              Capacités clés
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Chaque module est conçu pour garantir la pérennité de votre patrimoine, la conformité de vos opérations et la fiabilité de votre reporting.
+              Une infrastructure complète pour structurer, piloter et sécuriser la gestion de votre patrimoine immobilier.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

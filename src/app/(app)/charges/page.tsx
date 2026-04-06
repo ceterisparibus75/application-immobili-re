@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import { parsePaginationParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { ChargesDataTable } from "./_components/charges-data-table";
+import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 
 export const metadata = { title: "Charges" };
 
@@ -50,6 +51,7 @@ export default async function ChargesPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <GestionLocativeNav />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Charges</h1>

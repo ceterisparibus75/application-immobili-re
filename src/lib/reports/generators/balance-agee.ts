@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW, CORAL, CHART_COLORS } from "../constants";
@@ -41,10 +40,10 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
     orderBy: { dueDate: "asc" },
   });
 
-  const ctx = await initPdf("Balance agee", `Creances au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`, opts.society);
+  const ctx = await initPdf("Balance âgée", `Créances au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`, opts.society);
 
-  drawCoverPage(ctx, "Balance Agee", "Analyse de l'anciennete des creances", [
-    `Societe : ${opts.society?.name ?? ""}`,
+  drawCoverPage(ctx, "Balance Âgée", "Analyse de l'ancienneté des créances", [
+    `Société : ${opts.society?.name ?? ""}`,
     `Au ${today.toLocaleDateString("fr-FR")}`,
   ]);
 
@@ -53,10 +52,10 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
 
   // KPIs
-  y = drawSectionHeader(p, ctx.serifBold, y, "Synthese");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Synthèse");
   y -= 4;
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nombre de factures impayees", String(invoices.length));
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Montant total des creances", pdfCur(total), CORAL);
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nombre de factures impayées", String(invoices.length));
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Montant total des créances", pdfCur(total), CORAL);
   y -= 12;
 
   // Bucket totals
@@ -67,7 +66,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   }
 
   // Pie chart
-  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par tranche");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Répartition par tranche");
   y -= 8;
   const slices = BUCKETS.map((b, i) => ({ value: bucketTotals[b], label: b, color: CHART_COLORS[i] }));
   y = drawPieChart(p, 150, y - 60, 55, slices, ctx.reg, ctx.bold);
@@ -124,7 +123,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   // Grand total
   if (y < minY()) { p = ctx.np(); y = contentStartY(); }
   y = drawTotalsRow(p, ctx.bold, y, [
-    "TOTAL GENERAL", "",
+    "TOTAL GÉNÉRAL", "",
     ...BUCKETS.map((b) => bucketTotals[b] > 0 ? pdfCur(bucketTotals[b]) : "-"),
     pdfCur(total),
   ], WS, WA);
