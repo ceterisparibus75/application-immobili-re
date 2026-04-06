@@ -34,6 +34,9 @@ export default auth(async (req) => {
     pathname.startsWith("/cgv") ||
     pathname.startsWith("/dpa") ||
     pathname.startsWith("/pricing") ||
+    pathname.startsWith("/securite") ||
+    pathname.startsWith("/presse") ||
+    pathname.startsWith("/recrutement") ||
     pathname.startsWith("/aide") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
