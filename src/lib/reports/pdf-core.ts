@@ -191,5 +191,5 @@ export function contentStartY(landscape = false): number {
 
 /** Minimum Y before we need a page break */
 export function minY(): number {
-  return 50;
+  return 65;
 }

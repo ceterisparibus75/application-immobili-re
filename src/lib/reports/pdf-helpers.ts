@@ -40,7 +40,11 @@ export function drawTableHeader(
   let x = MRG + 3;
   headers.forEach((h, i) => {
     const align = aligns?.[i] ?? "left";
-    const text = h.slice(0, 20);
+    const maxW = widths[i] - 6;
+    let text = h.slice(0, 25);
+    while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
+      text = text.slice(0, -1);
+    }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
     if (align === "right") tx = x + widths[i] - tw - 6;
@@ -80,7 +84,12 @@ export function drawTableRow(
     const align = aligns?.[i] ?? "left";
     const color = options?.cellColors?.[i] ?? BLACK;
     const font = (options?.boldCols?.includes(i) && options?.bold) ? options.bold : reg;
-    const text = String(c).slice(0, 30);
+    const maxW = widths[i] - 6;
+    let text = String(c).slice(0, 40);
+    // Truncate text to fit within column width
+    while (text.length > 1 && font.widthOfTextAtSize(text, FONT_TABLE) > maxW) {
+      text = text.slice(0, -1);
+    }
     const tw = font.widthOfTextAtSize(text, FONT_TABLE);
     let tx = x;
     if (align === "right") tx = x + widths[i] - tw - 6;
@@ -108,7 +117,11 @@ export function drawTotalsRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    const text = String(c).slice(0, 30);
+    const maxW = widths[i] - 6;
+    let text = String(c).slice(0, 30);
+    while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
+      text = text.slice(0, -1);
+    }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
     if (align === "right") tx = x + widths[i] - tw - 6;
@@ -136,7 +149,11 @@ export function drawMoyennesRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    const text = String(c).slice(0, 30);
+    const maxW = widths[i] - 6;
+    let text = String(c).slice(0, 30);
+    while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
+      text = text.slice(0, -1);
+    }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
     if (align === "right") tx = x + widths[i] - tw - 6;
