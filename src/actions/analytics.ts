@@ -249,9 +249,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   });
   let totalDebt = 0;
   let monthlyLoanPayment = 0;
-  let patrimonyValue = 0;
   for (const loan of activeLoansForDebt) {
-    patrimonyValue += Number(loan.purchaseValue ?? loan.amount ?? 0);
     if (loan.amortizationLines.length > 0) {
       totalDebt += loan.amortizationLines[0].remainingBalance;
       monthlyLoanPayment += loan.amortizationLines[0].totalPayment;
@@ -260,6 +258,16 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     }
   }
   const activeLoanCount = activeLoansForDebt.length;
+
+  // Valeur patrimoine = somme des valeurs vénales (marketValue) des immeubles
+  const buildingValues = await prisma.building.findMany({
+    where: { societyId },
+    select: { marketValue: true },
+  });
+  const patrimonyValue = buildingValues.reduce(
+    (sum, b) => sum + (b.marketValue ?? 0),
+    0
+  );
   const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
 
   // 14. Patrimoine détaillé : immeubles, lots, locataires, baux, diagnostics, maintenances
