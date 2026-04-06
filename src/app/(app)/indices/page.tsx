@@ -398,10 +398,15 @@ export default async function IndicesPage() {
             const info = INDEX_INFO[type];
             const data = indexByType[type];
             const latest = data?.latest;
-            const prev = data?.history[1];
-            const evol =
-              latest && prev
-                ? ((latest.value - prev.value) / prev.value) * 100
+            const prevQ = data?.history[1]; // trimestre précédent
+            const prevY = data?.history[4]; // même trimestre année précédente (4 trimestres)
+            const evolQ =
+              latest && prevQ
+                ? ((latest.value - prevQ.value) / prevQ.value) * 100
+                : null;
+            const evolY =
+              latest && prevY
+                ? ((latest.value - prevY.value) / prevY.value) * 100
                 : null;
             const leaseCount = leases.filter(
               (l) => l.indexType === type
@@ -444,14 +449,24 @@ export default async function IndicesPage() {
                           T{latest.quarter} {latest.year}
                         </p>
                       </div>
-                      {evol != null && (
-                        <p
-                          className={`text-xs font-medium ${evol >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}
-                        >
-                          {evol >= 0 ? "+" : ""}
-                          {evol.toFixed(2)}% vs trimestre précédent
-                        </p>
-                      )}
+                      <div className="space-y-0.5">
+                        {evolY != null && (
+                          <p
+                            className={`text-xs font-semibold ${evolY >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}
+                          >
+                            {evolY >= 0 ? "+" : ""}
+                            {evolY.toFixed(2)}% sur 12 mois glissants
+                          </p>
+                        )}
+                        {evolQ != null && (
+                          <p
+                            className={`text-[11px] ${evolQ >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}
+                          >
+                            {evolQ >= 0 ? "+" : ""}
+                            {evolQ.toFixed(2)}% vs trimestre précédent
+                          </p>
+                        )}
+                      </div>
                       {pubInfo && (
                         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1 border-t">
                           <Calendar className="h-3 w-3 shrink-0" />
