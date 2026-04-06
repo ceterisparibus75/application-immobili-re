@@ -89,18 +89,18 @@ export default async function RelancesPage() {
       emailStatus: true,
       channel: true,
       invoiceIds: true,
-      tenant: {
-        select: {
-          id: true,
-          entityType: true,
-          companyName: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
       lease: {
         select: {
           id: true,
+          tenant: {
+            select: {
+              id: true,
+              entityType: true,
+              companyName: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
           lot: {
             select: {
               number: true,
@@ -128,11 +128,12 @@ export default async function RelancesPage() {
   >();
 
   for (const r of allReminders) {
-    const tenantId = r.tenant?.id ?? "unknown";
+    const tenant = r.lease?.tenant;
+    const tenantId = tenant?.id ?? "unknown";
     const tenantName =
-      r.tenant?.entityType === "PERSONNE_MORALE"
-        ? r.tenant.companyName ?? "—"
-        : [r.tenant?.firstName, r.tenant?.lastName]
+      tenant?.entityType === "PERSONNE_MORALE"
+        ? tenant.companyName ?? "—"
+        : [tenant?.firstName, tenant?.lastName]
             .filter(Boolean)
             .join(" ") || "—";
     const lotLabel = r.lease?.lot
