@@ -36,7 +36,7 @@ import {
   deleteReportSchedule,
   toggleReportSchedule,
 } from "@/actions/report-schedule";
-import { CONSOLIDABLE_REPORT_TYPES, REPORT_FREQUENCIES } from "@/validations/report";
+import { PLANIFICATION_VISIBLE_TYPES, REPORT_FREQUENCIES } from "@/validations/report";
 
 // ── Labels ───────────────────────────────────────────────────────
 
@@ -372,7 +372,7 @@ function CreateScheduleDialog({
     const result = await createReportSchedule(societyId, {
       name: name.trim(),
       frequency: frequency as "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL",
-      reportTypes: selectedTypes as Array<(typeof CONSOLIDABLE_REPORT_TYPES)[number]>,
+      reportTypes: selectedTypes as Array<(typeof PLANIFICATION_VISIBLE_TYPES)[number]>,
       recipients,
     });
 
@@ -419,7 +419,7 @@ function CreateScheduleDialog({
           <div className="space-y-1.5">
             <Label className="text-xs">Rapports à inclure</Label>
             <div className="grid grid-cols-2 gap-2">
-              {CONSOLIDABLE_REPORT_TYPES.map((type) => (
+              {PLANIFICATION_VISIBLE_TYPES.map((type) => (
                 <button
                   key={type}
                   type="button"
