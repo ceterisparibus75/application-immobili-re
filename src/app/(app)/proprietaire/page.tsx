@@ -73,63 +73,71 @@ export default async function ProprietaireDashboardPage({
 
   const dashboardContent = (
     <>
-      {/* KPI principaux — 4 cartes identiques */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-brand">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+      {/* KPI principaux — 4 cartes identiques, hauteur fixe */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
               <TrendingUp className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
             </div>
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Revenus mensuels</p>
           </div>
-          <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthRevenue)}</p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">Loyers HT : {fmt(data.totalMonthlyRentHT)}</p>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthRevenue)}</p>
+            <p className="text-[10px] text-[#94A3B8] mt-1">Loyers HT : {fmt(data.totalMonthlyRentHT)}</p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
               <Landmark className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
             </div>
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Trésorerie</p>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${data.totalCash < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">{data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""}</p>
+          <div>
+            <p className={`text-2xl font-bold tabular-nums ${data.totalCash < 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</p>
+            <p className="text-[10px] text-[#94A3B8] mt-1">{data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""}</p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 shrink-0">
               <Clock className="h-3.5 w-3.5 text-amber-500" />
             </div>
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Impayés</p>
           </div>
-          <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalOverdue)}</p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">
-            {data.totalOverdue > 0 && <span className="inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 mr-1">en attente</span>}
-            {data.totalOverdue === 0 && "aucun impayé"}
-          </p>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalOverdue)}</p>
+            <p className="text-[10px] text-[#94A3B8] mt-1">
+              {data.totalOverdue > 0 && <span className="inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 mr-1">en attente</span>}
+              {data.totalOverdue === 0 && "aucun impayé"}
+            </p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
+        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
               <BarChart3 className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
             </div>
             <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">
               {data.grossYield !== null ? "Rendement brut" : "Occupation"}
             </p>
           </div>
-          <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">
-            {data.grossYield !== null ? `${data.grossYield}%` : `${data.occupancyRate}%`}
-          </p>
-          <p className="text-[10px] text-[#94A3B8] mt-1">
-            {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots · {data.totalActiveLeases} baux
-          </p>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">
+              {data.grossYield !== null ? `${data.grossYield}%` : `${data.occupancyRate}%`}
+            </p>
+            <p className="text-[10px] text-[#94A3B8] mt-1">
+              {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots · {data.totalActiveLeases} baux
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Contenu principal : 2/3 + 1/3 */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Colonne gauche */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-6">
 
           {/* Endettement consolidé — KPIs compacts + liste établissements */}
           {data.totalDebt > 0 && (
@@ -275,7 +283,7 @@ export default async function ProprietaireDashboardPage({
         </div>
 
         {/* Colonne droite : occupation + synthèse fusionnés */}
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Occupation + Synthèse financière fusionnés */}
           <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader className="pb-3 px-5 pt-5">
@@ -474,7 +482,7 @@ export default async function ProprietaireDashboardPage({
   );
 
   return (
-    <div className="space-y-5 max-w-7xl">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
