@@ -24,9 +24,29 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Routes de fichiers binaires (PDF, images) : pas de X-Frame-Options
+        // pour permettre la prévisualisation dans les iframes internes
+        source: "/api/storage/view",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        ],
+      },
+      {
+        source: "/api/invoices/:id/pdf",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        ],
+      },
+      {
+        // Toutes les autres routes : protection clickjacking SAMEORIGIN
+        // (permet l'encadrement par le même domaine, bloque les sites tiers)
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
