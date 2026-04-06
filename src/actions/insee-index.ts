@@ -8,11 +8,12 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 
 // Séries INSEE BDM (endpoint public, sans authentification)
+// IDBANK vérifiés en avril 2026 — séries de base (valeur absolue, pas variation)
 const INSEE_SERIES: Record<string, string> = {
-  IRL: "001515333",
-  ILC: "001517765",
-  ILAT: "001517754",
-  ICC: "001517761",
+  IRL: "001515333",   // Indice de Référence des Loyers
+  ILC: "001532540",   // Indice des Loyers Commerciaux (base 100 T1 2008)
+  ILAT: "001617112",  // Indice des Loyers des Activités Tertiaires (base 100 T1 2010)
+  ICC: "000008630",   // Indice du Coût de la Construction
 };
 
 /**
