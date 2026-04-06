@@ -282,7 +282,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" />
+            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" width={140} height={36} />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
             <a href="#solutions" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
@@ -405,7 +405,7 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Fonctionnalités</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-              Une gouvernance complète de vos actifs
+              Une vision complète de vos actifs
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Chaque module est conçu pour garantir la pérennité de votre patrimoine, la conformité de vos opérations et la fiabilité de votre reporting.
@@ -761,7 +761,7 @@ export default function HomePage() {
             <div className="col-span-2 md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" />
+                <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" width={124} height={32} />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 Plateforme souveraine de gestion d&apos;actifs immobiliers pour les foncières, les cabinets de gestion et les family offices.

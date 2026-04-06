@@ -15,6 +15,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { compareSync } from "bcryptjs";
 import { createAuditLog } from "@/lib/audit";
+import { requiresTwoFactor } from "@/lib/plan-limits";
 
 export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: string; secret: string }>> {
   try {
@@ -116,6 +117,16 @@ export async function disableTwoFactor(password: string): Promise<ActionResult<v
 
     if (!user) return { success: false, error: "Utilisateur introuvable" };
     if (!user.twoFactorEnabled) return { success: false, error: "2FA non active" };
+
+    // Empecher la desactivation si le plan exige le 2FA
+    const mandatory = await requiresTwoFactor(session.user.id);
+    if (mandatory) {
+      return {
+        success: false,
+        error: "L'authentification a deux facteurs est obligatoire pour les comptes Institutionnel.",
+      };
+    }
+
     if (!user.passwordHash || !compareSync(password, user.passwordHash)) {
       return { success: false, error: "Mot de passe incorrect" };
     }

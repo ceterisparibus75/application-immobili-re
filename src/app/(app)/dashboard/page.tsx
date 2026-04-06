@@ -15,6 +15,7 @@ import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -34,9 +35,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Tableau de bord</h1>
-        <p className="text-sm text-muted-foreground mt-1">Vue d&apos;ensemble de votre patrimoine immobilier</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Tableau de bord</h1>
+          <p className="text-sm text-muted-foreground mt-1">Vue d&apos;ensemble de votre patrimoine immobilier</p>
+        </div>
+        <ExportPdfButton />
       </div>
 
       {/* ── Onboarding Checklist ── */}

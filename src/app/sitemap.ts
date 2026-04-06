@@ -15,5 +15,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/mentions-legales`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/politique-confidentialite`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/dpa`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/blog`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${SITE_URL}/blog/gerer-fonciere-multi-immeubles`, lastModified: new Date("2026-03-15"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/blog/rgpd-gestion-immobiliere`, lastModified: new Date("2026-02-28"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/blog/comptabilite-immobiliere-fec-tva`, lastModified: new Date("2026-02-10"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/blog/digitalisation-gestion-locative-2026`, lastModified: new Date("2026-01-22"), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/blog/indices-irl-ilc-ilat-revisions-loyer`, lastModified: new Date("2026-01-05"), changeFrequency: "monthly", priority: 0.7 },
   ];
 }
