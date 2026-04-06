@@ -189,7 +189,7 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
           <span className={cn("text-sm truncate text-[var(--color-brand-deep)]", selected && "font-medium")}>{doc.fileName}</span>
           <AiBadge status={doc.aiStatus} id={doc.id} />
           {expired && <span title="Expiré"><AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label="Expiré" /></span>}
-          {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" aria-label="Expire bientôt" /></span>}
+          {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)] shrink-0" aria-label="Expire bientôt" /></span>}
         </div>
         {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
       </div>
@@ -269,7 +269,7 @@ function PreviewContent({ doc }: { doc: DocumentItem }) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center py-8">
-        <AlertTriangle className="h-8 w-8 text-orange-400 mx-auto mb-3" />
+        <AlertTriangle className="h-8 w-8 text-[var(--color-status-caution)] mx-auto mb-3" />
         <p className="text-xs text-muted-foreground">Impossible de charger l&apos;aperçu</p>
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
           <Button variant="outline" size="sm" className="mt-3 text-xs gap-1">
@@ -452,7 +452,7 @@ function DataroomPickerDialog({ doc, societyId, onClose }: { doc: DocumentItem; 
                   <p className="text-xs text-muted-foreground">{dr._count.documents} document{dr._count.documents !== 1 ? "s" : ""}</p>
                 </div>
                 {done.has(dr.id) ? (
-                  <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200"><Check className="h-3 w-3" />Ajouté</Badge>
+                  <Badge className="gap-1 text-xs bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border-[var(--color-status-positive)]/30"><Check className="h-3 w-3" />Ajouté</Badge>
                 ) : (
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1 shrink-0"
                     onClick={() => void handleAdd(dr.id)} disabled={addingId === dr.id}>
@@ -523,7 +523,7 @@ function BulkDataroomPickerDialog({ selectedIds, societyId, onClose }: { selecte
                     <p className="text-xs text-muted-foreground">{dr._count.documents} document{dr._count.documents !== 1 ? "s" : ""}</p>
                   </div>
                   {isDone ? (
-                    <Badge className="gap-1 text-xs bg-green-100 text-green-700 border-green-200"><Check className="h-3 w-3" />{prog.done}/{prog.total} ajoutés</Badge>
+                    <Badge className="gap-1 text-xs bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border-[var(--color-status-positive)]/30"><Check className="h-3 w-3" />{prog.done}/{prog.total} ajoutés</Badge>
                   ) : prog && addingId === dr.id ? (
                     <Badge variant="secondary" className="gap-1 text-xs">
                       <Loader2 className="h-3 w-3 animate-spin" />{prog.done}/{prog.total}
@@ -590,7 +590,7 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             <AiBadge status={display.aiStatus} id={doc.id} />
             {isExpired(doc.expiresAt) && <Badge variant="destructive" className="text-[10px] py-0">Expiré</Badge>}
-            {isExpiringSoon(doc.expiresAt) && <Badge className="text-[10px] py-0 bg-orange-100 text-orange-700">Expire bientôt</Badge>}
+            {isExpiringSoon(doc.expiresAt) && <Badge className="text-[10px] py-0 bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">Expire bientôt</Badge>}
           </div>
         </div>
         <button onClick={onClose} className="shrink-0 text-muted-foreground hover:text-foreground mt-0.5"><X className="h-4 w-4" /></button>

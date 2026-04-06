@@ -134,8 +134,8 @@ export default async function FacturationPage() {
         </div>
         <div className="rounded-xl border border-border/60 bg-gradient-to-br from-amber-50/80 to-card dark:from-amber-950/20 dark:to-card p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="h-10 w-10 rounded-lg bg-[var(--color-status-caution-bg)] flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5 text-[var(--color-status-caution)]" />
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
