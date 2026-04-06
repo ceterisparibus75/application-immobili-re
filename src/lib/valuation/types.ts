@@ -169,6 +169,7 @@ export interface RentValuationInput {
     endDate?: string;
     durationMonths: number;
     currentRentHT: number;
+    currentAnnualRentHT: number;
     baseRentHT: number;
     paymentFrequency: string;
     vatApplicable: boolean;

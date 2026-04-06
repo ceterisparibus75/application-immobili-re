@@ -276,6 +276,16 @@ export async function collectLeaseData(
 
   const b = lease.lot.building;
 
+  // Calculer le loyer annuel pour l'IA
+  const frequencyMultiplier: Record<string, number> = {
+    MENSUEL: 12,
+    TRIMESTRIEL: 4,
+    SEMESTRIEL: 2,
+    ANNUEL: 1,
+  };
+  const multiplier = frequencyMultiplier[lease.paymentFrequency] ?? 12;
+  const currentAnnualRentHT = lease.currentRentHT * multiplier;
+
   return {
     lease: {
       leaseType: lease.leaseType,
@@ -283,6 +293,7 @@ export async function collectLeaseData(
       endDate: lease.endDate?.toISOString().split("T")[0],
       durationMonths: lease.durationMonths,
       currentRentHT: lease.currentRentHT,
+      currentAnnualRentHT,
       baseRentHT: lease.baseRentHT,
       paymentFrequency: lease.paymentFrequency,
       vatApplicable: lease.vatApplicable,

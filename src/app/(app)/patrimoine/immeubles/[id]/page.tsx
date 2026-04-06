@@ -316,7 +316,7 @@ export default async function ImmeubleDetailPage({
           ) : (
             <div>
               {/* En-tête du tableau (desktop) */}
-              <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_120px_28px] gap-3 items-center px-4 py-2.5 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_150px_28px] gap-3 items-center px-4 py-2.5 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Lot</span>
                 <span className="text-right">Surface</span>
                 <span className="text-center">Étage</span>
@@ -339,7 +339,7 @@ export default async function ImmeubleDetailPage({
                     className={`block transition-colors hover:bg-accent/50 group ${index < building.lots.length - 1 ? "border-b" : ""}`}
                   >
                     {/* Desktop */}
-                    <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_120px_28px] gap-3 items-center px-4 py-3">
+                    <div className="hidden md:grid md:grid-cols-[1fr_80px_80px_100px_150px_28px] gap-3 items-center px-4 py-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                           {lot.number}
