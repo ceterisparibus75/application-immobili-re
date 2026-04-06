@@ -137,7 +137,7 @@ export async function runAiAnalysis(
           data: {
             valuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.0-flash",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.5-flash",
             inputPayload: buildingData as object,
             rawResponse,
             structuredResult: result as object,
@@ -163,7 +163,8 @@ export async function runAiAnalysis(
         });
         analysisCount++;
       } else {
-        console.error("[runAiAnalysis] Provider failed:", settled.reason);
+        const reason = settled.reason instanceof Error ? settled.reason.message : String(settled.reason);
+        console.error("[runAiAnalysis] Provider failed:", reason, settled.reason);
       }
     }
 

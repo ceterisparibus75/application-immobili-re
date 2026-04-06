@@ -132,7 +132,7 @@ export async function runRentAiAnalysis(
           data: {
             rentValuationId,
             provider,
-            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.0-flash",
+            modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gemini-2.5-flash",
             inputPayload: leaseData as object,
             rawResponse,
             structuredResult: result as object,
