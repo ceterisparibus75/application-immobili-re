@@ -131,13 +131,13 @@ export function RentValuationPanel({
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Loyer actuel</p>
-                    <p className="font-medium">{v.currentRent ? formatCurrency(v.currentRent) : "—"}</p>
+                    <p className="text-muted-foreground">Loyer actuel annuel</p>
+                    <p className="font-medium">{v.currentRent ? `${formatCurrency(v.currentRent)}/an` : "—"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Loyer de marché</p>
+                    <p className="text-muted-foreground">Loyer de marché annuel</p>
                     <p className="font-semibold text-blue-600">
-                      {v.estimatedMarketRent ? formatCurrency(v.estimatedMarketRent) : "—"}
+                      {v.estimatedMarketRent ? `${formatCurrency(v.estimatedMarketRent)}/an` : "—"}
                     </p>
                   </div>
                   <div>

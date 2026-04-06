@@ -480,7 +480,7 @@ export function RentValuationReport({ data }: { data: RentReportData }) {
             <Text style={s.text}>Fin : {fmtDate(data.lease.endDate)}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.text}>Loyer actuel HT : {eur(data.lease.currentRentHT)}</Text>
+            <Text style={s.text}>Loyer actuel HT annuel : {eur(data.lease.currentRentHT)}/an</Text>
             <Text style={s.text}>Surface : {data.unit.area} m²</Text>
             <Text style={s.text}>Locataire : {data.lease.tenant}</Text>
           </View>
@@ -490,11 +490,11 @@ export function RentValuationReport({ data }: { data: RentReportData }) {
         <View style={s.kpiRow}>
           <View style={[s.kpiBox, { backgroundColor: "#dbeafe" }]}>
             <Text style={s.kpiValue}>{eur(v.estimatedMarketRent)}</Text>
-            <Text style={s.kpiLabel}>Loyer de marché estimé</Text>
+            <Text style={s.kpiLabel}>Loyer de marché estimé (annuel)</Text>
           </View>
           <View style={s.kpiBox}>
             <Text style={s.kpiValue}>{eur(v.estimatedRentLow)} — {eur(v.estimatedRentHigh)}</Text>
-            <Text style={s.kpiLabel}>Fourchette</Text>
+            <Text style={s.kpiLabel}>Fourchette (annuel)</Text>
           </View>
           <View style={s.kpiBox}>
             <Text style={s.kpiValue}>{v.deviationPercent != null ? `${v.deviationPercent > 0 ? "+" : ""}${v.deviationPercent.toFixed(1)}%` : "N/A"}</Text>
@@ -512,7 +512,7 @@ export function RentValuationReport({ data }: { data: RentReportData }) {
             <Text style={s.subTitle}>Comparaison des avis IA</Text>
             <View style={s.tableHeader}>
               <Text style={[s.tableHeaderText, { flex: 1 }]}>Fournisseur</Text>
-              <Text style={[s.tableHeaderText, { flex: 1, textAlign: "right" }]}>Loyer estimé</Text>
+              <Text style={[s.tableHeaderText, { flex: 1, textAlign: "right" }]}>Loyer estimé/an</Text>
               <Text style={[s.tableHeaderText, { flex: 1, textAlign: "right" }]}>€/m²</Text>
               <Text style={[s.tableHeaderText, { flex: 1, textAlign: "right" }]}>Confiance</Text>
             </View>

@@ -214,6 +214,11 @@ async function generateRentReport(
     ? valuation.lease.tenant.companyName ?? "N/A"
     : `${valuation.lease.tenant.firstName ?? ""} ${valuation.lease.tenant.lastName ?? ""}`.trim() || "N/A";
 
+  // Convertir le loyer périodique en annuel pour cohérence avec les estimations IA
+  const freqMultiplier: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+  const multiplier = freqMultiplier[valuation.lease.paymentFrequency] ?? 12;
+  const currentAnnualRentHT = valuation.lease.currentRentHT * multiplier;
+
   const reportData: RentReportData = {
     society: {
       name: valuation.society.name,
@@ -223,7 +228,7 @@ async function generateRentReport(
       leaseType: valuation.lease.leaseType,
       startDate: valuation.lease.startDate.toISOString(),
       endDate: valuation.lease.endDate?.toISOString(),
-      currentRentHT: valuation.lease.currentRentHT,
+      currentRentHT: currentAnnualRentHT,
       tenant: tenantName,
     },
     unit: {

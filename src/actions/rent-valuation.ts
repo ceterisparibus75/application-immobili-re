@@ -47,13 +47,18 @@ export async function createRentValuation(
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
 
+    // Convertir le loyer périodique en annuel pour comparaison avec les estimations IA
+    const freqMultiplier: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+    const multiplier = freqMultiplier[lease.paymentFrequency] ?? 12;
+    const currentAnnualRent = lease.currentRentHT * multiplier;
+
     const valuation = await prisma.rentValuation.create({
       data: {
         leaseId: parsed.data.leaseId,
         societyId,
         createdBy: session.user.id,
         status: "DRAFT",
-        currentRent: lease.currentRentHT,
+        currentRent: currentAnnualRent,
       },
     });
 
