@@ -26,20 +26,35 @@ const INSEE_SERIES: Record<string, string> = {
   ICC: "001517761",
 };
 
-/** Extrait les observations depuis une réponse SDMX-ML XML retournée par l'API BDM INSEE */
+/**
+ * Extrait les observations depuis une réponse SDMX-ML XML retournée par l'API BDM INSEE.
+ * Supporte 2 formats :
+ *  - StructureSpecific : <Obs TIME_PERIOD="2025-Q4" OBS_VALUE="145.78" />
+ *  - Generic : <generic:Obs>...<generic:ObsValue value="..."/>...</generic:Obs>
+ */
 function parseSDMXObservations(xml: string): Array<{ period: string; value: string }> {
   const results: Array<{ period: string; value: string }> = [];
-  // Chaque observation est entre <generic:Obs>...</generic:Obs>
-  const obsRegex = /<(?:generic:)?Obs>([\s\S]*?)<\/(?:generic:)?Obs>/g;
+
+  // Format StructureSpecific (format actuel de l'API BDM)
+  const ssRegex = /<Obs\s[^>]*TIME_PERIOD="([^"]+)"[^>]*OBS_VALUE="([^"]+)"[^>]*\/?\s*>/g;
   let match;
-  while ((match = obsRegex.exec(xml)) !== null) {
-    const block = match[1];
-    const periodMatch = block.match(/id="TIME_PERIOD"\s+value="([^"]+)"/);
-    const valueMatch = block.match(/<(?:generic:)?ObsValue\s+value="([^"]+)"/);
-    if (periodMatch && valueMatch) {
-      results.push({ period: periodMatch[1], value: valueMatch[1] });
+  while ((match = ssRegex.exec(xml)) !== null) {
+    results.push({ period: match[1], value: match[2] });
+  }
+
+  // Fallback : format Generic (ancien format)
+  if (results.length === 0) {
+    const genRegex = /<(?:generic:)?Obs>([\s\S]*?)<\/(?:generic:)?Obs>/g;
+    while ((match = genRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const periodMatch = block.match(/id="TIME_PERIOD"\s+value="([^"]+)"/);
+      const valueMatch = block.match(/<(?:generic:)?ObsValue\s+value="([^"]+)"/);
+      if (periodMatch && valueMatch) {
+        results.push({ period: periodMatch[1], value: valueMatch[1] });
+      }
     }
   }
+
   return results;
 }
 
