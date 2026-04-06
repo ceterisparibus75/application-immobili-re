@@ -407,10 +407,10 @@ export default async function ProprietaireDashboardPage({
 
       {/* Section 3 : Alertes (Impayés + Baux expirant) */}
       {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className={`grid gap-4 ${data.totalOverdue > 0 && data.expiringLeases.length > 0 ? "lg:grid-cols-3" : ""}`}>
           {/* Impayés par ancienneté */}
           {data.totalOverdue > 0 && (
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className={`border-0 shadow-brand bg-white rounded-xl ${data.expiringLeases.length > 0 ? "lg:col-span-2" : ""}`}>
               <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
