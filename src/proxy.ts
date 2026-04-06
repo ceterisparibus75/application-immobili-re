@@ -37,6 +37,7 @@ export default auth(async (req) => {
     pathname.startsWith("/securite") ||
     pathname.startsWith("/presse") ||
     pathname.startsWith("/recrutement") ||
+    pathname.startsWith("/blog") ||
     pathname.startsWith("/aide") ||
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||

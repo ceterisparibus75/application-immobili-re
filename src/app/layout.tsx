@@ -1,10 +1,24 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { SessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jetbrains",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -37,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className="h-full" suppressHydrationWarning>
+    <html lang="fr" className={`h-full ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
         <SessionProvider>
           <ThemeProvider>
@@ -55,9 +69,11 @@ export default function RootLayout({
           </ThemeProvider>
         </SessionProvider>
       </body>
-      <script
+      <Script
+        id="sw-register"
+        strategy="lazyOnload"
         dangerouslySetInnerHTML={{
-          __html: `if ("serviceWorker" in navigator) { window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js"); }); }`,
+          __html: `if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js"); }`,
         }}
       />
     </html>

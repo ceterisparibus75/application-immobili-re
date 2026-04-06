@@ -366,3 +366,217 @@ export async function analyzePdfAction(formData: FormData): Promise<ActionResult
     return { success: false, error: "Erreur lors de l'analyse du document" };
   }
 }
+
+// ---- Bulk CSV/Excel import ----
+
+import { parseImportFile } from "@/lib/import-parser";
+import {
+  importTenantRowSchema,
+  importBuildingRowSchema,
+  importLotRowSchema,
+  type ImportEntityType,
+} from "@/validations/import";
+import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
+
+export type ParsedFileResult = {
+  headers: string[];
+  rows: Record<string, string>[];
+};
+
+/**
+ * Server action to parse an uploaded CSV/Excel file and return structured rows.
+ */
+export async function parseImportFileAction(
+  formData: FormData
+): Promise<ActionResult<ParsedFileResult>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+
+    const file = formData.get("file") as File | null;
+    if (!file) return { success: false, error: "Aucun fichier fourni" };
+
+    const allowedTypes = [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+    ];
+    // Some browsers may not set MIME correctly for CSV, so also check extension
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!allowedTypes.includes(file.type) && !["csv", "xlsx", "xls"].includes(ext ?? "")) {
+      return { success: false, error: "Format non supporte. Utilisez un fichier CSV ou Excel (.xlsx)." };
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false, error: "Fichier trop volumineux (max 10 Mo)" };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parsed = await parseImportFile(buffer, file.name);
+
+    if (parsed.rows.length === 0) {
+      return { success: false, error: "Le fichier est vide ou ne contient aucune ligne de donnees." };
+    }
+
+    return { success: true, data: parsed };
+  } catch (error) {
+    console.error("[parseImportFileAction]", error);
+    return { success: false, error: "Erreur lors de la lecture du fichier" };
+  }
+}
+
+export type BulkImportResult = {
+  imported: number;
+  errors: { row: number; message: string }[];
+};
+
+/**
+ * Bulk import entities from parsed CSV/Excel rows.
+ * Each row is validated and inserted individually; failures are collected, not thrown.
+ */
+export async function importEntities(
+  societyId: string,
+  entityType: ImportEntityType,
+  data: Record<string, string>[]
+): Promise<ActionResult<BulkImportResult>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    if (!data.length) return { success: false, error: "Aucune donnee a importer" };
+
+    let imported = 0;
+    const errors: { row: number; message: string }[] = [];
+
+    if (entityType === "tenants") {
+      for (let i = 0; i < data.length; i++) {
+        const parsed = importTenantRowSchema.safeParse(data[i]);
+        if (!parsed.success) {
+          errors.push({
+            row: i + 2,
+            message: parsed.error.errors.map((e) => e.message).join(", "),
+          });
+          continue;
+        }
+        try {
+          await prisma.tenant.create({
+            data: {
+              societyId,
+              entityType: "PERSONNE_PHYSIQUE",
+              lastName: parsed.data.nom,
+              firstName: parsed.data.prenom,
+              email: parsed.data.email,
+              phone: parsed.data.telephone || null,
+            },
+          });
+          imported++;
+        } catch (err) {
+          errors.push({
+            row: i + 2,
+            message: err instanceof Error ? err.message : "Erreur d'insertion",
+          });
+        }
+      }
+    } else if (entityType === "buildings") {
+      for (let i = 0; i < data.length; i++) {
+        const parsed = importBuildingRowSchema.safeParse(data[i]);
+        if (!parsed.success) {
+          errors.push({
+            row: i + 2,
+            message: parsed.error.errors.map((e) => e.message).join(", "),
+          });
+          continue;
+        }
+        try {
+          await prisma.building.create({
+            data: {
+              societyId,
+              name: parsed.data.name,
+              addressLine1: parsed.data.address,
+              city: parsed.data.city,
+              postalCode: parsed.data.postalCode,
+              buildingType: parsed.data.type,
+            },
+          });
+          imported++;
+        } catch (err) {
+          errors.push({
+            row: i + 2,
+            message: err instanceof Error ? err.message : "Erreur d'insertion",
+          });
+        }
+      }
+    } else if (entityType === "lots") {
+      const lotCheck = await checkLotLimit(societyId);
+      if (!lotCheck.allowed) return { success: false, error: lotCheck.message };
+
+      for (let i = 0; i < data.length; i++) {
+        const parsed = importLotRowSchema.safeParse(data[i]);
+        if (!parsed.success) {
+          errors.push({
+            row: i + 2,
+            message: parsed.error.errors.map((e) => e.message).join(", "),
+          });
+          continue;
+        }
+        // Verify building belongs to this society
+        const building = await prisma.building.findFirst({
+          where: { id: parsed.data.buildingId, societyId },
+        });
+        if (!building) {
+          errors.push({ row: i + 2, message: "Immeuble introuvable dans cette societe" });
+          continue;
+        }
+        try {
+          await prisma.lot.create({
+            data: {
+              buildingId: parsed.data.buildingId,
+              number: parsed.data.reference,
+              lotType: parsed.data.type,
+              area: parsed.data.surface,
+              floor: parsed.data.etage || null,
+              status: "VACANT",
+            },
+          });
+          imported++;
+        } catch (err) {
+          errors.push({
+            row: i + 2,
+            message: err instanceof Error ? err.message : "Erreur d'insertion",
+          });
+        }
+      }
+    }
+
+    // Audit log for the bulk import
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "BulkImport",
+      entityId: societyId,
+      details: {
+        entityType,
+        totalRows: data.length,
+        imported,
+        errorCount: errors.length,
+      },
+    });
+
+    revalidatePath("/patrimoine/immeubles");
+    revalidatePath("/patrimoine/lots");
+    revalidatePath("/locataires");
+    revalidatePath("/dashboard");
+
+    return { success: true, data: { imported, errors } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[importEntities]", error);
+    return { success: false, error: "Erreur lors de l'import en masse" };
+  }
+}

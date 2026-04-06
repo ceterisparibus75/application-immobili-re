@@ -7,7 +7,7 @@ import {
   Receipt, TrendingUp, Landmark, BookOpen, Contact,
   FolderOpen, Settings, Shield, ScrollText, Banknote,
   BarChart3, FileBarChart, Upload, Merge,
-  Layers,
+  Layers, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -47,6 +47,7 @@ const navigation = [
       { name: "Emprunts", href: "/emprunts", icon: Banknote },
       { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
       { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
+      { name: "Cash-flow", href: "/comptabilite/cashflow", icon: Wallet },
       { name: "Rapports", href: "/rapports", icon: FileBarChart },
     ],
   },
@@ -80,7 +81,7 @@ export function Sidebar() {
       <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
         <Link href="/proprietaire" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-8" />
+          <img src="/logo-mygestia.svg" alt="MyGestia" className="h-8" width={124} height={32} />
         </Link>
       </div>
 
