@@ -114,19 +114,19 @@ export default function GrandLivrePage() {
         <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="pt-4 flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <TrendingUp className="h-8 w-8 text-[var(--color-status-positive)]" />
               <div>
                 <div className="text-xs text-muted-foreground">Total Débit</div>
-                <div className="text-xl font-bold text-green-700">{formatCurrency(totalDebit)}</div>
+                <div className="text-xl font-bold text-[var(--color-status-positive)]">{formatCurrency(totalDebit)}</div>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 flex items-center gap-3">
-              <TrendingDown className="h-8 w-8 text-red-600" />
+              <TrendingDown className="h-8 w-8 text-[var(--color-status-negative)]" />
               <div>
                 <div className="text-xs text-muted-foreground">Total Crédit</div>
-                <div className="text-xl font-bold text-red-700">{formatCurrency(totalCredit)}</div>
+                <div className="text-xl font-bold text-[var(--color-status-negative)]">{formatCurrency(totalCredit)}</div>
               </div>
             </CardContent>
           </Card>
@@ -143,7 +143,7 @@ export default function GrandLivrePage() {
               <CardTitle className="text-sm flex items-center justify-between">
                 <span className="font-mono font-bold">{code}</span>
                 <span className="font-normal text-muted-foreground">{accLabel}</span>
-                <span className={lastSolde >= 0 ? "text-green-700" : "text-red-700"}>
+                <span className={lastSolde >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}>
                   Solde : {formatCurrency(lastSolde)}
                 </span>
               </CardTitle>
@@ -171,9 +171,9 @@ export default function GrandLivrePage() {
                         <TableCell className="font-mono text-xs">{l.piece ?? "—"}</TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{JOURNAL_LABELS[l.journalType] ?? l.journalType}</Badge></TableCell>
                         <TableCell className="text-sm">{l.label}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-green-700">{l.debit > 0 ? formatCurrency(l.debit) : ""}</TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-700">{l.credit > 0 ? formatCurrency(l.credit) : ""}</TableCell>
-                        <TableCell className={"text-right font-mono text-sm font-semibold " + (l.solde >= 0 ? "text-green-800" : "text-red-800")}>{formatCurrency(l.solde)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-[var(--color-status-positive)]">{l.debit > 0 ? formatCurrency(l.debit) : ""}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-[var(--color-status-negative)]">{l.credit > 0 ? formatCurrency(l.credit) : ""}</TableCell>
+                        <TableCell className={"text-right font-mono text-sm font-semibold " + (l.solde >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]")}>{formatCurrency(l.solde)}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{l.lettrage ?? ""}</TableCell>
                         <TableCell><Badge variant={STATUS_COLORS[l.status] as never} className="text-xs">{l.status}</Badge></TableCell>
                       </TableRow>

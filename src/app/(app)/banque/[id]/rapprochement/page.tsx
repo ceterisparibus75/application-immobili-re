@@ -65,7 +65,7 @@ export default async function RapprochementPage({
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Transactions non rapprochées</p>
-            <p className={`text-2xl font-bold ${transactions.length > 0 ? "text-orange-500" : "text-green-600"}`}>
+            <p className={`text-2xl font-bold ${transactions.length > 0 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
               {transactions.length}
             </p>
           </CardContent>
@@ -73,7 +73,7 @@ export default async function RapprochementPage({
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Paiements enregistrés</p>
-            <p className={`text-2xl font-bold ${payments.length > 0 ? "text-orange-500" : "text-green-600"}`}>
+            <p className={`text-2xl font-bold ${payments.length > 0 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
               {payments.length}
             </p>
           </CardContent>
@@ -81,7 +81,7 @@ export default async function RapprochementPage({
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Loyers et factures en attente</p>
-            <p className={`text-2xl font-bold ${pendingInvoices.length > 0 ? "text-blue-600" : "text-green-600"}`}>
+            <p className={`text-2xl font-bold ${pendingInvoices.length > 0 ? "text-blue-600" : "text-[var(--color-status-positive)]"}`}>
               {pendingInvoices.length}
             </p>
           </CardContent>
@@ -89,7 +89,7 @@ export default async function RapprochementPage({
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Échéances de prêts</p>
-            <p className={`text-2xl font-bold ${loanLines.length > 0 ? "text-amber-500" : "text-green-600"}`}>
+            <p className={`text-2xl font-bold ${loanLines.length > 0 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
               {loanLines.length}
             </p>
           </CardContent>
@@ -124,7 +124,7 @@ export default async function RapprochementPage({
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium tabular-nums ${r.transaction.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                    <span className={`text-sm font-medium tabular-nums ${r.transaction.amount >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
                       {r.transaction.amount >= 0 ? "+" : ""}{formatCurrency(r.transaction.amount)}
                     </span>
                     <Badge variant="success" className="text-xs">Rapproché</Badge>

@@ -203,7 +203,7 @@ export default function ExportsFecPage() {
                 </p>
               </div>
               {result.stats.balanced ? (
-                <Badge className="bg-green-500">Balance OK</Badge>
+                <Badge className="bg-[var(--color-status-positive)]">Balance OK</Badge>
               ) : (
                 <Badge variant="destructive">Déséquilibre</Badge>
               )}
@@ -214,7 +214,7 @@ export default function ExportsFecPage() {
             <CardHeader>
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 {errorCount === 0 ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
                 ) : (
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                 )}
@@ -228,7 +228,7 @@ export default function ExportsFecPage() {
             </CardHeader>
             <CardContent>
               {result.anomalies.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-green-600">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-status-positive)]">
                   <CheckCircle2 className="h-4 w-4" />
                   Toutes les écritures sont conformes au format FEC DGFiP
                 </div>
@@ -241,7 +241,7 @@ export default function ExportsFecPage() {
                         "flex items-start justify-between gap-2 rounded-md border p-3 text-sm " +
                         (a.severity === "error"
                           ? "border-destructive/50 bg-destructive/10 text-destructive"
-                          : "border-amber-500/50 bg-amber-50 text-amber-800")
+                          : "border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]")
                       }
                     >
                       <div className="flex items-start gap-2">

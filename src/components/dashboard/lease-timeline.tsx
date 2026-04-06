@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import type { LeaseTimelineItem } from "@/actions/analytics";
 
 function DaysBadge({ days }: { days: number }) {
-  if (days <= 0) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">Expiré</span>;
-  if (days <= 30) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">J-{days}</span>;
-  if (days <= 90) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">J-{days}</span>;
+  if (days <= 0) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">Expiré</span>;
+  if (days <= 30) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">J-{days}</span>;
+  if (days <= 90) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">J-{days}</span>;
   return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F0F9FF] text-[#1B4F8A]">J-{days}</span>;
 }
 
@@ -45,9 +45,9 @@ export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
                 width: `${lease.progressPct}%`,
                 background:
                   lease.daysRemaining <= 30
-                    ? "#F87171"
+                    ? "#A04040"
                     : lease.daysRemaining <= 90
-                    ? "#FBBF24"
+                    ? "#9B7A3C"
                     : "linear-gradient(90deg, #1B4F8A, #22B8CF)",
               }}
             />

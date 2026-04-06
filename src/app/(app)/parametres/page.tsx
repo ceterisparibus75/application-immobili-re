@@ -122,7 +122,7 @@ export default function ParametresPage() {
             </div>
           )}
           {success && (
-            <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-3 text-sm text-green-800 dark:text-green-200 mb-4">
+            <div className="rounded-md bg-[var(--color-status-positive-bg)] p-3 text-sm text-[var(--color-status-positive)] mb-4">
               {success}
             </div>
           )}

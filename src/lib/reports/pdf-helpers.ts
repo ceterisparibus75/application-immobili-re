@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PDFFont, PDFPage, RGB } from "pdf-lib";
 import {
   BRAND_DEEP, BRAND_LIGHT, WHITE, BLACK, GRAY, GRAY_LIGHT, GRAY_LINE, CORAL,
@@ -9,16 +8,19 @@ import type { ColAlign } from "./types";
 
 // ── Section Header ──────────────────────────────────────────────────
 
+/**
+ * @param font - Pass serifBold for audit-quality sections, or bold for backward compatibility.
+ */
 export function drawSectionHeader(
   p: PDFPage,
-  bold: PDFFont,
+  font: PDFFont,
   y: number,
   title: string,
   pw?: number
 ): number {
   const cw = pw ? pw - 2 * MRG : CW;
   p.drawRectangle({ x: MRG, y: y - SECTION_HEIGHT + 2, width: cw, height: SECTION_HEIGHT, color: BRAND_DEEP });
-  p.drawText(title, { x: MRG + 8, y: y - SECTION_HEIGHT + 8, size: FONT_SECTION, font: bold, color: WHITE });
+  p.drawText(title, { x: MRG + 10, y: y - SECTION_HEIGHT + 7, size: FONT_SECTION, font, color: WHITE });
   return y - SECTION_HEIGHT - 4;
 }
 

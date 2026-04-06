@@ -138,7 +138,7 @@ export default async function FacturationPage() {
               <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
+              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
               <p className="text-xs text-muted-foreground">Impayes ({enAttente.length + enRetard.length})</p>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default async function FacturationPage() {
               <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{overdueInvoices.length}</p>
+              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-negative)]">{overdueInvoices.length}</p>
               <p className="text-xs text-muted-foreground">En retard</p>
             </div>
           </div>

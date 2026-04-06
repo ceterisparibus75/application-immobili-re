@@ -13,16 +13,16 @@ function pdfCur(amount: number): string {
   return formatCurrency(amount).replace(/\u202f/g, " ").replace(/\u00a0/g, " ");
 }
 
-// ── PDF constants (same as report-generator) ──
-const BLUE = rgb(0.12, 0.29, 0.58);
-const LBLUE = rgb(0.91, 0.94, 0.98);
+// ── PDF constants (aligned with reports module) ──
+const BLUE = rgb(0.047, 0.137, 0.251);  // #0C2340 brand-deep
+const LBLUE = rgb(0.878, 0.969, 0.980);  // #E0F7FA brand-light
 const GRAY = rgb(0.55, 0.55, 0.55);
 const WHITE = rgb(1, 1, 1);
 const BLACK = rgb(0.1, 0.1, 0.1);
-const RED = rgb(0.78, 0.18, 0.18);
+const RED = rgb(0.627, 0.251, 0.251);   // #A04040 muted negative
 const PW = 595.28;
 const PH = 841.89;
-const MRG = 40;
+const MRG = 50;
 const CW = PW - 2 * MRG;
 
 export async function GET(): Promise<NextResponse> {
@@ -90,6 +90,7 @@ async function generateDashboardPdf(
   const doc = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg = await doc.embedFont(StandardFonts.Helvetica);
+  const serifBold = await doc.embedFont(StandardFonts.TimesRomanBold);
   const ds = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
 
   const societyName = society?.name ?? null;
@@ -111,7 +112,7 @@ async function generateDashboardPdf(
       const nameWidth = bold.widthOfTextAtSize(societyName, 10);
       p.drawText(societyName, { x: PW - MRG - nameWidth, y: PH - 22, size: 10, font: bold, color: WHITE });
     }
-    p.drawText("Tableau de bord", { x: MRG, y: PH - 28, size: 14, font: bold, color: WHITE });
+    p.drawText("Tableau de bord", { x: MRG, y: PH - 28, size: 14, font: serifBold, color: WHITE });
     p.drawText(`Synthese au ${ds}`, { x: MRG, y: PH - 48, size: 9, font: reg, color: rgb(0.82, 0.87, 0.96) });
     p.drawText(`Genere le ${ds}`, { x: PW - 150, y: PH - 48, size: 8, font: reg, color: rgb(0.82, 0.87, 0.96) });
     // Footer

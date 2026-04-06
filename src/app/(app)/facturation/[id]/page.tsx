@@ -287,7 +287,7 @@ export default async function FactureDetailPage({
                           {payment.reference && ` — Réf: ${payment.reference}`}
                         </p>
                       </div>
-                      <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                      <p className="text-sm font-medium text-[var(--color-status-positive)]">
                         + {payment.amount.toLocaleString("fr-FR", {
                           maximumFractionDigits: 2,
                         })}{" "}

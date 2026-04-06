@@ -13,7 +13,7 @@ const TOOLTIP_STYLE = {
 };
 
 // Couleurs désaturées pastels → plus saturées selon l'ancienneté
-const BUCKET_COLORS = ["#FCD34D", "#FB923C", "#F87171", "#B91C1C"];
+const BUCKET_COLORS = ["#C4A96A", "#B08650", "#A04040", "#7A2020"];
 
 export function OverdueChart({ data }: { data: OverdueByAge[] }) {
   const hasData = data.some((d) => d.amount > 0);
@@ -49,7 +49,7 @@ export function OverdueChart({ data }: { data: OverdueByAge[] }) {
             `${Number(v ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} \u20AC`,
             "Impayés",
           ]}
-          cursor={{ fill: "#FEF2F2", opacity: 0.5 }}
+          cursor={{ fill: "#F5EDED", opacity: 0.5 }}
         />
         <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={48}>
           {data.map((_, i) => (

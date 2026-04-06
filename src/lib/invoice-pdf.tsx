@@ -28,16 +28,16 @@ const BORDER = "#e5e7eb";
 const LIGHT_BG = "#f9fafb";
 
 const s = StyleSheet.create({
-  page: { fontFamily: "Helvetica", fontSize: 9, color: DARK, paddingTop: 40, paddingBottom: 70, paddingHorizontal: 40 },
+  page: { fontFamily: "Helvetica", fontSize: 10, color: DARK, paddingTop: 50, paddingBottom: 70, paddingHorizontal: 50 },
   logoContainer: { alignItems: "center", marginBottom: 12 },
   logo: { maxHeight: 96, maxWidth: 240 },
   headerRow: { flexDirection: "row", marginBottom: 24 },
   emitter: { flex: 1, paddingRight: 16 },
   recipientBox: { width: 180, padding: 12, position: "relative" },
   recipientCorner: { position: "absolute", fontSize: 10, color: "#d1d5db" },
-  companyName: { fontSize: 11, fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  companyName: { fontSize: 12, fontFamily: "Times-Bold", marginBottom: 2 },
   smallText: { fontSize: 8, color: GRAY, marginBottom: 1 },
-  title: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  title: { fontSize: 15, fontFamily: "Times-Bold", marginBottom: 4 },
   infoRow: { fontSize: 8.5, marginBottom: 2 },
   tableHeader: { flexDirection: "row", backgroundColor: LIGHT_BG, borderTopWidth: 1, borderBottomWidth: 1, borderColor: BORDER },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: BORDER },

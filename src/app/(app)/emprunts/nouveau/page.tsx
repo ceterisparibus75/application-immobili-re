@@ -541,7 +541,7 @@ function PdfImportForm({
         </div>
       )}
 
-      <div className="rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 text-sm text-green-800 dark:text-green-300 flex items-center gap-2">
+      <div className="rounded-md bg-[var(--color-status-positive-bg)] border border-[var(--color-status-positive)]/30 p-3 text-sm text-[var(--color-status-positive)] flex items-center gap-2">
         <CheckCircle2 className="h-4 w-4 shrink-0" />
         {parsed?.schedule.length ?? 0} lignes extraites depuis le PDF. Vérifiez et corrigez si nécessaire.
       </div>

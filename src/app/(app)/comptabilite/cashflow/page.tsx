@@ -141,7 +141,7 @@ export default function CashflowPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="pt-4 flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-green-600 flex-shrink-0" />
+                <TrendingUp className="h-8 w-8 text-[var(--color-status-positive)] flex-shrink-0" />
                 <div>
                   <div className="text-2xl font-bold">{formatCurrency(totalProjectedIncome)}</div>
                   <div className="text-xs text-muted-foreground">
@@ -152,7 +152,7 @@ export default function CashflowPage() {
             </Card>
             <Card>
               <CardContent className="pt-4 flex items-center gap-3">
-                <TrendingDown className="h-8 w-8 text-red-600 flex-shrink-0" />
+                <TrendingDown className="h-8 w-8 text-[var(--color-status-negative)] flex-shrink-0" />
                 <div>
                   <div className="text-2xl font-bold">{formatCurrency(totalProjectedExpenses)}</div>
                   <div className="text-xs text-muted-foreground">
@@ -165,7 +165,7 @@ export default function CashflowPage() {
               <CardContent className="pt-4 flex items-center gap-3">
                 <Wallet className="h-8 w-8 text-blue-600 flex-shrink-0" />
                 <div>
-                  <div className={`text-2xl font-bold ${totalNetCashflow >= 0 ? "text-green-700" : "text-red-700"}`}>
+                  <div className={`text-2xl font-bold ${totalNetCashflow >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
                     {formatCurrency(totalNetCashflow)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -190,7 +190,7 @@ export default function CashflowPage() {
                       <stop offset="100%" stopColor="#86EFAC" />
                     </linearGradient>
                     <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#EF4444" />
+                      <stop offset="0%" stopColor="#A04040" />
                       <stop offset="100%" stopColor="#FCA5A5" />
                     </linearGradient>
                   </defs>
@@ -298,7 +298,7 @@ export default function CashflowPage() {
                           </TableCell>
                           <TableCell
                             className={`text-right font-mono text-sm font-semibold ${
-                              row.netCashflow >= 0 ? "text-green-700" : "text-red-700"
+                              row.netCashflow >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"
                             }`}
                           >
                             {formatCurrency(row.netCashflow)}

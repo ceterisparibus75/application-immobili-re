@@ -295,26 +295,26 @@ export default function ImportPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <CheckCircle2 className="h-5 w-5 text-[var(--color-status-positive)]" />
               Import termine
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-4">
-              <div className="rounded-md bg-green-50 px-4 py-2 dark:bg-green-950/30">
-                <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+              <div className="rounded-md bg-[var(--color-status-positive-bg)] px-4 py-2">
+                <p className="text-2xl font-bold text-[var(--color-status-positive)]">
                   {result.imported}
                 </p>
-                <p className="text-sm text-green-600 dark:text-green-500">
+                <p className="text-sm text-[var(--color-status-positive)]">
                   importe{result.imported > 1 ? "s" : ""}
                 </p>
               </div>
               {result.errors.length > 0 && (
-                <div className="rounded-md bg-red-50 px-4 py-2 dark:bg-red-950/30">
-                  <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+                <div className="rounded-md bg-[var(--color-status-negative-bg)] px-4 py-2">
+                  <p className="text-2xl font-bold text-[var(--color-status-negative)]">
                     {result.errors.length}
                   </p>
-                  <p className="text-sm text-red-600 dark:text-red-500">
+                  <p className="text-sm text-[var(--color-status-negative)]">
                     erreur{result.errors.length > 1 ? "s" : ""}
                   </p>
                 </div>

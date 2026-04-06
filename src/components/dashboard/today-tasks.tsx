@@ -89,11 +89,11 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
     <Card className="border-0 shadow-brand bg-white rounded-xl">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
-            <CheckSquare className="h-4 w-4 text-amber-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
+            <CheckSquare className="h-4 w-4 text-[var(--color-status-caution)]" />
           </div>
           À traiter
-          <span className="ml-auto inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{totalTasks}</span>
+          <span className="ml-auto inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">{totalTasks}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -104,14 +104,14 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
             href={`/patrimoine/immeubles/${d.building.id}`}
             className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50">
-              <FileWarning className="h-3.5 w-3.5 text-amber-600" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
+              <FileWarning className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate text-[#0C2340]">Diagnostic {d.type} — {d.building.name}</p>
               <p className="text-xs text-muted-foreground">Expire dans {daysUntil(d.expiresAt!)} jour{daysUntil(d.expiresAt!) > 1 ? "s" : ""}</p>
             </div>
-            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 shrink-0">J-{daysUntil(d.expiresAt!)}</span>
+            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] shrink-0">J-{daysUntil(d.expiresAt!)}</span>
           </Link>
         ))}
 
@@ -142,8 +142,8 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
             href={`/facturation/${inv.id}`}
             className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-50">
-              <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
+              <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate text-[#0C2340]">Impayé — {tenantName(inv.lease?.tenant ?? null)}</p>
@@ -151,7 +151,7 @@ export async function TodayTasks({ societyId }: { societyId: string }) {
                 {inv.invoiceNumber} · {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(inv.totalTTC)}
               </p>
             </div>
-            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500 shrink-0">J+{daysOver(inv.dueDate)}</span>
+            <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)] shrink-0">J+{daysOver(inv.dueDate)}</span>
           </Link>
         ))}
       </CardContent>

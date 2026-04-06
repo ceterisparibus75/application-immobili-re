@@ -53,11 +53,11 @@ export default async function DashboardPage() {
           <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(kpis.currentMonthRevenue)}</p>
           <div className="flex items-center gap-1.5 mt-1.5">
             {kpis.revenueChange >= 0 ? (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)] px-1.5 py-0.5 rounded-full">
                 <ArrowUp className="h-3 w-3" />+{kpis.revenueChange}%
               </span>
             ) : (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-status-negative)] bg-[var(--color-status-negative-bg)] px-1.5 py-0.5 rounded-full">
                 <ArrowDown className="h-3 w-3" />{kpis.revenueChange}%
               </span>
             )}
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Impayés</p>
-          <p className={"text-2xl font-semibold tabular-nums " + (kpis.totalOverdueAmount > 0 ? "text-red-500" : "text-[var(--color-brand-deep)]")}>{fmt(kpis.totalOverdueAmount)}</p>
+          <p className={"text-2xl font-semibold tabular-nums " + (kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]")}>{fmt(kpis.totalOverdueAmount)}</p>
           <p className="text-[10px] text-muted-foreground mt-1">en attente de règlement</p>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-brand">
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
             {kpis.grossYield !== null ? `${kpis.grossYield.toFixed(1)}%` : fmt(kpis.availableCash)}
           </p>
           {kpis.expiringLeaseCount > 0 ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full mt-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-status-caution)] bg-[var(--color-status-caution-bg)] px-1.5 py-0.5 rounded-full mt-1.5">
               <Calendar className="h-3 w-3" />
               {kpis.expiringLeaseCount} bail expirant sous 90j
             </span>
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-3 gap-px bg-gray-100">
               <div className="bg-white p-4">
                 <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
-                <p className="text-lg font-semibold tabular-nums text-red-500">{fmt(kpis.totalDebt)}</p>
+                <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(kpis.totalDebt)}</p>
               </div>
               <div className="bg-white p-4">
                 <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
               </div>
               <div className="bg-white p-4">
                 <p className="text-xs text-muted-foreground mb-1">LTV</p>
-                <p className={"text-lg font-semibold tabular-nums " + (kpis.ltv !== null && kpis.ltv > 80 ? "text-red-500" : kpis.ltv !== null && kpis.ltv > 60 ? "text-amber-600" : "text-emerald-600")}>
+                <p className={"text-lg font-semibold tabular-nums " + (kpis.ltv !== null && kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : kpis.ltv !== null && kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]")}>
                   {kpis.ltv !== null ? `${kpis.ltv}%` : "—"}
                 </p>
               </div>
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
                   <tr key={ls.lender} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <td className="py-2.5 px-4 font-medium text-[var(--color-brand-deep)]">{ls.lender}</td>
                     <td className="py-2.5 px-4 text-right tabular-nums">{ls.loanCount}</td>
-                    <td className="py-2.5 px-4 text-right tabular-nums text-red-500 font-semibold">{fmt(ls.remainingBalance)}</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums text-[var(--color-status-negative)] font-semibold">{fmt(ls.remainingBalance)}</td>
                     <td className="py-2.5 px-4 text-right tabular-nums">{fmt(ls.monthlyPayment)}</td>
                     <td className="py-2.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -232,7 +232,7 @@ export default async function DashboardPage() {
                   <span className="text-sm text-[var(--color-brand-deep)]">Lots (occupés / vacants)</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.occupiedLots} / {kpis.vacantLots}</span>
-                    <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.vacantLots === 0 ? "bg-emerald-50 text-emerald-600" : kpis.vacantLots <= 2 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+                    <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.vacantLots === 0 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : kpis.vacantLots <= 2 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
                       {kpis.vacantLots === 0 ? "Complet" : `${kpis.vacantLots} vacant${kpis.vacantLots > 1 ? "s" : ""}`}
                     </span>
                   </div>
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
                   <span className="text-sm text-[var(--color-brand-deep)]">Taux d&apos;occupation</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.occupancyRate}%</span>
-                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.occupancyRate >= 80 ? "bg-emerald-50 text-emerald-600" : kpis.occupancyRate >= 50 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.occupancyRate >= 80 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : kpis.occupancyRate >= 50 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
                       {kpis.occupancyRate >= 80 ? "Bon" : kpis.occupancyRate >= 50 ? "Moyen" : "Faible"}
                     </span>
                   </div>
@@ -257,7 +257,7 @@ export default async function DashboardPage() {
                     <span className="text-sm text-[var(--color-brand-deep)]">Rendement brut</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.grossYield.toFixed(1)}%</span>
-                      <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.grossYield >= 5 ? "bg-emerald-50 text-emerald-600" : kpis.grossYield >= 3 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-500"}`}>
+                      <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.grossYield >= 5 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : kpis.grossYield >= 3 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
                         {kpis.grossYield >= 5 ? "Bon" : kpis.grossYield >= 3 ? "Moyen" : "Faible"}
                       </span>
                     </div>
@@ -283,7 +283,7 @@ export default async function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.expiringLeaseCount}</span>
                     {kpis.expiringLeaseCount > 0 && (
-                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">Attention</span>
+                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">Attention</span>
                     )}
                   </div>
                 </div>
@@ -303,13 +303,13 @@ export default async function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.unpaidInvoiceCount}</span>
                     {kpis.unpaidInvoiceCount > 0 && (
-                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">{kpis.unpaidInvoiceCount}</span>
+                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">{kpis.unpaidInvoiceCount}</span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                   <span className="text-sm text-[var(--color-brand-deep)]">Montant impayé</span>
-                  <span className={`text-sm font-semibold tabular-nums ${kpis.totalOverdueAmount > 0 ? "text-red-500" : "text-[var(--color-brand-deep)]"}`}>{fmt(kpis.totalOverdueAmount)}</span>
+                  <span className={`text-sm font-semibold tabular-nums ${kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(kpis.totalOverdueAmount)}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                   <span className="text-sm text-[var(--color-brand-deep)]">Charges récup.</span>
@@ -325,8 +325,8 @@ export default async function DashboardPage() {
                 <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                   <span className="text-sm text-[var(--color-brand-deep)]">Solde disponible</span>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold tabular-nums ${kpis.availableCash >= 0 ? "text-[var(--color-brand-deep)]" : "text-red-500"}`}>{fmt(kpis.availableCash)}</span>
-                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.availableCash >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
+                    <span className={`text-sm font-semibold tabular-nums ${kpis.availableCash >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>{fmt(kpis.availableCash)}</span>
+                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.availableCash >= 0 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
                       {kpis.availableCash >= 0 ? "OK" : "Négatif"}
                     </span>
                   </div>
@@ -344,7 +344,7 @@ export default async function DashboardPage() {
                       <span className="text-sm text-[var(--color-brand-deep)]">Diagnostics expirant 90j</span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{kpis.expiringDiagnosticCount}</span>
-                        <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">Attention</span>
+                        <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">Attention</span>
                       </div>
                     </div>
                   )}
@@ -365,7 +365,7 @@ export default async function DashboardPage() {
                   </h4>
                   <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                     <span className="text-sm text-[var(--color-brand-deep)]">Capital restant dû</span>
-                    <span className="text-sm font-semibold tabular-nums text-red-500">{fmt(kpis.totalDebt)}</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(kpis.totalDebt)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                     <span className="text-sm text-[var(--color-brand-deep)]">Mensualité totale</span>
@@ -379,8 +379,8 @@ export default async function DashboardPage() {
                     <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
                       <span className="text-sm text-[var(--color-brand-deep)]">LTV</span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm font-semibold tabular-nums ${kpis.ltv > 80 ? "text-red-500" : kpis.ltv > 60 ? "text-amber-600" : "text-emerald-600"}`}>{kpis.ltv}%</span>
-                        <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.ltv > 80 ? "bg-red-50 text-red-500" : kpis.ltv > 60 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
+                        <span className={`text-sm font-semibold tabular-nums ${kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>{kpis.ltv}%</span>
+                        <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${kpis.ltv > 80 ? "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]" : kpis.ltv > 60 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"}`}>
                           {kpis.ltv > 80 ? "Élevé" : kpis.ltv > 60 ? "Moyen" : "Sain"}
                         </span>
                       </div>

@@ -116,7 +116,7 @@ function MergeSection({ type }: { type: EntityType }) {
         {message && (
           <div className={`rounded-md p-3 text-sm ${
             message.type === "success"
-              ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
+              ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"
               : "bg-destructive/10 text-destructive"
           }`}>
             {message.text}
@@ -185,7 +185,7 @@ function MergeSection({ type }: { type: EntityType }) {
               />
             </div>
             {selectedTarget ? (
-              <div className="rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-3">
+              <div className="rounded-md border border-[var(--color-status-positive)]/30 bg-[var(--color-status-positive-bg)] p-3">
                 <p className="text-sm font-medium">{displayName(type, selectedTarget)}</p>
                 <button onClick={() => setSelectedTarget(null)} className="text-xs text-muted-foreground hover:underline mt-1">
                   Changer
@@ -212,12 +212,12 @@ function MergeSection({ type }: { type: EntityType }) {
             <div className="flex items-center justify-center gap-3 py-2 text-sm text-muted-foreground">
               <span className="font-medium text-destructive">{displayName(type, selectedSource)}</span>
               <ArrowRight className="h-4 w-4 shrink-0" />
-              <span className="font-medium text-green-600 dark:text-green-400">{displayName(type, selectedTarget)}</span>
+              <span className="font-medium text-[var(--color-status-positive)]">{displayName(type, selectedTarget)}</span>
             </div>
 
-            <div className="rounded-md border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-900/20 p-3 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-orange-800 dark:text-orange-300">
+            <div className="rounded-md border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--color-status-caution)] shrink-0 mt-0.5" />
+              <p className="text-xs text-[var(--color-status-caution)]">
                 Toutes les données liées (baux, lots, factures, documents...) seront transférées vers la cible. L'entité source sera définitivement supprimée.
               </p>
             </div>

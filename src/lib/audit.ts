@@ -47,6 +47,7 @@ export async function getAuditLogs(
     userId?: string;
     startDate?: Date;
     endDate?: Date;
+    search?: string;
   } = {}
 ) {
   const {
@@ -57,9 +58,10 @@ export async function getAuditLogs(
     userId,
     startDate,
     endDate,
+    search,
   } = options;
 
-  const where = {
+  const where: Record<string, unknown> = {
     societyId,
     ...(entity && { entity }),
     ...(action && { action }),
@@ -73,6 +75,15 @@ export async function getAuditLogs(
         }
       : {}),
   };
+
+  if (search) {
+    where.OR = [
+      { entity: { contains: search, mode: "insensitive" } },
+      { entityId: { contains: search, mode: "insensitive" } },
+      { user: { name: { contains: search, mode: "insensitive" } } },
+      { user: { email: { contains: search, mode: "insensitive" } } },
+    ];
+  }
 
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
@@ -92,4 +103,52 @@ export async function getAuditLogs(
     perPage,
     totalPages: Math.ceil(total / perPage),
   };
+}
+
+/**
+ * Récupère tous les logs d'audit pour export CSV (sans pagination).
+ */
+export async function getAuditLogsForExport(
+  societyId: string,
+  options: {
+    entity?: string;
+    action?: AuditAction;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    search?: string;
+  } = {}
+) {
+  const { entity, action, userId, startDate, endDate, search } = options;
+
+  const where: Record<string, unknown> = {
+    societyId,
+    ...(entity && { entity }),
+    ...(action && { action }),
+    ...(userId && { userId }),
+    ...(startDate || endDate
+      ? {
+          createdAt: {
+            ...(startDate && { gte: startDate }),
+            ...(endDate && { lte: endDate }),
+          },
+        }
+      : {}),
+  };
+
+  if (search) {
+    where.OR = [
+      { entity: { contains: search, mode: "insensitive" } },
+      { entityId: { contains: search, mode: "insensitive" } },
+      { user: { name: { contains: search, mode: "insensitive" } } },
+      { user: { email: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
+  return prisma.auditLog.findMany({
+    where,
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 10000,
+  });
 }

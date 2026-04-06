@@ -61,7 +61,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     drawEmptyMessage(p, ctx.reg, y, `Aucune donnee financiere trouvee pour l'annee ${year}.`);
   }
 
-  y = drawSectionHeader(p, ctx.bold, y, `Synthese ${year}`);
+  y = drawSectionHeader(p, ctx.serifBold, y, `Synthese ${year}`);
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total facture", pdfCur(totalInv));
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Loyers encaisses (payes)", pdfCur(paid), GREEN);
@@ -73,7 +73,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   y -= 16;
 
   // Per-building summary
-  y = drawSectionHeader(p, ctx.bold, y, "Detail par immeuble");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Detail par immeuble");
   const BW = [110, 40, 75, 75, 75, CW - 375];
   const BA: ColAlign[] = ["left", "right", "right", "right", "right", "right"];
   y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facture", "Encaisse", "Charges", "En attente"], BW, BA);
@@ -104,7 +104,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     if (bi.length === 0) continue;
 
     if (y < 160) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.bold, y, b.name);
+    y = drawSectionHeader(p, ctx.serifBold, y, b.name);
 
     const DW = [100, 50, 80, 80, 80, CW - 390];
     const DA: ColAlign[] = ["left", "left", "right", "right", "right", "right"];

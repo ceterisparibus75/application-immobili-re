@@ -1,26 +1,13 @@
-import { getTenants } from "@/actions/tenant";
-import { Badge } from "@/components/ui/badge";
+import { getTenantsPaginated } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Building2,
-  ChevronRight,
-  FileText,
-  MapPin,
-  Phone,
-  Plus,
-  User,
-  Users,
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { parsePaginationParams } from "@/lib/pagination";
 import type { RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
+import { TenantsDataTable } from "./_components/tenants-data-table";
 
 export const metadata = { title: "Locataires" };
 
@@ -47,18 +34,6 @@ function tenantName(tenant: {
     : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—";
 }
 
-function formatRent(leases: Array<{ currentRentHT: number }>) {
-  const totalRent = leases.reduce((sum, l) => sum + l.currentRentHT, 0);
-  if (totalRent === 0) return null;
-  return totalRent.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function getLocations(leases: Array<{ lot: { number: string; building: { name: string } } }>) {
-  if (leases.length === 0) return null;
-  const locations = leases.map((l) => `${l.lot.building.name} — Lot ${l.lot.number}`);
-  return locations;
-}
-
 function insuranceStatus(expiresAt: Date | null): { label: string; variant: "success" | "warning" | "destructive" | "secondary" } {
   if (!expiresAt) return { label: "Non renseignée", variant: "secondary" };
   const now = new Date();
@@ -68,22 +43,39 @@ function insuranceStatus(expiresAt: Date | null): { label: string; variant: "suc
   return { label: "Valide", variant: "success" };
 }
 
-export default async function LocatairesPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function LocatairesPage({ searchParams }: PageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
+  if (!societyId) redirect("/societes");
 
-  if (!societyId) {
-    redirect("/societes");
-  }
+  const resolvedParams = await searchParams;
+  const pagination = parsePaginationParams(resolvedParams);
 
-  const tenants = await getTenants(societyId);
-  const active = tenants.filter((t) => t.isActive);
-  const inactive = tenants.filter((t) => !t.isActive);
+  const { data: tenants, total } = await getTenantsPaginated(societyId, {
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    search: pagination.search,
+    sortBy: pagination.sortBy,
+    sortOrder: pagination.sortOrder,
+    filters: pagination.filters,
+  });
 
-  const totalRent = active.reduce(
-    (sum, t) => sum + t.leases.reduce((s, l) => s + l.currentRentHT, 0),
-    0
-  );
+  // Serialize dates for client component
+  const serialized = tenants.map((t) => ({
+    ...t,
+    name: tenantName(t),
+    insurance: insuranceStatus(t.insuranceExpiresAt),
+    riskVariant: RISK_VARIANTS[t.riskIndicator],
+    riskLabel: RISK_LABELS[t.riskIndicator],
+    totalRent: t.leases.reduce((s, l) => s + l.currentRentHT, 0),
+    location: t.leases.length > 0
+      ? t.leases.map((l) => `${l.lot.building.name} — Lot ${l.lot.number}`).join(", ")
+      : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -91,9 +83,7 @@ export default async function LocatairesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Locataires</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {active.length} actif{active.length !== 1 ? "s" : ""}
-            {inactive.length > 0 && ` · ${inactive.length} ancien${inactive.length !== 1 ? "s" : ""}`}
-            {totalRent > 0 && ` · ${totalRent.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} € HT/mois`}
+            {total} locataire{total !== 1 ? "s" : ""}
           </p>
         </div>
         <Link href="/locataires/nouveau">
@@ -104,7 +94,7 @@ export default async function LocatairesPage() {
         </Link>
       </div>
 
-      {tenants.length === 0 ? (
+      {total === 0 && !pagination.search && Object.keys(pagination.filters ?? {}).length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 mb-4">
@@ -123,192 +113,16 @@ export default async function LocatairesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {/* Actifs */}
-          <Card>
-            <CardHeader className="pb-0">
-              <CardTitle className="text-base">Locataires actifs ({active.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 pt-2">
-              {active.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6 px-4">
-                  Aucun locataire actif
-                </p>
-              ) : (
-                <div>
-                  {/* En-tête desktop */}
-                  <div className="hidden lg:grid lg:grid-cols-[1fr_180px_100px_80px_120px_28px] gap-3 items-center px-5 py-2.5 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <span>Locataire</span>
-                    <span>Localisation</span>
-                    <span className="text-center">Assurance</span>
-                    <span className="text-center">Risque</span>
-                    <span className="text-right">Loyer HT</span>
-                    <span />
-                  </div>
-                  {active.map((tenant, index) => {
-                    const name = tenantName(tenant);
-                    const rent = formatRent(tenant.leases);
-                    const locations = getLocations(tenant.leases);
-                    const insurance = insuranceStatus(tenant.insuranceExpiresAt);
-
-                    return (
-                      <Link
-                        key={tenant.id}
-                        href={`/locataires/${tenant.id}`}
-                        className={`block transition-colors hover:bg-accent/50 group ${index < active.length - 1 ? "border-b" : ""}`}
-                      >
-                        {/* Desktop */}
-                        <div className="hidden lg:grid lg:grid-cols-[1fr_180px_100px_80px_120px_28px] gap-3 items-center px-5 py-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
-                              {tenant.entityType === "PERSONNE_MORALE" ? (
-                                <Building2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                              ) : (
-                                <User className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold truncate">{name}</span>
-                                <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted shrink-0">
-                                  {tenant.entityType === "PERSONNE_MORALE" ? "Société" : "Particulier"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                                <span className="truncate">{tenant.email}</span>
-                                {tenant.phone && (
-                                  <span className="hidden xl:flex items-center gap-1 shrink-0">
-                                    <Phone className="h-3 w-3" />
-                                    {tenant.phone}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="min-w-0">
-                            {locations ? (
-                              <div className="space-y-0.5">
-                                {locations.map((loc, i) => (
-                                  <div key={i} className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <MapPin className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{loc}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/60 italic">Aucun bail actif</span>
-                            )}
-                          </div>
-                          <div className="flex justify-center">
-                            <Badge variant={insurance.variant} className="text-[11px]">
-                              {insurance.label}
-                            </Badge>
-                          </div>
-                          <div className="flex justify-center">
-                            <Badge variant={RISK_VARIANTS[tenant.riskIndicator]} className="text-[11px]">
-                              {RISK_LABELS[tenant.riskIndicator]}
-                            </Badge>
-                          </div>
-                          <span className="text-sm font-semibold tabular-nums text-right">
-                            {rent ? `${rent} €` : <span className="text-muted-foreground font-normal">—</span>}
-                          </span>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                        </div>
-
-                        {/* Mobile */}
-                        <div className="flex items-center justify-between px-4 py-3 lg:hidden">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                              {tenant.entityType === "PERSONNE_MORALE" ? (
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold truncate">{name}</span>
-                                <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted shrink-0">
-                                  {tenant.entityType === "PERSONNE_MORALE" ? "Sté" : "Part."}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                                {locations && locations.length > 0 && (
-                                  <span className="truncate max-w-[160px]">{locations[0]}</span>
-                                )}
-                                {!locations && <span className="italic text-muted-foreground/60">Aucun bail</span>}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <div className="text-right space-y-1">
-                              <Badge variant={RISK_VARIANTS[tenant.riskIndicator]} className="text-[11px]">
-                                {RISK_LABELS[tenant.riskIndicator]}
-                              </Badge>
-                              {rent && (
-                                <p className="text-xs font-semibold tabular-nums">{rent} €</p>
-                              )}
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Inactifs */}
-          {inactive.length > 0 && (
-            <Card>
-              <CardHeader className="pb-0">
-                <CardTitle className="text-base text-muted-foreground">
-                  Anciens locataires ({inactive.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-2">
-                <div>
-                  {inactive.map((tenant, index) => {
-                    const name = tenantName(tenant);
-                    return (
-                      <Link
-                        key={tenant.id}
-                        href={`/locataires/${tenant.id}`}
-                        className={`block transition-colors hover:bg-accent/50 group opacity-60 hover:opacity-80 ${index < inactive.length - 1 ? "border-b" : ""}`}
-                      >
-                        <div className="flex items-center justify-between px-5 py-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                              {tenant.entityType === "PERSONNE_MORALE" ? (
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <span className="text-sm font-medium truncate">{name}</span>
-                              <p className="text-xs text-muted-foreground">{tenant.email}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2.5 shrink-0 ml-2">
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <FileText className="h-3.5 w-3.5" />
-                              {tenant._count.leases} {tenant._count.leases > 1 ? "baux" : "bail"}
-                            </span>
-                            <Badge variant="secondary" className="text-[11px]">Inactif</Badge>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <TenantsDataTable
+          tenants={serialized}
+          total={total}
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          sortBy={pagination.sortBy}
+          sortOrder={pagination.sortOrder}
+          search={pagination.search}
+          activeFilters={pagination.filters}
+        />
       )}
     </div>
   );

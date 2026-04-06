@@ -52,7 +52,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
     return { buffer: await ctx.save(), filename: `charges-locataire-${tenantId.slice(0, 8)}-${year}.pdf`, contentType: "application/pdf" };
   }
 
-  y = drawSectionHeader(p, ctx.bold, y, "Informations locataire");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Informations locataire");
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nom / Raison sociale", tenantName);
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Email", tenant.email ?? "-");
@@ -61,7 +61,7 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
 
   for (const lease of leases) {
     if (y < 160) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.bold, y, `${lease.lot.building.name} - Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
+    y = drawSectionHeader(p, ctx.serifBold, y, `${lease.lot.building.name} - Lot ${lease.lot.number}  (bail du ${formatDate(new Date(lease.startDate))})`);
 
     const totalInv = lease.invoices.reduce((s, i) => s + i.totalTTC, 0);
     y -= 4;

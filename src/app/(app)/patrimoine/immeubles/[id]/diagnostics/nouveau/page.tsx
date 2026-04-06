@@ -246,7 +246,7 @@ export default function NouveauDiagnosticPage() {
             {/* Résultat de l'analyse */}
             {aiAnalysis && (
               <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-status-positive)]">
                   <CheckCircle2 className="h-4 w-4" />
                   Analyse IA complétée — document uploadé
                 </div>

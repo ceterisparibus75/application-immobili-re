@@ -100,7 +100,7 @@ export default async function IndicesPage() {
                   {entry ? `T${entry.quarter} ${entry.year}` : "Non disponible"}
                 </p>
                 {evol != null && (
-                  <p className={`text-xs mt-1 font-medium ${evol >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  <p className={`text-xs mt-1 font-medium ${evol >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
                     {evol >= 0 ? "+" : ""}{evol.toFixed(2)}% vs trimestre précédent
                   </p>
                 )}
@@ -153,14 +153,14 @@ export default async function IndicesPage() {
                           </td>
                           <td className="py-2 text-right tabular-nums">
                             {evolQ != null ? (
-                              <span className={evolQ >= 0 ? "text-green-600" : "text-red-600"}>
+                              <span className={evolQ >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}>
                                 {evolQ >= 0 ? "+" : ""}{evolQ.toFixed(2)}%
                               </span>
                             ) : "—"}
                           </td>
                           <td className="py-2 text-right tabular-nums">
                             {evolY != null ? (
-                              <span className={evolY >= 0 ? "text-green-600" : "text-red-600"}>
+                              <span className={evolY >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}>
                                 {evolY >= 0 ? "+" : ""}{evolY.toFixed(2)}%
                               </span>
                             ) : "—"}

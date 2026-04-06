@@ -68,7 +68,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   let y = contentStartY();
 
   // KPIs
-  y = drawSectionHeader(p, ctx.bold, y, "Synthese globale");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Synthese globale");
   y -= 4;
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Total lots", String(totalLots));
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Lots occupes", String(totalOcc), GREEN);
@@ -82,7 +82,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   y -= 16;
 
   // Pie chart: occupation by lot count
-  y = drawSectionHeader(p, ctx.bold, y, "Repartition par nombre de lots");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par nombre de lots");
   y -= 8;
   y = drawPieChart(p, 150, y - 60, 55, [
     { value: totalOcc, label: "Occupes", color: CHART_COLORS[0] },
@@ -93,7 +93,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   // Pie chart: occupation by surface (if data available)
   if (totalSurface > 0) {
     if (y < 200) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.bold, y, "Repartition par surface");
+    y = drawSectionHeader(p, ctx.serifBold, y, "Repartition par surface");
     y -= 8;
     y = drawPieChart(p, 150, y - 60, 55, [
       { value: occSurface, label: "Occupee", color: CHART_COLORS[0] },
@@ -104,7 +104,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
 
   // Per-building table
   if (y < 160) { p = ctx.np(); y = contentStartY(); }
-  y = drawSectionHeader(p, ctx.bold, y, "Detail par immeuble");
+  y = drawSectionHeader(p, ctx.serifBold, y, "Detail par immeuble");
   const WS = [120, 50, 55, 55, 60, 60, CW - 400];
   const WA: ColAlign[] = ["left", "right", "right", "right", "right", "right", "right"];
   y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Occupes", "Vacants", "Taux vac.", "Surface", "Surf. vac."], WS, WA);
@@ -142,7 +142,7 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   // Bar chart: vacancy rate per building
   if (buildingStats.length > 1) {
     if (y < 200) { p = ctx.np(); y = contentStartY(); }
-    y = drawSectionHeader(p, ctx.bold, y, "Taux de vacance par immeuble");
+    y = drawSectionHeader(p, ctx.serifBold, y, "Taux de vacance par immeuble");
     y -= 8;
     y = drawBarChart(p, 50, y, 300, buildingStats.map((bs) => ({
       label: bs.name,

@@ -31,8 +31,8 @@ export const CHART_COLORS = [
 // ── Layout Constants ──────────────────────────────────────────────
 export const PW  = 595.28;          // A4 width (pt)
 export const PH  = 841.89;          // A4 height (pt)
-export const MRG = 35;              // margins
-export const CW  = PW - 2 * MRG;   // content width = 525.28
+export const MRG = 50;              // margins (audit-firm standard)
+export const CW  = PW - 2 * MRG;   // content width = 495.28
 
 // Landscape
 export const LPW = PH;             // landscape width
@@ -40,16 +40,16 @@ export const LPH = PW;             // landscape height
 export const LCW = LPW - 2 * MRG; // landscape content width
 
 // Typography
-export const FONT_TITLE      = 16;
-export const FONT_SUBTITLE   = 11;
-export const FONT_SECTION    = 10;
+export const FONT_TITLE      = 18;
+export const FONT_SUBTITLE   = 12;
+export const FONT_SECTION    = 11;
 export const FONT_TABLE_HD   = 7;
 export const FONT_TABLE      = 7;
 export const FONT_FOOTER     = 6.5;
 export const FONT_SMALL      = 6;
 
 // Row heights
-export const ROW_HEIGHT      = 14;
-export const SECTION_HEIGHT  = 20;
+export const ROW_HEIGHT      = 16;
+export const SECTION_HEIGHT  = 22;
 export const HEADER_HEIGHT   = 50;
 export const COVER_SIDEBAR_W = 180;

@@ -12,6 +12,14 @@
   --color-brand-cyan: #22B8CF;
   --color-brand-light: #E0F7FA;
 
+  /* --- Status colors (muted / institutional) --- */
+  --color-status-positive: #4A7C6F;
+  --color-status-caution: #9B7A3C;
+  --color-status-negative: #A04040;
+  --color-status-positive-bg: #EDF5F2;
+  --color-status-caution-bg: #F5F0E5;
+  --color-status-negative-bg: #F5EDED;
+
   /* --- Mode clair --- */
   --color-background: #F9FAFB;
   --color-foreground: #0C2340;

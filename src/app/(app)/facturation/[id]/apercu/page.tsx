@@ -260,7 +260,7 @@ export default async function FactureApercuPage({
         {paid > 0.001 && (
           <div className="mb-6 text-sm">
             {invoice.payments.map((p) => (
-              <div key={p.id} className="flex justify-between text-emerald-600">
+              <div key={p.id} className="flex justify-between text-[var(--color-status-positive)]">
                 <span>Règlement reçu le {formatDate(p.paidAt)}{p.method ? ` (${p.method})` : ""}</span>
                 <span className="tabular-nums">− {formatCurrency(p.amount)}</span>
               </div>

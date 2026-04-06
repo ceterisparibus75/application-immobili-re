@@ -22,9 +22,9 @@ const CLASS_LABELS: Record<string, string> = {
 
 const CLASS_COLORS: Record<string, string> = {
   "1": "bg-purple-100 text-purple-800", "2": "bg-blue-100 text-blue-800",
-  "3": "bg-cyan-100 text-cyan-800", "4": "bg-orange-100 text-orange-800",
-  "5": "bg-green-100 text-green-800", "6": "bg-red-100 text-red-800",
-  "7": "bg-emerald-100 text-emerald-800",
+  "3": "bg-cyan-100 text-cyan-800", "4": "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]",
+  "5": "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]", "6": "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]",
+  "7": "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]",
 };
 
 export default function ImporterPlanComptablePage() {
@@ -141,9 +141,9 @@ export default function ImporterPlanComptablePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-orange-200 bg-orange-50/50">
+        <Card className="border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)]/50">
           <CardContent className="pt-4 flex gap-3">
-            <FileText className="h-8 w-8 text-orange-600 flex-shrink-0" />
+            <FileText className="h-8 w-8 text-[var(--color-status-caution)] flex-shrink-0" />
             <div>
               <div className="font-medium text-sm">Fichier PDF \xe2\x80\x94 Analyse IA</div>
               <div className="text-xs text-muted-foreground mt-1">
@@ -176,10 +176,10 @@ export default function ImporterPlanComptablePage() {
 
       {/* R\xc3\xa9sultat d'import */}
       {importResult && (
-        <Card className="border-green-500 bg-green-50/50">
+        <Card className="border-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)]/50">
           <CardContent className="py-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <CheckCircle2 className="h-8 w-8 text-[var(--color-status-positive)]" />
               <div>
                 <div className="font-semibold">{importResult.imported} compte(s) import\xc3\xa9(s) avec succ\xc3\xa8s</div>
                 {importResult.skipped > 0 && (
@@ -201,7 +201,7 @@ export default function ImporterPlanComptablePage() {
             <div>
               <CardTitle className="text-base">{accounts.length} compte(s) d\xc3\xa9tect\xc3\xa9(s)</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {parseSource === "pdf-ai" && <span className="flex items-center gap-1"><span className="text-orange-600 font-medium">Extrait par IA</span> \xe2\x80\x94 v\xc3\xa9rifiez les num\xc3\xa9ros et libell\xc3\xa9s</span>}
+                {parseSource === "pdf-ai" && <span className="flex items-center gap-1"><span className="text-[var(--color-status-caution)] font-medium">Extrait par IA</span> \xe2\x80\x94 v\xc3\xa9rifiez les num\xc3\xa9ros et libell\xc3\xa9s</span>}
                 {parseSource === "excel" && "Extrait depuis votre fichier Excel"}
               </CardDescription>
             </div>
@@ -214,7 +214,7 @@ export default function ImporterPlanComptablePage() {
           </CardHeader>
 
           {parseSource === "pdf-ai" && (
-            <div className="mx-4 mb-3 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+            <div className="mx-4 mb-3 flex items-start gap-2 p-3 bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 rounded-lg text-xs text-[var(--color-status-caution)]">
               <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>V\xc3\xa9rifiez les comptes extraits par l&apos;IA avant d&apos;importer. D\xc3\xa9cochez les lignes incorrectes.</span>
             </div>

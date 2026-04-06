@@ -111,7 +111,7 @@ function ManageUser({
         <Button
           size="sm"
           variant="ghost"
-          className="h-8 w-8 p-0 text-green-600"
+          className="h-8 w-8 p-0 text-[var(--color-status-positive)]"
           onClick={handleChangeRole}
           disabled={isPending}
         >
@@ -154,7 +154,7 @@ function ManageUser({
       <Button
         variant="ghost"
         size="sm"
-        className="h-8 w-8 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+        className="h-8 w-8 p-0 text-[var(--color-status-caution)] hover:text-[var(--color-status-caution)] hover:bg-[var(--color-status-caution-bg)]"
         onClick={handleRemove}
         disabled={isPending}
         title="Retirer de la société"

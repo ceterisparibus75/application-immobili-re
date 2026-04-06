@@ -90,7 +90,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
       <CardHeader>
         <div className="flex items-center gap-2">
           {enabled ? (
-            <ShieldCheck className="h-5 w-5 text-green-500" />
+            <ShieldCheck className="h-5 w-5 text-[var(--color-status-positive)]" />
           ) : (
             <ShieldX className="h-5 w-5 text-muted-foreground" />
           )}
@@ -190,7 +190,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
 
         {step === "recovery-codes" && (
           <div className="space-y-4">
-            <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
+            <div className="rounded-md bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 p-4">
               <p className="text-sm font-semibold text-amber-800 mb-2">
                 Sauvegardez ces codes de recuperation
               </p>

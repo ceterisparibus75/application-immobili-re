@@ -193,7 +193,7 @@ export function OnboardingChecklist() {
                     : "hover:bg-accent cursor-pointer"
                   }`}
               >
-                <div className={`flex-shrink-0 ${isCompleted ? "text-green-600" : "text-muted-foreground"}`}>
+                <div className={`flex-shrink-0 ${isCompleted ? "text-[var(--color-status-positive)]" : "text-muted-foreground"}`}>
                   {isCompleted ? (
                     <CheckCircle2 className="h-5 w-5" />
                   ) : (

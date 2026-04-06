@@ -229,10 +229,10 @@ export default function ImportGrandLivrePage() {
 
       {result && (
         <Card
-          className={result.imported > 0 ? "border-green-500" : "border-orange-500"}
+          className={result.imported > 0 ? "border-[var(--color-status-positive)]" : "border-[var(--color-status-caution)]"}
         >
           <CardContent className="flex items-center gap-4 py-4">
-            <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
+            <CheckCircle2 className="h-6 w-6 text-[var(--color-status-positive)] shrink-0" />
             <div className="flex-1">
               <p className="font-medium">
                 {result.imported} écriture(s) importée(s), {result.skipped}{" "}
@@ -362,10 +362,10 @@ export default function ImportGrandLivrePage() {
                       <TableCell className="text-sm text-muted-foreground">
                         {entry.lines.length} ligne(s)
                       </TableCell>
-                      <TableCell className="text-right text-sm text-green-700">
+                      <TableCell className="text-right text-sm text-[var(--color-status-positive)]">
                         {formatCurrency(entry.totalDebit)}
                       </TableCell>
-                      <TableCell className="text-right text-sm text-red-700">
+                      <TableCell className="text-right text-sm text-[var(--color-status-negative)]">
                         {formatCurrency(entry.totalCredit)}
                       </TableCell>
                       <TableCell>
@@ -394,10 +394,10 @@ export default function ImportGrandLivrePage() {
                           >
                             {line.accountLabel}
                           </TableCell>
-                          <TableCell className="text-right text-xs text-green-700">
+                          <TableCell className="text-right text-xs text-[var(--color-status-positive)]">
                             {line.debit > 0 ? formatCurrency(line.debit) : ""}
                           </TableCell>
-                          <TableCell className="text-right text-xs text-red-700">
+                          <TableCell className="text-right text-xs text-[var(--color-status-negative)]">
                             {line.credit > 0 ? formatCurrency(line.credit) : ""}
                           </TableCell>
                           <TableCell />

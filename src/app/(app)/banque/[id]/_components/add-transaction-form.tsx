@@ -49,7 +49,7 @@ export default function AddTransactionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {error && (
-        <p className="text-xs font-medium text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <p className="text-xs font-medium text-[var(--color-status-negative)] bg-[var(--color-status-negative-bg)] px-3 py-2 rounded-lg">{error}</p>
       )}
 
       <div className="space-y-1">

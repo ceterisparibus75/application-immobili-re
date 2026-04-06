@@ -50,7 +50,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     let p = ctx.np(true);
     let y = contentStartY(true);
 
-    y = drawSectionHeader(p, ctx.bold, y, building.name, 841.89);
+    y = drawSectionHeader(p, ctx.serifBold, y, building.name, 841.89);
 
     // Compute monthly data
     const bInvoices = invoices.filter((i) => i.lease?.lot?.buildingId === building.id);

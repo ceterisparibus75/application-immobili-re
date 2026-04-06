@@ -260,10 +260,10 @@ export default function NouvelleChargePage() {
           {!pdfAnalyzing && pdfFileName && (
             <div className={cn(
               "flex items-center gap-3 rounded-lg px-4 py-3",
-              aiPrefilled ? "bg-green-500/10" : "bg-muted/50"
+              aiPrefilled ? "bg-[var(--color-status-positive-bg)]" : "bg-muted/50"
             )}>
               {aiPrefilled
-                ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                ? <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)] shrink-0" />
                 : <FileUp className="h-4 w-4 text-muted-foreground shrink-0" />
               }
               <div className="flex-1 min-w-0">
@@ -370,7 +370,7 @@ export default function NouvelleChargePage() {
             <CardTitle className="flex items-center gap-2">
               Détail de la charge
               {aiPrefilled && (
-                <span className="flex items-center gap-1 text-xs font-normal text-green-600 bg-green-500/10 rounded-full px-2 py-0.5">
+                <span className="flex items-center gap-1 text-xs font-normal text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)] rounded-full px-2 py-0.5">
                   <Sparkles className="h-3 w-3" />
                   Pré-rempli par IA
                 </span>

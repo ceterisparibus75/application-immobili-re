@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PDFDocument, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import {
   BRAND_DEEP, BRAND_BLUE, BRAND_LIGHT, WHITE, GRAY, BLACK,
-  PW, PH, MRG, CW, HEADER_HEIGHT, COVER_SIDEBAR_W,
-  FONT_TITLE, FONT_SUBTITLE, FONT_FOOTER, FONT_SMALL,
+  PW, PH, MRG, HEADER_HEIGHT, COVER_SIDEBAR_W,
+  FONT_FOOTER, FONT_SMALL,
 } from "./constants";
 import type { ReportSociety } from "./types";
 import { formatCurrency } from "@/lib/utils";
@@ -17,6 +16,8 @@ export interface PdfContext {
   doc: PDFDocument;
   bold: PDFFont;
   reg: PDFFont;
+  serif: PDFFont;
+  serifBold: PDFFont;
   np: (landscape?: boolean) => PDFPage;
   save: () => Promise<Buffer>;
   society: ReportSociety | null;
@@ -33,6 +34,8 @@ export async function initPdf(
   const doc  = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg  = await doc.embedFont(StandardFonts.Helvetica);
+  const serif = await doc.embedFont(StandardFonts.TimesRoman);
+  const serifBold = await doc.embedFont(StandardFonts.TimesRomanBold);
   const ds   = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
   const societyName = society?.name ?? null;
 
@@ -49,7 +52,6 @@ export async function initPdf(
     pageCount++;
     const pw = landscape ? PH : PW;
     const ph = landscape ? PW : PH;
-    const cw = pw - 2 * MRG;
     const p = doc.addPage([pw, ph]);
 
     // Header bar
@@ -61,8 +63,8 @@ export async function initPdf(
       p.drawText(societyName, { x: pw - MRG - nameWidth, y: ph - 22, size: 10, font: bold, color: WHITE });
     }
 
-    // Title & subtitle
-    p.drawText(title, { x: MRG, y: ph - 24, size: 13, font: bold, color: WHITE });
+    // Title (Serif) & subtitle
+    p.drawText(title, { x: MRG, y: ph - 24, size: 13, font: serifBold, color: WHITE });
     p.drawText(subtitle, { x: MRG, y: ph - 40, size: 8, font: reg, color: BRAND_LIGHT });
 
     // Generation date
@@ -95,6 +97,8 @@ export async function initPdf(
     doc,
     bold,
     reg,
+    serif,
+    serifBold,
     np,
     save: async () => Buffer.from(await doc.save()),
     society: society ?? null,
@@ -116,13 +120,13 @@ export function drawCoverPage(
   // Left sidebar
   p.drawRectangle({ x: 0, y: 0, width: COVER_SIDEBAR_W, height: PH, color: BRAND_DEEP });
 
-  // Sidebar: society name
+  // Sidebar: society name (Serif)
   const name = ctx.society?.name ?? "MyGestia";
   p.drawText(name, {
     x: 25,
     y: PH - 60,
     size: 14,
-    font: ctx.bold,
+    font: ctx.serifBold,
     color: WHITE,
   });
 
@@ -144,22 +148,22 @@ export function drawCoverPage(
   // Sidebar: generation date
   p.drawText(`Genere le ${ds}`, { x: 25, y: 40, size: 7, font: ctx.reg, color: BRAND_LIGHT });
 
-  // Right area: report title
+  // Right area: report title (Serif)
   const rightX = COVER_SIDEBAR_W + 50;
   p.drawText(reportTitle, {
     x: rightX,
     y: PH - 200,
     size: 26,
-    font: ctx.bold,
+    font: ctx.serifBold,
     color: BRAND_DEEP,
   });
 
-  // Subtitle
+  // Subtitle (Serif)
   p.drawText(reportSubtitle, {
     x: rightX,
     y: PH - 235,
     size: 12,
-    font: ctx.reg,
+    font: ctx.serif,
     color: GRAY,
   });
 

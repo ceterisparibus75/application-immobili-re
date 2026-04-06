@@ -94,17 +94,17 @@ export default async function UtilisateursPage() {
 
       {/* Alerte limite atteinte */}
       {isAtLimit && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)]/50">
           <CardContent className="pt-6 pb-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-[var(--color-status-caution)] shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-amber-800">
+                <p className="font-medium text-[var(--color-status-caution)]">
                   {isOverLimit
                     ? `Limite dépassée : ${currentCount} utilisateurs pour ${maxUsers} autorisés`
                     : `Limite atteinte : ${currentCount}/${maxUsers} utilisateurs`}
                 </p>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="text-sm text-[var(--color-status-caution)] mt-1">
                   Passez au plan supérieur pour ajouter plus d&apos;utilisateurs.
                 </p>
               </div>

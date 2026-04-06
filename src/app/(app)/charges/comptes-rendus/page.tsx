@@ -108,7 +108,7 @@ export default async function ComptesRendusPage() {
                                   className={
                                     report.balance >= 0
                                       ? "text-destructive"
-                                      : "text-green-600 dark:text-green-400"
+                                      : "text-[var(--color-status-positive)]"
                                   }
                                 >
                                   {report.balance >= 0 ? "+" : ""}

@@ -24,9 +24,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   LOCATAIRE: "bg-[var(--color-brand-light)] text-[var(--color-brand-blue)]",
-  PRESTATAIRE: "bg-amber-50 text-amber-600",
+  PRESTATAIRE: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]",
   NOTAIRE: "bg-gray-100 text-gray-600",
-  EXPERT: "bg-emerald-50 text-emerald-600",
+  EXPERT: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]",
   SYNDIC: "bg-purple-50 text-purple-600",
   AGENCE: "bg-blue-50 text-blue-600",
   AUTRE: "bg-gray-100 text-gray-500",

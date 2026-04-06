@@ -30,7 +30,7 @@ export default async function BanquePage() {
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Banque</h1>
           <p className="text-muted-foreground">
             {accounts.length} compte{accounts.length !== 1 ? "s" : ""} —{" "}
-            <span className={`font-semibold ${totalBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-red-500"}`}>
+            <span className={`font-semibold ${totalBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>
               {totalBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
             </span>{" "}
             au total
@@ -73,7 +73,7 @@ export default async function BanquePage() {
                     <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">{account.accountName}</CardTitle>
                     <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       account.isActive
-                        ? "bg-emerald-50 text-emerald-600"
+                        ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"
                         : "bg-gray-100 text-gray-500"
                     }`}>
                       {account.isActive ? "Actif" : "Inactif"}
@@ -93,7 +93,7 @@ export default async function BanquePage() {
                         className={`text-xl font-semibold tabular-nums ${
                           account.currentBalance >= 0
                             ? "text-[var(--color-brand-deep)]"
-                            : "text-red-500"
+                            : "text-[var(--color-status-negative)]"
                         }`}
                       >
                         {account.currentBalance.toLocaleString("fr-FR", {

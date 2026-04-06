@@ -18,11 +18,11 @@ function getStrength(password: string): number {
 const LABELS = ["", "Tres faible", "Faible", "Moyen", "Fort", "Tres fort"];
 const COLORS = [
   "",
-  "bg-red-500",
-  "bg-orange-500",
-  "bg-yellow-500",
-  "bg-blue-500",
-  "bg-green-500",
+  "bg-[var(--color-status-negative)]",
+  "bg-[var(--color-status-caution)]",
+  "bg-[var(--color-status-caution)]",
+  "bg-[var(--color-brand-blue)]",
+  "bg-[var(--color-status-positive)]",
 ];
 
 export function PasswordStrength({ password }: PasswordStrengthProps) {
@@ -47,7 +47,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
             ? "text-destructive"
             : strength < 5
               ? "text-muted-foreground"
-              : "text-green-600"
+              : "text-[var(--color-status-positive)]"
         }`}
       >
         {LABELS[strength]}

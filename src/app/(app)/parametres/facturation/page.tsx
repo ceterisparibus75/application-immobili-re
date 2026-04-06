@@ -15,10 +15,10 @@ const PLAN_LABELS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   TRIALING: { label: "Essai gratuit", color: "text-blue-600 bg-blue-50" },
-  ACTIVE: { label: "Actif", color: "text-green-600 bg-green-50" },
-  PAST_DUE: { label: "Paiement en retard", color: "text-orange-600 bg-orange-50" },
-  CANCELED: { label: "Annule", color: "text-red-600 bg-red-50" },
-  UNPAID: { label: "Impaye", color: "text-red-600 bg-red-50" },
+  ACTIVE: { label: "Actif", color: "text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)]" },
+  PAST_DUE: { label: "Paiement en retard", color: "text-[var(--color-status-caution)] bg-[var(--color-status-caution-bg)]" },
+  CANCELED: { label: "Annule", color: "text-[var(--color-status-negative)] bg-[var(--color-status-negative-bg)]" },
+  UNPAID: { label: "Impaye", color: "text-[var(--color-status-negative)] bg-[var(--color-status-negative-bg)]" },
   INCOMPLETE: { label: "Incomplet", color: "text-gray-600 bg-gray-50" },
 };
 
@@ -133,7 +133,7 @@ export default function BillingPage() {
           )}
 
           {subscription?.cancelAt && (
-            <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-[var(--color-status-caution)] bg-[var(--color-status-caution-bg)] p-3 rounded-lg">
               <AlertTriangle className="h-4 w-4" />
               Annulation prevue le {new Date(subscription.cancelAt).toLocaleDateString("fr-FR")}
             </div>

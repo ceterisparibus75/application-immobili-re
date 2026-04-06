@@ -175,7 +175,7 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
   };
 
   const Icon = actualFormat === "xlsx" ? FileSpreadsheet : FileText;
-  const iconColor = actualFormat === "xlsx" ? "text-green-600" : "text-blue-600";
+  const iconColor = actualFormat === "xlsx" ? "text-[var(--color-status-positive)]" : "text-blue-600";
 
   return (
     <Card className="flex flex-col">
@@ -198,13 +198,13 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
           </div>
         )}
         {success && (
-          <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 rounded px-2 py-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)] rounded px-2 py-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
             <span>Téléchargement terminé</span>
           </div>
         )}
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${actualFormat === "xlsx" ? "text-green-700 border-green-200 bg-green-50" : "text-blue-700 border-blue-200 bg-blue-50"}`}>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${actualFormat === "xlsx" ? "text-[var(--color-status-positive)] border-[var(--color-status-positive)]/30 bg-[var(--color-status-positive-bg)]" : "text-blue-700 border-blue-200 bg-blue-50"}`}>
             {actualFormat.toUpperCase()}
           </span>
           <Button size="sm" onClick={handleDownload} disabled={loading} className="gap-1.5">

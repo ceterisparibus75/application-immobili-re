@@ -64,10 +64,10 @@ export default async function ComptabilitePage() {
   const quickActions = [
     { href: "/comptabilite/nouvelle-ecriture", icon: PenLine, label: "Saisir une écriture", color: "text-blue-600" },
     { href: "/comptabilite/grand-livre", icon: BookOpen, label: "Grand Livre", color: "text-purple-600" },
-    { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-green-600" },
-    { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-orange-600" },
+    { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-[var(--color-status-positive)]" },
+    { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-[var(--color-status-caution)]" },
     { href: "/comptabilite/exports", icon: FileBarChart, label: "Export FEC", color: "text-slate-600" },
-    { href: "/comptabilite/cloture", icon: Archive, label: "Exercices", color: "text-red-600" },
+    { href: "/comptabilite/cloture", icon: Archive, label: "Exercices", color: "text-[var(--color-status-negative)]" },
   ];
 
   return (
@@ -102,7 +102,7 @@ export default async function ComptabilitePage() {
         </Card>
         <Card>
           <CardContent className="pt-4 flex items-center gap-3">
-            <Clock className="h-8 w-8 text-amber-500 flex-shrink-0" />
+            <Clock className="h-8 w-8 text-[var(--color-status-caution)] flex-shrink-0" />
             <div>
               <div className="text-2xl font-bold">{brouillonCount}</div>
               <div className="text-xs text-muted-foreground">En brouillon</div>
@@ -111,7 +111,7 @@ export default async function ComptabilitePage() {
         </Card>
         <Card>
           <CardContent className="pt-4 flex items-center gap-3">
-            <CheckCircle2 className="h-8 w-8 text-green-600 flex-shrink-0" />
+            <CheckCircle2 className="h-8 w-8 text-[var(--color-status-positive)] flex-shrink-0" />
             <div>
               <div className="text-2xl font-bold">{valideeCount}</div>
               <div className="text-xs text-muted-foreground">Validées</div>
@@ -129,7 +129,7 @@ export default async function ComptabilitePage() {
         </Card>
       </div>
       {brouillonCount > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        <div className="flex items-center gap-2 p-3 bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 rounded-lg text-sm text-[var(--color-status-caution)]">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <span><strong>{brouillonCount} écriture(s)</strong> sont en brouillon et doivent être validées avant la clôture de l&apos;exercice.</span>
         </div>

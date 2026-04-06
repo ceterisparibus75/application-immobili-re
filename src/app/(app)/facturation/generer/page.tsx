@@ -183,7 +183,7 @@ export default function GenererFacturesPage() {
 
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <div className="flex items-center gap-3 text-green-600">
+            <div className="flex items-center gap-3 text-[var(--color-status-positive)]">
               <CheckCircle2 className="h-6 w-6" />
               <p className="text-lg font-semibold">
                 {result.created} facture{result.created !== 1 ? "s" : ""} créée{result.created !== 1 ? "s" : ""}
@@ -261,7 +261,7 @@ export default function GenererFacturesPage() {
         </div>
 
         {toCreate.length === 0 && (
-          <div className="flex items-center gap-3 rounded-md border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-4 text-sm text-orange-700 dark:text-orange-400">
+          <div className="flex items-center gap-3 rounded-md border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] p-4 text-sm text-[var(--color-status-caution)]">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             Toutes les factures de cette période existent déjà. Aucune nouvelle facture ne sera créée.
           </div>

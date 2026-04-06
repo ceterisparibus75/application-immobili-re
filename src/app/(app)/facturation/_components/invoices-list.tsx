@@ -83,7 +83,7 @@ function DeliveryBadge({ status, label }: { status: string | null; label: string
   if (["opened", "clicked"].includes(status)) {
     return (
       <span
-        className="flex items-center gap-0.5 text-emerald-600 text-[10px] font-medium"
+        className="flex items-center gap-0.5 text-[var(--color-status-positive)] text-[10px] font-medium"
         title="L’email a été ouvert par le destinataire"
       >
         <CheckCircle2 className="h-3 w-3 shrink-0" />{label}
@@ -106,7 +106,7 @@ function DeliveryBadge({ status, label }: { status: string | null; label: string
   if (["bounced", "spam_complaint"].includes(status)) {
     return (
       <span
-        className="flex items-center gap-0.5 text-red-500 text-[10px] font-medium"
+        className="flex items-center gap-0.5 text-[var(--color-status-negative)] text-[10px] font-medium"
         title={status === "bounced" ? "Adresse invalide ou refusé" : "Signalé comme spam"}
       >
         <XCircle className="h-3 w-3 shrink-0" />{label}
@@ -291,16 +291,16 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                           <DeliveryBadge status={delivery.status} label={delivery.label} />
                         )}
                         {isSent && !delivery?.status && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Email envoyé" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-status-positive)] shrink-0" aria-label="Email envoyé" />
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {getTenantName(invoice.tenant)} — {formatDate(invoice.dueDate)}
                         {isSent && invoice.sentAt && (
-                          <span className="ml-1 text-emerald-600">· envoyé le {formatDate(invoice.sentAt)}</span>
+                          <span className="ml-1 text-[var(--color-status-positive)]">· envoyé le {formatDate(invoice.sentAt)}</span>
                         )}
                         {isSent && !invoice.sentAt && localSentIds.has(invoice.id) && (
-                          <span className="ml-1 text-emerald-600">· envoyé</span>
+                          <span className="ml-1 text-[var(--color-status-positive)]">· envoyé</span>
                         )}
                       </p>
                     </div>
