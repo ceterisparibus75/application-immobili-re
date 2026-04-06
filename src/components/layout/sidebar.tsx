@@ -7,7 +7,7 @@ import {
   Receipt, TrendingUp, Landmark, BookOpen, Contact,
   FolderOpen, Settings, Shield, ScrollText, Banknote,
   BarChart3, FileBarChart, Upload, Merge,
-  Layers, Wallet,
+  Layers, Wallet, Mail, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -35,6 +35,8 @@ const navigation = [
       { name: "Locataires", href: "/locataires", icon: Users },
       { name: "Facturation", href: "/facturation", icon: Receipt },
       { name: "Charges", href: "/charges", icon: ScrollText },
+      { name: "Courriers", href: "/courriers", icon: Mail },
+      { name: "Relances", href: "/relances", icon: Bell },
       { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
@@ -54,7 +56,6 @@ const navigation = [
   {
     title: "Communication",
     items: [
-      { name: "Courriers", href: "/courriers", icon: FileText },
       { name: "Contacts", href: "/contacts", icon: Contact },
     ],
   },
