@@ -461,6 +461,10 @@ model User {
   twoFactorRecoveryCodes String[] // chiffres AES-256-GCM, usage unique
   pendingTwoFactorSecret String? // secret temporaire chiffre AES-256-GCM, en attente de confirmation
 
+  // Copie emails locataires
+  emailCopyEnabled Boolean  @default(false)
+  emailCopyAddress String?  // adresse BCC pour recevoir copie des emails locataires
+
   // Relations
   ownedSocieties    Society[]       @relation("SocietyOwner")
   proprietaires     Proprietaire[]

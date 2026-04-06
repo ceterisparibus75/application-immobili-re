@@ -24,7 +24,7 @@ const BRAND = {
 
 /** Logo URL for emails — uses absolute URL to public asset */
 function logoUrl(): string {
-  return `${SITE_URL}/logo-mygestia.png`;
+  return `${SITE_URL}/logo-mygestia.svg`;
 }
 
 // ============================================================
@@ -214,16 +214,19 @@ async function sendMail(
   subject: string,
   html: string,
   attachments?: Array<{ filename: string; content: Buffer }>,
-  replyTo?: string
+  replyTo?: string,
+  bcc?: string | string[]
 ): Promise<EmailResult> {
   try {
     const fromAddress = process.env.EMAIL_FROM ?? "contact@mygestia.immo";
+    const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]).filter(Boolean) : [];
     const { data, error } = await getResend().emails.send({
       from: FROM,
       to,
       subject,
       html,
       replyTo: replyTo ?? fromAddress,
+      ...(bccList.length > 0 ? { bcc: bccList } : {}),
       ...(attachments?.length
         ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) }
         : {}),
@@ -253,6 +256,7 @@ interface ReminderEmailParams {
   reminderLevel: 1 | 2 | 3;
   societyName: string;
   contactEmail?: string;
+  bcc?: string | string[];
 }
 
 const REMINDER_LABELS = { 1: "Rappel amiable", 2: "Relance formelle", 3: "Mise en demeure" };
@@ -284,7 +288,10 @@ export async function sendReminderEmail(params: ReminderEmailParams): Promise<Em
   return sendMail(
     params.to,
     `[${label}] Loyer impayé — ${params.invoiceRef} — ${fmt(params.amount)}`,
-    baseTemplate(`${label} — Loyer impayé`, content, { societyName: params.societyName, borderLeftColor: BRAND.deep })
+    baseTemplate(`${label} — Loyer impayé`, content, { societyName: params.societyName, borderLeftColor: BRAND.deep }),
+    undefined,
+    undefined,
+    params.bcc
   );
 }
 
@@ -303,6 +310,7 @@ interface InvoiceEmailParams {
   typeLabel?: string;
   items?: Array<{ label: string; amount: number }>;
   pdfAttachment?: { filename: string; content: Buffer };
+  bcc?: string | string[];
 }
 
 export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<EmailResult> {
@@ -323,7 +331,9 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
     params.to,
     `${typeLabelCapitalized} ${params.period} — ${params.invoiceRef}`,
     baseTemplate(`${typeLabelCapitalized} ${params.period}`, content, { societyName: params.societyName }),
-    params.pdfAttachment ? [params.pdfAttachment] : undefined
+    params.pdfAttachment ? [params.pdfAttachment] : undefined,
+    undefined,
+    params.bcc
   );
 }
 
@@ -340,6 +350,7 @@ interface ReceiptEmailParams {
   paidAt: string;
   societyName: string;
   pdfAttachment?: { filename: string; content: Buffer };
+  bcc?: string | string[];
 }
 
 export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<EmailResult> {
@@ -363,7 +374,9 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
     params.to,
     `Quittance de loyer ${params.period} — ${params.invoiceRef}`,
     baseTemplate(`Quittance de loyer ${params.period}`, content, { societyName: params.societyName }),
-    params.pdfAttachment ? [params.pdfAttachment] : undefined
+    params.pdfAttachment ? [params.pdfAttachment] : undefined,
+    undefined,
+    params.bcc
   );
 }
 
@@ -432,6 +445,7 @@ interface WelcomeEmailParams {
   monthlyRent: number;
   societyName: string;
   contactEmail?: string;
+  bcc?: string | string[];
 }
 
 export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<EmailResult> {
@@ -452,7 +466,10 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<Emai
   return sendMail(
     params.to,
     `Bienvenue — Votre bail au ${params.propertyAddress}`,
-    baseTemplate("Bienvenue dans votre nouveau logement", content, { societyName: params.societyName })
+    baseTemplate("Bienvenue dans votre nouveau logement", content, { societyName: params.societyName }),
+    undefined,
+    undefined,
+    params.bcc
   );
 }
 
@@ -521,6 +538,7 @@ interface InsuranceReminderEmailParams {
   tenantName: string;
   societyName: string;
   portalUrl: string;
+  bcc?: string | string[];
 }
 
 export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailParams): Promise<EmailResult> {
@@ -536,7 +554,10 @@ export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailP
   return sendMail(
     params.to,
     `Rappel — Attestation d'assurance requise`,
-    baseTemplate("Attestation d'assurance requise", content, { societyName: params.societyName })
+    baseTemplate("Attestation d'assurance requise", content, { societyName: params.societyName }),
+    undefined,
+    undefined,
+    params.bcc
   );
 }
 
@@ -621,6 +642,7 @@ interface InvoiceReminderEmailParams {
   amount: number;
   dueDate: string;
   societyName: string;
+  bcc?: string | string[];
 }
 
 export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParams): Promise<EmailResult> {
@@ -640,7 +662,10 @@ export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParam
   return sendMail(
     params.to,
     `Rappel — Facture ${params.invoiceNumber} — ${fmt(params.amount)}`,
-    baseTemplate("Rappel — Facture impayée", content, { societyName: params.societyName, borderLeftColor: BRAND.deep })
+    baseTemplate("Rappel — Facture impayée", content, { societyName: params.societyName, borderLeftColor: BRAND.deep }),
+    undefined,
+    undefined,
+    params.bcc
   );
 }
 

@@ -457,6 +457,8 @@ export type OwnerProfileInput = {
   ownerCity?: string;
   profession?: string;
   nationality?: string;
+  emailCopyEnabled?: boolean;
+  emailCopyAddress?: string;
 };
 
 export async function getOwnerProfile(): Promise<ActionResult<{
@@ -471,6 +473,8 @@ export async function getOwnerProfile(): Promise<ActionResult<{
   profession: string | null;
   nationality: string | null;
   email: string;
+  emailCopyEnabled: boolean;
+  emailCopyAddress: string | null;
 }>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
@@ -489,6 +493,8 @@ export async function getOwnerProfile(): Promise<ActionResult<{
       ownerCity: true,
       profession: true,
       nationality: true,
+      emailCopyEnabled: true,
+      emailCopyAddress: true,
     },
   });
 
@@ -518,6 +524,8 @@ export async function updateOwnerProfile(input: OwnerProfileInput): Promise<Acti
       ownerCity: input.ownerCity?.trim() || null,
       profession: input.profession?.trim() || null,
       nationality: input.nationality?.trim() || null,
+      ...(input.emailCopyEnabled !== undefined ? { emailCopyEnabled: input.emailCopyEnabled } : {}),
+      ...(input.emailCopyAddress !== undefined ? { emailCopyAddress: input.emailCopyAddress?.trim() || null } : {}),
     },
   });
 
