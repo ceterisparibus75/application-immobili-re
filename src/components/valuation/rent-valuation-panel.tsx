@@ -98,7 +98,7 @@ export function RentValuationPanel({
           <CardContent className="py-8 text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
-              Analyse par Claude et Gemini en cours (30-60s)...
+              Analyse par Claude et Mistral en cours (30-60s)...
             </p>
           </CardContent>
         </Card>

@@ -77,7 +77,7 @@ export function AiAnalysisPanel({
         <div className="bg-white rounded-xl shadow-brand border-dashed border p-12 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-[var(--color-brand-blue)]" />
           <p className="mt-4 text-sm text-[var(--color-brand-deep)]">
-            Analyse en cours par Claude et Gemini...
+            Recherche des comparables DVF puis analyse par Claude et Mistral...
           </p>
           <p className="text-[10px] text-[#94A3B8] mt-1">
             Cela peut prendre 30 à 60 secondes.
