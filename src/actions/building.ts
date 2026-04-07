@@ -215,10 +215,11 @@ export async function getBuildings(societyId: string) {
         select: {
           id: true,
           status: true,
+          currentRent: true,
           area: true,
           leases: {
             where: { status: "EN_COURS" },
-            select: { currentRentHT: true, paymentFrequency: true, endDate: true },
+            select: { id: true, currentRentHT: true, paymentFrequency: true, endDate: true },
             take: 1,
           },
         },
@@ -230,22 +231,6 @@ export async function getBuildings(societyId: string) {
         select: { estimatedValueMid: true, valuationDate: true },
       },
       _count: { select: { lots: true, diagnostics: true, maintenances: true } },
-      lots: {
-        select: {
-          id: true,
-          status: true,
-          currentRent: true,
-          area: true,
-          leases: {
-            where: { status: "EN_COURS" },
-            select: {
-              id: true,
-              currentRentHT: true,
-              paymentFrequency: true,
-            },
-          },
-        },
-      },
       additionalAcquisitions: {
         select: {
           id: true,
