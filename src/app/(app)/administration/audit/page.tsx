@@ -27,6 +27,7 @@ import {
   ChevronUp,
   Search,
   Download,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
@@ -168,7 +169,7 @@ export default function AuditPage() {
     });
   };
 
-  const handleExport = async () => {
+  const handleExport = async (certified = false) => {
     if (!activeSociety) return;
     setExporting(true);
     try {
@@ -180,6 +181,7 @@ export default function AuditPage() {
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       if (search) params.set("search", search);
+      if (certified) params.set("certified", "true");
 
       const res = await fetch(`/api/audit/export?${params.toString()}`);
       if (!res.ok) throw new Error("Export failed");
@@ -188,7 +190,9 @@ export default function AuditPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = certified
+        ? `audit-logs-certifie-${new Date().toISOString().slice(0, 10)}.csv`
+        : `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -231,15 +235,27 @@ export default function AuditPage() {
             Historique des actions dans {activeSociety.name}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          disabled={exporting || total === 0}
-        >
-          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Exporter CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport(false)}
+            disabled={exporting || total === 0}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Exporter CSV
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleExport(true)}
+            disabled={exporting || total === 0}
+            title="Export avec hash SHA-256 par ligne et certification globale"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            Export certifié
+          </Button>
+        </div>
       </div>
 
       {/* ── Filters ── */}

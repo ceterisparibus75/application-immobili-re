@@ -435,6 +435,37 @@ export async function sendNewUserEmail(params: NewUserEmailParams): Promise<Emai
 }
 
 // ============================================================
+// INVITATION NOUVEL UTILISATEUR (avec lien de creation de MDP)
+// ============================================================
+
+interface NewUserInviteEmailParams {
+  to: string;
+  name: string;
+  email: string;
+  resetUrl: string;
+  appUrl: string;
+  societyName?: string;
+}
+
+export async function sendNewUserInviteEmail(params: NewUserInviteEmailParams): Promise<EmailResult> {
+  const content = `
+    ${heading(`Bienvenue sur ${APP_NAME}`)}
+    ${para(`Bonjour <strong>${params.name}</strong>,`)}
+    ${para(`Un compte a été créé pour vous sur <strong>${APP_NAME}</strong>${params.societyName ? ` pour la société <strong>${params.societyName}</strong>` : ""}.`)}
+    ${para("Votre adresse de connexion :")}
+    ${infoTable([
+      { label: "Adresse email", value: params.email },
+    ])}
+    ${para("Pour activer votre compte, veuillez créer votre mot de passe en cliquant sur le bouton ci-dessous :")}
+    ${ctaButton("Créer mon mot de passe", params.resetUrl)}
+    ${infoBox("Ce lien est valable 72 heures. Passé ce délai, demandez à votre administrateur de renvoyer une invitation.", "warning")}
+    ${signature(APP_NAME)}
+  `;
+
+  return sendMail(params.to, `${APP_NAME} — Activez votre compte`, baseTemplate(`Bienvenue sur ${APP_NAME}`, content));
+}
+
+// ============================================================
 // BIENVENUE NOUVEAU LOCATAIRE
 // ============================================================
 

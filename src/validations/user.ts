@@ -10,7 +10,6 @@ export const createUserSchema = z.object({
   email: z.string().email("Adresse email invalide"),
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   firstName: z.string().optional().or(z.literal("")),
-  password: strongPasswordSchema,
 });
 
 export const updateUserSchema = z.object({

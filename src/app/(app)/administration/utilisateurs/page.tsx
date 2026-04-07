@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Shield, UserPlus, Users, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { Shield, UserPlus, Users, AlertTriangle, ArrowUpRight, ScrollText } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/utils";
 import type { UserRole } from "@/generated/prisma/client";
@@ -18,6 +18,7 @@ import { PLANS } from "@/lib/stripe";
 import type { PlanId } from "@/lib/stripe";
 import UsersClient from "./_components/users-client";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default async function UtilisateursPage() {
   const headersList = await headers();
@@ -54,6 +55,12 @@ export default async function UtilisateursPage() {
             Gérez les utilisateurs et leurs droits sur la société
           </p>
         </div>
+        <Link href="/administration/audit">
+          <Button variant="outline" size="sm" className="gap-2">
+            <ScrollText className="h-4 w-4" />
+            Journal d&apos;audit
+          </Button>
+        </Link>
       </div>
 
       {/* Plan & usage */}

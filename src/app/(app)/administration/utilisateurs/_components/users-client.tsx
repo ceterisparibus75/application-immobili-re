@@ -260,7 +260,6 @@ function CreateUser({
         email: data.email,
         name: data.name,
         firstName: data.firstName,
-        password: data.password,
       });
 
       if (!result.success || !result.data) {
@@ -276,7 +275,7 @@ function CreateUser({
       });
 
       if (assignResult.success) {
-        toast.success("Utilisateur créé et ajouté à la société");
+        toast.success("Utilisateur créé — un email d'activation lui a été envoyé");
         form.reset();
         setOpen(false);
         onDone();
@@ -320,19 +319,9 @@ function CreateUser({
           </select>
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Mot de passe *</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          minLength={8}
-        />
-        <p className="text-xs text-muted-foreground">
-          Minimum 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+        Un email sera envoyé à l&apos;adresse indiquée avec un lien pour créer son mot de passe.
+      </p>
       <div className="flex gap-3">
         <Button type="submit" disabled={isPending}>
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

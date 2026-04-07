@@ -7,6 +7,7 @@ import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/p
 import { checkSubscriptionActive, checkUserLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { hash, compare } from "bcryptjs";
+import { randomBytes } from "crypto";
 import {
   createUserSchema,
   updateUserSchema,
@@ -19,7 +20,7 @@ import {
 } from "@/validations/user";
 import type { ModulePermissions } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
-import { sendNewUserEmail } from "@/lib/email";
+import { sendNewUserInviteEmail } from "@/lib/email";
 import type { ActionResult } from "./society";
 
 export async function createUser(
@@ -49,7 +50,13 @@ export async function createUser(
       return { success: false, error: "Cet email est déjà utilisé" };
     }
 
-    const passwordHash = await hash(data.password, 12);
+    // Générer un mot de passe aléatoire (l'utilisateur le changera via le lien email)
+    const tempPassword = randomBytes(16).toString("base64url");
+    const passwordHash = await hash(tempPassword, 12);
+
+    // Générer un token de réinitialisation (valide 72h pour laisser le temps au nouvel utilisateur)
+    const resetToken = randomBytes(32).toString("hex");
+    const resetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
     const user = await prisma.user.create({
       data: {
@@ -57,18 +64,23 @@ export async function createUser(
         name: data.name,
         firstName: data.firstName || null,
         passwordHash,
+        resetToken,
+        resetTokenExpiresAt,
       },
     });
 
     revalidatePath("/administration/utilisateurs");
 
-    // Envoi de l'email de bienvenue avec les identifiants
-    await sendNewUserEmail({
+    // Envoi de l'email d'invitation avec lien de création de mot de passe
+    const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    await sendNewUserInviteEmail({
       to: user.email,
       name: `${data.name}${data.firstName ? " " + data.firstName : ""}`,
       email: user.email,
-      password: data.password,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      resetUrl,
+      appUrl: baseUrl,
     }).catch((err) => console.error("[createUser] email error", err));
 
     return { success: true, data: { id: user.id } };
