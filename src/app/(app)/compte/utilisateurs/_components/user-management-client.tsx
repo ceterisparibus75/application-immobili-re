@@ -213,8 +213,7 @@ function UserRow({
         <td className="p-3">
           <div>
             <span className="font-medium">
-              {user.name}
-              {user.firstName ? ` ${user.firstName}` : ""}
+              {user.name ?? ""}{user.firstName && !user.name?.includes(user.firstName) ? ` ${user.firstName}` : ""}
             </span>
             {isSelf && (
               <Badge variant="outline" className="ml-2 text-[10px]">

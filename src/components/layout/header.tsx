@@ -11,6 +11,14 @@ import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
 
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ADMIN_SOCIETE: "Administrateur",
+  GESTIONNAIRE: "Gestionnaire",
+  COMPTABLE: "Comptable",
+  LECTURE: "Lecture seule",
+};
+
 function getInitials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
@@ -71,7 +79,7 @@ export function Header() {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-[13px] font-medium leading-tight">{session.user.name || session.user.email}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Gestionnaire</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{ROLE_LABELS[activeSociety?.role ?? ""] ?? "Utilisateur"}</p>
                 </div>
                 <ChevronDown className={`h-3 w-3 text-muted-foreground hidden md:block transition-transform ${profileOpen ? "rotate-180" : ""}`} />
               </button>

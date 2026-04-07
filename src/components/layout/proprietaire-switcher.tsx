@@ -32,13 +32,19 @@ export function ProprietaireSwitcher() {
   // Charger les propriétaires
   useEffect(() => {
     let cancelled = false;
-    getProprietairesWithSocieties().then((result) => {
-      if (cancelled) return;
-      if (result.success && result.data) {
-        setProprietaires(result.data);
-      }
-      setLoaded(true);
-    });
+    getProprietairesWithSocieties()
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success && result.data) {
+          setProprietaires(result.data);
+        }
+        setLoaded(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[ProprietaireSwitcher] Erreur chargement:", err);
+        setLoaded(true);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -77,7 +83,7 @@ export function ProprietaireSwitcher() {
         onClick={() => canSwitch ? setOpen((v) => !v) : router.push("/proprietaire")}
         className={cn(
           "flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors text-left",
-          canSwitch ? "hover:bg-sidebar-accent cursor-pointer" : "hover:bg-sidebar-accent cursor-pointer",
+          "hover:bg-sidebar-accent cursor-pointer",
         )}
       >
         <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">

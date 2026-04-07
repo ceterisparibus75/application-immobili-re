@@ -1,4 +1,4 @@
-import { Building2, BookOpen, Mail, Shield, CreditCard, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock } from "lucide-react";
+import { Building2, BookOpen, Mail, Shield, CreditCard, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock, UserCog } from "lucide-react";
 import Link from "next/link";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
@@ -19,6 +19,18 @@ const guides = [
       "Ajouter un immeuble, ses lots et leurs diagnostics",
       "Enregistrer un locataire et creer un bail",
       "Profitez de 14 jours d'essai gratuit sans carte bancaire",
+    ],
+  },
+  {
+    icon: <UserCog className="h-5 w-5" />,
+    title: "Utilisateurs et droits d'acces",
+    description: "Gerez les utilisateurs, les roles et les permissions par societe et par module.",
+    items: [
+      "5 roles hierarchiques : Super Admin, Admin Societe, Gestionnaire, Comptable, Lecture seule",
+      "Chaque utilisateur est rattache a une ou plusieurs societes avec un role par societe",
+      "L'acces aux proprietaires est automatique : un utilisateur voit le proprietaire de ses societes",
+      "Permissions par module personnalisables (patrimoine, baux, facturation, comptabilite, etc.)",
+      "L'administrateur peut creer des utilisateurs, assigner des roles et personnaliser les droits",
     ],
   },
   {
@@ -122,10 +134,10 @@ const guides = [
     description: "Protegez votre compte, vos donnees et celles de vos locataires.",
     items: [
       "Authentification a deux facteurs (2FA) pour tous les utilisateurs",
-      "Gestion fine des roles et permissions (Admin, Gestionnaire, Comptable, Lecture)",
-      "Donnees bancaires chiffrees en AES-256-GCM",
-      "Portail locataire securise pour la consultation des documents et paiements",
-      "Module RGPD integre : consentements, droit d'acces, suppression et audit logs",
+      "5 niveaux de roles avec permissions personnalisables par module et par societe",
+      "Donnees bancaires chiffrees en AES-256-GCM, mots de passe haches bcrypt",
+      "Portail locataire securise avec lien d'acces individuel",
+      "Module RGPD integre : consentements, droit d'acces, suppression et audit logs complets",
     ],
   },
 ];
@@ -133,7 +145,7 @@ const guides = [
 const faqs = [
   {
     q: "Comment ajouter un nouvel utilisateur a ma societe ?",
-    a: "Allez dans Administration > Utilisateurs > Inviter. L'utilisateur recevra un email avec ses identifiants. Vous pouvez lui attribuer un role (Admin, Gestionnaire, Comptable ou Lecture seule).",
+    a: "Allez dans Mon compte > Utilisateurs > Creer un utilisateur. Renseignez son nom, prenom et email, puis selectionnez la ou les societes auxquelles il aura acces avec un role pour chacune (Admin Societe, Gestionnaire, Comptable ou Lecture). L'utilisateur recevra un email avec un mot de passe temporaire.",
   },
   {
     q: "Comment generer une quittance de loyer ?",
@@ -144,8 +156,8 @@ const faqs = [
     a: "Les revisions sont calculees automatiquement selon l'indice IRL/ILC/ILAT du bail. Elles apparaissent dans le module Revisions lorsqu'elles sont dues. Vous pouvez les valider ou les rejeter.",
   },
   {
-    q: "Puis-je gerer plusieurs societes ?",
-    a: "Oui, selon votre plan. Le plan Starter permet 1 societe, le Pro jusqu'a 3, et l'Enterprise un nombre illimite. Chaque societe a ses propres donnees isolees. La vue Proprietaire permet de piloter l'ensemble depuis un tableau de bord unique.",
+    q: "Puis-je gerer plusieurs societes et proprietaires ?",
+    a: "Oui, selon votre plan. Le plan Starter permet 1 societe, le Pro jusqu'a 3, et l'Enterprise un nombre illimite. Chaque societe est rattachee a un proprietaire (personne physique ou morale). Un utilisateur voit automatiquement les proprietaires dont il gere au moins une societe. La vue Proprietaire consolide les donnees de l'ensemble.",
   },
   {
     q: "Comment exporter mes donnees comptables ?",
@@ -190,6 +202,26 @@ const faqs = [
   {
     q: "Comment generer des rapports avances ?",
     a: "Depuis le tableau de bord, accedez aux rapports detailles : revenus mensuels, taux d'occupation, analyse des impayes, evolution du patrimoine. Tous les rapports sont exportables en PDF ou Excel.",
+  },
+  {
+    q: "Quels sont les differents roles utilisateurs ?",
+    a: "Il existe 5 roles, du plus eleve au plus bas : Super Administrateur (acces total a toutes les societes), Admin Societe (gestion complete d'une societe et de ses utilisateurs), Gestionnaire (gestion quotidienne du patrimoine, baux, locataires), Comptable (lecture partout + ecriture sur facturation, comptabilite, banque et relances), Lecture seule (consultation uniquement).",
+  },
+  {
+    q: "Comment un utilisateur accede-t-il a un proprietaire ?",
+    a: "L'acces est automatique et indirect : un utilisateur voit le proprietaire de chaque societe dont il est membre. Par exemple, si vous etes gestionnaire de la SCI Soleil (rattachee au proprietaire Marie Dupont), vous verrez Marie Dupont dans votre barre de navigation, sans avoir besoin d'un acces direct au proprietaire.",
+  },
+  {
+    q: "Peut-on personnaliser les droits d'un utilisateur ?",
+    a: "Oui. Par defaut, chaque role donne des droits predéfinis sur 12 modules (patrimoine, baux, locataires, facturation, etc.). Un administrateur peut ensuite personnaliser les permissions module par module pour chaque utilisateur : par exemple, donner l'acces ecriture sur la facturation a un utilisateur en Lecture seule.",
+  },
+  {
+    q: "Qui peut modifier les informations d'un proprietaire ?",
+    a: "Le createur du proprietaire et tout utilisateur ayant le role Admin Societe ou Super Admin sur l'une des societes rattachees a ce proprietaire. Cela inclut la possibilite de passer d'une personne physique a une personne morale (SCI, SARL, etc.).",
+  },
+  {
+    q: "Comment fonctionne le copie carbone (BCC) des emails ?",
+    a: "Chaque utilisateur peut recevoir en copie cachee les emails envoyes aux locataires (relances, quittances, etc.). Un administrateur peut activer ou desactiver cette option pour n'importe quel utilisateur de ses societes. Un gestionnaire ne peut l'activer que pour lui-meme.",
   },
 ];
 

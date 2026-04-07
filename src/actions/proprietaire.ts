@@ -382,6 +382,34 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
+  // Auto-migration : créer le propriétaire et rattacher les sociétés si nécessaire
+  const existingProprietaire = await prisma.proprietaire.findFirst({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+  if (!existingProprietaire) {
+    // Vérifier si l'utilisateur a des sociétés sans propriétaire
+    const orphanSocieties = await prisma.society.findMany({
+      where: { ownerId: session.user.id, proprietaireId: null },
+      select: { id: true },
+    });
+    if (orphanSocieties.length > 0) {
+      await migrateOwnerToProprietaire();
+    }
+  } else {
+    // Si le propriétaire existe mais des sociétés ne sont pas rattachées
+    const orphans = await prisma.society.findMany({
+      where: { ownerId: session.user.id, proprietaireId: null },
+      select: { id: true },
+    });
+    if (orphans.length > 0) {
+      await prisma.society.updateMany({
+        where: { ownerId: session.user.id, proprietaireId: null },
+        data: { proprietaireId: existingProprietaire.id },
+      });
+    }
+  }
+
   // Inclure les propriétaires créés par l'utilisateur OU accessibles via une société
   const proprietaires = await prisma.proprietaire.findMany({
     where: {
