@@ -25,37 +25,101 @@ export async function GET(req: NextRequest) {
 
   const results: SearchResult[] = [];
 
-  // Immeubles
-  const buildings = await prisma.building.findMany({
-    where: {
-      societyId,
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { addressLine1: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    take: 3,
-    select: { id: true, name: true, addressLine1: true, city: true },
-  });
+  // Run all queries in parallel for performance
+  const [buildings, lots, tenants, leases, invoices, contacts] = await Promise.all([
+    // Immeubles
+    prisma.building.findMany({
+      where: {
+        societyId,
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { addressLine1: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 5,
+      select: { id: true, name: true, addressLine1: true, city: true },
+    }),
+    // Lots
+    prisma.lot.findMany({
+      where: {
+        building: { societyId },
+        OR: [
+          { number: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { building: { name: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      take: 5,
+      include: { building: { select: { name: true } } },
+    }),
+    // Locataires
+    prisma.tenant.findMany({
+      where: {
+        societyId,
+        OR: [
+          { firstName: { contains: q, mode: "insensitive" } },
+          { lastName: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { companyName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 5,
+    }),
+    // Baux
+    prisma.lease.findMany({
+      where: {
+        societyId,
+        OR: [
+          { tenant: { firstName: { contains: q, mode: "insensitive" } } },
+          { tenant: { lastName: { contains: q, mode: "insensitive" } } },
+          { tenant: { companyName: { contains: q, mode: "insensitive" } } },
+          { lot: { number: { contains: q, mode: "insensitive" } } },
+          { lot: { building: { name: { contains: q, mode: "insensitive" } } } },
+        ],
+      },
+      take: 5,
+      include: {
+        tenant: { select: { firstName: true, lastName: true, companyName: true, entityType: true } },
+        lot: { select: { number: true, building: { select: { name: true } } } },
+      },
+    }),
+    // Factures
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        OR: [
+          { invoiceNumber: { contains: q, mode: "insensitive" } },
+          { tenant: { firstName: { contains: q, mode: "insensitive" } } },
+          { tenant: { lastName: { contains: q, mode: "insensitive" } } },
+          { tenant: { companyName: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      take: 5,
+      include: { tenant: { select: { firstName: true, lastName: true, companyName: true } } },
+    }),
+    // Contacts
+    prisma.contact.findMany({
+      where: {
+        societyId,
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { company: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 5,
+      select: { id: true, name: true, email: true, company: true },
+    }),
+  ]);
+
   buildings.forEach((b) => results.push({
     id: b.id, type: "building",
     title: b.name, subtitle: [b.addressLine1, b.city].filter(Boolean).join(", "),
     href: `/patrimoine/immeubles/${b.id}`,
   }));
 
-  // Lots
-  const lots = await prisma.lot.findMany({
-    where: {
-      building: { societyId },
-      OR: [
-        { number: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    take: 3,
-    include: { building: { select: { name: true } } },
-  });
   lots.forEach((l) => results.push({
     id: l.id, type: "lot",
     title: l.number ?? l.id,
@@ -63,20 +127,6 @@ export async function GET(req: NextRequest) {
     href: `/patrimoine/immeubles/${l.buildingId}/lots/${l.id}`,
   }));
 
-  // Locataires
-  const tenants = await prisma.tenant.findMany({
-    where: {
-      societyId,
-      isActive: true,
-      OR: [
-        { firstName: { contains: q, mode: "insensitive" } },
-        { lastName: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { companyName: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    take: 4,
-  });
   tenants.forEach((t) => results.push({
     id: t.id, type: "tenant",
     title: t.entityType === "PERSONNE_MORALE"
@@ -86,20 +136,17 @@ export async function GET(req: NextRequest) {
     href: `/locataires/${t.id}`,
   }));
 
-  // Factures
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      societyId,
-      OR: [
-        { invoiceNumber: { contains: q, mode: "insensitive" } },
-        { tenant: { firstName: { contains: q, mode: "insensitive" } } },
-        { tenant: { lastName: { contains: q, mode: "insensitive" } } },
-        { tenant: { companyName: { contains: q, mode: "insensitive" } } },
-      ],
-    },
-    take: 3,
-    include: { tenant: { select: { firstName: true, lastName: true, companyName: true } } },
+  leases.forEach((l) => {
+    const tenantName = l.tenant.companyName
+      ?? [l.tenant.firstName, l.tenant.lastName].filter(Boolean).join(" ");
+    results.push({
+      id: l.id, type: "lease",
+      title: `${tenantName} — ${l.lot.number}`,
+      subtitle: l.lot.building.name,
+      href: `/baux/${l.id}`,
+    });
   });
+
   invoices.forEach((inv) => {
     const tenantName = inv.tenant.companyName ?? [inv.tenant.firstName, inv.tenant.lastName].filter(Boolean).join(" ");
     results.push({
@@ -111,19 +158,6 @@ export async function GET(req: NextRequest) {
     });
   });
 
-  // Contacts
-  const contacts = await prisma.contact.findMany({
-    where: {
-      societyId,
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { company: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    take: 3,
-    select: { id: true, name: true, email: true, company: true },
-  });
   contacts.forEach((c) => results.push({
     id: c.id, type: "contact",
     title: c.name, subtitle: c.company ?? c.email ?? undefined,

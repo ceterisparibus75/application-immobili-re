@@ -37,6 +37,7 @@ import { ChargeProvisions } from "./_components/charge-provisions";
 import { RentRevisions } from "./_components/rent-revisions";
 import { LeaseAmendments } from "./_components/lease-amendments";
 import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
+import { LetterGenerator } from "@/components/ai/letter-generator";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -79,6 +80,18 @@ const TYPE_LABELS: Record<LeaseType, string> = {
   REHABILITATION: "Bail à réhabilitation",
   BRS: "Bail réel solidaire (OFS)",
   RURAL: "Bail rural",
+  AUTORISATION_OCCUPATION_TEMPORAIRE: "AOT — Occupation temporaire",
+  CONVENTION_OCCUPATION_PRECAIRE: "COP — Occupation précaire",
+  CONVENTION_OCCUPATION_TEMPORAIRE: "COT — Occupation temporaire",
+  BAIL_METAYAGE: "Bail à métayage",
+  CONVENTION_COLIVING: "Convention de coliving",
+  CONVENTION_MISE_A_DISPOSITION: "CMD — Mise à disposition",
+  BAIL_GLISSANT: "Bail glissant (insertion)",
+  BAIL_LOI_48: "Bail loi 1948",
+  LOCATION_PARKING: "Location parking / garage",
+  LOCATION_STOCKAGE: "Location box / stockage",
+  DROIT_DE_PASSAGE: "Droit de passage / servitude",
+  AUTRE: "Autre",
 };
 
 const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
@@ -468,6 +481,9 @@ export default async function BailDetailPage({
               <RentValuationPanelWrapper leaseId={lease.id} societyId={societyId} />
             </CardContent>
           </Card>
+          {/* Generateur de courrier IA */}
+          <LetterGenerator societyId={societyId} leaseId={lease.id} />
+
           {/* États des lieux */}
           <Card>
             <CardHeader>

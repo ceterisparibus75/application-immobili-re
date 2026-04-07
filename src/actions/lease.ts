@@ -13,6 +13,57 @@ import {
 } from "@/validations/lease";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { Prisma } from "@/generated/prisma/client";
+
+export interface LeaseFilters {
+  status?: string;
+  leaseType?: string;
+  buildingId?: string;
+  proprietaireId?: string;
+}
+
+export async function getFilteredLeases(societyId: string, filters: LeaseFilters = {}) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const where: Prisma.LeaseWhereInput = { societyId };
+
+  if (filters.status) {
+    where.status = filters.status as Prisma.LeaseWhereInput["status"];
+  }
+  if (filters.leaseType) {
+    where.leaseType = filters.leaseType as Prisma.LeaseWhereInput["leaseType"];
+  }
+  if (filters.buildingId) {
+    where.lot = { buildingId: filters.buildingId };
+  }
+  if (filters.proprietaireId) {
+    where.society = { proprietaireId: filters.proprietaireId };
+  }
+
+  return prisma.lease.findMany({
+    where,
+    include: {
+      lot: {
+        include: {
+          building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
+        },
+      },
+      tenant: {
+        select: {
+          id: true,
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: [{ status: "asc" }, { startDate: "desc" }],
+  });
+}
 
 export async function createLease(
   societyId: string,

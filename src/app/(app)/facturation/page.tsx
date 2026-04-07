@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getInvoices } from "@/actions/invoice";
+import { getFilteredInvoices } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
 import { Euro, FileText, Plus, Zap, AlertTriangle, Clock } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
+import { FacturationFilters } from "./_components/facturation-filters";
 
 export const metadata = { title: "Facturation" };
 
@@ -72,7 +73,11 @@ async function getRecentReminders(societyId: string) {
   });
 }
 
-export default async function FacturationPage() {
+export default async function FacturationPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
   if (!societyId) redirect("/societes");
@@ -82,8 +87,23 @@ export default async function FacturationPage() {
 
   await requireSocietyAccess(session.user.id, societyId);
 
+  const params = await searchParams;
+  const statusFilter = typeof params.filter_status === "string" ? params.filter_status : undefined;
+  const typeFilter = typeof params.filter_invoiceType === "string" ? params.filter_invoiceType : undefined;
+  const periodFrom = typeof params.filter_period_from === "string" ? params.filter_period_from : undefined;
+  const periodTo = typeof params.filter_period_to === "string" ? params.filter_period_to : undefined;
+  const amountMin = typeof params.filter_amount_min === "string" ? params.filter_amount_min : undefined;
+  const amountMax = typeof params.filter_amount_max === "string" ? params.filter_amount_max : undefined;
+
   const [invoices, overdueInvoices, reminders] = await Promise.all([
-    getInvoices(societyId),
+    getFilteredInvoices(societyId, {
+      status: statusFilter,
+      invoiceType: typeFilter,
+      periodFrom,
+      periodTo,
+      amountMin,
+      amountMax,
+    }),
     getOverdueInvoices(societyId),
     getRecentReminders(societyId),
   ]);
@@ -112,6 +132,7 @@ export default async function FacturationPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <FacturationFilters />
           <Link href="/facturation/generer">
             <Button variant="outline"><Zap className="h-4 w-4" />Generer les appels</Button>
           </Link>

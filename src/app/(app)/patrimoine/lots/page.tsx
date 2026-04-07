@@ -1,4 +1,4 @@
-import { getLots } from "@/actions/lot";
+import { getFilteredLots } from "@/actions/lot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+import { LotsFilters } from "./_components/lots-filters";
 
 const FREQUENCY_SHORT: Record<PaymentFrequency, string> = {
   MENSUEL: "€/mois",
@@ -51,7 +53,11 @@ const LOT_STATUS_VARIANTS: Record<
   RESERVE: "default",
 };
 
-export default async function LotsPage() {
+export default async function LotsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
 
@@ -59,7 +65,25 @@ export default async function LotsPage() {
     redirect("/societes");
   }
 
-  const lots = await getLots(societyId);
+  const params = await searchParams;
+  const statusFilter = typeof params.filter_status === "string" ? params.filter_status : undefined;
+  const lotTypeFilter = typeof params.filter_lotType === "string" ? params.filter_lotType : undefined;
+  const buildingFilter = typeof params.filter_buildingId === "string" ? params.filter_buildingId : undefined;
+  const exploitationFilter = typeof params.filter_exploitationStatus === "string" ? params.filter_exploitationStatus : undefined;
+
+  const [lots, buildings] = await Promise.all([
+    getFilteredLots(societyId, {
+      status: statusFilter,
+      lotType: lotTypeFilter,
+      buildingId: buildingFilter,
+      exploitationStatus: exploitationFilter,
+    }),
+    prisma.building.findMany({
+      where: { societyId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   // Grouper par immeuble
   const byBuilding = lots.reduce<
@@ -82,6 +106,7 @@ export default async function LotsPage() {
             {lots.length} lot{lots.length !== 1 ? "s" : ""} au total
           </p>
         </div>
+        <LotsFilters buildings={buildings} />
       </div>
 
       {lots.length === 0 ? (

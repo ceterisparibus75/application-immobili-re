@@ -152,6 +152,18 @@ const LEASE_TYPE_OPTIONS = [
   { value: "REHABILITATION", label: "Bail à réhabilitation" },
   { value: "BRS", label: "Bail réel solidaire (OFS)" },
   { value: "RURAL", label: "Bail rural / agricole" },
+  { value: "AUTORISATION_OCCUPATION_TEMPORAIRE", label: "AOT — Occupation temporaire" },
+  { value: "CONVENTION_OCCUPATION_PRECAIRE", label: "COP — Occupation précaire" },
+  { value: "CONVENTION_OCCUPATION_TEMPORAIRE", label: "COT — Occupation temporaire" },
+  { value: "BAIL_METAYAGE", label: "Bail à métayage" },
+  { value: "CONVENTION_COLIVING", label: "Convention de coliving" },
+  { value: "CONVENTION_MISE_A_DISPOSITION", label: "CMD — Mise à disposition" },
+  { value: "BAIL_GLISSANT", label: "Bail glissant (insertion)" },
+  { value: "BAIL_LOI_48", label: "Bail loi 1948" },
+  { value: "LOCATION_PARKING", label: "Location parking / garage" },
+  { value: "LOCATION_STOCKAGE", label: "Location box / stockage" },
+  { value: "DROIT_DE_PASSAGE", label: "Droit de passage / servitude" },
+  { value: "AUTRE", label: "Autre" },
 ];
 
 const PAYMENT_FREQ_OPTIONS = [
