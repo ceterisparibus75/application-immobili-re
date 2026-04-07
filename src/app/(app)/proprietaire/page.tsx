@@ -40,19 +40,25 @@ export default async function ProprietaireDashboardPage({
   if (!session?.user?.id) redirect("/login");
 
   // Migration automatique : si l'utilisateur n'a pas de proprietaire, en créer un
-  const propList = await getProprietaires();
-  if (propList.success && (!propList.data || propList.data.length === 0)) {
-    await migrateOwnerToProprietaire();
+  let propList;
+  try {
+    propList = await getProprietaires();
+    if (propList.success && (!propList.data || propList.data.length === 0)) {
+      await migrateOwnerToProprietaire();
+    }
+  } catch (err) {
+    console.error("[ProprietairePage] migration/propList error:", err);
+    propList = { success: false as const, data: [], error: "" };
   }
 
   const params = await searchParams;
   const selectedPid = params.pid;
 
   const [propResult, claimableResult, profileResult, societies] = await Promise.all([
-    getProprietaires(),
-    getClaimableSocieties(),
-    getOwnerProfile(),
-    getSocieties(),
+    getProprietaires().catch((err) => { console.error("[ProprietairePage] getProprietaires error:", err); return { success: false as const, data: [] as never[], error: "" }; }),
+    getClaimableSocieties().catch((err) => { console.error("[ProprietairePage] getClaimableSocieties error:", err); return { success: false as const, data: [] as never[], error: "" }; }),
+    getOwnerProfile().catch((err) => { console.error("[ProprietairePage] getOwnerProfile error:", err); return { success: false as const, data: undefined, error: "" }; }),
+    getSocieties().catch((err) => { console.error("[ProprietairePage] getSocieties error:", err); return []; }),
   ]);
 
   const proprietaires = propResult.success ? (propResult.data ?? []) : [];

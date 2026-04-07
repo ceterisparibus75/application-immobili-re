@@ -91,6 +91,7 @@ export async function getOwnerSocieties(proprietaireId?: string): Promise<Action
 }
 
 export async function getOwnerAnalytics(proprietaireId?: string): Promise<ActionResult<OwnerAnalytics>> {
+  try {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
@@ -371,6 +372,10 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
       lenderSummaries,
     },
   };
+  } catch (error) {
+    console.error("[getOwnerAnalytics]", error);
+    return { success: false, error: "Erreur lors du chargement des analytics propriétaire" };
+  }
 }
 
 export async function isOwnerOfSociety(userId: string, societyId: string): Promise<boolean> {
