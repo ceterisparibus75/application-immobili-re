@@ -528,6 +528,63 @@ export async function updateValuationResults(
 }
 
 // ============================================================
+// Évaluation en lot (batch)
+// ============================================================
+
+export async function batchCreatePropertyValuations(
+  societyId: string,
+  buildingIds: string[]
+): Promise<ActionResult<{ created: number; skipped: number; errors: string[] }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    if (buildingIds.length === 0) return { success: false, error: "Aucun immeuble sélectionné" };
+    if (buildingIds.length > 20) return { success: false, error: "Maximum 20 immeubles à la fois" };
+
+    const yearStart = new Date(new Date().getFullYear(), 0, 1);
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const buildingId of buildingIds) {
+      try {
+        const building = await prisma.building.findFirst({ where: { id: buildingId, societyId } });
+        if (!building) { errors.push(`Immeuble introuvable`); continue; }
+
+        const count = await prisma.propertyValuation.count({
+          where: { buildingId, societyId, createdAt: { gte: yearStart } },
+        });
+        if (count >= 2) { skipped++; continue; }
+
+        const valuation = await prisma.propertyValuation.create({
+          data: { buildingId, societyId, createdBy: session.user.id, status: "DRAFT" },
+        });
+
+        // Lancer l'analyse IA automatiquement
+        await runAiAnalysis(societyId, valuation.id, { providers: ["CLAUDE", "OPENAI"] });
+        created++;
+      } catch (err) {
+        console.error(`[batchValuation] ${buildingId}:`, err);
+        errors.push(`Erreur pour un immeuble`);
+      }
+    }
+
+    revalidatePath("/patrimoine");
+    revalidatePath("/dashboard");
+    return { success: true, data: { created, skipped, errors } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[batchCreatePropertyValuations]", error);
+    return { success: false, error: "Erreur lors de l'évaluation en lot" };
+  }
+}
+
+// ============================================================
 // Lecture
 // ============================================================
 

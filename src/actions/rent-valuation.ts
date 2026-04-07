@@ -389,6 +389,65 @@ export async function deleteRentValuation(
 }
 
 // ============================================================
+// Évaluation en lot (batch)
+// ============================================================
+
+export async function batchCreateRentValuations(
+  societyId: string,
+  leaseIds: string[]
+): Promise<ActionResult<{ created: number; errors: string[] }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    if (leaseIds.length === 0) return { success: false, error: "Aucun bail sélectionné" };
+    if (leaseIds.length > 20) return { success: false, error: "Maximum 20 baux à la fois" };
+
+    const freqMultiplier: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+    let created = 0;
+    const errors: string[] = [];
+
+    for (const leaseId of leaseIds) {
+      try {
+        const lease = await prisma.lease.findFirst({ where: { id: leaseId, societyId } });
+        if (!lease) { errors.push("Bail introuvable"); continue; }
+
+        const multiplier = freqMultiplier[lease.paymentFrequency] ?? 12;
+        const currentAnnualRent = lease.currentRentHT * multiplier;
+
+        const valuation = await prisma.rentValuation.create({
+          data: {
+            leaseId,
+            societyId,
+            createdBy: session.user.id,
+            status: "DRAFT",
+            currentRent: currentAnnualRent,
+          },
+        });
+
+        await runRentAiAnalysis(societyId, valuation.id, { providers: ["CLAUDE", "OPENAI"] });
+        created++;
+      } catch (err) {
+        console.error(`[batchRentValuation] ${leaseId}:`, err);
+        errors.push("Erreur pour un bail");
+      }
+    }
+
+    revalidatePath("/baux");
+    revalidatePath("/dashboard");
+    return { success: true, data: { created, errors } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[batchCreateRentValuations]", error);
+    return { success: false, error: "Erreur lors de l'évaluation en lot" };
+  }
+}
+
+// ============================================================
 // Helpers
 // ============================================================
 

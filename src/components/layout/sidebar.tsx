@@ -7,7 +7,7 @@ import {
   Receipt, TrendingUp, Landmark, BookOpen, Contact,
   FolderOpen, Settings, Shield, ScrollText, Banknote,
   BarChart3, FileBarChart, Upload, Merge,
-  Layers, Wallet, Mail, Bell,
+  Layers, Wallet, Mail, Bell, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -26,6 +26,7 @@ const navigation = [
     items: [
       { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
       { name: "Lots", href: "/patrimoine/lots", icon: Layers },
+      { name: "Évaluations IA", href: "/patrimoine/evaluations", icon: Bot },
     ],
   },
   {
