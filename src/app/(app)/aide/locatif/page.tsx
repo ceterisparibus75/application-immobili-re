@@ -22,7 +22,7 @@ export default function LocatifPage() {
         <p>
           Le tableau récapitulatif présente pour chaque bail : le nom du locataire, le loyer mensuel HT, la fréquence de paiement, le type de bail et son statut. Le total des loyers mensuels est calculé en bas du tableau.
         </p>
-        <ScreenshotPlaceholder alt="Liste des baux actifs" caption="Tableau des baux avec locataire, loyer, type et statut" />
+        <ScreenshotPlaceholder alt="Liste des baux actifs" caption="Tableau des baux avec locataire, loyer, type et statut" src="/aide/screenshots/baux-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Types de baux disponibles :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -79,7 +79,7 @@ export default function LocatifPage() {
             <p>Les dernières factures émises pour ce bail, avec numéro, montant, échéance et statut de paiement.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Fiche bail complète" caption="Vue détaillée d'un bail avec toutes les informations contractuelles" />
+        <ScreenshotPlaceholder alt="Fiche bail complète" caption="Vue détaillée d'un bail avec toutes les informations contractuelles" src="/aide/screenshots/baux-main.png" />
         <InfoBox type="info">
           Vous pouvez uploader le document PDF du bail signé directement dans la fiche. Il sera stocké de manière sécurisée et accessible à tout moment.
         </InfoBox>
@@ -95,7 +95,7 @@ export default function LocatifPage() {
         <p>
           Le tableau affiche pour chaque locataire : nom (avec avatar), type d&apos;entité, loyer total cumulé sur tous ses baux, localisation (immeuble + lots), statut d&apos;assurance et indicateur de risque.
         </p>
-        <ScreenshotPlaceholder alt="Liste des locataires" caption="Tableau paginé avec recherche, filtres et indicateurs de risque" />
+        <ScreenshotPlaceholder alt="Liste des locataires" caption="Tableau paginé avec recherche, filtres et indicateurs de risque" src="/aide/screenshots/locataires-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Indicateurs de risque :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -122,7 +122,7 @@ export default function LocatifPage() {
         <HelpStep number={2} title="Validez ou rejetez">
           <p>Pour chaque révision, vous pouvez <strong>Valider</strong> (le loyer est mis à jour automatiquement) ou <strong>Rejeter</strong> (le loyer reste inchangé). Un historique complet est conservé.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Page des révisions de loyer" caption="Liste des révisions en attente avec ancien loyer, nouveau loyer et variation" />
+        <ScreenshotPlaceholder alt="Page des révisions de loyer" caption="Liste des révisions en attente avec ancien loyer, nouveau loyer et variation" src="/aide/screenshots/baux-main.png" />
         <InfoBox type="tip">
           Les indices sont mis à jour automatiquement le 1er de chaque mois via un processus planifié. Vous pouvez consulter les derniers indices dans le module Indices.
         </InfoBox>
@@ -145,7 +145,7 @@ export default function LocatifPage() {
             <p>Générez des rapports récapitulatifs par immeuble ou par catégorie, utiles pour la régularisation annuelle des charges.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Liste des charges" caption="Tableau des charges avec catégorie, montant, immeuble et statut de paiement" />
+        <ScreenshotPlaceholder alt="Liste des charges" caption="Tableau des charges avec catégorie, montant, immeuble et statut de paiement" src="/aide/screenshots/charges-main.png" />
       </HelpSection>
 
       <HelpSection id="contacts" title="Carnet de contacts">
@@ -158,7 +158,7 @@ export default function LocatifPage() {
         <p>
           Le bouton <strong>Synchroniser les locataires</strong> importe automatiquement tous les locataires actifs dans le carnet de contacts, pour les retrouver facilement.
         </p>
-        <ScreenshotPlaceholder alt="Carnet de contacts" caption="Contacts affichés en cartes avec type, coordonnées et spécialité" />
+        <ScreenshotPlaceholder alt="Carnet de contacts" caption="Contacts affichés en cartes avec type, coordonnées et spécialité" src="/aide/screenshots/contacts-main.png" />
       </HelpSection>
     </HelpPageLayout>
   );

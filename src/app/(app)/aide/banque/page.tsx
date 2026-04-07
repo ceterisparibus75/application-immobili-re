@@ -25,7 +25,7 @@ export default function BanquePage() {
         <HelpStep number={2} title="Connexion Open Banking (optionnel)">
           <p>Pour synchroniser automatiquement vos transactions, connectez votre compte via <strong>Connexion bancaire</strong>. L&apos;application utilise un service sécurisé (Powens) pour récupérer vos mouvements quotidiennement.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Liste des comptes bancaires" caption="Cartes des comptes avec solde, banque et nombre de transactions" />
+        <ScreenshotPlaceholder alt="Liste des comptes bancaires" caption="Cartes des comptes avec solde, banque et nombre de transactions" src="/aide/screenshots/banque-main.png" />
         <InfoBox type="info">
           La synchronisation automatique s&apos;exécute chaque jour à 6h du matin. Vous pouvez aussi déclencher une synchronisation manuelle à tout moment.
         </InfoBox>
@@ -38,7 +38,7 @@ export default function BanquePage() {
         <p>
           Vous pouvez filtrer les transactions par période, par montant et par statut (rapprochée, non rapprochée). La recherche par libellé est également disponible.
         </p>
-        <ScreenshotPlaceholder alt="Historique des transactions" caption="Liste des transactions avec date, libellé, montant et statut" />
+        <ScreenshotPlaceholder alt="Historique des transactions" caption="Liste des transactions avec date, libellé, montant et statut" src="/aide/screenshots/banque-main.png" />
       </HelpSection>
 
       <HelpSection id="rapprochement" title="Rapprochement bancaire">
@@ -54,7 +54,7 @@ export default function BanquePage() {
         <HelpStep number={3} title="Vérifiez les écarts">
           <p>Si un écart existe entre le montant de la transaction et celui de la facture, un avertissement s&apos;affiche. Vous pouvez créer une écriture d&apos;ajustement.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Écran de rapprochement bancaire" caption="Interface de rapprochement avec transactions et factures côte à côte" />
+        <ScreenshotPlaceholder alt="Écran de rapprochement bancaire" caption="Interface de rapprochement avec transactions et factures côte à côte" src="/aide/screenshots/banque-main.png" />
       </HelpSection>
 
       <HelpSection id="comptabilite" title="Module comptabilité">
@@ -64,7 +64,7 @@ export default function BanquePage() {
         <p>
           Des indicateurs en haut de page montrent : le nombre total d&apos;écritures, le nombre de brouillons (à valider), les écritures validées et le nombre de comptes actifs.
         </p>
-        <ScreenshotPlaceholder alt="Page comptabilité" caption="Vue d'ensemble de la comptabilité avec KPI et accès rapides" />
+        <ScreenshotPlaceholder alt="Page comptabilité" caption="Vue d'ensemble de la comptabilité avec KPI et accès rapides" src="/aide/screenshots/comptabilite-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Accès rapides :</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -109,7 +109,7 @@ export default function BanquePage() {
         <HelpStep number={3} title="Téléchargez le fichier">
           <p>Cliquez sur <strong>Exporter</strong>. Le fichier est généré au format réglementaire (TXT tabulé) et téléchargé automatiquement.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Export FEC" caption="Interface d'export avec sélection de la période et bouton de téléchargement" />
+        <ScreenshotPlaceholder alt="Export FEC" caption="Interface d'export avec sélection de la période et bouton de téléchargement" src="/aide/screenshots/comptabilite-main.png" />
       </HelpSection>
 
       <HelpSection id="exercices" title="Exercices comptables">
@@ -119,7 +119,7 @@ export default function BanquePage() {
         <p>
           La clôture d&apos;un exercice fige toutes les écritures et génère les à-nouveaux pour l&apos;exercice suivant. Cette opération est irréversible : vérifiez bien que tous les brouillons sont validés avant de clôturer.
         </p>
-        <ScreenshotPlaceholder alt="Gestion des exercices" caption="Liste des exercices avec dates, statut et actions (clôturer, ouvrir)" />
+        <ScreenshotPlaceholder alt="Gestion des exercices" caption="Liste des exercices avec dates, statut et actions (clôturer, ouvrir)" src="/aide/screenshots/comptabilite-main.png" />
       </HelpSection>
     </HelpPageLayout>
   );

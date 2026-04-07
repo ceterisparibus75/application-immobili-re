@@ -22,7 +22,7 @@ export default function FacturationPage() {
         <p>
           Les factures sont organisées en onglets : <strong>Toutes</strong>, <strong>Brouillons</strong>, <strong>En retard</strong> et <strong>Relances</strong>. Chaque onglet affiche un tableau filtrable et triable.
         </p>
-        <ScreenshotPlaceholder alt="Page principale de facturation" caption="Vue d'ensemble avec KPI et onglets de filtrage des factures" />
+        <ScreenshotPlaceholder alt="Page principale de facturation" caption="Vue d'ensemble avec KPI et onglets de filtrage des factures" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
 
       <HelpSection id="generation-auto" title="Génération automatique des factures">
@@ -38,7 +38,7 @@ export default function FacturationPage() {
         <HelpStep number={3} title="Envoyez par email">
           <p>Envoyez la facture au locataire en un clic. Un PDF est généré automatiquement avec votre logo, les coordonnées bancaires et le détail des lignes.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Brouillons de factures" caption="Liste des brouillons à valider avec montant, locataire et échéance" />
+        <ScreenshotPlaceholder alt="Brouillons de factures" caption="Liste des brouillons à valider avec montant, locataire et échéance" src="/aide/screenshots/facturation-main.png" />
         <InfoBox type="tip">
           Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer des appels</strong>. Cela crée des brouillons pour les baux sélectionnés.
         </InfoBox>
@@ -81,7 +81,7 @@ export default function FacturationPage() {
         <HelpStep number={3} title="Paiement multi-factures">
           <p>Si le locataire paie plusieurs factures en un seul virement, vous pouvez ventiler le montant sur plusieurs factures depuis la page de paiement.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Enregistrement d'un paiement" caption="Formulaire de paiement avec mode, date et montant" />
+        <ScreenshotPlaceholder alt="Enregistrement d'un paiement" caption="Formulaire de paiement avec mode, date et montant" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
 
       <HelpSection id="relances" title="Relances automatiques">
@@ -102,7 +102,7 @@ export default function FacturationPage() {
             <p>Envoyée 45 jours après l&apos;échéance. Dernier rappel avant procédure contentieuse, mentionnant les recours légaux.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Page des relances" caption="Factures impayées avec historique des relances envoyées par locataire" />
+        <ScreenshotPlaceholder alt="Page des relances" caption="Factures impayées avec historique des relances envoyées par locataire" src="/aide/screenshots/relances-main.png" />
         <InfoBox type="info">
           Vous pouvez aussi envoyer des relances manuellement à tout moment depuis la page Relances. Sélectionnez les factures concernées et cliquez sur Envoyer la relance.
         </InfoBox>
@@ -118,7 +118,7 @@ export default function FacturationPage() {
         <HelpStep number={2} title="Envoyer par email">
           <p>La quittance peut être envoyée directement par email au locataire ou téléchargée en PDF.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Quittance de loyer PDF" caption="Aperçu du PDF de quittance avec logo, montants et signature" />
+        <ScreenshotPlaceholder alt="Quittance de loyer PDF" caption="Aperçu du PDF de quittance avec logo, montants et signature" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
 
       <HelpSection id="sepa" title="Prélèvement SEPA">
@@ -131,7 +131,7 @@ export default function FacturationPage() {
         <HelpStep number={2} title="Générez le fichier de prélèvement">
           <p>En fin de mois, générez un fichier SEPA regroupant tous les prélèvements à effectuer. Ce fichier au format XML peut être transmis directement à votre banque.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Gestion SEPA" caption="Liste des mandats SEPA avec génération du fichier de prélèvement" />
+        <ScreenshotPlaceholder alt="Gestion SEPA" caption="Liste des mandats SEPA avec génération du fichier de prélèvement" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
 
       <HelpSection id="avoirs" title="Avoirs (notes de crédit)">
@@ -141,7 +141,7 @@ export default function FacturationPage() {
         <p>
           Depuis la fiche d&apos;une facture, cliquez sur <strong>Créer un avoir</strong>. Renseignez le motif et le montant (total ou partiel). La facture originale est automatiquement mise à jour.
         </p>
-        <ScreenshotPlaceholder alt="Création d'un avoir" caption="Formulaire d'avoir avec motif et montant" />
+        <ScreenshotPlaceholder alt="Création d'un avoir" caption="Formulaire d'avoir avec motif et montant" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
     </HelpPageLayout>
   );

@@ -57,7 +57,7 @@ export default function UtilisateursPage() {
             </tbody>
           </table>
         </div>
-        <ScreenshotPlaceholder alt="Liste des utilisateurs avec leurs rôles" caption="Chaque utilisateur a un rôle par société, affiché sous forme de badge coloré" />
+        <ScreenshotPlaceholder alt="Liste des utilisateurs avec leurs rôles" caption="Chaque utilisateur a un rôle par société, affiché sous forme de badge coloré" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
 
       <HelpSection id="permissions-modules" title="Permissions par module">
@@ -121,7 +121,7 @@ export default function UtilisateursPage() {
         <HelpStep number={3} title="Attribuez un rôle">
           <p>Sélectionnez le rôle de l&apos;utilisateur pour la société courante. Vous pouvez aussi l&apos;ajouter à d&apos;autres sociétés avec des rôles différents.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire de création d'utilisateur" caption="Formulaire avec email, nom, prénom et sélection du rôle" />
+        <ScreenshotPlaceholder alt="Formulaire de création d'utilisateur" caption="Formulaire avec email, nom, prénom et sélection du rôle" src="/aide/screenshots/administration-main.png" />
         <InfoBox type="warning">
           Le nombre d&apos;utilisateurs est limité selon votre plan d&apos;abonnement. Vérifiez votre quota dans Mon compte &gt; Abonnement.
         </InfoBox>
@@ -138,7 +138,7 @@ export default function UtilisateursPage() {
             Elle voit automatiquement les deux propriétaires dans sa barre de navigation et peut consulter leurs fiches respectives.
           </p>
         </div>
-        <ScreenshotPlaceholder alt="Sélecteur de propriétaire dans la barre de navigation" caption="Le sélecteur affiche les propriétaires accessibles via les sociétés de l'utilisateur" />
+        <ScreenshotPlaceholder alt="Sélecteur de propriétaire dans la barre de navigation" caption="Le sélecteur affiche les propriétaires accessibles via les sociétés de l'utilisateur" src="/aide/screenshots/administration-main.png" />
         <InfoBox type="info">
           Seuls les créateurs du propriétaire et les utilisateurs Admin Société ou Super Admin peuvent modifier les informations d&apos;un propriétaire (fiche, co-propriétaires, etc.).
         </InfoBox>
@@ -151,7 +151,7 @@ export default function UtilisateursPage() {
         <p>
           Le sélecteur de société dans la barre de navigation permet de basculer d&apos;une société à l&apos;autre. Toutes les données affichées (immeubles, locataires, factures, etc.) sont automatiquement filtrées selon la société active.
         </p>
-        <ScreenshotPlaceholder alt="Sélecteur de société" caption="Basculez entre vos sociétés via le menu déroulant dans la barre du haut" />
+        <ScreenshotPlaceholder alt="Sélecteur de société" caption="Basculez entre vos sociétés via le menu déroulant dans la barre du haut" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
     </HelpPageLayout>
   );

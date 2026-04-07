@@ -48,7 +48,7 @@ export default function SecuritePage() {
         <HelpStep number={3} title="Confirmez avec un code">
           <p>Entrez le code à 6 chiffres affiché par votre application pour confirmer l&apos;activation. Conservez précieusement vos codes de récupération.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Activation 2FA" caption="QR code à scanner avec l'application d'authentification" />
+        <ScreenshotPlaceholder alt="Activation 2FA" caption="QR code à scanner avec l'application d'authentification" src="/aide/screenshots/compte-main.png" />
         <InfoBox type="warning">
           Si vous perdez l&apos;accès à votre application d&apos;authentification, les codes de récupération sont le seul moyen de vous reconnecter. Notez-les dans un endroit sûr.
         </InfoBox>
@@ -84,7 +84,7 @@ export default function SecuritePage() {
           <li><strong>Droit de portabilité</strong> : export des données dans un format lisible</li>
           <li><strong>Droit d&apos;opposition</strong> : opposition au traitement de certaines données</li>
         </ul>
-        <ScreenshotPlaceholder alt="Module RGPD" caption="Tableau des demandes RGPD avec type, statut et date" />
+        <ScreenshotPlaceholder alt="Module RGPD" caption="Tableau des demandes RGPD avec type, statut et date" src="/aide/screenshots/rgpd-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Registre des traitements :</p>
         <p>
@@ -126,7 +126,7 @@ export default function SecuritePage() {
           <li>Consulter son attestation d&apos;assurance</li>
           <li>Effectuer des paiements en ligne</li>
         </ul>
-        <ScreenshotPlaceholder alt="Portail locataire" caption="Vue du portail locataire avec factures, documents et paiements" />
+        <ScreenshotPlaceholder alt="Portail locataire" caption="Vue du portail locataire avec factures, documents et paiements" src="/aide/screenshots/compte-main.png" />
         <InfoBox type="info">
           Le portail locataire utilise une authentification JWT séparée, distincte de l&apos;authentification des utilisateurs de l&apos;application. Le locataire accède uniquement à ses propres données.
         </InfoBox>
@@ -142,7 +142,7 @@ export default function SecuritePage() {
         <p>
           Chaque entrée du journal contient : la date et l&apos;heure, l&apos;utilisateur, l&apos;action effectuée, l&apos;entité concernée et les détails de la modification.
         </p>
-        <ScreenshotPlaceholder alt="Journal d'audit" caption="Historique des actions avec utilisateur, date, type d'action et entité" />
+        <ScreenshotPlaceholder alt="Journal d'audit" caption="Historique des actions avec utilisateur, date, type d'action et entité" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
 
       <HelpSection id="hebergement" title="Hébergement et infrastructure">

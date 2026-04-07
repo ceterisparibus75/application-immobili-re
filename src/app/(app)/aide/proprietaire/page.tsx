@@ -53,13 +53,13 @@ export default function ProprietairePage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Dashboard propriétaire" caption="KPI consolidés avec revenus, occupation, impayés et trésorerie" />
+        <ScreenshotPlaceholder alt="Dashboard propriétaire" caption="KPI consolidés avec revenus, occupation, impayés et trésorerie" src="/aide/screenshots/proprietaire-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Tableau de performance par société :</p>
         <p>
           Sous les KPI, un tableau compare les performances de chaque société : revenus mensuels, trésorerie, taux d&apos;occupation. Cela permet d&apos;identifier rapidement les sociétés qui performent et celles qui nécessitent une attention particulière.
         </p>
-        <ScreenshotPlaceholder alt="Tableau de performance" caption="Comparaison des sociétés avec revenus, cash et occupation" />
+        <ScreenshotPlaceholder alt="Tableau de performance" caption="Comparaison des sociétés avec revenus, cash et occupation" src="/aide/screenshots/proprietaire-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Graphiques interactifs :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -79,7 +79,7 @@ export default function ProprietairePage() {
         <p>
           Vous pouvez créer une nouvelle société directement depuis cet onglet via le bouton <strong>Nouvelle société</strong>. La société sera automatiquement rattachée au propriétaire sélectionné.
         </p>
-        <ScreenshotPlaceholder alt="Liste des sociétés du propriétaire" caption="Cartes des sociétés avec nom, forme juridique et statut" />
+        <ScreenshotPlaceholder alt="Liste des sociétés du propriétaire" caption="Cartes des sociétés avec nom, forme juridique et statut" src="/aide/screenshots/proprietaire-main.png" />
       </HelpSection>
 
       <HelpSection id="profil" title="Onglet Profil Propriétaire">
@@ -97,7 +97,7 @@ export default function ProprietairePage() {
           Dénomination sociale, forme juridique (SCI, SARL, SAS, etc.), SIRET, SIREN, capital social, numéro de TVA intracommunautaire, ville du RCS, représentant légal (nom et fonction), téléphone, siège social.
         </p>
 
-        <ScreenshotPlaceholder alt="Fiche propriétaire" caption="Formulaire de profil avec tous les champs d'identité et d'adresse" />
+        <ScreenshotPlaceholder alt="Fiche propriétaire" caption="Formulaire de profil avec tous les champs d'identité et d'adresse" src="/aide/screenshots/proprietaire-main.png" />
 
         <InfoBox type="tip">
           Le champ <strong>Email</strong> du propriétaire est distinct de l&apos;email de votre compte utilisateur. Il sert spécifiquement à l&apos;envoi de rapports et de documents officiels au nom du propriétaire.
@@ -120,7 +120,7 @@ export default function ProprietairePage() {
         <HelpStep number={4} title="Sauvegardez">
           <p>Cliquez sur <strong>Sauvegarder</strong>. Les co-propriétaires sont enregistrés et affichés dans des cartes individuelles en lecture seule.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Section co-propriétaires" caption="Formulaire d'ajout de co-propriétaires avec part et qualité" />
+        <ScreenshotPlaceholder alt="Section co-propriétaires" caption="Formulaire d'ajout de co-propriétaires avec part et qualité" src="/aide/screenshots/proprietaire-main.png" />
         <InfoBox type="info">
           Les co-propriétaires ne sont disponibles que pour les propriétaires de type personne physique. Pour une personne morale (société), le représentant légal est renseigné dans la fiche principale.
         </InfoBox>
@@ -133,7 +133,7 @@ export default function ProprietairePage() {
         <p>
           Le sélecteur est également visible dans la barre de navigation principale (à gauche du sélecteur de société), permettant de changer de propriétaire depuis n&apos;importe quelle page.
         </p>
-        <ScreenshotPlaceholder alt="Sélecteur de propriétaire" caption="Menu déroulant avec la liste des propriétaires et leurs sociétés" />
+        <ScreenshotPlaceholder alt="Sélecteur de propriétaire" caption="Menu déroulant avec la liste des propriétaires et leurs sociétés" src="/aide/screenshots/proprietaire-main.png" />
       </HelpSection>
 
       <HelpSection id="revendiquer" title="Revendiquer une société">

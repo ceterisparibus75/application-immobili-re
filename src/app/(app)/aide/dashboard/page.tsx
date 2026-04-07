@@ -37,7 +37,7 @@ export default function DashboardPage() {
             <p>Selon le contexte : solde de trésorerie disponible ou rendement brut annualisé. Une alerte apparaît si des baux expirent prochainement.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="KPI du tableau de bord" caption="Les 4 indicateurs principaux en haut du tableau de bord" />
+        <ScreenshotPlaceholder alt="KPI du tableau de bord" caption="Les 4 indicateurs principaux en haut du tableau de bord" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="endettement" title="Synthèse de l'endettement">
@@ -47,7 +47,7 @@ export default function DashboardPage() {
         <p>
           Un tableau récapitulatif par prêteur montre : le nom de la banque, le nombre de prêts, le capital restant dû, la mensualité et une barre de progression du remboursement.
         </p>
-        <ScreenshotPlaceholder alt="Carte endettement" caption="Synthèse de l'endettement avec prêteurs, mensualités et progression" />
+        <ScreenshotPlaceholder alt="Carte endettement" caption="Synthèse de l'endettement avec prêteurs, mensualités et progression" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="graphiques" title="Graphiques interactifs">
@@ -80,7 +80,7 @@ export default function DashboardPage() {
             <p>Vue chronologique des échéances de baux. Les baux expirant dans les 3 mois sont signalés en rouge, dans les 6 mois en orange.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Graphiques du tableau de bord" caption="Vue des 6 graphiques interactifs (revenus, occupation, impayés, patrimoine, risques, baux)" />
+        <ScreenshotPlaceholder alt="Graphiques du tableau de bord" caption="Vue des 6 graphiques interactifs (revenus, occupation, impayés, patrimoine, risques, baux)" src="/aide/screenshots/dashboard-full.png" />
       </HelpSection>
 
       <HelpSection id="monitoring" title="Panneau de monitoring détaillé">
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Panneau de monitoring" caption="Indicateurs détaillés par catégorie dans le panneau latéral" />
+        <ScreenshotPlaceholder alt="Panneau de monitoring" caption="Indicateurs détaillés par catégorie dans le panneau latéral" src="/aide/screenshots/dashboard-full.png" />
       </HelpSection>
 
       <HelpSection id="taches" title="Tâches du jour">
@@ -112,7 +112,7 @@ export default function DashboardPage() {
         <p>
           Chaque tâche est cliquable et vous redirige vers l&apos;écran correspondant pour agir immédiatement.
         </p>
-        <ScreenshotPlaceholder alt="Tâches du jour" caption="Liste des actions urgentes avec liens directs vers les écrans concernés" />
+        <ScreenshotPlaceholder alt="Tâches du jour" caption="Liste des actions urgentes avec liens directs vers les écrans concernés" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="rapports" title="Rapports et exports">
@@ -130,7 +130,7 @@ export default function DashboardPage() {
         <p>
           Les rapports sont exportables en <strong>PDF</strong> ou <strong>Excel</strong>. Vous pouvez aussi planifier l&apos;envoi automatique de rapports par email.
         </p>
-        <ScreenshotPlaceholder alt="Module rapports" caption="Interface de génération de rapports avec sélection de type et période" />
+        <ScreenshotPlaceholder alt="Module rapports" caption="Interface de génération de rapports avec sélection de type et période" src="/aide/screenshots/rapports-main.png" />
         <InfoBox type="tip">
           Le champ email du profil propriétaire permet de recevoir automatiquement les rapports programmés. Configurez-le dans la vue Propriétaire &gt; Profil.
         </InfoBox>

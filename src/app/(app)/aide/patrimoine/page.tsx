@@ -22,7 +22,7 @@ export default function PatrimoinePage() {
         <p>
           Chaque immeuble est présenté sous forme de carte avec un badge de type (habitation, bureau, commerce, mixte), le nombre de lots occupés sur le total, le revenu locatif annuel et le rendement brut (en vert si &ge; 5%, orange si 3-5%, rouge si &lt; 3%).
         </p>
-        <ScreenshotPlaceholder alt="Liste des immeubles" caption="Vue principale du patrimoine avec les KPI et la liste des immeubles" />
+        <ScreenshotPlaceholder alt="Liste des immeubles" caption="Vue principale du patrimoine avec les KPI et la liste des immeubles" src="/aide/screenshots/patrimoine-main.png" />
         <InfoBox type="tip">
           Un indicateur d&apos;alerte s&apos;affiche si un bail expire dans les 90 prochains jours sur l&apos;un de vos immeubles.
         </InfoBox>
@@ -58,7 +58,7 @@ export default function PatrimoinePage() {
             <p>Tous les documents rattachés à l&apos;immeuble, classés par catégorie avec alerte d&apos;expiration pour les documents à durée limitée.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Fiche immeuble détaillée" caption="Vue complète d'un immeuble avec lots, diagnostics et interventions" />
+        <ScreenshotPlaceholder alt="Fiche immeuble détaillée" caption="Vue complète d'un immeuble avec lots, diagnostics et interventions" src="/aide/screenshots/patrimoine-detail.png" />
       </HelpSection>
 
       <HelpSection id="lots" title="Gestion des lots">
@@ -74,7 +74,7 @@ export default function PatrimoinePage() {
         <HelpStep number={3} title="Statuts d'un lot">
           <p>Un lot peut être <strong>Vacant</strong> (disponible à la location), <strong>Occupé</strong> (bail actif), <strong>En travaux</strong> (indisponible temporairement) ou <strong>Réservé</strong> (bail en préparation).</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Liste des lots d'un immeuble" caption="Tableau des lots avec statut, surface, loyer et locataire" />
+        <ScreenshotPlaceholder alt="Liste des lots d'un immeuble" caption="Tableau des lots avec statut, surface, loyer et locataire" src="/aide/screenshots/patrimoine-detail.png" />
         <InfoBox type="info">
           Un lot ne peut avoir qu&apos;un seul bail actif à la fois. Pour changer de locataire, il faut d&apos;abord résilier le bail en cours, puis en créer un nouveau.
         </InfoBox>
@@ -95,7 +95,7 @@ export default function PatrimoinePage() {
           <li><strong className="text-amber-600">Expire bientôt</strong> : expiration dans les 90 prochains jours</li>
           <li><strong className="text-red-600">Expiré</strong> : le diagnostic doit être renouvelé</li>
         </ul>
-        <ScreenshotPlaceholder alt="Liste des diagnostics" caption="Diagnostics avec dates, résultats et indicateurs d'expiration" />
+        <ScreenshotPlaceholder alt="Liste des diagnostics" caption="Diagnostics avec dates, résultats et indicateurs d'expiration" src="/aide/screenshots/patrimoine-detail.png" />
         <InfoBox type="warning">
           Des diagnostics expirés peuvent entraîner des sanctions légales. L&apos;application vous alerte automatiquement avant l&apos;expiration.
         </InfoBox>
@@ -111,7 +111,7 @@ export default function PatrimoinePage() {
         <HelpStep number={2} title="Suivre l'avancement">
           <p>Mettez à jour le statut au fur et à mesure : planifiée, en cours, terminée, annulée. Vous pouvez ajouter le coût réel une fois l&apos;intervention terminée.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Historique des interventions" caption="Liste des interventions avec date, coût et statut" />
+        <ScreenshotPlaceholder alt="Historique des interventions" caption="Liste des interventions avec date, coût et statut" src="/aide/screenshots/patrimoine-detail.png" />
       </HelpSection>
 
       <HelpSection id="etats-lieux" title="États des lieux">
@@ -121,7 +121,7 @@ export default function PatrimoinePage() {
         <p>
           Pour chaque état des lieux, vous renseignez la date, la personne ayant réalisé la visite, et les observations pièce par pièce. Vous pouvez joindre des photos et le document PDF signé.
         </p>
-        <ScreenshotPlaceholder alt="État des lieux" caption="Formulaire d'état des lieux avec observations par pièce" />
+        <ScreenshotPlaceholder alt="État des lieux" caption="Formulaire d'état des lieux avec observations par pièce" src="/aide/screenshots/patrimoine-detail.png" />
       </HelpSection>
     </HelpPageLayout>
   );

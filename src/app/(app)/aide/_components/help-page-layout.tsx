@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -144,9 +145,30 @@ export function HelpStep({ number, title, children }: StepProps) {
 type ScreenshotProps = {
   alt: string;
   caption: string;
+  src?: string;
 };
 
-export function ScreenshotPlaceholder({ alt, caption }: ScreenshotProps) {
+export function ScreenshotPlaceholder({ alt, caption, src }: ScreenshotProps) {
+  if (src) {
+    return (
+      <figure className="my-6">
+        <div className="rounded-xl border overflow-hidden shadow-sm bg-muted/10">
+          <Image
+            src={src}
+            alt={alt}
+            width={1920}
+            height={1080}
+            className="w-full h-auto"
+            quality={90}
+          />
+        </div>
+        <figcaption className="text-xs text-muted-foreground/70 text-center mt-2 italic">
+          {caption}
+        </figcaption>
+      </figure>
+    );
+  }
+
   return (
     <div className="my-4 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-8 text-center">
       <div className="flex justify-center mb-3">

@@ -28,7 +28,7 @@ export default function EmpruntsPage() {
         <HelpStep number={3} title="Consultez le rapport">
           <p>Un rapport détaillé est généré avec la valeur estimée, la méthode de calcul, les comparables utilisés et un indice de confiance. Vous pouvez l&apos;enregistrer comme valeur de référence de l&apos;immeuble.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Rapport d'évaluation IA" caption="Rapport avec valeur estimée, méthode, comparables et indice de confiance" />
+        <ScreenshotPlaceholder alt="Rapport d'évaluation IA" caption="Rapport avec valeur estimée, méthode, comparables et indice de confiance" src="/aide/screenshots/emprunts-main.png" />
         <InfoBox type="info">
           L&apos;évaluation IA est une estimation indicative. Elle ne remplace pas une expertise immobilière professionnelle mais constitue un excellent outil de pilotage.
         </InfoBox>
@@ -51,7 +51,7 @@ export default function EmpruntsPage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Page emprunts" caption="KPI d'endettement et liste des emprunts groupés par prêteur" />
+        <ScreenshotPlaceholder alt="Page emprunts" caption="KPI d'endettement et liste des emprunts groupés par prêteur" src="/aide/screenshots/emprunts-main.png" />
         <p>
           Les emprunts sont regroupés par <strong>prêteur</strong> (banque ou organisme). Pour chaque prêteur, vous voyez le total du capital restant dû, la mensualité globale et le nombre de prêts. Une barre de progression indique visuellement le taux de remboursement.
         </p>
@@ -89,7 +89,7 @@ export default function EmpruntsPage() {
         <HelpStep number={4} title="Consultez le tableau d'amortissement">
           <p>Une fois créé, {APP_NAME} génère automatiquement le tableau d&apos;amortissement complet : pour chaque échéance, vous voyez le capital remboursé, les intérêts, l&apos;assurance et le capital restant dû.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire de création d'emprunt" caption="Formulaire avec type, montant, taux, durée et prêteur" />
+        <ScreenshotPlaceholder alt="Formulaire de création d'emprunt" caption="Formulaire avec type, montant, taux, durée et prêteur" src="/aide/screenshots/emprunts-main.png" />
       </HelpSection>
 
       <HelpSection id="amortissement" title="Tableau d'amortissement">
@@ -128,7 +128,7 @@ export default function EmpruntsPage() {
             </tbody>
           </table>
         </div>
-        <ScreenshotPlaceholder alt="Tableau d'amortissement complet" caption="Vue complète du tableau d'amortissement avec toutes les échéances" />
+        <ScreenshotPlaceholder alt="Tableau d'amortissement complet" caption="Vue complète du tableau d'amortissement avec toutes les échéances" src="/aide/screenshots/emprunts-main.png" />
       </HelpSection>
 
       <HelpSection id="ltv" title="Ratio LTV (Loan-to-Value)">

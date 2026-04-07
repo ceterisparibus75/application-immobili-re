@@ -22,7 +22,7 @@ export default function DocumentsPage() {
         <p>
           Les documents peuvent être rattachés à différentes entités : immeuble, lot, bail, locataire ou société. Ils sont automatiquement classés par catégorie.
         </p>
-        <ScreenshotPlaceholder alt="Espace documents" caption="Liste des documents avec catégorie, date, taille et entité rattachée" />
+        <ScreenshotPlaceholder alt="Espace documents" caption="Liste des documents avec catégorie, date, taille et entité rattachée" src="/aide/screenshots/documents-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Catégories de documents :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -48,7 +48,7 @@ export default function DocumentsPage() {
         <HelpStep number={3} title="Renseignez les métadonnées">
           <p>Donnez un nom au document, sélectionnez la catégorie et, si applicable, la date d&apos;expiration. Les documents avec date d&apos;expiration déclenchent des alertes automatiques.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire d'upload" caption="Glissez-déposez ou sélectionnez un fichier avec nom et catégorie" />
+        <ScreenshotPlaceholder alt="Formulaire d'upload" caption="Glissez-déposez ou sélectionnez un fichier avec nom et catégorie" src="/aide/screenshots/documents-main.png" />
         <InfoBox type="tip">
           Les documents sont uploadés via des URLs signées (upload direct vers le stockage), ce qui garantit que le fichier ne transite jamais par nos serveurs applicatifs.
         </InfoBox>
@@ -67,7 +67,7 @@ export default function DocumentsPage() {
         <HelpStep number={3} title="Partagez le lien">
           <p>Copiez le lien et envoyez-le à votre interlocuteur par email ou messagerie. Vous pouvez révoquer l&apos;accès à tout moment.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Dataroom partagée" caption="Interface de la dataroom avec documents sélectionnés et lien de partage" />
+        <ScreenshotPlaceholder alt="Dataroom partagée" caption="Interface de la dataroom avec documents sélectionnés et lien de partage" src="/aide/screenshots/documents-main.png" />
         <InfoBox type="warning">
           Le destinataire de la Dataroom n&apos;a accès qu&apos;aux documents que vous avez explicitement sélectionnés. Il ne peut pas naviguer dans l&apos;application ni voir d&apos;autres données.
         </InfoBox>
@@ -86,7 +86,7 @@ export default function DocumentsPage() {
         <HelpStep number={3} title="Suivez l'avancement">
           <p>L&apos;état de chaque signature est visible en temps réel : en attente, signé, refusé. Une fois tous les signataires ayant signé, le document final est archivé automatiquement.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Suivi des signatures" caption="Tableau de suivi avec document, signataires et statut de signature" />
+        <ScreenshotPlaceholder alt="Suivi des signatures" caption="Tableau de suivi avec document, signataires et statut de signature" src="/aide/screenshots/documents-main.png" />
       </HelpSection>
 
       <HelpSection id="organisation" title="Organisation et recherche">
@@ -99,7 +99,7 @@ export default function DocumentsPage() {
           <li><strong>Par recherche</strong> : utilisez la barre de recherche globale pour retrouver un document par son nom</li>
           <li><strong>Par expiration</strong> : les documents arrivant à expiration sont signalés par un badge orange ou rouge</li>
         </ul>
-        <ScreenshotPlaceholder alt="Recherche de documents" caption="Filtres par catégorie et entité pour retrouver rapidement un document" />
+        <ScreenshotPlaceholder alt="Recherche de documents" caption="Filtres par catégorie et entité pour retrouver rapidement un document" src="/aide/screenshots/documents-main.png" />
       </HelpSection>
 
       <HelpSection id="securite" title="Sécurité des documents">

@@ -19,7 +19,7 @@ export default function DemarragePage() {
         <p>
           À votre première connexion, vous bénéficiez automatiquement d&apos;un essai gratuit de 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une bannière vous indique le nombre de jours restants.
         </p>
-        <ScreenshotPlaceholder alt="Bannière d'essai gratuit" caption="La bannière apparaît en haut de l'écran avec le décompte des jours restants" />
+        <ScreenshotPlaceholder alt="Bannière d'essai gratuit" caption="La bannière apparaît en haut de l'écran avec le décompte des jours restants" src="/aide/screenshots/dashboard-main.png" />
         <InfoBox type="tip">
           Vous pouvez souscrire un abonnement à tout moment depuis Mon compte &gt; Abonnement. Vos données sont conservées intégralement lors du passage à un plan payant.
         </InfoBox>
@@ -41,7 +41,7 @@ export default function DemarragePage() {
         <HelpStep number={4} title="Configurez votre compte bancaire">
           <p>Renseignez l&apos;IBAN et le BIC de votre compte principal. Ces informations sont chiffrées (AES-256) et apparaîtront sur vos factures et mandats SEPA.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire de création de société" caption="Formulaire avec les champs nom, forme juridique, SIRET et adresse" />
+        <ScreenshotPlaceholder alt="Formulaire de création de société" caption="Formulaire avec les champs nom, forme juridique, SIRET et adresse" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
 
       <HelpSection id="premier-immeuble" title="Ajouter votre premier immeuble">
@@ -57,7 +57,7 @@ export default function DemarragePage() {
         <HelpStep number={3} title="Ajoutez des lots">
           <p>Depuis la fiche immeuble, cliquez sur <strong>Ajouter un lot</strong>. Renseignez le numéro, le type, l&apos;étage, la surface et le loyer de référence.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Page de création d'immeuble" caption="Formulaire de saisie des informations d'un immeuble" />
+        <ScreenshotPlaceholder alt="Page de création d'immeuble" caption="Formulaire de saisie des informations d'un immeuble" src="/aide/screenshots/patrimoine-main.png" />
         <InfoBox type="info">
           Vous pouvez également importer vos données depuis un fichier Excel ou CSV via le module Import (Administration &gt; Import).
         </InfoBox>
@@ -76,7 +76,7 @@ export default function DemarragePage() {
         <HelpStep number={4} title="Générez la première facture">
           <p>La facturation est automatique : chaque mois, un brouillon de facture est généré. Validez-le et envoyez-le par email en un clic.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Création d'un bail" caption="Formulaire de création de bail avec sélection du locataire et du lot" />
+        <ScreenshotPlaceholder alt="Création d'un bail" caption="Formulaire de création de bail avec sélection du locataire et du lot" src="/aide/screenshots/baux-main.png" />
       </HelpSection>
 
       <HelpSection id="checklist" title="Checklist de démarrage">
