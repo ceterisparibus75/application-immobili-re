@@ -98,7 +98,7 @@ function tenantName(t: {
     : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
 }
 
-type Lease = Awaited<ReturnType<typeof getLeases>>[number];
+type Lease = Awaited<ReturnType<typeof getFilteredLeases>>[number];
 
 interface BuildingGroup {
   buildingId: string;
