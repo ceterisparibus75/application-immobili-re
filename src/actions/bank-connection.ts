@@ -234,9 +234,18 @@ export async function syncAccountTransactionsInternal(
 ): Promise<number> {
   const row = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { lastSyncAt: true } });
   const isFirstSync = !row?.lastSyncAt;
-  const dateFrom = row?.lastSyncAt
-    ? row.lastSyncAt.toISOString().split("T")[0]
-    : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  // Toujours remonter 7 jours avant lastSyncAt pour rattraper les transactions manquées
+  // Les doublons sont filtrés via externalId
+  let dateFrom: string;
+  if (row?.lastSyncAt) {
+    const bufferDate = new Date(row.lastSyncAt);
+    bufferDate.setDate(bufferDate.getDate() - 7);
+    dateFrom = bufferDate.toISOString().split("T")[0];
+  } else {
+    dateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  }
+
   const transactions = await getPowensTransactions(userId, powensAccountId, userToken, dateFrom);
   let imported = 0;
   let balanceDelta = 0;
@@ -264,13 +273,15 @@ export async function syncAccountTransactionsInternal(
       initialBalance: correctInitial,
       lastSyncAt: new Date(),
     } });
-  } else {
-    // Syncs suivantes : incrémenter le solde avec les nouvelles transactions.
+  } else if (imported > 0) {
+    // Syncs suivantes avec nouvelles transactions : maj solde + date
     await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
-      ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
+      currentBalance: { increment: balanceDelta },
       lastSyncAt: new Date(),
     } });
   }
+  // Si 0 transactions importées, on ne met PAS à jour lastSyncAt
+  // pour ne pas perdre la fenêtre de rattrapage
   await prisma.auditLog.create({ data: {
     societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
     details: { imported, source: "powens_sync", isFirstSync },
