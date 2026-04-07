@@ -144,7 +144,7 @@ export async function updateLease(
       };
     }
 
-    const { id, entryDate, exitDate, ...data } = parsed.data;
+    const { id, entryDate, exitDate, startDate, endDate, ...data } = parsed.data;
 
     const existing = await prisma.lease.findFirst({
       where: { id, societyId },
@@ -154,6 +154,8 @@ export async function updateLease(
     const updateData: Record<string, unknown> = { ...data };
     if (entryDate !== undefined) updateData.entryDate = entryDate ? new Date(entryDate) : null;
     if (exitDate !== undefined) updateData.exitDate = exitDate ? new Date(exitDate) : null;
+    if (startDate !== undefined && startDate) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined && endDate) updateData.endDate = new Date(endDate);
 
     // Si résiliation : mettre à jour le lot
     if (data.status === "RESILIE" && existing.status !== "RESILIE") {

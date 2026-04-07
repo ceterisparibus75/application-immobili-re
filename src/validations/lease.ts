@@ -198,6 +198,7 @@ export const createLeaseSchema = z.object({
 
 export const updateLeaseSchema = z.object({
   id: z.string().cuid(),
+  leaseType: z.enum(LEASE_TYPES).optional(),
   status: z
     .enum([
       "EN_COURS",
@@ -207,6 +208,10 @@ export const updateLeaseSchema = z.object({
       "CONTENTIEUX",
     ])
     .optional(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  durationMonths: z.coerce.number().int().min(1).optional(),
+  baseRentHT: z.coerce.number().min(0).optional(),
   currentRentHT: z.coerce.number().min(0).optional(),
   depositAmount: z.coerce.number().min(0).optional(),
   vatApplicable: z
@@ -226,6 +231,7 @@ export const updateLeaseSchema = z.object({
   entryDate: z.string().optional().nullable(),
   exitDate: z.string().optional().nullable(),
   rentFreeMonths: z.coerce.number().min(0).optional(),
+  entryFee: z.coerce.number().min(0).optional(),
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;

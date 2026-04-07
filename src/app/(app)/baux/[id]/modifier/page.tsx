@@ -15,10 +15,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+
+const LEASE_TYPE_OPTIONS = [
+  {
+    group: "Habitation",
+    items: [
+      { value: "HABITATION", label: "Bail d'habitation vide (loi 1989)" },
+      { value: "MEUBLE", label: "Bail meublé (ALUR)" },
+      { value: "ETUDIANT", label: "Bail étudiant meublé (9 mois)" },
+      { value: "MOBILITE", label: "Bail mobilité (ELAN)" },
+      { value: "COLOCATION", label: "Bail colocation" },
+      { value: "SAISONNIER", label: "Location saisonnière (< 90 jours)" },
+      { value: "LOGEMENT_FONCTION", label: "Logement de fonction" },
+      { value: "ANAH", label: "Convention ANAH (loyer maîtrisé)" },
+      { value: "CIVIL", label: "Bail civil (Code civil / résidence secondaire)" },
+      { value: "GLISSANT", label: "Bail glissant (insertion sociale)" },
+      { value: "SOUS_LOCATION", label: "Sous-location autorisée" },
+    ],
+  },
+  {
+    group: "Commercial / Professionnel",
+    items: [
+      { value: "COMMERCIAL_369", label: "Bail commercial 3/6/9" },
+      { value: "DEROGATOIRE", label: "Bail dérogatoire (< 3 ans)" },
+      { value: "PRECAIRE", label: "Convention d'occupation précaire" },
+      { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel (6 ans)" },
+      { value: "MIXTE", label: "Bail mixte (habitation + professionnel)" },
+    ],
+  },
+  {
+    group: "Baux longs / Fonciers",
+    items: [
+      { value: "EMPHYTEOTIQUE", label: "Bail emphytéotique (18-99 ans)" },
+      { value: "CONSTRUCTION", label: "Bail à construction" },
+      { value: "REHABILITATION", label: "Bail à réhabilitation" },
+      { value: "BRS", label: "Bail réel solidaire (OFS)" },
+    ],
+  },
+  {
+    group: "Rural",
+    items: [{ value: "RURAL", label: "Bail rural / agricole (9 ans min.)" }],
+  },
+];
 
 const STATUS_OPTIONS = [
   { value: "EN_COURS", label: "En cours" },
@@ -31,12 +72,18 @@ const STATUS_OPTIONS = [
 const INDEX_TYPES = [
   { value: "IRL", label: "IRL — Indice de Référence des Loyers" },
   { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
-  { value: "ILAT", label: "ILAT — Indice des Loyers des Activités Tertiaires" },
+  {
+    value: "ILAT",
+    label: "ILAT — Indice des Loyers des Activités Tertiaires",
+  },
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
 ];
 
 const BILLING_TERMS = [
-  { value: "A_ECHOIR", label: "Terme à échoir (paiement en début de période)" },
+  {
+    value: "A_ECHOIR",
+    label: "Terme à échoir (paiement en début de période)",
+  },
   { value: "ECHU", label: "Terme échu (paiement en fin de période)" },
 ];
 
@@ -54,9 +101,23 @@ const FREQ_PERIOD_LABELS: Record<string, string> = {
   ANNUEL: "an",
 };
 
+function toDateInput(val: string | null | undefined): string {
+  if (!val) return "";
+  try {
+    return new Date(val).toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
+}
+
 type LeaseData = {
   id: string;
+  leaseType: string;
   status: string;
+  startDate: string;
+  endDate: string;
+  durationMonths: number;
+  baseRentHT: number;
   currentRentHT: number;
   depositAmount: number;
   vatApplicable: boolean;
@@ -71,6 +132,9 @@ type LeaseData = {
   entryDate?: string | null;
   exitDate?: string | null;
   rentFreeMonths?: number | null;
+  entryFee?: number | null;
+  tenant?: { firstName: string; lastName: string; companyName?: string | null } | null;
+  lot?: { name: string; building?: { name: string } | null } | null;
 };
 
 export default function ModifierBailPage() {
@@ -81,7 +145,7 @@ export default function ModifierBailPage() {
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState("");
   const [lease, setLease] = useState<LeaseData | null>(null);
-  const [vatApplicable, setVatApplicable] = useState(true);
+  const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
 
   useEffect(() => {
@@ -89,7 +153,7 @@ export default function ModifierBailPage() {
       try {
         const res = await fetch(`/api/leases/${params.id}`);
         if (res.ok) {
-          const json = await res.json() as { data: LeaseData };
+          const json = (await res.json()) as { data: LeaseData };
           setLease(json.data);
           setVatApplicable(json.data.vatApplicable);
           setFrequency(json.data.paymentFrequency);
@@ -109,25 +173,50 @@ export default function ModifierBailPage() {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries()) as Record<string, string>;
+    const d = Object.fromEntries(formData.entries()) as Record<string, string>;
 
     const result = await updateLease(activeSociety.id, {
       id: params.id,
-      status: data.status as "EN_COURS" | "RESILIE" | "RENOUVELE" | "EN_NEGOCIATION" | "CONTENTIEUX",
-      currentRentHT: parseFloat(data.currentRentHT),
-      depositAmount: parseFloat(data.depositAmount) || 0,
-      vatApplicable: data.vatApplicable === "on",
-      vatRate: parseFloat(data.vatRate) || 20,
-      indexType: (data.indexType as "IRL" | "ILC" | "ILAT" | "ICC") || null,
-      baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
-      baseIndexQuarter: data.baseIndexQuarter || null,
-      revisionFrequency: parseInt(data.revisionFrequency) || 12,
-      billingTerm: (data.billingTerm as "ECHU" | "A_ECHOIR") || undefined,
-      paymentFrequency: (data.paymentFrequency as "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL") || undefined,
-      tenantWorksClauses: data.tenantWorksClauses || null,
-      entryDate: data.entryDate || null,
-      exitDate: data.exitDate || null,
-      rentFreeMonths: data.rentFreeMonths !== undefined ? parseFloat(data.rentFreeMonths) || 0 : undefined,
+      leaseType: d.leaseType as
+        | "HABITATION"
+        | "MEUBLE"
+        | "COMMERCIAL_369"
+        | "DEROGATOIRE",
+      status: d.status as "EN_COURS" | "RESILIE" | "RENOUVELE",
+      startDate: d.startDate || null,
+      endDate: d.endDate || null,
+      durationMonths: parseInt(d.durationMonths) || undefined,
+      baseRentHT: parseFloat(d.baseRentHT) || undefined,
+      currentRentHT: parseFloat(d.currentRentHT),
+      depositAmount: parseFloat(d.depositAmount) || 0,
+      vatApplicable: d.vatApplicable === "on",
+      vatRate: parseFloat(d.vatRate) || 20,
+      indexType:
+        (d.indexType as "IRL" | "ILC" | "ILAT" | "ICC") || null,
+      baseIndexValue: d.baseIndexValue
+        ? parseFloat(d.baseIndexValue)
+        : null,
+      baseIndexQuarter: d.baseIndexQuarter || null,
+      revisionFrequency: parseInt(d.revisionFrequency) || 12,
+      billingTerm:
+        (d.billingTerm as "ECHU" | "A_ECHOIR") || undefined,
+      paymentFrequency:
+        (d.paymentFrequency as
+          | "MENSUEL"
+          | "TRIMESTRIEL"
+          | "SEMESTRIEL"
+          | "ANNUEL") || undefined,
+      tenantWorksClauses: d.tenantWorksClauses || null,
+      entryDate: d.entryDate || null,
+      exitDate: d.exitDate || null,
+      rentFreeMonths:
+        d.rentFreeMonths !== undefined
+          ? parseFloat(d.rentFreeMonths) || 0
+          : undefined,
+      entryFee:
+        d.entryFee !== undefined
+          ? parseFloat(d.entryFee) || 0
+          : undefined,
     });
 
     setIsLoading(false);
@@ -164,8 +253,12 @@ export default function ModifierBailPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Modifier le bail</h1>
-          <p className="text-muted-foreground">Mise à jour des conditions</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Modifier le bail
+          </h1>
+          <p className="text-muted-foreground">
+            Mise à jour des informations du bail
+          </p>
         </div>
       </div>
 
@@ -176,16 +269,37 @@ export default function ModifierBailPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Statut */}
+        {/* Type et Statut */}
         <Card>
           <CardHeader>
-            <CardTitle>Statut du bail</CardTitle>
+            <CardTitle>Type et statut du bail</CardTitle>
             <CardDescription>
-              La résiliation libère automatiquement le lot.
+              Le changement de statut en &quot;Résilié&quot; libère
+              automatiquement le lot.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="leaseType">Type de bail *</Label>
+                <select
+                  id="leaseType"
+                  name="leaseType"
+                  defaultValue={lease.leaseType}
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {LEASE_TYPE_OPTIONS.map((group) => (
+                    <optgroup key={group.group} label={group.group}>
+                      {group.items.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Statut *</Label>
                 <NativeSelect
@@ -197,31 +311,66 @@ export default function ModifierBailPage() {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Dates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Durée et dates</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Date de début *</Label>
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  defaultValue={toDateInput(lease.startDate)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Date de fin *</Label>
+                <Input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  defaultValue={toDateInput(lease.endDate)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="durationMonths">Durée (mois)</Label>
+                <Input
+                  id="durationMonths"
+                  name="durationMonths"
+                  type="number"
+                  min={1}
+                  defaultValue={lease.durationMonths}
+                />
+              </div>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="entryDate">Date d&apos;entrée effective</Label>
+                <Label htmlFor="entryDate">
+                  Date d&apos;entrée effective
+                </Label>
                 <Input
                   id="entryDate"
                   name="entryDate"
                   type="date"
-                  defaultValue={
-                    lease.entryDate
-                      ? new Date(lease.entryDate).toISOString().slice(0, 10)
-                      : ""
-                  }
+                  defaultValue={toDateInput(lease.entryDate)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="exitDate">Date de sortie</Label>
+                <Label htmlFor="exitDate">Date de sortie effective</Label>
                 <Input
                   id="exitDate"
                   name="exitDate"
                   type="date"
-                  defaultValue={
-                    lease.exitDate
-                      ? new Date(lease.exitDate).toISOString().slice(0, 10)
-                      : ""
-                  }
+                  defaultValue={toDateInput(lease.exitDate)}
                 />
               </div>
             </div>
@@ -231,12 +380,29 @@ export default function ModifierBailPage() {
         {/* Loyer */}
         <Card>
           <CardHeader>
-            <CardTitle>Loyer et dépôt de garantie</CardTitle>
+            <CardTitle>Loyer et conditions financières</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="currentRentHT">Loyer actuel HT (€/{FREQ_PERIOD_LABELS[frequency] ?? "mois"}) *</Label>
+                <Label htmlFor="baseRentHT">
+                  Loyer de base HT (€/
+                  {FREQ_PERIOD_LABELS[frequency] ?? "mois"})
+                </Label>
+                <Input
+                  id="baseRentHT"
+                  name="baseRentHT"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  defaultValue={lease.baseRentHT}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currentRentHT">
+                  Loyer actuel HT (€/
+                  {FREQ_PERIOD_LABELS[frequency] ?? "mois"}) *
+                </Label>
                 <Input
                   id="currentRentHT"
                   name="currentRentHT"
@@ -247,8 +413,13 @@ export default function ModifierBailPage() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="depositAmount">Dépôt de garantie (€)</Label>
+                <Label htmlFor="depositAmount">
+                  Dépôt de garantie (€)
+                </Label>
                 <Input
                   id="depositAmount"
                   name="depositAmount"
@@ -259,7 +430,9 @@ export default function ModifierBailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rentFreeMonths">Franchise de loyer (mois)</Label>
+                <Label htmlFor="rentFreeMonths">
+                  Franchise de loyer (mois)
+                </Label>
                 <Input
                   id="rentFreeMonths"
                   name="rentFreeMonths"
@@ -269,11 +442,26 @@ export default function ModifierBailPage() {
                   defaultValue={lease.rentFreeMonths ?? 0}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="entryFee">
+                  Pas-de-porte / droit d&apos;entrée (€)
+                </Label>
+                <Input
+                  id="entryFee"
+                  name="entryFee"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  defaultValue={lease.entryFee ?? 0}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="paymentFrequency">Fréquence de paiement *</Label>
+                <Label htmlFor="paymentFrequency">
+                  Fréquence de paiement *
+                </Label>
                 <NativeSelect
                   id="paymentFrequency"
                   name="paymentFrequency"
@@ -346,7 +534,9 @@ export default function ModifierBailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="baseIndexValue">Valeur de référence</Label>
+                <Label htmlFor="baseIndexValue">
+                  Valeur de référence
+                </Label>
                 <Input
                   id="baseIndexValue"
                   name="baseIndexValue"
@@ -357,7 +547,9 @@ export default function ModifierBailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="baseIndexQuarter">Trimestre de référence</Label>
+                <Label htmlFor="baseIndexQuarter">
+                  Trimestre de référence
+                </Label>
                 <Input
                   id="baseIndexQuarter"
                   name="baseIndexQuarter"
@@ -416,7 +608,7 @@ export default function ModifierBailPage() {
                 Enregistrement...
               </>
             ) : (
-              "Enregistrer"
+              "Enregistrer les modifications"
             )}
           </Button>
         </div>
