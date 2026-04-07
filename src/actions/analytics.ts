@@ -11,10 +11,12 @@ export type BuildingOccupancy = { name: string; occupied: number; vacant: number
 export type OverdueByAge = { label: string; count: number; amount: number };
 export type PatrimonyPoint = { date: string; value: number };
 export type TopTenant = { name: string; total: number };
+export type RiskConcentrationItem = { name: string; annualRent: number; pct: number };
+export type RiskConcentration = { byBuilding: RiskConcentrationItem[]; byTenant: RiskConcentrationItem[]; hhiBuilding: number; hhiTenant: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
 export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
-export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
+export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
   if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "—";
@@ -184,6 +186,37 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
     total: Number(r.total),
   }));
 
+  // 6b. Division du risque (concentration par immeuble et par locataire)
+  const riskLeases = await prisma.lease.findMany({
+    where: { societyId, status: "EN_COURS" },
+    select: {
+      currentRentHT: true,
+      paymentFrequency: true,
+      tenant: { select: { entityType: true, companyName: true, firstName: true, lastName: true } },
+      lot: { select: { building: { select: { name: true } } } },
+    },
+  });
+  const freqMult: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+  const buildingRentMap = new Map<string, number>();
+  const tenantRentMap = new Map<string, number>();
+  for (const l of riskLeases) {
+    const annual = l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12);
+    const bName = l.lot.building.name;
+    buildingRentMap.set(bName, (buildingRentMap.get(bName) ?? 0) + annual);
+    const tName = displayTenantName(l.tenant);
+    tenantRentMap.set(tName, (tenantRentMap.get(tName) ?? 0) + annual);
+  }
+  const totalAnnualRentRisk = riskLeases.reduce((s, l) => s + l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12), 0);
+  const toRiskItems = (m: Map<string, number>) =>
+    [...m.entries()]
+      .map(([name, annualRent]) => ({ name, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
+      .sort((a, b) => b.pct - a.pct);
+  const byBuilding = toRiskItems(buildingRentMap);
+  const byTenant = toRiskItems(tenantRentMap);
+  // Indice Herfindahl-Hirschman (0 = diversifié, 10000 = concentré)
+  const hhi = (items: { pct: number }[]) => Math.round(items.reduce((s, i) => s + (i.pct * i.pct), 0));
+  const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: hhi(byBuilding), hhiTenant: hhi(byTenant) };
+
   // 7. Echeancier baux (10 soonest-expiring)
   const activeLeases = await prisma.lease.findMany({
     where: { societyId, status: "EN_COURS" },
@@ -320,7 +353,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
 
   return {
     kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount },
-    monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline, lenderSummaries,
+    monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, riskConcentration, leaseTimeline, lenderSummaries,
   };
 }
 

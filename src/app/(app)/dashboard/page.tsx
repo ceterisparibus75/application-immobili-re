@@ -11,7 +11,7 @@ import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
 import { OverdueChart } from "@/components/dashboard/overdue-chart";
 import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
-import { TopTenantsChart } from "@/components/dashboard/top-tenants-chart";
+import { RiskConcentrationChart } from "@/components/dashboard/risk-concentration-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   const data = await getAnalyticsData(societyId);
   if (!data) redirect("/login");
 
-  const { kpis, monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, leaseTimeline, lenderSummaries } = data;
+  const { kpis, monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, riskConcentration, leaseTimeline, lenderSummaries } = data;
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -193,10 +193,10 @@ export default async function DashboardPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             <Card className="border-0 shadow-brand bg-white rounded-xl">
               <CardHeader>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Top 5 locataires</CardTitle>
-                <CardDescription>Volume de facturation</CardDescription>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Division du risque</CardTitle>
+                <CardDescription>Concentration des revenus locatifs</CardDescription>
               </CardHeader>
-              <CardContent><TopTenantsChart data={topTenants} /></CardContent>
+              <CardContent><RiskConcentrationChart data={riskConcentration} /></CardContent>
             </Card>
             <Card className="border-0 shadow-brand bg-white rounded-xl">
               <CardHeader>
