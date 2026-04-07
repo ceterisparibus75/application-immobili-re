@@ -22,6 +22,7 @@ import {
 import {
   Building2,
   Users,
+  UserPlus,
   FileText,
   Banknote,
   CheckCircle2,
@@ -56,6 +57,23 @@ export function OnboardingChecklist() {
       icon: <Building2 className="h-5 w-5" />,
       href: "/societes/nouvelle",
       checkFn: async () => !!activeSociety,
+    },
+    {
+      id: "users",
+      title: "Inviter des utilisateurs",
+      description: "Ajoutez des collaborateurs et definissez leurs droits",
+      icon: <UserPlus className="h-5 w-5" />,
+      href: "/compte/utilisateurs",
+      checkFn: async () => {
+        if (!activeSociety) return false;
+        try {
+          const res = await fetch(`/api/users?societyId=${activeSociety.id}`);
+          if (!res.ok) return false;
+          const data = await res.json();
+          // Au moins 2 membres = le propriétaire + un invité
+          return (data.data?.length ?? data.length ?? 0) > 1;
+        } catch { return false; }
+      },
     },
     {
       id: "building",
