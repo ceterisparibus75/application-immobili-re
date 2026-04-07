@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { formatCurrency } from "@/lib/utils";
 import {
   Card,
   CardContent,

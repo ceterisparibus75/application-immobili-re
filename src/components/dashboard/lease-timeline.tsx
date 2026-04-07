@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import type { LeaseTimelineItem } from "@/actions/analytics";
 
 function DaysBadge({ days }: { days: number }) {

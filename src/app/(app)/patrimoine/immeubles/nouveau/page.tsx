@@ -281,7 +281,7 @@ export default function NouvelImmeubleePage() {
         }
       }
       if (lotErrors.length > 0) {
-        console.warn("[doSave] Lots non créés :", lotErrors);
+        console.error("[doSave] Lots non créés :", lotErrors);
       }
     }
     setIsLoading(false);

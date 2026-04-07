@@ -115,10 +115,6 @@ export default async function FacturationPage({
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalImpaye = [...enAttente, ...enRetard].reduce((s, i) => s + i.totalTTC, 0);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
-  const totalOverdue = overdueInvoices.reduce((s, inv) => {
-    const paid = inv.payments.reduce((ps, p) => ps + p.amount, 0);
-    return s + inv.totalTTC - paid;
-  }, 0);
   const remindersCount = reminders.filter((r) => r.isSent).length;
 
   return (

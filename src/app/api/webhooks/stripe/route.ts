@@ -84,7 +84,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const subscriptionId = session.subscription as string;
 
   if (!societyId || !customerId || !subscriptionId) {
-    console.warn("[stripe-webhook] checkout.session.completed missing metadata");
+    console.error("[stripe-webhook] checkout.session.completed missing metadata");
     return;
   }
 
@@ -130,7 +130,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       where: { stripeSubscriptionId: subscription.id },
     });
     if (!existing) {
-      console.warn("[stripe-webhook] subscription.updated: no societyId found");
+      console.error("[stripe-webhook] subscription.updated: no societyId found");
       return;
     }
     await updateSubscriptionFromStripe(existing.societyId, subscription);

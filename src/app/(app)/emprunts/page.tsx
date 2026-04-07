@@ -46,13 +46,6 @@ export default async function EmpruntsPage() {
     return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
   }, 0);
 
-  // Calcul fin la plus lointaine pour les emprunts en cours
-  const maxRemainingMonths = enCours.reduce((max, l) => {
-    const currentPeriod = l.amortizationLines[0]?.period ?? 0;
-    const remaining = l.durationMonths - currentPeriod;
-    return Math.max(max, remaining);
-  }, 0);
-
   // Regrouper par preteur (normalisation des noms identiques)
   const rawLenderNames = loans.map((l) => l.lender || "Autre");
   const lenderNameMapping = buildLenderMapping(rawLenderNames);

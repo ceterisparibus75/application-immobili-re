@@ -36,8 +36,6 @@ export default function NouveauDiagnosticPage() {
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDiag, setPendingDiag] = useState<Parameters<typeof createDiagnostic>[1] | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);

@@ -57,7 +57,6 @@ export default async function EmpruntDetailPage({
   const pastLines = loan.amortizationLines.filter((l) => new Date(l.dueDate) <= today);
   const lastPastLine = pastLines[pastLines.length - 1]; // trié asc par period
   const remainingBalance = lastPastLine?.remainingBalance ?? loan.amount;
-  const paidInterest = paidLines.reduce((s, l) => s + l.interestPayment, 0);
   const totalInterest = loan.amortizationLines.reduce((s, l) => s + l.interestPayment, 0);
   const totalInsurance = loan.amortizationLines.reduce((s, l) => s + l.insurancePayment, 0);
   const totalCost = loan.amount + totalInterest + totalInsurance;

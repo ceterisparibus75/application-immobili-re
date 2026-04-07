@@ -1,6 +1,5 @@
 import { getPortalSession } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, FileText, Home, Shield, LogOut, ReceiptText } from "lucide-react";
 import "../globals.css";
@@ -68,11 +67,6 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await getPortalSession();
-
-  // Pages publiques du portail
-  const publicPaths = ["/portal/login", "/portal/activate"];
-  // Note: on ne peut pas facilement lire le pathname ici en App Router,
-  // donc on rend le layout avec ou sans nav selon la session
 
   if (!session) {
     return (

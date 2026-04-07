@@ -12,7 +12,7 @@ export {
 } from "./permissions-shared";
 
 import type { Module, Permission, ModulePermissions } from "./permissions-shared";
-import { MODULES, MODULE_LABELS, getDefaultPermissions } from "./permissions-shared";
+import { MODULE_LABELS, getDefaultPermissions } from "./permissions-shared";
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   SUPER_ADMIN: 50,

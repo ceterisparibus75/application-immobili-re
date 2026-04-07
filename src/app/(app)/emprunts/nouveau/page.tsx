@@ -382,9 +382,6 @@ function PdfImportForm({
         return;
       }
       const data: ParsedLoan = json.data;
-      // Debug: afficher les diagnostics IA dans la console
-      if (json._debug) console.log("[PDF Import Debug]", json._debug);
-      console.log("[PDF Import] First 3 schedule lines:", data.schedule.slice(0, 3));
       setParsed(data);
       // Pré-remplir les champs
       setLabel(data.label ?? "");

@@ -178,10 +178,6 @@ export async function POST(req: NextRequest) {
     const rawText =
       finalMessage.content[0].type === "text" ? finalMessage.content[0].text.trim() : "";
 
-    // Log pour diagnostic
-    console.log("[parse-pdf] AI response length:", rawText.length);
-    console.log("[parse-pdf] AI response (first 1000 chars):", rawText.substring(0, 1000));
-
     // Extraire le JSON de la réponse (au cas où Claude ajouterait du texte autour)
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -228,17 +224,6 @@ export async function POST(req: NextRequest) {
     // Diagnostic : vérifier si le capital est détecté
     const allPrincipalZero = sanitized.schedule.length > 0 && sanitized.schedule.every(l => l.principal === 0);
     const allBalanceConstant = sanitized.schedule.length > 1 && sanitized.schedule.every(l => l.balance === sanitized.schedule[0].balance);
-    console.log("[parse-pdf] Raw columns detected:", (parsed as unknown as Record<string, unknown>)._rawColumns);
-    console.log("[parse-pdf] Raw first row:", (parsed as unknown as Record<string, unknown>)._rawFirstRow);
-    console.log("[parse-pdf] Stats:", {
-      lines: sanitized.schedule.length,
-      loanType: sanitized.loanType,
-      allPrincipalZero,
-      allBalanceConstant,
-      firstLine: sanitized.schedule[0],
-      lastLine: sanitized.schedule[sanitized.schedule.length - 1],
-    });
-
     return NextResponse.json({
       data: sanitized,
       _debug: {

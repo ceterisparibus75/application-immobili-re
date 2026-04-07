@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, Layers, Landmark, Banknote,
-  TrendingUp, Calendar, Wallet, Plus, Clock,
-  BarChart3, ArrowUp, ArrowDown, Home, Users,
-  FileText, Wrench, ShieldCheck,
+  Building2, Landmark, Banknote,
+  TrendingUp, Calendar, Wallet, Plus,
+  ArrowUp, ArrowDown, Home, Users,
+  FileText, Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/permissions";

@@ -16,13 +16,14 @@ export function SubscriptionBanner() {
   const [banner, setBanner] = useState<BannerState>({ type: null, message: "" });
   const [dismissed, setDismissed] = useState(false);
 
+  const societyId = activeSociety?.id;
   useEffect(() => {
-    if (!activeSociety?.id) return;
+    if (!societyId) return;
     queueMicrotask(() => setDismissed(false));
 
     async function checkStatus() {
       try {
-        const res = await fetch(`/api/subscription/status?societyId=${activeSociety!.id}`);
+        const res = await fetch(`/api/subscription/status?societyId=${societyId}`);
         if (!res.ok) return;
         const data = await res.json();
         setBanner(data);
@@ -31,7 +32,7 @@ export function SubscriptionBanner() {
       }
     }
     checkStatus();
-  }, [activeSociety?.id]);
+  }, [societyId]);
 
   if (!banner.type || dismissed) return null;
 

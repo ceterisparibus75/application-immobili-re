@@ -107,19 +107,6 @@ export default function PrevisionnelPage() {
     return debit - credit;
   }
 
-  async function saveBudgetLine(budgetLine: BudgetLine) {
-    if (!activeSociety) return;
-    startTransition(async () => {
-      await upsertBudgetLine(activeSociety.id, {
-        year: budgetLine.year,
-        month: budgetLine.month,
-        accountId: budgetLine.accountId,
-        budgetAmount: budgetLine.budgetAmount,
-        label: budgetLine.label,
-      });
-    });
-  }
-
   async function handleEdit(line: BudgetLine) {
     if (!activeSociety) return;
     startTransition(async () => {

@@ -1,47 +1,4 @@
-import { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "./prisma";
-
-/**
- * Liste des modèles Prisma scopés par societyId.
- * Chaque requête sur ces modèles sera automatiquement filtrée.
- */
-const TENANT_SCOPED_MODELS: Prisma.ModelName[] = [
-  "Society",
-  "Building",
-  "Lot",
-  "Lease",
-  "Tenant",
-  "TenantContact",
-  "TenantDocument",
-  "Guarantee",
-  "TenantPortalAccess",
-  "Invoice",
-  "InvoiceLine",
-  "Payment",
-  "Charge",
-  "ChargeCategory",
-  "ChargeProvision",
-  "ChargeRegularization",
-  "BankAccount",
-  "BankTransaction",
-  "AccountingAccount",
-  "JournalEntry",
-  "ReminderScenario",
-  "ReminderStep",
-  "Reminder",
-  "Contact",
-  "ContactNote",
-  "Message",
-  "Announcement",
-  "AnnouncementPhoto",
-  "AnnouncementPublication",
-  "Document",
-  "AuditLog",
-  "LetterTemplate",
-  "DepositMovement",
-  "PropertyValuation",
-  "RentValuation",
-];
 
 // Modèles qui ont un societyId direct (pas via une relation)
 const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [

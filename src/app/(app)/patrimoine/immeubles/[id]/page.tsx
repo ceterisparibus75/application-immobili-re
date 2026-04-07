@@ -9,9 +9,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft,
   Bot,
- 
+
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -259,10 +258,6 @@ export default async function ImmeubleDetailPage({
             />
             {building.propertyValuations?.[0] && (() => {
               const v = building.propertyValuations[0];
-              const expert = v.expertReports?.[0];
-              const label = expert
-                ? `Expertise ${expert.expertName} du ${new Date(expert.reportDate).toLocaleDateString("fr-FR")}`
-                : `Estimation IA du ${new Date(v.valuationDate).toLocaleDateString("fr-FR")}`;
               return (
                 <InfoRow
                   label="Valeur vénale actualisée"

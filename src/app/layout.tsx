@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { SessionProvider } from "@/providers/session-provider";
@@ -9,18 +8,6 @@ import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ZendeskWidget } from "@/components/zendesk-widget";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-jetbrains",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -53,7 +40,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`h-full ${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    <html lang="fr" className="h-full" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-full font-sans antialiased">
         <SessionProvider>
           <ThemeProvider>

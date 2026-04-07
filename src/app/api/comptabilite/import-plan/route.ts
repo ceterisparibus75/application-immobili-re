@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
 
       const rows: string[][] = [];
 
-      worksheet.eachRow((row, _rowNumber) => {
+      worksheet.eachRow((row) => {
 
         const cells = (row.values as (string | number | null | undefined)[])
 

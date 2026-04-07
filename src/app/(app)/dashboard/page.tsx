@@ -1,9 +1,8 @@
 import { getAnalyticsData } from "@/actions/analytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  ArrowDown, ArrowUp, Building2, TrendingUp, AlertTriangle, Calendar,
-  Banknote, Wallet, Home, Users, FileText, Landmark, Wrench, ShieldCheck,
+  ArrowDown, ArrowUp, Calendar,
+  Wallet, Home, Users, FileText, Landmark, Wrench,
 } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";

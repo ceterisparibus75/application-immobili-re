@@ -73,7 +73,6 @@ export function UserManagementClient({ users, societies, currentUserId }: Props)
   const [assignTarget, setAssignTarget] = useState<ManagedUser | null>(null);
 
   const uniqueUsers = users.length;
-  const totalAccesses = users.reduce((s, u) => s + u.accesses.length, 0);
   const uniqueProps = new Set(societies.map((s) => s.proprietaireId)).size;
 
   return (
@@ -188,14 +187,14 @@ export function UserManagementClient({ users, societies, currentUserId }: Props)
 // ── Ligne utilisateur (avec détails dépliables) ─────────────────────────────
 
 function UserRow({
-  user, isExpanded, isSelf, firstSocietyId, societies, currentUserId,
+  user, isExpanded, isSelf, firstSocietyId, currentUserId,
   onToggleExpand, onAssign,
 }: {
   user: ManagedUser;
   isExpanded: boolean;
   isSelf: boolean;
   firstSocietyId: string | undefined;
-  societies: AvailableSociety[];
+  societies?: AvailableSociety[];
   currentUserId: string;
   onToggleExpand: () => void;
   onAssign: () => void;
