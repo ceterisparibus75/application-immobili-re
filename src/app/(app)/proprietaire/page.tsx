@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getOwnerAnalytics, getClaimableSocieties, getOwnerProfile } from "@/actions/owner";
+import { getConsolidatedAnalyticsData } from "@/actions/analytics";
 import { getProprietaires, getProprietaire, migrateOwnerToProprietaire } from "@/actions/proprietaire";
 import { getSocieties } from "@/actions/society";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import {
   Building2, Layers, Landmark, Banknote,
   TrendingUp, Calendar, Wallet, Plus, Clock,
-  BarChart3,
+  BarChart3, ArrowUp, ArrowDown, Home, Users,
+  FileText, Wrench, ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/permissions";
@@ -19,6 +21,13 @@ import { OwnerProfileForm } from "./_components/owner-profile-form";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
 import { ProprietaireProfileForm } from "./_components/proprietaire-profile-form";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
+import { OverdueChart } from "@/components/dashboard/overdue-chart";
+import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
+import { RiskConcentrationChart } from "@/components/dashboard/risk-concentration-chart";
+import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
+import { TodayTasks } from "@/components/dashboard/today-tasks";
 
 export const metadata = { title: "Vue proprietaire" };
 
@@ -66,133 +75,103 @@ export default async function ProprietaireDashboardPage({
     ? selectedPid
     : proprietaires[0]?.id ?? null;
 
-  // Charger les analytics et le détail du proprietaire sélectionné
-  const [result, proprietaireDetail] = await Promise.all([
+  // Charger les analytics consolidées (même format que le dashboard société) + les analytics owner (pour le tableau par société)
+  const [consolidatedData, ownerResult, proprietaireDetail] = await Promise.all([
+    getConsolidatedAnalyticsData(activePid ?? undefined),
     getOwnerAnalytics(activePid ?? undefined),
     activePid ? getProprietaire(activePid) : Promise.resolve({ success: false as const, data: undefined, error: "" }),
   ]);
-  if (!result.success || !result.data) redirect("/login");
 
-  const data = result.data;
   const claimable = claimableResult.success ? (claimableResult.data ?? []) : [];
   const profile = profileResult.success ? profileResult.data : null;
   const activePropDetail = proprietaireDetail.success ? proprietaireDetail.data : null;
+  const ownerData = ownerResult.success ? ownerResult.data : null;
 
-  if (data.totalSocieties === 0 && claimable.length === 0 && proprietaires.length === 0) {
+  if (!consolidatedData && (!ownerData || ownerData.totalSocieties === 0) && claimable.length === 0 && proprietaires.length === 0) {
     redirect("/proprietaire/setup");
   }
 
-  const dashboardContent = (
-    <div className="space-y-4">
-      {/* KPI principaux — 4 cartes identiques, hauteur fixe */}
+  // Données consolidées pour les graphiques (même format que dashboard société)
+  const data = consolidatedData;
+  // Données owner pour les tableaux par société
+  const ownerSocieties = ownerData?.societies ?? [];
+  const ownerSocietyIds = ownerSocieties.map((s) => s.id);
+
+  const dashboardContent = data ? (
+    <div className="space-y-6">
+      {/* ── KPI Cards (identiques au dashboard société) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
-              <TrendingUp className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-            </div>
-            <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Revenus mensuels</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthRevenue)}</p>
-            <p className="text-[10px] text-[#94A3B8] mt-1">Loyers HT : {fmt(data.totalMonthlyRentHT)}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
-              <Landmark className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-            </div>
-            <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Trésorerie</p>
-          </div>
-          <div>
-            <p className={`text-2xl font-bold tabular-nums ${data.totalCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</p>
-            <p className="text-[10px] text-[#94A3B8] mt-1">{data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""}</p>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Revenus du mois</p>
+          <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.currentMonthRevenue)}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {data.kpis.revenueChange >= 0 ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)] px-1.5 py-0.5 rounded-full">
+                <ArrowUp className="h-3 w-3" />+{data.kpis.revenueChange}%
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-status-negative)] bg-[var(--color-status-negative-bg)] px-1.5 py-0.5 rounded-full">
+                <ArrowDown className="h-3 w-3" />{data.kpis.revenueChange}%
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground">vs mois dernier</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)] shrink-0">
-              <Clock className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
-            </div>
-            <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">Impayés</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalOverdue)}</p>
-            <p className="text-[10px] text-[#94A3B8] mt-1">
-              {data.totalOverdue > 0 && <span className="inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] mr-1">en attente</span>}
-              {data.totalOverdue === 0 && "aucun impayé"}
-            </p>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Occupation</p>
+          <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupancyRate}%</p>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full bg-brand-gradient-soft transition-all" style={{ width: `${data.kpis.occupancyRate}%` }} />
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand flex flex-col justify-between min-h-[120px]">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-light)] shrink-0">
-              <BarChart3 className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-            </div>
-            <p className="text-[11px] font-semibold text-[#94A3B8] uppercase tracking-wide">
-              {data.grossYield !== null ? "Rendement brut" : "Occupation"}
-            </p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[var(--color-brand-deep)]">
-              {data.grossYield !== null ? `${data.grossYield}%` : `${data.occupancyRate}%`}
-            </p>
-            <p className="text-[10px] text-[#94A3B8] mt-1">
-              {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots · {data.totalActiveLeases} baux
-            </p>
-          </div>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Impayés</p>
+          <p className={"text-2xl font-semibold tabular-nums " + (data.kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]")}>{fmt(data.kpis.totalOverdueAmount)}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">en attente de règlement</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-brand">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            {data.kpis.grossYield !== null ? "Rendement brut" : "Trésorerie"}
+          </p>
+          <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">
+            {data.kpis.grossYield !== null ? `${data.kpis.grossYield.toFixed(1)}%` : fmt(data.kpis.availableCash)}
+          </p>
+          {data.kpis.expiringLeaseCount > 0 ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-status-caution)] bg-[var(--color-status-caution-bg)] px-1.5 py-0.5 rounded-full mt-1.5">
+              <Calendar className="h-3 w-3" />
+              {data.kpis.expiringLeaseCount} bail expirant sous 90j
+            </span>
+          ) : (
+            <p className="text-[10px] text-muted-foreground mt-1">aucun bail expirant</p>
+          )}
         </div>
       </div>
 
-      {/* Section 1 : Revenus & Trésorerie (2/3) + Occupation & Patrimoine (1/3) */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          {/* Performance par société */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
-            <CardHeader className="pb-3 px-6 pt-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
-                  <TrendingUp className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
-                </div>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Revenus & Trésorerie</CardTitle>
+      {/* ── Performance par société ── */}
+      {ownerSocieties.length > 0 && (
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
+                <TrendingUp className="h-4 w-4 text-[var(--color-status-positive)]" />
               </div>
-            </CardHeader>
-            <CardContent className="px-6 pb-5 space-y-4">
-              {/* KPIs revenus */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Loyers mensuels HT</p>
-                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyRentHT)}</p>
-                </div>
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Charges récupérables</p>
-                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalRecoverableCharges)}</p>
-                </div>
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Trésorerie nette</p>
-                  <p className={`text-lg font-bold tabular-nums ${data.totalCash >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>{fmt(data.totalCash)}</p>
-                </div>
-                {data.grossYield !== null && (
-                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Rendement brut</p>
-                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{data.grossYield}%</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Tableau revenus par société */}
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Performance par société</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-[#FAFBFC]">
-                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Société</th>
-                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Trésorerie</th>
-                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Occupation</th>
+                  <tr className="border-y border-gray-100 bg-muted/30">
+                    <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Revenus mois</th>
+                    <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Trésorerie</th>
+                    <th className="text-center py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Occupation</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.societies.map((s) => (
-                    <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-[#F9FAFB] transition-colors">
+                  {ownerSocieties.map((s) => (
+                    <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
                           <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -201,286 +180,430 @@ export default async function ProprietaireDashboardPage({
                           <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
                         </div>
                       </td>
-                      <td className={`py-3 px-4 text-right tabular-nums font-semibold ${s.cashBalance < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>
-                        {fmt(s.cashBalance)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">{fmt(s.currentMonthRevenue)}</td>
+                      <td className={`py-3 px-4 text-right tabular-nums font-semibold ${s.cashBalance < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(s.cashBalance)}</td>
+                      <td className="py-3 px-4 text-center">
                         <span className="font-semibold tabular-nums text-[var(--color-brand-blue)]">{pct(s.occupiedLots, s.lots)}%</span>
-                        <span className="text-[10px] text-[#94A3B8] ml-1">{s.occupiedLots}/{s.lots}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">{s.occupiedLots}/{s.lots}</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-[#FAFBFC] border-t border-gray-100">
-                    <td className="py-3 px-4 font-semibold text-[#94A3B8]">Total</td>
-                    <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.totalCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.totalCash)}</td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-bold tabular-nums text-[var(--color-brand-blue)]">{data.occupancyRate}%</span>
-                      <span className="text-[10px] text-[#94A3B8] ml-1">{data.totalOccupied}/{data.totalLots}</span>
-                    </td>
-                  </tr>
-                </tfoot>
+                {ownerSocieties.length > 1 && (
+                  <tfoot>
+                    <tr className="bg-muted/30 border-t border-gray-100">
+                      <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
+                      <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.currentMonthRevenue)}</td>
+                      <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.kpis.availableCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.kpis.availableCash)}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="font-bold tabular-nums text-[var(--color-brand-blue)]">{data.kpis.occupancyRate}%</span>
+                        <span className="text-[10px] text-muted-foreground ml-1">{data.kpis.occupiedLots}/{data.kpis.totalLots}</span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
-            </CardContent>
-          </Card>
-        </div>
-        {/* Colonne droite : Occupation + Patrimoine */}
-        <div className="space-y-4">
-          {/* Occupation visuelle */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
-            <CardHeader className="pb-3 px-5 pt-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
-                  <Layers className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-                </div>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Occupation</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-5 space-y-4">
-              <div className="text-center">
-                <p className="text-3xl font-bold tabular-nums text-[var(--color-brand-deep)]">{data.occupancyRate}%</p>
-                <p className="text-xs text-[#94A3B8] mt-0.5">{data.totalOccupied} / {data.totalLots} lots occupés</p>
-                <div className="mt-3 h-2.5 rounded-full bg-[#F1F5F9] overflow-hidden">
-                  <div className="h-full rounded-full bg-brand-gradient-soft" style={{ width: data.occupancyRate + "%" }} />
-                </div>
-              </div>
-              <div className="space-y-1.5 pt-3 border-t border-gray-100">
-                {data.societies.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg hover:bg-[#F9FAFB] transition-colors">
-                    <span className="truncate text-[var(--color-brand-deep)]">{s.name}</span>
-                    <span className="font-semibold tabular-nums shrink-0 ml-2 text-[var(--color-brand-blue)]">{pct(s.occupiedLots, s.lots)}%</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Patrimoine */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
-            <CardHeader className="pb-3 px-5 pt-5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
-                  <Building2 className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-                </div>
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Patrimoine</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-5 space-y-1.5">
-              {data.totalPatrimonyValue > 0 && (
-                <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[var(--color-brand-light)] text-sm">
-                  <span className="font-medium text-[var(--color-brand-deep)]">Valeur patrimoine</span>
-                  <span className="font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalPatrimonyValue)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                <span className="text-[#64748B]">Immeubles</span>
-                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalBuildings}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                <span className="text-[#64748B]">Lots</span>
-                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalLots}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                <span className="text-[#64748B]">Baux actifs</span>
-                <span className="font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.totalActiveLeases}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Section 2 : Endettement consolidé + Par établissement */}
-      {data.totalDebt > 0 && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* Endettement — colonne large */}
+      {/* ── Endettement consolidé ── */}
+      {data.kpis.activeLoanCount > 0 && (
+        <div className="grid gap-5 lg:grid-cols-3">
+          {/* KPI + tableau par société (2/3) */}
           <div className="lg:col-span-2">
             <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
-              <CardHeader className="pb-3 px-6 pt-5">
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
-                    <Banknote className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-blue)]/10">
+                    <Landmark className="h-4 w-4 text-[var(--color-brand-blue)]" />
                   </div>
                   <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Endettement consolidé</CardTitle>
                 </div>
+                <CardDescription>Capital restant dû et mensualités — toutes sociétés</CardDescription>
               </CardHeader>
-              <CardContent className="px-6 pb-5 space-y-4">
-                {/* KPIs endettement */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Capital restant dû</p>
-                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</p>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-3 gap-px bg-gray-100">
+                  <div className="bg-white p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
+                    <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</p>
+                  </div>
+                  <div className="bg-white p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
+                    <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyLoanPayment)}</p>
+                  </div>
+                  <div className="bg-white p-4">
+                    <p className="text-xs text-muted-foreground mb-1">LTV</p>
+                    <p className={"text-lg font-semibold tabular-nums " + (data.kpis.ltv !== null && data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv !== null && data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]")}>
+                      {data.kpis.ltv !== null ? `${data.kpis.ltv}%` : "—"}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Mensualité totale</p>
-                  <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalMonthlyLoanPayment)}</p>
-                </div>
-                <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                  <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">LTV consolidé</p>
-                  <p className={`text-lg font-bold tabular-nums ${data.consolidatedLTV !== null && data.consolidatedLTV > 80 ? "text-[var(--color-status-negative)]" : data.consolidatedLTV !== null && data.consolidatedLTV > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
-                    {data.consolidatedLTV !== null ? `${data.consolidatedLTV}%` : "—"}
-                  </p>
-                </div>
-                {data.totalPatrimonyValue > 0 && (
-                  <div className="rounded-lg bg-[#F9FAFB] p-4 flex flex-col justify-between min-h-[72px]">
-                    <p className="text-[10px] font-medium text-[#94A3B8] uppercase tracking-wide">Valeur patrimoine</p>
-                    <p className="text-lg font-bold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.totalPatrimonyValue)}</p>
+                {/* Tableau endettement par société */}
+                {ownerSocieties.filter((s) => s.totalDebt > 0).length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-y border-gray-100 bg-muted/30">
+                          <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
+                          <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Restant dû</th>
+                          <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Mensualité</th>
+                          <th className="text-center py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">LTV</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ownerSocieties.filter((s) => s.totalDebt > 0).map((s) => (
+                          <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {s.name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">{fmt(s.totalDebt)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.monthlyLoanPayment)}<span className="text-[10px] text-muted-foreground">/mois</span></td>
+                            <td className="py-3 px-4 text-center">
+                              {s.ltv !== null ? (
+                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{s.ltv}%</span>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {ownerSocieties.filter((s) => s.totalDebt > 0).length > 1 && (
+                        <tfoot>
+                          <tr className="bg-muted/30 border-t border-gray-100">
+                            <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
+                            <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.totalDebt)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums font-bold text-muted-foreground">{fmt(data.kpis.monthlyLoanPayment)}</td>
+                            <td className="py-3 px-4 text-center">
+                              {data.kpis.ltv !== null && (
+                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{data.kpis.ltv}%</span>
+                              )}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
                   </div>
                 )}
-              </div>
-
-              {/* Tableau endettement par société */}
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-[#FAFBFC]">
-                    <th className="text-left py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Société</th>
-                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Restant dû</th>
-                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Mensualité</th>
-                    <th className="text-right py-2.5 px-4 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">LTV</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.societies.filter((s) => s.totalDebt > 0).map((s) => (
-                    <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-[#F9FAFB] transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {s.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">
-                        {fmt(s.totalDebt)}
-                      </td>
-                      <td className="py-3 px-4 text-right tabular-nums text-[#64748B]">
-                        {fmt(s.monthlyLoanPayment)}<span className="text-[#94A3B8]">/mois</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {s.ltv !== null ? (
-                          <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>
-                            {s.ltv}%
-                          </span>
-                        ) : <span className="text-[#CBD5E1]">—</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#FAFBFC] border-t border-gray-100">
-                    <td className="py-3 px-4 font-semibold text-[#94A3B8]">Total</td>
-                    <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.totalDebt)}</td>
-                    <td className="py-3 px-4 text-right tabular-nums font-bold text-[#64748B]">{fmt(data.totalMonthlyLoanPayment)}</td>
-                    <td className="py-3 px-4 text-right">
-                      {data.consolidatedLTV !== null && (
-                        <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.consolidatedLTV > 80 ? "text-[var(--color-status-negative)]" : data.consolidatedLTV > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>
-                          {data.consolidatedLTV}%
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
               </CardContent>
             </Card>
           </div>
 
-          {/* Par établissement bancaire */}
+          {/* Par établissement bancaire (1/3) — cartes empilées lisibles */}
           {data.lenderSummaries.length > 0 && (
             <Card className="border-0 shadow-brand bg-white rounded-xl">
-              <CardHeader className="pb-3 px-6 pt-5">
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
-                    <Landmark className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
+                    <Banknote className="h-4 w-4 text-[var(--color-status-negative)]" />
                   </div>
                   <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Par établissement</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="px-6 pb-5">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {data.lenderSummaries.map((ls) => (
-                    <div key={ls.lender} className="flex items-center gap-3 p-3 rounded-lg bg-[#F9FAFB]">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--color-brand-deep)] truncate">{ls.lender}</p>
-                        <p className="text-[10px] text-[#94A3B8]">{ls.loanCount} emprunt{ls.loanCount > 1 ? "s" : ""} · {fmt(ls.monthlyPayment)}/mois</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(ls.remainingBalance)}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 w-20">
-                        <div className="h-1.5 flex-1 rounded-full bg-[#F1F5F9] overflow-hidden">
+              <CardContent className="space-y-3">
+                {data.lenderSummaries.map((ls) => (
+                  <div key={ls.lender} className="rounded-lg bg-gray-50/80 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-[var(--color-brand-deep)]">{ls.lender}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground">{ls.loanCount} emprunt{ls.loanCount > 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Restant dû</span>
+                      <span className="text-sm font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(ls.remainingBalance)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Mensualité</span>
+                      <span className="text-sm tabular-nums text-[var(--color-brand-deep)]">{fmt(ls.monthlyPayment)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground">Remboursé</span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[140px]">
+                        <div className="h-1.5 flex-1 rounded-full bg-gray-200 overflow-hidden">
                           <div className="h-full rounded-full bg-brand-gradient-soft" style={{ width: ls.pctRepaid + "%" }} />
                         </div>
-                        <span className="tabular-nums text-[10px] text-[#94A3B8] w-7 text-right">{ls.pctRepaid}%</span>
+                        <span className="tabular-nums text-xs font-semibold text-[var(--color-brand-deep)] w-8 text-right">{ls.pctRepaid}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── Contenu principal : Graphiques + Panneau de suivi ── */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Colonne gauche : Graphiques (2/3) */}
+        <div className="lg:col-span-2 space-y-5">
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Revenus mensuels</CardTitle>
+              <CardDescription>Facturation TTC sur les 12 derniers mois — toutes sociétés</CardDescription>
+            </CardHeader>
+            <CardContent><RevenueChart data={data.monthlyRevenue} /></CardContent>
+          </Card>
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Occupation par immeuble</CardTitle>
+              <CardDescription>Lots occupés vs vacants — toutes sociétés</CardDescription>
+            </CardHeader>
+            <CardContent><OccupancyChart data={data.buildingOccupancy} globalRate={data.kpis.occupancyRate} /></CardContent>
+          </Card>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Card className="border-0 shadow-brand bg-white rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Impayés par ancienneté</CardTitle>
+                <CardDescription>Montants en souffrance</CardDescription>
+              </CardHeader>
+              <CardContent><OverdueChart data={data.overdueByAge} /></CardContent>
+            </Card>
+            <Card className="border-0 shadow-brand bg-white rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Évolution patrimoine</CardTitle>
+                <CardDescription>Valeur cumulée</CardDescription>
+              </CardHeader>
+              <CardContent><PatrimonyChart data={data.patrimonyPoints} /></CardContent>
+            </Card>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Card className="border-0 shadow-brand bg-white rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Division du risque</CardTitle>
+                <CardDescription>Concentration des revenus locatifs</CardDescription>
+              </CardHeader>
+              <CardContent><RiskConcentrationChart data={data.riskConcentration} /></CardContent>
+            </Card>
+            <Card className="border-0 shadow-brand bg-white rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Échéancier des baux</CardTitle>
+                <CardDescription>Progression et fin</CardDescription>
+              </CardHeader>
+              <CardContent><LeaseTimeline data={data.leaseTimeline} /></CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Colonne droite : Panneau de suivi (1/3) */}
+        <div className="space-y-5">
+          <TodayTasks societyIds={ownerSocietyIds} />
+
+          {/* Panneau de suivi complet */}
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Suivi</CardTitle>
+              <CardDescription>Vue complète — toutes sociétés</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Patrimoine */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                  <Home className="h-3 w-3" /> Patrimoine
+                </h4>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Sociétés</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{ownerSocieties.length}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Immeubles</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.totalBuildings}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Lots (occupés / vacants)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupiedLots} / {data.kpis.vacantLots}</span>
+                    <span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${data.kpis.vacantLots === 0 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : data.kpis.vacantLots <= 2 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
+                      {data.kpis.vacantLots === 0 ? "Complet" : `${data.kpis.vacantLots} vacant${data.kpis.vacantLots > 1 ? "s" : ""}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Taux d&apos;occupation</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupancyRate}%</span>
+                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${data.kpis.occupancyRate >= 80 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : data.kpis.occupancyRate >= 50 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
+                      {data.kpis.occupancyRate >= 80 ? "Bon" : data.kpis.occupancyRate >= 50 ? "Moyen" : "Faible"}
+                    </span>
+                  </div>
+                </div>
+                {data.kpis.patrimonyValue > 0 && (
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <span className="text-sm text-[var(--color-brand-deep)]">Valeur patrimoine</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.patrimonyValue)}</span>
+                  </div>
+                )}
+                {data.kpis.grossYield !== null && (
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <span className="text-sm text-[var(--color-brand-deep)]">Rendement brut</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.grossYield.toFixed(1)}%</span>
+                      <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${data.kpis.grossYield >= 5 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : data.kpis.grossYield >= 3 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
+                        {data.kpis.grossYield >= 5 ? "Bon" : data.kpis.grossYield >= 3 ? "Moyen" : "Faible"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Locataires & Baux */}
+              <div className="border-t border-gray-100 pt-4 space-y-2">
+                <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                  <Users className="h-3 w-3" /> Locataires &amp; Baux
+                </h4>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Locataires actifs</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.totalTenants}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Baux en cours</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.activeLeaseCount}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Baux expirant sous 90j</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.expiringLeaseCount}</span>
+                    {data.kpis.expiringLeaseCount > 0 && (
+                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">Attention</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Facturation */}
+              <div className="border-t border-gray-100 pt-4 space-y-2">
+                <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" /> Facturation
+                </h4>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Loyers mensuels HT</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyRentHT)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Factures impayées</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.unpaidInvoiceCount}</span>
+                    {data.kpis.unpaidInvoiceCount > 0 && (
+                      <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">{data.kpis.unpaidInvoiceCount}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Montant impayé</span>
+                  <span className={`text-sm font-semibold tabular-nums ${data.kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.kpis.totalOverdueAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Charges récup.</span>
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.recoverableCharges)}</span>
+                </div>
+              </div>
+
+              {/* Trésorerie */}
+              <div className="border-t border-gray-100 pt-4 space-y-2">
+                <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                  <Wallet className="h-3 w-3" /> Trésorerie
+                </h4>
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <span className="text-sm text-[var(--color-brand-deep)]">Solde disponible</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold tabular-nums ${data.kpis.availableCash >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>{fmt(data.kpis.availableCash)}</span>
+                    <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${data.kpis.availableCash >= 0 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
+                      {data.kpis.availableCash >= 0 ? "OK" : "Négatif"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Technique */}
+              {(data.kpis.expiringDiagnosticCount > 0 || data.kpis.openMaintenanceCount > 0) && (
+                <div className="border-t border-gray-100 pt-4 space-y-2">
+                  <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                    <Wrench className="h-3 w-3" /> Technique
+                  </h4>
+                  {data.kpis.expiringDiagnosticCount > 0 && (
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                      <span className="text-sm text-[var(--color-brand-deep)]">Diagnostics expirant 90j</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.expiringDiagnosticCount}</span>
+                        <span className="inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">Attention</span>
+                      </div>
+                    </div>
+                  )}
+                  {data.kpis.openMaintenanceCount > 0 && (
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                      <span className="text-sm text-[var(--color-brand-deep)]">Maintenances en cours</span>
+                      <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.openMaintenanceCount}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dette */}
+              {data.kpis.activeLoanCount > 0 && (
+                <div className="border-t border-gray-100 pt-4 space-y-2">
+                  <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                    <Landmark className="h-3 w-3" /> Endettement
+                  </h4>
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <span className="text-sm text-[var(--color-brand-deep)]">Capital restant dû</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <span className="text-sm text-[var(--color-brand-deep)]">Mensualité totale</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyLoanPayment)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <span className="text-sm text-[var(--color-brand-deep)]">Emprunts actifs</span>
+                    <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.activeLoanCount}</span>
+                  </div>
+                  {data.kpis.ltv !== null && (
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                      <span className="text-sm text-[var(--color-brand-deep)]">LTV</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-semibold tabular-nums ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>{data.kpis.ltv}%</span>
+                        <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${data.kpis.ltv > 80 ? "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"}`}>
+                          {data.kpis.ltv > 80 ? "Élevé" : data.kpis.ltv > 60 ? "Moyen" : "Sain"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Détail par société */}
+              {ownerSocieties.length > 1 && (
+                <div className="border-t border-gray-100 pt-4 space-y-2">
+                  <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
+                    <Building2 className="h-3 w-3" /> Par société
+                  </h4>
+                  {ownerSocieties.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-6 w-6 rounded-md bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[9px] font-bold flex items-center justify-center shrink-0">
+                          {s.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-sm text-[var(--color-brand-deep)] truncate">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs font-semibold tabular-nums text-[var(--color-brand-blue)]">{pct(s.occupiedLots, s.lots)}%</span>
+                        <span className={`text-xs font-semibold tabular-nums ${s.cashBalance < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(s.cashBalance)}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
-
-      {/* Section 3 : Alertes (Impayés + Baux expirant) — side by side */}
-      {(data.totalOverdue > 0 || data.expiringLeases.length > 0) && (
-        <div className={`grid gap-4 ${data.totalOverdue > 0 && data.expiringLeases.length > 0 ? "lg:grid-cols-3" : ""}`}>
-          {/* Impayés par ancienneté */}
-          {data.totalOverdue > 0 && (
-            <Card className={`border-0 shadow-brand bg-white rounded-xl ${data.expiringLeases.length > 0 ? "lg:col-span-2" : ""}`}>
-              <CardHeader className="pb-3 px-5 pt-5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
-                    <Wallet className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
-                  </div>
-                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Impayés par ancienneté</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-1.5">
-                {data.overdueByAge.map((bucket) => (
-                  <div key={bucket.label} className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-[#F9FAFB] text-sm">
-                    <span className="text-[#64748B]">{bucket.label}</span>
-                    <span className={`font-semibold tabular-nums ${bucket.amount > 0 ? "text-[var(--color-status-caution)]" : "text-[#CBD5E1]"}`}>
-                      {fmt(bucket.amount)}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-[var(--color-status-caution-bg)] text-sm font-bold">
-                  <span className="text-[var(--color-brand-deep)]">Total</span>
-                  <span className="tabular-nums text-[var(--color-status-caution)]">{fmt(data.totalOverdue)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Baux expirant */}
-          {data.expiringLeases.length > 0 && (
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
-              <CardHeader className="pb-3 px-5 pt-5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--color-brand-light)]">
-                    <Calendar className="h-3.5 w-3.5 text-[var(--color-brand-blue)]" />
-                  </div>
-                  <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Baux expirant sous 90j</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-2">
-                {data.expiringLeases.map((l) => (
-                  <div key={l.id} className="rounded-lg bg-[#F9FAFB] px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium truncate text-[var(--color-brand-deep)]">{l.tenantName}</p>
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2 ${l.daysLeft <= 30 ? "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]" : "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]"}`}>
-                        {l.daysLeft}j
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-[#94A3B8]">{l.lotLabel} · {l.societyName}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+      </div>
+    </div>
+  ) : (
+    <div className="text-center py-12 text-muted-foreground">
+      Aucune donnée disponible
     </div>
   );
 
@@ -555,7 +678,7 @@ export default async function ProprietaireDashboardPage({
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Propriétaire</h1>
             <p className="text-sm text-muted-foreground">
-              {data.totalSocieties} société{data.totalSocieties > 1 ? "s" : ""} · {data.totalBuildings} immeuble{data.totalBuildings > 1 ? "s" : ""} · {data.totalLots} lots
+              {ownerData?.totalSocieties ?? 0} société{(ownerData?.totalSocieties ?? 0) > 1 ? "s" : ""} · {ownerData?.totalBuildings ?? 0} immeuble{(ownerData?.totalBuildings ?? 0) > 1 ? "s" : ""} · {ownerData?.totalLots ?? 0} lots
             </p>
           </div>
           <ProprietaireSelector

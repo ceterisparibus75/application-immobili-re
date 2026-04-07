@@ -3,16 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Calendar, FileWarning, CheckSquare } from "lucide-react";
 
-async function getTodayTasks(societyId: string) {
+async function getTodayTasks(societyId: string | string[]) {
   const now = new Date();
   const in30days = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
   const in90days = new Date(now.getTime() + 90 * 24 * 3600 * 1000);
   const ago30days = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
 
+  const societyFilter = Array.isArray(societyId) ? { in: societyId } : societyId;
+
   const [expiringDiagnostics, expiringLeases, overdueInvoices] = await Promise.all([
     prisma.diagnostic.findMany({
       where: {
-        building: { societyId },
+        building: { societyId: societyFilter },
         expiresAt: { gte: now, lte: in30days },
       },
       select: {
@@ -26,7 +28,7 @@ async function getTodayTasks(societyId: string) {
     }),
     prisma.lease.findMany({
       where: {
-        societyId,
+        societyId: societyFilter,
         status: "EN_COURS",
         endDate: { gte: now, lte: in90days },
       },
@@ -41,7 +43,7 @@ async function getTodayTasks(societyId: string) {
     }),
     prisma.invoice.findMany({
       where: {
-        societyId,
+        societyId: societyFilter,
         status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] },
         dueDate: { lt: ago30days },
       },
@@ -78,8 +80,10 @@ function daysOver(date: Date) {
   return Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
 }
 
-export async function TodayTasks({ societyId }: { societyId: string }) {
-  const { expiringDiagnostics, expiringLeases, overdueInvoices } = await getTodayTasks(societyId);
+export async function TodayTasks({ societyId, societyIds }: { societyId?: string; societyIds?: string[] }) {
+  const idParam = societyIds ?? societyId ?? "";
+  if (!idParam || (Array.isArray(idParam) && idParam.length === 0)) return null;
+  const { expiringDiagnostics, expiringLeases, overdueInvoices } = await getTodayTasks(idParam);
 
   const totalTasks = expiringDiagnostics.length + expiringLeases.length + overdueInvoices.length;
 

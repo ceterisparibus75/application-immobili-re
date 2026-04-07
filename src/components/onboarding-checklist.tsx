@@ -12,6 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Building2,
   Users,
   FileText,
@@ -20,6 +28,7 @@ import {
   Circle,
   ArrowRight,
   X,
+  EyeOff,
 } from "lucide-react";
 
 interface OnboardingStep {
@@ -37,6 +46,7 @@ export function OnboardingChecklist() {
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showDismissDialog, setShowDismissDialog] = useState(false);
 
   const steps: OnboardingStep[] = [
     {
@@ -138,9 +148,15 @@ export function OnboardingChecklist() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSociety?.id]);
 
-  function handleDismiss() {
+  function handleTemporaryDismiss() {
+    setShowDismissDialog(false);
+    setDismissed(true);
+  }
+
+  function handlePermanentDismiss() {
     const dismissedKey = `onboarding-dismissed-${activeSociety?.id ?? "global"}`;
     localStorage.setItem(dismissedKey, "true");
+    setShowDismissDialog(false);
     setDismissed(true);
   }
 
@@ -164,7 +180,7 @@ export function OnboardingChecklist() {
               Completez ces etapes pour commencer a gerer votre patrimoine
             </CardDescription>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleDismiss} title="Fermer">
+          <Button variant="ghost" size="icon" onClick={() => setShowDismissDialog(true)} title="Fermer">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -217,6 +233,26 @@ export function OnboardingChecklist() {
           })}
         </div>
       </CardContent>
+
+      <AlertDialog open={showDismissDialog} onOpenChange={setShowDismissDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Masquer le guide de démarrage ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vous pouvez le fermer temporairement ou le masquer définitivement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleTemporaryDismiss}>
+              Fermer pour le moment
+            </Button>
+            <Button variant="default" onClick={handlePermanentDismiss} className="gap-1.5">
+              <EyeOff className="h-4 w-4" />
+              Ne plus afficher
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
