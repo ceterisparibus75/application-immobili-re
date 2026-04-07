@@ -327,6 +327,9 @@ export async function migrateOwnerToProprietaire(): Promise<ActionResult<{ propr
 export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   id: string;
   label: string;
+  displayName: string;
+  entityType: string;
+  legalForm: string | null;
   societies: { id: string; name: string; legalForm: string; city: string; isActive: boolean; logoUrl: string | null }[];
 }[]>> {
   const session = await auth();
@@ -337,6 +340,11 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
     select: {
       id: true,
       label: true,
+      entityType: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
+      legalForm: true,
       societies: {
         select: { id: true, name: true, legalForm: true, city: true, isActive: true, logoUrl: true },
         orderBy: { name: "asc" },
@@ -345,5 +353,17 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
     orderBy: { createdAt: "asc" },
   });
 
-  return { success: true, data: proprietaires };
+  return {
+    success: true,
+    data: proprietaires.map((p) => ({
+      id: p.id,
+      label: p.label,
+      displayName: p.entityType === "PERSONNE_MORALE"
+        ? (p.companyName ?? p.label)
+        : [p.firstName, p.lastName].filter(Boolean).join(" ") || p.label,
+      entityType: p.entityType,
+      legalForm: p.legalForm,
+      societies: p.societies,
+    })),
+  };
 }
