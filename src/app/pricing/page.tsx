@@ -1,4 +1,4 @@
-import { Building2, Check, ChevronRight, ArrowRight } from "lucide-react";
+import { Check, ChevronRight, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -62,23 +62,41 @@ const plans = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-white/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Building2 className="h-4.5 w-4.5 text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">{APP_NAME}</span>
+          <Link href="/" className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" width={140} height={36} />
           </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-foreground">Fonctionnalités</Link>
-            <Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+            <Link href="/#solutions" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Solutions
+            </Link>
+            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Fonctionnalités
+            </Link>
+            <Link href="/pricing" className="text-[var(--color-brand-deep)] font-semibold">
+              Tarifs
+            </Link>
+            <Link href="/securite" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Sécurité
+            </Link>
+            <Link href="/contact" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Contact
+            </Link>
+          </nav>
+          <div className="flex items-center gap-3">
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="text-[var(--color-brand-deep)] font-semibold">
+                Se connecter
+              </Button>
+            </Link>
             <Link href="/signup">
-              <Button size="sm" className="gap-1.5">
+              <Button size="sm" className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
                 Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
-          </nav>
+          </div>
         </div>
       </header>
 

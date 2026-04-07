@@ -108,6 +108,23 @@ export default function SecurityPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-9" width={140} height={36} />
           </Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+            <Link href="/#solutions" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Solutions
+            </Link>
+            <Link href="/#fonctionnalites" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Fonctionnalités
+            </Link>
+            <Link href="/pricing" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Tarifs
+            </Link>
+            <Link href="/securite" className="text-[var(--color-brand-deep)] font-semibold">
+              Sécurité
+            </Link>
+            <Link href="/contact" className="text-muted-foreground hover:text-[var(--color-brand-deep)] transition-colors">
+              Contact
+            </Link>
+          </nav>
           <div className="flex items-center gap-3">
             <Link href="/login">
               <Button variant="ghost" size="sm" className="text-[var(--color-brand-deep)] font-semibold">
@@ -116,7 +133,7 @@ export default function SecurityPage() {
             </Link>
             <Link href="/signup">
               <Button size="sm" className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
-                Évaluer la solution <ArrowRight className="h-3.5 w-3.5" />
+                Essai gratuit <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
