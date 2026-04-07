@@ -210,6 +210,24 @@ export async function getBuildings(societyId: string) {
   return prisma.building.findMany({
     where: { societyId },
     include: {
+      lots: {
+        select: {
+          id: true,
+          status: true,
+          area: true,
+          leases: {
+            where: { status: "EN_COURS" },
+            select: { currentRentHT: true, paymentFrequency: true, endDate: true },
+            take: 1,
+          },
+        },
+      },
+      propertyValuations: {
+        where: { status: "COMPLETED" },
+        orderBy: { valuationDate: "desc" },
+        take: 1,
+        select: { estimatedValueMid: true, valuationDate: true },
+      },
       _count: { select: { lots: true, diagnostics: true, maintenances: true } },
     },
     orderBy: { name: "asc" },
