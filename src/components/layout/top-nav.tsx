@@ -34,7 +34,7 @@ const NAV_ITEMS_AFTER: NavItem[] = [
   { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
-  { name: "RGPD", href: "/rgpd" },
+  { name: "Centre d'aide", href: "/aide" },
 ];
 
 // ── Sous-items du menu "Gestion locative" ───────────────────────

@@ -7,7 +7,7 @@ import {
   Receipt, TrendingUp, Landmark, BookOpen, Contact,
   FolderOpen, Settings, Shield, ScrollText, Banknote,
   BarChart3, FileBarChart, Upload, Merge,
-  Layers, Wallet, Mail, Bell, Bot,
+  Layers, Wallet, Mail, Bell, Bot, HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -61,8 +61,8 @@ const navigation = [
     ],
   },
   {
-    title: "Conformité",
-    items: [{ name: "RGPD", href: "/rgpd", icon: Shield }],
+    title: "Aide",
+    items: [{ name: "Centre d'aide", href: "/aide", icon: HelpCircle }],
   },
   {
     title: "Administration",
