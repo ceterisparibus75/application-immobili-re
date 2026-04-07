@@ -168,9 +168,21 @@ export default function PricingPage() {
               <p className="font-bold text-base">Mes données sont-elles en sécurité ?</p>
               <p className="text-muted-foreground mt-2">Absolument. Chiffrement AES-256 pour les données sensibles, hébergement en Europe (Frankfurt), audit logs complets et conformité RGPD.</p>
             </div>
-            <div>
+            <div className="border-b pb-5">
               <p className="font-bold text-base">Que se passe-t-il si je dépasse les limites de mon plan ?</p>
               <p className="text-muted-foreground mt-2">Vous serez invité à passer au plan supérieur. Vos données existantes ne seront jamais supprimées.</p>
+            </div>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">Que comprend l&apos;essai gratuit ?</p>
+              <p className="text-muted-foreground mt-2">Pendant 14 jours, vous accédez à toutes les fonctionnalités de votre plan sans restriction. Aucune carte bancaire n&apos;est requise. À la fin de l&apos;essai, choisissez de vous abonner ou vos données seront conservées 30 jours.</p>
+            </div>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">Quelles fonctionnalités sont réservées au plan Enterprise ?</p>
+              <p className="text-muted-foreground mt-2">Le plan Enterprise inclut : lots et sociétés illimités, signature électronique intégrée, import IA de documents (Excel, CSV), accès API, et un support dédié avec SLA 99,9%.</p>
+            </div>
+            <div>
+              <p className="font-bold text-base">Puis-je importer mes données existantes ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Vous pouvez importer vos immeubles, lots, locataires et baux depuis des fichiers Excel ou CSV. Le plan Enterprise propose un import assisté par intelligence artificielle qui détecte et mappe automatiquement vos données.</p>
             </div>
           </div>
         </div>

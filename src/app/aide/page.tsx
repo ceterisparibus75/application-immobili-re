@@ -1,4 +1,4 @@
-import { Building2, BookOpen, Mail, Shield, CreditCard, FileText, Users, BarChart3, Banknote, HelpCircle } from "lucide-react";
+import { Building2, BookOpen, Mail, Shield, CreditCard, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock } from "lucide-react";
 import Link from "next/link";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
@@ -12,23 +12,49 @@ const guides = [
   {
     icon: <Building2 className="h-5 w-5" />,
     title: "Demarrage rapide",
-    description: "Creez votre societe, ajoutez vos immeubles et lots, et commencez a gerer.",
+    description: "Creez votre societe, ajoutez vos immeubles et lots, et commencez a gerer en quelques minutes.",
     items: [
-      "Creer une societe (SCI, SARL, etc.)",
-      "Ajouter un immeuble et ses lots",
-      "Enregistrer un locataire",
-      "Creer un bail et associer un locataire a un lot",
+      "Suivez le guide de demarrage interactif a la premiere connexion",
+      "Creer une societe (SCI, SARL, personne physique, etc.)",
+      "Ajouter un immeuble, ses lots et leurs diagnostics",
+      "Enregistrer un locataire et creer un bail",
+      "Profitez de 14 jours d'essai gratuit sans carte bancaire",
+    ],
+  },
+  {
+    icon: <Building2 className="h-5 w-5" />,
+    title: "Gestion du patrimoine",
+    description: "Gerez vos immeubles, lots, diagnostics, maintenances et inspections.",
+    items: [
+      "Fiche immeuble complete avec adresse, informations cadastrales et photos",
+      "Lots avec surface, etage, type (habitation, commercial, parking, etc.)",
+      "Suivi des diagnostics obligatoires (DPE, amiante, plomb, etc.) avec alertes d'expiration",
+      "Maintenances et interventions techniques avec historique",
+      "Etats des lieux d'entree et de sortie detailles",
+    ],
+  },
+  {
+    icon: <Users className="h-5 w-5" />,
+    title: "Gestion locative",
+    description: "Baux, locataires, revisions de loyer, charges et contacts.",
+    items: [
+      "Baux complets avec loyer, charges, depot de garantie et clauses",
+      "Fiche locataire (personne physique ou morale) avec documents",
+      "Revisions automatiques de loyer selon l'indice IRL/ILC/ILAT",
+      "Gestion des charges et provisions avec regularisation annuelle",
+      "Carnet de contacts (artisans, notaires, assureurs, etc.)",
     ],
   },
   {
     icon: <FileText className="h-5 w-5" />,
-    title: "Facturation",
-    description: "Generez des factures, quittances et suivez les paiements.",
+    title: "Facturation et paiements",
+    description: "Factures automatiques, paiements, relances, SEPA et quittances.",
     items: [
-      "Les factures brouillons sont generees automatiquement",
-      "Validez et envoyez les factures par email",
-      "Enregistrez les paiements recus",
-      "Generez des quittances de loyer en PDF",
+      "Generation automatique des factures brouillons chaque mois",
+      "Enregistrement des paiements (total, partiel, multi-factures)",
+      "Relances automatiques en 3 niveaux par email",
+      "Generation de mandats et fichiers de prelevement SEPA",
+      "Quittances de loyer en PDF envoyees par email",
     ],
   },
   {
@@ -37,42 +63,69 @@ const guides = [
     description: "Connectez vos comptes bancaires et rapprochez les transactions.",
     items: [
       "Ajoutez un compte bancaire manuellement ou via connexion Open Banking",
-      "Importez vos transactions bancaires",
-      "Rapprochez les transactions avec les factures",
+      "Importez vos transactions bancaires automatiquement",
+      "Rapprochez les transactions avec les factures en quelques clics",
       "Consultez vos ecritures comptables et exportez en FEC",
     ],
   },
   {
-    icon: <Users className="h-5 w-5" />,
-    title: "Gestion des locataires",
-    description: "Suivez vos locataires, leurs documents et communications.",
+    icon: <Layers className="h-5 w-5" />,
+    title: "Vue Proprietaire",
+    description: "Tableau de bord consolide pour piloter toutes vos societes d'un seul coup d'oeil.",
     items: [
-      "Fiche locataire complete (identite, contact, documents)",
-      "Portail locataire pour consultation des documents",
-      "Relances automatiques en cas d'impayes",
-      "Historique des echanges et notifications",
+      "KPIs agreges (revenus, occupation, impayes, tresorerie) sur toutes vos societes",
+      "Tableau de performance par societe avec comparaison",
+      "Vue consolidee de l'endettement et des preteurs",
+      "Graphiques de revenus, occupation et patrimoine multi-societes",
+      "Acces rapide aux taches urgentes (diagnostics, baux, impayes)",
+    ],
+  },
+  {
+    icon: <TrendingUp className="h-5 w-5" />,
+    title: "Evaluations IA et emprunts",
+    description: "Estimez la valeur de votre patrimoine et gerez vos emprunts bancaires.",
+    items: [
+      "Evaluation automatique de la valeur du patrimoine par intelligence artificielle",
+      "Gestion des emprunts : amortissable, in fine ou bullet",
+      "Tableau d'amortissement detaille avec echeances",
+      "Suivi du ratio LTV (Loan-to-Value) et de l'endettement global",
+      "Alertes sur les echeances a venir",
+    ],
+  },
+  {
+    icon: <FolderLock className="h-5 w-5" />,
+    title: "Documents, Dataroom et signatures",
+    description: "Stockez, partagez et faites signer vos documents en toute securite.",
+    items: [
+      "Stockage securise de tous vos documents (baux, diagnostics, factures, etc.)",
+      "Dataroom partagee pour vos partenaires (banques, notaires, acquereurs)",
+      "Signature electronique des documents directement dans l'application",
+      "Organisation automatique par categorie et par bien",
+      "Acces securise avec lien de partage a duree limitee",
     ],
   },
   {
     icon: <BarChart3 className="h-5 w-5" />,
     title: "Tableau de bord et rapports",
-    description: "Visualisez vos KPI et generez des rapports.",
+    description: "Visualisez vos KPI, analysez les tendances et generez des rapports detailles.",
     items: [
-      "Taux d'occupation, loyers percus, impayes",
-      "Graphiques de revenus et depenses",
-      "Rapports personnalisables par periode",
-      "Export des donnees en Excel",
+      "Taux d'occupation, loyers percus, impayes et tresorerie en temps reel",
+      "Graphiques interactifs : revenus mensuels, occupation, repartition du patrimoine",
+      "Analyse de la concentration des risques (locataires, secteurs)",
+      "Timeline des baux avec alertes d'echeance",
+      "Export FEC reglementaire et rapports comptables personnalisables",
     ],
   },
   {
     icon: <Shield className="h-5 w-5" />,
     title: "Securite et confidentialite",
-    description: "Protegez votre compte et les donnees de vos locataires.",
+    description: "Protegez votre compte, vos donnees et celles de vos locataires.",
     items: [
-      "Activez l'authentification a deux facteurs (2FA)",
-      "Gerez les roles et permissions de votre equipe",
-      "Donnees bancaires chiffrees (AES-256)",
-      "Module RGPD integre pour les droits des locataires",
+      "Authentification a deux facteurs (2FA) pour tous les utilisateurs",
+      "Gestion fine des roles et permissions (Admin, Gestionnaire, Comptable, Lecture)",
+      "Donnees bancaires chiffrees en AES-256-GCM",
+      "Portail locataire securise pour la consultation des documents et paiements",
+      "Module RGPD integre : consentements, droit d'acces, suppression et audit logs",
     ],
   },
 ];
@@ -80,7 +133,7 @@ const guides = [
 const faqs = [
   {
     q: "Comment ajouter un nouvel utilisateur a ma societe ?",
-    a: "Allez dans Administration > Utilisateurs > Inviter. L'utilisateur recevra un email avec ses identifiants. Vous pouvez lui attribuer un role (Gestionnaire, Comptable, Lecture seule).",
+    a: "Allez dans Administration > Utilisateurs > Inviter. L'utilisateur recevra un email avec ses identifiants. Vous pouvez lui attribuer un role (Admin, Gestionnaire, Comptable ou Lecture seule).",
   },
   {
     q: "Comment generer une quittance de loyer ?",
@@ -92,11 +145,11 @@ const faqs = [
   },
   {
     q: "Puis-je gerer plusieurs societes ?",
-    a: "Oui, selon votre plan. Le plan Starter permet 1 societe, le Pro jusqu'a 3, et l'Enterprise un nombre illimite. Chaque societe a ses propres donnees isolees.",
+    a: "Oui, selon votre plan. Le plan Starter permet 1 societe, le Pro jusqu'a 3, et l'Enterprise un nombre illimite. Chaque societe a ses propres donnees isolees. La vue Proprietaire permet de piloter l'ensemble depuis un tableau de bord unique.",
   },
   {
     q: "Comment exporter mes donnees comptables ?",
-    a: "Allez dans Comptabilite > Export FEC. Selectionnez la periode souhaitee et cliquez sur Exporter. Le fichier FEC est genere au format reglementaire.",
+    a: "Allez dans Comptabilite > Export FEC. Selectionnez la periode souhaitee et cliquez sur Exporter. Le fichier FEC est genere au format reglementaire francais.",
   },
   {
     q: "Mes donnees sont-elles securisees ?",
@@ -109,6 +162,34 @@ const faqs = [
   {
     q: "Comment contacter le support ?",
     a: "Envoyez-nous un email a contact@mygestia.immo. Les clients Enterprise beneficient d'un support prioritaire avec un temps de reponse garanti.",
+  },
+  {
+    q: "Comment fonctionne la vue Proprietaire ?",
+    a: "La vue Proprietaire consolide les donnees de toutes vos societes sur un seul tableau de bord. Vous y retrouvez les KPIs agreges (revenus, occupation, impayes, tresorerie), un tableau de performance par societe, et tous les graphiques detailles.",
+  },
+  {
+    q: "Comment utiliser les evaluations IA ?",
+    a: "L'evaluation IA estime automatiquement la valeur de votre patrimoine en se basant sur les donnees du marche. Accedez-y depuis la fiche d'un immeuble ou depuis le tableau de bord. Les estimations sont mises a jour regulierement.",
+  },
+  {
+    q: "Comment gerer mes emprunts ?",
+    a: "Allez dans Emprunts > Nouveau. Renseignez le type (amortissable, in fine ou bullet), le montant, le taux et la duree. L'application genere automatiquement le tableau d'amortissement et suit vos echeances.",
+  },
+  {
+    q: "Qu'est-ce que la Dataroom ?",
+    a: "La Dataroom est un espace de partage securise pour vos documents. Vous pouvez generer des liens d'acces a duree limitee pour vos partenaires (banques, notaires, acquereurs) sans leur donner acces a toute l'application.",
+  },
+  {
+    q: "Comment fonctionne le prelevement SEPA ?",
+    a: "Depuis Facturation > SEPA, generez des mandats de prelevement pour vos locataires. Vous pouvez ensuite generer un fichier SEPA regroupant les prelevements du mois, a transmettre a votre banque.",
+  },
+  {
+    q: "Comment mes locataires accedent au portail ?",
+    a: "Chaque locataire recoit un lien d'acces securise a son portail personnel. Il peut y consulter ses factures, quittances, documents du bail et effectuer ses paiements en ligne.",
+  },
+  {
+    q: "Comment generer des rapports avances ?",
+    a: "Depuis le tableau de bord, accedez aux rapports detailles : revenus mensuels, taux d'occupation, analyse des impayes, evolution du patrimoine. Tous les rapports sont exportables en PDF ou Excel.",
   },
 ];
 
