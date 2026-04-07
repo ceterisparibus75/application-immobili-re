@@ -23,7 +23,7 @@ export function ProprietaireTabs({ dashboardContent, profileContent, societiesCo
         </TabsTrigger>
         <TabsTrigger value="profile">
           <User className="h-4 w-4 mr-2" />
-          Mon profil
+          Profil Propriétaire
         </TabsTrigger>
       </TabsList>
       <TabsContent value="dashboard">

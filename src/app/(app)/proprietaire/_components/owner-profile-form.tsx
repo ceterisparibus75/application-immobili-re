@@ -101,7 +101,7 @@ export function OwnerProfileForm({ profile }: Props) {
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2">
             <User className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Mon profil</CardTitle>
+            <CardTitle>Profil Propriétaire</CardTitle>
           </div>
           <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
             <Pencil className="h-4 w-4 mr-2" />
@@ -166,7 +166,7 @@ export function OwnerProfileForm({ profile }: Props) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-2">
           <User className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Mon profil</CardTitle>
+          <CardTitle>Profil Propriétaire</CardTitle>
         </div>
       </CardHeader>
       <CardContent>
