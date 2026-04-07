@@ -21,10 +21,25 @@ export type ProprietaireListItem = {
   createdAt: Date;
 };
 
+export type ProprietaireAssocie = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  birthDate: Date | null;
+  birthPlace: string | null;
+  nationality: string | null;
+  profession: string | null;
+  share: string | null;
+  role: string | null;
+};
+
 export type ProprietaireDetail = {
   id: string;
   label: string;
   entityType: ProprietaireEntityType;
+  email: string | null;
   // Personne physique
   firstName: string | null;
   lastName: string | null;
@@ -46,11 +61,28 @@ export type ProprietaireDetail = {
   registrationCity: string | null;
   representativeName: string | null;
   representativeRole: string | null;
+  // Associés
+  associes: ProprietaireAssocie[];
+};
+
+export type AssocieInput = {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  nationality?: string;
+  profession?: string;
+  share?: string;
+  role?: string;
 };
 
 export type CreateProprietaireInput = {
   label: string;
   entityType?: ProprietaireEntityType;
+  email?: string;
   // Personne physique
   firstName?: string;
   lastName?: string;
@@ -72,6 +104,8 @@ export type CreateProprietaireInput = {
   registrationCity?: string;
   representativeName?: string;
   representativeRole?: string;
+  // Associés
+  associes?: AssocieInput[];
 };
 
 export type UpdateProprietaireInput = CreateProprietaireInput & { id: string };
@@ -156,6 +190,7 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
       id: true,
       label: true,
       entityType: true,
+      email: true,
       firstName: true,
       lastName: true,
       phone: true,
@@ -175,6 +210,22 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
       registrationCity: true,
       representativeName: true,
       representativeRole: true,
+      associes: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          birthDate: true,
+          birthPlace: true,
+          nationality: true,
+          profession: true,
+          share: true,
+          role: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -195,6 +246,7 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
       userId: session.user.id,
       label: input.label.trim(),
       entityType: input.entityType ?? "PERSONNE_PHYSIQUE",
+      email: input.email?.trim() || null,
       // Personne physique
       firstName: input.firstName?.trim() || null,
       lastName: input.lastName?.trim() || null,
@@ -216,6 +268,25 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
       registrationCity: input.registrationCity?.trim() || null,
       representativeName: input.representativeName?.trim() || null,
       representativeRole: input.representativeRole?.trim() || null,
+      // Associés
+      ...(input.associes && input.associes.length > 0
+        ? {
+            associes: {
+              create: input.associes.map((a) => ({
+                firstName: a.firstName.trim(),
+                lastName: a.lastName.trim(),
+                email: a.email?.trim() || null,
+                phone: a.phone?.trim() || null,
+                birthDate: a.birthDate ? new Date(a.birthDate) : null,
+                birthPlace: a.birthPlace?.trim() || null,
+                nationality: a.nationality?.trim() || null,
+                profession: a.profession?.trim() || null,
+                share: a.share?.trim() || null,
+                role: a.role?.trim() || null,
+              })),
+            },
+          }
+        : {}),
     },
   });
 
@@ -255,11 +326,13 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
   });
   if (!existing) return { success: false, error: "Propriétaire introuvable ou accès refusé" };
 
+  // Mettre à jour le propriétaire
   await prisma.proprietaire.update({
     where: { id: input.id },
     data: {
       label: input.label.trim(),
       entityType: input.entityType ?? undefined,
+      email: input.email?.trim() || null,
       // Personne physique
       firstName: input.firstName?.trim() || null,
       lastName: input.lastName?.trim() || null,
@@ -283,6 +356,64 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
       representativeRole: input.representativeRole?.trim() || null,
     },
   });
+
+  // Gérer les associés si fournis
+  if (input.associes !== undefined) {
+    // Récupérer les associés existants
+    const existingAssocies = await prisma.proprietaireAssocie.findMany({
+      where: { proprietaireId: input.id },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingAssocies.map((a) => a.id));
+    const inputIds = new Set(input.associes.filter((a) => a.id).map((a) => a.id!));
+
+    // Supprimer les associés qui ne sont plus dans la liste
+    const toDelete = [...existingIds].filter((id) => !inputIds.has(id));
+    if (toDelete.length > 0) {
+      await prisma.proprietaireAssocie.deleteMany({
+        where: { id: { in: toDelete } },
+      });
+    }
+
+    // Créer ou mettre à jour les associés
+    for (const associe of input.associes) {
+      if (associe.id && existingIds.has(associe.id)) {
+        // Mise à jour
+        await prisma.proprietaireAssocie.update({
+          where: { id: associe.id },
+          data: {
+            firstName: associe.firstName.trim(),
+            lastName: associe.lastName.trim(),
+            email: associe.email?.trim() || null,
+            phone: associe.phone?.trim() || null,
+            birthDate: associe.birthDate ? new Date(associe.birthDate) : null,
+            birthPlace: associe.birthPlace?.trim() || null,
+            nationality: associe.nationality?.trim() || null,
+            profession: associe.profession?.trim() || null,
+            share: associe.share?.trim() || null,
+            role: associe.role?.trim() || null,
+          },
+        });
+      } else {
+        // Création
+        await prisma.proprietaireAssocie.create({
+          data: {
+            proprietaireId: input.id,
+            firstName: associe.firstName.trim(),
+            lastName: associe.lastName.trim(),
+            email: associe.email?.trim() || null,
+            phone: associe.phone?.trim() || null,
+            birthDate: associe.birthDate ? new Date(associe.birthDate) : null,
+            birthPlace: associe.birthPlace?.trim() || null,
+            nationality: associe.nationality?.trim() || null,
+            profession: associe.profession?.trim() || null,
+            share: associe.share?.trim() || null,
+            role: associe.role?.trim() || null,
+          },
+        });
+      }
+    }
+  }
 
   revalidatePath("/proprietaire");
   return { success: true };

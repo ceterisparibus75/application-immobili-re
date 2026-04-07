@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getOwnerAnalytics, getClaimableSocieties, getOwnerProfile } from "@/actions/owner";
+import { getOwnerAnalytics, getClaimableSocieties } from "@/actions/owner";
 import { getConsolidatedAnalyticsData } from "@/actions/analytics";
 import { getProprietaires, getProprietaire, migrateOwnerToProprietaire } from "@/actions/proprietaire";
 import { getSocieties } from "@/actions/society";
@@ -17,7 +17,6 @@ import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { UserRole } from "@/generated/prisma/client";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
-import { OwnerProfileForm } from "./_components/owner-profile-form";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
 import { ProprietaireProfileForm } from "./_components/proprietaire-profile-form";
@@ -63,10 +62,9 @@ export default async function ProprietaireDashboardPage({
   const params = await searchParams;
   const selectedPid = params.pid;
 
-  const [propResult, claimableResult, profileResult, societies] = await Promise.all([
+  const [propResult, claimableResult, societies] = await Promise.all([
     getProprietaires().catch((err) => { console.error("[ProprietairePage] getProprietaires error:", err); return { success: false as const, data: [] as never[], error: "" }; }),
     getClaimableSocieties().catch((err) => { console.error("[ProprietairePage] getClaimableSocieties error:", err); return { success: false as const, data: [] as never[], error: "" }; }),
-    getOwnerProfile().catch((err) => { console.error("[ProprietairePage] getOwnerProfile error:", err); return { success: false as const, data: undefined, error: "" }; }),
     getSocieties().catch((err) => { console.error("[ProprietairePage] getSocieties error:", err); return []; }),
   ]);
 
@@ -83,7 +81,6 @@ export default async function ProprietaireDashboardPage({
   ]);
 
   const claimable = claimableResult.success ? (claimableResult.data ?? []) : [];
-  const profile = profileResult.success ? profileResult.data : null;
   const activePropDetail = proprietaireDetail.success ? proprietaireDetail.data : null;
   const ownerData = ownerResult.success ? ownerResult.data : null;
 
@@ -701,7 +698,6 @@ export default async function ProprietaireDashboardPage({
         profileContent={
           <div className="space-y-6">
             {activePropDetail && <ProprietaireProfileForm proprietaire={activePropDetail} />}
-            {profile && <OwnerProfileForm profile={profile} />}
           </div>
         }
         societiesContent={societiesContent}
