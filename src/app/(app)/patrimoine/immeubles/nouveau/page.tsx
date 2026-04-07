@@ -614,7 +614,6 @@ export default function NouvelImmeubleePage() {
                   id="acquisitionPrice"
                   name="acquisitionPrice"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqPrice}
@@ -627,7 +626,6 @@ export default function NouvelImmeubleePage() {
                   id="acquisitionFees"
                   name="acquisitionFees"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqFees}
@@ -640,7 +638,6 @@ export default function NouvelImmeubleePage() {
                   id="acquisitionTaxes"
                   name="acquisitionTaxes"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqTaxes}
@@ -653,7 +650,6 @@ export default function NouvelImmeubleePage() {
                   id="acquisitionOtherCosts"
                   name="acquisitionOtherCosts"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqOther}
@@ -689,7 +685,6 @@ export default function NouvelImmeubleePage() {
                   id="totalArea"
                   name="totalArea"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                 />
@@ -700,7 +695,6 @@ export default function NouvelImmeubleePage() {
                   id="netBookValue"
                   name="netBookValue"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                 />

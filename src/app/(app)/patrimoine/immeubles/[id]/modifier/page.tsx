@@ -299,7 +299,6 @@ export default function ModifierImmeubleePage() {
                   id="acquisitionPrice"
                   name="acquisitionPrice"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqPrice}
@@ -312,7 +311,6 @@ export default function ModifierImmeubleePage() {
                   id="acquisitionFees"
                   name="acquisitionFees"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqFees}
@@ -325,7 +323,6 @@ export default function ModifierImmeubleePage() {
                   id="acquisitionTaxes"
                   name="acquisitionTaxes"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqTaxes}
@@ -338,7 +335,6 @@ export default function ModifierImmeubleePage() {
                   id="acquisitionOtherCosts"
                   name="acquisitionOtherCosts"
                   type="number"
-                  min={0}
                   step={0.01}
                   placeholder="0.00"
                   value={acqOther}
