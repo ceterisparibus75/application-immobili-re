@@ -31,6 +31,7 @@ const envSchema = z.object({
   GOOGLE_AI_API_KEY: z.string().optional(),
   MISTRAL_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  NEXT_PUBLIC_ZENDESK_KEY: z.string().optional(),
 });
 
 const isBuildPhase =

@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ZendeskWidget } from "@/components/zendesk-widget";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -66,6 +67,7 @@ export default function RootLayout({
               {children}
             </Sentry.ErrorBoundary>
             <Toaster richColors closeButton />
+            <ZendeskWidget />
             <Analytics />
             <SpeedInsights />
           </ThemeProvider>
