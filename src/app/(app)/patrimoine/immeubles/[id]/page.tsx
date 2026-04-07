@@ -250,6 +250,26 @@ export default async function ImmeubleDetailPage({
                   : null
               }
             />
+            <InfoRow
+              label="Coût complet"
+              value={(() => {
+                const total = (building.acquisitionPrice ?? 0) + (building.acquisitionFees ?? 0) + (building.acquisitionTaxes ?? 0) + (building.acquisitionOtherCosts ?? 0) + (building.worksCost ?? 0);
+                return total > 0 ? `${total.toLocaleString("fr-FR")} €` : null;
+              })()}
+            />
+            {building.propertyValuations?.[0] && (() => {
+              const v = building.propertyValuations[0];
+              const expert = v.expertReports?.[0];
+              const label = expert
+                ? `Expertise ${expert.expertName} du ${new Date(expert.reportDate).toLocaleDateString("fr-FR")}`
+                : `Estimation IA du ${new Date(v.valuationDate).toLocaleDateString("fr-FR")}`;
+              return (
+                <InfoRow
+                  label="Valeur vénale actualisée"
+                  value={v.estimatedValueMid ? `${v.estimatedValueMid.toLocaleString("fr-FR")} €` : null}
+                />
+              );
+            })()}
             {building.propertyValuations?.[0] && (() => {
               const v = building.propertyValuations[0];
               const expert = v.expertReports?.[0];

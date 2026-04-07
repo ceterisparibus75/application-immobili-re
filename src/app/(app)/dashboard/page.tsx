@@ -15,8 +15,6 @@ import { RiskConcentrationChart } from "@/components/dashboard/risk-concentratio
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { UpcomingTasks } from "@/components/dashboard/upcoming-tasks";
-import { QuickActions } from "@/components/dashboard/quick-actions";
-import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
 
 export const metadata = { title: "Tableau de bord" };
@@ -44,12 +42,6 @@ export default async function DashboardPage() {
         </div>
         <ExportPdfButton />
       </div>
-
-      {/* ── Quick Actions ── */}
-      <QuickActions />
-
-      {/* ── Onboarding Checklist ── */}
-      <OnboardingChecklist />
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
