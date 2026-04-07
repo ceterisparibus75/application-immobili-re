@@ -24,7 +24,7 @@ interface LeaseItem {
   id: string;
   tenantName: string;
   buildingName: string;
-  lotNumber: number;
+  lotNumber: string;
   leaseType: string;
   currentRentHT: number;
   paymentFrequency: string;
