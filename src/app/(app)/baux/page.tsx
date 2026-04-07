@@ -242,9 +242,10 @@ export default async function BauxPage({
                     <thead>
                       <tr className="border-b bg-muted/30">
                         <th className="text-left py-2 px-4 font-medium text-muted-foreground">Locataire</th>
-                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Loyer HT</th>
                         <th className="text-center py-2 px-4 font-medium text-muted-foreground">Type</th>
                         <th className="text-center py-2 px-4 font-medium text-muted-foreground">Statut</th>
+                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Durée restante</th>
+                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Loyer HT</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -252,7 +253,7 @@ export default async function BauxPage({
                         <Fragment key={`building-${group.buildingId}`}>
                           {/* Building group header */}
                           <tr className="bg-muted/20">
-                            <td colSpan={4} className="py-2 px-4">
+                            <td colSpan={5} className="py-2 px-4">
                               <div className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-primary shrink-0" />
                                 <div className="min-w-0">
@@ -268,7 +269,24 @@ export default async function BauxPage({
                             </td>
                           </tr>
                           {/* Leases in this building */}
-                          {group.leases.map((lease) => (
+                          {group.leases.map((lease) => {
+                            const now = new Date();
+                            const end = new Date(lease.endDate);
+                            const diffMs = end.getTime() - now.getTime();
+                            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                            const diffMonths = Math.floor(diffDays / 30.44);
+                            const years = Math.floor(diffMonths / 12);
+                            const months = diffMonths % 12;
+                            let remainingLabel: string;
+                            if (diffDays <= 0) {
+                              remainingLabel = "Expiré";
+                            } else if (years > 0) {
+                              remainingLabel = months > 0 ? `${years} an${years > 1 ? "s" : ""} ${months} mois` : `${years} an${years > 1 ? "s" : ""}`;
+                            } else {
+                              remainingLabel = `${diffMonths} mois`;
+                            }
+                            const isExpiringSoon = diffDays > 0 && diffDays <= 90;
+                            return (
                             <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                               <td className="py-2.5 px-4 pl-10">
                                 <Link href={`/baux/${lease.id}`} className="block">
@@ -277,6 +295,17 @@ export default async function BauxPage({
                                     Lot {lease.lot.number}
                                   </p>
                                 </Link>
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                <Badge variant="outline">{TYPE_LABELS[lease.leaseType]}</Badge>
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                <span className={`text-sm tabular-nums ${diffDays <= 0 ? "text-destructive font-medium" : isExpiringSoon ? "text-[var(--color-status-caution)] font-medium" : "text-muted-foreground"}`}>
+                                  {remainingLabel}
+                                </span>
                               </td>
                               <td className="py-2.5 px-4 text-right">
                                 <Link href={`/baux/${lease.id}`} className="block">
@@ -288,24 +317,18 @@ export default async function BauxPage({
                                   </p>
                                 </Link>
                               </td>
-                              <td className="py-2.5 px-4 text-center">
-                                <Badge variant="outline">{TYPE_LABELS[lease.leaseType]}</Badge>
-                              </td>
-                              <td className="py-2.5 px-4 text-center">
-                                <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
-                              </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </Fragment>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-muted/40 font-semibold">
-                        <td className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
+                        <td colSpan={4} className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
                         <td className="py-2.5 px-4 text-right tabular-nums">
                           {monthlyTotal(actifs).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&euro; HT/mois
                         </td>
-                        <td colSpan={2}></td>
                       </tr>
                     </tfoot>
                   </table>
