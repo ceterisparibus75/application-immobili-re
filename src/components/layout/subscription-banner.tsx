@@ -18,7 +18,7 @@ export function SubscriptionBanner() {
 
   useEffect(() => {
     if (!activeSociety?.id) return;
-    setDismissed(false);
+    queueMicrotask(() => setDismissed(false));
 
     async function checkStatus() {
       try {

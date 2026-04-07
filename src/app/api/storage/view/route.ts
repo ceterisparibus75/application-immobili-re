@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -19,6 +21,26 @@ export async function GET(req: NextRequest) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const cleanPath = path.replace(/\.\.\//g, "").replace(/^\//, "");
+
+  // P0 security: verify the requested path belongs to the user's active society
+  const cookieStore = await cookies();
+  const societyId = cookieStore.get("active-society-id")?.value;
+  if (!societyId) return new NextResponse(null, { status: 403 });
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+  } catch (error) {
+    if (error instanceof ForbiddenError) return new NextResponse(null, { status: 403 });
+    return new NextResponse(null, { status: 403 });
+  }
+
+  // Ensure the path is scoped to the user's society (documents/{societyId}/... or logos/{societyId}/...)
+  const pathSegments = cleanPath.split("/");
+  const societyPathIndex = pathSegments.indexOf(societyId);
+  if (societyPathIndex < 0) {
+    console.error("[storage/view] Rejected cross-tenant access:", cleanPath, "society:", societyId);
+    return new NextResponse(null, { status: 403 });
+  }
   const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
   // Téléchargement direct — contourne les problèmes de CORS et de policies sur les URLs signées
