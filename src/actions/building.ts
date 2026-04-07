@@ -214,6 +214,7 @@ export async function getBuildings(societyId: string) {
       lots: {
         select: {
           id: true,
+          number: true,
           status: true,
           currentRent: true,
           area: true,
