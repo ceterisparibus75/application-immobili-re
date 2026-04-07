@@ -181,7 +181,10 @@ export async function getPowensTransactions(
     `${baseUrl()}/users/${userId}/accounts/${accountId}/transactions?${params}`,
     { headers: { Authorization: `Bearer ${userToken}` } }
   );
-  if (!res.ok) throw new Error(`[powens] getTransactions (${res.status})`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`[powens] getTransactions (${res.status}): ${txt}`);
+  }
   const data = (await res.json()) as { transactions: PowensTransaction[] };
   return data.transactions ?? [];
 }

@@ -207,8 +207,20 @@ export async function syncAccountTransactions(
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    console.error("[syncAccountTransactions]", error);
-    return { success: false, error: "Erreur sync transactions" };
+    const errMsg = error instanceof Error ? error.message : "Erreur inconnue";
+    console.error("[syncAccountTransactions]", errMsg);
+
+    // Erreurs Powens courantes
+    if (errMsg.includes("403") || errMsg.includes("401")) {
+      return { success: false, error: "Connexion bancaire expirée. Veuillez reconnecter votre compte via Open Banking." };
+    }
+    if (errMsg.includes("429")) {
+      return { success: false, error: "Trop de requêtes. Réessayez dans quelques minutes." };
+    }
+    if (errMsg.includes("fetch") || errMsg.includes("ECONNREFUSED") || errMsg.includes("network")) {
+      return { success: false, error: "Impossible de joindre le service bancaire. Réessayez plus tard." };
+    }
+    return { success: false, error: `Erreur de synchronisation : ${errMsg}` };
   }
 }
 
