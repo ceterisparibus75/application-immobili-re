@@ -96,7 +96,7 @@ export const EXPLOITATION_STATUS_GROUPS = [
   },
 ] as const;
 
-export const EXPLOITATION_STATUSES = EXPLOITATION_STATUS_GROUPS.flatMap(g => g.items);
+export const EXPLOITATION_STATUSES = EXPLOITATION_STATUS_GROUPS.flatMap(g => [...g.items]) as readonly { value: string; label: string }[];
 
 export const DIAGNOSTIC_TYPES = [
   { value: "DPE", label: "DPE - Performance énergétique" },

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { updateLot } from "@/actions/lot";
+import type { UpdateLotInput } from "@/validations/lot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +93,7 @@ export default function ModifierLotPage() {
       position: data.position,
       description: data.description,
       status: data.status as "OCCUPE" | "VACANT" | "EN_TRAVAUX" | "RESERVE",
-      exploitationStatus: data.exploitationStatus || "INCONNU",
+      exploitationStatus: (data.exploitationStatus || "INCONNU") as UpdateLotInput["exploitationStatus"],
       marketRentValue: data.marketRentValue ? parseFloat(data.marketRentValue) : undefined,
       currentRent: data.currentRent ? parseFloat(data.currentRent) : undefined,
     });

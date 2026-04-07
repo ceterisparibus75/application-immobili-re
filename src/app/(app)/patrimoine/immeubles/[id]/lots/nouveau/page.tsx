@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createLot } from "@/actions/lot";
+import type { CreateLotInput } from "@/validations/lot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +61,7 @@ export default function NouveauLotPage() {
       position: data.position,
       description: data.description,
       status: (data.status as "OCCUPE" | "VACANT" | "EN_TRAVAUX" | "RESERVE") || "VACANT",
-      exploitationStatus: data.exploitationStatus || "INCONNU",
+      exploitationStatus: (data.exploitationStatus || "INCONNU") as CreateLotInput["exploitationStatus"],
       marketRentValue: data.marketRentValue ? parseFloat(data.marketRentValue) : undefined,
       currentRent: data.currentRent ? parseFloat(data.currentRent) : undefined,
     });

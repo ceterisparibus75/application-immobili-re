@@ -274,6 +274,7 @@ export default function NouvelImmeubleePage() {
           floor: lot.floor ?? undefined,
           description: lot.description ?? undefined,
           status: "VACANT",
+          exploitationStatus: "INCONNU",
         });
         if (!lotResult.success) {
           lotErrors.push(`Lot ${number} : ${lotResult.error}`);

@@ -16,6 +16,7 @@ const validInput = {
   lotType: "BUREAUX" as const,
   area: 75.5,
   status: "VACANT" as const,
+  exploitationStatus: "INCONNU" as const,
 }
 
 const buildLot = (overrides = {}) => ({
@@ -29,6 +30,7 @@ const buildLot = (overrides = {}) => ({
   position: null,
   description: null,
   status: "VACANT",
+  exploitationStatus: "INCONNU",
   marketRentValue: null,
   currentRent: null,
   createdAt: new Date(),
@@ -71,7 +73,7 @@ describe("createLot", () => {
     expect(result.success).toBe(false)
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   it("retourne une erreur si lotType invalide", async () => {
     mockAuthSession()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
