@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { LOT_TYPES, LOT_STATUSES } from "@/lib/constants";
+import { LOT_TYPES, LOT_STATUSES, EXPLOITATION_STATUSES } from "@/lib/constants";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
@@ -60,6 +60,7 @@ export default function NouveauLotPage() {
       position: data.position,
       description: data.description,
       status: (data.status as "OCCUPE" | "VACANT" | "EN_TRAVAUX" | "RESERVE") || "VACANT",
+      exploitationStatus: data.exploitationStatus || "INCONNU",
       marketRentValue: data.marketRentValue ? parseFloat(data.marketRentValue) : undefined,
       currentRent: data.currentRent ? parseFloat(data.currentRent) : undefined,
     });
@@ -149,6 +150,15 @@ export default function NouveauLotPage() {
                   defaultValue="VACANT"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exploitationStatus">Statut d&apos;exploitation</Label>
+              <NativeSelect
+                id="exploitationStatus"
+                name="exploitationStatus"
+                options={[...EXPLOITATION_STATUSES]}
+                defaultValue="INCONNU"
+              />
             </div>
           </CardContent>
         </Card>

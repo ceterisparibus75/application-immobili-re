@@ -14,6 +14,8 @@ import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { RiskConcentrationChart } from "@/components/dashboard/risk-concentration-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
+import { UpcomingTasks } from "@/components/dashboard/upcoming-tasks";
+import { QuickActions } from "@/components/dashboard/quick-actions";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
 
@@ -42,6 +44,9 @@ export default async function DashboardPage() {
         </div>
         <ExportPdfButton />
       </div>
+
+      {/* ── Quick Actions ── */}
+      <QuickActions />
 
       {/* ── Onboarding Checklist ── */}
       <OnboardingChecklist />
@@ -211,6 +216,7 @@ export default async function DashboardPage() {
         {/* Colonne droite : Panneau de suivi (1/3) */}
         <div className="space-y-5">
           <TodayTasks societyId={societyId} />
+          <UpcomingTasks societyId={societyId} />
 
           {/* Panneau de suivi complet */}
           <Card className="border-0 shadow-brand bg-white rounded-xl">

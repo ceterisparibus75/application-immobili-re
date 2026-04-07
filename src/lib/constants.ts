@@ -58,6 +58,46 @@ export const LOT_STATUSES = [
   { value: "RESERVE", label: "Réservé" },
 ] as const;
 
+export const EXPLOITATION_STATUS_GROUPS = [
+  {
+    group: "En exploitation",
+    items: [
+      { value: "EE_EN_EXPLOITATION", label: "En exploitation" },
+      { value: "EE_MISE_HE_PREVUE", label: "Mise hors exploitation prévue" },
+      { value: "EE_EN_VENTE", label: "En vente" },
+    ],
+  },
+  {
+    group: "Hors exploitation",
+    items: [
+      { value: "HE_EN_ACQUISITION", label: "En acquisition" },
+      { value: "HE_EN_CONSTRUCTION", label: "En construction" },
+      { value: "HE_EN_RENOVATION", label: "En rénovation" },
+      { value: "HE_EN_TRAVAUX", label: "En travaux" },
+      { value: "HE_PERMIS_EN_ATTENTE", label: "Permis en attente" },
+      { value: "HE_EN_LIVRAISON", label: "En livraison" },
+      { value: "HE_MISE_EE_PREVUE", label: "Mise en exploitation prévue" },
+      { value: "HE_AUTRE", label: "Autre (hors exploitation)" },
+    ],
+  },
+  {
+    group: "Fin d'exploitation",
+    items: [
+      { value: "FE_VENDU", label: "Vendu" },
+      { value: "FE_DETRUIT", label: "Détruit" },
+      { value: "FE_AUTRE", label: "Autre (fin d'exploitation)" },
+    ],
+  },
+  {
+    group: "Inconnu",
+    items: [
+      { value: "INCONNU", label: "Inconnu" },
+    ],
+  },
+] as const;
+
+export const EXPLOITATION_STATUSES = EXPLOITATION_STATUS_GROUPS.flatMap(g => g.items);
+
 export const DIAGNOSTIC_TYPES = [
   { value: "DPE", label: "DPE - Performance énergétique" },
   { value: "AMIANTE", label: "Amiante" },

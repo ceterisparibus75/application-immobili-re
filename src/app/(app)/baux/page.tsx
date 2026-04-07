@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { getLeases } from "@/actions/lease";
+import { getFilteredLeases } from "@/actions/lease";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LeaseStatus, LeaseType, TenantEntityType, PaymentFrequency } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+import { BauxFilters } from "./_components/baux-filters";
 
 const FREQ_PERIOD_LABELS: Record<PaymentFrequency, string> = {
   MENSUEL: "mois",
@@ -64,6 +66,18 @@ const TYPE_LABELS: Record<LeaseType, string> = {
   REHABILITATION: "Réhabilitation",
   BRS: "BRS",
   RURAL: "Rural",
+  AUTORISATION_OCCUPATION_TEMPORAIRE: "AOT",
+  CONVENTION_OCCUPATION_PRECAIRE: "COP",
+  CONVENTION_OCCUPATION_TEMPORAIRE: "COT",
+  BAIL_METAYAGE: "Métayage",
+  CONVENTION_COLIVING: "Coliving",
+  CONVENTION_MISE_A_DISPOSITION: "CMD",
+  BAIL_GLISSANT: "Glissant",
+  BAIL_LOI_48: "Loi 48",
+  LOCATION_PARKING: "Parking",
+  LOCATION_STOCKAGE: "Stockage",
+  DROIT_DE_PASSAGE: "Passage",
+  AUTRE: "Autre",
 };
 
 const FREQ_MULTIPLIER: Record<string, number> = {
@@ -124,13 +138,40 @@ function monthlyTotal(leases: Lease[]): number {
   );
 }
 
-export default async function BauxPage() {
+export default async function BauxPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
 
   if (!societyId) redirect("/societes");
 
-  const leases = await getLeases(societyId);
+  const params = await searchParams;
+  const statusFilter = typeof params.filter_status === "string" ? params.filter_status : undefined;
+  const leaseTypeFilter = typeof params.filter_leaseType === "string" ? params.filter_leaseType : undefined;
+  const buildingFilter = typeof params.filter_buildingId === "string" ? params.filter_buildingId : undefined;
+  const proprietaireFilter = typeof params.filter_proprietaireId === "string" ? params.filter_proprietaireId : undefined;
+
+  const [leases, buildings, proprietaires] = await Promise.all([
+    getFilteredLeases(societyId, {
+      status: statusFilter,
+      leaseType: leaseTypeFilter,
+      buildingId: buildingFilter,
+      proprietaireId: proprietaireFilter,
+    }),
+    prisma.building.findMany({
+      where: { societyId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.proprietaire.findMany({
+      where: { societies: { some: { id: societyId } } },
+      select: { id: true, label: true },
+      orderBy: { label: "asc" },
+    }),
+  ]);
 
   const actifs = leases.filter((l) => l.status === "EN_COURS");
   const autres = leases.filter((l) => l.status !== "EN_COURS");
@@ -148,6 +189,7 @@ export default async function BauxPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <BauxFilters buildings={buildings} proprietaires={proprietaires} />
           <Link href="/import">
             <Button variant="outline">
               <Upload className="h-4 w-4" />

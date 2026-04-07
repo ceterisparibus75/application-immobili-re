@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp } from "lucide-react";
+import { ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, TicketCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
 import { ProprietaireSwitcher } from "./proprietaire-switcher";
@@ -46,6 +46,7 @@ const GESTION_LOCATIVE_ITEMS = [
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
   { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
+  { name: "Tickets", href: "/tickets", icon: TicketCheck },
 ];
 
 const GESTION_LOCATIVE_PATHS = GESTION_LOCATIVE_ITEMS.map((i) => i.href);

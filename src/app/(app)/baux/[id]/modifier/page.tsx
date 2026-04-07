@@ -57,7 +57,31 @@ const LEASE_TYPE_OPTIONS = [
   },
   {
     group: "Rural",
-    items: [{ value: "RURAL", label: "Bail rural / agricole (9 ans min.)" }],
+    items: [
+      { value: "RURAL", label: "Bail rural / agricole (9 ans min.)" },
+      { value: "BAIL_METAYAGE", label: "Bail à métayage" },
+    ],
+  },
+  {
+    group: "Occupations / Conventions",
+    items: [
+      { value: "AUTORISATION_OCCUPATION_TEMPORAIRE", label: "AOT — Autorisation d'occupation temporaire" },
+      { value: "CONVENTION_OCCUPATION_PRECAIRE", label: "COP — Convention d'occupation précaire" },
+      { value: "CONVENTION_OCCUPATION_TEMPORAIRE", label: "COT — Convention d'occupation temporaire" },
+      { value: "CONVENTION_COLIVING", label: "Convention de coliving" },
+      { value: "CONVENTION_MISE_A_DISPOSITION", label: "CMD — Convention de mise à disposition" },
+      { value: "BAIL_GLISSANT", label: "Bail glissant (insertion sociale)" },
+      { value: "BAIL_LOI_48", label: "Bail loi 1948 (loyer réglementé)" },
+    ],
+  },
+  {
+    group: "Divers",
+    items: [
+      { value: "LOCATION_PARKING", label: "Location de parking / garage" },
+      { value: "LOCATION_STOCKAGE", label: "Location de box / stockage" },
+      { value: "DROIT_DE_PASSAGE", label: "Droit de passage / servitude" },
+      { value: "AUTRE", label: "Autre type de bail" },
+    ],
   },
 ];
 

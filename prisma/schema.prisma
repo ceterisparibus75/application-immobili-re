@@ -72,6 +72,28 @@ enum LotStatus {
   RESERVE
 }
 
+enum ExploitationStatus {
+  // En exploitation
+  EE_EN_EXPLOITATION
+  EE_MISE_HE_PREVUE
+  EE_EN_VENTE
+  // Hors exploitation
+  HE_EN_ACQUISITION
+  HE_EN_CONSTRUCTION
+  HE_EN_RENOVATION
+  HE_EN_TRAVAUX
+  HE_PERMIS_EN_ATTENTE
+  HE_EN_LIVRAISON
+  HE_MISE_EE_PREVUE
+  HE_AUTRE
+  // Fin d'exploitation
+  FE_VENDU
+  FE_DETRUIT
+  FE_AUTRE
+  // Inconnu
+  INCONNU
+}
+
 enum LeaseType {
   // Baux d'habitation
   HABITATION         // Bail vide — loi du 6 juillet 1989 (3 ans / 6 ans)
@@ -101,6 +123,20 @@ enum LeaseType {
 
   // Bail rural
   RURAL              // Bail rural / agricole (9 ans min.)
+
+  // Types complémentaires (droit français)
+  AUTORISATION_OCCUPATION_TEMPORAIRE // AOT — autorisation d'occupation temporaire du domaine public
+  CONVENTION_OCCUPATION_PRECAIRE     // COP — convention d'occupation précaire
+  CONVENTION_OCCUPATION_TEMPORAIRE   // COT — convention d'occupation temporaire
+  BAIL_METAYAGE                      // Bail à métayage (rural, partage récoltes)
+  CONVENTION_COLIVING                // Convention de coliving
+  CONVENTION_MISE_A_DISPOSITION      // CMD — convention de mise à disposition
+  BAIL_GLISSANT                      // Bail glissant (insertion sociale)
+  BAIL_LOI_48                        // Bail loi 1948 (loyer réglementé)
+  LOCATION_PARKING                   // Location de parking / garage
+  LOCATION_STOCKAGE                  // Location de box / stockage
+  DROIT_DE_PASSAGE                   // Droit de passage / servitude
+  AUTRE                              // Autre type de bail
 }
 
 enum LeaseStatus {
@@ -294,6 +330,25 @@ enum PublicationStatus {
   RETIRE
 }
 
+enum TicketType {
+  TECHNIQUE
+  ADMINISTRATIF
+}
+
+enum TicketStatus {
+  OUVERT
+  EN_COURS
+  EN_ATTENTE
+  CLOTURE
+}
+
+enum TicketPriority {
+  BASSE
+  NORMALE
+  HAUTE
+  URGENTE
+}
+
 enum LoanType {
   AMORTISSABLE // Remboursement progressif (annuité constante)
   IN_FINE // Intérêts seuls + capital en fin de prêt
@@ -409,6 +464,7 @@ model Society {
   propertyValuations      PropertyValuation[]
   rentValuations          RentValuation[]
   additionalAcquisitions  AdditionalAcquisition[]
+  tickets                 Ticket[]
 
   @@index([siret])
   @@index([proprietaireId])
@@ -548,8 +604,10 @@ model User {
   notifications     Notification[]
   validatedEntries  JournalEntry[] @relation("JournalEntryValidator")
   closedFiscalYears FiscalYear[]   @relation("FiscalYearCloser")
-  datarooms         Dataroom[]
-  reportSchedules   ReportSchedule[]
+  datarooms          Dataroom[]
+  reportSchedules    ReportSchedule[]
+  assignedTickets    Ticket[]        @relation("TicketAssignee")
+  ticketComments     TicketComment[] @relation("TicketCommentAuthor")
 
   @@index([email])
 }
@@ -745,8 +803,9 @@ model Lot {
   floor           String?
   position        String?
   description     String?   @db.Text
-  status          LotStatus @default(VACANT)
-  marketRentValue Float? // Valeur locative de marché
+  status              LotStatus          @default(VACANT)
+  exploitationStatus  ExploitationStatus @default(INCONNU)
+  marketRentValue     Float? // Valeur locative de marché
   currentRent     Float? // Loyer pratiqué
 
   building             Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -756,6 +815,7 @@ model Lot {
   allocationKeyEntries AllocationKeyEntry[]
   chargeProvisions     ChargeProvision[]
   meterReadings        MeterReading[]
+  tickets              Ticket[]
 
   @@unique([buildingId, number])
   @@index([buildingId])
@@ -855,6 +915,7 @@ model Lease {
   depositMovements      DepositMovement[]
   amendments            LeaseAmendment[]
   rentValuations        RentValuation[]
+  tickets               Ticket[]
 
   @@index([societyId])
   @@index([lotId])
@@ -1026,6 +1087,7 @@ model Tenant {
   invoices          Invoice[]
   sepaMandates      SepaMandate[]
   contact           Contact?
+  tickets           Ticket[]
 
   @@index([societyId])
   @@index([societyId, isActive])
@@ -2667,4 +2729,55 @@ model RentConsolidatedReport {
   generatedBy String
 
   rentValuation RentValuation @relation(fields: [rentValuationId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// TICKETING — Demandes locataires
+// ============================================================
+
+/// Ticket de demande locataire (technique ou administratif)
+model Ticket {
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  reference     String
+  title         String
+  description   String         @db.Text
+  type          TicketType
+  status        TicketStatus   @default(OUVERT)
+  priority      TicketPriority @default(NORMALE)
+
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  lotId         String?
+  lot           Lot?           @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  leaseId       String?
+  lease         Lease?         @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  assignedToId  String?
+  assignedTo    User?          @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  contractorId  String?
+  societyId     String
+  society       Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  comments      TicketComment[]
+  resolvedAt    DateTime?
+
+  @@index([societyId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([societyId, status])
+}
+
+/// Commentaire sur un ticket
+model TicketComment {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  content    String   @db.Text
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation("TicketCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  isInternal Boolean  @default(false)
+
+  @@index([ticketId])
 }

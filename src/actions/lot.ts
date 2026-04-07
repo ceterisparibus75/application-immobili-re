@@ -13,6 +13,50 @@ import {
 } from "@/validations/lot";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { Prisma } from "@/generated/prisma/client";
+
+export interface LotFilters {
+  status?: string;
+  lotType?: string;
+  buildingId?: string;
+  exploitationStatus?: string;
+}
+
+export async function getFilteredLots(societyId: string, filters: LotFilters = {}) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const where: Prisma.LotWhereInput = { building: { societyId } };
+
+  if (filters.status) {
+    where.status = filters.status as Prisma.LotWhereInput["status"];
+  }
+  if (filters.lotType) {
+    where.lotType = filters.lotType as Prisma.LotWhereInput["lotType"];
+  }
+  if (filters.buildingId) {
+    where.buildingId = filters.buildingId;
+  }
+  if (filters.exploitationStatus) {
+    where.exploitationStatus = filters.exploitationStatus as Prisma.LotWhereInput["exploitationStatus"];
+  }
+
+  return prisma.lot.findMany({
+    where,
+    include: {
+      building: { select: { id: true, name: true, city: true } },
+      leases: {
+        where: { status: "EN_COURS" },
+        select: { currentRentHT: true, paymentFrequency: true },
+        take: 1,
+      },
+      _count: { select: { leases: true } },
+    },
+    orderBy: [{ building: { name: "asc" } }, { number: "asc" }],
+  });
+}
 
 export async function createLot(
   societyId: string,

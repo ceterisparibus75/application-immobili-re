@@ -26,6 +26,19 @@ export const LEASE_TYPES = [
   "BRS",
   // Rural
   "RURAL",
+  // Types complémentaires
+  "AUTORISATION_OCCUPATION_TEMPORAIRE",
+  "CONVENTION_OCCUPATION_PRECAIRE",
+  "CONVENTION_OCCUPATION_TEMPORAIRE",
+  "BAIL_METAYAGE",
+  "CONVENTION_COLIVING",
+  "CONVENTION_MISE_A_DISPOSITION",
+  "BAIL_GLISSANT",
+  "BAIL_LOI_48",
+  "LOCATION_PARKING",
+  "LOCATION_STOCKAGE",
+  "DROIT_DE_PASSAGE",
+  "AUTRE",
 ] as const;
 
 export const INDEX_TYPES = ["IRL", "ILC", "ILAT", "ICC"] as const;
@@ -49,18 +62,30 @@ export function getLeaseCategory(type: LeaseType): LeaseCategory {
     case "GLISSANT":
     case "SOUS_LOCATION":
     case "MIXTE":
+    case "CONVENTION_COLIVING":
+    case "BAIL_GLISSANT":
+    case "BAIL_LOI_48":
       return "HABITATION";
     case "COMMERCIAL_369":
     case "DEROGATOIRE":
     case "PRECAIRE":
     case "BAIL_PROFESSIONNEL":
     case "RURAL":
+    case "BAIL_METAYAGE":
+    case "LOCATION_PARKING":
+    case "LOCATION_STOCKAGE":
+    case "AUTORISATION_OCCUPATION_TEMPORAIRE":
+    case "CONVENTION_OCCUPATION_PRECAIRE":
+    case "CONVENTION_OCCUPATION_TEMPORAIRE":
+    case "CONVENTION_MISE_A_DISPOSITION":
+    case "DROIT_DE_PASSAGE":
       return "COMMERCIAL";
     case "EMPHYTEOTIQUE":
     case "CONSTRUCTION":
     case "REHABILITATION":
     case "BRS":
       return "FONCIER";
+    case "AUTRE":
     default:
       return "AUTRE";
   }
@@ -90,6 +115,18 @@ export function getDefaultDuration(type: LeaseType): number {
     case "REHABILITATION": return 144;    // 12 ans
     case "BRS": return 1068;              // 89 ans max (18 à 99 ans)
     case "RURAL": return 108;             // 9 ans min
+    case "AUTORISATION_OCCUPATION_TEMPORAIRE": return 12; // variable, souvent court
+    case "CONVENTION_OCCUPATION_PRECAIRE": return 24;     // durée précaire
+    case "CONVENTION_OCCUPATION_TEMPORAIRE": return 12;   // temporaire
+    case "BAIL_METAYAGE": return 108;                      // 9 ans (rural)
+    case "CONVENTION_COLIVING": return 12;                 // 1 an
+    case "CONVENTION_MISE_A_DISPOSITION": return 36;       // variable
+    case "BAIL_GLISSANT": return 36;                       // 3 ans max
+    case "BAIL_LOI_48": return 36;                         // 3 ans renouvelable
+    case "LOCATION_PARKING": return 12;                    // libre
+    case "LOCATION_STOCKAGE": return 12;                   // libre
+    case "DROIT_DE_PASSAGE": return 12;                    // variable
+    case "AUTRE": return 12;                               // libre
     default: return 36;
   }
 }
@@ -120,6 +157,20 @@ export function getDefaultIndexType(type: LeaseType): (typeof INDEX_TYPES)[numbe
     case "CONSTRUCTION":
     case "REHABILITATION":
     case "BRS":
+      return "IRL";
+    case "AUTORISATION_OCCUPATION_TEMPORAIRE":
+    case "CONVENTION_OCCUPATION_PRECAIRE":
+    case "CONVENTION_OCCUPATION_TEMPORAIRE":
+    case "CONVENTION_MISE_A_DISPOSITION":
+    case "LOCATION_PARKING":
+    case "LOCATION_STOCKAGE":
+    case "DROIT_DE_PASSAGE":
+      return null;
+    case "BAIL_METAYAGE":
+      return "ILC";
+    case "CONVENTION_COLIVING":
+    case "BAIL_GLISSANT":
+    case "BAIL_LOI_48":
       return "IRL";
     default:
       return null;
@@ -157,6 +208,18 @@ export function getDefaultDepositMonths(type: LeaseType): number {
     case "REHABILITATION": return 0;     // pas de dépôt standard
     case "BRS": return 1;               // 1 mois
     case "RURAL": return 0;             // pas d'usage standard
+    case "AUTORISATION_OCCUPATION_TEMPORAIRE": return 0;
+    case "CONVENTION_OCCUPATION_PRECAIRE": return 1;
+    case "CONVENTION_OCCUPATION_TEMPORAIRE": return 0;
+    case "BAIL_METAYAGE": return 0;
+    case "CONVENTION_COLIVING": return 2;
+    case "CONVENTION_MISE_A_DISPOSITION": return 0;
+    case "BAIL_GLISSANT": return 1;
+    case "BAIL_LOI_48": return 1;
+    case "LOCATION_PARKING": return 2;
+    case "LOCATION_STOCKAGE": return 2;
+    case "DROIT_DE_PASSAGE": return 0;
+    case "AUTRE": return 1;
     default: return 1;
   }
 }

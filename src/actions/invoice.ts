@@ -216,6 +216,71 @@ export async function recordPayment(
   }
 }
 
+export interface InvoiceFilters {
+  status?: string;
+  invoiceType?: string;
+  periodFrom?: string;
+  periodTo?: string;
+  amountMin?: string;
+  amountMax?: string;
+}
+
+export async function getFilteredInvoices(societyId: string, filters: InvoiceFilters = {}) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const where: Prisma.InvoiceWhereInput = { societyId };
+
+  if (filters.status) {
+    where.status = filters.status as InvoiceStatus;
+  }
+  if (filters.invoiceType) {
+    where.invoiceType = filters.invoiceType as Prisma.InvoiceWhereInput["invoiceType"];
+  }
+  if (filters.periodFrom || filters.periodTo) {
+    where.issueDate = {};
+    if (filters.periodFrom) where.issueDate.gte = new Date(filters.periodFrom);
+    if (filters.periodTo) where.issueDate.lte = new Date(filters.periodTo);
+  }
+  if (filters.amountMin || filters.amountMax) {
+    where.totalTTC = {};
+    if (filters.amountMin) where.totalTTC.gte = parseFloat(filters.amountMin);
+    if (filters.amountMax) where.totalTTC.lte = parseFloat(filters.amountMax);
+  }
+
+  return prisma.invoice.findMany({
+    where,
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          billingEmail: true,
+        },
+      },
+      lease: {
+        include: {
+          lot: {
+            include: {
+              building: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
+      },
+      _count: { select: { payments: true } },
+    },
+    orderBy: [{ dueDate: "desc" }],
+  });
+}
+
 export async function getInvoices(societyId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
