@@ -542,6 +542,126 @@ export async function resetModulePermissions(
   }
 }
 
+// ─── Gestion globale des utilisateurs (multi-propriétaire / multi-société) ──
+
+export type UserAccess = {
+  proprietaireId: string;
+  proprietaireLabel: string;
+  societyId: string;
+  societyName: string;
+  role: string;
+};
+
+export type ManagedUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  firstName: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  emailCopyEnabled: boolean;
+  accesses: UserAccess[];
+};
+
+export type AvailableSociety = {
+  id: string;
+  name: string;
+  proprietaireId: string;
+  proprietaireLabel: string;
+};
+
+/**
+ * Récupère tous les utilisateurs gérés par l'administrateur courant,
+ * regroupés avec leurs accès propriétaire → société → rôle.
+ */
+export async function getAllManagedUsers(): Promise<
+  ActionResult<{ users: ManagedUser[]; societies: AvailableSociety[] }>
+> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    const proprietaires = await prisma.proprietaire.findMany({
+      where: { userId: session.user.id },
+      select: {
+        id: true,
+        label: true,
+        societies: {
+          select: {
+            id: true,
+            name: true,
+            userSocieties: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    firstName: true,
+                    isActive: true,
+                    lastLoginAt: true,
+                    emailCopyEnabled: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const userMap = new Map<string, ManagedUser>();
+    const societies: AvailableSociety[] = [];
+
+    for (const prop of proprietaires) {
+      for (const society of prop.societies) {
+        societies.push({
+          id: society.id,
+          name: society.name,
+          proprietaireId: prop.id,
+          proprietaireLabel: prop.label,
+        });
+
+        for (const ms of society.userSocieties) {
+          const u = ms.user;
+          if (!userMap.has(u.id)) {
+            userMap.set(u.id, {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              firstName: u.firstName,
+              isActive: u.isActive,
+              lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+              emailCopyEnabled: u.emailCopyEnabled,
+              accesses: [],
+            });
+          }
+          userMap.get(u.id)!.accesses.push({
+            proprietaireId: prop.id,
+            proprietaireLabel: prop.label,
+            societyId: society.id,
+            societyName: society.name,
+            role: ms.role,
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        users: Array.from(userMap.values()).sort((a, b) =>
+          (a.name ?? "").localeCompare(b.name ?? "")
+        ),
+        societies,
+      },
+    };
+  } catch (error) {
+    console.error("[getAllManagedUsers]", error);
+    return { success: false, error: "Erreur lors de la récupération" };
+  }
+}
+
 // ─── Toggle BCC email copy ───────────────────────────────────────────────────
 
 /**
