@@ -335,6 +335,7 @@ export async function getUsers(societyId?: string) {
             isActive: true,
             lastLoginAt: true,
             createdAt: true,
+            emailCopyEnabled: true,
           },
         },
       },
@@ -538,5 +539,61 @@ export async function resetModulePermissions(
     }
     console.error("[resetModulePermissions]", error);
     return { success: false, error: "Erreur lors de la réinitialisation des permissions" };
+  }
+}
+
+// ─── Toggle BCC email copy ───────────────────────────────────────────────────
+
+/**
+ * Active/désactive la copie cachée des emails pour un utilisateur.
+ * - ADMIN_SOCIETE peut le faire pour n'importe quel membre de la société.
+ * - Les autres rôles ne peuvent le faire que pour eux-mêmes.
+ */
+export async function toggleEmailCopy(
+  targetUserId: string,
+  societyId: string,
+  enabled: boolean
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    // Vérifier l'accès à la société
+    const membership = await prisma.userSociety.findUnique({
+      where: { userId_societyId: { userId: session.user.id, societyId } },
+    });
+    if (!membership) {
+      return { success: false, error: "Accès refusé" };
+    }
+
+    const isAdmin = ["SUPER_ADMIN", "ADMIN_SOCIETE"].includes(membership.role);
+    const isSelf = targetUserId === session.user.id;
+
+    // Un non-admin ne peut modifier que sa propre copie cachée
+    if (!isAdmin && !isSelf) {
+      return { success: false, error: "Vous ne pouvez modifier cette option que pour votre propre compte" };
+    }
+
+    await prisma.user.update({
+      where: { id: targetUserId },
+      data: { emailCopyEnabled: enabled },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "User",
+      entityId: targetUserId,
+      details: { action: "TOGGLE_EMAIL_COPY", enabled, targetUserId },
+    });
+
+    revalidatePath("/compte/utilisateurs");
+    return { success: true };
+  } catch (error) {
+    console.error("[toggleEmailCopy]", error);
+    return { success: false, error: "Erreur lors de la modification" };
   }
 }

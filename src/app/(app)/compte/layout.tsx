@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Users, CreditCard } from "lucide-react";
+import { User, Users, CreditCard, ScrollText } from "lucide-react";
 
 const TABS = [
   { href: "/compte", label: "Mon profil", icon: User },
   { href: "/compte/utilisateurs", label: "Utilisateurs", icon: Users },
+  { href: "/compte/logs", label: "Logs", icon: ScrollText },
   { href: "/compte/abonnement", label: "Abonnement", icon: CreditCard },
 ];
 
