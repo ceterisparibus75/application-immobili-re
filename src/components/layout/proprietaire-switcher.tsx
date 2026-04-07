@@ -89,11 +89,11 @@ export function ProprietaireSwitcher() {
           <p className="text-sm font-bold text-sidebar-foreground truncate leading-tight">
             {activeProprietaire.displayName}
           </p>
-          {activeProprietaire.legalForm && (
-            <p className="text-[10px] text-sidebar-muted leading-tight">
-              {activeProprietaire.legalForm}
-            </p>
-          )}
+          <p className="text-[10px] text-sidebar-muted leading-tight">
+            {activeProprietaire.entityType === "PERSONNE_MORALE"
+              ? (activeProprietaire.legalForm ?? "Société")
+              : "Propriétaire"}
+          </p>
         </div>
         {canSwitch && (
           <ChevronDown className={cn(
@@ -127,9 +127,11 @@ export function ProprietaireSwitcher() {
                       )}>
                         {prop.displayName}
                       </p>
-                      {prop.legalForm && (
-                        <p className="text-[10px] text-[#94A3B8]">{prop.legalForm}</p>
-                      )}
+                      <p className="text-[10px] text-[#94A3B8]">
+                        {prop.entityType === "PERSONNE_MORALE"
+                          ? (prop.legalForm ?? "Société")
+                          : "Propriétaire"}
+                      </p>
                     </div>
                     {isActiveProp && (
                       <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-gradient-soft">

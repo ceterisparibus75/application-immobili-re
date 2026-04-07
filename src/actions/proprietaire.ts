@@ -121,7 +121,24 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
   if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
   const proprietaire = await prisma.proprietaire.findFirst({
-    where: { id: proprietaireId, userId: session.user.id },
+    where: {
+      id: proprietaireId,
+      OR: [
+        { userId: session.user.id },
+        {
+          societies: {
+            some: {
+              userSocieties: {
+                some: {
+                  userId: session.user.id,
+                  role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
     select: {
       id: true,
       label: true,
@@ -201,12 +218,29 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
     return { success: false, error: "Le libellé est obligatoire" };
   }
 
-  // Vérifier que le propriétaire appartient bien à l'utilisateur
+  // Vérifier que l'utilisateur est créateur du propriétaire OU admin d'une de ses sociétés
   const existing = await prisma.proprietaire.findFirst({
-    where: { id: input.id, userId: session.user.id },
+    where: {
+      id: input.id,
+      OR: [
+        { userId: session.user.id },
+        {
+          societies: {
+            some: {
+              userSocieties: {
+                some: {
+                  userId: session.user.id,
+                  role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
     select: { id: true },
   });
-  if (!existing) return { success: false, error: "Propriétaire introuvable" };
+  if (!existing) return { success: false, error: "Propriétaire introuvable ou accès refusé" };
 
   await prisma.proprietaire.update({
     where: { id: input.id },
