@@ -31,19 +31,31 @@ const LEASE_TYPE_OPTIONS = [
   { group: "Habitation", items: [
     { value: "HABITATION", label: "Bail d'habitation vide (loi 1989)" },
     { value: "MEUBLE", label: "Bail meublé (ALUR)" },
+    { value: "ETUDIANT", label: "Bail étudiant meublé (9 mois)" },
     { value: "MOBILITE", label: "Bail mobilité (ELAN)" },
-    { value: "SAISONNIER", label: "Location saisonnière" },
+    { value: "COLOCATION", label: "Bail colocation" },
+    { value: "SAISONNIER", label: "Location saisonnière (< 90 jours)" },
+    { value: "LOGEMENT_FONCTION", label: "Logement de fonction" },
     { value: "ANAH", label: "Convention ANAH (loyer maîtrisé)" },
+    { value: "CIVIL", label: "Bail civil (Code civil / résidence secondaire)" },
+    { value: "GLISSANT", label: "Bail glissant (insertion sociale)" },
+    { value: "SOUS_LOCATION", label: "Sous-location autorisée" },
   ]},
   { group: "Commercial / Professionnel", items: [
     { value: "COMMERCIAL_369", label: "Bail commercial 3/6/9" },
     { value: "DEROGATOIRE", label: "Bail dérogatoire (< 3 ans)" },
     { value: "PRECAIRE", label: "Convention d'occupation précaire" },
     { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel (6 ans)" },
-  ]},
-  { group: "Autre", items: [
     { value: "MIXTE", label: "Bail mixte (habitation + professionnel)" },
-    { value: "RURAL", label: "Bail rural / agricole" },
+  ]},
+  { group: "Baux longs / Fonciers", items: [
+    { value: "EMPHYTEOTIQUE", label: "Bail emphytéotique (18-99 ans)" },
+    { value: "CONSTRUCTION", label: "Bail à construction" },
+    { value: "REHABILITATION", label: "Bail à réhabilitation" },
+    { value: "BRS", label: "Bail réel solidaire (OFS)" },
+  ]},
+  { group: "Rural", items: [
+    { value: "RURAL", label: "Bail rural / agricole (9 ans min.)" },
   ]},
 ];
 

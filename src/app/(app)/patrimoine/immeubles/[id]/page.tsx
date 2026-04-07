@@ -223,7 +223,7 @@ export default async function ImmeubleDetailPage({
               value={building.yearBuilt?.toString()}
             />
             <InfoRow
-              label="Surface totale"
+              label="Surface du bâti"
               value={building.totalArea ? `${building.totalArea} m²` : null}
             />
           </CardContent>

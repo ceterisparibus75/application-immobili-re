@@ -57,7 +57,7 @@ export function SocietySwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-white shadow-[0_4px_24px_rgba(12,35,64,0.12)] z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 rounded-xl bg-white shadow-[0_4px_24px_rgba(12,35,64,0.12)] z-50 overflow-hidden min-w-full w-max max-w-72">
           <div className="p-1.5">
             <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">
               Changer de société

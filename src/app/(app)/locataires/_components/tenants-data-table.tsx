@@ -17,6 +17,9 @@ interface TenantRow {
   location: string | null;
   _count: { leases: number };
   isActive: boolean;
+  buildingId: string | null;
+  buildingName: string | null;
+  buildingAddress: string | null;
 }
 
 interface Props {
@@ -141,6 +144,12 @@ export function TenantsDataTable({
       rowKey={(r) => r.id}
       rowHref={(r) => `/locataires/${r.id}`}
       emptyMessage="Aucun locataire trouvé"
+      groupBy={(row) => ({
+        key: row.buildingId ?? "no-building",
+        label: row.buildingName ?? "Sans bail actif",
+        sublabel: row.buildingAddress ?? undefined,
+        icon: <Building2 className="h-4 w-4 text-primary shrink-0" />,
+      })}
     />
   );
 }

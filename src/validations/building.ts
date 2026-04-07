@@ -23,6 +23,7 @@ export const createBuildingSchema = z.object({
   acquisitionTaxes: z.coerce.number().min(0).optional().nullable(),
   acquisitionOtherCosts: z.coerce.number().min(0).optional().nullable(),
   acquisitionDate: z.string().optional().nullable(),
+  worksCost: z.coerce.number().min(0).optional().nullable(),
   description: z.string().optional(),
 });
 
@@ -30,5 +31,18 @@ export const updateBuildingSchema = createBuildingSchema.partial().extend({
   id: z.string().cuid(),
 });
 
+/** Acquisition complémentaire de lots */
+export const additionalAcquisitionSchema = z.object({
+  buildingId: z.string().cuid(),
+  label: z.string().min(2, "Le libellé est requis"),
+  acquisitionDate: z.string().min(1, "La date est requise"),
+  acquisitionPrice: z.coerce.number().min(0, "Le prix doit être positif"),
+  acquisitionFees: z.coerce.number().min(0).optional().nullable(),
+  acquisitionTaxes: z.coerce.number().min(0).optional().nullable(),
+  otherCosts: z.coerce.number().min(0).optional().nullable(),
+  description: z.string().optional().nullable(),
+});
+
 export type CreateBuildingInput = z.infer<typeof createBuildingSchema>;
 export type UpdateBuildingInput = z.infer<typeof updateBuildingSchema>;
+export type AdditionalAcquisitionInput = z.infer<typeof additionalAcquisitionSchema>;

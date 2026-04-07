@@ -65,17 +65,33 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
   });
 
   // Serialize dates for client component
-  const serialized = tenants.map((t) => ({
-    ...t,
-    name: tenantName(t),
-    insurance: insuranceStatus(t.insuranceExpiresAt),
-    riskVariant: RISK_VARIANTS[t.riskIndicator],
-    riskLabel: RISK_LABELS[t.riskIndicator],
-    totalRent: t.leases.reduce((s, l) => s + l.currentRentHT, 0),
-    location: t.leases.length > 0
-      ? t.leases.map((l) => `${l.lot.building.name} — Lot ${l.lot.number}`).join(", ")
-      : null,
-  }));
+  const serialized = tenants.map((t) => {
+    const primaryLease = t.leases[0];
+    return {
+      ...t,
+      name: tenantName(t),
+      insurance: insuranceStatus(t.insuranceExpiresAt),
+      riskVariant: RISK_VARIANTS[t.riskIndicator],
+      riskLabel: RISK_LABELS[t.riskIndicator],
+      totalRent: t.leases.reduce((s, l) => s + l.currentRentHT, 0),
+      location: t.leases.length > 0
+        ? t.leases.map((l) => `${l.lot.building.name} — Lot ${l.lot.number}`).join(", ")
+        : null,
+      buildingId: primaryLease?.lot.building.id ?? null,
+      buildingName: primaryLease?.lot.building.name ?? null,
+      buildingAddress: primaryLease
+        ? `${primaryLease.lot.building.addressLine1} - ${primaryLease.lot.building.postalCode} ${primaryLease.lot.building.city}`
+        : null,
+    };
+  });
+
+  // Sort by building name so grouping is contiguous
+  serialized.sort((a, b) => {
+    if (!a.buildingName && !b.buildingName) return 0;
+    if (!a.buildingName) return 1;
+    if (!b.buildingName) return -1;
+    return a.buildingName.localeCompare(b.buildingName, "fr");
+  });
 
   return (
     <div className="space-y-6">
