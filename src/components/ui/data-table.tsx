@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +41,13 @@ export interface FilterOption {
   options: { value: string; label: string }[];
 }
 
+export interface GroupInfo {
+  key: string;
+  label: string;
+  sublabel?: string;
+  icon?: ReactNode;
+}
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   data: T[];
@@ -60,6 +67,8 @@ export interface DataTableProps<T> {
   /** Empty state */
   emptyMessage?: string;
   emptyIcon?: ReactNode;
+  /** Optional grouping: extract group info from each row to render section headers */
+  groupBy?: (row: T) => GroupInfo;
 }
 
 /* ────────────────────────── Component ────────────────────────── */
@@ -82,6 +91,7 @@ export function DataTable<T>({
   rowKey,
   emptyMessage = "Aucun résultat",
   emptyIcon,
+  groupBy,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -243,28 +253,49 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((row, i) => {
-                const key = rowKey(row);
-                const href = rowHref?.(row);
-                return (
-                  <TableRow
-                    key={key}
-                    className={href ? "cursor-pointer" : ""}
-                    onClick={href ? () => router.push(href) : undefined}
-                  >
-                    {columns.map((col) => (
-                      <TableCell
-                        key={col.key}
-                        className={`${
-                          col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""
-                        } ${col.className ?? ""}`}
+              (() => {
+                let lastGroupKey: string | null = null;
+                return data.map((row, i) => {
+                  const key = rowKey(row);
+                  const href = rowHref?.(row);
+                  const group = groupBy?.(row);
+                  const showGroupHeader = group && group.key !== lastGroupKey;
+                  if (group) lastGroupKey = group.key;
+
+                  return (
+                    <Fragment key={key}>
+                      {showGroupHeader && group && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={columns.length} className="py-2 px-4">
+                            <div className="flex items-center gap-2">
+                              {group.icon}
+                              <span className="font-semibold text-sm text-foreground">{group.label}</span>
+                              {group.sublabel && (
+                                <span className="text-xs text-muted-foreground">{group.sublabel}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow
+                        className={href ? "cursor-pointer" : ""}
+                        onClick={href ? () => router.push(href) : undefined}
                       >
-                        {col.render(row, i)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                );
-              })
+                        {columns.map((col) => (
+                          <TableCell
+                            key={col.key}
+                            className={`${
+                              col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""
+                            } ${col.className ?? ""}`}
+                          >
+                            {col.render(row, i)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </Fragment>
+                  );
+                });
+              })()
             )}
           </TableBody>
         </Table>

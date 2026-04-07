@@ -43,7 +43,7 @@ Structure exacte :
     "mobile": "Mobile ou null"
   },
   "bail": {
-    "leaseType": "HABITATION|MEUBLE|MOBILITE|SAISONNIER|ANAH|COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL|MIXTE|RURAL",
+    "leaseType": "HABITATION|MEUBLE|ETUDIANT|MOBILITE|COLOCATION|SAISONNIER|LOGEMENT_FONCTION|ANAH|CIVIL|GLISSANT|SOUS_LOCATION|COMMERCIAL_369|DEROGATOIRE|PRECAIRE|BAIL_PROFESSIONNEL|MIXTE|EMPHYTEOTIQUE|CONSTRUCTION|REHABILITATION|BRS|RURAL",
     "startDate": "YYYY-MM-DD",
     "durationMonths": 108,
     "baseRentHT": 0.0,
@@ -60,8 +60,8 @@ Structure exacte :
 
 Règles :
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
-- leaseType : HABITATION pour bail vide loi 1989, MEUBLE pour bail meublé ALUR, MOBILITE pour bail mobilité ELAN, SAISONNIER pour location saisonnière, ANAH pour convention ANAH, COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales), MIXTE pour bail mixte habitation+professionnel, RURAL pour bail rural/agricole
-- durationMonths : 36 pour habitation (3 ans), 12 pour meublé (1 an), 108 pour bail 3-6-9 (9 ans), 72 pour professionnel (6 ans), 36 pour dérogatoire (3 ans max)
+- leaseType : HABITATION pour bail vide loi 1989, MEUBLE pour bail meublé ALUR, ETUDIANT pour bail étudiant meublé 9 mois, MOBILITE pour bail mobilité ELAN, COLOCATION pour bail colocation, SAISONNIER pour location saisonnière, LOGEMENT_FONCTION pour logement de fonction, ANAH pour convention ANAH, CIVIL pour bail Code civil (résidence secondaire), GLISSANT pour bail glissant (insertion sociale), SOUS_LOCATION pour sous-location, COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales), MIXTE pour bail mixte habitation+professionnel, EMPHYTEOTIQUE pour bail emphytéotique (18-99 ans), CONSTRUCTION pour bail à construction, REHABILITATION pour bail à réhabilitation, BRS pour bail réel solidaire (OFS), RURAL pour bail rural/agricole
+- durationMonths : 36 pour habitation (3 ans), 12 pour meublé (1 an), 9 pour étudiant, 10 pour mobilité, 108 pour bail 3-6-9 (9 ans), 72 pour professionnel (6 ans), 36 pour dérogatoire (3 ans max), 1188 pour emphytéotique (99 ans)
 - Les montants sont en euros HT/an si loyer annuel, /mois si mensuel — converti toujours en euros HT/MOIS
 - Si une info est absente, mets null pour les champs optionnels
 - startDate au format ISO YYYY-MM-DD`;

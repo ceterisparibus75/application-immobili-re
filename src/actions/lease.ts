@@ -253,7 +253,7 @@ export async function getLeases(societyId: string) {
     include: {
       lot: {
         include: {
-          building: { select: { id: true, name: true, city: true } },
+          building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
         },
       },
       tenant: {

@@ -41,17 +41,41 @@ const ROOM_TEMPLATES: Record<string, string[]> = {
     "Entrée / Couloir", "Salon / Séjour", "Cuisine équipée", "Chambre 1",
     "Salle de bain", "WC", "Balcon / Terrasse",
   ],
+  ETUDIANT: [
+    "Entrée", "Pièce principale", "Cuisine / Kitchenette",
+    "Salle d'eau", "WC",
+  ],
   MOBILITE: [
     "Entrée", "Pièce principale", "Cuisine / Kitchenette",
     "Salle d'eau", "WC",
+  ],
+  COLOCATION: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Chambre 2", "Salle de bain", "WC", "Balcon / Terrasse",
   ],
   SAISONNIER: [
     "Entrée", "Séjour", "Cuisine", "Chambre 1",
     "Salle de bain", "Extérieur",
   ],
+  LOGEMENT_FONCTION: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC",
+  ],
   ANAH: [
     "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
     "Salle de bain", "WC", "Parties communes",
+  ],
+  CIVIL: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC",
+  ],
+  GLISSANT: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC",
+  ],
+  SOUS_LOCATION: [
+    "Entrée / Couloir", "Pièce principale", "Cuisine",
+    "Salle de bain", "WC",
   ],
   COMMERCIAL_369: [
     "Accueil / Réception", "Bureau principal", "Salle de réunion",
@@ -71,6 +95,20 @@ const ROOM_TEMPLATES: Record<string, string[]> = {
   MIXTE: [
     "Entrée commune", "Espace professionnel", "Salon / Séjour",
     "Cuisine", "Chambre", "Salle de bain", "WC",
+  ],
+  EMPHYTEOTIQUE: [
+    "Terrain / Parcelle", "Bâtiment principal", "Annexes",
+  ],
+  CONSTRUCTION: [
+    "Terrain / Parcelle", "Bâtiment principal", "Annexes",
+  ],
+  REHABILITATION: [
+    "Entrée / Couloir", "Pièce principale", "Cuisine",
+    "Salle de bain", "WC", "Parties communes",
+  ],
+  BRS: [
+    "Entrée / Couloir", "Salon / Séjour", "Cuisine", "Chambre 1",
+    "Salle de bain", "WC",
   ],
   RURAL: [
     "Habitation — Entrée", "Habitation — Cuisine", "Habitation — Séjour",

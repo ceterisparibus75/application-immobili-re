@@ -38,6 +38,7 @@ type Building = {
   acquisitionTaxes: number | null;
   acquisitionOtherCosts: number | null;
   acquisitionDate: string | null;
+  worksCost: number | null;
   description: string | null;
 };
 
@@ -53,6 +54,7 @@ export default function ModifierImmeubleePage() {
   const [acqFees, setAcqFees] = useState("");
   const [acqTaxes, setAcqTaxes] = useState("");
   const [acqOther, setAcqOther] = useState("");
+  const [worksCost, setWorksCost] = useState("");
   const acqTotal = useMemo(
     () =>
       (parseFloat(acqPrice) || 0) +
@@ -61,6 +63,7 @@ export default function ModifierImmeubleePage() {
       (parseFloat(acqOther) || 0),
     [acqPrice, acqFees, acqTaxes, acqOther]
   );
+  const totalCost = acqTotal + (parseFloat(worksCost) || 0);
 
   useEffect(() => {
     async function fetchBuilding() {
@@ -74,6 +77,7 @@ export default function ModifierImmeubleePage() {
           setAcqFees(b.acquisitionFees != null ? String(b.acquisitionFees) : "");
           setAcqTaxes(b.acquisitionTaxes != null ? String(b.acquisitionTaxes) : "");
           setAcqOther(b.acquisitionOtherCosts != null ? String(b.acquisitionOtherCosts) : "");
+          setWorksCost(b.worksCost != null ? String(b.worksCost) : "");
         }
       } finally {
         setIsFetching(false);
@@ -119,6 +123,7 @@ export default function ModifierImmeubleePage() {
       acquisitionTaxes: aqTaxes || undefined,
       acquisitionOtherCosts: aqOther || undefined,
       acquisitionDate: data.acquisitionDate || undefined,
+      worksCost: data.worksCost ? parseFloat(data.worksCost) : undefined,
       description: data.description,
     });
 
@@ -347,13 +352,42 @@ export default function ModifierImmeubleePage() {
               </div>
             </div>
 
-            <div className="rounded-md bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
-              <span className="text-sm font-medium">Valeur vénale totale</span>
-              <span className="text-lg font-bold text-primary">
-                {acqTotal > 0
-                  ? acqTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
-                  : "—"}
-              </span>
+            <Separator />
+
+            {/* Coût des travaux */}
+            <div className="space-y-2">
+              <Label htmlFor="worksCost">Coût des travaux (€)</Label>
+              <Input
+                id="worksCost"
+                name="worksCost"
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="0.00"
+                value={worksCost}
+                onChange={(e) => setWorksCost(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Montant total des travaux réalisés sur l'immeuble</p>
+            </div>
+
+            {/* Totaux calculés */}
+            <div className="space-y-2">
+              <div className="rounded-md bg-muted/50 border p-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Coût d'acquisition</span>
+                <span className="text-base font-semibold tabular-nums">
+                  {acqTotal > 0
+                    ? acqTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+                    : "—"}
+                </span>
+              </div>
+              <div className="rounded-md bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+                <span className="text-sm font-medium">Coût complet (acquisition + travaux)</span>
+                <span className="text-lg font-bold text-primary">
+                  {totalCost > 0
+                    ? totalCost.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+                    : "—"}
+                </span>
+              </div>
             </div>
             <input type="hidden" name="marketValue" value={acqTotal > 0 ? acqTotal : ""} />
           </CardContent>

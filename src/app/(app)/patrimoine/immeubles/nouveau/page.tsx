@@ -69,11 +69,13 @@ export default function NouvelImmeubleePage() {
   const [acqFees, setAcqFees] = useState("");
   const [acqTaxes, setAcqTaxes] = useState("");
   const [acqOther, setAcqOther] = useState("");
+  const [worksCost, setWorksCost] = useState("");
   const acqTotal =
     (parseFloat(acqPrice) || 0) +
     (parseFloat(acqFees) || 0) +
     (parseFloat(acqTaxes) || 0) +
     (parseFloat(acqOther) || 0);
+  const totalCost = acqTotal + (parseFloat(worksCost) || 0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingData, setPendingData] = useState<Parameters<typeof createBuilding>[1] | null>(null);
   const [confirmLines, setConfirmLines] = useState<AiConfirmLine[]>([]);
@@ -319,6 +321,7 @@ export default function NouvelImmeubleePage() {
       acquisitionTaxes: aqTaxes || undefined,
       acquisitionOtherCosts: aqOther || undefined,
       acquisitionDate: data.acquisitionDate || undefined,
+      worksCost: data.worksCost ? parseFloat(data.worksCost) : undefined,
       description: data.description,
     };
 
@@ -662,14 +665,42 @@ export default function NouvelImmeubleePage() {
               </div>
             </div>
 
-            {/* Total calculé */}
-            <div className="rounded-md bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
-              <span className="text-sm font-medium">Valeur vénale totale</span>
-              <span className="text-lg font-bold text-primary">
-                {acqTotal > 0
-                  ? acqTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
-                  : "—"}
-              </span>
+            <Separator />
+
+            {/* Coût des travaux */}
+            <div className="space-y-2">
+              <Label htmlFor="worksCost">Coût des travaux (€)</Label>
+              <Input
+                id="worksCost"
+                name="worksCost"
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="0.00"
+                value={worksCost}
+                onChange={(e) => setWorksCost(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Montant total des travaux réalisés sur l'immeuble</p>
+            </div>
+
+            {/* Totaux calculés */}
+            <div className="space-y-2">
+              <div className="rounded-md bg-muted/50 border p-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Coût d'acquisition</span>
+                <span className="text-base font-semibold tabular-nums">
+                  {acqTotal > 0
+                    ? acqTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+                    : "—"}
+                </span>
+              </div>
+              <div className="rounded-md bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+                <span className="text-sm font-medium">Coût complet (acquisition + travaux)</span>
+                <span className="text-lg font-bold text-primary">
+                  {totalCost > 0
+                    ? totalCost.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+                    : "—"}
+                </span>
+              </div>
             </div>
             {/* Champ caché transmis au formulaire */}
             <input type="hidden" name="marketValue" value={acqTotal > 0 ? acqTotal : ""} />
