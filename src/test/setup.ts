@@ -11,3 +11,12 @@ vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
 vi.mock("@/lib/prisma-tenant", () => ({
   createTenantPrisma: vi.fn().mockReturnValue(prismaMock),
 }))
+
+// Mock plan-limits — always allowed in tests
+vi.mock("@/lib/plan-limits", () => ({
+  checkSubscriptionActive: vi.fn().mockResolvedValue({ active: true, status: "ACTIVE" }),
+  checkLotLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  checkSocietyLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  checkUserLimit: vi.fn().mockResolvedValue({ allowed: true }),
+  requiresTwoFactor: vi.fn().mockResolvedValue(false),
+}))

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 
 export interface SearchResult {
   id: string;
@@ -19,6 +20,14 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const societyId = cookieStore.get("active-society-id")?.value;
   if (!societyId) return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
+
+  // P0 security: verify the user actually belongs to this society
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+  } catch (error) {
+    if (error instanceof ForbiddenError) return NextResponse.json({ error: error.message }, { status: 403 });
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
 
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ data: [] });

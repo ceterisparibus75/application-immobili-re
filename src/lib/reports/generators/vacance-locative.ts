@@ -44,8 +44,8 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
   for (const b of buildings) {
     const occ = b.lots.filter((l) => l.leases.length > 0).length;
     const vac = b.lots.length - occ;
-    const bSurface = b.lots.reduce((s, l) => s + ((l as any).area ?? 0), 0);
-    const bVacSurface = b.lots.filter((l) => l.leases.length === 0).reduce((s, l) => s + ((l as any).area ?? 0), 0);
+    const bSurface = b.lots.reduce((s, l) => s + (l.area ?? 0), 0);
+    const bVacSurface = b.lots.filter((l) => l.leases.length === 0).reduce((s, l) => s + (l.area ?? 0), 0);
     totalLots += b.lots.length;
     totalOcc += occ;
     totalVac += vac;

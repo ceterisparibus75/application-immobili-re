@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 
 /**
  * GET /api/users?societyId=xxx
@@ -23,6 +24,14 @@ export async function GET(request: Request) {
 
   if (!societyId) {
     return NextResponse.json({ data: [] });
+  }
+
+  // P1 security: verify the user belongs to this society before listing members
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+  } catch (error) {
+    if (error instanceof ForbiddenError) return NextResponse.json({ error: error.message }, { status: 403 });
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
   const members = await prisma.userSociety.findMany({

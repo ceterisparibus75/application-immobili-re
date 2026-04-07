@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
       await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
       storagePath = `documents/${societyId}/${entityFolder}/${timestamp}_${safeName}`;
     } else if (societyId) {
+      // P1 security: require access check for logo uploads too
+      await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
       storagePath = `logos/${societyId}/${timestamp}_${safeName}`;
     } else {
       storagePath = `temp/${session.user.id}/${timestamp}_${safeName}`;
@@ -87,6 +89,9 @@ export async function POST(req: NextRequest) {
       anonKey,
     });
   } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("[signed-upload]", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }

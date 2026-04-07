@@ -44,7 +44,7 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
   }, [showWarning, resetTimers]);
 
   useEffect(() => {
-    resetTimers();
+    queueMicrotask(() => resetTimers());
 
     for (const event of ACTIVITY_EVENTS) {
       document.addEventListener(event, handleActivity, { passive: true });

@@ -12,6 +12,20 @@ export async function POST(req: NextRequest) {
     const uploadOffset = req.headers.get("x-upload-offset") ?? "0";
     if (!tusUrl) return NextResponse.json({ error: "x-tus-url manquant" }, { status: 400 });
 
+    // P0 security: validate that the TUS URL points to the configured Supabase domain only
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    try {
+      const parsed = new URL(tusUrl);
+      const allowed = new URL(supabaseUrl);
+      if (parsed.origin !== allowed.origin) {
+        console.error("[tus-patch] Rejected non-Supabase TUS URL:", parsed.origin);
+        return NextResponse.json({ error: "URL TUS non autorisée" }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: "URL TUS invalide" }, { status: 400 });
+    }
+
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceKey) return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
 

@@ -27,10 +27,6 @@ export default function ComptePage() {
     nationality: "",
   });
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
   async function loadProfile() {
     const result = await getOwnerProfile();
     if (result.success && result.data) {
@@ -50,6 +46,10 @@ export default function ComptePage() {
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    queueMicrotask(() => loadProfile());
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
