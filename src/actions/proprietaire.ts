@@ -83,7 +83,20 @@ export async function getProprietaires(): Promise<ActionResult<ProprietaireListI
   if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
   const proprietaires = await prisma.proprietaire.findMany({
-    where: { userId: session.user.id },
+    where: {
+      OR: [
+        { userId: session.user.id },
+        {
+          societies: {
+            some: {
+              userSocieties: {
+                some: { userId: session.user.id },
+              },
+            },
+          },
+        },
+      ],
+    },
     select: {
       id: true,
       label: true,
@@ -369,8 +382,22 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
+  // Inclure les propriétaires créés par l'utilisateur OU accessibles via une société
   const proprietaires = await prisma.proprietaire.findMany({
-    where: { userId: session.user.id },
+    where: {
+      OR: [
+        { userId: session.user.id },
+        {
+          societies: {
+            some: {
+              userSocieties: {
+                some: { userId: session.user.id },
+              },
+            },
+          },
+        },
+      ],
+    },
     select: {
       id: true,
       label: true,
