@@ -236,6 +236,13 @@ export default async function ImmeubleDetailPage({
               }
             />
             <InfoRow
+              label="Coût complet"
+              value={(() => {
+                const total = (building.acquisitionPrice ?? 0) + (building.acquisitionFees ?? 0) + (building.acquisitionTaxes ?? 0) + (building.acquisitionOtherCosts ?? 0);
+                return total > 0 ? `${total.toLocaleString("fr-FR")} €` : null;
+              })()}
+            />
+            <InfoRow
               label="Valeur comptable nette"
               value={
                 building.netBookValue
