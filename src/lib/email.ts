@@ -60,10 +60,16 @@ function baseTemplate(title: string, content: string, options?: { societyName?: 
     <tr><td align="center">
       <table class="outer-table" width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background-color:${BRAND.white};border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(12,35,64,0.04),0 8px 24px rgba(12,35,64,0.06);${borderLeft}">
 
-        <!-- HEADER : Logo centré -->
+        <!-- HEADER : Logo texte stylisé (fiable dans tous les clients email) -->
         <tr>
           <td class="header-pad" align="center" style="padding:32px 40px 24px;">
-            <img src="${logoUrl()}" alt="${APP_NAME}" width="160" height="auto" style="display:block;max-width:160px;height:auto;border:0;" />
+            <table cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.5px;">
+                  <span style="color:${BRAND.blue};">My</span><span style="color:${BRAND.cyan};">Gestia</span>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
 
