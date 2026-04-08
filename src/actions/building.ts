@@ -58,6 +58,7 @@ export async function createBuilding(
         acquisitionTaxes: data.acquisitionTaxes ?? null,
         acquisitionOtherCosts: data.acquisitionOtherCosts ?? null,
         acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : null,
+        worksCost: data.worksCost ?? null,
         description: data.description ?? null,
       },
     });
@@ -207,17 +208,19 @@ export async function getBuildings(societyId: string) {
 
   await requireSocietyAccess(session.user.id, societyId);
 
-  return prisma.building.findMany({
+  const buildings = await prisma.building.findMany({
     where: { societyId },
     include: {
       lots: {
         select: {
           id: true,
+          number: true,
           status: true,
+          currentRent: true,
           area: true,
           leases: {
             where: { status: "EN_COURS" },
-            select: { currentRentHT: true, paymentFrequency: true, endDate: true },
+            select: { id: true, currentRentHT: true, paymentFrequency: true, endDate: true },
             take: 1,
           },
         },
@@ -229,8 +232,61 @@ export async function getBuildings(societyId: string) {
         select: { estimatedValueMid: true, valuationDate: true },
       },
       _count: { select: { lots: true, diagnostics: true, maintenances: true } },
+      additionalAcquisitions: {
+        select: {
+          id: true,
+          label: true,
+          acquisitionPrice: true,
+          acquisitionFees: true,
+          acquisitionTaxes: true,
+          otherCosts: true,
+        },
+      },
     },
     orderBy: { name: "asc" },
+  });
+
+  // Calculs dérivés pour chaque immeuble
+  const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+
+  return buildings.map((b) => {
+    const occupiedLots = b.lots.filter((l) => l.status === "OCCUPE").length;
+    const totalLots = b.lots.length;
+    const occupancyRate = totalLots > 0 ? Math.round((occupiedLots / totalLots) * 100) : 0;
+
+    // Loyers annuels = somme des loyers HT × fréquence
+    const annualRent = b.lots.reduce((sum, lot) => {
+      return sum + lot.leases.reduce((s, lease) => {
+        return s + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12);
+      }, 0);
+    }, 0);
+
+    // Coût complet = prix acquisition + frais + taxes + autres + travaux + acquisitions complémentaires
+    const baseCost =
+      (b.acquisitionPrice ?? 0) +
+      (b.acquisitionFees ?? 0) +
+      (b.acquisitionTaxes ?? 0) +
+      (b.acquisitionOtherCosts ?? 0) +
+      (b.worksCost ?? 0);
+
+    const additionalCost = b.additionalAcquisitions.reduce((sum, a) => {
+      return sum + a.acquisitionPrice + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0);
+    }, 0);
+
+    const totalCost = baseCost + additionalCost;
+
+    // Rendement = loyers annuels / coût complet
+    const yieldRate = totalCost > 0 ? (annualRent / totalCost) * 100 : null;
+
+    return {
+      ...b,
+      occupiedLots,
+      totalLots,
+      occupancyRate,
+      annualRent,
+      totalCost,
+      yieldRate,
+    };
   });
 }
 

@@ -152,7 +152,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
         await uploadOne(filesToUpload[i], baseFolder);
       }
       setUploadProgress(100);
-      router.push("/documents");
+      router.push("/documents?uploaded=1");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'upload");
     } finally {
@@ -167,6 +167,14 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ajouter des documents</h1>
           <p className="text-muted-foreground">Importer un fichier ou un dossier entier dans la GED</p>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+        <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Pour que l'import soit vraiment utile</p>
+        <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+          <p>Choisissez une catégorie claire pour faciliter la recherche et les rappels.</p>
+          <p>Rattachez le document à un immeuble, un bail ou un locataire dès maintenant pour éviter les pièces orphelines.</p>
+          <p>Ajoutez une date d'expiration si le document doit être renouvelé ou surveillé.</p>
         </div>
       </div>
       {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}

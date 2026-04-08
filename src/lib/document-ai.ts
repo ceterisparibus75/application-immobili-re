@@ -56,7 +56,7 @@ Si une information n est pas dans le document, ne l inclus pas.`;
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [
       {
@@ -102,7 +102,7 @@ export async function chatWithDocument(
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: "Tu es un assistant specialise en gestion immobiliere francaise. Reponds en francais, de facon concise et precise, en te basant uniquement sur le contenu du document fourni.",
     messages: apiMessages,

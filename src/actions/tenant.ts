@@ -353,7 +353,7 @@ export async function getTenantsPaginated(
             lot: {
               select: {
                 number: true,
-                building: { select: { name: true } },
+                building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
               },
             },
           },

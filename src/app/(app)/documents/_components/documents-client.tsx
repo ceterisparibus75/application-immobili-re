@@ -16,7 +16,7 @@ import {
   FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
   File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
-  Download, Eye, Filter, FolderLock, Trash2, FileDown,
+  Download, Eye, Filter, FolderLock, Trash2, FileDown, Maximize2,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
@@ -245,7 +245,7 @@ function extractStoragePath(fileUrl: string | null): string | null {
   }
 }
 
-function PreviewContent({ doc }: { doc: DocumentItem }) {
+function PreviewContent({ doc, fullscreen = false }: { doc: DocumentItem; fullscreen?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -282,13 +282,13 @@ function PreviewContent({ doc }: { doc: DocumentItem }) {
 
   if (isImage) {
     return (
-      <div className="flex items-center justify-center h-full p-2 bg-muted/20 rounded">
+      <div className={cn("h-full flex items-center justify-center bg-[#F8F9FA] rounded-lg overflow-hidden", fullscreen ? "p-4" : "p-2")}>
         {loading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground absolute" />}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewUrl}
           alt={doc.fileName}
-          className="max-w-full max-h-full object-contain rounded"
+          className="max-w-full max-h-full object-contain rounded shadow-sm"
           onLoad={() => setLoading(false)}
           onError={() => { setLoading(false); setError(true); }}
         />
@@ -297,20 +297,75 @@ function PreviewContent({ doc }: { doc: DocumentItem }) {
   }
 
   return (
-    <div className="relative h-full">
+    <div className="h-full rounded-lg overflow-hidden bg-[#F8F9FA] relative">
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8F9FA] z-10 gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-[var(--color-brand-blue)]" />
+          <p className="text-xs text-muted-foreground">Chargement du document…</p>
         </div>
       )}
       <iframe
-        src={previewUrl}
+        src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=1`}
         title={doc.fileName}
-        className="w-full h-full border-0 rounded"
+        className="w-full h-full border-0"
         onLoad={() => setLoading(false)}
         onError={() => { setLoading(false); setError(true); }}
       />
     </div>
+  );
+}
+
+function FullscreenPreviewDialog({ doc, onClose }: { doc: DocumentItem; onClose: () => void }) {
+  const storageLikePath = doc.storagePath ?? extractStoragePath(doc.fileUrl);
+  const previewUrl = storageLikePath
+    ? `/api/storage/view?path=${encodeURIComponent(storageLikePath)}`
+    : null;
+  const [loading, setLoading] = useState(true);
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-[90vw] w-[90vw] h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-4 py-3 border-b border-gray-100 shrink-0 flex-row items-center gap-3">
+          <FileTypeIcon mimeType={doc.mimeType} className="h-5 w-5 shrink-0" />
+          <DialogTitle className="text-sm font-medium text-[var(--color-brand-deep)] flex-1 truncate text-left">{doc.fileName}</DialogTitle>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                <ExternalLink className="h-3.5 w-3.5" />Ouvrir
+              </Button>
+            </a>
+            <a
+              href={doc.storagePath ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}&dl=1` : doc.fileUrl}
+              download={doc.fileName}
+            >
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                <Download className="h-3.5 w-3.5" />Télécharger
+              </Button>
+            </a>
+          </div>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 p-3">
+          {previewUrl ? (
+            <div className="relative h-full rounded-lg overflow-hidden bg-[#F8F9FA]">
+              {loading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8F9FA] z-10 gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--color-brand-blue)]" />
+                  <p className="text-xs text-muted-foreground">Chargement…</p>
+                </div>
+              )}
+              <iframe
+                src={`${previewUrl}#toolbar=1&navpanes=0`}
+                title={doc.fileName}
+                className="w-full h-full border-0"
+                onLoad={() => setLoading(false)}
+              />
+            </div>
+          ) : (
+            <PreviewContent doc={doc} fullscreen />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -548,6 +603,7 @@ function BulkDataroomPickerDialog({ selectedIds, societyId, onClose }: { selecte
 function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentItem; societyId: string; onClose: () => void; }) {
   const [doc, setDoc] = useState(initialDoc);
   const [dataroomDoc, setDataroomDoc] = useState<DocumentItem | null>(null);
+  const [fullscreenDoc, setFullscreenDoc] = useState<DocumentItem | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{
     summary?: string; tags?: string[]; metadata?: unknown; status: string;
   } | null>(null);
@@ -595,10 +651,14 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
         </div>
         <button onClick={onClose} className="shrink-0 text-muted-foreground hover:text-foreground mt-0.5"><X className="h-4 w-4" /></button>
       </div>
-      <div className="px-3 py-2 flex gap-2 border-b border-gray-100 shrink-0">
+      <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100 shrink-0">
         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
           <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1"><ExternalLink className="h-3.5 w-3.5" />Ouvrir</Button>
         </a>
+        <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" title="Plein écran"
+          onClick={() => setFullscreenDoc(doc)}>
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Button>
         <a
           href={doc.storagePath ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}&dl=1` : doc.fileUrl}
           download={doc.fileName}
@@ -614,16 +674,23 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
         </Button>
       </div>
       <Tabs defaultValue="preview" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-2 mt-2 shrink-0">
-          <TabsTrigger value="preview" className="flex-1 text-xs"><Eye className="h-3 w-3 mr-1" />Aperçu</TabsTrigger>
-          <TabsTrigger value="ai" className="flex-1 text-xs"><Sparkles className="h-3.5 w-3.5 mr-1" />IA</TabsTrigger>
-          <TabsTrigger value="chat" className="flex-1 text-xs">Chat</TabsTrigger>
-          <TabsTrigger value="info" className="flex-1 text-xs">Infos</TabsTrigger>
-          <TabsTrigger value="edit" className="flex-1 text-xs"><Pencil className="h-3 w-3 mr-1" />Éditer</TabsTrigger>
+        <TabsList className="mx-2 mt-2 shrink-0 grid grid-cols-5">
+          <TabsTrigger value="preview" className="text-xs px-1"><Eye className="h-3 w-3 mr-1" />Aperçu</TabsTrigger>
+          <TabsTrigger value="ai" className="text-xs px-1"><Sparkles className="h-3 w-3 mr-1" />IA</TabsTrigger>
+          <TabsTrigger value="chat" className="text-xs px-1">Chat</TabsTrigger>
+          <TabsTrigger value="info" className="text-xs px-1">Infos</TabsTrigger>
+          <TabsTrigger value="edit" className="text-xs px-1"><Pencil className="h-3 w-3 mr-1" />Éditer</TabsTrigger>
         </TabsList>
-        <TabsContent value="preview" className="flex-1 min-h-0 px-3 pb-3 mt-2 h-full">
-          <div className="h-full min-h-[300px]">
+        <TabsContent value="preview" className="flex-1 min-h-0 px-2 pb-2 mt-2 overflow-hidden">
+          <div className="h-full relative">
             <PreviewContent doc={doc} />
+            <button
+              onClick={() => setFullscreenDoc(doc)}
+              className="absolute bottom-2 right-2 z-20 text-[10px] bg-white/80 backdrop-blur-sm text-muted-foreground hover:text-[var(--color-brand-blue)] flex items-center gap-1 transition-colors px-1.5 py-1 rounded shadow-sm border border-gray-100"
+            >
+              <Maximize2 className="h-3 w-3" />
+              Agrandir
+            </button>
           </div>
         </TabsContent>
         <TabsContent value="ai" className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 mt-2">
@@ -714,6 +781,12 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
           doc={dataroomDoc}
           societyId={societyId}
           onClose={() => setDataroomDoc(null)}
+        />
+      )}
+      {fullscreenDoc && (
+        <FullscreenPreviewDialog
+          doc={fullscreenDoc}
+          onClose={() => setFullscreenDoc(null)}
         />
       )}
     </div>
@@ -832,7 +905,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
 
   return (
     <div className="flex rounded-xl overflow-hidden bg-white shadow-brand" style={{ height: "calc(100vh - 220px)", minHeight: "480px" }}>
-      <div className="hidden md:flex flex-col w-64 shrink-0 border-r border-gray-100 overflow-y-auto bg-[#FAFBFC]">
+      <div className="hidden md:flex flex-col w-52 shrink-0 border-r border-gray-100 overflow-y-auto bg-[#FAFBFC]">
         <div className="flex-1 overflow-y-auto">
           <TreeSidebar tree={tree} selected={selectedFolder} onSelect={(k) => { setSelectedFolder(k); setSelectedDoc(null); }} />
         </div>
@@ -968,7 +1041,7 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
         </div>
       </div>
       {selectedDoc && (
-        <div className="hidden lg:flex flex-col w-72 shrink-0 border-l border-gray-100 overflow-hidden bg-white">
+        <div className="hidden lg:flex flex-col w-96 shrink-0 border-l border-gray-100 overflow-hidden bg-white">
           <DetailsPanel doc={selectedDoc} societyId={societyId} onClose={() => setSelectedDoc(null)} />
         </div>
       )}

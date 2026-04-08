@@ -1,8 +1,7 @@
 import { getAnalyticsData } from "@/actions/analytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  ArrowDown, ArrowUp, Building2, TrendingUp, AlertTriangle, Calendar,
+  ArrowDown, ArrowUp, Building2, Calendar,
   Banknote, Wallet, Home, Users, FileText, Landmark, Wrench, ShieldCheck,
 } from "lucide-react";
 import { headers } from "next/headers";
@@ -16,6 +15,7 @@ import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
+import Link from "next/link";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -45,6 +45,37 @@ export default async function DashboardPage() {
 
       {/* ── Onboarding Checklist ── */}
       <OnboardingChecklist />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Link href="/patrimoine/immeubles/nouveau" className="rounded-2xl border border-border/60 bg-white p-4 shadow-brand transition-colors hover:border-primary/30 hover:bg-primary/5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-light)]">
+            <Building2 className="h-5 w-5 text-[var(--color-brand-blue)]" />
+          </div>
+          <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Ajouter un immeuble</p>
+          <p className="mt-1 text-sm text-muted-foreground">Commencez par structurer votre patrimoine avant de gérer les baux et les documents.</p>
+        </Link>
+        <Link href="/baux/nouveau" className="rounded-2xl border border-border/60 bg-white p-4 shadow-brand transition-colors hover:border-primary/30 hover:bg-primary/5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-light)]">
+            <FileText className="h-5 w-5 text-[var(--color-brand-blue)]" />
+          </div>
+          <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Créer un bail</p>
+          <p className="mt-1 text-sm text-muted-foreground">Ouvrez le suivi locatif, les échéances et la base de votre gestion documentaire.</p>
+        </Link>
+        <Link href="/documents/nouveau" className="rounded-2xl border border-border/60 bg-white p-4 shadow-brand transition-colors hover:border-primary/30 hover:bg-primary/5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-light)]">
+            <ShieldCheck className="h-5 w-5 text-[var(--color-brand-blue)]" />
+          </div>
+          <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Déposer un document</p>
+          <p className="mt-1 text-sm text-muted-foreground">Centralisez vos pièces utiles dans la GED avant de les partager ou de les rattacher.</p>
+        </Link>
+        <Link href="/banque" className="rounded-2xl border border-border/60 bg-white p-4 shadow-brand transition-colors hover:border-primary/30 hover:bg-primary/5">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-light)]">
+            <Banknote className="h-5 w-5 text-[var(--color-brand-blue)]" />
+          </div>
+          <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Ouvrir la banque</p>
+          <p className="mt-1 text-sm text-muted-foreground">Suivez vos soldes, vos flux et vos rapprochements depuis le même cockpit.</p>
+        </Link>
+      </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

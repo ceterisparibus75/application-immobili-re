@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
-import { Plus, Share2, FileText, Eye, Trash2, Lock, Calendar } from "lucide-react";
+import { ArrowRight, Calendar, Eye, FileText, Lock, Plus, Share2, Trash2 } from "lucide-react";
 import { createDataroom, deleteDataroom } from "@/actions/dataroom";
 
 type DataroomItem = {
@@ -121,8 +121,22 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Share2 className="h-12 w-12 text-muted-foreground/30 mb-4" />
-            <p className="text-sm font-medium mb-1">Aucune dataroom</p>
-            <p className="text-xs text-muted-foreground mb-4">Creez votre premier espace de partage de documents</p>
+            <p className="text-sm font-medium mb-1">Aucune dataroom pour l'instant</p>
+            <p className="mb-4 max-w-md text-center text-sm text-muted-foreground">
+              Créez un espace prêt à partager quand vous préparez une vente, un audit, un financement ou une revue documentaire.
+            </p>
+            <div className="flex flex-col items-center gap-2 sm:flex-row">
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" />
+                Créer ma première dataroom
+              </Button>
+              <Link href="/documents">
+                <Button variant="outline" className="gap-1.5">
+                  Voir la GED
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       ) : (

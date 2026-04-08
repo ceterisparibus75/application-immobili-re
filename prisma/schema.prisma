@@ -76,9 +76,15 @@ enum LeaseType {
   // Baux d'habitation
   HABITATION         // Bail vide — loi du 6 juillet 1989 (3 ans / 6 ans)
   MEUBLE             // Bail meublé — loi ALUR (1 an, 9 mois étudiant)
+  ETUDIANT           // Bail étudiant meublé (9 mois, non renouvelable)
   MOBILITE           // Bail mobilité — loi ELAN (1 à 10 mois, non renouvelable)
+  COLOCATION         // Bail colocation (vide ou meublée)
   SAISONNIER         // Location saisonnière (< 90 jours)
+  LOGEMENT_FONCTION  // Logement de fonction / accessoire au contrat de travail
   ANAH               // Convention ANAH — loyer maîtrisé
+  CIVIL              // Bail civil (Code civil, résidence secondaire, etc.)
+  GLISSANT           // Bail glissant (association → locataire, insertion sociale)
+  SOUS_LOCATION      // Sous-location autorisée
 
   // Baux commerciaux et professionnels
   COMMERCIAL_369     // Bail commercial 3/6/9 ans
@@ -86,6 +92,12 @@ enum LeaseType {
   PRECAIRE           // Convention d'occupation précaire
   BAIL_PROFESSIONNEL // Bail professionnel (6 ans)
   MIXTE              // Bail mixte habitation + professionnel
+
+  // Baux longs / fonciers
+  EMPHYTEOTIQUE      // Bail emphytéotique (18 à 99 ans)
+  CONSTRUCTION       // Bail à construction
+  REHABILITATION     // Bail à réhabilitation
+  BRS                // Bail réel solidaire (OFS)
 
   // Bail rural
   RURAL              // Bail rural / agricole (9 ans min.)
@@ -396,6 +408,7 @@ model Society {
   reportSchedules         ReportSchedule[]
   propertyValuations      PropertyValuation[]
   rentValuations          RentValuation[]
+  additionalAcquisitions  AdditionalAcquisition[]
 
   @@index([siret])
   @@index([proprietaireId])
@@ -650,24 +663,49 @@ model Building {
   acquisitionTaxes          Float? // Droits de mutation / taxes
   acquisitionOtherCosts     Float? // Autres frais d'acquisition
   acquisitionDate           DateTime? // Date d'acquisition
+  worksCost                 Float? // Coût total des travaux réalisés
   description               String?      @db.Text
   // Acte d'acquisition PDF
   acquisitionPdfUrl         String?
   acquisitionPdfStoragePath String?
   acquisitionPdfAnalysis    String?      @db.Text
 
-  society          Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lots             Lot[]
-  diagnostics      Diagnostic[]
-  maintenances     Maintenance[]
-  charges          Charge[]
-  chargeCategories ChargeCategory[]
-  documents        Document[]
-  loans            Loan[]
-  propertyValuations PropertyValuation[]
+  society                   Society                  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lots                      Lot[]
+  diagnostics               Diagnostic[]
+  maintenances              Maintenance[]
+  charges                   Charge[]
+  chargeCategories          ChargeCategory[]
+  documents                 Document[]
+  loans                     Loan[]
+  propertyValuations        PropertyValuation[]
+  additionalAcquisitions    AdditionalAcquisition[]
 
   @@index([societyId])
   @@index([societyId, city])
+}
+
+/// Acquisition complémentaire de lots (achat en plusieurs fois)
+model AdditionalAcquisition {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  buildingId String
+  societyId  String
+
+  label             String    // Ex: "Lot 3 - Bureau RDC"
+  acquisitionDate   DateTime
+  acquisitionPrice  Float     // Prix d'achat
+  acquisitionFees   Float?    // Frais de notaire
+  acquisitionTaxes  Float?    // Droits de mutation
+  otherCosts        Float?    // Autres frais
+  description       String?   @db.Text
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  society  Society  @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId])
+  @@index([societyId])
 }
 
 /// Diagnostic technique (DPE, amiante, etc.)

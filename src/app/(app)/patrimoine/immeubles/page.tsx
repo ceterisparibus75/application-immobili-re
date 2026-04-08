@@ -2,11 +2,12 @@ import { getBuildings } from "@/actions/building";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Building2, ChevronRight, Plus, TrendingUp, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { BuildingType } from "@/generated/prisma/client";
 
 export const metadata = { title: "Immeubles" };
@@ -35,13 +36,11 @@ export default async function ImmeublesPage() {
       return ls + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12);
     }, 0);
   }, 0);
-  const totalMarketValue = buildings.reduce((s, b) => {
-    const aiVal = b.propertyValuations[0]?.estimatedValueMid;
-    return s + (aiVal ?? b.marketValue ?? 0);
-  }, 0);
+  const totalCostAll = buildings.reduce((s, b) => s + (b.totalCost ?? 0), 0);
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <TooltipProvider delayDuration={200}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Immeubles</h1>
@@ -70,8 +69,8 @@ export default async function ImmeublesPage() {
             <p className="text-2xl font-bold tabular-nums">{formatCurrency(totalAnnualRent)}</p>
           </div>
           <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs text-muted-foreground font-medium">Valeur patrimoine</p>
-            <p className="text-2xl font-bold tabular-nums">{totalMarketValue > 0 ? formatCurrency(totalMarketValue) : "—"}</p>
+            <p className="text-xs text-muted-foreground font-medium">Coût complet patrimoine</p>
+            <p className="text-2xl font-bold tabular-nums">{totalCostAll > 0 ? formatCurrency(totalCostAll) : "—"}</p>
           </div>
         </div>
       )}
@@ -97,10 +96,10 @@ export default async function ImmeublesPage() {
             {/* Header tableau */}
             <div className="hidden md:grid md:grid-cols-[1fr_100px_90px_130px_130px_110px_28px] gap-3 px-5 py-3 border-b bg-muted/30">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Immeuble</span>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Surface</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Surface du bâti</span>
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Occupation</span>
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Loyers annuels</span>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Valeur vénale</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Coût complet</span>
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Rendement</span>
               <span />
             </div>
@@ -109,23 +108,24 @@ export default async function ImmeublesPage() {
               const occupied = building.lots.filter((l) => l.status === "OCCUPE").length;
               const total = building.lots.length;
               const occupancyPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
-              const annualRent = building.lots.reduce((s, lot) => {
-                const lease = lot.leases[0];
-                if (!lease) return s;
-                return s + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12);
-              }, 0);
-              const aiVal = building.propertyValuations[0]?.estimatedValueMid;
-              const venale = aiVal ?? building.marketValue ?? 0;
-              const rendement = venale > 0 ? Math.round((annualRent / venale) * 1000) / 10 : null;
-              const totalArea = building.totalArea ?? building.lots.reduce((s, l) => s + l.area, 0);
+              const annualRent = building.annualRent;
+              const cost = building.totalCost;
+              const rendement = building.yieldRate !== null ? Math.round(building.yieldRate * 10) / 10 : null;
+              const totalArea = building.totalArea ?? building.lots.reduce((s, l) => s + (l.area ?? 0), 0);
 
-              // Alerte : bail expirant dans < 90j
+              // Alerte : baux expirant dans < 90j
               const cutoff90d = new Date();
               cutoff90d.setDate(cutoff90d.getDate() + 90);
-              const expiringSoon = building.lots.some((lot) => {
-                const lease = lot.leases[0];
-                return lease && new Date(lease.endDate) <= cutoff90d;
-              });
+              const expiringLeases = building.lots
+                .filter((lot) => {
+                  const lease = lot.leases[0];
+                  return lease && lease.endDate && new Date(lease.endDate) <= cutoff90d;
+                })
+                .map((lot) => ({
+                  lotName: `Lot ${lot.number}`,
+                  endDate: lot.leases[0]?.endDate ? new Date(lot.leases[0].endDate) : null,
+                }));
+              const expiringSoon = expiringLeases.length > 0;
 
               return (
                 <Link
@@ -143,7 +143,25 @@ export default async function ImmeublesPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold truncate">{building.name}</span>
                           <Badge variant="outline" className="text-[10px] shrink-0">{BUILDING_TYPE_LABELS[building.buildingType]}</Badge>
-                          {expiringSoon && <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)] shrink-0" />}
+                          {expiringSoon && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="shrink-0 cursor-help">
+                                  <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p className="font-semibold text-xs mb-1">Baux expirant sous 90 jours</p>
+                                <ul className="text-xs space-y-0.5">
+                                  {expiringLeases.map((el, i) => (
+                                    <li key={i}>
+                                      {el.lotName} — fin le {el.endDate ? formatDate(el.endDate) : "—"}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                         <span className="text-xs text-muted-foreground truncate block">
                           {building.city} — {total} lot{total !== 1 ? "s" : ""}
@@ -160,7 +178,7 @@ export default async function ImmeublesPage() {
                       {annualRent > 0 ? formatCurrency(annualRent) : <span className="text-muted-foreground font-normal">—</span>}
                     </span>
                     <span className="text-sm tabular-nums text-right">
-                      {venale > 0 ? formatCurrency(venale) : <span className="text-muted-foreground">—</span>}
+                      {cost > 0 ? formatCurrency(cost) : <span className="text-muted-foreground">—</span>}
                     </span>
                     <div className="flex justify-center">
                       {rendement !== null ? (
@@ -183,7 +201,25 @@ export default async function ImmeublesPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold truncate">{building.name}</span>
-                          {expiringSoon && <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)] shrink-0" />}
+                          {expiringSoon && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="shrink-0 cursor-help">
+                                  <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold text-xs mb-1">Baux expirant sous 90 jours</p>
+                                <ul className="text-xs space-y-0.5">
+                                  {expiringLeases.map((el, i) => (
+                                    <li key={i}>
+                                      {el.lotName} — fin le {el.endDate ? formatDate(el.endDate) : "—"}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                           <span>{building.city}</span>
@@ -213,6 +249,7 @@ export default async function ImmeublesPage() {
         </Card>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 

@@ -131,10 +131,27 @@ const LOT_TYPE_OPTIONS = [
 ];
 
 const LEASE_TYPE_OPTIONS = [
+  { value: "HABITATION", label: "Bail d'habitation vide (loi 1989)" },
+  { value: "MEUBLE", label: "Bail meublé (ALUR)" },
+  { value: "ETUDIANT", label: "Bail étudiant meublé (9 mois)" },
+  { value: "MOBILITE", label: "Bail mobilité (ELAN)" },
+  { value: "COLOCATION", label: "Bail colocation" },
+  { value: "SAISONNIER", label: "Location saisonnière" },
+  { value: "LOGEMENT_FONCTION", label: "Logement de fonction" },
+  { value: "ANAH", label: "Convention ANAH" },
+  { value: "CIVIL", label: "Bail civil (Code civil)" },
+  { value: "GLISSANT", label: "Bail glissant" },
+  { value: "SOUS_LOCATION", label: "Sous-location" },
   { value: "COMMERCIAL_369", label: "Bail commercial 3-6-9" },
   { value: "DEROGATOIRE", label: "Bail dérogatoire" },
   { value: "PRECAIRE", label: "Convention d'occupation précaire" },
   { value: "BAIL_PROFESSIONNEL", label: "Bail professionnel" },
+  { value: "MIXTE", label: "Bail mixte" },
+  { value: "EMPHYTEOTIQUE", label: "Bail emphytéotique" },
+  { value: "CONSTRUCTION", label: "Bail à construction" },
+  { value: "REHABILITATION", label: "Bail à réhabilitation" },
+  { value: "BRS", label: "Bail réel solidaire (OFS)" },
+  { value: "RURAL", label: "Bail rural / agricole" },
 ];
 
 const PAYMENT_FREQ_OPTIONS = [

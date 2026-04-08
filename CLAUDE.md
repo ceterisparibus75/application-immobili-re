@@ -91,8 +91,9 @@ La logique middleware est dans `src/proxy.ts` (exportée depuis `middleware.ts`)
 1. Authentification via NextAuth wrapper
 2. Redirige vers `/login` si non authentifié (sauf routes publiques : `/`, `/locaux`, `/contact`, `/mentions-legales`, `/politique-confidentialite`, `/api/public`, `/api/auth`, `/dataroom`, `/api/webhooks`)
 3. **2FA** : si l'utilisateur a 2FA activé, redirige vers `/login/two-factor` tant que non vérifié
-4. **Rate limiting** via Upstash Redis (si configuré) : 3 req/10s sur login, 10 req/10s sur API
-5. **En-têtes de sécurité** : CSP avec nonce, HSTS, X-Frame-Options DENY, etc.
+4. **Rate limiting** via Upstash Redis (si configuré) — fallback mémoire si Redis absent :
+   - Login : 3 req/10s ; API : 10 req/10s ; 2FA : 5 req/60s ; Portal : 5 req/5min
+5. **En-têtes de sécurité** (`next.config.ts`) : CSP avec nonce, HSTS, Permissions-Policy. `X-Frame-Options: SAMEORIGIN` sur tout sauf `/api/storage/view` et `/api/invoices/[id]/pdf` (iframe PDF autorisé)
 6. Injecte `x-society-id` et `x-nonce` dans les headers pour les Server Components
 7. Routes portail (`/portal`, `/api/portal`) utilisent une auth JWT séparée (`src/lib/portal-auth.ts`)
 
@@ -105,12 +106,25 @@ Toute l'application est multi-société. Chaque entité Prisma est scopée par `
 - **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` injecte automatiquement `societyId` dans toutes les requêtes (find, create, update, delete)
 - **Propriétaires** : Un utilisateur peut avoir plusieurs entités `Proprietaire` (SCI, SARL, personne physique), chacune regroupant des sociétés. Actions CRUD dans `src/actions/proprietaire.ts`. Migration automatique des sociétés existantes via `migrateOwnerToProprietaire()`.
 
+### Authentification avancée
+
+- **Verrouillage de compte** : 5 tentatives échouées → compte verrouillé 15 min (`src/lib/auth.ts`). Reset au login réussi.
+- **2FA TOTP** (`src/lib/two-factor.ts`) : OTPAuth SHA1, 6 chiffres, 30s. Secret chiffré AES-256. QR code pour apps authenticator. Codes de récupération format `XXXXX-XXXXX` (chiffrés).
+- **Timeout d'inactivité** (`src/providers/idle-timeout-provider.tsx`) : déconnexion auto après 10 min d'inactivité, avertissement 1 min avant. Redirige vers `/login?reason=idle`.
+
+### Portail locataire
+
+Routes `/portal` et `/api/portal` utilisent une authentification JWT indépendante de NextAuth (`src/lib/portal-auth.ts`) :
+- Tokens JWT 24h stockés en cookie httpOnly `portal-token`
+- Rate limiting séparé (5 req/5min par email)
+
 ### Abonnements & Essai gratuit
 
 Chaque société dispose d'un abonnement (`Subscription`) géré par `src/lib/plan-limits.ts` :
 
 - **Essai implicite** : 14 jours, créé automatiquement à la création de société (sans Stripe, `stripeCustomerId` null)
 - **Cycle de vie** : TRIALING → ACTIVE (via Stripe checkout) ou TRIALING → CANCELED (expiration)
+- **Plans** : STARTER (20 lots, 1 société, 2 users) / PRO (50 lots, 3 sociétés, 5 users) / ENTERPRISE (illimité). Seul ENTERPRISE a : signature électronique, import IA, accès API.
 - **Enforcement** : `checkSubscriptionActive()` vérifié avant toute mutation critique (lot, building, lease, tenant, invoice, user, society)
 - **Limites par plan** : `checkLotLimit()`, `checkUserLimit()`, `checkSocietyLimit()` dans `src/lib/plan-limits.ts`
 - **Bannière** : `SubscriptionBanner` (`src/components/layout/subscription-banner.tsx`) affiche les alertes (trial ≤5j, expiration, impayé)
@@ -122,6 +136,8 @@ Hiérarchie : `SUPER_ADMIN (50) > ADMIN_SOCIETE (40) > GESTIONNAIRE (30) > COMPT
 
 Fonctions dans `src/lib/permissions.ts` : `requireSocietyAccess()`, `requireSuperAdmin()`, `hasMinRole()`.
 Erreurs custom : `ForbiddenError`, `NotFoundError`.
+
+**Permissions granulaires par module** : `UserSociety.modulePermissions` (JSON) permet de surcharger les droits par rôle pour chaque module (read/write/delete). `hasModulePermission()` vérifie d'abord ces surcharges avant le rôle global. Le propriétaire de la société (`society.ownerId`) a toujours accès complet.
 
 ## Patterns de code
 
@@ -231,6 +247,29 @@ Les factures PDF utilisent `@react-pdf/renderer`. Le composant `InvoicePdf` reç
 
 Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storage/signed-upload/route.ts` et `src/app/api/storage/view/route.ts` gèrent respectivement l'upload signé et la consultation sécurisée des fichiers.
 
+### Fonctionnalités IA
+
+- **Analyse de documents** (`src/lib/document-ai.ts`) : extrait résumé, tags et catégorie via Claude Opus 4.5. 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre_propriete, contrat, etat_des_lieux. Nécessite `ANTHROPIC_API_KEY`.
+- **Évaluation patrimoniale** (`src/lib/valuation/ai-service.ts`) : estimation de loyers et de valeur vénale. Utilise Claude (principal), OpenAI et Gemini. Inclut analyse SWOT, comparables, score de confiance, données DVF (Demandes de Valeurs Foncières). Nécessite `ANTHROPIC_API_KEY`.
+
+### Rapports (`src/lib/report-generator.ts`, `src/lib/reports/`)
+
+9 types de rapports PDF : `balance-agee`, `compte-rendu-gestion`, `etat-impayes`, `rentabilite-lot`, `recap-charges-locataire`, `situation-locative`, `suivi-mensuel`, `suivi-travaux`, `vacance-locative`.
+
+- Génération PDF avec graphiques (`pdf-charts.ts`, `pdf-core.ts`)
+- Rapports consolidés multi-sociétés (`reports/consolidated.ts`)
+- Module `/rapports` pour consultation ; `/rapports/planification` pour envoi planifié
+- Cron `/api/cron/send-reports` pour envoi automatique
+
+### Open Banking
+
+Deux intégrations bancaires parallèles, toutes deux optionnelles :
+
+| Service | Lib | Variables | Usage |
+|---------|-----|-----------|-------|
+| **GoCardless** | `src/lib/gocardless.ts` | `GOCARDLESS_SECRET_ID/KEY` | PSD2 Open Banking Europe |
+| **Powens** (ex-Budget Insight) | `src/lib/powens.ts` | `POWENS_DOMAIN/CLIENT_ID/SECRET` | API bancaire alternative |
+
 ## Modules métier
 
 Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src/actions/`) et validation (`src/validations/`) correspondantes :
@@ -260,6 +299,8 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Dashboard + Analytiques | `/dashboard` | `dashboard.ts`, `analytics.ts` |
 | Propriétaires | `/proprietaire` | `proprietaire.ts` |
 | Abonnements | `/compte/abonnement` | `subscription.ts` |
+| Évaluations patrimoine | `/patrimoine/evaluations` | `valuation.ts` |
+| Rapports | `/rapports`, `/rapports/planification` | `report-generator.ts` |
 
 ## Cron Jobs (Vercel)
 
@@ -274,6 +315,7 @@ Définis dans `vercel.json`, protégés par `CRON_SECRET` :
 | `/api/cron/insurance-reminder` | Lundi 9h | Rappels assurances |
 | `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
 | `/api/cron/rent-revisions` | 1er du mois 8h | Révisions de loyer |
+| `/api/cron/send-reports` | Configurable | Envoi rapports planifiés |
 
 ## Monitoring (Sentry)
 

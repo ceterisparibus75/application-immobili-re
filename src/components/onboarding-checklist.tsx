@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import {
@@ -11,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -20,151 +22,142 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Building2,
-  Users,
-  UserPlus,
-  FileText,
-  Banknote,
-  CheckCircle2,
-  Circle,
   ArrowRight,
-  X,
+  Banknote,
+  Building2,
+  CheckCircle2,
   EyeOff,
+  FileText,
+  LucideIcon,
+  UserPlus,
+  Users,
+  X,
 } from "lucide-react";
 
 interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  icon: React.ReactNode;
+  benefit: string;
+  icon: LucideIcon;
   href: string;
-  checkFn: () => Promise<boolean>;
+  optional?: boolean;
 }
+
+type OnboardingStatus = {
+  hasActiveSociety: boolean;
+  memberCount: number;
+  buildingCount: number;
+  tenantCount: number;
+  leaseCount: number;
+  bankAccountCount: number;
+};
+
+const steps: OnboardingStep[] = [
+  {
+    id: "society",
+    title: "Créer votre société",
+    description: "Définissez le cadre de gestion de votre portefeuille.",
+    benefit: "Sans société active, le reste du paramétrage n'a pas de base commune.",
+    icon: Building2,
+    href: "/societes/nouvelle",
+  },
+  {
+    id: "users",
+    title: "Inviter vos collaborateurs",
+    description: "Ajoutez les bonnes personnes et clarifiez les responsabilités.",
+    benefit: "Vous évitez de centraliser toute la gestion sur un seul compte.",
+    icon: UserPlus,
+    href: "/compte/utilisateurs",
+  },
+  {
+    id: "building",
+    title: "Ajouter un immeuble",
+    description: "Commencez par le premier actif à piloter dans l'application.",
+    benefit: "C'est le point d'entrée des lots, loyers, charges et documents.",
+    icon: Building2,
+    href: "/patrimoine/immeubles/nouveau",
+  },
+  {
+    id: "tenant",
+    title: "Ajouter un locataire",
+    description: "Renseignez au moins un occupant ou preneur actif.",
+    benefit: "Vous pourrez ensuite créer un bail et centraliser les pièces utiles.",
+    icon: Users,
+    href: "/locataires/nouveau",
+  },
+  {
+    id: "lease",
+    title: "Créer un bail",
+    description: "Associez un locataire à un lot pour ouvrir le suivi locatif.",
+    benefit: "Le bail débloque la facturation, les échéances et le suivi documentaire.",
+    icon: FileText,
+    href: "/baux/nouveau",
+  },
+  {
+    id: "bank",
+    title: "Ajouter un compte bancaire",
+    description: "Connectez ou créez un compte pour suivre la trésorerie.",
+    benefit: "Recommandé pour rapprocher les encaissements et fiabiliser le pilotage.",
+    icon: Banknote,
+    href: "/banque/nouveau-compte",
+    optional: true,
+  },
+];
 
 export function OnboardingChecklist() {
   const router = useRouter();
   const { activeSociety } = useSociety();
+  const activeSocietyId = activeSociety?.id;
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showDismissDialog, setShowDismissDialog] = useState(false);
 
-  const steps: OnboardingStep[] = [
-    {
-      id: "society",
-      title: "Creer votre societe",
-      description: "Configurez votre SCI ou societe de gestion",
-      icon: <Building2 className="h-5 w-5" />,
-      href: "/societes/nouvelle",
-      checkFn: async () => !!activeSociety,
-    },
-    {
-      id: "users",
-      title: "Inviter des utilisateurs",
-      description: "Ajoutez des collaborateurs et definissez leurs droits",
-      icon: <UserPlus className="h-5 w-5" />,
-      href: "/compte/utilisateurs",
-      checkFn: async () => {
-        if (!activeSociety) return false;
-        try {
-          const res = await fetch(`/api/users?societyId=${activeSociety.id}`);
-          if (!res.ok) return false;
-          const data = await res.json();
-          // Au moins 2 membres = le propriétaire + un invité
-          return (data.data?.length ?? data.length ?? 0) > 1;
-        } catch { return false; }
-      },
-    },
-    {
-      id: "building",
-      title: "Ajouter un immeuble",
-      description: "Enregistrez votre premier bien immobilier",
-      icon: <Building2 className="h-5 w-5" />,
-      href: "/patrimoine/immeubles/nouveau",
-      checkFn: async () => {
-        if (!activeSociety) return false;
-        try {
-          const res = await fetch(`/api/buildings?limit=1`);
-          if (!res.ok) return false;
-          const data = await res.json();
-          return (data.data?.length ?? 0) > 0;
-        } catch { return false; }
-      },
-    },
-    {
-      id: "tenant",
-      title: "Ajouter un locataire",
-      description: "Enregistrez votre premier locataire",
-      icon: <Users className="h-5 w-5" />,
-      href: "/locataires/nouveau",
-      checkFn: async () => {
-        if (!activeSociety) return false;
-        try {
-          const res = await fetch(`/api/tenants/active`);
-          if (!res.ok) return false;
-          const data = await res.json();
-          return (data.data?.length ?? 0) > 0;
-        } catch { return false; }
-      },
-    },
-    {
-      id: "lease",
-      title: "Creer un bail",
-      description: "Associez un locataire a un lot",
-      icon: <FileText className="h-5 w-5" />,
-      href: "/baux/nouveau",
-      checkFn: async () => {
-        if (!activeSociety) return false;
-        try {
-          const res = await fetch(`/api/leases?limit=1`);
-          if (!res.ok) return false;
-          const data = await res.json();
-          return (data?.length ?? data.data?.length ?? 0) > 0;
-        } catch { return false; }
-      },
-    },
-    {
-      id: "bank",
-      title: "Connecter une banque",
-      description: "Ajoutez votre compte bancaire pour le suivi",
-      icon: <Banknote className="h-5 w-5" />,
-      href: "/banque/nouveau-compte",
-      checkFn: async () => {
-        // Optionnel - toujours considere comme non bloquant
-        return false;
-      },
-    },
-  ];
-
   useEffect(() => {
-    // Verifier quelles etapes sont completees
-    async function checkSteps() {
+    async function loadStatus() {
       setLoading(true);
-      const completed = new Set<string>();
-      for (const step of steps) {
-        try {
-          if (await step.checkFn()) {
-            completed.add(step.id);
-          }
-        } catch {
-          // Ignorer les erreurs de verification
-        }
+      setDismissed(false);
+
+      try {
+        const response = await fetch("/api/onboarding/status", { cache: "no-store" });
+        const payload = response.ok
+          ? (await response.json()) as { data?: OnboardingStatus }
+          : undefined;
+
+        const status = payload?.data ?? {
+          hasActiveSociety: Boolean(activeSocietyId),
+          memberCount: 0,
+          buildingCount: 0,
+          tenantCount: 0,
+          leaseCount: 0,
+          bankAccountCount: 0,
+        };
+
+        const completed = new Set<string>();
+        if (status.hasActiveSociety) completed.add("society");
+        if (status.memberCount > 1) completed.add("users");
+        if (status.buildingCount > 0) completed.add("building");
+        if (status.tenantCount > 0) completed.add("tenant");
+        if (status.leaseCount > 0) completed.add("lease");
+        if (status.bankAccountCount > 0) completed.add("bank");
+        setCompletedSteps(completed);
+      } catch {
+        setCompletedSteps(activeSocietyId ? new Set(["society"]) : new Set());
+      } finally {
+        setLoading(false);
       }
-      setCompletedSteps(completed);
-      setLoading(false);
     }
 
-    // Verifier si deja dismiss
-    const dismissedKey = `onboarding-dismissed-${activeSociety?.id ?? "global"}`;
+    const dismissedKey = `onboarding-dismissed-${activeSocietyId ?? "global"}`;
     if (typeof window !== "undefined" && localStorage.getItem(dismissedKey)) {
       setDismissed(true);
       setLoading(false);
       return;
     }
 
-    checkSteps();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSociety?.id]);
+    void loadStatus();
+  }, [activeSocietyId]);
 
   function handleTemporaryDismiss() {
     setShowDismissDialog(false);
@@ -172,7 +165,7 @@ export function OnboardingChecklist() {
   }
 
   function handlePermanentDismiss() {
-    const dismissedKey = `onboarding-dismissed-${activeSociety?.id ?? "global"}`;
+    const dismissedKey = `onboarding-dismissed-${activeSocietyId ?? "global"}`;
     localStorage.setItem(dismissedKey, "true");
     setShowDismissDialog(false);
     setDismissed(true);
@@ -180,76 +173,162 @@ export function OnboardingChecklist() {
 
   if (dismissed || loading) return null;
 
-  const completedCount = completedSteps.size;
-  const totalSteps = steps.length;
-  const allDone = completedCount >= totalSteps - 1; // bank est optionnel
+  const requiredSteps = steps.filter((step) => !step.optional);
+  const optionalSteps = steps.filter((step) => step.optional);
+  const completedRequiredCount = requiredSteps.filter((step) => completedSteps.has(step.id)).length;
+  const completedOptionalCount = optionalSteps.filter((step) => completedSteps.has(step.id)).length;
+  const totalRequiredSteps = requiredSteps.length;
+  const nextRequiredStep = requiredSteps.find((step) => !completedSteps.has(step.id)) ?? null;
+  const nextOptionalStep = optionalSteps.find((step) => !completedSteps.has(step.id)) ?? null;
+  const spotlightStep = nextRequiredStep ?? nextOptionalStep;
+  const allRequiredDone = completedRequiredCount === totalRequiredSteps;
+  const allDone = allRequiredDone && completedOptionalCount === optionalSteps.length;
 
   if (allDone) return null;
 
-  const progress = Math.round((completedCount / totalSteps) * 100);
+  const progress = Math.round((completedRequiredCount / totalRequiredSteps) * 100);
+
+  function renderStep(step: OnboardingStep, isSpotlight: boolean) {
+    const isCompleted = completedSteps.has(step.id);
+    const Icon = step.icon;
+
+    const content = (
+      <>
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+            isCompleted
+              ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"
+              : "bg-primary/10 text-primary"
+          }`}
+        >
+          {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={`text-sm font-medium ${isCompleted ? "text-muted-foreground" : "text-foreground"}`}>
+              {step.title}
+            </p>
+            {step.optional && <Badge variant="outline">Recommandé</Badge>}
+            {isSpotlight && !isCompleted && <Badge>À faire maintenant</Badge>}
+          </div>
+          <p className="text-sm text-muted-foreground">{step.description}</p>
+          <p className="text-xs text-muted-foreground">{step.benefit}</p>
+        </div>
+        {isCompleted ? (
+          <span className="text-xs font-medium text-[var(--color-status-positive)]">Terminé</span>
+        ) : (
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+      </>
+    );
+
+    if (isCompleted) {
+      return (
+        <div
+          key={step.id}
+          className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/35 px-4 py-3"
+        >
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={step.id}
+        href={step.href}
+        className="flex items-start gap-3 rounded-xl border border-border/60 bg-background px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+      >
+        {content}
+      </Link>
+    );
+  }
 
   return (
-    <Card className="mb-6 border-primary/20 bg-primary/5">
+    <Card className="mb-6 overflow-hidden border-primary/20 bg-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Bienvenue ! Configurez votre espace</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-lg text-balance">
+              {allRequiredDone ? "Votre espace est prêt" : "Mettez votre espace en ordre de marche"}
+            </CardTitle>
             <CardDescription>
-              Completez ces etapes pour commencer a gerer votre patrimoine
+              {allRequiredDone
+                ? "Les étapes essentielles sont terminées. Il ne reste qu'un réglage recommandé pour piloter la trésorerie au même endroit."
+                : `Encore ${totalRequiredSteps - completedRequiredCount} étape${totalRequiredSteps - completedRequiredCount > 1 ? "s" : ""} essentielle${totalRequiredSteps - completedRequiredCount > 1 ? "s" : ""} pour rendre votre espace vraiment exploitable.`}
             </CardDescription>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setShowDismissDialog(true)} title="Fermer">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowDismissDialog(true)}
+            title="Fermer"
+            aria-label="Masquer le guide de démarrage"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
+            className="h-full rounded-full bg-primary transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {completedCount}/{totalSteps} etapes completees
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {steps.map((step) => {
-            const isCompleted = completedSteps.has(step.id);
-            return (
-              <button
-                key={step.id}
-                onClick={() => !isCompleted && router.push(step.href)}
-                disabled={isCompleted}
-                className={`w-full flex items-center gap-3 rounded-lg p-3 text-left transition-colors
-                  ${isCompleted
-                    ? "bg-muted/50 opacity-60"
-                    : "hover:bg-accent cursor-pointer"
-                  }`}
-              >
-                <div className={`flex-shrink-0 ${isCompleted ? "text-[var(--color-status-positive)]" : "text-muted-foreground"}`}>
-                  {isCompleted ? (
-                    <CheckCircle2 className="h-5 w-5" />
-                  ) : (
-                    <Circle className="h-5 w-5" />
-                  )}
-                </div>
-                <div className="flex-shrink-0 text-primary">{step.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${isCompleted ? "line-through" : ""}`}>
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {step.description}
-                  </p>
-                </div>
-                {!isCompleted && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                )}
-              </button>
-            );
-          })}
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{completedRequiredCount}/{totalRequiredSteps} étapes essentielles terminées</span>
+          {optionalSteps.length > 0 && (
+            <span>
+              · {completedOptionalCount}/{optionalSteps.length} recommandée{optionalSteps.length > 1 ? "s" : ""} terminée{optionalSteps.length > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {spotlightStep && (
+          <div className="rounded-2xl border border-primary/20 bg-background/90 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-brand-blue)]">
+                  Priorité du moment
+                </p>
+                <p className="text-sm font-medium text-[var(--color-brand-deep)]">{spotlightStep.title}</p>
+                <p className="text-sm text-muted-foreground">{spotlightStep.benefit}</p>
+              </div>
+              <Button onClick={() => router.push(spotlightStep.href)} className="gap-1.5">
+                Ouvrir l'étape
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Socle essentiel</p>
+            <Badge variant="secondary">Indispensable</Badge>
+          </div>
+          <div className="space-y-2">
+            {requiredSteps.map((step) => renderStep(step, step.id === nextRequiredStep?.id))}
+          </div>
+        </div>
+
+        {optionalSteps.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-[var(--color-brand-deep)]">À faire ensuite</p>
+              <Badge variant="outline">Recommandé</Badge>
+            </div>
+            <div className="space-y-2">
+              {optionalSteps.map((step) => renderStep(step, !nextRequiredStep && step.id === nextOptionalStep?.id))}
+            </div>
+          </div>
+        )}
+
+        {allRequiredDone && nextOptionalStep && (
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/80 px-4 py-3 text-sm text-muted-foreground">
+            Votre parcours principal est terminé. Ajoutez maintenant un compte bancaire si vous voulez suivre la trésorerie, les rapprochements et les mouvements sans sortir de l'application.
+          </div>
+        )}
       </CardContent>
 
       <AlertDialog open={showDismissDialog} onOpenChange={setShowDismissDialog}>
@@ -260,7 +339,7 @@ export function OnboardingChecklist() {
               Vous pouvez le fermer temporairement ou le masquer définitivement.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={handleTemporaryDismiss}>
               Fermer pour le moment
             </Button>
