@@ -60,8 +60,8 @@ function baseTemplate(title: string, content: string, options?: { societyName?: 
           <td class="header-pad" align="center" style="padding:32px 40px 24px;">
             <table cellpadding="0" cellspacing="0" role="presentation">
               <tr>
-                <td style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.5px;">
-                  <span style="color:${BRAND.blue};">My</span><span style="color:${BRAND.cyan};">Gestia</span>
+                <td style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;font-weight:700;letter-spacing:-0.5px;">
+                  <span style="color:${BRAND.muted};">my</span><span style="color:${BRAND.deep};">gestia</span><span style="color:${BRAND.muted};">.</span><span style="color:${BRAND.muted};">immo</span>
                 </td>
               </tr>
             </table>
