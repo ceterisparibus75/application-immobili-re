@@ -22,9 +22,9 @@ const BRAND = {
   gradient: "linear-gradient(135deg, #1B4F8A 0%, #22B8CF 100%)",
 };
 
-/** Logo URL for emails — uses absolute URL to public asset */
+/** Logo URL for emails — uses PNG (SVG not supported by most email clients) */
 function logoUrl(): string {
-  return `${SITE_URL}/logo-mygestia.svg`;
+  return `${SITE_URL}/logo-mygestia.png`;
 }
 
 // ============================================================
@@ -113,7 +113,7 @@ function ctaButton(label: string, href: string): string {
   return `
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       <tr><td align="center" style="padding:24px 0 8px;">
-        <a href="${href}" class="cta-btn" style="display:inline-block;padding:14px 36px;background:${BRAND.gradient};color:${BRAND.white};text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;letter-spacing:-0.2px;box-shadow:0 2px 8px rgba(27,79,138,0.25);" target="_blank">
+        <a href="${href}" class="cta-btn" style="display:inline-block;padding:14px 36px;background-color:${BRAND.blue};color:${BRAND.white};text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;letter-spacing:-0.2px;" target="_blank">
           ${label}
         </a>
       </td></tr>
