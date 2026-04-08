@@ -22,9 +22,9 @@ const BRAND = {
   gradient: "linear-gradient(135deg, #1B4F8A 0%, #22B8CF 100%)",
 };
 
-/** Logo URL for emails — uses PNG (SVG not supported by most email clients) */
+/** Logo URL for emails — URL fixe vers le déploiement Vercel (toujours accessible) */
 function logoUrl(): string {
-  return `${SITE_URL}/logo-mygestia.png`;
+  return "https://application-immobili-re.vercel.app/logo-mygestia.png";
 }
 
 // ============================================================
