@@ -263,7 +263,15 @@ export default async function BauxPage() {
               </CardHeader>
               <CardContent className="pt-4 px-0 pb-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-[30%]" />
+                      <col className="w-[15%]" />
+                      <col className="w-[15%] hidden sm:table-column" />
+                      <col className="w-[12%] hidden md:table-column" />
+                      <col className="w-[13%]" />
+                      <col className="w-[15%] hidden lg:table-column" />
+                    </colgroup>
                     <thead>
                       <tr className="border-y bg-muted/30">
                         <th className="text-left py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider">Locataire / Lot</th>
