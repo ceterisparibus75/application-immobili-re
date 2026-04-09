@@ -516,16 +516,248 @@ function getNextRevisionDate(
   frequencyMonths: number,
   lastRevisionDate?: Date
 ): Date {
-  const now = new Date();
-
-  // Partir de la dernière révision ou de la date de début
+  // Retourner la PROCHAINE échéance sans sauter d'années.
+  // Si elle est dans le passé, le cron filtre par fenêtre de dates.
   const nextDate = new Date(lastRevisionDate ?? startDate);
   nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
-
-  // Si la date calculée est dans le passé, avancer jusqu'à la prochaine échéance future
-  while (nextDate <= now) {
-    nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
-  }
-
   return nextDate;
+}
+
+// ── Rattrapage chaîné année par année ──────────────────────────────────
+
+export interface ChainStep {
+  year: number;
+  quarter: number;
+  fromIndex: number;
+  toIndex: number;
+  rentBefore: number;
+  rentAfter: number;
+  effectiveDate: string; // ISO
+}
+
+export interface CatchUpResult {
+  steps: ChainStep[];
+  finalRent: number;
+  finalIndexValue: number;
+  formulaSummary: string;
+}
+
+/**
+ * Calcule le rattrapage chaîné des révisions manquées.
+ * Retourne un preview des étapes sans modifier la BDD.
+ */
+export async function previewCatchUpRevisions(
+  societyId: string,
+  leaseId: string
+): Promise<ActionResult<CatchUpResult>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId, status: "EN_COURS" },
+    });
+    if (!lease) return { success: false, error: "Bail introuvable" };
+    if (!lease.indexType || !lease.baseIndexValue || !lease.baseIndexQuarter) {
+      return { success: false, error: "Bail sans indexation ou indice de base manquant" };
+    }
+
+    const baseQInfo = parseBaseIndexQuarter(lease.baseIndexQuarter);
+    if (!baseQInfo) return { success: false, error: "Trimestre de référence invalide" };
+
+    // Trouver l'année correspondant à l'indice de base actuel
+    const baseMatch = await prisma.inseeIndex.findFirst({
+      where: {
+        indexType: lease.indexType,
+        quarter: baseQInfo.quarter,
+        value: { gte: lease.baseIndexValue - 0.015, lte: lease.baseIndexValue + 0.015 },
+      },
+      orderBy: { year: "desc" },
+    });
+    // Si pas de match exact, utiliser l'année du trimestre de base
+    const baseYear = baseMatch?.year ?? baseQInfo.year;
+
+    // Année cible : la plus récente année pour laquelle on a l'indice du trimestre de référence
+    const latestAvailable = await prisma.inseeIndex.findFirst({
+      where: { indexType: lease.indexType, quarter: baseQInfo.quarter },
+      orderBy: { year: "desc" },
+    });
+    if (!latestAvailable) return { success: false, error: `Aucun indice ${lease.indexType} T${baseQInfo.quarter} disponible` };
+
+    const targetYear = latestAvailable.year;
+    if (targetYear <= baseYear) {
+      return { success: false, error: "L'indice de base est déjà à jour — aucun rattrapage nécessaire" };
+    }
+
+    // Récupérer tous les indices intermédiaires
+    const indices = await prisma.inseeIndex.findMany({
+      where: {
+        indexType: lease.indexType,
+        quarter: baseQInfo.quarter,
+        year: { gte: baseYear, lte: targetYear },
+      },
+      orderBy: { year: "asc" },
+    });
+
+    // Construire un map année → valeur
+    const indexMap = new Map<number, number>();
+    for (const idx of indices) indexMap.set(idx.year, idx.value);
+
+    // S'assurer qu'on a l'indice de base
+    if (!indexMap.has(baseYear)) {
+      indexMap.set(baseYear, lease.baseIndexValue);
+    }
+
+    // Chaîner année par année
+    const steps: ChainStep[] = [];
+    let currentRent = lease.currentRentHT;
+    let prevIndex = lease.baseIndexValue;
+    const frequency = lease.revisionFrequency ?? 12;
+
+    // Calculer la date d'effet de la première révision manquée
+    const lastRevision = await prisma.rentRevision.findFirst({
+      where: { leaseId: lease.id, isValidated: true },
+      orderBy: { effectiveDate: "desc" },
+    });
+    let effectiveDate = new Date(lastRevision?.effectiveDate ?? lease.startDate);
+
+    for (let year = baseYear + 1; year <= targetYear; year++) {
+      const yearIndex = indexMap.get(year);
+      if (!yearIndex) continue; // Indice manquant pour cette année, on passe
+
+      effectiveDate = new Date(effectiveDate);
+      effectiveDate.setMonth(effectiveDate.getMonth() + frequency);
+
+      const newRent = Math.round(currentRent * (yearIndex / prevIndex) * 100) / 100;
+
+      steps.push({
+        year,
+        quarter: baseQInfo.quarter,
+        fromIndex: prevIndex,
+        toIndex: yearIndex,
+        rentBefore: currentRent,
+        rentAfter: newRent,
+        effectiveDate: effectiveDate.toISOString(),
+      });
+
+      currentRent = newRent;
+      prevIndex = yearIndex;
+    }
+
+    if (steps.length === 0) {
+      return { success: false, error: "Aucune année de rattrapage trouvée (indices intermédiaires manquants)" };
+    }
+
+    // Formule résumée
+    const lines = steps.map(
+      (s) => `${s.rentBefore.toFixed(2)} × (${s.toIndex.toFixed(2)} [T${s.quarter} ${s.year}] / ${s.fromIndex.toFixed(2)}) = ${s.rentAfter.toFixed(2)}`
+    );
+    const formulaSummary = lines.join("\n");
+
+    return {
+      success: true,
+      data: {
+        steps,
+        finalRent: currentRent,
+        finalIndexValue: prevIndex,
+        formulaSummary,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[previewCatchUpRevisions]", error);
+    return { success: false, error: "Erreur lors du calcul de rattrapage" };
+  }
+}
+
+/**
+ * Applique le rattrapage chaîné : crée et valide toutes les révisions intermédiaires
+ * en une transaction, puis met à jour le bail avec le loyer et l'indice finaux.
+ */
+export async function applyCatchUpRevisions(
+  societyId: string,
+  leaseId: string
+): Promise<ActionResult<{ finalRent: number; stepsCount: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // Recalculer le preview pour s'assurer de la cohérence
+    const preview = await previewCatchUpRevisions(societyId, leaseId);
+    if (!preview.success || !preview.data) return { success: false, error: preview.error ?? "Erreur" };
+
+    const { steps, finalRent, finalIndexValue } = preview.data;
+
+    // Vérifier qu'il n'y a pas de révision en attente
+    const existing = await prisma.rentRevision.findFirst({
+      where: { leaseId, isValidated: false },
+    });
+    if (existing) {
+      return { success: false, error: "Une révision est déjà en attente. Validez-la ou rejetez-la d'abord." };
+    }
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId },
+    });
+    if (!lease || !lease.indexType) return { success: false, error: "Bail introuvable" };
+
+    // Créer toutes les révisions chaînées + valider + mettre à jour le bail
+    await prisma.$transaction(async (tx) => {
+      for (const step of steps) {
+        const formula = `${step.rentBefore.toFixed(2)} × (${step.toIndex.toFixed(2)} [T${step.quarter} ${step.year}] / ${step.fromIndex.toFixed(2)}) = ${step.rentAfter.toFixed(2)}`;
+        await tx.rentRevision.create({
+          data: {
+            leaseId,
+            effectiveDate: new Date(step.effectiveDate),
+            previousRentHT: step.rentBefore,
+            newRentHT: step.rentAfter,
+            indexType: lease.indexType!,
+            baseIndexValue: step.fromIndex,
+            newIndexValue: step.toIndex,
+            formula,
+            isValidated: true,
+            validatedAt: new Date(),
+            validatedBy: session.user!.id,
+          },
+        });
+      }
+
+      // Mettre à jour le bail avec les valeurs finales
+      await tx.lease.update({
+        where: { id: leaseId },
+        data: {
+          currentRentHT: finalRent,
+          baseIndexValue: finalIndexValue,
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "RentRevision",
+      entityId: leaseId,
+      details: {
+        action: "catch_up",
+        stepsCount: steps.length,
+        originalRent: steps[0].rentBefore,
+        finalRent,
+        originalIndex: steps[0].fromIndex,
+        finalIndex: finalIndexValue,
+      },
+    });
+
+    revalidatePath("/baux");
+    revalidatePath(`/baux/${leaseId}`);
+    revalidatePath("/indices");
+
+    return { success: true, data: { finalRent, stepsCount: steps.length } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[applyCatchUpRevisions]", error);
+    return { success: false, error: "Erreur lors de l'application du rattrapage" };
+  }
 }

@@ -95,21 +95,32 @@ function getNextRevisionDate(
   startDate: Date,
   revisionFrequency: number,
   lastRevisionDate?: Date | null,
-  hasValidatedRevision?: boolean
 ): Date {
+  // Toujours retourner la PROCHAINE échéance (sans sauter d'années).
+  // Si la date est dans le passé, elle s'affichera comme "en retard"
+  // et l'utilisateur pourra rattraper année par année.
   const next = new Date(lastRevisionDate ?? startDate);
   next.setMonth(next.getMonth() + revisionFrequency);
-
-  // Ne sauter les dates passées que si la dernière révision a été validée
-  // Sinon, afficher la date en retard pour que l'utilisateur la rattrape
-  if (hasValidatedRevision) {
-    const now = new Date();
-    while (next <= now) {
-      next.setMonth(next.getMonth() + revisionFrequency);
-    }
-  }
-
   return next;
+}
+
+/** Nombre d'années de révision manquées (0 = à jour ou pas encore dû) */
+function getMissedRevisionsCount(
+  startDate: Date,
+  revisionFrequency: number,
+  lastRevisionDate?: Date | null,
+): number {
+  const now = new Date();
+  const next = new Date(lastRevisionDate ?? startDate);
+  next.setMonth(next.getMonth() + revisionFrequency);
+  if (next > now) return 0;
+  let count = 0;
+  const cursor = new Date(next);
+  while (cursor <= now) {
+    count++;
+    cursor.setMonth(cursor.getMonth() + revisionFrequency);
+  }
+  return count;
 }
 
 function getRevisionStatus(
@@ -244,7 +255,11 @@ export default async function IndicesPage() {
         lease.startDate,
         lease.revisionFrequency ?? 12,
         lastValidated?.effectiveDate ?? null,
-        !!lastValidated
+      );
+      const missedYears = getMissedRevisionsCount(
+        lease.startDate,
+        lease.revisionFrequency ?? 12,
+        lastValidated?.effectiveDate ?? null,
       );
       const status = getRevisionStatus(nextRevisionDate);
       const tenantName =
@@ -298,6 +313,7 @@ export default async function IndicesPage() {
         referenceIndexValue: displayIndex?.value ?? null,
         referenceIndexQuarter: displayIndex ? `T${displayIndex.quarter}` : null,
         referenceIndexYear: displayIndex?.year ?? null,
+        missedYears,
       };
     })
     .sort(
