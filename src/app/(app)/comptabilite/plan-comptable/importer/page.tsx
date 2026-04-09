@@ -43,7 +43,7 @@ export default function ImporterPlanComptablePage() {
   async function handleFile(file: File) {
     const ext = file.name.toLowerCase();
     if (!ext.endsWith(".xlsx") && !ext.endsWith(".xls") && !ext.endsWith(".ods") && !ext.endsWith(".pdf")) {
-      toast.error("Format non support\xc3\xa9. Utilisez Excel (.xlsx, .xls) ou PDF.");
+      toast.error("Format non supporté. Utilisez Excel (.xlsx, .xls) ou PDF.");
       return;
     }
 
@@ -68,7 +68,7 @@ export default function ImporterPlanComptablePage() {
       setParseSource(data.source);
       // Select all by default
       setSelected(new Set(data.accounts.map((a: ParsedAccount) => a.code)));
-      toast.success(`${data.total} compte(s) d\xc3\xa9tect\xc3\xa9(s)`);
+      toast.success(`${data.total} compte(s) détecté(s)`);
     } catch {
       toast.error("Impossible de contacter le serveur");
     } finally {
@@ -91,13 +91,13 @@ export default function ImporterPlanComptablePage() {
   function handleImport() {
     if (!activeSociety?.id) return;
     const toImport = accounts.filter(a => selected.has(a.code));
-    if (!toImport.length) { toast.error("S\xc3\xa9lectionnez au moins un compte"); return; }
+    if (!toImport.length) { toast.error("Sélectionnez au moins un compte"); return; }
 
     startTransition(async () => {
       const res = await bulkImportAccounts(activeSociety.id, toImport);
       if (res.success && res.data) {
         setImportResult(res.data);
-        toast.success(`Import termin\xc3\xa9 : ${res.data.imported} compte(s) ajout\xc3\xa9(s), ${res.data.skipped} ignor\xc3\xa9(s)`);
+        toast.success(`Import terminé : ${res.data.imported} compte(s) ajouté(s), ${res.data.skipped} ignoré(s)`);
       } else {
         toast.error(res.error ?? "Erreur lors de l'import");
       }
@@ -118,7 +118,7 @@ export default function ImporterPlanComptablePage() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold">Importer un plan comptable</h1>
-          <p className="text-sm text-muted-foreground">Depuis un fichier Excel ou PDF \xe2\x80\x94 les comptes existants sont conserv\xc3\xa9s</p>
+          <p className="text-sm text-muted-foreground">Depuis un fichier Excel ou PDF — les comptes existants sont conservés</p>
         </div>
       </div>
 
@@ -130,12 +130,12 @@ export default function ImporterPlanComptablePage() {
             <div>
               <div className="font-medium text-sm">Fichier Excel (.xlsx, .xls, .ods)</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Colonnes recommand\xc3\xa9es : <strong>N\xc2\xb0 compte</strong>, <strong>Libell\xc3\xa9</strong>, <strong>Classe</strong> (optionnel).
-                La premi\xc3\xa8re ligne doit \xc3\xaatre l&apos;en-t\xc3\xaate.
+                Colonnes recommandées : <strong>N° compte</strong>, <strong>Libellé</strong>, <strong>Classe</strong> (optionnel).
+                La première ligne doit être l&apos;en-tête.
               </div>
               <Button variant="link" size="sm" className="h-6 p-0 text-xs text-blue-600" asChild>
                 <a href="/exemples/plan-comptable-exemple.xlsx" download>
-                  <Download className="h-3 w-3 mr-1" />T\xc3\xa9l\xc3\xa9charger le mod\xc3\xa8le Excel
+                  <Download className="h-3 w-3 mr-1" />Télécharger le modèle Excel
                 </a>
               </Button>
             </div>
@@ -145,7 +145,7 @@ export default function ImporterPlanComptablePage() {
           <CardContent className="pt-4 flex gap-3">
             <FileText className="h-8 w-8 text-[var(--color-status-caution)] flex-shrink-0" />
             <div>
-              <div className="font-medium text-sm">Fichier PDF \xe2\x80\x94 Analyse IA</div>
+              <div className="font-medium text-sm">Fichier PDF — Analyse IA</div>
               <div className="text-xs text-muted-foreground mt-1">
                 Claude AI extrait automatiquement les comptes depuis n&apos;importe quel plan comptable PDF.
                 Fonctionne avec les plans comptables officiels, extraits de logiciels comptables, etc.
@@ -154,7 +154,7 @@ export default function ImporterPlanComptablePage() {
           </CardContent>
         </Card>
       </div>
-      {/* Zone de d\xc3\xa9p\xc3\xb4t */}
+      {/* Zone de dépôt */}
       {!importResult && (
         <Card
           className={`border-2 border-dashed transition-colors cursor-pointer ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"}`}
@@ -165,8 +165,8 @@ export default function ImporterPlanComptablePage() {
         >
           <CardContent className="py-12 flex flex-col items-center gap-3">
             {isUploading
-              ? <><Loader2 className="h-10 w-10 text-primary animate-spin" /><p className="text-sm font-medium">Analyse en cours\xe2\x80\xa6</p><p className="text-xs text-muted-foreground">L&apos;analyse IA peut prendre quelques secondes pour les PDF</p></>
-              : <><Upload className="h-10 w-10 text-muted-foreground" /><p className="text-sm font-medium">D\xc3\xa9posez votre fichier ici</p><p className="text-xs text-muted-foreground">ou cliquez pour parcourir \xe2\x80\x94 Excel (.xlsx, .xls, .ods) ou PDF</p></>
+              ? <><Loader2 className="h-10 w-10 text-primary animate-spin" /><p className="text-sm font-medium">Analyse en cours…</p><p className="text-xs text-muted-foreground">L&apos;analyse IA peut prendre quelques secondes pour les PDF</p></>
+              : <><Upload className="h-10 w-10 text-muted-foreground" /><p className="text-sm font-medium">Déposez votre fichier ici</p><p className="text-xs text-muted-foreground">ou cliquez pour parcourir — Excel (.xlsx, .xls, .ods) ou PDF</p></>
             }
           </CardContent>
           <input ref={inputRef} type="file" accept=".xlsx,.xls,.ods,.pdf" className="hidden"
@@ -174,16 +174,16 @@ export default function ImporterPlanComptablePage() {
         </Card>
       )}
 
-      {/* R\xc3\xa9sultat d'import */}
+      {/* Résultat d'import */}
       {importResult && (
         <Card className="border-[var(--color-status-positive)] bg-[var(--color-status-positive-bg)]/50">
           <CardContent className="py-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-8 w-8 text-[var(--color-status-positive)]" />
               <div>
-                <div className="font-semibold">{importResult.imported} compte(s) import\xc3\xa9(s) avec succ\xc3\xa8s</div>
+                <div className="font-semibold">{importResult.imported} compte(s) importé(s) avec succès</div>
                 {importResult.skipped > 0 && (
-                  <div className="text-sm text-muted-foreground">{importResult.skipped} compte(s) ignor\xc3\xa9(s) \xe2\x80\x94 d\xc3\xa9j\xc3\xa0 pr\xc3\xa9sents dans le plan comptable</div>
+                  <div className="text-sm text-muted-foreground">{importResult.skipped} compte(s) ignoré(s) — déjà présents dans le plan comptable</div>
                 )}
               </div>
             </div>
@@ -194,21 +194,21 @@ export default function ImporterPlanComptablePage() {
         </Card>
       )}
 
-      {/* Aper\xc3\xa7u des comptes */}
+      {/* Aperçu des comptes */}
       {accounts.length > 0 && !importResult && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between py-3">
             <div>
-              <CardTitle className="text-base">{accounts.length} compte(s) d\xc3\xa9tect\xc3\xa9(s)</CardTitle>
+              <CardTitle className="text-base">{accounts.length} compte(s) détecté(s)</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {parseSource === "pdf-ai" && <span className="flex items-center gap-1"><span className="text-[var(--color-status-caution)] font-medium">Extrait par IA</span> \xe2\x80\x94 v\xc3\xa9rifiez les num\xc3\xa9ros et libell\xc3\xa9s</span>}
+                {parseSource === "pdf-ai" && <span className="flex items-center gap-1"><span className="text-[var(--color-status-caution)] font-medium">Extrait par IA</span> — vérifiez les numéros et libellés</span>}
                 {parseSource === "excel" && "Extrait depuis votre fichier Excel"}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{selected.size} s\xc3\xa9lectionn\xc3\xa9(s)</span>
+              <span className="text-xs text-muted-foreground">{selected.size} sélectionné(s)</span>
               <Button onClick={handleImport} disabled={isPending || selected.size === 0} size="sm">
-                {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Import\xe2\x80\xa6</> : `Importer ${selected.size} compte(s)`}
+                {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Import…</> : `Importer ${selected.size} compte(s)`}
               </Button>
             </div>
           </CardHeader>
@@ -216,7 +216,7 @@ export default function ImporterPlanComptablePage() {
           {parseSource === "pdf-ai" && (
             <div className="mx-4 mb-3 flex items-start gap-2 p-3 bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 rounded-lg text-xs text-[var(--color-status-caution)]">
               <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <span>V\xc3\xa9rifiez les comptes extraits par l&apos;IA avant d&apos;importer. D\xc3\xa9cochez les lignes incorrectes.</span>
+              <span>Vérifiez les comptes extraits par l&apos;IA avant d&apos;importer. Décochez les lignes incorrectes.</span>
             </div>
           )}
 
@@ -231,8 +231,8 @@ export default function ImporterPlanComptablePage() {
                         onCheckedChange={v => toggleAll(!!v)}
                       />
                     </TableHead>
-                    <TableHead className="w-28">N\xc2\xb0 Compte</TableHead>
-                    <TableHead>Libell\xc3\xa9</TableHead>
+                    <TableHead className="w-28">N° Compte</TableHead>
+                    <TableHead>Libellé</TableHead>
                     <TableHead className="w-36">Classe</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -241,7 +241,7 @@ export default function ImporterPlanComptablePage() {
                     <TableRow key={`class-${cl}`} className="bg-muted/40 hover:bg-muted/40">
                       <TableCell colSpan={4} className="py-1.5">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${CLASS_COLORS[cl] ?? "bg-gray-100 text-gray-800"}`}>
-                          Classe {cl} \xe2\x80\x94 {CLASS_LABELS[cl] ?? "Autres"}
+                          Classe {cl} — {CLASS_LABELS[cl] ?? "Autres"}
                         </span>
                         <span className="ml-2 text-xs text-muted-foreground">{clAccounts.length} compte(s)</span>
                       </TableCell>
@@ -258,7 +258,7 @@ export default function ImporterPlanComptablePage() {
                         <TableCell className="text-sm">{a.label}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`text-xs ${CLASS_COLORS[a.type] ?? ""}`}>
-                            {a.type} \xe2\x80\x94 {CLASS_LABELS[a.type] ?? "?"}
+                            {a.type} — {CLASS_LABELS[a.type] ?? "?"}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -272,7 +272,7 @@ export default function ImporterPlanComptablePage() {
                 Changer de fichier
               </Button>
               <Button onClick={handleImport} disabled={isPending || selected.size === 0}>
-                {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Import en cours\xe2\x80\xa6</> : `Importer ${selected.size} compte(s)`}
+                {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Import en cours…</> : `Importer ${selected.size} compte(s)`}
               </Button>
             </div>
           </CardContent>
