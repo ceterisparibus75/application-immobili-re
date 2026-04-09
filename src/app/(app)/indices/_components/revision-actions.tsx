@@ -30,6 +30,10 @@ import {
   createManualRevision,
   validateRevision,
   rejectRevision,
+  previewCatchUpRevisions,
+  applyCatchUpRevisions,
+  type ChainStep,
+  type CatchUpResult,
 } from "@/actions/rent-revision";
 
 // -- Types -------------------------------------------------------------------
@@ -54,6 +58,7 @@ interface LeaseRevisionData {
   referenceIndexValue: number | null;
   referenceIndexQuarter: string | null;
   referenceIndexYear: number | null;
+  missedYears: number;
 }
 
 interface LatestIndexData {
@@ -80,8 +85,10 @@ export function RevisionActions({
   const [generatingAll, setGeneratingAll] = useState(false);
   const [validating, setValidating] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
+  const [catchingUp, setCatchingUp] = useState<string | null>(null);
+  const [catchUpPreview, setCatchUpPreview] = useState<CatchUpResult | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: "generate" | "validate" | "reject" | "generateAll";
+    type: "generate" | "validate" | "reject" | "generateAll" | "catchUp";
     lease?: LeaseRevisionData;
     newRent?: number;
     formula?: string;
@@ -89,13 +96,23 @@ export function RevisionActions({
 
   const indexMap = new Map(latestIndices.map((i) => [i.type, i]));
 
-  // Baux eligibles (date depassee ou dans 30j, pas de revision en attente, et indice dispo)
+  // Baux eligibles pour révision simple (1 an de retard max)
   const eligibleForGeneration = leases.filter(
     (l) =>
       !l.pendingRevisionId &&
       (l.statusVariant === "destructive" || l.statusVariant === "warning") &&
       l.baseIndexValue &&
-      (l.referenceIndexValue || indexMap.has(l.indexType))
+      (l.referenceIndexValue || indexMap.has(l.indexType)) &&
+      l.missedYears <= 1
+  );
+
+  // Baux nécessitant un rattrapage multi-années
+  const needsCatchUp = leases.filter(
+    (l) =>
+      !l.pendingRevisionId &&
+      (l.statusVariant === "destructive" || l.statusVariant === "warning") &&
+      l.baseIndexValue &&
+      l.missedYears > 1
   );
 
   // Baux avec revision en attente
@@ -111,10 +128,13 @@ export function RevisionActions({
       Math.round(
         lease.currentRentHT * (indexValue / lease.baseIndexValue) * 100
       ) / 100;
-    const quarterLabel = lease.referenceIndexQuarter && lease.referenceIndexYear
+    const newQuarterLabel = lease.referenceIndexQuarter && lease.referenceIndexYear
       ? ` [${lease.referenceIndexQuarter} ${lease.referenceIndexYear}]`
       : "";
-    const formula = `${lease.currentRentHT.toFixed(2)} x (${indexValue}${quarterLabel} / ${lease.baseIndexValue}) = ${newRent.toFixed(2)}`;
+    const baseQuarterLabel = lease.baseIndexQuarter
+      ? ` [${lease.baseIndexQuarter}]`
+      : "";
+    const formula = `${lease.currentRentHT.toFixed(2)} × (${indexValue}${newQuarterLabel} / ${lease.baseIndexValue}${baseQuarterLabel}) = ${newRent.toFixed(2)}`;
     return { newRent, formula, indexValue };
   }
 
@@ -247,6 +267,39 @@ export function RevisionActions({
     }
   }
 
+  // ── Catch-up (rattrapage chaîné) ─────────────────────────────────────
+
+  async function handleCatchUp(lease: LeaseRevisionData) {
+    setCatchingUp(lease.id);
+    const result = await previewCatchUpRevisions(societyId, lease.id);
+    setCatchingUp(null);
+
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Impossible de calculer le rattrapage");
+      return;
+    }
+
+    setCatchUpPreview(result.data);
+    setConfirmDialog({ type: "catchUp", lease });
+  }
+
+  async function confirmCatchUp(lease: LeaseRevisionData) {
+    setCatchingUp(lease.id);
+    setConfirmDialog(null);
+
+    const result = await applyCatchUpRevisions(societyId, lease.id);
+    setCatchingUp(null);
+    setCatchUpPreview(null);
+
+    if (result.success && result.data) {
+      toast.success(
+        `Rattrapage appliqué : ${result.data.stepsCount} révision${result.data.stepsCount > 1 ? "s" : ""} — nouveau loyer : ${formatCurrency(result.data.finalRent)} HT`
+      );
+    } else {
+      toast.error(result.error ?? "Erreur lors du rattrapage");
+    }
+  }
+
   const statusConfig: Record<
     string,
     { icon: typeof AlertTriangle; color: string }
@@ -288,6 +341,21 @@ export function RevisionActions({
             </span>
             <span className="sm:hidden">Generer</span>
           </Button>
+        </div>
+      )}
+
+      {/* Bandeau rattrapage multi-années */}
+      {needsCatchUp.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 mb-4">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              {needsCatchUp.length} {needsCatchUp.length > 1 ? "baux nécessitent" : "bail nécessite"} un rattrapage multi-années
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Les révisions seront chaînées année par année avec arrondi intermédiaire
+            </p>
+          </div>
         </div>
       )}
 
@@ -462,26 +530,45 @@ export function RevisionActions({
                         </Button>
                       </div>
                     ) : canRevise ? (
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs gap-1.5"
-                        onClick={() => handleGenerate(lease)}
-                        disabled={isGeneratingThis || generatingAll}
-                        title={
-                          blockReason
-                            ? blockReason
-                            : preview
-                              ? `Nouveau loyer estime : ${formatCurrency(preview.newRent)}`
-                              : "Generer la revision"
-                        }
-                      >
-                        {isGeneratingThis ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                      <div className="flex items-center justify-end gap-1">
+                        {lease.missedYears > 1 ? (
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1.5"
+                            onClick={() => handleCatchUp(lease)}
+                            disabled={catchingUp === lease.id || generatingAll}
+                            title={`Rattraper ${lease.missedYears} années de révision`}
+                          >
+                            {catchingUp === lease.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3 w-3" />
+                            )}
+                            Rattraper ({lease.missedYears} ans)
+                          </Button>
                         ) : (
-                          <Play className="h-3 w-3" />
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1.5"
+                            onClick={() => handleGenerate(lease)}
+                            disabled={isGeneratingThis || generatingAll}
+                            title={
+                              blockReason
+                                ? blockReason
+                                : preview
+                                  ? `Nouveau loyer estime : ${formatCurrency(preview.newRent)}`
+                                  : "Generer la revision"
+                            }
+                          >
+                            {isGeneratingThis ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Play className="h-3 w-3" />
+                            )}
+                            Reviser
+                          </Button>
                         )}
-                        Reviser
-                      </Button>
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground italic">
                         Pas encore
@@ -707,6 +794,88 @@ export function RevisionActions({
                 >
                   <X className="h-4 w-4" />
                   Rejeter
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {confirmDialog?.type === "catchUp" && confirmDialog.lease && catchUpPreview && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  Rattraper les revisions de loyer
+                </DialogTitle>
+                <DialogDescription>
+                  <strong>{confirmDialog.lease.tenantName}</strong> &mdash;{" "}
+                  {confirmDialog.lease.lotLabel}
+                  <br />
+                  {catchUpPreview.steps.length} année{catchUpPreview.steps.length > 1 ? "s" : ""} de révision chaînée{catchUpPreview.steps.length > 1 ? "s" : ""}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2 max-h-[400px] overflow-y-auto">
+                {catchUpPreview.steps.map((step, i) => (
+                  <div
+                    key={step.year}
+                    className="rounded-md border p-3 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Année {i + 1}/{catchUpPreview.steps.length} — T{step.quarter} {step.year}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs tabular-nums">
+                        <span className="text-muted-foreground">
+                          {formatCurrency(step.rentBefore)}
+                        </span>
+                        <ArrowRight className="h-3 w-3 text-primary" />
+                        <span className="font-semibold text-primary">
+                          {formatCurrency(step.rentAfter)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-mono text-muted-foreground">
+                      {step.rentBefore.toFixed(2)} × ({step.toIndex.toFixed(2)} / {step.fromIndex.toFixed(2)}) = {step.rentAfter.toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+
+                {/* Résultat final */}
+                <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Loyer final :</span>
+                    <span className="font-bold text-primary text-lg">
+                      {formatCurrency(catchUpPreview.finalRent)} HT
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Indice de base mis à jour : {catchUpPreview.finalIndexValue.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Toutes les révisions intermédiaires seront créées et validées automatiquement.
+                Le loyer et l&apos;indice de base du bail seront mis à jour.
+              </p>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setConfirmDialog(null);
+                    setCatchUpPreview(null);
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => confirmCatchUp(confirmDialog.lease!)}
+                  disabled={catchingUp === confirmDialog.lease?.id}
+                  className="gap-1.5"
+                >
+                  {catchingUp === confirmDialog.lease?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Appliquer le rattrapage
                 </Button>
               </DialogFooter>
             </>
