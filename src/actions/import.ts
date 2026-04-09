@@ -402,7 +402,8 @@ export async function analyzePdfAction(formData: FormData): Promise<ActionResult
     return { success: true, data: extracted };
   } catch (error) {
     console.error("[analyzePdfAction]", error);
-    return { success: false, error: "Erreur lors de l'analyse du document" };
+    const msg = error instanceof Error ? error.message : "Erreur lors de l'analyse du document";
+    return { success: false, error: msg };
   }
 }
 

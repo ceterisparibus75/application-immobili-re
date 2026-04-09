@@ -843,8 +843,9 @@ export default function ImportPage() {
       }
       setForm(aiToForm(result.data as Record<string, unknown>));
       setStep("review");
-    } catch {
-      setAnalyzeError("Erreur lors de l'analyse. Réessayez.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur lors de l'analyse";
+      setAnalyzeError(msg);
     } finally {
       setIsAnalyzing(false);
     }
