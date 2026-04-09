@@ -281,6 +281,12 @@ export async function getLeases(societyId: string) {
           lastName: true,
         },
       },
+      rentRevisions: {
+        where: { isValidated: true },
+        orderBy: { effectiveDate: "desc" },
+        take: 1,
+        select: { effectiveDate: true },
+      },
     },
     orderBy: [{ status: "asc" }, { startDate: "desc" }],
   });

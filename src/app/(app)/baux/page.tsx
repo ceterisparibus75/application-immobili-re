@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Building2, FileText, Plus, Upload } from "lucide-react";
+import { Building2, FileText, Plus, Upload, CheckCircle2, AlertTriangle, Minus } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -85,6 +85,24 @@ function tenantName(t: {
 }
 
 type Lease = Awaited<ReturnType<typeof getLeases>>[number];
+
+/** Retourne le statut d'indexation d'un bail */
+function getIndexationStatus(lease: Lease): { label: string; variant: "done" | "pending" | "none" } {
+  if (!lease.indexType) return { label: "—", variant: "none" };
+
+  // Vérifier si une révision a été faite dans les 12 derniers mois
+  const lastRevision = lease.rentRevisions?.[0];
+  if (lastRevision) {
+    const revisionDate = new Date(lastRevision.effectiveDate);
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    if (revisionDate >= oneYearAgo) {
+      return { label: "À jour", variant: "done" };
+    }
+  }
+
+  return { label: "À faire", variant: "pending" };
+}
 
 interface BuildingGroup {
   buildingId: string;
@@ -201,8 +219,10 @@ export default async function BauxPage() {
                       <tr className="border-b bg-muted/30">
                         <th className="text-left py-2 px-4 font-medium text-muted-foreground">Locataire</th>
                         <th className="text-right py-2 px-4 font-medium text-muted-foreground">Loyer HT</th>
+                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Fin de bail</th>
                         <th className="text-center py-2 px-4 font-medium text-muted-foreground">Type</th>
                         <th className="text-center py-2 px-4 font-medium text-muted-foreground">Statut</th>
+                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Indexation</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -210,7 +230,7 @@ export default async function BauxPage() {
                         <Fragment key={`building-${group.buildingId}`}>
                           {/* Building group header */}
                           <tr className="bg-muted/20">
-                            <td colSpan={4} className="py-2 px-4">
+                            <td colSpan={6} className="py-2 px-4">
                               <div className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-primary shrink-0" />
                                 <div className="min-w-0">
@@ -253,11 +273,32 @@ export default async function BauxPage() {
                                   </p>
                                 </Link>
                               </td>
+                              <td className="py-2.5 px-4 text-center text-xs text-muted-foreground tabular-nums">
+                                {new Date(lease.endDate).toLocaleDateString("fr-FR")}
+                              </td>
                               <td className="py-2.5 px-4 text-center">
                                 <Badge variant="outline">{TYPE_LABELS[lease.leaseType]}</Badge>
                               </td>
                               <td className="py-2.5 px-4 text-center">
                                 <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                {(() => {
+                                  const idx = getIndexationStatus(lease);
+                                  if (idx.variant === "none") return <Minus className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />;
+                                  if (idx.variant === "done") return (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-status-positive)]">
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                      À jour
+                                    </span>
+                                  );
+                                  return (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-status-caution)]">
+                                      <AlertTriangle className="h-3.5 w-3.5" />
+                                      À faire
+                                    </span>
+                                  );
+                                })()}
                               </td>
                             </tr>
                           ))}
@@ -267,7 +308,7 @@ export default async function BauxPage() {
                     </tbody>
                     <tfoot>
                       <tr className="bg-muted/40 font-semibold">
-                        <td colSpan={4} className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
+                        <td colSpan={6} className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
                         <td className="py-2.5 px-4 text-right tabular-nums">
                           {monthlyTotal(actifs).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&euro; HT/mois
                         </td>
