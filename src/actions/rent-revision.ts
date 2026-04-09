@@ -543,6 +543,55 @@ export interface CatchUpResult {
 }
 
 /**
+ * Déduit le trimestre de référence depuis la date de début du bail.
+ * Convention : le trimestre de référence est celui qui précède le mois de début du bail.
+ * Ex: bail commencant le 1er juillet → T2 (avril-juin, le trimestre qui vient de se terminer)
+ */
+function inferReferenceQuarter(startDate: Date): number {
+  const month = startDate.getMonth(); // 0-indexed
+  // Jan-Mar → T4 précédent, Apr-Jun → T1, Jul-Sep → T2, Oct-Dec → T3
+  if (month <= 2) return 4;
+  if (month <= 5) return 1;
+  if (month <= 8) return 2;
+  return 3;
+}
+
+/**
+ * Trouve l'année de base en cherchant l'indice le plus proche de baseIndexValue
+ * pour le trimestre de référence donné. Tolérance élargie et tri par écart minimal.
+ */
+async function findBaseYear(
+  indexType: IndexType,
+  quarter: number,
+  baseIndexValue: number
+): Promise<number | null> {
+  // Récupérer tous les indices du même trimestre, ordonnés par année décroissante
+  const candidates = await prisma.inseeIndex.findMany({
+    where: { indexType, quarter },
+    orderBy: { year: "asc" },
+  });
+
+  if (candidates.length === 0) return null;
+
+  // Trouver le candidat le plus proche en valeur
+  let bestMatch = candidates[0];
+  let bestDiff = Math.abs(candidates[0].value - baseIndexValue);
+
+  for (const c of candidates) {
+    const diff = Math.abs(c.value - baseIndexValue);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestMatch = c;
+    }
+  }
+
+  // Tolérance : l'écart doit être raisonnable (< 5% de la valeur)
+  if (bestDiff / baseIndexValue > 0.05) return null;
+
+  return bestMatch.year;
+}
+
+/**
  * Calcule le rattrapage chaîné des révisions manquées.
  * Retourne un preview des étapes sans modifier la BDD.
  */
@@ -559,116 +608,156 @@ export async function previewCatchUpRevisions(
       where: { id: leaseId, societyId, status: "EN_COURS" },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
-    if (!lease.indexType || !lease.baseIndexValue || !lease.baseIndexQuarter) {
-      return { success: false, error: "Bail sans indexation ou indice de base manquant" };
+    if (!lease.indexType || !lease.baseIndexValue) {
+      return { success: false, error: "Bail sans indexation ou indice de base manquant. Modifiez le bail pour ajouter un indice de référence." };
     }
+
+    // Déterminer le trimestre de référence
+    let refQuarter: number;
+    let refYear: number | null = null;
 
     const baseQInfo = parseBaseIndexQuarter(lease.baseIndexQuarter);
-    if (!baseQInfo) return { success: false, error: "Trimestre de référence invalide" };
-
-    // Trouver l'année correspondant à l'indice de base actuel
-    const baseMatch = await prisma.inseeIndex.findFirst({
-      where: {
-        indexType: lease.indexType,
-        quarter: baseQInfo.quarter,
-        value: { gte: lease.baseIndexValue - 0.015, lte: lease.baseIndexValue + 0.015 },
-      },
-      orderBy: { year: "desc" },
-    });
-    // Si pas de match exact, utiliser l'année du trimestre de base
-    const baseYear = baseMatch?.year ?? baseQInfo.year;
-
-    // Année cible : la plus récente année pour laquelle on a l'indice du trimestre de référence
-    const latestAvailable = await prisma.inseeIndex.findFirst({
-      where: { indexType: lease.indexType, quarter: baseQInfo.quarter },
-      orderBy: { year: "desc" },
-    });
-    if (!latestAvailable) return { success: false, error: `Aucun indice ${lease.indexType} T${baseQInfo.quarter} disponible` };
-
-    const targetYear = latestAvailable.year;
-    if (targetYear <= baseYear) {
-      return { success: false, error: "L'indice de base est déjà à jour — aucun rattrapage nécessaire" };
+    if (baseQInfo) {
+      refQuarter = baseQInfo.quarter;
+      refYear = baseQInfo.year;
+    } else {
+      // Inférer depuis la date de début du bail
+      refQuarter = inferReferenceQuarter(lease.startDate);
     }
 
-    // Récupérer tous les indices intermédiaires
-    const indices = await prisma.inseeIndex.findMany({
-      where: {
-        indexType: lease.indexType,
-        quarter: baseQInfo.quarter,
-        year: { gte: baseYear, lte: targetYear },
-      },
-      orderBy: { year: "asc" },
-    });
-
-    // Construire un map année → valeur
-    const indexMap = new Map<number, number>();
-    for (const idx of indices) indexMap.set(idx.year, idx.value);
-
-    // S'assurer qu'on a l'indice de base
-    if (!indexMap.has(baseYear)) {
-      indexMap.set(baseYear, lease.baseIndexValue);
-    }
-
-    // Chaîner année par année
-    const steps: ChainStep[] = [];
-    let currentRent = lease.currentRentHT;
-    let prevIndex = lease.baseIndexValue;
-    const frequency = lease.revisionFrequency ?? 12;
-
-    // Calculer la date d'effet de la première révision manquée
-    const lastRevision = await prisma.rentRevision.findFirst({
-      where: { leaseId: lease.id, isValidated: true },
-      orderBy: { effectiveDate: "desc" },
-    });
-    let effectiveDate = new Date(lastRevision?.effectiveDate ?? lease.startDate);
-
-    for (let year = baseYear + 1; year <= targetYear; year++) {
-      const yearIndex = indexMap.get(year);
-      if (!yearIndex) continue; // Indice manquant pour cette année, on passe
-
-      effectiveDate = new Date(effectiveDate);
-      effectiveDate.setMonth(effectiveDate.getMonth() + frequency);
-
-      const newRent = Math.round(currentRent * (yearIndex / prevIndex) * 100) / 100;
-
-      steps.push({
-        year,
-        quarter: baseQInfo.quarter,
-        fromIndex: prevIndex,
-        toIndex: yearIndex,
-        rentBefore: currentRent,
-        rentAfter: newRent,
-        effectiveDate: effectiveDate.toISOString(),
-      });
-
-      currentRent = newRent;
-      prevIndex = yearIndex;
-    }
-
-    if (steps.length === 0) {
-      return { success: false, error: "Aucune année de rattrapage trouvée (indices intermédiaires manquants)" };
-    }
-
-    // Formule résumée
-    const lines = steps.map(
-      (s) => `${s.rentBefore.toFixed(2)} × (${s.toIndex.toFixed(2)} [T${s.quarter} ${s.year}] / ${s.fromIndex.toFixed(2)}) = ${s.rentAfter.toFixed(2)}`
+    // Trouver l'année de base via correspondance d'indice
+    const baseYear = await findBaseYear(
+      lease.indexType as IndexType,
+      refQuarter,
+      lease.baseIndexValue
     );
-    const formulaSummary = lines.join("\n");
 
-    return {
-      success: true,
-      data: {
-        steps,
-        finalRent: currentRent,
-        finalIndexValue: prevIndex,
-        formulaSummary,
-      },
-    };
+    if (baseYear === null) {
+      // Fallback : estimer l'année depuis la dernière révision ou le début du bail
+      const lastRevision = await prisma.rentRevision.findFirst({
+        where: { leaseId: lease.id, isValidated: true },
+        orderBy: { effectiveDate: "desc" },
+      });
+      const referenceDate = lastRevision?.effectiveDate ?? lease.startDate;
+      // L'année de base correspond à l'année de la dernière révision (ou début)
+      const fallbackYear = referenceDate.getFullYear();
+      // Vérifier qu'on a au moins des indices après cette année
+      const anyAfter = await prisma.inseeIndex.findFirst({
+        where: { indexType: lease.indexType as IndexType, quarter: refQuarter, year: { gt: fallbackYear } },
+      });
+      if (!anyAfter) {
+        return { success: false, error: `Aucun indice ${lease.indexType} T${refQuarter} disponible après ${fallbackYear}. Synchronisez les indices.` };
+      }
+      return await buildCatchUpPreview(lease, refQuarter, fallbackYear, leaseId);
+    }
+
+    return await buildCatchUpPreview(lease, refQuarter, baseYear, leaseId);
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[previewCatchUpRevisions]", error);
     return { success: false, error: "Erreur lors du calcul de rattrapage" };
   }
+}
+
+/** Construit le preview de rattrapage chaîné à partir d'une année de base déterminée */
+async function buildCatchUpPreview(
+  lease: { id: string; indexType: string | null; baseIndexValue: number | null; currentRentHT: number; revisionFrequency: number | null; startDate: Date },
+  refQuarter: number,
+  baseYear: number,
+  leaseId: string
+): Promise<ActionResult<CatchUpResult>> {
+  if (!lease.indexType || !lease.baseIndexValue) {
+    return { success: false, error: "Données du bail incomplètes" };
+  }
+
+  // Année cible : la plus récente année pour laquelle on a l'indice du trimestre de référence
+  const latestAvailable = await prisma.inseeIndex.findFirst({
+    where: { indexType: lease.indexType as IndexType, quarter: refQuarter },
+    orderBy: { year: "desc" },
+  });
+  if (!latestAvailable) {
+    return { success: false, error: `Aucun indice ${lease.indexType} T${refQuarter} disponible` };
+  }
+
+  const targetYear = latestAvailable.year;
+  if (targetYear <= baseYear) {
+    return { success: false, error: `L'indice de base est déjà à jour (année ${baseYear}, dernier disponible : ${targetYear})` };
+  }
+
+  // Récupérer tous les indices intermédiaires
+  const indices = await prisma.inseeIndex.findMany({
+    where: {
+      indexType: lease.indexType as IndexType,
+      quarter: refQuarter,
+      year: { gte: baseYear, lte: targetYear },
+    },
+    orderBy: { year: "asc" },
+  });
+
+  // Construire un map année → valeur
+  const indexMap = new Map<number, number>();
+  for (const idx of indices) indexMap.set(idx.year, idx.value);
+
+  // S'assurer qu'on a l'indice de base
+  if (!indexMap.has(baseYear)) {
+    indexMap.set(baseYear, lease.baseIndexValue);
+  }
+
+  // Chaîner année par année
+  const steps: ChainStep[] = [];
+  let currentRent = lease.currentRentHT;
+  let prevIndex = lease.baseIndexValue;
+  const frequency = lease.revisionFrequency ?? 12;
+
+  // Calculer la date d'effet de la première révision manquée
+  const lastRevision = await prisma.rentRevision.findFirst({
+    where: { leaseId, isValidated: true },
+    orderBy: { effectiveDate: "desc" },
+  });
+  let effectiveDate = new Date(lastRevision?.effectiveDate ?? lease.startDate);
+
+  for (let year = baseYear + 1; year <= targetYear; year++) {
+    const yearIndex = indexMap.get(year);
+    if (!yearIndex) continue; // Indice manquant pour cette année, on passe
+
+    effectiveDate = new Date(effectiveDate);
+    effectiveDate.setMonth(effectiveDate.getMonth() + frequency);
+
+    const newRent = Math.round(currentRent * (yearIndex / prevIndex) * 100) / 100;
+
+    steps.push({
+      year,
+      quarter: refQuarter,
+      fromIndex: prevIndex,
+      toIndex: yearIndex,
+      rentBefore: currentRent,
+      rentAfter: newRent,
+      effectiveDate: effectiveDate.toISOString(),
+    });
+
+    currentRent = newRent;
+    prevIndex = yearIndex;
+  }
+
+  if (steps.length === 0) {
+    return { success: false, error: `Aucune année de rattrapage trouvée. Indices ${lease.indexType} T${refQuarter} manquants entre ${baseYear + 1} et ${targetYear}.` };
+  }
+
+  // Formule résumée
+  const lines = steps.map(
+    (s) => `${s.rentBefore.toFixed(2)} × (${s.toIndex.toFixed(2)} [T${s.quarter} ${s.year}] / ${s.fromIndex.toFixed(2)}) = ${s.rentAfter.toFixed(2)}`
+  );
+  const formulaSummary = lines.join("\n");
+
+  return {
+    success: true,
+    data: {
+      steps,
+      finalRent: currentRent,
+      finalIndexValue: prevIndex,
+      formulaSummary,
+    },
+  };
 }
 
 /**
@@ -724,12 +813,14 @@ export async function applyCatchUpRevisions(
         });
       }
 
-      // Mettre à jour le bail avec les valeurs finales
+      // Mettre à jour le bail avec les valeurs finales + le trimestre de référence
+      const lastStep = steps[steps.length - 1];
       await tx.lease.update({
         where: { id: leaseId },
         data: {
           currentRentHT: finalRent,
           baseIndexValue: finalIndexValue,
+          baseIndexQuarter: `T${lastStep.quarter} ${lastStep.year}`,
         },
       });
     });

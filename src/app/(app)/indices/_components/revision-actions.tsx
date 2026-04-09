@@ -531,7 +531,7 @@ export function RevisionActions({
                       </div>
                     ) : canRevise ? (
                       <div className="flex items-center justify-end gap-1">
-                        {lease.missedYears > 1 ? (
+                        {lease.missedYears > 1 && lease.baseIndexValue ? (
                           <Button
                             size="sm"
                             className="h-7 text-xs gap-1.5"
@@ -546,6 +546,13 @@ export function RevisionActions({
                             )}
                             Rattraper ({lease.missedYears} ans)
                           </Button>
+                        ) : !lease.baseIndexValue ? (
+                          <span
+                            className="text-[10px] text-[var(--color-status-negative)] font-medium cursor-help"
+                            title="Modifiez le bail pour définir l'indice de base avant de pouvoir réviser"
+                          >
+                            Indice manquant
+                          </span>
                         ) : (
                           <Button
                             size="sm"
