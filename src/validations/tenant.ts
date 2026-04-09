@@ -16,7 +16,7 @@ const moralSchema = baseSchema.extend({
   companyLegalForm: z.string().optional().nullable(),
   siret: z
     .string()
-    .regex(/^\d{14}$/, "SIRET invalide (14 chiffres)")
+    .regex(/^\d{9}(\d{5})?$/, "SIREN (9 chiffres) ou SIRET (14 chiffres) invalide")
     .optional()
     .nullable(),
   siren: z.string().optional().nullable(),
@@ -39,7 +39,7 @@ const physicalSchema = baseSchema.extend({
   personalAddress: z.string().optional().nullable(),
   autoEntrepreneurSiret: z
     .string()
-    .regex(/^\d{14}$/, "SIRET invalide (14 chiffres)")
+    .regex(/^\d{9}(\d{5})?$/, "SIREN (9 chiffres) ou SIRET (14 chiffres) invalide")
     .optional()
     .nullable(),
 });
@@ -61,7 +61,7 @@ export const updateTenantSchema = z.object({
   // Morale
   companyName: z.string().optional().nullable(),
   companyLegalForm: z.string().optional().nullable(),
-  siret: z.string().regex(/^\d{14}$/).optional().nullable(),
+  siret: z.string().regex(/^\d{9}(\d{5})?$/, "SIREN (9 chiffres) ou SIRET (14 chiffres) invalide").optional().nullable(),
   siren: z.string().optional().nullable(),
   codeAPE: z.string().optional().nullable(),
   vatNumber: z.string().optional().nullable(),
@@ -77,7 +77,7 @@ export const updateTenantSchema = z.object({
   birthDate: z.string().optional().nullable(),
   birthPlace: z.string().optional().nullable(),
   personalAddress: z.string().optional().nullable(),
-  autoEntrepreneurSiret: z.string().regex(/^\d{14}$/).optional().nullable(),
+  autoEntrepreneurSiret: z.string().regex(/^\d{9}(\d{5})?$/, "SIREN (9 chiffres) ou SIRET (14 chiffres) invalide").optional().nullable(),
 });
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;
