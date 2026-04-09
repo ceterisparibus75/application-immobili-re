@@ -2,7 +2,7 @@ import { requirePortalAuth } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, FileText, Shield, AlertTriangle } from "lucide-react";
+import { Building2, FileText, Shield, AlertTriangle, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -28,6 +28,9 @@ export default async function PortalDashboardPage() {
             },
           },
           society: { select: { name: true } },
+          managingContact: {
+            select: { name: true, company: true, email: true, phone: true },
+          },
         },
       },
     },
@@ -137,6 +140,24 @@ export default async function PortalDashboardPage() {
                     </div>
                     {lease.society && (
                       <Badge variant="outline" className="text-xs mt-1">{lease.society.name}</Badge>
+                    )}
+                    {lease.isThirdPartyManaged && lease.managingContact && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2 rounded text-xs mt-2">
+                        <div className="flex items-center gap-1.5 font-medium text-blue-800 dark:text-blue-300">
+                          <UserCheck className="h-3.5 w-3.5" />
+                          G&eacute;r&eacute; par : {lease.managingContact.company ?? lease.managingContact.name}
+                        </div>
+                        {(lease.managingContact.phone || lease.managingContact.email) && (
+                          <div className="mt-1 text-blue-700 dark:text-blue-400 space-y-0.5">
+                            {lease.managingContact.phone && (
+                              <p>T&eacute;l : {lease.managingContact.phone}</p>
+                            )}
+                            {lease.managingContact.email && (
+                              <p>Email : {lease.managingContact.email}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {lease.leaseFileUrl && (
                       <a
