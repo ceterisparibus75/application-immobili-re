@@ -20,6 +20,7 @@ const navigation = [
   ]},
   { title: "Gestion locative", items: [
     { name: "Baux", href: "/baux", icon: FileText },
+    { name: "Révisions de loyer", href: "/baux/revisions", icon: TrendingUp },
     { name: "Locataires", href: "/locataires", icon: Users },
     { name: "Facturation", href: "/facturation", icon: Receipt },
     { name: "Charges", href: "/charges", icon: ScrollText },

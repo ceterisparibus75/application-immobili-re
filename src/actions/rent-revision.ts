@@ -205,7 +205,7 @@ export async function validateRevision(
 
     revalidatePath("/baux");
     revalidatePath(`/baux/${revision.leaseId}`);
-    revalidatePath("/revisions");
+    revalidatePath("/baux/revisions");
     revalidatePath("/indices");
 
     return { success: true, data: { newRentHT: revision.newRentHT } };
@@ -264,7 +264,7 @@ export async function rejectRevision(
     });
 
     revalidatePath("/baux");
-    revalidatePath("/revisions");
+    revalidatePath("/baux/revisions");
     revalidatePath("/indices");
 
     return { success: true };
@@ -341,7 +341,7 @@ export async function createManualRevision(
     });
 
     revalidatePath(`/baux/${lease.id}`);
-    revalidatePath("/revisions");
+    revalidatePath("/baux/revisions");
     revalidatePath("/indices");
 
     return { success: true, data: { id: revision.id } };
@@ -496,7 +496,7 @@ export async function detectPendingRevisions(): Promise<{
               type: "RENT_REVISION",
               title: "Révision de loyer à valider",
               message: `${buildingName} — Lot ${lotNumber} (${tenantName}) : révision prévue le ${nextRevisionDate.toLocaleDateString("fr-FR")}. Nouveau loyer proposé : ${newRentHT.toFixed(2)} € HT.`,
-              link: "/revisions",
+              link: "/baux/revisions",
             },
           });
         }
