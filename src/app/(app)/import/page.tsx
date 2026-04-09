@@ -98,6 +98,9 @@ type BailForm = {
   vatApplicable: boolean;
   vatRate: string;
   indexType: string;
+  baseIndexValue: string;
+  baseIndexQuarter: string;
+  revisionFrequency: string;
   rentFreeMonths: string;
   entryFee: string;
   tenantWorksClauses: string;
@@ -189,7 +192,8 @@ const FREQ_PERIOD_LABELS: Record<string, string> = {
 
 const INDEX_TYPE_OPTIONS = [
   { value: "", label: "Aucun" },
-  { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
+  { value: "IRL", label: "IRL — Référence des Loyers" },
+  { value: "ILC", label: "ILC — Loyers Commerciaux" },
   { value: "ILAT", label: "ILAT — Activités tertiaires" },
   { value: "ICC", label: "ICC — Construction" },
 ];
@@ -230,7 +234,8 @@ function emptyReview(): ReviewForm {
       leaseType: "COMMERCIAL_369", destination: "", startDate: "", durationMonths: "108",
       baseRentHT: "", depositAmount: "0",
       paymentFrequency: "MENSUEL", vatApplicable: true, vatRate: "20",
-      indexType: "", rentFreeMonths: "0", entryFee: "0", tenantWorksClauses: "",
+      indexType: "", baseIndexValue: "", baseIndexQuarter: "", revisionFrequency: "12",
+      rentFreeMonths: "0", entryFee: "0", tenantWorksClauses: "",
     },
   };
 }
@@ -283,6 +288,9 @@ function aiToForm(ai: Record<string, unknown>): ReviewForm {
       vatApplicable: bail.vatApplicable !== false,
       vatRate: bail.vatRate != null ? String(bail.vatRate) : "20",
       indexType: bail.indexType != null && bail.indexType !== "null" ? String(bail.indexType) : "",
+      baseIndexValue: bail.baseIndexValue != null ? String(bail.baseIndexValue) : "",
+      baseIndexQuarter: bail.baseIndexQuarter != null ? String(bail.baseIndexQuarter) : "",
+      revisionFrequency: bail.revisionFrequency != null ? String(bail.revisionFrequency) : "12",
       rentFreeMonths: bail.rentFreeMonths != null ? String(bail.rentFreeMonths) : "0",
       entryFee: bail.entryFee != null ? String(bail.entryFee) : "0",
       tenantWorksClauses: String(bail.tenantWorksClauses ?? ""),
@@ -608,6 +616,19 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
             <NativeSelect value={form.indexType} onChange={(e) => onChange({ indexType: e.target.value })} options={INDEX_TYPE_OPTIONS} />
           </FieldRow>
         </div>
+        {form.indexType && (
+          <div className="grid grid-cols-3 gap-2">
+            <FieldRow label="Valeur indice de base">
+              <Input type="number" step="0.01" value={form.baseIndexValue} onChange={(e) => onChange({ baseIndexValue: e.target.value })} placeholder="142.06" className="h-8 text-sm" />
+            </FieldRow>
+            <FieldRow label="Trimestre réf.">
+              <Input value={form.baseIndexQuarter} onChange={(e) => onChange({ baseIndexQuarter: e.target.value })} placeholder="T1 2021" className="h-8 text-sm" />
+            </FieldRow>
+            <FieldRow label="Fréq. révision (mois)">
+              <Input type="number" value={form.revisionFrequency} onChange={(e) => onChange({ revisionFrequency: e.target.value })} placeholder="12" className="h-8 text-sm" />
+            </FieldRow>
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2">
           <FieldRow label="TVA (%)">
             <Input type="number" value={form.vatRate} onChange={(e) => onChange({ vatRate: e.target.value })} className="h-8 text-sm" />
@@ -812,6 +833,9 @@ export default function ImportPage() {
         vatApplicable: form.bail.vatApplicable,
         vatRate: parseFloat(form.bail.vatRate) || 20,
         indexType: (form.bail.indexType || null) as ImportInput["lease"]["indexType"],
+        baseIndexValue: form.bail.baseIndexValue ? parseFloat(form.bail.baseIndexValue) : null,
+        baseIndexQuarter: form.bail.baseIndexQuarter || null,
+        revisionFrequency: parseInt(form.bail.revisionFrequency) || 12,
         rentFreeMonths: parseInt(form.bail.rentFreeMonths) || 0,
         entryFee: parseFloat(form.bail.entryFee) || 0,
         tenantWorksClauses: form.bail.tenantWorksClauses || null,
@@ -864,6 +888,8 @@ export default function ImportPage() {
           { label: "Loyer HT", value: form.bail.baseRentHT ? `${parseFloat(form.bail.baseRentHT).toLocaleString("fr-FR")} € / ${FREQ_PERIOD_LABELS[form.bail.paymentFrequency] ?? "mois"}` : undefined },
           { label: "Début", value: form.bail.startDate },
           { label: "Durée", value: form.bail.durationMonths ? `${form.bail.durationMonths} mois` : undefined },
+          { label: "Indice", value: form.bail.indexType || undefined },
+          { label: "Indice de base", value: form.bail.baseIndexValue ? `${form.bail.baseIndexValue} (${form.bail.baseIndexQuarter || "?"})` : undefined },
         ]}
         onConfirm={() => { setConfirmOpen(false); doImport(); }}
         onCancel={() => setConfirmOpen(false)}

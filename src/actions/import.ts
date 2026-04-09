@@ -68,6 +68,9 @@ export type ImportLeaseInput = {
   vatApplicable: boolean;
   vatRate: number;
   indexType?: IndexType | null;
+  baseIndexValue?: number | null;
+  baseIndexQuarter?: string | null;
+  revisionFrequency?: number;
   rentFreeMonths: number;
   entryFee: number;
   tenantWorksClauses?: string | null;
@@ -210,6 +213,9 @@ export async function importFromPdf(
           vatApplicable: input.lease.vatApplicable,
           vatRate: input.lease.vatRate,
           indexType: input.lease.indexType ?? null,
+          baseIndexValue: input.lease.baseIndexValue ?? null,
+          baseIndexQuarter: input.lease.baseIndexQuarter ?? null,
+          revisionFrequency: input.lease.revisionFrequency ?? 12,
           rentFreeMonths: input.lease.rentFreeMonths,
           entryFee: input.lease.entryFee,
           tenantWorksClauses: input.lease.tenantWorksClauses ?? null,
@@ -299,6 +305,9 @@ Structure exacte :
     "vatApplicable": true,
     "vatRate": 20.0,
     "indexType": "IRL|ILC|ILAT|ICC|null",
+    "baseIndexValue": 0.0,
+    "baseIndexQuarter": "T1 2021|T2 2021|T3 2021|T4 2021|null",
+    "revisionFrequency": 12,
     "rentFreeMonths": 0,
     "entryFee": 0.0,
     "destination": "HABITATION|BUREAU|COMMERCE|ACTIVITE|ENTREPOT|INDUSTRIEL|PROFESSIONNEL|MIXTE|PARKING|TERRAIN|AGRICOLE|HOTELLERIE|EQUIPEMENT|AUTRE|null",
@@ -311,6 +320,10 @@ Règles :
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
 - leaseType : HABITATION pour bail vide loi 1989, MEUBLE pour bail meublé ALUR, ETUDIANT pour bail étudiant meublé 9 mois, MOBILITE pour bail mobilité ELAN, COLOCATION pour bail colocation, SAISONNIER pour location saisonnière, LOGEMENT_FONCTION pour logement de fonction, ANAH pour convention ANAH, CIVIL pour bail Code civil (résidence secondaire), GLISSANT pour bail glissant (insertion sociale), SOUS_LOCATION pour sous-location, COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales), MIXTE pour bail mixte habitation+professionnel, EMPHYTEOTIQUE pour bail emphytéotique (18-99 ans), CONSTRUCTION pour bail à construction, REHABILITATION pour bail à réhabilitation, BRS pour bail réel solidaire (OFS), RURAL pour bail rural/agricole
 - durationMonths : 36 pour habitation (3 ans), 12 pour meublé (1 an), 9 pour étudiant, 10 pour mobilité, 108 pour bail 3-6-9 (9 ans), 72 pour professionnel (6 ans), 36 pour dérogatoire (3 ans max), 1188 pour emphytéotique (99 ans)
+- indexType : IRL pour habitation/meublé, ILC pour commercial/rural, ILAT pour professionnel/tertiaire, ICC rarement utilisé. Cherche la mention explicite dans le bail (ex: "indice de référence des loyers" = IRL, "indice des loyers commerciaux" = ILC)
+- baseIndexValue : valeur numérique de l'indice de référence mentionnée dans le bail (ex: "indice de base 130.69", "IRL du T1 2021 = 130.69"). Si non trouvée, null
+- baseIndexQuarter : trimestre de référence au format "T1 YYYY" (ex: "T1 2021", "T4 2020"). Cherche "trimestre de référence", "indice du T...", "publié au..."
+- revisionFrequency : 12 par défaut (annuel). Si le bail mentionne une révision triennale, mettre 36
 - Les montants sont en euros HT/an si loyer annuel, /mois si mensuel — converti toujours en euros HT/MOIS
 - Si une info est absente, mets null pour les champs optionnels
 - startDate au format ISO YYYY-MM-DD`;
