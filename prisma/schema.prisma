@@ -442,8 +442,8 @@ model Society {
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
-  nextLeaseNumber   Int     @default(0)
-  leaseNumberYear   Int     @default(0)
+  nextLeaseNumber   Int?    @default(0)
+  leaseNumberYear   Int?    @default(0)
 
   @@index([siret])
   @@index([proprietaireId])
