@@ -81,7 +81,7 @@ export function LeaseSignaturePanel({
           <p className="text-sm text-muted-foreground">
             {leaseFileUrl
               ? "Aucune demande de signature. Uploadez le PDF du bail puis envoyez-le a signer."
-              : "Uploadez d'abord le PDF du bail pour pouvoir l'envoyer a signer."}
+              : "Uploadez d'abord le PDF du bail avant envoi pour signature."}
           </p>
         ) : (
           <div className="space-y-3">
