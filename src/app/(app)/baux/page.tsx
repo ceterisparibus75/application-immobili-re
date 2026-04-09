@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Building2, FileText, Plus, Upload, CheckCircle2, AlertTriangle, Minus } from "lucide-react";
+import { Building2, FileText, Plus, Upload, CheckCircle2, AlertTriangle, Minus, MapPin } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -103,11 +103,9 @@ function tenantName(t: {
 
 type Lease = Awaited<ReturnType<typeof getLeases>>[number];
 
-/** Retourne le statut d'indexation d'un bail */
 function getIndexationStatus(lease: Lease): { label: string; variant: "done" | "pending" | "none" } {
   if (!lease.indexType) return { label: "—", variant: "none" };
 
-  // Vérifier si une révision a été faite dans les 12 derniers mois
   const lastRevision = lease.rentRevisions?.[0];
   if (lastRevision) {
     const revisionDate = new Date(lastRevision.effectiveDate);
@@ -124,7 +122,7 @@ function getIndexationStatus(lease: Lease): { label: string; variant: "done" | "
 interface BuildingGroup {
   buildingId: string;
   buildingName: string;
-  buildingAddress: string;
+  buildingCity: string;
   leases: Lease[];
 }
 
@@ -138,7 +136,7 @@ function groupByBuilding(leases: Lease[]): BuildingGroup[] {
       group = {
         buildingId: b.id,
         buildingName: b.name,
-        buildingAddress: `${b.addressLine1} - ${b.postalCode} ${b.city}`,
+        buildingCity: `${b.postalCode} ${b.city}`,
         leases: [],
       };
       map.set(b.id, group);
@@ -146,7 +144,6 @@ function groupByBuilding(leases: Lease[]): BuildingGroup[] {
     group.leases.push(lease);
   }
 
-  // Sort buildings alphabetically by name
   return Array.from(map.values()).sort((a, b) =>
     a.buildingName.localeCompare(b.buildingName, "fr"),
   );
@@ -156,6 +153,27 @@ function monthlyTotal(leases: Lease[]): number {
   return leases.reduce(
     (sum, l) => sum + l.currentRentHT / (FREQ_MULTIPLIER[l.paymentFrequency] ?? 1),
     0,
+  );
+}
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function IndexBadge({ lease }: { lease: Lease }) {
+  const idx = getIndexationStatus(lease);
+  if (idx.variant === "none") return <Minus className="h-3.5 w-3.5 text-muted-foreground/30 mx-auto" />;
+  if (idx.variant === "done") return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+      <CheckCircle2 className="h-3.5 w-3.5" />
+      À jour
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      À faire
+    </span>
   );
 }
 
@@ -173,24 +191,30 @@ export default async function BauxPage() {
   const actifsGrouped = groupByBuilding(actifs);
   const autresGrouped = groupByBuilding(autres);
 
+  const totalMensuel = monthlyTotal(actifs);
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Baux</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {actifs.length} {actifs.length > 1 ? "baux actifs" : "bail actif"}
+            {actifs.length > 0 && (
+              <span className="ml-1.5">· {formatCurrency(totalMensuel)} &euro; HT/mois</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/import">
-            <Button variant="outline">
+            <Button variant="outline" size="sm">
               <Upload className="h-4 w-4" />
-              Import bail PDF
+              Import PDF
             </Button>
           </Link>
           <Link href="/baux/nouveau">
-            <Button>
+            <Button size="sm">
               <Plus className="h-4 w-4" />
               Nouveau bail
             </Button>
@@ -206,8 +230,7 @@ export default async function BauxPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun bail</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Créez votre premier bail en associant un lot et un
-              locataire.
+              Créez votre premier bail en associant un lot et un locataire.
             </p>
             <Link href="/baux/nouveau">
               <Button>
@@ -220,179 +243,165 @@ export default async function BauxPage() {
       ) : (
         <div className="space-y-6">
           {/* Baux actifs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Baux actifs ({actifs.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {actifs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Aucun bail actif
-                </p>
-              ) : (
+          {actifsGrouped.map((group) => (
+            <Card key={`building-${group.buildingId}`}>
+              <CardHeader className="pb-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-sm font-semibold truncate">{group.buildingName}</CardTitle>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {group.buildingCity}
+                      <span className="text-muted-foreground/50 mx-1">·</span>
+                      {group.leases.length} {group.leases.length > 1 ? "baux" : "bail"}
+                    </p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 px-0 pb-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground">Locataire</th>
-                        <th className="text-right py-2 px-4 font-medium text-muted-foreground">Loyer HT</th>
-                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Fin de bail</th>
-                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Type</th>
-                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Statut</th>
-                        <th className="text-center py-2 px-4 font-medium text-muted-foreground">Indexation</th>
+                      <tr className="border-y bg-muted/30">
+                        <th className="text-left py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider">Locataire / Lot</th>
+                        <th className="text-right py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider">Loyer HT</th>
+                        <th className="text-center py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell">Échéance</th>
+                        <th className="text-center py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Type</th>
+                        <th className="text-center py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider">Statut</th>
+                        <th className="text-center py-2 px-5 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Indexation</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {actifsGrouped.map((group) => (
-                        <Fragment key={`building-${group.buildingId}`}>
-                          {/* Building group header */}
+                    <tbody className="divide-y">
+                      {group.leases.map((lease) => (
+                        <tr key={lease.id} className="hover:bg-muted/30 transition-colors group">
+                          <td className="py-3 px-5">
+                            <Link href={`/baux/${lease.id}`} className="block">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <p className="font-medium truncate">{tenantName(lease.tenant)}</p>
+                                {lease.isThirdPartyManaged && (
+                                  <Badge variant="outline" className="text-teal-700 border-teal-300 bg-teal-50 text-[10px] px-1.5 py-0 shrink-0">
+                                    Tiers
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-xs text-muted-foreground">Lot {lease.lot.number}</span>
+                                {lease.destination && (
+                                  <>
+                                    <span className="text-muted-foreground/30">·</span>
+                                    <span className="text-xs text-muted-foreground/70">{DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
+                                  </>
+                                )}
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="py-3 px-5 text-right whitespace-nowrap">
+                            <Link href={`/baux/${lease.id}`} className="block">
+                              <p className="font-semibold tabular-nums">
+                                {formatCurrency(lease.currentRentHT)} &euro;
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
+                              </p>
+                            </Link>
+                          </td>
+                          <td className="py-3 px-5 text-center hidden sm:table-cell">
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              {new Date(lease.endDate).toLocaleDateString("fr-FR")}
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-center hidden md:table-cell">
+                            <Badge variant="outline" className="text-[11px] font-normal">{TYPE_LABELS[lease.leaseType]}</Badge>
+                          </td>
+                          <td className="py-3 px-5 text-center">
+                            <Badge variant={STATUS_VARIANTS[lease.status]} className="text-[11px]">{STATUS_LABELS[lease.status]}</Badge>
+                          </td>
+                          <td className="py-3 px-5 text-center hidden lg:table-cell">
+                            <IndexBadge lease={lease} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Total */}
+          {actifs.length > 0 && actifsGrouped.length > 1 && (
+            <div className="flex justify-end px-1">
+              <div className="text-sm text-muted-foreground">
+                Total loyers mensuels : <span className="font-semibold text-foreground tabular-nums">{formatCurrency(totalMensuel)} &euro; HT/mois</span>
+              </div>
+            </div>
+          )}
+
+          {/* Autres baux */}
+          {autres.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground font-medium">
+                  Baux terminés / autres ({autres.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y">
+                      {autresGrouped.map((group) => (
+                        <Fragment key={`building-other-${group.buildingId}`}>
                           <tr className="bg-muted/20">
-                            <td colSpan={6} className="py-2 px-4">
+                            <td colSpan={4} className="py-2 px-5">
                               <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-primary shrink-0" />
-                                <span className="font-semibold text-foreground">{group.buildingName}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  ({group.leases.length} {group.leases.length > 1 ? "baux" : "bail"})
-                                </span>
+                                <Building2 className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                                <span className="text-xs font-medium text-muted-foreground">{group.buildingName}</span>
+                                <span className="text-[11px] text-muted-foreground/60">{group.buildingCity}</span>
                               </div>
                             </td>
                           </tr>
-                          {/* Leases in this building */}
                           {group.leases.map((lease) => (
-                            <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                              <td className="py-2.5 px-4 pl-10">
+                            <tr key={lease.id} className="hover:bg-muted/20 transition-colors opacity-50 hover:opacity-75">
+                              <td className="py-2.5 px-5 pl-10">
                                 <Link href={`/baux/${lease.id}`} className="block">
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium">{tenantName(lease.tenant)}</p>
+                                    <p className="font-medium text-sm">{tenantName(lease.tenant)}</p>
                                     {lease.isThirdPartyManaged && (
                                       <Badge variant="outline" className="text-teal-700 border-teal-300 bg-teal-50 text-[10px] px-1.5 py-0">
-                                        Gestion tiers
+                                        Tiers
                                       </Badge>
                                     )}
                                   </div>
                                   <p className="text-xs text-muted-foreground">
                                     Lot {lease.lot.number}
                                     {lease.destination && (
-                                      <span className="ml-1.5 text-muted-foreground/70">· {DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
+                                      <>
+                                        <span className="mx-1 text-muted-foreground/30">·</span>
+                                        <span className="text-muted-foreground/70">{DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
+                                      </>
                                     )}
                                   </p>
                                 </Link>
                               </td>
-                              <td className="py-2.5 px-4 text-right">
-                                <Link href={`/baux/${lease.id}`} className="block">
-                                  <p className="font-medium tabular-nums">
-                                    {lease.currentRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Depuis le {new Date(lease.startDate).toLocaleDateString("fr-FR")}
-                                  </p>
-                                </Link>
+                              <td className="py-2.5 px-5 text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                                {formatCurrency(lease.baseRentHT)} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
                               </td>
-                              <td className="py-2.5 px-4 text-center text-xs text-muted-foreground tabular-nums">
-                                {new Date(lease.endDate).toLocaleDateString("fr-FR")}
+                              <td className="py-2.5 px-5 text-center hidden sm:table-cell">
+                                <Badge variant="outline" className="text-[11px] font-normal">{TYPE_LABELS[lease.leaseType]}</Badge>
                               </td>
-                              <td className="py-2.5 px-4 text-center">
-                                <Badge variant="outline">{TYPE_LABELS[lease.leaseType]}</Badge>
-                              </td>
-                              <td className="py-2.5 px-4 text-center">
-                                <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
-                              </td>
-                              <td className="py-2.5 px-4 text-center">
-                                {(() => {
-                                  const idx = getIndexationStatus(lease);
-                                  if (idx.variant === "none") return <Minus className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />;
-                                  if (idx.variant === "done") return (
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-status-positive)]">
-                                      <CheckCircle2 className="h-3.5 w-3.5" />
-                                      À jour
-                                    </span>
-                                  );
-                                  return (
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-status-caution)]">
-                                      <AlertTriangle className="h-3.5 w-3.5" />
-                                      À faire
-                                    </span>
-                                  );
-                                })()}
+                              <td className="py-2.5 px-5 text-center">
+                                <Badge variant={STATUS_VARIANTS[lease.status]} className="text-[11px]">{STATUS_LABELS[lease.status]}</Badge>
                               </td>
                             </tr>
                           ))}
                         </Fragment>
                       ))}
-
                     </tbody>
-                    <tfoot>
-                      <tr className="bg-muted/40 font-semibold">
-                        <td colSpan={6} className="py-2.5 px-4 text-muted-foreground">Total loyers mensuels</td>
-                        <td className="py-2.5 px-4 text-right tabular-nums">
-                          {monthlyTotal(actifs).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&euro; HT/mois
-                        </td>
-                      </tr>
-                    </tfoot>
                   </table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Autres baux */}
-          {autres.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base text-muted-foreground">
-                  Baux terminés / autres ({autres.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {autresGrouped.map((group) => (
-                      <Fragment key={`building-other-${group.buildingId}`}>
-                        {/* Building group header */}
-                        <tr className="bg-muted/20">
-                          <td colSpan={3} className="py-2 px-4">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <span className="font-semibold text-muted-foreground">{group.buildingName}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {group.buildingAddress}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {/* Leases in this building */}
-                        {group.leases.map((lease) => (
-                          <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors opacity-60">
-                            <td className="py-2.5 px-4 pl-10">
-                              <Link href={`/baux/${lease.id}`} className="block">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">{tenantName(lease.tenant)}</p>
-                                  {lease.isThirdPartyManaged && (
-                                    <Badge variant="outline" className="text-teal-700 border-teal-300 bg-teal-50 text-[10px] px-1.5 py-0">
-                                      Gestion tiers
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Lot {lease.lot.number}
-                                  {lease.destination && (
-                                    <span className="ml-1.5 text-muted-foreground/70">· {DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
-                                  )}
-                                </p>
-                              </Link>
-                            </td>
-                            <td className="py-2.5 px-4 text-right tabular-nums text-muted-foreground">
-                              {lease.baseRentHT.toLocaleString("fr-FR")} &euro; HT/{FREQ_PERIOD_LABELS[lease.paymentFrequency]}
-                            </td>
-                            <td className="py-2.5 px-4 text-center">
-                              <Badge variant={STATUS_VARIANTS[lease.status]}>{STATUS_LABELS[lease.status]}</Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
               </CardContent>
             </Card>
           )}
