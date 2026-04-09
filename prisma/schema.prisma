@@ -346,6 +346,17 @@ enum TicketCategory {
   AUTRE
 }
 
+enum ManagementFeeType {
+  POURCENTAGE
+  FORFAIT
+}
+
+enum ManagementFeeBasis {
+  LOYER_HT           // Honoraires sur loyer HT seul
+  LOYER_CHARGES_HT   // Honoraires sur loyer + charges HT
+  TOTAL_TTC           // Honoraires sur total TTC
+}
+
 // ============================================================
 // PHASE 1 — SOCLE : UTILISATEURS, SOCIÉTÉS, RBAC, AUDIT
 // ============================================================
@@ -439,6 +450,7 @@ model Society {
   additionalAcquisitions  AdditionalAcquisition[]
   leaseTemplates          LeaseTemplate[]
   tickets                 Ticket[]
+  managementReports       ManagementReport[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -865,6 +877,16 @@ model Lease {
   tenantWorksClauses String? @db.Text
   entryFee           Float?  @default(0) // Pas-de-porte / droit d'entrée
 
+  // Gestion tiers (mandat de gestion)
+  isThirdPartyManaged   Boolean              @default(false)
+  managingContactId     String?
+  managementFeeType     ManagementFeeType?
+  managementFeeValue    Float?               // ex: 8.0 pour 8%, ou 150.0 pour forfait
+  managementFeeBasis    ManagementFeeBasis?
+  managementFeeVatRate  Float?               @default(20.0)
+  managementContractUrl String?
+  managementNotes       String?              @db.Text
+
   // Dates clés
   entryDate           DateTime? // Date effective d'entrée dans les lieux
   exitDate            DateTime? // Date effective de sortie
@@ -887,6 +909,8 @@ model Lease {
   lot     Lot     @relation(fields: [lotId], references: [id], onDelete: Restrict)
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  managingContact       Contact?  @relation("ManagedLeases", fields: [managingContactId], references: [id], onDelete: SetNull)
+
   inspections           Inspection[]
   rentRevisions         RentRevision[]
   invoices              Invoice[]
@@ -898,6 +922,7 @@ model Lease {
   amendments            LeaseAmendment[]
   rentValuations        RentValuation[]
   signatureRequests     SignatureRequest[]
+  managementReports     ManagementReport[]
 
   @@index([societyId])
   @@index([lotId])
@@ -905,6 +930,7 @@ model Lease {
   @@index([societyId, status])
   @@index([endDate])
   @@index([leaseTemplateId])
+  @@index([isThirdPartyManaged])
 }
 
 
@@ -1433,6 +1459,13 @@ model Invoice {
   sepaPaymentId String? // ID paiement GoCardless
   sepaStatus    SepaPaymentStatus?
 
+  // Gestion tiers
+  isThirdPartyManaged   Boolean  @default(false)
+  managementFeeHT       Float?
+  managementFeeVAT      Float?
+  managementFeeTTC      Float?
+  expectedNetAmount     Float?   // totalTTC - managementFeeTTC
+
   society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lease         Lease?        @relation(fields: [leaseId], references: [id], onDelete: SetNull)
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -1799,10 +1832,11 @@ model Contact {
   notes        String?     @db.Text
   isActive     Boolean     @default(true)
 
-  society      Society?      @relation(fields: [societyId], references: [id], onDelete: SetNull)
-  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  maintenances Maintenance[]
-  contactNotes ContactNote[]
+  society       Society?      @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  maintenances  Maintenance[]
+  contactNotes  ContactNote[]
+  managedLeases Lease[]       @relation("ManagedLeases")
 
   @@index([societyId])
   @@index([contactType])
@@ -2852,4 +2886,49 @@ model TicketMessage {
 
   @@index([ticketId])
   @@index([ticketId, createdAt])
+}
+
+// ============================================================
+// PHASE 12 — GESTION TIERS (MANDAT DE GESTION)
+// ============================================================
+
+/// Compte-rendu de gestion reçu de l'agence
+model ManagementReport {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  leaseId   String
+
+  // Période et montants (remplis par l'IA ou manuellement)
+  periodStart   DateTime
+  periodEnd     DateTime
+  grossRent     Float      // Loyer brut encaissé
+  chargesAmount Float?     // Charges encaissées
+  feeAmountHT   Float      // Honoraires HT déduits
+  feeAmountTTC  Float      // Honoraires TTC déduits
+  netTransfer   Float      // Montant net viré au propriétaire
+
+  // Document source
+  reportFileUrl         String?
+  reportFileStoragePath String?
+
+  // Analyse IA
+  aiAnalyzed    Boolean  @default(false)
+  aiRawResponse Json?
+  aiConfidence  Float?   // Score de confiance 0-1
+
+  // Rapprochement
+  isReconciled        Boolean   @default(false)
+  reconciledPaymentId String?
+  reconciledAt        DateTime?
+
+  notes String? @db.Text
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([leaseId])
+  @@index([periodStart])
 }

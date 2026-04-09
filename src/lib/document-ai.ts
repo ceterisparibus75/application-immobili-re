@@ -11,6 +11,9 @@ const CATEGORY_HINTS: Record<string, string> = {
   titre_propriete: "Extrais : adresse bien, surface, prix acquisition, date acte, notaire.",
   contrat: "Extrais : type contrat, prestataire, montant, date debut, date fin, objet.",
   etat_des_lieux: "Extrais : type (entree/sortie), date, adresse, nom locataire, observations principales.",
+  compte_rendu_gestion: "Extrais : periode (date debut, date fin), loyer brut encaisse (nombre), montant charges encaissees (nombre), honoraires de gestion HT (nombre), honoraires TTC (nombre), montant net vire au proprietaire (nombre), nom agence, detail par lot si disponible.",
+  quittance_agence: "Extrais : periode (mois/annee), montant loyer, montant charges, total TTC, nom locataire, nom agence, numero de quittance.",
+  facture_honoraires: "Extrais : montant HT, TVA, montant TTC, agence/prestataire, date, numero facture, periode concernee, base de calcul.",
 };
 
 function mediaType(mime: string): "application/pdf" | "image/jpeg" | "image/png" | "image/webp" {

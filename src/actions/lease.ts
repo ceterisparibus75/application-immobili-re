@@ -92,6 +92,12 @@ export async function createLease(
         rentFreeMonths: data.rentFreeMonths,
         entryFee: data.entryFee,
         tenantWorksClauses: data.tenantWorksClauses ?? null,
+        isThirdPartyManaged: data.isThirdPartyManaged ?? false,
+        managingContactId: data.managingContactId ?? null,
+        managementFeeType: data.managementFeeType ?? null,
+        managementFeeValue: data.managementFeeValue ?? null,
+        managementFeeBasis: data.managementFeeBasis ?? null,
+        managementFeeVatRate: data.managementFeeVatRate ?? null,
       },
     });
 
@@ -326,6 +332,9 @@ export async function getLeaseById(societyId: string, leaseId: string) {
         },
       },
       tenant: true,
+      managingContact: {
+        select: { id: true, name: true, company: true, email: true, phone: true, mobile: true },
+      },
       rentRevisions: { orderBy: { effectiveDate: "desc" }, take: 10 },
       invoices: {
         orderBy: { createdAt: "desc" },

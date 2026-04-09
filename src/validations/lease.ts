@@ -195,6 +195,12 @@ export const createLeaseSchema = z.object({
   rentFreeMonths: z.coerce.number().min(0).default(0),
   entryFee: z.coerce.number().min(0).default(0),
   tenantWorksClauses: z.string().optional().nullable(),
+  isThirdPartyManaged: z.boolean().default(false),
+  managingContactId: z.string().cuid().optional().nullable(),
+  managementFeeType: z.enum(["POURCENTAGE", "FORFAIT"]).optional().nullable(),
+  managementFeeValue: z.coerce.number().min(0).optional().nullable(),
+  managementFeeBasis: z.enum(["LOYER_HT", "LOYER_CHARGES_HT", "TOTAL_TTC"]).optional().nullable(),
+  managementFeeVatRate: z.coerce.number().min(0).max(100).default(20).optional().nullable(),
 });
 
 export const updateLeaseSchema = z.object({
@@ -233,6 +239,12 @@ export const updateLeaseSchema = z.object({
   exitDate: z.string().optional().nullable(),
   rentFreeMonths: z.coerce.number().min(0).optional(),
   entryFee: z.coerce.number().min(0).optional(),
+  isThirdPartyManaged: z.boolean().default(false).optional(),
+  managingContactId: z.string().cuid().optional().nullable(),
+  managementFeeType: z.enum(["POURCENTAGE", "FORFAIT"]).optional().nullable(),
+  managementFeeValue: z.coerce.number().min(0).optional().nullable(),
+  managementFeeBasis: z.enum(["LOYER_HT", "LOYER_CHARGES_HT", "TOTAL_TTC"]).optional().nullable(),
+  managementFeeVatRate: z.coerce.number().min(0).max(100).default(20).optional().nullable(),
 });
 
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;

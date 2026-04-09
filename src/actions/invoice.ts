@@ -408,6 +408,41 @@ function computeRentForPeriod(
   return currentRentHT;
 }
 
+/** Calcule les honoraires de gestion tiers */
+export function computeManagementFee(
+  lease: {
+    managementFeeType: string | null;
+    managementFeeValue: number | null;
+    managementFeeBasis: string | null;
+    managementFeeVatRate: number | null;
+  },
+  rentHT: number,
+  chargesHT: number,
+  totalTTC: number
+): { feeHT: number; feeVAT: number; feeTTC: number } {
+  if (!lease.managementFeeType || !lease.managementFeeValue) {
+    return { feeHT: 0, feeVAT: 0, feeTTC: 0 };
+  }
+
+  let feeHT: number;
+  if (lease.managementFeeType === "FORFAIT") {
+    feeHT = lease.managementFeeValue;
+  } else {
+    // POURCENTAGE
+    const base =
+      lease.managementFeeBasis === "LOYER_HT"
+        ? rentHT
+        : lease.managementFeeBasis === "LOYER_CHARGES_HT"
+          ? rentHT + chargesHT
+          : totalTTC;
+    feeHT = Math.round(base * (lease.managementFeeValue / 100) * 100) / 100;
+  }
+
+  const vatRate = lease.managementFeeVatRate ?? 20;
+  const feeVAT = Math.round(feeHT * (vatRate / 100) * 100) / 100;
+  return { feeHT, feeVAT, feeTTC: Math.round((feeHT + feeVAT) * 100) / 100 };
+}
+
 /**
  * Retourne les baux actifs avec les infos nécessaires pour la facturation.
  */
@@ -900,6 +935,11 @@ export async function generateInvoiceFromLease(
         vatRate: true,
         rentFreeMonths: true,
         progressiveRent: true,
+        isThirdPartyManaged: true,
+        managementFeeType: true,
+        managementFeeValue: true,
+        managementFeeBasis: true,
+        managementFeeVatRate: true,
         chargeProvisions: {
           where: { isActive: true },
           select: { monthlyAmount: true, vatRate: true, label: true },
@@ -1057,6 +1097,27 @@ export async function generateInvoiceFromLease(
         },
       });
     });
+
+    // Gestion tiers : calculer les honoraires
+    if (lease.isThirdPartyManaged) {
+      const chargesHT = lease.chargeProvisions.reduce((s, cp) => {
+        const mult = ({ MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 } as Record<string, number>)[lease.paymentFrequency] ?? 1;
+        return s + cp.monthlyAmount * mult;
+      }, 0);
+      const fee = computeManagementFee(lease, rentHT, chargesHT, totalTTC);
+      if (fee.feeTTC > 0) {
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            isThirdPartyManaged: true,
+            managementFeeHT: fee.feeHT,
+            managementFeeVAT: fee.feeVAT,
+            managementFeeTTC: fee.feeTTC,
+            expectedNetAmount: Math.round((totalTTC - fee.feeTTC) * 100) / 100,
+          },
+        });
+      }
+    }
 
     await createAuditLog({
       societyId,

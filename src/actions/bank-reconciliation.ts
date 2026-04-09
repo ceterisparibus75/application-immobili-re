@@ -108,6 +108,11 @@ export async function autoReconcile(
       }),
       prisma.payment.findMany({
         where: { isReconciled: false, invoice: { societyId } },
+        include: {
+          invoice: {
+            select: { isThirdPartyManaged: true, expectedNetAmount: true },
+          },
+        },
         orderBy: { paidAt: "asc" },
       }),
     ]);
@@ -151,6 +156,21 @@ export async function autoReconcile(
       if (approxMatch) {
         await createReconciliationRecord(tx.id, approxMatch.id, true);
         usedPaymentIds.add(approxMatch.id);
+        usedTransactionIds.add(tx.id);
+        matched++;
+        continue;
+      }
+
+      // Passe 3 : match montant NET pour baux en gestion tiers
+      const netMatch = payments.find((p) => {
+        if (usedPaymentIds.has(p.id)) return false;
+        if (!p.invoice?.isThirdPartyManaged || !p.invoice?.expectedNetAmount) return false;
+        return Math.abs(p.invoice.expectedNetAmount - Math.abs(tx.amount)) <= 0.01;
+      });
+
+      if (netMatch) {
+        await createReconciliationRecord(tx.id, netMatch.id, true);
+        usedPaymentIds.add(netMatch.id);
         usedTransactionIds.add(tx.id);
         matched++;
       }
@@ -319,7 +339,7 @@ export async function generateJournalEntry(
     if (!transaction) return { success: false, error: "Transaction introuvable" };
 
     // Chercher ou créer les comptes comptables
-    const [compte512, compte411, compte658] = await Promise.all([
+    const [compte512, compte411, compte658, compte622] = await Promise.all([
       prisma.accountingAccount.upsert({
         where: { societyId_code: { societyId, code: "512" } },
         update: {},
@@ -335,14 +355,52 @@ export async function generateJournalEntry(
         update: {},
         create: { societyId, code: "658", label: "Charges diverses de gestion", type: "6" },
       }),
+      prisma.accountingAccount.upsert({
+        where: { societyId_code: { societyId, code: "622" } },
+        update: {},
+        create: { societyId, code: "622", label: "Remunerations d'intermediaires et honoraires", type: "6" },
+      }),
     ]);
 
     const amount = Math.abs(transaction.amount);
     const isIncome = transaction.amount > 0;
     const hasInvoice = transaction.reconciliations.length > 0;
 
+    // Detecter si la transaction concerne une facture en gestion tiers
+    const thirdPartyInvoice = transaction.reconciliations.find(
+      (r) => r.payment?.invoice?.isThirdPartyManaged && r.payment?.invoice?.managementFeeTTC
+    )?.payment?.invoice;
+
     // Compte de contrepartie selon la nature de la transaction
     const contraAccount = hasInvoice ? compte411 : compte658;
+
+    // Construire les lignes d'ecriture
+    let journalLines;
+    if (isIncome && thirdPartyInvoice && thirdPartyInvoice.managementFeeTTC) {
+      // Gestion tiers : ecriture a 3 lignes
+      // Debit 512 (Banque) : montant net recu
+      // Debit 622 (Honoraires) : honoraires TTC
+      // Credit 411 (Client) : montant brut TTC
+      const feeAmount = thirdPartyInvoice.managementFeeTTC;
+      const grossAmount = amount + feeAmount;
+      journalLines = [
+        { accountId: compte512.id, debit: amount, credit: 0, label: "Virement agence (net)" },
+        { accountId: compte622.id, debit: Math.round(feeAmount * 100) / 100, credit: 0, label: "Honoraires de gestion" },
+        { accountId: compte411.id, debit: 0, credit: Math.round(grossAmount * 100) / 100, label: "Loyer brut TTC" },
+      ];
+    } else if (isIncome) {
+      // Entree d'argent standard : Debit 512 Banque / Credit 411 Clients
+      journalLines = [
+        { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
+        { accountId: contraAccount.id, debit: 0, credit: amount, label: transaction.label },
+      ];
+    } else {
+      // Sortie d'argent : Debit 658 Charges / Credit 512 Banque
+      journalLines = [
+        { accountId: contraAccount.id, debit: amount, credit: 0, label: transaction.label },
+        { accountId: compte512.id, debit: 0, credit: amount, label: transaction.label },
+      ];
+    }
 
     const entry = await prisma.journalEntry.create({
       data: {
@@ -351,19 +409,7 @@ export async function generateJournalEntry(
         entryDate: transaction.transactionDate,
         label: transaction.label,
         reference: transaction.reference ?? undefined,
-        lines: {
-          create: isIncome
-            ? [
-                // Entrée d'argent : Débit 512 Banque / Crédit 411 Clients
-                { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
-                { accountId: contraAccount.id, debit: 0, credit: amount, label: transaction.label },
-              ]
-            : [
-                // Sortie d'argent : Débit 658 Charges / Crédit 512 Banque
-                { accountId: contraAccount.id, debit: amount, credit: 0, label: transaction.label },
-                { accountId: compte512.id, debit: 0, credit: amount, label: transaction.label },
-              ],
-        },
+        lines: { create: journalLines },
       },
     });
 
@@ -481,7 +527,11 @@ export async function reconcileWithInvoice(
 
     const paidSoFar = paidAgg._sum.amount ?? 0;
     const newTotal = paidSoFar + Math.abs(transaction.amount);
-    const newStatus = newTotal >= invoice.totalTTC - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+    // Pour les factures en gestion tiers, comparer au montant net attendu
+    const targetAmount = invoice.isThirdPartyManaged && invoice.expectedNetAmount
+      ? invoice.expectedNetAmount
+      : invoice.totalTTC;
+    const newStatus = newTotal >= targetAmount - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
 
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({

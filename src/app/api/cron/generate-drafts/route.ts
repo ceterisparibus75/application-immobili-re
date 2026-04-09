@@ -36,7 +36,7 @@ async function generateDraftInvoices() {
 
   // Recuperer tous les baux actifs avec leurs provisions de charges
   const activeLeases = await prisma.lease.findMany({
-    where: { status: "EN_COURS" },
+    where: { status: "EN_COURS", isThirdPartyManaged: false },
     select: {
       id: true,
       societyId: true,

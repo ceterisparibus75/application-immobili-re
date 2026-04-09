@@ -236,6 +236,7 @@ export default function NouveauBailPage() {
       rentFreeMonths: parseFloat(data.rentFreeMonths) || 0,
       entryFee: parseFloat(data.entryFee) || 0,
       tenantWorksClauses: data.tenantWorksClauses || null,
+      isThirdPartyManaged: false,
     });
 
     setIsLoading(false);
