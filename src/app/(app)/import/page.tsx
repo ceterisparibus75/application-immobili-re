@@ -27,7 +27,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useSociety } from "@/providers/society-provider";
-import { importFromPdf, analyzePdfAction, type ImportInput, type ImportResult } from "@/actions/import";
+import { importFromPdf, type ImportInput, type ImportResult } from "@/actions/import";
 import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
 import { getActiveTenants } from "@/actions/tenant";
@@ -836,12 +836,13 @@ export default function ImportPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const result = await analyzePdfAction(fd);
-      if (!result.success) {
-        setAnalyzeError(result.error ?? "Erreur lors de l'analyse");
+      const res = await fetch("/api/import/analyze", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        setAnalyzeError(data.error ?? "Erreur lors de l'analyse");
         return;
       }
-      setForm(aiToForm(result.data as Record<string, unknown>));
+      setForm(aiToForm(data as Record<string, unknown>));
       setStep("review");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur lors de l'analyse";
