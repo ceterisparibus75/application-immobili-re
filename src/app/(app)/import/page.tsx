@@ -89,6 +89,7 @@ type LocataireForm = {
 
 type BailForm = {
   leaseType: string;
+  destination: string;
   startDate: string;
   durationMonths: string;
   baseRentHT: string;
@@ -154,6 +155,24 @@ const LEASE_TYPE_OPTIONS = [
   { value: "RURAL", label: "Bail rural / agricole" },
 ];
 
+const DESTINATION_OPTIONS = [
+  { value: "", label: "— Non renseignée —" },
+  { value: "HABITATION", label: "Habitation" },
+  { value: "BUREAU", label: "Bureau" },
+  { value: "COMMERCE", label: "Commerce / Boutique" },
+  { value: "ACTIVITE", label: "Local d'activité / Atelier" },
+  { value: "ENTREPOT", label: "Entrepôt / Stockage" },
+  { value: "INDUSTRIEL", label: "Local industriel" },
+  { value: "PROFESSIONNEL", label: "Cabinet libéral" },
+  { value: "MIXTE", label: "Mixte (habitation + professionnel)" },
+  { value: "PARKING", label: "Parking / Garage" },
+  { value: "TERRAIN", label: "Terrain nu" },
+  { value: "AGRICOLE", label: "Agricole" },
+  { value: "HOTELLERIE", label: "Hôtellerie / Tourisme" },
+  { value: "EQUIPEMENT", label: "Équipement (salle, crèche…)" },
+  { value: "AUTRE", label: "Autre" },
+];
+
 const PAYMENT_FREQ_OPTIONS = [
   { value: "MENSUEL", label: "Mensuel" },
   { value: "TRIMESTRIEL", label: "Trimestriel" },
@@ -208,7 +227,7 @@ function emptyReview(): ReviewForm {
       email: "", phone: "", mobile: "",
     },
     bail: {
-      leaseType: "COMMERCIAL_369", startDate: "", durationMonths: "108",
+      leaseType: "COMMERCIAL_369", destination: "", startDate: "", durationMonths: "108",
       baseRentHT: "", depositAmount: "0",
       paymentFrequency: "MENSUEL", vatApplicable: true, vatRate: "20",
       indexType: "", rentFreeMonths: "0", entryFee: "0", tenantWorksClauses: "",
@@ -255,6 +274,7 @@ function aiToForm(ai: Record<string, unknown>): ReviewForm {
     },
     bail: {
       leaseType: String(bail.leaseType ?? "COMMERCIAL_369"),
+      destination: bail.destination != null && bail.destination !== "null" ? String(bail.destination) : "",
       startDate: String(bail.startDate ?? ""),
       durationMonths: bail.durationMonths != null ? String(bail.durationMonths) : "108",
       baseRentHT: bail.baseRentHT != null ? String(bail.baseRentHT) : "",
@@ -556,9 +576,14 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <FieldRow label="Type de bail *">
-          <NativeSelect value={form.leaseType} onChange={(e) => onChange({ leaseType: e.target.value })} options={LEASE_TYPE_OPTIONS} />
-        </FieldRow>
+        <div className="grid grid-cols-2 gap-2">
+          <FieldRow label="Type de bail *">
+            <NativeSelect value={form.leaseType} onChange={(e) => onChange({ leaseType: e.target.value })} options={LEASE_TYPE_OPTIONS} />
+          </FieldRow>
+          <FieldRow label="Destination">
+            <NativeSelect value={form.destination} onChange={(e) => onChange({ destination: e.target.value })} options={DESTINATION_OPTIONS} />
+          </FieldRow>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <FieldRow label="Date de début *">
             <Input type="date" value={form.startDate} onChange={(e) => onChange({ startDate: e.target.value })} className="h-8 text-sm" />
@@ -778,6 +803,7 @@ export default function ImportPage() {
       },
       lease: {
         leaseType: form.bail.leaseType as ImportInput["lease"]["leaseType"],
+        destination: (form.bail.destination || null) as ImportInput["lease"]["destination"],
         startDate: form.bail.startDate,
         durationMonths: parseInt(form.bail.durationMonths) || 108,
         baseRentHT: parseFloat(form.bail.baseRentHT),
@@ -834,6 +860,7 @@ export default function ImportPage() {
           { label: "Surface", value: form.lot.area ? `${form.lot.area} m²` : undefined },
           { label: "Locataire", value: tenantName },
           { label: "Type de bail", value: form.bail.leaseType },
+          { label: "Destination", value: form.bail.destination || undefined },
           { label: "Loyer HT", value: form.bail.baseRentHT ? `${parseFloat(form.bail.baseRentHT).toLocaleString("fr-FR")} € / ${FREQ_PERIOD_LABELS[form.bail.paymentFrequency] ?? "mois"}` : undefined },
           { label: "Début", value: form.bail.startDate },
           { label: "Durée", value: form.bail.durationMonths ? `${form.bail.durationMonths} mois` : undefined },

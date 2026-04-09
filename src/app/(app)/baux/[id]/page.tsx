@@ -32,6 +32,7 @@ import { LeasePdfUpload } from "@/components/lease-pdf-upload";
 import type {
   LeaseStatus,
   LeaseType,
+  LeaseDestination,
   PaymentFrequency,
   TenantEntityType,
 } from "@/generated/prisma/client";
@@ -83,6 +84,23 @@ const TYPE_LABELS: Record<LeaseType, string> = {
   REHABILITATION: "Bail à réhabilitation",
   BRS: "Bail réel solidaire (OFS)",
   RURAL: "Bail rural",
+};
+
+const DESTINATION_LABELS: Record<LeaseDestination, string> = {
+  HABITATION: "Habitation",
+  BUREAU: "Bureau",
+  COMMERCE: "Commerce",
+  ACTIVITE: "Activité",
+  ENTREPOT: "Entrepôt",
+  INDUSTRIEL: "Industriel",
+  PROFESSIONNEL: "Professionnel",
+  MIXTE: "Mixte",
+  PARKING: "Parking",
+  TERRAIN: "Terrain",
+  AGRICOLE: "Agricole",
+  HOTELLERIE: "Hôtellerie",
+  EQUIPEMENT: "Équipement",
+  AUTRE: "Autre",
 };
 
 const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
@@ -248,6 +266,12 @@ export default async function BailDetailPage({
                   <p className="text-xs text-muted-foreground">Type de bail</p>
                   <p className="text-sm font-medium">
                     {TYPE_LABELS[lease.leaseType]}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Destination</p>
+                  <p className="text-sm font-medium">
+                    {lease.destination ? DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination : "Non renseignée"}
                   </p>
                 </div>
                 <div>

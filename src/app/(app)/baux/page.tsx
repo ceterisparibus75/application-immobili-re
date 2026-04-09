@@ -12,7 +12,7 @@ import { Building2, FileText, Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LeaseStatus, LeaseType, TenantEntityType, PaymentFrequency } from "@/generated/prisma/client";
+import type { LeaseStatus, LeaseType, LeaseDestination, TenantEntityType, PaymentFrequency } from "@/generated/prisma/client";
 
 const FREQ_PERIOD_LABELS: Record<PaymentFrequency, string> = {
   MENSUEL: "mois",
@@ -64,6 +64,23 @@ const TYPE_LABELS: Record<LeaseType, string> = {
   REHABILITATION: "Réhabilitation",
   BRS: "BRS",
   RURAL: "Rural",
+};
+
+const DESTINATION_LABELS: Record<LeaseDestination, string> = {
+  HABITATION: "Habitation",
+  BUREAU: "Bureau",
+  COMMERCE: "Commerce",
+  ACTIVITE: "Activité",
+  ENTREPOT: "Entrepôt",
+  INDUSTRIEL: "Industriel",
+  PROFESSIONNEL: "Professionnel",
+  MIXTE: "Mixte",
+  PARKING: "Parking",
+  TERRAIN: "Terrain",
+  AGRICOLE: "Agricole",
+  HOTELLERIE: "Hôtellerie",
+  EQUIPEMENT: "Équipement",
+  AUTRE: "Autre",
 };
 
 const FREQ_MULTIPLIER: Record<string, number> = {
@@ -240,6 +257,9 @@ export default async function BauxPage() {
                                   </div>
                                   <p className="text-xs text-muted-foreground">
                                     Lot {lease.lot.number}
+                                    {lease.destination && (
+                                      <span className="ml-1.5 text-muted-foreground/70">· {DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
+                                    )}
                                   </p>
                                 </Link>
                               </td>
@@ -319,6 +339,9 @@ export default async function BauxPage() {
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                   Lot {lease.lot.number}
+                                  {lease.destination && (
+                                    <span className="ml-1.5 text-muted-foreground/70">· {DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination}</span>
+                                  )}
                                 </p>
                               </Link>
                             </td>

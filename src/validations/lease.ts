@@ -28,6 +28,23 @@ export const LEASE_TYPES = [
   "RURAL",
 ] as const;
 
+export const LEASE_DESTINATIONS = [
+  "HABITATION",
+  "BUREAU",
+  "COMMERCE",
+  "ACTIVITE",
+  "ENTREPOT",
+  "INDUSTRIEL",
+  "PROFESSIONNEL",
+  "MIXTE",
+  "PARKING",
+  "TERRAIN",
+  "AGRICOLE",
+  "HOTELLERIE",
+  "EQUIPEMENT",
+  "AUTRE",
+] as const;
+
 export const INDEX_TYPES = ["IRL", "ILC", "ILAT", "ICC"] as const;
 export const REVISION_DATE_BASIS = ["DATE_SIGNATURE", "DATE_ENTREE", "PREMIER_JANVIER", "DATE_PERSONNALISEE"] as const;
 
@@ -166,6 +183,7 @@ export const createLeaseSchema = z.object({
   lotId: z.string().cuid(),
   tenantId: z.string().cuid(),
   leaseType: z.enum(LEASE_TYPES),
+  destination: z.enum(LEASE_DESTINATIONS).optional().nullable(),
   leaseTemplateId: z.string().cuid().optional().nullable(),
   startDate: z.string().min(1, "La date de début est requise"),
   durationMonths: z.coerce.number().int().min(1).default(36),
@@ -210,6 +228,7 @@ export const createLeaseSchema = z.object({
 export const updateLeaseSchema = z.object({
   id: z.string().cuid(),
   leaseType: z.enum(LEASE_TYPES).optional(),
+  destination: z.enum(LEASE_DESTINATIONS).optional().nullable(),
   status: z
     .enum([
       "EN_COURS",

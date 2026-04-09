@@ -86,6 +86,24 @@ const REVISION_DATE_BASIS_OPTIONS = [
   { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
 ];
 
+const DESTINATION_OPTIONS = [
+  { value: "", label: "— Non renseignée —" },
+  { value: "HABITATION", label: "Habitation" },
+  { value: "BUREAU", label: "Bureau" },
+  { value: "COMMERCE", label: "Commerce / Boutique" },
+  { value: "ACTIVITE", label: "Local d'activité / Atelier" },
+  { value: "ENTREPOT", label: "Entrepôt / Stockage" },
+  { value: "INDUSTRIEL", label: "Local industriel" },
+  { value: "PROFESSIONNEL", label: "Cabinet libéral" },
+  { value: "MIXTE", label: "Mixte (habitation + professionnel)" },
+  { value: "PARKING", label: "Parking / Garage" },
+  { value: "TERRAIN", label: "Terrain nu" },
+  { value: "AGRICOLE", label: "Agricole" },
+  { value: "HOTELLERIE", label: "Hôtellerie / Tourisme" },
+  { value: "EQUIPEMENT", label: "Équipement (salle, crèche…)" },
+  { value: "AUTRE", label: "Autre" },
+];
+
 const FEE_BASIS_OPTIONS = [
   { value: "LOYER_HT", label: "Loyer HT seul" },
   { value: "LOYER_CHARGES_HT", label: "Loyer + charges HT" },
@@ -132,6 +150,7 @@ function toDateInput(val: string | null | undefined): string {
 type LeaseData = {
   id: string;
   leaseType: string;
+  destination?: string | null;
   status: string;
   startDate: string;
   endDate: string;
@@ -173,6 +192,7 @@ export default function ModifierBailPage() {
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState("");
   const [lease, setLease] = useState<LeaseData | null>(null);
+  const [destination, setDestination] = useState("");
   const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
   const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
@@ -191,6 +211,7 @@ export default function ModifierBailPage() {
         if (res.ok) {
           const json = (await res.json()) as { data: LeaseData };
           setLease(json.data);
+          setDestination(json.data.destination ?? "");
           setVatApplicable(json.data.vatApplicable);
           setFrequency(json.data.paymentFrequency);
           setRevisionDateBasis(json.data.revisionDateBasis ?? "DATE_SIGNATURE");
@@ -239,6 +260,7 @@ export default function ModifierBailPage() {
         | "MEUBLE"
         | "COMMERCIAL_369"
         | "DEROGATOIRE",
+      destination: (destination || null) as "HABITATION" | "BUREAU" | "COMMERCE" | "ACTIVITE" | "ENTREPOT" | "INDUSTRIEL" | "PROFESSIONNEL" | "MIXTE" | "PARKING" | "TERRAIN" | "AGRICOLE" | "HOTELLERIE" | "EQUIPEMENT" | "AUTRE" | null,
       status: d.status as "EN_COURS" | "RESILIE" | "RENOUVELE",
       startDate: d.startDate || null,
       endDate: d.endDate || null,
@@ -384,6 +406,16 @@ export default function ModifierBailPage() {
                   options={STATUS_OPTIONS}
                   defaultValue={lease.status}
                   required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="destination">Destination des locaux</Label>
+                <NativeSelect
+                  id="destination"
+                  name="destination"
+                  options={DESTINATION_OPTIONS}
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
                 />
               </div>
             </div>

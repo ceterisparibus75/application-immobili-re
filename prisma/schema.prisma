@@ -103,6 +103,23 @@ enum LeaseType {
   RURAL              // Bail rural / agricole (9 ans min.)
 }
 
+enum LeaseDestination {
+  HABITATION              // Logement (résidence principale ou secondaire)
+  BUREAU                  // Bureaux / activités tertiaires
+  COMMERCE                // Commerce / boutique / restaurant
+  ACTIVITE                // Local d'activité (artisanal, atelier)
+  ENTREPOT                // Entrepôt / stockage / logistique
+  INDUSTRIEL              // Local industriel / usine
+  PROFESSIONNEL           // Cabinet libéral (médecin, avocat, architecte…)
+  MIXTE                   // Usage mixte (habitation + professionnel)
+  PARKING                 // Parking / garage / box
+  TERRAIN                 // Terrain nu
+  AGRICOLE                // Exploitation agricole
+  HOTELLERIE              // Hôtel / résidence de tourisme
+  EQUIPEMENT              // Salle de sport, crèche, clinique…
+  AUTRE                   // Autre destination
+}
+
 enum LeaseStatus {
   EN_COURS
   RESILIE
@@ -858,6 +875,7 @@ model Lease {
 
   // Type et durée
   leaseType      LeaseType
+  destination    LeaseDestination? // Destination / usage des locaux
   status         LeaseStatus @default(EN_COURS)
   startDate      DateTime
   durationMonths Int         @default(108) // 9 ans par défaut

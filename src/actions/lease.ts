@@ -74,6 +74,7 @@ export async function createLease(
         leaseNumber,
         leaseTemplateId: data.leaseTemplateId ?? null,
         leaseType: data.leaseType,
+        destination: data.destination ?? null,
         status: "EN_COURS",
         startDate,
         durationMonths: data.durationMonths,

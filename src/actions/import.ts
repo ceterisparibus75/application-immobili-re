@@ -10,6 +10,7 @@ import type {
   BuildingType,
   LotType,
   LeaseType,
+  LeaseDestination,
   PaymentFrequency,
   IndexType,
   TenantEntityType,
@@ -58,6 +59,7 @@ export type ImportTenantInput = {
 
 export type ImportLeaseInput = {
   leaseType: LeaseType;
+  destination?: LeaseDestination | null;
   startDate: string;
   durationMonths: number;
   baseRentHT: number;
@@ -196,6 +198,7 @@ export async function importFromPdf(
           lotId: lot.id,
           tenantId,
           leaseType: input.lease.leaseType,
+          destination: input.lease.destination ?? null,
           status: "EN_COURS",
           startDate,
           endDate,
@@ -298,11 +301,13 @@ Structure exacte :
     "indexType": "IRL|ILC|ILAT|ICC|null",
     "rentFreeMonths": 0,
     "entryFee": 0.0,
+    "destination": "HABITATION|BUREAU|COMMERCE|ACTIVITE|ENTREPOT|INDUSTRIEL|PROFESSIONNEL|MIXTE|PARKING|TERRAIN|AGRICOLE|HOTELLERIE|EQUIPEMENT|AUTRE|null",
     "tenantWorksClauses": "Clauses travaux preneur ou null"
   }
 }
 
 Règles :
+- destination : usage prévu des locaux tel que mentionné dans le bail. HABITATION pour logement, BUREAU pour bureaux/tertiaire, COMMERCE pour boutique/restaurant, ACTIVITE pour atelier/artisanat, ENTREPOT pour stockage/logistique, INDUSTRIEL pour usine, PROFESSIONNEL pour cabinet libéral, MIXTE pour habitation+professionnel, PARKING pour garage/box, TERRAIN pour terrain nu, AGRICOLE pour exploitation agricole, HOTELLERIE pour hôtel/tourisme, EQUIPEMENT pour salle/crèche/clinique, AUTRE sinon. Si non précisé, déduire du type de bail.
 - buildingType : COMMERCE pour local commercial/boutique, BUREAU pour bureaux, ENTREPOT pour entrepôt/stockage, MIXTE sinon
 - leaseType : HABITATION pour bail vide loi 1989, MEUBLE pour bail meublé ALUR, ETUDIANT pour bail étudiant meublé 9 mois, MOBILITE pour bail mobilité ELAN, COLOCATION pour bail colocation, SAISONNIER pour location saisonnière, LOGEMENT_FONCTION pour logement de fonction, ANAH pour convention ANAH, CIVIL pour bail Code civil (résidence secondaire), GLISSANT pour bail glissant (insertion sociale), SOUS_LOCATION pour sous-location, COMMERCIAL_369 pour bail 3-6-9 (art. L145), DEROGATOIRE pour bail < 3 ans, PRECAIRE pour convention précaire, BAIL_PROFESSIONNEL pour bail professionnel (professions libérales), MIXTE pour bail mixte habitation+professionnel, EMPHYTEOTIQUE pour bail emphytéotique (18-99 ans), CONSTRUCTION pour bail à construction, REHABILITATION pour bail à réhabilitation, BRS pour bail réel solidaire (OFS), RURAL pour bail rural/agricole
 - durationMonths : 36 pour habitation (3 ans), 12 pour meublé (1 an), 9 pour étudiant, 10 pour mobilité, 108 pour bail 3-6-9 (9 ans), 72 pour professionnel (6 ans), 36 pour dérogatoire (3 ans max), 1188 pour emphytéotique (99 ans)
