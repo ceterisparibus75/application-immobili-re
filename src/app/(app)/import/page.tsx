@@ -960,6 +960,20 @@ export default function ImportPage() {
     startTransition(async () => {
       const res = await importFromPdf(societyId, input);
       if (res.success && res.data) {
+        // Auto-attach the PDF to the documents module
+        if (file) {
+          try {
+            const docFd = new FormData();
+            docFd.append("file", file);
+            docFd.append("category", "bail");
+            docFd.append("leaseId", res.data.leaseId);
+            docFd.append("lotId", res.data.lotId);
+            docFd.append("description", `Bail importé par IA — ${file.name}`);
+            await fetch("/api/documents/upload", { method: "POST", body: docFd });
+          } catch {
+            // Document upload is best-effort, don't block the import
+          }
+        }
         setResult(res.data);
         setStep("success");
       } else {
