@@ -10,11 +10,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
+  Briefcase,
   Building2,
   CalendarClock,
   ClipboardList,
   FileText,
+  Mail,
   Pencil,
+  Phone,
   Plus,
   Receipt,
   TrendingUp,
@@ -683,6 +686,72 @@ export default async function BailDetailPage({
               </Link>
             </CardContent>
           </Card>
+
+          {/* Gestion tiers */}
+          {lease.isThirdPartyManaged && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Gestion tiers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {lease.managingContact && (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Agence</p>
+                      <p className="text-sm font-medium">
+                        {lease.managingContact.name}
+                      </p>
+                      {lease.managingContact.company && (
+                        <p className="text-xs text-muted-foreground">
+                          {lease.managingContact.company}
+                        </p>
+                      )}
+                    </div>
+                    {lease.managingContact.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-sm">{lease.managingContact.email}</p>
+                      </div>
+                    )}
+                    {lease.managingContact.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-sm">{lease.managingContact.phone}</p>
+                      </div>
+                    )}
+                    <Separator />
+                  </>
+                )}
+                <div>
+                  <p className="text-xs text-muted-foreground">Honoraires</p>
+                  <p className="text-sm font-medium">
+                    {lease.managementFeeType === "POURCENTAGE"
+                      ? `${lease.managementFeeValue} % HT sur ${
+                          lease.managementFeeBasis === "LOYER_CHARGES_HT"
+                            ? "loyer + charges"
+                            : lease.managementFeeBasis === "TOTAL_TTC"
+                            ? "total TTC"
+                            : "loyer HT"
+                        }`
+                      : `${(lease.managementFeeValue ?? 0).toLocaleString("fr-FR")} EUR/mois forfait`}
+                  </p>
+                  {(lease.managementFeeVatRate ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      TVA : {lease.managementFeeVatRate} %
+                    </p>
+                  )}
+                </div>
+                <Link href={`/baux/${lease.id}/gestion-tiers`}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    Comptes-rendus de gestion
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Échéances */}
           <Card>

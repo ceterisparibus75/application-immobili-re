@@ -230,7 +230,14 @@ export default async function BauxPage() {
                             <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                               <td className="py-2.5 px-4 pl-10">
                                 <Link href={`/baux/${lease.id}`} className="block">
-                                  <p className="font-medium">{tenantName(lease.tenant)}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{tenantName(lease.tenant)}</p>
+                                    {lease.isThirdPartyManaged && (
+                                      <Badge variant="outline" className="text-teal-700 border-teal-300 bg-teal-50 text-[10px] px-1.5 py-0">
+                                        Gestion tiers
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-muted-foreground">
                                     Lot {lease.lot.number}
                                   </p>
@@ -302,7 +309,14 @@ export default async function BauxPage() {
                           <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors opacity-60">
                             <td className="py-2.5 px-4 pl-10">
                               <Link href={`/baux/${lease.id}`} className="block">
-                                <p className="font-medium">{tenantName(lease.tenant)}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{tenantName(lease.tenant)}</p>
+                                  {lease.isThirdPartyManaged && (
+                                    <Badge variant="outline" className="text-teal-700 border-teal-300 bg-teal-50 text-[10px] px-1.5 py-0">
+                                      Gestion tiers
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                   Lot {lease.lot.number}
                                 </p>
