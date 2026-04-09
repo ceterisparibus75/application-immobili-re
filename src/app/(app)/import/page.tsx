@@ -101,6 +101,9 @@ type BailForm = {
   baseIndexValue: string;
   baseIndexQuarter: string;
   revisionFrequency: string;
+  revisionDateBasis: string;
+  revisionCustomMonth: string;
+  revisionCustomDay: string;
   rentFreeMonths: string;
   entryFee: string;
   tenantWorksClauses: string;
@@ -198,6 +201,13 @@ const INDEX_TYPE_OPTIONS = [
   { value: "ICC", label: "ICC — Construction" },
 ];
 
+const REVISION_DATE_BASIS_OPTIONS = [
+  { value: "DATE_SIGNATURE", label: "Date anniversaire du bail" },
+  { value: "DATE_ENTREE", label: "Date d'entrée dans les lieux" },
+  { value: "PREMIER_JANVIER", label: "1er janvier" },
+  { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
+];
+
 const LEGAL_FORM_OPTIONS = [
   { value: "", label: "— Forme juridique —" },
   { value: "SAS", label: "SAS" },
@@ -235,6 +245,7 @@ function emptyReview(): ReviewForm {
       baseRentHT: "", depositAmount: "0",
       paymentFrequency: "MENSUEL", vatApplicable: true, vatRate: "20",
       indexType: "", baseIndexValue: "", baseIndexQuarter: "", revisionFrequency: "12",
+      revisionDateBasis: "DATE_SIGNATURE", revisionCustomMonth: "", revisionCustomDay: "",
       rentFreeMonths: "0", entryFee: "0", tenantWorksClauses: "",
     },
   };
@@ -291,6 +302,9 @@ function aiToForm(ai: Record<string, unknown>): ReviewForm {
       baseIndexValue: bail.baseIndexValue != null ? String(bail.baseIndexValue) : "",
       baseIndexQuarter: bail.baseIndexQuarter != null ? String(bail.baseIndexQuarter) : "",
       revisionFrequency: bail.revisionFrequency != null ? String(bail.revisionFrequency) : "12",
+      revisionDateBasis: bail.revisionDateBasis != null && bail.revisionDateBasis !== "null" ? String(bail.revisionDateBasis) : "DATE_SIGNATURE",
+      revisionCustomMonth: bail.revisionCustomMonth != null ? String(bail.revisionCustomMonth) : "",
+      revisionCustomDay: bail.revisionCustomDay != null ? String(bail.revisionCustomDay) : "",
       rentFreeMonths: bail.rentFreeMonths != null ? String(bail.rentFreeMonths) : "0",
       entryFee: bail.entryFee != null ? String(bail.entryFee) : "0",
       tenantWorksClauses: String(bail.tenantWorksClauses ?? ""),
@@ -617,17 +631,34 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
           </FieldRow>
         </div>
         {form.indexType && (
-          <div className="grid grid-cols-3 gap-2">
-            <FieldRow label="Valeur indice de base">
-              <Input type="number" step="0.01" value={form.baseIndexValue} onChange={(e) => onChange({ baseIndexValue: e.target.value })} placeholder="142.06" className="h-8 text-sm" />
-            </FieldRow>
-            <FieldRow label="Trimestre réf.">
-              <Input value={form.baseIndexQuarter} onChange={(e) => onChange({ baseIndexQuarter: e.target.value })} placeholder="T1 2021" className="h-8 text-sm" />
-            </FieldRow>
-            <FieldRow label="Fréq. révision (mois)">
-              <Input type="number" value={form.revisionFrequency} onChange={(e) => onChange({ revisionFrequency: e.target.value })} placeholder="12" className="h-8 text-sm" />
-            </FieldRow>
-          </div>
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <FieldRow label="Valeur indice de base">
+                <Input type="number" step="0.01" value={form.baseIndexValue} onChange={(e) => onChange({ baseIndexValue: e.target.value })} placeholder="142.06" className="h-8 text-sm" />
+              </FieldRow>
+              <FieldRow label="Trimestre réf.">
+                <Input value={form.baseIndexQuarter} onChange={(e) => onChange({ baseIndexQuarter: e.target.value })} placeholder="T1 2021" className="h-8 text-sm" />
+              </FieldRow>
+              <FieldRow label="Fréq. révision (mois)">
+                <Input type="number" value={form.revisionFrequency} onChange={(e) => onChange({ revisionFrequency: e.target.value })} placeholder="12" className="h-8 text-sm" />
+              </FieldRow>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Date de révision">
+                <NativeSelect value={form.revisionDateBasis} onChange={(e) => onChange({ revisionDateBasis: e.target.value })} options={REVISION_DATE_BASIS_OPTIONS} />
+              </FieldRow>
+              {form.revisionDateBasis === "DATE_PERSONNALISEE" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <FieldRow label="Jour">
+                    <Input type="number" min={1} max={31} value={form.revisionCustomDay} onChange={(e) => onChange({ revisionCustomDay: e.target.value })} placeholder="1" className="h-8 text-sm" />
+                  </FieldRow>
+                  <FieldRow label="Mois">
+                    <Input type="number" min={1} max={12} value={form.revisionCustomMonth} onChange={(e) => onChange({ revisionCustomMonth: e.target.value })} placeholder="1" className="h-8 text-sm" />
+                  </FieldRow>
+                </div>
+              )}
+            </div>
+          </>
         )}
         <div className="grid grid-cols-3 gap-2">
           <FieldRow label="TVA (%)">
@@ -836,6 +867,9 @@ export default function ImportPage() {
         baseIndexValue: form.bail.baseIndexValue ? parseFloat(form.bail.baseIndexValue) : null,
         baseIndexQuarter: form.bail.baseIndexQuarter || null,
         revisionFrequency: parseInt(form.bail.revisionFrequency) || 12,
+        revisionDateBasis: (form.bail.revisionDateBasis || "DATE_SIGNATURE") as ImportInput["lease"]["revisionDateBasis"],
+        revisionCustomMonth: form.bail.revisionCustomMonth ? parseInt(form.bail.revisionCustomMonth) : null,
+        revisionCustomDay: form.bail.revisionCustomDay ? parseInt(form.bail.revisionCustomDay) : null,
         rentFreeMonths: parseInt(form.bail.rentFreeMonths) || 0,
         entryFee: parseFloat(form.bail.entryFee) || 0,
         tenantWorksClauses: form.bail.tenantWorksClauses || null,

@@ -13,6 +13,7 @@ import type {
   LeaseDestination,
   PaymentFrequency,
   IndexType,
+  RevisionDateBasis,
   TenantEntityType,
 } from "@/generated/prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
@@ -71,6 +72,9 @@ export type ImportLeaseInput = {
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
   revisionFrequency?: number;
+  revisionDateBasis?: RevisionDateBasis | null;
+  revisionCustomMonth?: number | null;
+  revisionCustomDay?: number | null;
   rentFreeMonths: number;
   entryFee: number;
   tenantWorksClauses?: string | null;
@@ -216,6 +220,9 @@ export async function importFromPdf(
           baseIndexValue: input.lease.baseIndexValue ?? null,
           baseIndexQuarter: input.lease.baseIndexQuarter ?? null,
           revisionFrequency: input.lease.revisionFrequency ?? 12,
+          revisionDateBasis: input.lease.revisionDateBasis ?? "DATE_SIGNATURE",
+          revisionCustomMonth: input.lease.revisionCustomMonth ?? null,
+          revisionCustomDay: input.lease.revisionCustomDay ?? null,
           rentFreeMonths: input.lease.rentFreeMonths,
           entryFee: input.lease.entryFee,
           tenantWorksClauses: input.lease.tenantWorksClauses ?? null,
