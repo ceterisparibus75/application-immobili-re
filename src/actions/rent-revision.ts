@@ -37,6 +37,27 @@ async function getLatestIndex(indexType: IndexType): Promise<{
   return { value: index.value, year: index.year, quarter: index.quarter };
 }
 
+/** Récupère l'indice pour un trimestre de référence précis (ex: T3 de l'année cible) */
+async function getIndexForReferenceQuarter(
+  indexType: IndexType,
+  referenceQuarter: number,
+  targetYear: number
+): Promise<{ value: number; year: number; quarter: number } | null> {
+  const index = await prisma.inseeIndex.findFirst({
+    where: { indexType, quarter: referenceQuarter, year: targetYear },
+  });
+  if (!index) return null;
+  return { value: index.value, year: index.year, quarter: index.quarter };
+}
+
+/** Parse un trimestre de référence "T3 2024" → { quarter: 3, year: 2024 } */
+function parseBaseIndexQuarter(baseIndexQuarter: string | null): { quarter: number; year: number } | null {
+  if (!baseIndexQuarter) return null;
+  const match = baseIndexQuarter.match(/T(\d)\s*(\d{4})/);
+  if (!match) return null;
+  return { quarter: parseInt(match[1]), year: parseInt(match[2]) };
+}
+
 export async function getPendingRevisions(
   societyId: string
 ): Promise<
@@ -402,16 +423,44 @@ export async function detectPendingRevisions(): Promise<{
         });
         if (existingPending) continue;
 
-        const latestIndex = await getLatestIndex(lease.indexType as IndexType);
-        if (!latestIndex) {
+        // Déterminer le trimestre de référence et l'année cible
+        const baseQuarterInfo = parseBaseIndexQuarter(lease.baseIndexQuarter);
+        let newIndex: { value: number; year: number; quarter: number } | null = null;
+
+        if (baseQuarterInfo) {
+          // Calculer l'année cible : année de la prochaine révision
+          const targetYear = nextRevisionDate.getFullYear();
+          // Chercher d'abord l'indice du même trimestre pour l'année cible
+          newIndex = await getIndexForReferenceQuarter(
+            lease.indexType as IndexType,
+            baseQuarterInfo.quarter,
+            targetYear
+          );
+          // Si pas disponible, essayer l'année précédente
+          if (!newIndex) {
+            newIndex = await getIndexForReferenceQuarter(
+              lease.indexType as IndexType,
+              baseQuarterInfo.quarter,
+              targetYear - 1
+            );
+          }
+        }
+
+        // Fallback : dernier indice disponible si pas de trimestre de référence
+        if (!newIndex) {
+          newIndex = await getLatestIndex(lease.indexType as IndexType);
+        }
+
+        if (!newIndex) {
           results.errors.push(`Bail ${lease.id} : aucun indice ${lease.indexType} disponible`);
           continue;
         }
 
-        if (latestIndex.value === lease.baseIndexValue) continue;
+        if (newIndex.value === lease.baseIndexValue) continue;
 
-        const newRentHT = calculateNewRent(lease.currentRentHT, lease.baseIndexValue, latestIndex.value);
-        const formula = `${lease.currentRentHT.toFixed(2)} × (${latestIndex.value} / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)}`;
+        const newRentHT = calculateNewRent(lease.currentRentHT, lease.baseIndexValue, newIndex.value);
+        const quarterLabel = `T${newIndex.quarter} ${newIndex.year}`;
+        const formula = `${lease.currentRentHT.toFixed(2)} × (${newIndex.value} [${quarterLabel}] / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)}`;
 
         await prisma.rentRevision.create({
           data: {
@@ -421,7 +470,7 @@ export async function detectPendingRevisions(): Promise<{
             newRentHT,
             indexType: lease.indexType as IndexType,
             baseIndexValue: lease.baseIndexValue,
-            newIndexValue: latestIndex.value,
+            newIndexValue: newIndex.value,
             formula,
             isValidated: false,
           },

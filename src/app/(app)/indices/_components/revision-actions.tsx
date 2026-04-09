@@ -51,6 +51,9 @@ interface LeaseRevisionData {
   pendingRevisionId: string | null;
   pendingNewRent: number | null;
   pendingFormula: string | null;
+  referenceIndexValue: number | null;
+  referenceIndexQuarter: string | null;
+  referenceIndexYear: number | null;
 }
 
 interface LatestIndexData {
@@ -92,7 +95,7 @@ export function RevisionActions({
       !l.pendingRevisionId &&
       (l.statusVariant === "destructive" || l.statusVariant === "warning") &&
       l.baseIndexValue &&
-      indexMap.has(l.indexType)
+      (l.referenceIndexValue || indexMap.has(l.indexType))
   );
 
   // Baux avec revision en attente
@@ -100,23 +103,29 @@ export function RevisionActions({
 
   function previewRevision(
     lease: LeaseRevisionData
-  ): { newRent: number; formula: string } | null {
-    const idx = indexMap.get(lease.indexType);
-    if (!idx || !lease.baseIndexValue) return null;
+  ): { newRent: number; formula: string; indexValue: number } | null {
+    // Utiliser l'indice de référence du bail (même trimestre, année cible)
+    const indexValue = lease.referenceIndexValue ?? indexMap.get(lease.indexType)?.value ?? null;
+    if (!indexValue || !lease.baseIndexValue) return null;
     const newRent =
       Math.round(
-        lease.currentRentHT * (idx.value / lease.baseIndexValue) * 100
+        lease.currentRentHT * (indexValue / lease.baseIndexValue) * 100
       ) / 100;
-    const formula = `${lease.currentRentHT.toFixed(2)} x (${idx.value} / ${lease.baseIndexValue}) = ${newRent.toFixed(2)}`;
-    return { newRent, formula };
+    const quarterLabel = lease.referenceIndexQuarter && lease.referenceIndexYear
+      ? ` [${lease.referenceIndexQuarter} ${lease.referenceIndexYear}]`
+      : "";
+    const formula = `${lease.currentRentHT.toFixed(2)} x (${indexValue}${quarterLabel} / ${lease.baseIndexValue}) = ${newRent.toFixed(2)}`;
+    return { newRent, formula, indexValue };
   }
 
   /** Retourne un message d'erreur explicatif si le bail ne peut pas etre revise */
   function getRevisionBlockReason(lease: LeaseRevisionData): string | null {
     if (!lease.baseIndexValue)
       return "Aucun indice de base defini sur ce bail. Modifiez le bail pour ajouter un indice de reference.";
-    if (!indexMap.has(lease.indexType))
+    if (!lease.referenceIndexValue && !indexMap.has(lease.indexType))
       return `Aucune valeur d'indice ${lease.indexType} disponible en base. L'indice sera recupere lors de la prochaine synchronisation INSEE.`;
+    if (!lease.referenceIndexValue && lease.baseIndexQuarter)
+      return `L'indice ${lease.indexType} du trimestre de reference (${lease.baseIndexQuarter}) n'est pas encore disponible.`;
     return null;
   }
 
@@ -140,8 +149,8 @@ export function RevisionActions({
   }
 
   async function confirmGenerate(lease: LeaseRevisionData) {
-    const idx = indexMap.get(lease.indexType);
-    if (!idx) return;
+    const preview = previewRevision(lease);
+    if (!preview) return;
 
     setGenerating(lease.id);
     setConfirmDialog(null);
@@ -149,7 +158,7 @@ export function RevisionActions({
     const result = await createManualRevision(societyId, {
       leaseId: lease.id,
       effectiveDate: new Date().toISOString(),
-      newIndexValue: idx.value,
+      newIndexValue: preview.indexValue,
     });
 
     setGenerating(null);
@@ -172,8 +181,8 @@ export function RevisionActions({
     let errors = 0;
 
     for (const lease of eligibleForGeneration) {
-      const idx = indexMap.get(lease.indexType);
-      if (!idx || !lease.baseIndexValue) {
+      const preview = previewRevision(lease);
+      if (!preview) {
         errors++;
         continue;
       }
@@ -181,7 +190,7 @@ export function RevisionActions({
       const result = await createManualRevision(societyId, {
         leaseId: lease.id,
         effectiveDate: new Date().toISOString(),
-        newIndexValue: idx.value,
+        newIndexValue: preview.indexValue,
       });
 
       if (result.success) success++;

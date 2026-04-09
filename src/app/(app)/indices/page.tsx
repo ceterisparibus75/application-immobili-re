@@ -254,6 +254,29 @@ export default async function IndicesPage() {
               .filter(Boolean)
               .join(" ") || "—";
 
+      // Trouver l'indice du trimestre de référence pour la prochaine révision
+      let referenceIndex: { value: number; quarter: number; year: number } | null = null;
+      if (lease.baseIndexQuarter) {
+        const match = lease.baseIndexQuarter.match(/T(\d)\s*(\d{4})/);
+        if (match) {
+          const refQuarter = parseInt(match[1]);
+          const targetYear = nextRevisionDate.getFullYear();
+          // Chercher le même trimestre pour l'année cible, sinon année précédente
+          const targetIndex = allIndices.find(
+            (i) => i.indexType === lease.indexType && i.quarter === refQuarter && i.year === targetYear
+          ) ?? allIndices.find(
+            (i) => i.indexType === lease.indexType && i.quarter === refQuarter && i.year === targetYear - 1
+          );
+          if (targetIndex) {
+            referenceIndex = { value: targetIndex.value, quarter: targetIndex.quarter, year: targetIndex.year };
+          }
+        }
+      }
+
+      // Fallback : dernier indice disponible
+      const latestForType = indexByType[lease.indexType as string]?.latest;
+      const displayIndex = referenceIndex ?? (latestForType ? { value: latestForType.value, quarter: latestForType.quarter, year: latestForType.year } : null);
+
       return {
         id: lease.id,
         tenantName,
@@ -272,6 +295,9 @@ export default async function IndicesPage() {
         pendingRevisionId: pendingRevision?.id ?? null,
         pendingNewRent: pendingRevision?.newRentHT ?? null,
         pendingFormula: pendingRevision?.formula ?? null,
+        referenceIndexValue: displayIndex?.value ?? null,
+        referenceIndexQuarter: displayIndex ? `T${displayIndex.quarter}` : null,
+        referenceIndexYear: displayIndex?.year ?? null,
       };
     })
     .sort(
