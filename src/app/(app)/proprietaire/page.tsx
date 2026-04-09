@@ -28,7 +28,7 @@ import { RiskConcentrationChart } from "@/components/dashboard/risk-concentratio
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
 
-export const metadata = { title: "Vue proprietaire" };
+export const metadata = { title: "Vue propriétaire" };
 
 function fmt(n: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
@@ -673,7 +673,7 @@ export default async function ProprietaireDashboardPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Propriétaire</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">{activePropDetail?.label ?? "Propriétaire"}</h1>
             <p className="text-sm text-muted-foreground">
               {ownerData?.totalSocieties ?? 0} société{(ownerData?.totalSocieties ?? 0) > 1 ? "s" : ""} · {ownerData?.totalBuildings ?? 0} immeuble{(ownerData?.totalBuildings ?? 0) > 1 ? "s" : ""} · {ownerData?.totalLots ?? 0} lots
             </p>
