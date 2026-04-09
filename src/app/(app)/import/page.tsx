@@ -28,8 +28,6 @@ import {
 } from "lucide-react";
 import { useSociety } from "@/providers/society-provider";
 import { importFromPdf, analyzePdfAction, type ImportInput, type ImportResult } from "@/actions/import";
-
-export const maxDuration = 120;
 import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
 import { getActiveTenants } from "@/actions/tenant";
