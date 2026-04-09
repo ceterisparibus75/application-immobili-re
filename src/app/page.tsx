@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
     description:
-      "Plateforme souveraine de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
+      "Plateforme sécurisée de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
     type: "website",
   },
 };
@@ -234,7 +234,7 @@ const jsonLdOrganization = {
   brand: { "@type": "Brand", name: APP_NAME },
   url: SITE_URL,
   logo: `${SITE_URL}/logo-mygestia.svg`,
-  description: "Plateforme souveraine de gestion d'actifs immobiliers pour les foncières privées, les cabinets de gestion et les family offices.",
+  description: "Plateforme sécurisée de gestion d'actifs immobiliers pour les foncières privées, les cabinets de gestion et les family offices.",
   address: { "@type": "PostalAddress", addressCountry: "FR" },
 };
 
@@ -327,7 +327,7 @@ export default function HomePage() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full mb-8 ring-1 ring-[var(--color-brand-cyan)]/20">
               <Shield className="h-4 w-4" />
-              Plateforme souveraine de gestion d&apos;actifs immobiliers
+              Plateforme sécurisée de gestion d&apos;actifs immobiliers
             </div>
 
             {/* Headline */}
@@ -358,7 +358,7 @@ export default function HomePage() {
               </Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              Déploiement accompagné · Tarification sur audit
+              Déploiement accompagné pour les multipropriétaires
             </p>
           </div>
 
@@ -790,7 +790,7 @@ export default function HomePage() {
                 <img src="/logo-mygestia.svg" alt={APP_NAME} className="h-8" width={124} height={32} />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-                Plateforme souveraine de gestion d&apos;actifs immobiliers pour les foncières, les cabinets de gestion et les family offices.
+                Plateforme sécurisée de gestion d&apos;actifs immobiliers pour les foncières, les cabinets de gestion et les family offices.
               </p>
             </div>
 
