@@ -233,15 +233,10 @@ export default async function BauxPage() {
                             <td colSpan={6} className="py-2 px-4">
                               <div className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-primary shrink-0" />
-                                <div className="min-w-0">
-                                  <span className="font-semibold text-foreground">{group.buildingName}</span>
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    {group.buildingAddress}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    ({group.leases.length} {group.leases.length > 1 ? "baux" : "bail"})
-                                  </span>
-                                </div>
+                                <span className="font-semibold text-foreground">{group.buildingName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({group.leases.length} {group.leases.length > 1 ? "baux" : "bail"})
+                                </span>
                               </div>
                             </td>
                           </tr>
