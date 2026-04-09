@@ -96,9 +96,15 @@ function getNextRevisionDate(
   revisionFrequency: number,
   lastRevisionDate?: Date | null
 ): Date {
-  const base = lastRevisionDate ?? startDate;
-  const next = new Date(base);
+  const now = new Date();
+  const next = new Date(lastRevisionDate ?? startDate);
   next.setMonth(next.getMonth() + revisionFrequency);
+
+  // Si la date calculée est dans le passé, avancer jusqu'à la prochaine échéance future
+  while (next <= now) {
+    next.setMonth(next.getMonth() + revisionFrequency);
+  }
+
   return next;
 }
 

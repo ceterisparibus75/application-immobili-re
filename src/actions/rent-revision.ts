@@ -469,13 +469,11 @@ function getNextRevisionDate(
 ): Date {
   const now = new Date();
 
-  if (lastRevisionDate) {
-    const nextDate = new Date(lastRevisionDate);
-    nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
-    return nextDate;
-  }
+  // Partir de la dernière révision ou de la date de début
+  const nextDate = new Date(lastRevisionDate ?? startDate);
+  nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
 
-  const nextDate = new Date(startDate);
+  // Si la date calculée est dans le passé, avancer jusqu'à la prochaine échéance future
   while (nextDate <= now) {
     nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
   }
