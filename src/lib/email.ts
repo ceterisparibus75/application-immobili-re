@@ -61,7 +61,7 @@ function baseTemplate(title: string, content: string, options?: { societyName?: 
             <table cellpadding="0" cellspacing="0" role="presentation">
               <tr>
                 <td style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;font-weight:700;letter-spacing:-0.5px;">
-                  <span style="color:${BRAND.muted};">my</span><span style="color:${BRAND.deep};">gestia</span><span style="color:${BRAND.muted};">.</span><span style="color:${BRAND.muted};">immo</span>
+                  <span style="color:${BRAND.muted};">My</span><span style="color:${BRAND.deep};">Gestia</span><span style="color:${BRAND.muted};">.</span><span style="color:${BRAND.muted};">immo</span>
                 </td>
               </tr>
             </table>
@@ -82,7 +82,7 @@ function baseTemplate(title: string, content: string, options?: { societyName?: 
               ${footerName} — Gestion locative intelligente
             </p>
             <p style="margin:0;color:${BRAND.muted};font-size:11px;text-align:center;line-height:1.6;">
-              <a href="${SITE_URL}" style="color:${BRAND.blue};text-decoration:none;">mygestia.immo</a>
+              <a href="${SITE_URL}" style="color:${BRAND.blue};text-decoration:none;">MyGestia.immo</a>
             </p>
           </td>
         </tr>
