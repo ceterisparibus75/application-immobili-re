@@ -134,34 +134,35 @@ function getNextRevisionDate(
   customMonth?: number | null,
   customDay?: number | null,
 ): Date {
+  const anchor = getRevisionAnchorDate(
+    startDate,
+    entryDate ?? null,
+    revisionDateBasis ?? null,
+    customMonth ?? null,
+    customDay ?? null,
+  );
+
+  // Construire le calendrier de révision à partir de la date d'ancrage
+  const cursor = new Date(anchor);
+
+  // Pour DATE_SIGNATURE / DATE_ENTREE, la 1re révision est anchor + fréquence
+  // Pour PREMIER_JANVIER / DATE_PERSONNALISEE, la 1re révision est l'anchor elle-même
+  if (
+    !revisionDateBasis ||
+    revisionDateBasis === "DATE_SIGNATURE" ||
+    revisionDateBasis === "DATE_ENTREE"
+  ) {
+    cursor.setMonth(cursor.getMonth() + revisionFrequency);
+  }
+
+  // Avancer dans le cycle jusqu'à dépasser la dernière révision validée
   if (lastRevisionDate) {
-    // Si une révision a déjà eu lieu, la prochaine est simplement startDate + frequency
-    const next = new Date(lastRevisionDate);
-    next.setMonth(next.getMonth() + revisionFrequency);
-    return next;
+    while (cursor <= lastRevisionDate) {
+      cursor.setMonth(cursor.getMonth() + revisionFrequency);
+    }
   }
 
-  // Première révision : calculer depuis la date d'ancrage
-  const anchor = getRevisionAnchorDate(startDate, entryDate ?? null, revisionDateBasis ?? null, customMonth ?? null, customDay ?? null);
-
-  if (revisionDateBasis === "PREMIER_JANVIER") {
-    // Pour PREMIER_JANVIER, la première révision est au 1er janvier suivant le début + fréquence
-    const next = new Date(anchor);
-    // Si la fréquence est 12 mois, la première révision est le prochain 1er janvier
-    // anchor est déjà le 1er janvier suivant le start, donc c'est correct
-    return next;
-  }
-
-  if (revisionDateBasis === "DATE_PERSONNALISEE") {
-    // anchor est la prochaine date personnalisée après le début
-    // La première révision se fait à cette date + frequency si nécessaire
-    return anchor;
-  }
-
-  // DATE_SIGNATURE ou DATE_ENTREE : ajouter la fréquence à la date d'ancrage
-  const next = new Date(anchor);
-  next.setMonth(next.getMonth() + revisionFrequency);
-  return next;
+  return cursor;
 }
 
 /** Nombre d'années de révision manquées (0 = à jour ou pas encore dû) */
