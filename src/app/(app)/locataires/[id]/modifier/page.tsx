@@ -175,6 +175,10 @@ export default function ModifierLocatairePage() {
                     <Input id="companyName" name="companyName" defaultValue={tenant.companyName ?? ""} required />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="companyLegalForm">Forme juridique</Label>
+                    <Input id="companyLegalForm" name="companyLegalForm" defaultValue={tenant.companyLegalForm ?? ""} placeholder="SARL, SAS, SCI..." />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="siret">SIRET</Label>
                     <Input id="siret" name="siret" maxLength={14} defaultValue={tenant.siret ?? ""} />
                   </div>
