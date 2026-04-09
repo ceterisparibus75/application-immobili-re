@@ -834,18 +834,42 @@ export default function ImportPage() {
     setAnalyzeError("");
 
     try {
-      // 1. Upload du PDF via proxy streaming → Supabase (contourne la limite Vercel 4.5 Mo)
-      const uploadRes = await fetch("/api/import/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "x-filename": encodeURIComponent(file.name),
-        },
-        body: file,
-      });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        setAnalyzeError(uploadData.error ?? "Erreur lors de l'upload du fichier");
+      // 1. Lire le fichier et le découper en chunks de 2.5 Mo (base64 ~3.3 Mo, reste sous 4.5 Mo Vercel)
+      const CHUNK_SIZE = 2.5 * 1024 * 1024;
+      const arrayBuffer = await file.arrayBuffer();
+      const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
+      const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      let storagePath = "";
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
+        const chunkBuffer = arrayBuffer.slice(start, end);
+        const base64 = btoa(
+          new Uint8Array(chunkBuffer).reduce((s, b) => s + String.fromCharCode(b), "")
+        );
+
+        const res = await fetch("/api/import/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            chunkIndex: i,
+            totalChunks,
+            data: base64,
+            uploadId,
+          }),
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          setAnalyzeError(result.error ?? `Erreur upload chunk ${i + 1}/${totalChunks}`);
+          return;
+        }
+        if (result.storagePath) storagePath = result.storagePath;
+      }
+
+      if (!storagePath) {
+        setAnalyzeError("Erreur : aucun chemin de stockage retourné");
         return;
       }
 
@@ -853,7 +877,7 @@ export default function ImportPage() {
       const analyzeRes = await fetch("/api/import/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storagePath: uploadData.storagePath }),
+        body: JSON.stringify({ storagePath }),
       });
       const data = await analyzeRes.json();
       if (!analyzeRes.ok) {
