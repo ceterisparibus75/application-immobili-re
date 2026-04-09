@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
+import { checkSignatureFeature } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
   createEnvelope,
@@ -27,6 +28,10 @@ export async function createSignatureRequest(
     if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // Verifier que le plan autorise la signature electronique
+    const featureCheck = await checkSignatureFeature(societyId);
+    if (!featureCheck.allowed) return { success: false, error: featureCheck.message! };
 
     const parsed = createSignatureRequestSchema.safeParse(input);
     if (!parsed.success)
@@ -105,6 +110,7 @@ export async function createSignatureRequestFromUrl(
     documentName: string;
     documentType: "BAIL" | "ETAT_DES_LIEUX" | "MANDAT" | "AUTRE";
     documentId?: string;
+    leaseId?: string;
     signerEmail: string;
     signerName: string;
     subject?: string;
@@ -116,6 +122,10 @@ export async function createSignatureRequestFromUrl(
     if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    // Verifier que le plan autorise la signature electronique
+    const featureCheck = await checkSignatureFeature(societyId);
+    if (!featureCheck.allowed) return { success: false, error: featureCheck.message! };
 
     const response = await fetch(input.documentUrl);
     if (!response.ok)
@@ -138,6 +148,7 @@ export async function createSignatureRequestFromUrl(
         status: "SENT",
         documentType: input.documentType,
         documentId: input.documentId,
+        leaseId: input.leaseId ?? null,
         documentName: input.documentName,
         signerEmail: input.signerEmail,
         signerName: input.signerName,
@@ -152,10 +163,11 @@ export async function createSignatureRequestFromUrl(
       action: "CREATE",
       entity: "SignatureRequest",
       entityId: record.id,
-      details: { envelopeId, documentType: input.documentType, signerEmail: input.signerEmail },
+      details: { envelopeId, documentType: input.documentType, signerEmail: input.signerEmail, leaseId: input.leaseId },
     });
 
     revalidatePath("/baux");
+    if (input.leaseId) revalidatePath(`/baux/${input.leaseId}`);
     revalidatePath("/documents");
 
     return { success: true, data: { id: record.id } };

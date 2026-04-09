@@ -318,6 +318,34 @@ enum DepositMovementType {
   RESTITUTION_TOTALE
 }
 
+enum TicketStatus {
+  OUVERT
+  EN_COURS
+  EN_ATTENTE
+  RESOLU
+  FERME
+}
+
+enum TicketPriority {
+  BASSE
+  NORMALE
+  HAUTE
+  URGENTE
+}
+
+enum TicketCategory {
+  MAINTENANCE    // Demande de réparation / maintenance
+  PLOMBERIE
+  ELECTRICITE
+  CHAUFFAGE
+  NUISANCES      // Bruit, odeurs, etc.
+  PARTIES_COMMUNES
+  DOCUMENT       // Demande de document
+  FACTURATION    // Question sur factures / loyer
+  ASSURANCE
+  AUTRE
+}
+
 // ============================================================
 // PHASE 1 — SOCLE : UTILISATEURS, SOCIÉTÉS, RBAC, AUDIT
 // ============================================================
@@ -409,6 +437,13 @@ model Society {
   propertyValuations      PropertyValuation[]
   rentValuations          RentValuation[]
   additionalAcquisitions  AdditionalAcquisition[]
+  leaseTemplates          LeaseTemplate[]
+  tickets                 Ticket[]
+
+  // Numérotation baux
+  leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
+  nextLeaseNumber   Int     @default(0)
+  leaseNumberYear   Int     @default(0)
 
   @@index([siret])
   @@index([proprietaireId])
@@ -795,6 +830,13 @@ model Lease {
   lotId     String
   tenantId  String
 
+  // Numérotation incrémentale
+  leaseNumber String? @unique // Ex: "BAIL-2026-0001"
+
+  // Modèle de bail utilisé
+  leaseTemplateId String?
+  leaseTemplate   LeaseTemplate? @relation(fields: [leaseTemplateId], references: [id])
+
   // Type et durée
   leaseType      LeaseType
   status         LeaseStatus @default(EN_COURS)
@@ -855,12 +897,14 @@ model Lease {
   depositMovements      DepositMovement[]
   amendments            LeaseAmendment[]
   rentValuations        RentValuation[]
+  signatureRequests     SignatureRequest[]
 
   @@index([societyId])
   @@index([lotId])
   @@index([tenantId])
   @@index([societyId, status])
   @@index([endDate])
+  @@index([leaseTemplateId])
 }
 
 
@@ -1026,6 +1070,7 @@ model Tenant {
   invoices          Invoice[]
   sepaMandates      SepaMandate[]
   contact           Contact?
+  tickets           Ticket[]
 
   @@index([societyId])
   @@index([societyId, isActive])
@@ -2121,6 +2166,9 @@ model SignatureRequest {
   subject        String?
   message        String?
 
+  // Lien optionnel vers le bail
+  leaseId String?
+
   // Dates de statut
   signedAt      DateTime?
   voidedAt      DateTime?
@@ -2128,10 +2176,16 @@ model SignatureRequest {
   declinedAt    DateTime?
   declineReason String?
 
+  // Document signé
+  signedDocumentUrl         String?
+  signedDocumentStoragePath String?
+
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   @@index([societyId])
   @@index([societyId, status])
+  @@index([leaseId])
 }
 
 // ============================================================
@@ -2212,6 +2266,9 @@ enum NotificationType {
   SEPA_PAYMENT_CONFIRMED
   INSURANCE_EXPIRING
   RENT_REVISION
+  TICKET_CREATED
+  TICKET_REPLY
+  TICKET_STATUS_CHANGED
 }
 
 /// Notification in-app
@@ -2667,4 +2724,132 @@ model RentConsolidatedReport {
   generatedBy String
 
   rentValuation RentValuation @relation(fields: [rentValuationId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// PHASE 10 — MODÈLES DE BAIL & NUMÉROTATION
+// ============================================================
+
+/// Modèle de bail — template réutilisable pour générer des baux PDF
+model LeaseTemplate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  name        String // Nom du modèle (ex: "Bail habitation standard")
+  description String? @db.Text
+  leaseType   LeaseType // Type de bail associé
+  isDefault   Boolean   @default(false) // Modèle par défaut pour ce type
+  isActive    Boolean   @default(true)
+
+  // Contenu du modèle
+  // Chaque section contient du texte avec des variables {{bailleur.nom}}, {{locataire.nom}}, etc.
+  headerContent           String? @db.Text // En-tête / titre du bail
+  partiesClause           String? @db.Text // Désignation des parties
+  premisesClause          String? @db.Text // Désignation des locaux
+  durationClause          String? @db.Text // Durée et renouvellement
+  rentClause              String? @db.Text // Loyer et charges
+  depositClause           String? @db.Text // Dépôt de garantie
+  indexationClause        String? @db.Text // Clause de révision
+  chargesClause           String? @db.Text // Répartition des charges
+  useClause               String? @db.Text // Destination des locaux
+  maintenanceClause       String? @db.Text // Entretien et réparations
+  insuranceClause         String? @db.Text // Assurance
+  terminationClause       String? @db.Text // Résiliation
+  specialConditions       String? @db.Text // Conditions particulières
+  signatureClause         String? @db.Text // Clause de signature
+
+  // Métadonnées du modèle
+  defaultDurationMonths   Int?    // Durée par défaut
+  defaultPaymentFrequency PaymentFrequency?
+  defaultBillingTerm      BillingTerm?
+  defaultVatApplicable    Boolean?
+  defaultVatRate          Float?
+  defaultIndexType        IndexType?
+  defaultDepositMonths    Int?    // Nombre de mois de loyer pour le dépôt
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  leases  Lease[]
+
+  @@index([societyId])
+  @@index([societyId, leaseType])
+  @@unique([societyId, name])
+}
+
+// ============================================================
+// PHASE 11 — TICKETING PORTAIL LOCATAIRE
+// ============================================================
+
+/// Ticket de demande locataire (portail → gestionnaire)
+model Ticket {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  tenantId  String
+
+  // Identification
+  ticketNumber String @unique // Ex: "TK-2026-0001"
+
+  // Contenu
+  subject     String
+  description String  @db.Text
+  category    TicketCategory
+  priority    TicketPriority @default(NORMALE)
+  status      TicketStatus   @default(OUVERT)
+
+  // Localisation (pour maintenance)
+  lotId    String? // Lot concerné (optionnel)
+  location String? // Précision dans le lot (ex: "Salle de bain")
+
+  // Fichiers joints
+  attachmentUrls  Json? // string[] — URLs des pièces jointes
+  attachmentPaths Json? // string[] — Chemins Supabase
+
+  // Résolution
+  resolvedAt  DateTime?
+  resolvedBy  String?  // userId du gestionnaire
+  closedAt    DateTime?
+  closedBy    String?
+
+  // Assignation
+  assignedToId String? // userId du gestionnaire assigné
+
+  // Relations
+  society  Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([societyId])
+  @@index([societyId, status])
+  @@index([tenantId])
+  @@index([ticketNumber])
+}
+
+/// Message dans un ticket (échange bidirectionnel)
+model TicketMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ticketId  String
+
+  // Auteur
+  authorType  String // "TENANT" ou "MANAGER"
+  authorId    String // tenantId ou userId selon authorType
+  authorName  String // Nom affiché
+
+  // Contenu
+  content String @db.Text
+
+  // Fichiers joints
+  attachmentUrls  Json? // string[]
+  attachmentPaths Json? // string[]
+
+  // Lecture
+  isRead Boolean @default(false)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([ticketId, createdAt])
 }

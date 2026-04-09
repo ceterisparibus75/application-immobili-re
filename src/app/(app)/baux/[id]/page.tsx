@@ -37,6 +37,7 @@ import { ChargeProvisions } from "./_components/charge-provisions";
 import { RentRevisions } from "./_components/rent-revisions";
 import { LeaseAmendments } from "./_components/lease-amendments";
 import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
+import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -193,6 +194,42 @@ export default async function BailDetailPage({
               <LeasePdfUpload leaseId={lease.id} currentFileUrl={lease.leaseFileUrl ?? null} />
             </CardContent>
           </Card>
+
+          {/* Signature electronique */}
+          <LeaseSignaturePanel
+            leaseId={lease.id}
+            leaseFileUrl={lease.leaseFileUrl ?? null}
+            signatureRequests={(lease.signatureRequests ?? []).map((sr) => ({
+              ...sr,
+              createdAt: sr.createdAt instanceof Date ? sr.createdAt.toISOString() : String(sr.createdAt),
+              signedAt: sr.signedAt instanceof Date ? sr.signedAt.toISOString() : sr.signedAt ? String(sr.signedAt) : null,
+              declinedAt: sr.declinedAt instanceof Date ? sr.declinedAt.toISOString() : sr.declinedAt ? String(sr.declinedAt) : null,
+              voidedAt: sr.voidedAt instanceof Date ? sr.voidedAt.toISOString() : sr.voidedAt ? String(sr.voidedAt) : null,
+            }))}
+            societyId={societyId}
+          />
+
+          {/* Numero de bail et modele */}
+          {(lease.leaseNumber || lease.leaseTemplate) && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {lease.leaseNumber && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Numero de bail</p>
+                      <p className="text-sm font-medium font-mono">{lease.leaseNumber}</p>
+                    </div>
+                  )}
+                  {lease.leaseTemplate && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Modele utilise</p>
+                      <p className="text-sm font-medium">{lease.leaseTemplate.name}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Informations générales */}
           <Card>

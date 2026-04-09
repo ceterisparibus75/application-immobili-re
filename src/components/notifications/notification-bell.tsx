@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Bell, Check, Calendar, AlertTriangle, Wrench, FileSignature, CreditCard, TrendingUp } from "lucide-react";
+import { Bell, Check, Calendar, AlertTriangle, Wrench, FileSignature, CreditCard, TrendingUp, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,6 +27,9 @@ const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
   SEPA_PAYMENT_CONFIRMED: CreditCard,
   INSURANCE_EXPIRING: AlertTriangle,
   RENT_REVISION: TrendingUp,
+  TICKET_CREATED: MessageSquare,
+  TICKET_REPLY: MessageSquare,
+  TICKET_STATUS_CHANGED: MessageSquare,
 };
 
 export function NotificationBell() {

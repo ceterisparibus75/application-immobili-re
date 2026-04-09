@@ -110,6 +110,20 @@ type TenantOption = {
   email: string;
 };
 
+type TemplateOption = {
+  id: string;
+  name: string;
+  leaseType: string;
+  isDefault: boolean;
+  defaultDurationMonths?: number | null;
+  defaultPaymentFrequency?: string | null;
+  defaultBillingTerm?: string | null;
+  defaultVatApplicable?: boolean | null;
+  defaultVatRate?: number | null;
+  defaultIndexType?: string | null;
+  defaultDepositMonths?: number | null;
+};
+
 export default function NouveauBailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,6 +132,8 @@ export default function NouveauBailPage() {
   const [error, setError] = useState("");
   const [lots, setLots] = useState<LotOption[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [leaseType, setLeaseType] = useState<LeaseType>("HABITATION");
   const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
@@ -126,12 +142,34 @@ export default function NouveauBailPage() {
 
   function handleLeaseTypeChange(type: LeaseType) {
     setLeaseType(type);
+    setSelectedTemplateId("");
     const dur = getDefaultDuration(type);
     setDurationMonths(dur);
     const vat = getDefaultVat(type);
     setVatApplicable(vat.applicable);
     const idx = getDefaultIndexType(type);
     setIndexType(idx ?? "");
+    // Charger les modeles pour ce type
+    if (activeSociety) {
+      fetch(`/api/lease-templates?leaseType=${type}`)
+        .then((r) => r.ok ? r.json() : { data: [] })
+        .then((json: { data: TemplateOption[] }) => {
+          setTemplates(json.data);
+          // Auto-selectionner le modele par defaut
+          const def = json.data.find((t: TemplateOption) => t.isDefault);
+          if (def) applyTemplate(def);
+        })
+        .catch(() => setTemplates([]));
+    }
+  }
+
+  function applyTemplate(tpl: TemplateOption) {
+    setSelectedTemplateId(tpl.id);
+    if (tpl.defaultDurationMonths) setDurationMonths(tpl.defaultDurationMonths);
+    if (tpl.defaultPaymentFrequency) setFrequency(tpl.defaultPaymentFrequency);
+    if (tpl.defaultVatApplicable !== null && tpl.defaultVatApplicable !== undefined)
+      setVatApplicable(tpl.defaultVatApplicable);
+    if (tpl.defaultIndexType) setIndexType(tpl.defaultIndexType);
   }
 
   const defaultLotId = searchParams.get("lotId") ?? "";
@@ -182,6 +220,7 @@ export default function NouveauBailPage() {
       lotId: data.lotId,
       tenantId: data.tenantId,
       leaseType: data.leaseType as LeaseType,
+      leaseTemplateId: selectedTemplateId || null,
       startDate: data.startDate,
       durationMonths: parseInt(data.durationMonths) || 36,
       baseRentHT: parseFloat(data.baseRentHT),
@@ -317,6 +356,31 @@ export default function NouveauBailPage() {
                   ))}
                 </select>
               </div>
+              {templates.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="leaseTemplate">Modele de bail</Label>
+                  <select
+                    id="leaseTemplate"
+                    value={selectedTemplateId}
+                    onChange={(e) => {
+                      const tpl = templates.find((t) => t.id === e.target.value);
+                      if (tpl) applyTemplate(tpl);
+                      else setSelectedTemplateId("");
+                    }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Sans modele</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}{t.isDefault ? " (par defaut)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    <Link href="/baux/modeles" className="underline">Gerer les modeles</Link>
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="durationMonths">Durée (mois) *</Label>
                 <Input

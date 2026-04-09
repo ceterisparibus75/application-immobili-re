@@ -63,11 +63,16 @@ export async function createLease(
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + data.durationMonths);
 
+    // Generer le numero de bail incrementale
+    const leaseNumber = await generateLeaseNumber(societyId);
+
     const lease = await prisma.lease.create({
       data: {
         societyId,
         lotId: data.lotId,
         tenantId: data.tenantId,
+        leaseNumber,
+        leaseTemplateId: data.leaseTemplateId ?? null,
         leaseType: data.leaseType,
         status: "EN_COURS",
         startDate,
@@ -272,6 +277,38 @@ export async function getLeases(societyId: string) {
   });
 }
 
+/**
+ * Genere un numero de bail incrementale pour une societe.
+ * Format: {PREFIX}-{ANNEE}-{NUMERO} (ex: BAIL-2026-0001)
+ */
+async function generateLeaseNumber(societyId: string): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  const society = await prisma.society.findUnique({
+    where: { id: societyId },
+    select: { leasePrefix: true, nextLeaseNumber: true, leaseNumberYear: true },
+  });
+
+  const prefix = society?.leasePrefix || "BAIL";
+  let nextNumber = (society?.nextLeaseNumber ?? 0) + 1;
+
+  // Reset compteur si nouvelle annee
+  if (society?.leaseNumberYear !== currentYear) {
+    nextNumber = 1;
+  }
+
+  await prisma.society.update({
+    where: { id: societyId },
+    data: {
+      nextLeaseNumber: nextNumber,
+      leaseNumberYear: currentYear,
+    },
+  });
+
+  const paddedNumber = String(nextNumber).padStart(4, "0");
+  return `${prefix}-${currentYear}-${paddedNumber}`;
+}
+
 export async function getLeaseById(societyId: string, leaseId: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -328,6 +365,23 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           newEndDate: true,
           createdAt: true,
         },
+      },
+      signatureRequests: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          signerEmail: true,
+          signerName: true,
+          documentName: true,
+          createdAt: true,
+          signedAt: true,
+          declinedAt: true,
+          voidedAt: true,
+        },
+      },
+      leaseTemplate: {
+        select: { id: true, name: true, leaseType: true },
       },
       inspections: {
         orderBy: { performedAt: "desc" },

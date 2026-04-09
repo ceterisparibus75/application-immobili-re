@@ -24,8 +24,12 @@ interface SignatureRequestDialogProps {
   documentName: string;
   documentType: "BAIL" | "ETAT_DES_LIEUX" | "MANDAT" | "AUTRE";
   documentId?: string;
+  leaseId?: string;
+  societyId?: string;
   defaultSignerEmail?: string;
   defaultSignerName?: string;
+  onSuccess?: () => void;
+  trigger?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -34,8 +38,12 @@ export function SignatureRequestDialog({
   documentName,
   documentType,
   documentId,
+  leaseId,
+  societyId: propSocietyId,
   defaultSignerEmail = "",
   defaultSignerName = "",
+  onSuccess,
+  trigger,
   children,
 }: SignatureRequestDialogProps) {
   const { activeSociety } = useSociety();
@@ -46,17 +54,20 @@ export function SignatureRequestDialog({
   const [subject, setSubject] = useState(`Signature requise : ${documentName}`);
   const [message, setMessage] = useState("");
 
+  const effectiveSocietyId = propSocietyId ?? activeSociety?.id;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeSociety) return;
+    if (!effectiveSocietyId) return;
 
     setLoading(true);
     try {
-      const result = await createSignatureRequestFromUrl(activeSociety.id, {
+      const result = await createSignatureRequestFromUrl(effectiveSocietyId, {
         documentUrl,
         documentName,
         documentType,
         documentId,
+        leaseId,
         signerEmail,
         signerName,
         subject: subject || undefined,
@@ -66,6 +77,7 @@ export function SignatureRequestDialog({
       if (result.success) {
         toast.success("Demande de signature envoyee avec succes");
         setOpen(false);
+        onSuccess?.();
       } else {
         toast.error(result.error ?? "Erreur lors de l'envoi");
       }
@@ -77,7 +89,7 @@ export function SignatureRequestDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children ?? (
+        {trigger ?? children ?? (
           <Button variant="outline" size="sm">
             <Send className="h-4 w-4" />
             Envoyer a la signature

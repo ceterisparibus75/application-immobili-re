@@ -165,6 +165,7 @@ export const createLeaseSchema = z.object({
   lotId: z.string().cuid(),
   tenantId: z.string().cuid(),
   leaseType: z.enum(LEASE_TYPES),
+  leaseTemplateId: z.string().cuid().optional().nullable(),
   startDate: z.string().min(1, "La date de début est requise"),
   durationMonths: z.coerce.number().int().min(1).default(36),
   baseRentHT: z.coerce.number().min(0, "Le loyer doit être positif"),

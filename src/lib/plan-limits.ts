@@ -160,6 +160,20 @@ export async function requiresTwoFactor(userId: string): Promise<boolean> {
   );
 }
 
+/**
+ * Verifie si une societe a acces a la signature electronique (plan ENTERPRISE uniquement).
+ */
+export async function checkSignatureFeature(societyId: string): Promise<{ allowed: boolean; message?: string }> {
+  const plan = await getSocietyPlan(societyId);
+  if (plan !== "ENTERPRISE") {
+    return {
+      allowed: false,
+      message: "La signature electronique est reservee au plan Enterprise. Mettez a jour votre abonnement.",
+    };
+  }
+  return { allowed: true };
+}
+
 /** Retrouve le planId d'une societe (STARTER par defaut) */
 async function getSocietyPlan(societyId: string): Promise<PlanId> {
   const subscription = await prisma.subscription.findUnique({
