@@ -124,6 +124,18 @@ type TemplateOption = {
   defaultDepositMonths?: number | null;
 };
 
+type AgencyOption = {
+  id: string;
+  name: string;
+  company?: string | null;
+};
+
+const FEE_BASIS_OPTIONS = [
+  { value: "LOYER_HT", label: "Loyer HT seul" },
+  { value: "LOYER_CHARGES_HT", label: "Loyer + charges HT" },
+  { value: "TOTAL_TTC", label: "Total TTC" },
+];
+
 export default function NouveauBailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -139,6 +151,13 @@ export default function NouveauBailPage() {
   const [frequency, setFrequency] = useState("MENSUEL");
   const [durationMonths, setDurationMonths] = useState(36);
   const [indexType, setIndexType] = useState<string>("IRL");
+  const [isThirdPartyManaged, setIsThirdPartyManaged] = useState(false);
+  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
+  const [managingContactId, setManagingContactId] = useState<string>("");
+  const [managementFeeType, setManagementFeeType] = useState<"POURCENTAGE" | "FORFAIT">("POURCENTAGE");
+  const [managementFeeValue, setManagementFeeValue] = useState<number>(0);
+  const [managementFeeBasis, setManagementFeeBasis] = useState<"LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC">("LOYER_HT");
+  const [managementFeeVatRate, setManagementFeeVatRate] = useState<number>(20);
 
   function handleLeaseTypeChange(type: LeaseType) {
     setLeaseType(type);
@@ -193,6 +212,24 @@ export default function NouveauBailPage() {
     void fetchOptions();
   }, []);
 
+  useEffect(() => {
+    if (!isThirdPartyManaged) return;
+    async function fetchAgencies() {
+      try {
+        const res = await fetch("/api/contacts?type=AGENCE");
+        if (res.ok) {
+          const json = await res.json() as { data: AgencyOption[] };
+          setAgencies(json.data ?? []);
+        } else {
+          setAgencies([]);
+        }
+      } catch {
+        setAgencies([]);
+      }
+    }
+    void fetchAgencies();
+  }, [isThirdPartyManaged]);
+
   function tenantLabel(t: TenantOption) {
     return t.entityType === "PERSONNE_MORALE"
       ? (t.companyName ?? t.email)
@@ -236,7 +273,16 @@ export default function NouveauBailPage() {
       rentFreeMonths: parseFloat(data.rentFreeMonths) || 0,
       entryFee: parseFloat(data.entryFee) || 0,
       tenantWorksClauses: data.tenantWorksClauses || null,
-      isThirdPartyManaged: false,
+      isThirdPartyManaged,
+      ...(isThirdPartyManaged
+        ? {
+            managingContactId: managingContactId || undefined,
+            managementFeeType,
+            managementFeeValue,
+            managementFeeBasis: managementFeeType === "POURCENTAGE" ? managementFeeBasis : undefined,
+            managementFeeVatRate,
+          }
+        : {}),
     });
 
     setIsLoading(false);
@@ -590,6 +636,136 @@ export default function NouveauBailPage() {
                 placeholder="Travaux autorisés, conditions de restitution des lieux..."
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Gestion tiers */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestion tiers</CardTitle>
+            <CardDescription>
+              Confiez la gestion de ce bail a une agence ou un tiers
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isThirdPartyManaged"
+                checked={isThirdPartyManaged}
+                className="h-4 w-4 rounded border-input"
+                onChange={(e) => setIsThirdPartyManaged(e.target.checked)}
+              />
+              <Label htmlFor="isThirdPartyManaged">
+                Bail sous gestion tiers
+              </Label>
+            </div>
+
+            {isThirdPartyManaged && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="managingContactId">Agence de gestion</Label>
+                  <NativeSelect
+                    id="managingContactId"
+                    options={agencies.map((a) => ({
+                      value: a.id,
+                      label: a.company ? `${a.name} — ${a.company}` : a.name,
+                    }))}
+                    value={managingContactId}
+                    onChange={(e) => setManagingContactId(e.target.value)}
+                    placeholder="Selectionner une agence..."
+                  />
+                  {agencies.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Aucune agence trouvee.{" "}
+                      <Link href="/contacts" className="underline">
+                        Gerer les contacts
+                      </Link>
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Type d&apos;honoraires</Label>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="managementFeeType"
+                        value="POURCENTAGE"
+                        checked={managementFeeType === "POURCENTAGE"}
+                        onChange={() => setManagementFeeType("POURCENTAGE")}
+                        className="h-4 w-4"
+                      />
+                      Pourcentage
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="managementFeeType"
+                        value="FORFAIT"
+                        checked={managementFeeType === "FORFAIT"}
+                        onChange={() => setManagementFeeType("FORFAIT")}
+                        className="h-4 w-4"
+                      />
+                      Forfait
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="managementFeeValue">
+                      {managementFeeType === "POURCENTAGE"
+                        ? "Taux (%)"
+                        : "Montant (EUR)"}
+                    </Label>
+                    <Input
+                      id="managementFeeValue"
+                      type="number"
+                      min={0}
+                      step={managementFeeType === "POURCENTAGE" ? 0.1 : 0.01}
+                      value={managementFeeValue}
+                      onChange={(e) =>
+                        setManagementFeeValue(parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+
+                  {managementFeeType === "POURCENTAGE" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="managementFeeBasis">
+                        Base de calcul
+                      </Label>
+                      <NativeSelect
+                        id="managementFeeBasis"
+                        options={FEE_BASIS_OPTIONS}
+                        value={managementFeeBasis}
+                        onChange={(e) => setManagementFeeBasis(e.target.value as "LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC")}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="managementFeeVatRate">
+                    Taux de TVA sur honoraires (%)
+                  </Label>
+                  <Input
+                    id="managementFeeVatRate"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={managementFeeVatRate}
+                    onChange={(e) =>
+                      setManagementFeeVatRate(parseFloat(e.target.value) || 0)
+                    }
+                    className="w-32"
+                  />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
