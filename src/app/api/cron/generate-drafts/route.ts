@@ -109,9 +109,50 @@ async function generateDraftInvoices() {
       };
       const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
 
-      const rentVAT = rentHT * (vatRate / 100);
-      const invoiceLines = [
-        {
+      // Prorata révision : si une révision intervient dans la période
+      const revisionInPeriod = await prisma.rentRevision.findFirst({
+        where: {
+          leaseId: lease.id,
+          isValidated: true,
+          effectiveDate: { gt: periodStart, lte: periodEnd },
+        },
+        orderBy: { effectiveDate: "asc" },
+        select: { effectiveDate: true, previousRentHT: true, newRentHT: true },
+      });
+
+      const invoiceLines: Array<{
+        label: string; quantity: number; unitPrice: number;
+        vatRate: number; totalHT: number; totalVAT: number; totalTTC: number;
+      }> = [];
+
+      if (revisionInPeriod) {
+        const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / 86400000) + 1;
+        const daysBefore = Math.round((revisionInPeriod.effectiveDate.getTime() - periodStart.getTime()) / 86400000);
+        const daysAfter = totalDays - daysBefore;
+        if (daysBefore > 0 && daysAfter > 0) {
+          const oldRentHT = Math.round(revisionInPeriod.previousRentHT * daysBefore / totalDays * 100) / 100;
+          const newRentHT = Math.round(revisionInPeriod.newRentHT * daysAfter / totalDays * 100) / 100;
+          const oldVAT = Math.round(oldRentHT * vatRate / 100 * 100) / 100;
+          const newVAT = Math.round(newRentHT * vatRate / 100 * 100) / 100;
+          const effDateStr = revisionInPeriod.effectiveDate.toLocaleDateString("fr-FR");
+          invoiceLines.push(
+            {
+              label: `Loyer ${lotLabel} - ${periodLabel} (avant révision, ${daysBefore}/${totalDays} j.)`,
+              quantity: 1, unitPrice: oldRentHT, vatRate,
+              totalHT: oldRentHT, totalVAT: oldVAT, totalTTC: oldRentHT + oldVAT,
+            },
+            {
+              label: `Loyer ${lotLabel} - ${periodLabel} (révisé au ${effDateStr}, ${daysAfter}/${totalDays} j.)`,
+              quantity: 1, unitPrice: newRentHT, vatRate,
+              totalHT: newRentHT, totalVAT: newVAT, totalTTC: newRentHT + newVAT,
+            },
+          );
+        }
+      }
+
+      if (invoiceLines.length === 0) {
+        const rentVAT = rentHT * (vatRate / 100);
+        invoiceLines.push({
           label: `Loyer ${lotLabel} - ${periodLabel}`,
           quantity: 1,
           unitPrice: rentHT,
@@ -119,8 +160,8 @@ async function generateDraftInvoices() {
           totalHT: rentHT,
           totalVAT: rentVAT,
           totalTTC: rentHT + rentVAT,
-        },
-      ];
+        });
+      }
 
       for (const cp of lease.chargeProvisions) {
         const ht = cp.monthlyAmount * mult;

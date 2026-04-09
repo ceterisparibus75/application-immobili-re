@@ -444,6 +444,66 @@ function computeManagementFee(
 }
 
 /**
+ * Si une révision de loyer validée prend effet dans la période de facturation,
+ * retourne deux lignes proratisées (ancien + nouveau loyer) au lieu d'une seule.
+ * Retourne null si aucune révision ne tombe dans la période.
+ */
+async function buildRevisionProrataLines(
+  leaseId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  vatRate: number,
+  lotLabel: string,
+  periodLabel: string,
+): Promise<{
+  rentHT: number;
+  lines: Array<{
+    label: string; quantity: number; unitPrice: number;
+    vatRate: number; totalHT: number; totalVAT: number; totalTTC: number;
+  }>;
+} | null> {
+  const revision = await prisma.rentRevision.findFirst({
+    where: {
+      leaseId,
+      isValidated: true,
+      effectiveDate: { gt: periodStart, lte: periodEnd },
+    },
+    orderBy: { effectiveDate: "asc" },
+    select: { effectiveDate: true, previousRentHT: true, newRentHT: true },
+  });
+
+  if (!revision) return null;
+
+  const totalDays = Math.round((periodEnd.getTime() - periodStart.getTime()) / 86400000) + 1;
+  const daysBefore = Math.round((revision.effectiveDate.getTime() - periodStart.getTime()) / 86400000);
+  const daysAfter = totalDays - daysBefore;
+
+  if (daysBefore <= 0 || daysAfter <= 0) return null;
+
+  const oldRentHT = Math.round(revision.previousRentHT * daysBefore / totalDays * 100) / 100;
+  const newRentHT = Math.round(revision.newRentHT * daysAfter / totalDays * 100) / 100;
+  const oldVAT = Math.round(oldRentHT * vatRate / 100 * 100) / 100;
+  const newVAT = Math.round(newRentHT * vatRate / 100 * 100) / 100;
+  const effDateStr = revision.effectiveDate.toLocaleDateString("fr-FR");
+
+  return {
+    rentHT: oldRentHT + newRentHT,
+    lines: [
+      {
+        label: `Loyer ${lotLabel} — ${periodLabel} (avant révision, ${daysBefore}/${totalDays} j.)`,
+        quantity: 1, unitPrice: oldRentHT, vatRate,
+        totalHT: oldRentHT, totalVAT: oldVAT, totalTTC: oldRentHT + oldVAT,
+      },
+      {
+        label: `Loyer ${lotLabel} — ${periodLabel} (révisé au ${effDateStr}, ${daysAfter}/${totalDays} j.)`,
+        quantity: 1, unitPrice: newRentHT, vatRate,
+        totalHT: newRentHT, totalVAT: newVAT, totalTTC: newRentHT + newVAT,
+      },
+    ],
+  };
+}
+
+/**
  * Retourne les baux actifs avec les infos nécessaires pour la facturation.
  */
 export async function getActiveLeasesForInvoicing(societyId: string) {
@@ -758,9 +818,17 @@ async function computeInvoicePreview(
       ? (lease.tenant.companyName ?? "—")
       : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "—";
 
-  const rentVAT = rentHT * (vatRate / 100);
-  const lines: InvoicePreviewLine[] = [
-    {
+  // Prorata révision : si une révision intervient dans la période
+  const revisionProrata = await buildRevisionProrataLines(
+    lease.id, periodStart, periodEnd, vatRate, lotLabel, periodLabel,
+  );
+
+  const lines: InvoicePreviewLine[] = [];
+  if (revisionProrata) {
+    lines.push(...revisionProrata.lines);
+  } else {
+    const rentVAT = rentHT * (vatRate / 100);
+    lines.push({
       label: `Loyer${prorataLabel}`,
       quantity: 1,
       unitPrice: rentHT,
@@ -768,8 +836,8 @@ async function computeInvoicePreview(
       totalHT: rentHT,
       totalVAT: rentVAT,
       totalTTC: rentHT + rentVAT,
-    },
-  ];
+    });
+  }
   for (const cp of lease.chargeProvisions) {
     const ht = cp.monthlyAmount * mult;
     const cpVatRate = cp.vatRate;
@@ -1042,10 +1110,21 @@ export async function generateInvoiceFromLease(
     };
     const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
 
-    // Ligne de loyer
-    const rentVAT = rentHT * (vatRate / 100);
-    const invoiceLines = [
-      {
+    // Prorata révision : si une révision intervient dans la période
+    const revisionProrata = await buildRevisionProrataLines(
+      lease.id, periodStart, periodEnd, vatRate, lotLabel, periodLabel,
+    );
+
+    const invoiceLines: Array<{
+      label: string; quantity: number; unitPrice: number;
+      vatRate: number; totalHT: number; totalVAT: number; totalTTC: number;
+    }> = [];
+    if (revisionProrata) {
+      invoiceLines.push(...revisionProrata.lines);
+      rentHT = revisionProrata.rentHT;
+    } else {
+      const rentVAT = rentHT * (vatRate / 100);
+      invoiceLines.push({
         label: `Loyer ${lotLabel} — ${periodLabel}${prorataLabel}`,
         quantity: 1,
         unitPrice: rentHT,
@@ -1053,8 +1132,8 @@ export async function generateInvoiceFromLease(
         totalHT: rentHT,
         totalVAT: rentVAT,
         totalTTC: rentHT + rentVAT,
-      },
-    ];
+      });
+    }
 
     // Lignes de provisions sur charges (chaque provision a son propre taux de TVA)
     for (const cp of lease.chargeProvisions) {
@@ -1257,9 +1336,20 @@ export async function generateBatchInvoices(
         };
         const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
 
-        const rentVAT = rentHT * (vatRate / 100);
-        const invoiceLines = [
-          {
+        // Prorata révision
+        const revisionProrata = await buildRevisionProrataLines(
+          lease.id, periodStart, periodEnd, vatRate, lotLabel, periodLabel,
+        );
+
+        const invoiceLines: Array<{
+          label: string; quantity: number; unitPrice: number;
+          vatRate: number; totalHT: number; totalVAT: number; totalTTC: number;
+        }> = [];
+        if (revisionProrata) {
+          invoiceLines.push(...revisionProrata.lines);
+        } else {
+          const rentVAT = rentHT * (vatRate / 100);
+          invoiceLines.push({
             label: `Loyer ${lotLabel} — ${periodLabel}`,
             quantity: 1,
             unitPrice: rentHT,
@@ -1267,8 +1357,8 @@ export async function generateBatchInvoices(
             totalHT: rentHT,
             totalVAT: rentVAT,
             totalTTC: rentHT + rentVAT,
-          },
-        ];
+          });
+        }
 
         for (const cp of lease.chargeProvisions) {
           const ht = cp.monthlyAmount * mult;
