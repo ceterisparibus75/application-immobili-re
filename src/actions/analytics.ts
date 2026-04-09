@@ -14,7 +14,7 @@ export type TopTenant = { name: string; total: number };
 export type RiskConcentrationItem = { name: string; annualRent: number; pct: number };
 export type RiskConcentration = { byBuilding: RiskConcentrationItem[]; byTenant: RiskConcentrationItem[]; hhiBuilding: number; hhiTenant: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 
@@ -363,8 +363,34 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   });
   const totalManagementFees = managementFeesAgg._sum.managementFeeTTC ?? 0;
 
+  // 16. Révisions de loyer en attente
+  const pendingRevisionCount = await prisma.rentRevision.count({
+    where: { isValidated: false, lease: { societyId, status: "EN_COURS" } },
+  });
+
+  // 17. Baux nécessitant une facture ce mois (hors gestion tiers, hors facture déjà émise ce mois)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const leasesWithCurrentInvoice = await prisma.invoice.findMany({
+    where: {
+      societyId,
+      issueDate: { gte: startOfMonth },
+      invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
+    },
+    select: { leaseId: true },
+    distinct: ["leaseId"],
+  });
+  const leaseIdsWithInvoice = new Set(leasesWithCurrentInvoice.map(i => i.leaseId).filter(Boolean));
+  const invoicesToIssueCount = await prisma.lease.count({
+    where: {
+      societyId,
+      status: "EN_COURS",
+      isThirdPartyManaged: false,
+      ...(leaseIdsWithInvoice.size > 0 ? { id: { notIn: [...leaseIdsWithInvoice] as string[] } } : {}),
+    },
+  });
+
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, riskConcentration, leaseTimeline, lenderSummaries,
   };
 }
@@ -708,8 +734,33 @@ async function fetchConsolidatedAnalytics(societyIds: string[]): Promise<Analyti
   });
   const totalManagementFees = managementFeesAgg._sum.managementFeeTTC ?? 0;
 
+  // 16. Révisions en attente (multi-société)
+  const pendingRevisionCount = await prisma.rentRevision.count({
+    where: { isValidated: false, lease: { societyId: { in: societyIds }, status: "EN_COURS" } },
+  });
+
+  // 17. Factures à émettre (multi-société)
+  const leasesWithCurrentInvoiceC = await prisma.invoice.findMany({
+    where: {
+      societyId: { in: societyIds },
+      issueDate: { gte: currentMonthStart },
+      invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
+    },
+    select: { leaseId: true },
+    distinct: ["leaseId"],
+  });
+  const leaseIdsWithInvoiceC = new Set(leasesWithCurrentInvoiceC.map(i => i.leaseId).filter(Boolean));
+  const invoicesToIssueCount = await prisma.lease.count({
+    where: {
+      societyId: { in: societyIds },
+      status: "EN_COURS",
+      isThirdPartyManaged: false,
+      ...(leaseIdsWithInvoiceC.size > 0 ? { id: { notIn: [...leaseIdsWithInvoiceC] as string[] } } : {}),
+    },
+  });
+
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, riskConcentration, leaseTimeline, lenderSummaries,
   };
 }

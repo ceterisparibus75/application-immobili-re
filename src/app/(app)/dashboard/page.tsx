@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   ArrowDown, ArrowUp, Calendar,
   Wallet, Home, Users, FileText, Landmark, Wrench,
+  TrendingUp, Receipt,
 } from "lucide-react";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -88,6 +90,48 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ── Rappels : Révisions + Factures à émettre ── */}
+      {(kpis.pendingRevisionCount > 0 || kpis.invoicesToIssueCount > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {kpis.pendingRevisionCount > 0 && (
+            <Link href="/indices" className="block">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-center gap-4 hover:bg-amber-50 transition-colors">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
+                  <TrendingUp className="h-5 w-5 text-amber-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {kpis.pendingRevisionCount} révision{kpis.pendingRevisionCount > 1 ? "s" : ""} de loyer à traiter
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Cliquez pour voir les révisions en attente
+                  </p>
+                </div>
+                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-amber-200 text-amber-800 text-xs font-bold">{kpis.pendingRevisionCount}</span>
+              </div>
+            </Link>
+          )}
+          {kpis.invoicesToIssueCount > 0 && (
+            <Link href="/facturation" className="block">
+              <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 flex items-center gap-4 hover:bg-blue-50 transition-colors">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                  <Receipt className="h-5 w-5 text-blue-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-blue-900">
+                    {kpis.invoicesToIssueCount} facture{kpis.invoicesToIssueCount > 1 ? "s" : ""} à émettre ce mois
+                  </p>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    Baux en gestion directe sans facture émise ce mois
+                  </p>
+                </div>
+                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-blue-200 text-blue-800 text-xs font-bold">{kpis.invoicesToIssueCount}</span>
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* ── Endettement ── */}
       {kpis.activeLoanCount > 0 && lenderSummaries.length > 0 && (
