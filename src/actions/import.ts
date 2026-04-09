@@ -15,6 +15,8 @@ import type {
   IndexType,
   RevisionDateBasis,
   TenantEntityType,
+  ManagementFeeType,
+  ManagementFeeBasis,
 } from "@/generated/prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { cookies } from "next/headers";
@@ -78,6 +80,12 @@ export type ImportLeaseInput = {
   rentFreeMonths: number;
   entryFee: number;
   tenantWorksClauses?: string | null;
+  isThirdPartyManaged?: boolean;
+  managingContactId?: string | null;
+  managementFeeType?: ManagementFeeType | null;
+  managementFeeValue?: number | null;
+  managementFeeBasis?: ManagementFeeBasis | null;
+  managementFeeVatRate?: number | null;
 };
 
 export type ImportInput = {
@@ -226,6 +234,12 @@ export async function importFromPdf(
           rentFreeMonths: input.lease.rentFreeMonths,
           entryFee: input.lease.entryFee,
           tenantWorksClauses: input.lease.tenantWorksClauses ?? null,
+          isThirdPartyManaged: input.lease.isThirdPartyManaged ?? false,
+          managingContactId: input.lease.managingContactId ?? null,
+          managementFeeType: input.lease.managementFeeType ?? null,
+          managementFeeValue: input.lease.managementFeeValue ?? null,
+          managementFeeBasis: input.lease.managementFeeBasis ?? null,
+          managementFeeVatRate: input.lease.managementFeeVatRate ?? null,
         },
       });
 

@@ -107,6 +107,12 @@ type BailForm = {
   rentFreeMonths: string;
   entryFee: string;
   tenantWorksClauses: string;
+  isThirdPartyManaged: boolean;
+  managingContactId: string;
+  managementFeeType: string;
+  managementFeeValue: string;
+  managementFeeBasis: string;
+  managementFeeVatRate: string;
 };
 
 type ReviewForm = {
@@ -208,6 +214,17 @@ const REVISION_DATE_BASIS_OPTIONS = [
   { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
 ];
 
+const FEE_TYPE_OPTIONS = [
+  { value: "POURCENTAGE", label: "Pourcentage" },
+  { value: "FORFAIT", label: "Forfait" },
+];
+
+const FEE_BASIS_OPTIONS = [
+  { value: "LOYER_HT", label: "Loyer HT" },
+  { value: "LOYER_CHARGES_HT", label: "Loyer + charges HT" },
+  { value: "TOTAL_TTC", label: "Total TTC" },
+];
+
 const LEGAL_FORM_OPTIONS = [
   { value: "", label: "— Forme juridique —" },
   { value: "SAS", label: "SAS" },
@@ -247,6 +264,9 @@ function emptyReview(): ReviewForm {
       indexType: "", baseIndexValue: "", baseIndexQuarter: "", revisionFrequency: "12",
       revisionDateBasis: "DATE_SIGNATURE", revisionCustomMonth: "", revisionCustomDay: "",
       rentFreeMonths: "0", entryFee: "0", tenantWorksClauses: "",
+      isThirdPartyManaged: false, managingContactId: "",
+      managementFeeType: "POURCENTAGE", managementFeeValue: "0",
+      managementFeeBasis: "LOYER_HT", managementFeeVatRate: "20",
     },
   };
 }
@@ -308,6 +328,12 @@ function aiToForm(ai: Record<string, unknown>): ReviewForm {
       rentFreeMonths: bail.rentFreeMonths != null ? String(bail.rentFreeMonths) : "0",
       entryFee: bail.entryFee != null ? String(bail.entryFee) : "0",
       tenantWorksClauses: String(bail.tenantWorksClauses ?? ""),
+      isThirdPartyManaged: bail.isThirdPartyManaged === true,
+      managingContactId: "",
+      managementFeeType: String(bail.managementFeeType ?? "POURCENTAGE"),
+      managementFeeValue: bail.managementFeeValue != null ? String(bail.managementFeeValue) : "0",
+      managementFeeBasis: String(bail.managementFeeBasis ?? "LOYER_HT"),
+      managementFeeVatRate: bail.managementFeeVatRate != null ? String(bail.managementFeeVatRate) : "20",
     },
   };
 }
@@ -588,7 +614,9 @@ function SectionLocataire({
   );
 }
 
-function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial<BailForm>) => void }) {
+type AgencyOption = { id: string; name: string; company: string | null };
+
+function SectionBail({ form, onChange, agencies }: { form: BailForm; onChange: (u: Partial<BailForm>) => void; agencies: AgencyOption[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -688,6 +716,46 @@ function SectionBail({ form, onChange }: { form: BailForm; onChange: (u: Partial
             className="text-sm min-h-[60px]"
           />
         </FieldRow>
+        <Separator />
+        <label className="flex items-center gap-2 text-sm cursor-pointer font-medium">
+          <input
+            type="checkbox"
+            checked={form.isThirdPartyManaged}
+            onChange={(e) => onChange({ isThirdPartyManaged: e.target.checked })}
+            className="h-4 w-4"
+          />
+          Gestion par un tiers (mandat de gestion)
+        </label>
+        {form.isThirdPartyManaged && (
+          <div className="space-y-3 rounded-md border p-3 bg-muted/30">
+            <FieldRow label="Agence de gestion">
+              <NativeSelect
+                value={form.managingContactId}
+                onChange={(e) => onChange({ managingContactId: e.target.value })}
+                options={[
+                  { value: "", label: "— Sélectionner une agence —" },
+                  ...agencies.map((a) => ({ value: a.id, label: a.company ? `${a.name} (${a.company})` : a.name })),
+                ]}
+              />
+            </FieldRow>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Type d'honoraires">
+                <NativeSelect value={form.managementFeeType} onChange={(e) => onChange({ managementFeeType: e.target.value })} options={FEE_TYPE_OPTIONS} />
+              </FieldRow>
+              <FieldRow label={form.managementFeeType === "POURCENTAGE" ? "Taux (%)" : "Montant forfaitaire (€)"}>
+                <Input type="number" step="0.01" value={form.managementFeeValue} onChange={(e) => onChange({ managementFeeValue: e.target.value })} placeholder={form.managementFeeType === "POURCENTAGE" ? "8" : "150"} className="h-8 text-sm" />
+              </FieldRow>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Base de calcul">
+                <NativeSelect value={form.managementFeeBasis} onChange={(e) => onChange({ managementFeeBasis: e.target.value })} options={FEE_BASIS_OPTIONS} />
+              </FieldRow>
+              <FieldRow label="TVA honoraires (%)">
+                <Input type="number" step="0.1" value={form.managementFeeVatRate} onChange={(e) => onChange({ managementFeeVatRate: e.target.value })} placeholder="20" className="h-8 text-sm" />
+              </FieldRow>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -721,6 +789,8 @@ export default function ImportPage() {
   const [useExistingTenant, setUseExistingTenant] = useState(false);
   const [existingTenantId, setExistingTenantId] = useState("");
 
+  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
+
   const [result, setResult] = useState<ImportResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -741,6 +811,10 @@ export default function ImportPage() {
         building: { id: l.building.id, name: l.building.name },
       })))
     );
+    fetch("/api/contacts?type=AGENCE")
+      .then((r) => r.json())
+      .then((res) => setAgencies(res.data ?? []))
+      .catch(() => {});
   }, [societyId]);
 
   // File handlers
@@ -873,6 +947,12 @@ export default function ImportPage() {
         rentFreeMonths: parseInt(form.bail.rentFreeMonths) || 0,
         entryFee: parseFloat(form.bail.entryFee) || 0,
         tenantWorksClauses: form.bail.tenantWorksClauses || null,
+        isThirdPartyManaged: form.bail.isThirdPartyManaged,
+        managingContactId: form.bail.managingContactId || null,
+        managementFeeType: form.bail.isThirdPartyManaged ? (form.bail.managementFeeType || null) as ImportInput["lease"]["managementFeeType"] : null,
+        managementFeeValue: form.bail.isThirdPartyManaged ? (parseFloat(form.bail.managementFeeValue) || null) : null,
+        managementFeeBasis: form.bail.isThirdPartyManaged ? (form.bail.managementFeeBasis || null) as ImportInput["lease"]["managementFeeBasis"] : null,
+        managementFeeVatRate: form.bail.isThirdPartyManaged ? (parseFloat(form.bail.managementFeeVatRate) || 20) : null,
       },
     };
 
@@ -1079,7 +1159,7 @@ export default function ImportPage() {
                 onToggleExisting={() => { setUseExistingTenant((v) => !v); setExistingTenantId(""); }}
                 onExistingChange={setExistingTenantId}
               />
-              <SectionBail form={form.bail} onChange={updateBail} />
+              <SectionBail form={form.bail} onChange={updateBail} agencies={agencies} />
             </div>
           </div>
 
