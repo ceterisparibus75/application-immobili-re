@@ -94,15 +94,19 @@ function getNextPublicationInfo(
 function getNextRevisionDate(
   startDate: Date,
   revisionFrequency: number,
-  lastRevisionDate?: Date | null
+  lastRevisionDate?: Date | null,
+  hasValidatedRevision?: boolean
 ): Date {
-  const now = new Date();
   const next = new Date(lastRevisionDate ?? startDate);
   next.setMonth(next.getMonth() + revisionFrequency);
 
-  // Si la date calculée est dans le passé, avancer jusqu'à la prochaine échéance future
-  while (next <= now) {
-    next.setMonth(next.getMonth() + revisionFrequency);
+  // Ne sauter les dates passées que si la dernière révision a été validée
+  // Sinon, afficher la date en retard pour que l'utilisateur la rattrape
+  if (hasValidatedRevision) {
+    const now = new Date();
+    while (next <= now) {
+      next.setMonth(next.getMonth() + revisionFrequency);
+    }
   }
 
   return next;
@@ -235,12 +239,12 @@ export default async function IndicesPage() {
     .map((lease) => {
       const lastValidated = lease.rentRevisions.find((r) => r.isValidated);
       const pendingRevision = lease.rentRevisions.find((r) => !r.isValidated);
-      const lastRevisionForDate = lease.rentRevisions[0] ?? null;
 
       const nextRevisionDate = getNextRevisionDate(
         lease.startDate,
         lease.revisionFrequency ?? 12,
-        lastRevisionForDate?.effectiveDate
+        lastValidated?.effectiveDate ?? null,
+        !!lastValidated
       );
       const status = getRevisionStatus(nextRevisionDate);
       const tenantName =
