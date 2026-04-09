@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const { error: upErr } = await supabase.storage
       .from(bucket)
-      .upload(chunkPath, buffer, { contentType: "application/octet-stream", upsert: false });
+      .upload(chunkPath, buffer, { contentType: "application/pdf", upsert: false });
 
     if (upErr) {
       console.error("[import/upload] chunk upload error", upErr);
