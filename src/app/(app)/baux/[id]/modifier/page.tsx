@@ -86,6 +86,36 @@ const REVISION_DATE_BASIS_OPTIONS = [
   { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
 ];
 
+const DESTINATION_OPTIONS = [
+  { value: "", label: "— Non renseignée —" },
+  { value: "HABITATION", label: "Habitation" },
+  { value: "BUREAU", label: "Bureau" },
+  { value: "COMMERCE", label: "Commerce / Boutique" },
+  { value: "ACTIVITE", label: "Local d'activité / Atelier" },
+  { value: "ENTREPOT", label: "Entrepôt / Stockage" },
+  { value: "INDUSTRIEL", label: "Local industriel" },
+  { value: "PROFESSIONNEL", label: "Cabinet libéral" },
+  { value: "MIXTE", label: "Mixte (habitation + professionnel)" },
+  { value: "PARKING", label: "Parking / Garage" },
+  { value: "TERRAIN", label: "Terrain nu" },
+  { value: "AGRICOLE", label: "Agricole" },
+  { value: "HOTELLERIE", label: "Hôtellerie / Tourisme" },
+  { value: "EQUIPEMENT", label: "Équipement (salle, crèche…)" },
+  { value: "AUTRE", label: "Autre" },
+];
+
+const FEE_BASIS_OPTIONS = [
+  { value: "LOYER_HT", label: "Loyer HT seul" },
+  { value: "LOYER_CHARGES_HT", label: "Loyer + charges HT" },
+  { value: "TOTAL_TTC", label: "Total TTC" },
+];
+
+type AgencyOption = {
+  id: string;
+  name: string;
+  company?: string | null;
+};
+
 const BILLING_TERMS = [
   {
     value: "A_ECHOIR",
@@ -120,6 +150,7 @@ function toDateInput(val: string | null | undefined): string {
 type LeaseData = {
   id: string;
   leaseType: string;
+  destination?: string | null;
   status: string;
   startDate: string;
   endDate: string;
@@ -143,6 +174,12 @@ type LeaseData = {
   exitDate?: string | null;
   rentFreeMonths?: number | null;
   entryFee?: number | null;
+  isThirdPartyManaged?: boolean;
+  managingContactId?: string | null;
+  managementFeeType?: string | null;
+  managementFeeValue?: number | null;
+  managementFeeBasis?: string | null;
+  managementFeeVatRate?: number | null;
   tenant?: { firstName: string; lastName: string; companyName?: string | null } | null;
   lot?: { name: string; building?: { name: string } | null } | null;
 };
@@ -155,9 +192,17 @@ export default function ModifierBailPage() {
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState("");
   const [lease, setLease] = useState<LeaseData | null>(null);
+  const [destination, setDestination] = useState("");
   const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
   const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
+  const [isThirdPartyManaged, setIsThirdPartyManaged] = useState(false);
+  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
+  const [managingContactId, setManagingContactId] = useState("");
+  const [managementFeeType, setManagementFeeType] = useState<"POURCENTAGE" | "FORFAIT">("POURCENTAGE");
+  const [managementFeeValue, setManagementFeeValue] = useState(0);
+  const [managementFeeBasis, setManagementFeeBasis] = useState<"LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC">("LOYER_HT");
+  const [managementFeeVatRate, setManagementFeeVatRate] = useState(20);
 
   useEffect(() => {
     async function fetchLease() {
@@ -166,9 +211,16 @@ export default function ModifierBailPage() {
         if (res.ok) {
           const json = (await res.json()) as { data: LeaseData };
           setLease(json.data);
+          setDestination(json.data.destination ?? "");
           setVatApplicable(json.data.vatApplicable);
           setFrequency(json.data.paymentFrequency);
           setRevisionDateBasis(json.data.revisionDateBasis ?? "DATE_SIGNATURE");
+          setIsThirdPartyManaged(json.data.isThirdPartyManaged ?? false);
+          setManagingContactId(json.data.managingContactId ?? "");
+          setManagementFeeType((json.data.managementFeeType as "POURCENTAGE" | "FORFAIT") ?? "POURCENTAGE");
+          setManagementFeeValue(json.data.managementFeeValue ?? 0);
+          setManagementFeeBasis((json.data.managementFeeBasis as "LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC") ?? "LOYER_HT");
+          setManagementFeeVatRate(json.data.managementFeeVatRate ?? 20);
         }
       } finally {
         setIsFetching(false);
@@ -176,6 +228,20 @@ export default function ModifierBailPage() {
     }
     void fetchLease();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!isThirdPartyManaged) return;
+    async function fetchAgencies() {
+      try {
+        const res = await fetch("/api/contacts?type=AGENCE");
+        if (res.ok) {
+          const json = await res.json() as { data: AgencyOption[] };
+          setAgencies(json.data ?? []);
+        }
+      } catch { /* ignore */ }
+    }
+    void fetchAgencies();
+  }, [isThirdPartyManaged]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -194,6 +260,7 @@ export default function ModifierBailPage() {
         | "MEUBLE"
         | "COMMERCIAL_369"
         | "DEROGATOIRE",
+      destination: (destination || null) as "HABITATION" | "BUREAU" | "COMMERCE" | "ACTIVITE" | "ENTREPOT" | "INDUSTRIEL" | "PROFESSIONNEL" | "MIXTE" | "PARKING" | "TERRAIN" | "AGRICOLE" | "HOTELLERIE" | "EQUIPEMENT" | "AUTRE" | null,
       status: d.status as "EN_COURS" | "RESILIE" | "RENOUVELE",
       startDate: d.startDate || null,
       endDate: d.endDate || null,
@@ -232,6 +299,22 @@ export default function ModifierBailPage() {
         d.entryFee !== undefined
           ? parseFloat(d.entryFee) || 0
           : undefined,
+      isThirdPartyManaged,
+      ...(isThirdPartyManaged
+        ? {
+            managingContactId: managingContactId || undefined,
+            managementFeeType,
+            managementFeeValue,
+            managementFeeBasis: managementFeeType === "POURCENTAGE" ? managementFeeBasis : undefined,
+            managementFeeVatRate,
+          }
+        : {
+            managingContactId: null,
+            managementFeeType: null,
+            managementFeeValue: null,
+            managementFeeBasis: null,
+            managementFeeVatRate: null,
+          }),
     });
 
     setIsLoading(false);
@@ -323,6 +406,16 @@ export default function ModifierBailPage() {
                   options={STATUS_OPTIONS}
                   defaultValue={lease.status}
                   required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="destination">Destination des locaux</Label>
+                <NativeSelect
+                  id="destination"
+                  name="destination"
+                  options={DESTINATION_OPTIONS}
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
                 />
               </div>
             </div>
@@ -654,6 +747,136 @@ export default function ModifierBailPage() {
                 placeholder="Travaux autorisés, conditions de restitution des lieux..."
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Gestion tiers */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestion tiers</CardTitle>
+            <CardDescription>
+              Confiez la gestion de ce bail à une agence ou un tiers
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="isThirdPartyManaged"
+                checked={isThirdPartyManaged}
+                className="h-4 w-4 rounded border-input"
+                onChange={(e) => setIsThirdPartyManaged(e.target.checked)}
+              />
+              <Label htmlFor="isThirdPartyManaged">
+                Bail sous gestion tiers
+              </Label>
+            </div>
+
+            {isThirdPartyManaged && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="managingContactId">Agence de gestion</Label>
+                  <NativeSelect
+                    id="managingContactId"
+                    options={agencies.map((a) => ({
+                      value: a.id,
+                      label: a.company ? `${a.name} — ${a.company}` : a.name,
+                    }))}
+                    value={managingContactId}
+                    onChange={(e) => setManagingContactId(e.target.value)}
+                    placeholder="Sélectionner une agence..."
+                  />
+                  {agencies.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Aucune agence trouvée.{" "}
+                      <Link href="/contacts" className="underline">
+                        Gérer les contacts
+                      </Link>
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Type d&apos;honoraires</Label>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="managementFeeType"
+                        value="POURCENTAGE"
+                        checked={managementFeeType === "POURCENTAGE"}
+                        onChange={() => setManagementFeeType("POURCENTAGE")}
+                        className="h-4 w-4"
+                      />
+                      Pourcentage
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="managementFeeType"
+                        value="FORFAIT"
+                        checked={managementFeeType === "FORFAIT"}
+                        onChange={() => setManagementFeeType("FORFAIT")}
+                        className="h-4 w-4"
+                      />
+                      Forfait
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="managementFeeValue">
+                      {managementFeeType === "POURCENTAGE"
+                        ? "Taux (%)"
+                        : "Montant (€)"}
+                    </Label>
+                    <Input
+                      id="managementFeeValue"
+                      type="number"
+                      min={0}
+                      step={managementFeeType === "POURCENTAGE" ? 0.1 : 0.01}
+                      value={managementFeeValue}
+                      onChange={(e) =>
+                        setManagementFeeValue(parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+
+                  {managementFeeType === "POURCENTAGE" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="managementFeeBasis">
+                        Base de calcul
+                      </Label>
+                      <NativeSelect
+                        id="managementFeeBasis"
+                        options={FEE_BASIS_OPTIONS}
+                        value={managementFeeBasis}
+                        onChange={(e) => setManagementFeeBasis(e.target.value as "LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC")}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="managementFeeVatRate">
+                    Taux de TVA sur honoraires (%)
+                  </Label>
+                  <Input
+                    id="managementFeeVatRate"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={managementFeeVatRate}
+                    onChange={(e) =>
+                      setManagementFeeVatRate(parseFloat(e.target.value) || 0)
+                    }
+                    className="w-32"
+                  />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

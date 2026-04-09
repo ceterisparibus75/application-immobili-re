@@ -25,6 +25,7 @@ import {
   getDefaultVat,
   getDefaultDepositMonths,
   type LeaseType,
+  type CreateLeaseInput,
 } from "@/validations/lease";
 
 const LEASE_TYPE_OPTIONS = [
@@ -60,6 +61,24 @@ const LEASE_TYPE_OPTIONS = [
 ];
 
 const FLAT_LEASE_TYPES = LEASE_TYPE_OPTIONS.flatMap((g) => g.items);
+
+const DESTINATION_OPTIONS = [
+  { value: "", label: "— Non renseignée —" },
+  { value: "HABITATION", label: "Habitation" },
+  { value: "BUREAU", label: "Bureau" },
+  { value: "COMMERCE", label: "Commerce / Boutique" },
+  { value: "ACTIVITE", label: "Local d'activité / Atelier" },
+  { value: "ENTREPOT", label: "Entrepôt / Stockage" },
+  { value: "INDUSTRIEL", label: "Local industriel" },
+  { value: "PROFESSIONNEL", label: "Cabinet libéral" },
+  { value: "MIXTE", label: "Mixte (habitation + professionnel)" },
+  { value: "PARKING", label: "Parking / Garage" },
+  { value: "TERRAIN", label: "Terrain nu" },
+  { value: "AGRICOLE", label: "Agricole" },
+  { value: "HOTELLERIE", label: "Hôtellerie / Tourisme" },
+  { value: "EQUIPEMENT", label: "Équipement (salle, crèche…)" },
+  { value: "AUTRE", label: "Autre" },
+];
 
 const PAYMENT_FREQUENCIES = [
   { value: "MENSUEL", label: "Mensuel" },
@@ -265,6 +284,7 @@ export default function NouveauBailPage() {
       lotId: data.lotId,
       tenantId: data.tenantId,
       leaseType: data.leaseType as LeaseType,
+      destination: (data.destination || null) as CreateLeaseInput["destination"],
       leaseTemplateId: selectedTemplateId || null,
       startDate: data.startDate,
       durationMonths: parseInt(data.durationMonths) || 36,
@@ -413,6 +433,14 @@ export default function NouveauBailPage() {
                     </optgroup>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="destination">Destination des locaux</Label>
+                <NativeSelect
+                  id="destination"
+                  name="destination"
+                  options={DESTINATION_OPTIONS}
+                />
               </div>
               {templates.length > 0 && (
                 <div className="space-y-2">

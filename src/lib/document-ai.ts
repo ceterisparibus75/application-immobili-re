@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 
 const CATEGORY_HINTS: Record<string, string> = {
-  bail: "Extrais : loyer mensuel (nombre), charges (nombre), date debut bail, date fin bail, type bail (meuble/non meuble), surface (m2), depot garantie.",
+  bail: "Extrais : loyer mensuel (nombre), charges (nombre), date debut bail, date fin bail, type bail (meuble/non meuble), surface (m2), depot garantie, destination des locaux (HABITATION/BUREAU/COMMERCE/ACTIVITE/ENTREPOT/INDUSTRIEL/PROFESSIONNEL/MIXTE/PARKING/TERRAIN/AGRICOLE/HOTELLERIE/EQUIPEMENT/AUTRE).",
   avenant: "Extrais : type modification, nouvelle valeur, date effet.",
   quittance: "Extrais : periode (mois/annee), montant loyer, montant charges, total, nom locataire.",
   facture: "Extrais : montant HT, TVA, montant TTC, fournisseur, date, numero facture.",
