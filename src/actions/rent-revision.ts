@@ -413,7 +413,11 @@ export async function detectPendingRevisions(): Promise<{
         const nextRevisionDate = getNextRevisionDate(
           lease.startDate,
           lease.revisionFrequency ?? 12,
-          lease.rentRevisions[0]?.effectiveDate
+          lease.rentRevisions[0]?.effectiveDate,
+          lease.entryDate,
+          lease.revisionDateBasis,
+          lease.revisionCustomMonth,
+          lease.revisionCustomDay,
         );
 
         if (nextRevisionDate > in30Days || nextRevisionDate < threeMonthsAgo) continue;
@@ -511,14 +515,52 @@ export async function detectPendingRevisions(): Promise<{
   return results;
 }
 
+function getRevisionAnchorDate(
+  startDate: Date,
+  entryDate: Date | null,
+  revisionDateBasis: string | null,
+  customMonth: number | null,
+  customDay: number | null,
+): Date {
+  switch (revisionDateBasis) {
+    case "DATE_ENTREE":
+      return entryDate ?? startDate;
+    case "PREMIER_JANVIER": {
+      const year = startDate.getFullYear() + 1;
+      return new Date(year, 0, 1);
+    }
+    case "DATE_PERSONNALISEE": {
+      const m = (customMonth ?? 1) - 1;
+      const d = customDay ?? 1;
+      const custom = new Date(startDate.getFullYear(), m, d);
+      if (custom <= startDate) custom.setFullYear(custom.getFullYear() + 1);
+      return custom;
+    }
+    case "DATE_SIGNATURE":
+    default:
+      return startDate;
+  }
+}
+
 function getNextRevisionDate(
   startDate: Date,
   frequencyMonths: number,
-  lastRevisionDate?: Date
+  lastRevisionDate?: Date,
+  entryDate?: Date | null,
+  revisionDateBasis?: string | null,
+  customMonth?: number | null,
+  customDay?: number | null,
 ): Date {
-  // Retourner la PROCHAINE échéance sans sauter d'années.
-  // Si elle est dans le passé, le cron filtre par fenêtre de dates.
-  const nextDate = new Date(lastRevisionDate ?? startDate);
+  if (lastRevisionDate) {
+    const nextDate = new Date(lastRevisionDate);
+    nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
+    return nextDate;
+  }
+  const anchor = getRevisionAnchorDate(startDate, entryDate ?? null, revisionDateBasis ?? null, customMonth ?? null, customDay ?? null);
+  if (revisionDateBasis === "PREMIER_JANVIER" || revisionDateBasis === "DATE_PERSONNALISEE") {
+    return anchor;
+  }
+  const nextDate = new Date(anchor);
   nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
   return nextDate;
 }

@@ -79,6 +79,13 @@ const INDEX_TYPES = [
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
 ];
 
+const REVISION_DATE_BASIS_OPTIONS = [
+  { value: "DATE_SIGNATURE", label: "Date anniversaire du bail" },
+  { value: "DATE_ENTREE", label: "Date d'entrée dans les lieux" },
+  { value: "PREMIER_JANVIER", label: "1er janvier de chaque exercice" },
+  { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
+];
+
 const BILLING_TERMS = [
   {
     value: "A_ECHOIR",
@@ -128,6 +135,9 @@ type LeaseData = {
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
   revisionFrequency: number;
+  revisionDateBasis?: string | null;
+  revisionCustomMonth?: number | null;
+  revisionCustomDay?: number | null;
   tenantWorksClauses?: string | null;
   entryDate?: string | null;
   exitDate?: string | null;
@@ -147,6 +157,7 @@ export default function ModifierBailPage() {
   const [lease, setLease] = useState<LeaseData | null>(null);
   const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
+  const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
 
   useEffect(() => {
     async function fetchLease() {
@@ -157,6 +168,7 @@ export default function ModifierBailPage() {
           setLease(json.data);
           setVatApplicable(json.data.vatApplicable);
           setFrequency(json.data.paymentFrequency);
+          setRevisionDateBasis(json.data.revisionDateBasis ?? "DATE_SIGNATURE");
         }
       } finally {
         setIsFetching(false);
@@ -198,6 +210,9 @@ export default function ModifierBailPage() {
         : null,
       baseIndexQuarter: d.baseIndexQuarter || null,
       revisionFrequency: parseInt(d.revisionFrequency) || 12,
+      revisionDateBasis: (d.revisionDateBasis as "DATE_SIGNATURE" | "DATE_ENTREE" | "PREMIER_JANVIER" | "DATE_PERSONNALISEE") || "DATE_SIGNATURE",
+      revisionCustomMonth: d.revisionCustomMonth ? parseInt(d.revisionCustomMonth) : null,
+      revisionCustomDay: d.revisionCustomDay ? parseInt(d.revisionCustomDay) : null,
       billingTerm:
         (d.billingTerm as "ECHU" | "A_ECHOIR") || undefined,
       paymentFrequency:
@@ -558,19 +573,66 @@ export default function ModifierBailPage() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="revisionFrequency">
-                Fréquence de révision (mois)
-              </Label>
-              <Input
-                id="revisionFrequency"
-                name="revisionFrequency"
-                type="number"
-                min={1}
-                defaultValue={lease.revisionFrequency}
-                className="w-32"
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="revisionFrequency">
+                  Fréquence de révision (mois)
+                </Label>
+                <Input
+                  id="revisionFrequency"
+                  name="revisionFrequency"
+                  type="number"
+                  min={1}
+                  defaultValue={lease.revisionFrequency}
+                  className="w-32"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="revisionDateBasis">Date de révision</Label>
+                <NativeSelect
+                  id="revisionDateBasis"
+                  name="revisionDateBasis"
+                  options={REVISION_DATE_BASIS_OPTIONS}
+                  value={revisionDateBasis}
+                  onChange={(e) => setRevisionDateBasis(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Détermine la date anniversaire à laquelle la révision est calculée
+                </p>
+              </div>
             </div>
+            {revisionDateBasis === "DATE_PERSONNALISEE" && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="revisionCustomDay">Jour</Label>
+                  <Input
+                    id="revisionCustomDay"
+                    name="revisionCustomDay"
+                    type="number"
+                    min={1}
+                    max={31}
+                    defaultValue={lease.revisionCustomDay ?? 1}
+                    className="w-24"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="revisionCustomMonth">Mois</Label>
+                  <NativeSelect
+                    id="revisionCustomMonth"
+                    name="revisionCustomMonth"
+                    options={[
+                      { value: "1", label: "Janvier" }, { value: "2", label: "Février" },
+                      { value: "3", label: "Mars" }, { value: "4", label: "Avril" },
+                      { value: "5", label: "Mai" }, { value: "6", label: "Juin" },
+                      { value: "7", label: "Juillet" }, { value: "8", label: "Août" },
+                      { value: "9", label: "Septembre" }, { value: "10", label: "Octobre" },
+                      { value: "11", label: "Novembre" }, { value: "12", label: "Décembre" },
+                    ]}
+                    value={String(lease.revisionCustomMonth ?? 1)}
+                  />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -91,15 +91,75 @@ function getNextPublicationInfo(
   return { nextQuarterLabel, estimatedDate, isOverdue };
 }
 
+/**
+ * Calcule la date de base de la révision en fonction du mode choisi.
+ * C'est cette date anniversaire qui sert de point de départ.
+ */
+function getRevisionAnchorDate(
+  startDate: Date,
+  entryDate: Date | null,
+  revisionDateBasis: string | null,
+  customMonth: number | null,
+  customDay: number | null,
+): Date {
+  switch (revisionDateBasis) {
+    case "DATE_ENTREE":
+      return entryDate ?? startDate;
+    case "PREMIER_JANVIER": {
+      // Le 1er janvier suivant le début du bail
+      const year = startDate.getFullYear() + 1;
+      return new Date(year, 0, 1);
+    }
+    case "DATE_PERSONNALISEE": {
+      // Date personnalisée la même année que le startDate
+      const m = (customMonth ?? 1) - 1; // 0-indexed
+      const d = customDay ?? 1;
+      const custom = new Date(startDate.getFullYear(), m, d);
+      // Si la date personnalisée est avant le startDate, prendre l'année suivante
+      if (custom <= startDate) custom.setFullYear(custom.getFullYear() + 1);
+      return custom;
+    }
+    case "DATE_SIGNATURE":
+    default:
+      return startDate;
+  }
+}
+
 function getNextRevisionDate(
   startDate: Date,
   revisionFrequency: number,
   lastRevisionDate?: Date | null,
+  entryDate?: Date | null,
+  revisionDateBasis?: string | null,
+  customMonth?: number | null,
+  customDay?: number | null,
 ): Date {
-  // Toujours retourner la PROCHAINE échéance (sans sauter d'années).
-  // Si la date est dans le passé, elle s'affichera comme "en retard"
-  // et l'utilisateur pourra rattraper année par année.
-  const next = new Date(lastRevisionDate ?? startDate);
+  if (lastRevisionDate) {
+    // Si une révision a déjà eu lieu, la prochaine est simplement startDate + frequency
+    const next = new Date(lastRevisionDate);
+    next.setMonth(next.getMonth() + revisionFrequency);
+    return next;
+  }
+
+  // Première révision : calculer depuis la date d'ancrage
+  const anchor = getRevisionAnchorDate(startDate, entryDate ?? null, revisionDateBasis ?? null, customMonth ?? null, customDay ?? null);
+
+  if (revisionDateBasis === "PREMIER_JANVIER") {
+    // Pour PREMIER_JANVIER, la première révision est au 1er janvier suivant le début + fréquence
+    const next = new Date(anchor);
+    // Si la fréquence est 12 mois, la première révision est le prochain 1er janvier
+    // anchor est déjà le 1er janvier suivant le start, donc c'est correct
+    return next;
+  }
+
+  if (revisionDateBasis === "DATE_PERSONNALISEE") {
+    // anchor est la prochaine date personnalisée après le début
+    // La première révision se fait à cette date + frequency si nécessaire
+    return anchor;
+  }
+
+  // DATE_SIGNATURE ou DATE_ENTREE : ajouter la fréquence à la date d'ancrage
+  const next = new Date(anchor);
   next.setMonth(next.getMonth() + revisionFrequency);
   return next;
 }
@@ -109,13 +169,16 @@ function getMissedRevisionsCount(
   startDate: Date,
   revisionFrequency: number,
   lastRevisionDate?: Date | null,
+  entryDate?: Date | null,
+  revisionDateBasis?: string | null,
+  customMonth?: number | null,
+  customDay?: number | null,
 ): number {
   const now = new Date();
-  const next = new Date(lastRevisionDate ?? startDate);
-  next.setMonth(next.getMonth() + revisionFrequency);
-  if (next > now) return 0;
+  const nextDate = getNextRevisionDate(startDate, revisionFrequency, lastRevisionDate, entryDate, revisionDateBasis, customMonth, customDay);
+  if (nextDate > now) return 0;
   let count = 0;
-  const cursor = new Date(next);
+  const cursor = new Date(nextDate);
   while (cursor <= now) {
     count++;
     cursor.setMonth(cursor.getMonth() + revisionFrequency);
@@ -171,10 +234,14 @@ export default async function IndicesPage() {
     select: {
       id: true,
       startDate: true,
+      entryDate: true,
       indexType: true,
       baseIndexValue: true,
       baseIndexQuarter: true,
       revisionFrequency: true,
+      revisionDateBasis: true,
+      revisionCustomMonth: true,
+      revisionCustomDay: true,
       currentRentHT: true,
       baseRentHT: true,
       tenant: {
@@ -255,11 +322,19 @@ export default async function IndicesPage() {
         lease.startDate,
         lease.revisionFrequency ?? 12,
         lastValidated?.effectiveDate ?? null,
+        lease.entryDate,
+        lease.revisionDateBasis,
+        lease.revisionCustomMonth,
+        lease.revisionCustomDay,
       );
       const missedYears = getMissedRevisionsCount(
         lease.startDate,
         lease.revisionFrequency ?? 12,
         lastValidated?.effectiveDate ?? null,
+        lease.entryDate,
+        lease.revisionDateBasis,
+        lease.revisionCustomMonth,
+        lease.revisionCustomDay,
       );
       const status = getRevisionStatus(nextRevisionDate);
       const tenantName =

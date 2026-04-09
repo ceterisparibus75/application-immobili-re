@@ -93,6 +93,13 @@ const INDEX_TYPES = [
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
 ];
 
+const REVISION_DATE_BASIS_OPTIONS = [
+  { value: "DATE_SIGNATURE", label: "Date anniversaire du bail" },
+  { value: "DATE_ENTREE", label: "Date d'entrée dans les lieux" },
+  { value: "PREMIER_JANVIER", label: "1er janvier de chaque exercice" },
+  { value: "DATE_PERSONNALISEE", label: "Date personnalisée" },
+];
+
 type LotOption = {
   id: string;
   number: string;
@@ -151,6 +158,7 @@ export default function NouveauBailPage() {
   const [frequency, setFrequency] = useState("MENSUEL");
   const [durationMonths, setDurationMonths] = useState(36);
   const [indexType, setIndexType] = useState<string>("IRL");
+  const [revisionDateBasis, setRevisionDateBasis] = useState<string>("DATE_SIGNATURE");
   const [isThirdPartyManaged, setIsThirdPartyManaged] = useState(false);
   const [agencies, setAgencies] = useState<AgencyOption[]>([]);
   const [managingContactId, setManagingContactId] = useState<string>("");
@@ -270,6 +278,9 @@ export default function NouveauBailPage() {
       baseIndexValue: data.baseIndexValue ? parseFloat(data.baseIndexValue) : null,
       baseIndexQuarter: data.baseIndexQuarter || null,
       revisionFrequency: parseInt(data.revisionFrequency) || 12,
+      revisionDateBasis: (data.revisionDateBasis as "DATE_SIGNATURE" | "DATE_ENTREE" | "PREMIER_JANVIER" | "DATE_PERSONNALISEE") || "DATE_SIGNATURE",
+      revisionCustomMonth: data.revisionCustomMonth ? parseInt(data.revisionCustomMonth) : null,
+      revisionCustomDay: data.revisionCustomDay ? parseInt(data.revisionCustomDay) : null,
       rentFreeMonths: parseFloat(data.rentFreeMonths) || 0,
       entryFee: parseFloat(data.entryFee) || 0,
       tenantWorksClauses: data.tenantWorksClauses || null,
@@ -605,17 +616,64 @@ export default function NouveauBailPage() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="revisionFrequency">Fréquence de révision (mois)</Label>
-              <Input
-                id="revisionFrequency"
-                name="revisionFrequency"
-                type="number"
-                min={1}
-                defaultValue={12}
-                className="w-32"
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="revisionFrequency">Fréquence de révision (mois)</Label>
+                <Input
+                  id="revisionFrequency"
+                  name="revisionFrequency"
+                  type="number"
+                  min={1}
+                  defaultValue={12}
+                  className="w-32"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="revisionDateBasis">Date de révision</Label>
+                <NativeSelect
+                  id="revisionDateBasis"
+                  name="revisionDateBasis"
+                  options={REVISION_DATE_BASIS_OPTIONS}
+                  value={revisionDateBasis}
+                  onChange={(e) => setRevisionDateBasis(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Détermine la date anniversaire à laquelle la révision est calculée
+                </p>
+              </div>
             </div>
+            {revisionDateBasis === "DATE_PERSONNALISEE" && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="revisionCustomDay">Jour</Label>
+                  <Input
+                    id="revisionCustomDay"
+                    name="revisionCustomDay"
+                    type="number"
+                    min={1}
+                    max={31}
+                    defaultValue={1}
+                    className="w-24"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="revisionCustomMonth">Mois</Label>
+                  <NativeSelect
+                    id="revisionCustomMonth"
+                    name="revisionCustomMonth"
+                    options={[
+                      { value: "1", label: "Janvier" }, { value: "2", label: "Février" },
+                      { value: "3", label: "Mars" }, { value: "4", label: "Avril" },
+                      { value: "5", label: "Mai" }, { value: "6", label: "Juin" },
+                      { value: "7", label: "Juillet" }, { value: "8", label: "Août" },
+                      { value: "9", label: "Septembre" }, { value: "10", label: "Octobre" },
+                      { value: "11", label: "Novembre" }, { value: "12", label: "Décembre" },
+                    ]}
+                    value="1"
+                  />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

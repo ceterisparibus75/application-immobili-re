@@ -130,6 +130,13 @@ enum IndexType {
   ICC
 }
 
+enum RevisionDateBasis {
+  DATE_SIGNATURE      // Date anniversaire de signature du bail (startDate)
+  DATE_ENTREE         // Date d'entrée dans les lieux (entryDate)
+  PREMIER_JANVIER     // 1er janvier de chaque exercice
+  DATE_PERSONNALISEE  // Date personnalisée (jour/mois)
+}
+
 enum TenantEntityType {
   PERSONNE_MORALE
   PERSONNE_PHYSIQUE
@@ -866,10 +873,13 @@ model Lease {
   vatRate          Float            @default(20.0)
 
   // Indexation
-  indexType         IndexType?
-  baseIndexValue    Float? // Valeur de l'indice de référence
-  baseIndexQuarter  String? // ex: "T1 2024"
-  revisionFrequency Int?       @default(12) // en mois
+  indexType           IndexType?
+  baseIndexValue      Float? // Valeur de l'indice de référence
+  baseIndexQuarter    String? // ex: "T1 2024"
+  revisionFrequency   Int?       @default(12) // en mois
+  revisionDateBasis   RevisionDateBasis? @default(DATE_SIGNATURE)
+  revisionCustomMonth Int? // 1-12, utilisé si DATE_PERSONNALISEE
+  revisionCustomDay   Int? // 1-31, utilisé si DATE_PERSONNALISEE
 
   // Clauses particulières
   rentFreeMonths     Float?  @default(0) // Franchise de loyer (mois, peut être décimal)
