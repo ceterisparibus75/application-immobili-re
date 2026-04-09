@@ -90,6 +90,67 @@ export async function createUser(
   }
 }
 
+// ── Renvoyer l'invitation à un utilisateur ─────────────────────────────────
+
+export async function resendInvitation(
+  userId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    // Seul un admin peut renvoyer une invitation
+    const callerAccess = await prisma.userSociety.findFirst({
+      where: {
+        userId: session.user.id,
+        role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+      },
+    });
+    if (!callerAccess) {
+      return { success: false, error: "Droits insuffisants" };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, firstName: true, lastLoginAt: true },
+    });
+    if (!user) return { success: false, error: "Utilisateur introuvable" };
+
+    // Pas de renvoi si l'utilisateur s'est déjà connecté
+    if (user.lastLoginAt) {
+      return { success: false, error: "Cet utilisateur a déjà activé son compte" };
+    }
+
+    // Générer un nouveau token (72h)
+    const resetToken = randomBytes(32).toString("hex");
+    const resetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { resetToken, resetTokenExpiresAt },
+    });
+
+    const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    await sendNewUserInviteEmail({
+      to: user.email,
+      name: `${user.name ?? ""}${user.firstName ? " " + user.firstName : ""}`.trim() || user.email,
+      email: user.email,
+      resetUrl,
+      appUrl: baseUrl,
+    });
+
+    revalidatePath("/compte/utilisateurs");
+    return { success: true };
+  } catch (error) {
+    console.error("[resendInvitation]", error);
+    return { success: false, error: "Erreur lors du renvoi de l'invitation" };
+  }
+}
+
 export async function assignUserToSociety(
   input: AssignUserToSocietyInput
 ): Promise<ActionResult> {

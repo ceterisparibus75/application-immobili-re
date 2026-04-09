@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   Users, UserPlus, ChevronDown, ChevronRight, Plus, Trash2,
-  Loader2, Building2, Mail,
+  Loader2, Building2, Mail, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createUser, assignUserToSociety, removeUserFromSociety,
+  resendInvitation,
 } from "@/actions/user";
 import type { ManagedUser, AvailableSociety } from "@/actions/user";
 import { EmailCopyToggle } from "./email-copy-toggle";
@@ -200,6 +201,21 @@ function UserRow({
   onToggleExpand: () => void;
   onAssign: () => void;
 }) {
+  const [resending, startResend] = useTransition();
+  const neverLoggedIn = !user.lastLoginAt;
+
+  function handleResend(e: React.MouseEvent) {
+    e.stopPropagation();
+    startResend(async () => {
+      const result = await resendInvitation(user.id);
+      if (result.success) {
+        toast.success("Invitation renvoyée par email");
+      } else {
+        toast.error(result.error ?? "Erreur lors du renvoi");
+      }
+    });
+  }
+
   return (
     <>
       <tr className="border-b hover:bg-muted/30 cursor-pointer" onClick={onToggleExpand}>
@@ -246,13 +262,35 @@ function UserRow({
             />
           )}
         </td>
-        <td className="p-3 text-muted-foreground text-xs">
-          {formatDateTime(user.lastLoginAt)}
+        <td className="p-3 text-xs">
+          {neverLoggedIn ? (
+            <span className="text-orange-500 font-medium">En attente d&apos;activation</span>
+          ) : (
+            <span className="text-muted-foreground">{formatDateTime(user.lastLoginAt)}</span>
+          )}
         </td>
         <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-          <Button variant="outline" size="sm" onClick={onAssign}>
-            <Plus className="h-3 w-3 mr-1" /> Accès
-          </Button>
+          <div className="flex items-center justify-end gap-1.5">
+            {neverLoggedIn && !isSelf && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResend}
+                disabled={resending}
+                title="Renvoyer l'invitation"
+                className="text-muted-foreground hover:text-primary"
+              >
+                {resending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onAssign}>
+              <Plus className="h-3 w-3 mr-1" /> Accès
+            </Button>
+          </div>
         </td>
       </tr>
 
