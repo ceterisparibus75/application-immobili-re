@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
+import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 
@@ -75,9 +76,16 @@ Règles :
 - Si une info est absente, mets null pour les champs optionnels
 - startDate au format ISO YYYY-MM-DD`;
 
-// Body envoyé en streaming (application/octet-stream) pour contourner
-// la limite Vercel de 4.5 Mo sur les corps de requête parsés.
-// Le nom du fichier est dans le header x-filename.
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
+// Flux : le client upload le PDF directement vers Supabase (via signed URL),
+// puis envoie le storagePath ici. Le serveur télécharge depuis Supabase
+// et envoie à Claude pour extraction. Cela contourne la limite Vercel de 4.5 Mo.
 
 export async function POST(req: NextRequest) {
   try {
@@ -101,26 +109,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!req.body) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+    const { storagePath } = (await req.json()) as { storagePath: string };
+    if (!storagePath) {
+      return NextResponse.json({ error: "storagePath manquant" }, { status: 400 });
     }
 
-    // Lire le body en streaming et le collecter en buffer
-    const reader = req.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let totalSize = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      totalSize += value.length;
-      if (totalSize > 20 * 1024 * 1024) {
-        return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
-      }
+    // Vérifier que le chemin appartient à cette société
+    if (!storagePath.startsWith(`temp/`) && !storagePath.includes(societyId)) {
+      return NextResponse.json({ error: "Accès non autorisé au fichier" }, { status: 403 });
     }
-    const fileBuffer = Buffer.concat(chunks);
+
+    // Télécharger le PDF depuis Supabase
+    const supabase = getSupabase();
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const { data: fileData, error: dlError } = await supabase.storage
+      .from(bucket)
+      .download(storagePath);
+
+    if (dlError || !fileData) {
+      console.error("[import/analyze] download error", dlError);
+      return NextResponse.json({ error: "Impossible de récupérer le fichier" }, { status: 500 });
+    }
+
+    const fileBuffer = Buffer.from(await fileData.arrayBuffer());
     const pdfBase64 = fileBuffer.toString("base64");
 
+    // Analyse via Claude
     const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     const message = await anthropic.messages.create({
@@ -149,6 +163,9 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       );
     }
+
+    // Nettoyage du fichier temporaire
+    void supabase.storage.from(bucket).remove([storagePath]).catch(() => null);
 
     const extracted = JSON.parse(jsonMatch[0]);
     return NextResponse.json(extracted);

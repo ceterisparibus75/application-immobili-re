@@ -834,17 +834,42 @@ export default function ImportPage() {
     setAnalyzeError("");
 
     try {
-      // Envoi en streaming brut pour contourner la limite Vercel de 4.5 Mo
-      const res = await fetch("/api/import/analyze", {
+      // 1. Obtenir une URL signée pour upload direct vers Supabase
+      const signRes = await fetch("/api/storage/signed-upload", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "x-filename": encodeURIComponent(file.name),
-        },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: "application/pdf",
+          societyId,
+          entityFolder: "import-temp",
+        }),
+      });
+      const signData = await signRes.json();
+      if (!signRes.ok) {
+        setAnalyzeError(signData.error ?? "Erreur lors de la préparation de l'upload");
+        return;
+      }
+
+      // 2. Upload direct client → Supabase (contourne la limite Vercel 4.5 Mo)
+      const uploadRes = await fetch(signData.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
         body: file,
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!uploadRes.ok) {
+        setAnalyzeError("Erreur lors de l'upload du fichier");
+        return;
+      }
+
+      // 3. Analyser via l'API (envoie seulement le chemin, pas le fichier)
+      const analyzeRes = await fetch("/api/import/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storagePath: signData.storagePath }),
+      });
+      const data = await analyzeRes.json();
+      if (!analyzeRes.ok) {
         setAnalyzeError(data.error ?? "Erreur lors de l'analyse");
         return;
       }
