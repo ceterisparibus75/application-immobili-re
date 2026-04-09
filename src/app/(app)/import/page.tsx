@@ -860,12 +860,19 @@ export default function ImportPage() {
             uploadId,
           }),
         });
-        const result = await res.json();
-        if (!res.ok) {
-          setAnalyzeError(result.error ?? `Erreur upload chunk ${i + 1}/${totalChunks}`);
+        const text = await res.text();
+        let result: Record<string, unknown>;
+        try {
+          result = JSON.parse(text);
+        } catch {
+          setAnalyzeError(`Erreur serveur upload chunk ${i + 1}/${totalChunks} : ${text.slice(0, 200)}`);
           return;
         }
-        if (result.storagePath) storagePath = result.storagePath;
+        if (!res.ok) {
+          setAnalyzeError((result.error as string) ?? `Erreur upload chunk ${i + 1}/${totalChunks}`);
+          return;
+        }
+        if (result.storagePath) storagePath = result.storagePath as string;
       }
 
       if (!storagePath) {
@@ -879,9 +886,16 @@ export default function ImportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ storagePath }),
       });
-      const data = await analyzeRes.json();
+      const analyzeText = await analyzeRes.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(analyzeText);
+      } catch {
+        setAnalyzeError(`Erreur serveur analyse : ${analyzeText.slice(0, 200)}`);
+        return;
+      }
       if (!analyzeRes.ok) {
-        setAnalyzeError(data.error ?? "Erreur lors de l'analyse");
+        setAnalyzeError((data.error as string) ?? "Erreur lors de l'analyse");
         return;
       }
       setForm(aiToForm(data as Record<string, unknown>));

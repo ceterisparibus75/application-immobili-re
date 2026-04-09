@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // Upload en chunks : le client découpe le fichier en morceaux <3 Mo pour rester
 // sous la limite Vercel de 4.5 Mo. Chaque chunk est envoyé en base64 dans un JSON.
