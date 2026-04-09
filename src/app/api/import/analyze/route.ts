@@ -75,6 +75,10 @@ Règles :
 - Si une info est absente, mets null pour les champs optionnels
 - startDate au format ISO YYYY-MM-DD`;
 
+// Body envoyé en streaming (application/octet-stream) pour contourner
+// la limite Vercel de 4.5 Mo sur les corps de requête parsés.
+// Le nom du fichier est dans le header x-filename.
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -97,22 +101,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
+    if (!req.body) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
-    if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés" }, { status: 400 });
+
+    // Lire le body en streaming et le collecter en buffer
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalSize += value.length;
+      if (totalSize > 20 * 1024 * 1024) {
+        return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
+      }
     }
-    if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
-    }
+    const fileBuffer = Buffer.concat(chunks);
+    const pdfBase64 = fileBuffer.toString("base64");
 
     const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const pdfBase64 = fileBuffer.toString("base64");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
