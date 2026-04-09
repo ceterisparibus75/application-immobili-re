@@ -37,6 +37,7 @@ export async function getDashboardStats(societyId: string) {
     expiringLeases,
     expiringDiagnostics,
     recentAuditLogs,
+    monthManagementFees,
   ] = await Promise.all([
     prisma.building.count({ where: { societyId } }),
     prisma.lot.count({ where: { building: { societyId } } }),
@@ -109,6 +110,15 @@ export async function getDashboardStats(societyId: string) {
         user: { select: { name: true } },
       },
     }),
+    prisma.invoice.aggregate({
+      where: {
+        societyId,
+        isThirdPartyManaged: true,
+        issueDate: { gte: startOfMonth, lte: endOfMonth },
+        invoiceType: { not: "AVOIR" },
+      },
+      _sum: { managementFeeTTC: true },
+    }),
   ]);
 
   return {
@@ -120,6 +130,7 @@ export async function getDashboardStats(societyId: string) {
     monthRevenueTTC: monthInvoices._sum.totalTTC ?? 0,
     monthInvoiceCount: monthInvoices._count,
     overdueInvoiceCount: overdueInvoices,
+    monthManagementFeesTTC: monthManagementFees._sum.managementFeeTTC ?? 0,
     expiringLeases,
     expiringDiagnostics,
     recentAuditLogs,
