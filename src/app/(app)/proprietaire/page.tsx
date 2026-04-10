@@ -22,6 +22,7 @@ import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
 import { ProprietaireProfileForm } from "./_components/proprietaire-profile-form";
 import { RerunValuationsButton } from "./_components/rerun-valuations-button";
+import { SocietySwitchLink } from "./_components/society-switch-link";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
 import { OverdueChart } from "@/components/dashboard/overdue-chart";
@@ -724,9 +725,10 @@ export default async function ProprietaireDashboardPage({
               const occupancyPctB = building.totalLots > 0 ? Math.round((building.occupiedLots / building.totalLots) * 100) : 0;
               const variation = building.totalCost > 0 && building.venalValue ? Math.round(((building.venalValue - building.totalCost) / building.totalCost) * 1000) / 10 : null;
               return (
-                <Link
+                <SocietySwitchLink
                   key={building.id}
                   href={`/patrimoine/immeubles/${building.id}`}
+                  societyId={building.societyId}
                   className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedBuildings.length - 1 ? "border-b" : ""}`}
                 >
                   {/* Desktop */}
@@ -789,7 +791,7 @@ export default async function ProprietaireDashboardPage({
                       {building.annualRent > 0 && <span>{fmt(building.annualRent)}/an</span>}
                     </div>
                   </div>
-                </Link>
+                </SocietySwitchLink>
               );
             })}
           </CardContent>
@@ -852,9 +854,10 @@ export default async function ProprietaireDashboardPage({
               const revisionRecent = hasRevision && (new Date().getTime() - new Date(lease.lastRevisionDate!).getTime()) < 365 * 24 * 60 * 60 * 1000;
               const endSoon = lease.endDate && (new Date(lease.endDate).getTime() - new Date().getTime()) < 90 * 24 * 60 * 60 * 1000 && lease.status === "EN_COURS";
               return (
-                <Link
+                <SocietySwitchLink
                   key={lease.id}
                   href={`/baux/${lease.id}`}
+                  societyId={lease.societyId}
                   className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedLeases.length - 1 ? "border-b" : ""}`}
                 >
                   {/* Desktop */}
@@ -903,7 +906,7 @@ export default async function ProprietaireDashboardPage({
                       <span>{fmt(lease.currentRentHT)}</span>
                     </div>
                   </div>
-                </Link>
+                </SocietySwitchLink>
               );
             })}
           </CardContent>
@@ -965,9 +968,10 @@ export default async function ProprietaireDashboardPage({
             {consolidatedLoans.map((loan, index) => {
               const pctRepaid = loan.amount > 0 ? Math.round(((loan.amount - loan.remainingBalance) / loan.amount) * 100) : 0;
               return (
-                <Link
+                <SocietySwitchLink
                   key={loan.id}
                   href={`/emprunts/${loan.id}`}
+                  societyId={loan.societyId}
                   className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedLoans.length - 1 ? "border-b" : ""}`}
                 >
                   {/* Desktop */}
@@ -1013,7 +1017,7 @@ export default async function ProprietaireDashboardPage({
                       <span>CRD: {fmt(loan.remainingBalance)}</span>
                     </div>
                   </div>
-                </Link>
+                </SocietySwitchLink>
               );
             })}
           </CardContent>
