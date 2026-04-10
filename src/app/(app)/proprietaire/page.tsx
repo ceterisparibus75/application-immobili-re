@@ -20,6 +20,7 @@ import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
 import { ProprietaireProfileForm } from "./_components/proprietaire-profile-form";
+import { RerunValuationsButton } from "./_components/rerun-valuations-button";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
 import { OverdueChart } from "@/components/dashboard/overdue-chart";
@@ -689,6 +690,7 @@ export default async function ProprietaireDashboardPage({
           />
         </div>
         <div className="flex items-center gap-2">
+          <RerunValuationsButton />
           {claimable.length > 0 && <ClaimSocietyDialog societies={claimable} />}
         </div>
       </div>

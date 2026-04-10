@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -667,4 +667,175 @@ function average(values: (number | null)[]): number | null {
   const valid = values.filter((v): v is number => v != null);
   if (valid.length === 0) return null;
   return valid.reduce((a, b) => a + b, 0) / valid.length;
+}
+
+// ============================================================
+// Relancer les évaluations IA pour tous les immeubles
+// ============================================================
+
+export async function rerunAllValuations(): Promise<ActionResult<{ created: number; errors: string[] }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSuperAdmin(session.user.id);
+
+    // 1. Récupérer toutes les sociétés de l'utilisateur
+    const userSocieties = await prisma.userSociety.findMany({
+      where: { userId: session.user.id },
+      select: { societyId: true },
+    });
+    const societyIds = userSocieties.map((us) => us.societyId);
+
+    // 2. Supprimer toutes les évaluations existantes (cascade supprime analyses, comparables, rapports)
+    await prisma.propertyValuation.deleteMany({
+      where: { societyId: { in: societyIds } },
+    });
+
+    // Réinitialiser la valeur de marché sur les immeubles
+    await prisma.building.updateMany({
+      where: { societyId: { in: societyIds } },
+      data: { marketValue: null },
+    });
+
+    // 3. Récupérer tous les immeubles
+    const buildings = await prisma.building.findMany({
+      where: { societyId: { in: societyIds } },
+      select: { id: true, societyId: true, name: true },
+    });
+
+    let created = 0;
+    const errors: string[] = [];
+
+    // 4. Pour chaque immeuble, créer une évaluation + lancer l'analyse IA
+    for (const building of buildings) {
+      try {
+        const valuation = await prisma.propertyValuation.create({
+          data: {
+            buildingId: building.id,
+            societyId: building.societyId,
+            createdBy: session.user.id,
+            status: "IN_PROGRESS",
+          },
+        });
+
+        // Recherche DVF
+        try {
+          const buildingFull = await prisma.building.findFirst({
+            where: { id: building.id },
+            select: { city: true, postalCode: true, buildingType: true },
+          });
+          if (buildingFull) {
+            const transactions = await searchDvfTransactions({
+              city: buildingFull.city,
+              postalCode: buildingFull.postalCode,
+              radiusKm: 10,
+              periodYears: 3,
+              propertyTypes: [buildingFull.buildingType],
+            });
+            const toInsert = transactions.slice(0, 50);
+            if (toInsert.length > 0) {
+              await prisma.comparableSale.createMany({
+                data: toInsert.map((t) => ({
+                  valuationId: valuation.id,
+                  ...t,
+                  source: "DVF",
+                })),
+              });
+            }
+          }
+        } catch {
+          // DVF non bloquant
+        }
+
+        // Collecter les données et lancer les analyses
+        const buildingData = await collectBuildingData(building.societyId, building.id);
+        const promises = [
+          callClaude(buildingData).then((r) => ({ provider: "CLAUDE" as const, ...r })),
+          callOpenAI(buildingData).then((r) => ({ provider: "OPENAI" as const, ...r })),
+        ];
+
+        const results = await Promise.allSettled(promises);
+        const analyses: { estimatedValue: number | null; rentalValue: number | null; pricePerSqm: number | null; capRate: number | null }[] = [];
+
+        for (const settled of results) {
+          if (settled.status === "fulfilled") {
+            const { provider, result, rawResponse, durationMs, tokenCount } = settled.value;
+            await prisma.aiValuationAnalysis.create({
+              data: {
+                valuationId: valuation.id,
+                provider,
+                modelVersion: provider === "CLAUDE" ? "claude-sonnet-4-20250514" : "gpt-4o-mini",
+                inputPayload: buildingData as object,
+                rawResponse,
+                structuredResult: result as object,
+                estimatedValue: result.summary.estimatedValueMid,
+                rentalValue: result.summary.rentalValue,
+                pricePerSqm: result.summary.pricePerSqm,
+                capRate: result.summary.capitalizationRate,
+                confidence: result.summary.confidence,
+                methodology: [
+                  result.methodology.comparisonMethod.applied ? "Comparaison" : null,
+                  result.methodology.incomeMethod.applied ? "Capitalisation" : null,
+                  result.methodology.costMethod.applied ? "Coût de remplacement" : null,
+                ].filter(Boolean).join(", "),
+                strengths: result.swot.strengths,
+                weaknesses: result.swot.weaknesses,
+                opportunities: result.swot.opportunities,
+                threats: result.swot.threats,
+                durationMs,
+                tokenCount,
+              },
+            });
+            analyses.push({
+              estimatedValue: result.summary.estimatedValueMid,
+              rentalValue: result.summary.rentalValue,
+              pricePerSqm: result.summary.pricePerSqm,
+              capRate: result.summary.capitalizationRate,
+            });
+          }
+        }
+
+        // Agréger les résultats
+        const values = analyses.filter((a) => a.estimatedValue != null).map((a) => a.estimatedValue!);
+        if (values.length > 0) {
+          const estimatedValueMid = values.reduce((a, b) => a + b, 0) / values.length;
+          await prisma.propertyValuation.update({
+            where: { id: valuation.id },
+            data: {
+              status: "COMPLETED",
+              estimatedValueLow: Math.min(...values),
+              estimatedValueMid,
+              estimatedValueHigh: Math.max(...values),
+              estimatedRentalValue: average(analyses.map((a) => a.rentalValue)),
+              pricePerSqm: average(analyses.map((a) => a.pricePerSqm)),
+              capitalizationRate: average(analyses.map((a) => a.capRate)),
+            },
+          });
+          await prisma.building.update({
+            where: { id: building.id },
+            data: { marketValue: estimatedValueMid },
+          });
+        } else {
+          await prisma.propertyValuation.update({
+            where: { id: valuation.id },
+            data: { status: "DRAFT" },
+          });
+        }
+
+        created++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${building.name}: ${msg}`);
+      }
+    }
+
+    revalidatePath("/proprietaire");
+    revalidatePath("/patrimoine/immeubles");
+    return { success: true, data: { created, errors } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[rerunAllValuations]", error);
+    return { success: false, error: "Erreur lors de la réévaluation" };
+  }
 }
