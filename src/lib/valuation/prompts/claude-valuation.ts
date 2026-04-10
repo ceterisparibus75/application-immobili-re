@@ -70,9 +70,20 @@ Tu DOIS fournir un référentiel de prix au m² pour la commune :
 
 ### 2. Méthode par capitalisation du revenu
 - Partir de la valeur locative de marché (réelle ou estimée)
-- Appliquer un taux de capitalisation RÉALISTE (voir fourchettes ci-dessus)
+- Déterminer un taux de capitalisation RÉALISTE selon le marché local (voir fourchettes ci-dessus)
+- Calculer la valeur par : Valeur = Loyer annuel net / Taux de capitalisation
 - Les frais d'acquisition sont estimés à 7,5% pour les locaux pro, 8% pour l'habitation
-- Formule : Valeur = (Loyer annuel net / Taux de rendement) - Frais d'acquisition estimés
+- Valeur nette = Valeur brute - Frais d'acquisition estimés
+
+## RÈGLE DE COHÉRENCE MATHÉMATIQUE OBLIGATOIRE
+Les valeurs du summary DOIVENT être cohérentes entre elles :
+- summary.capitalizationRate = summary.rentalValue / summary.estimatedValueMid (arrondi à 0,1% près)
+- summary.pricePerSqm = summary.estimatedValueMid / surface totale du bien
+- methodology.incomeMethod.resultValue = methodology.incomeMethod.netRentalIncome / methodology.incomeMethod.capRate (ajusté des frais)
+- methodology.incomeMethod.capRate DOIT correspondre à summary.capitalizationRate
+
+AVANT de répondre, vérifie que : rentalValue / capitalizationRate ≈ estimatedValueMid (tolérance ±10%).
+Si ce n'est pas le cas, ajuste le taux de capitalisation pour qu'il soit cohérent.
 
 ### 3. Méthode par le coût de remplacement (si pertinent)
 - Estimer la valeur du foncier nu
