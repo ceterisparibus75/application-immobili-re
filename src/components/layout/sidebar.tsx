@@ -30,16 +30,20 @@ const navigation = [
     ],
   },
   {
+    title: "Baux",
+    items: [
+      { name: "Liste des baux", href: "/baux", icon: FileText },
+      { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
+    ],
+  },
+  {
     title: "Gestion locative",
     items: [
-      { name: "Baux", href: "/baux", icon: FileText },
-      { name: "Révisions de loyer", href: "/baux/revisions", icon: TrendingUp },
       { name: "Locataires", href: "/locataires", icon: Users },
       { name: "Facturation", href: "/facturation", icon: Receipt },
       { name: "Charges", href: "/charges", icon: ScrollText },
       { name: "Courriers", href: "/courriers", icon: Mail },
       { name: "Relances", href: "/relances", icon: Bell },
-      { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
       { name: "Documents", href: "/documents", icon: FolderOpen },
       { name: "Import bail PDF", href: "/import", icon: Upload },
     ],

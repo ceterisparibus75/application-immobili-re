@@ -19,7 +19,6 @@ import {
   Calendar,
   DatabaseZap,
 } from "lucide-react";
-import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { RevisionActions } from "./_components/revision-actions";
 import { SyncIndicesButton } from "./_components/sync-indices-button";
 
@@ -430,8 +429,6 @@ export default async function IndicesPage() {
 
   return (
     <div className="space-y-6">
-      <GestionLocativeNav />
-
       {/* En-tête + bouton Synchroniser */}
       <div className="flex items-start justify-between gap-4">
         <div>

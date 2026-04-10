@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Receipt, ScrollText, Mail, Bell, TrendingUp } from "lucide-react";
+import { Receipt, ScrollText, Mail, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -10,7 +10,6 @@ const TABS = [
   { name: "Charges", href: "/charges", icon: ScrollText },
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
-  { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
 ] as const;
 
 export function GestionLocativeNav() {

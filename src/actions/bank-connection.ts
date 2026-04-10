@@ -148,6 +148,63 @@ export async function syncOpenBankingAccounts(
   }
 }
 
+// syncAllAccounts — synchronise tous les comptes bancaires de la société
+export async function syncAllAccounts(
+  societyId: string
+): Promise<ActionResult<{ totalImported: number; accountsSynced: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const accounts = await prisma.bankAccount.findMany({
+      where: { societyId },
+      include: {
+        connection: {
+          select: {
+            provider: true, powensUserId: true, powensAccessToken: true,
+            qontoSlugEncrypted: true, qontoSecretKeyEncrypted: true,
+          },
+        },
+      },
+    });
+
+    let totalImported = 0;
+    let accountsSynced = 0;
+
+    for (const account of accounts) {
+      try {
+        let imported = 0;
+        if (account.qontoAccountId && account.connection?.provider === "QONTO") {
+          if (!account.connection.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) continue;
+          const slug = decrypt(account.connection.qontoSlugEncrypted);
+          const secretKey = decrypt(account.connection.qontoSecretKeyEncrypted);
+          imported = await syncQontoTransactionsInternal(societyId, account.id, account.qontoAccountId, slug, secretKey);
+        } else if (account.powensAccountId) {
+          if (!account.connection?.powensAccessToken || !account.connection.powensUserId) continue;
+          const userToken = decrypt(account.connection.powensAccessToken);
+          const userId = parseInt(account.connection.powensUserId, 10);
+          const powensAccountId = parseInt(account.powensAccountId, 10);
+          imported = await syncAccountTransactionsInternal(societyId, account.id, powensAccountId, userId, userToken);
+        } else {
+          continue;
+        }
+        totalImported += imported;
+        accountsSynced++;
+      } catch (e) {
+        console.error(`[syncAllAccounts] Erreur compte ${account.id}:`, e);
+      }
+    }
+
+    revalidatePath("/banque");
+    return { success: true, data: { totalImported, accountsSynced } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[syncAllAccounts]", error);
+    return { success: false, error: "Erreur lors de la synchronisation" };
+  }
+}
+
 // syncAccountTransactions (appel UI — détecte automatiquement Powens ou Qonto)
 export async function syncAccountTransactions(
   societyId: string,

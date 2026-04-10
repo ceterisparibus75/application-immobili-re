@@ -59,6 +59,69 @@ export async function getTenantsWithLease(
   }
 }
 
+// ── Immeubles avec locataires actifs (pour envoi groupé) ──────────
+
+export interface BuildingForLetter {
+  id: string;
+  name: string;
+  city: string;
+  tenants: { id: string; name: string; leaseId: string }[];
+}
+
+export async function getBuildingsWithTenants(
+  societyId: string
+): Promise<ActionResult<BuildingForLetter[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+
+    const buildings = await prisma.building.findMany({
+      where: { societyId },
+      select: {
+        id: true, name: true, city: true,
+        lots: {
+          select: {
+            leases: {
+              where: { status: "EN_COURS" },
+              select: {
+                id: true,
+                tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return {
+      success: true,
+      data: buildings
+        .map((b) => ({
+          id: b.id,
+          name: b.name,
+          city: b.city,
+          tenants: b.lots
+            .filter((l) => l.leases.length > 0)
+            .map((l) => {
+              const lease = l.leases[0];
+              const t = lease.tenant;
+              const name = t.entityType === "PERSONNE_MORALE"
+                ? (t.companyName ?? "—")
+                : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
+              return { id: t.id, name, leaseId: lease.id };
+            }),
+        }))
+        .filter((b) => b.tenants.length > 0),
+    };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors du chargement des immeubles" };
+  }
+}
+
 // ── Récupérer la liste des modèles (builtins + customs) ────────
 
 interface TemplateListItem {

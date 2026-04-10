@@ -10,6 +10,7 @@ import { Landmark, Plus, Wallet } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import SyncAllButton from "./_components/sync-all-button";
 
 export const metadata = { title: "Banque" };
 
@@ -36,12 +37,15 @@ export default async function BanquePage() {
             au total
           </p>
         </div>
-        <Link href="/banque/nouveau-compte">
-          <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
-            <Plus className="h-4 w-4" />
-            Nouveau compte
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {accounts.length > 0 && <SyncAllButton societyId={societyId} />}
+          <Link href="/banque/nouveau-compte">
+            <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nouveau compte
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {accounts.length === 0 ? (
