@@ -323,6 +323,16 @@ export async function getBuildingById(societyId: string, buildingId: string) {
         select: { id: true, fileName: true, fileUrl: true, category: true, description: true, createdAt: true, expiresAt: true },
       },
       _count: { select: { lots: true, diagnostics: true, maintenances: true, documents: true } },
+      additionalAcquisitions: {
+        select: {
+          id: true,
+          label: true,
+          acquisitionPrice: true,
+          acquisitionFees: true,
+          acquisitionTaxes: true,
+          otherCosts: true,
+        },
+      },
       propertyValuations: {
         where: { status: "COMPLETED" },
         orderBy: { valuationDate: "desc" },

@@ -269,7 +269,18 @@ export default async function ImmeubleDetailPage({
             <InfoRow
               label="Coût complet"
               value={(() => {
-                const total = (building.acquisitionPrice ?? 0) + (building.acquisitionFees ?? 0) + (building.acquisitionTaxes ?? 0) + (building.acquisitionOtherCosts ?? 0);
+                const baseCost =
+                  (building.acquisitionPrice ?? 0) +
+                  (building.acquisitionFees ?? 0) +
+                  (building.acquisitionTaxes ?? 0) +
+                  (building.acquisitionOtherCosts ?? 0) +
+                  (building.worksCost ?? 0);
+                const additionalCost = (building.additionalAcquisitions ?? []).reduce(
+                  (sum: number, a: { acquisitionPrice: number; acquisitionFees?: number | null; acquisitionTaxes?: number | null; otherCosts?: number | null }) =>
+                    sum + a.acquisitionPrice + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0),
+                  0
+                );
+                const total = baseCost + additionalCost;
                 return total > 0 ? `${total.toLocaleString("fr-FR")} €` : null;
               })()}
             />
