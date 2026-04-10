@@ -106,6 +106,46 @@ const faqs = [
     a: "Oui. Les données bancaires sont chiffrées en AES-256-GCM, les mots de passe sont hachés avec bcrypt, et l'application utilise HTTPS avec des en-têtes de sécurité stricts. L'hébergement est en Europe.",
   },
   {
+    q: "L'essai gratuit est-il sans engagement ?",
+    a: "Oui, l'essai de 14 jours est entièrement gratuit et sans carte bancaire. À la fin de la période, votre compte passe en lecture seule. Vous pouvez souscrire à tout moment pour retrouver l'accès complet.",
+  },
+  {
+    q: "Quelles sont les différences entre les plans Starter, Pro et Enterprise ?",
+    a: "Le plan Starter permet jusqu'à 20 lots, 1 société et 2 utilisateurs. Le Pro monte à 50 lots, 3 sociétés et 5 utilisateurs. L'Enterprise est sans limite et inclut la signature électronique, l'import IA et l'accès API.",
+  },
+  {
+    q: "Puis-je importer mes données depuis un autre logiciel ?",
+    a: "Oui, l'onglet Administration > Import permet d'importer des locataires, immeubles, lots et baux depuis un fichier CSV ou Excel. Un assistant vous guide dans le mappage des colonnes.",
+  },
+  {
+    q: "Comment fonctionne le portail locataire ?",
+    a: "Chaque locataire reçoit un lien d'accès sécurisé à son espace. Il peut y consulter ses documents (quittances, courriers), suivre ses charges, mettre à jour son assurance et créer des tickets de demande.",
+  },
+  {
+    q: "Comment sont calculées les révisions de loyer ?",
+    a: "Les révisions utilisent les indices IRL, ILC, ILAT ou ICC publiés par l'INSEE, synchronisés automatiquement chaque trimestre. Le calcul applique la formule légale : nouveau loyer = ancien loyer × (nouvel indice / ancien indice).",
+  },
+  {
+    q: "Comment envoyer un courrier à tous les locataires d'un immeuble ?",
+    a: "Dans Courriers, sélectionnez un modèle puis choisissez le mode « Envoi par immeuble ». Chaque locataire reçoit un courrier personnalisé (nom, adresse, montant du loyer) et le document est automatiquement enregistré dans son espace portail.",
+  },
+  {
+    q: "Comment connecter mon compte bancaire ?",
+    a: "Allez dans Banque > Connexion bancaire. L'intégration Open Banking (via Powens ou GoCardless) synchronise automatiquement vos transactions. Vous pouvez aussi ajouter des transactions manuellement.",
+  },
+  {
+    q: "Comment exporter mes données en CSV ?",
+    a: "Chaque page de données (locataires, baux, factures, charges, contacts, transactions) dispose d'un bouton d'export en haut à droite. Le fichier CSV est compatible avec Excel (format français, séparateur point-virgule).",
+  },
+  {
+    q: "Quels rapports puis-je générer ?",
+    a: "9 types de rapports sont disponibles : balance âgée, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative. Vous pouvez aussi planifier des envois automatiques.",
+  },
+  {
+    q: "Que couvre la conformité RGPD ?",
+    a: "La section RGPD permet de consulter, exporter et supprimer les données personnelles des locataires. Les durées de conservation légales sont respectées automatiquement et un registre des traitements est accessible.",
+  },
+  {
     q: "Comment contacter le support ?",
     a: "Envoyez-nous un email à contact@mygestia.immo. Les clients Enterprise bénéficient d'un support prioritaire avec un temps de réponse garanti.",
   },
