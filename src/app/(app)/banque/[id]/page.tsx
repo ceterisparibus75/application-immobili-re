@@ -29,6 +29,7 @@ import { redirect } from "next/navigation";
 import AddTransactionForm from "./_components/add-transaction-form";
 import SyncButton from "./_components/sync-button";
 import RecalculateButton from "./_components/recalculate-button";
+import { ExportTransactions } from "@/components/exports/export-transactions";
 
 export default async function BankAccountDetailPage({
   params,
@@ -88,6 +89,14 @@ export default async function BankAccountDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportTransactions data={account.transactions.map((t) => ({
+            transactionDate: new Date(t.transactionDate).toLocaleDateString("fr-FR"),
+            label: t.label,
+            amount: t.amount,
+            reference: t.reference ?? "",
+            category: t.category ?? "",
+            isReconciled: t.isReconciled,
+          }))} />
           <RecalculateButton bankAccountId={account.id} societyId={societyId} />
           {(account.powensAccountId || account.qontoAccountId) && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />

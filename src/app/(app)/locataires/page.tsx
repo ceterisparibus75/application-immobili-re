@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Users } from "lucide-react";
 import Link from "next/link";
+import { ExportLocataires } from "@/components/exports/export-locataires";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parsePaginationParams } from "@/lib/pagination";
@@ -102,12 +103,15 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
             {total} locataire{total !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/locataires/nouveau">
-          <Button>
-            <Plus className="h-4 w-4" />
-            Nouveau locataire
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportLocataires data={serialized} />
+          <Link href="/locataires/nouveau">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nouveau locataire
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {total === 0 && !pagination.search && Object.keys(pagination.filters ?? {}).length === 0 ? (

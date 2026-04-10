@@ -9,6 +9,7 @@ import { Plus, Phone, Mail, Building2, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SyncTenantsButton } from "./_components/sync-tenants-button";
+import { ExportContacts } from "@/components/exports/export-contacts";
 
 export const metadata = { title: "Contacts" };
 
@@ -71,6 +72,7 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportContacts data={contacts} />
           <SyncTenantsButton societyId={societyId} />
           <Link href="/contacts/nouveau">
             <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">

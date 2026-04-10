@@ -10,6 +10,7 @@ import { parsePaginationParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { ChargesDataTable } from "./_components/charges-data-table";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
+import { ExportCharges } from "@/components/exports/export-charges";
 
 export const metadata = { title: "Charges" };
 
@@ -58,6 +59,15 @@ export default async function ChargesPage({ searchParams }: PageProps) {
           <p className="text-muted-foreground">{total} charge{total !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportCharges data={charges.map((c) => ({
+            description: c.description,
+            amount: c.amount,
+            date: new Date(c.date).toLocaleDateString("fr-FR"),
+            supplierName: c.supplierName ?? "",
+            category: c.category.name,
+            building: c.building.name,
+            isPaid: c.isPaid,
+          }))} />
           <Link href="/charges/bibliotheque">
             <Button variant="outline" size="sm"><BookOpen className="h-4 w-4" />Bibliothèque</Button>
           </Link>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Building2, FileText, Plus, Upload, CheckCircle2, AlertTriangle, Minus, MapPin } from "lucide-react";
 import Link from "next/link";
+import { ExportBaux } from "@/components/exports/export-baux";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LeaseStatus, LeaseType, LeaseDestination, TenantEntityType, PaymentFrequency } from "@/generated/prisma/client";
@@ -193,6 +194,17 @@ export default async function BauxPage() {
 
   const totalMensuel = monthlyTotal(actifs);
 
+  const exportData = leases.map((l) => ({
+    tenantName: tenantName(l.tenant),
+    building: l.lot.building.name,
+    lotNumber: l.lot.number,
+    leaseType: TYPE_LABELS[l.leaseType] ?? l.leaseType,
+    status: l.status,
+    startDate: l.startDate.toLocaleDateString("fr-FR"),
+    endDate: l.endDate ? l.endDate.toLocaleDateString("fr-FR") : "",
+    currentRentHT: l.currentRentHT,
+  }));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -207,6 +219,7 @@ export default async function BauxPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportBaux data={exportData} />
           <Link href="/import">
             <Button variant="outline" size="sm">
               <Upload className="h-4 w-4" />

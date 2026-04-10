@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
+import { ExportFactures } from "@/components/exports/export-factures";
 
 export const metadata = { title: "Facturation" };
 
@@ -112,6 +113,23 @@ export default async function FacturationPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <ExportFactures data={invoices.map((inv) => {
+            const tenantName = inv.tenant
+              ? inv.tenant.entityType === "PERSONNE_MORALE"
+                ? (inv.tenant.companyName ?? "—")
+                : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "—"
+              : "—";
+            return {
+              invoiceNumber: inv.invoiceNumber,
+              status: inv.status,
+              tenantName,
+              building: inv.lease?.lot?.building?.name ?? "—",
+              issueDate: new Date(inv.issueDate).toLocaleDateString("fr-FR"),
+              dueDate: new Date(inv.dueDate).toLocaleDateString("fr-FR"),
+              totalHT: inv.totalHT,
+              totalTTC: inv.totalTTC,
+            };
+          })} />
           <Link href="/facturation/generer">
             <Button variant="outline"><Zap className="h-4 w-4" />Generer les appels</Button>
           </Link>
