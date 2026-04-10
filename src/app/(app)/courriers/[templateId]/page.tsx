@@ -17,12 +17,17 @@ import {
   FileText,
   Sparkles,
   Mail,
+  Building2,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { BUILTIN_TEMPLATES } from "@/lib/letter-templates";
-import { generateLetter, getAutoFillData, getTenantsWithLease } from "@/actions/letter-template";
-import { sendLetterByEmail } from "@/actions/letter-template-email";
+import { generateLetter, getAutoFillData, getTenantsWithLease, getBuildingsWithTenants } from "@/actions/letter-template";
+import { sendLetterByEmail, sendLetterToBuilding } from "@/actions/letter-template-email";
+import type { BuildingForLetter } from "@/actions/letter-template";
+
+type SendMode = "individual" | "building";
 
 export default function GenerateLetterPage() {
   const params = useParams();
@@ -41,7 +46,12 @@ export default function GenerateLetterPage() {
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [autoFilling, setAutoFilling] = useState(false);
 
-  // Charger la liste des locataires
+  // Mode d'envoi
+  const [sendMode, setSendMode] = useState<SendMode>("individual");
+  const [buildings, setBuildings] = useState<BuildingForLetter[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState("");
+
+  // Charger la liste des locataires et des immeubles
   useEffect(() => {
     if (!societyId) return;
     getTenantsWithLease(societyId).then((result) => {
@@ -53,6 +63,11 @@ export default function GenerateLetterPage() {
             leaseId: t.leaseId,
           }))
         );
+      }
+    });
+    getBuildingsWithTenants(societyId).then((result) => {
+      if (result.success && result.data) {
+        setBuildings(result.data);
       }
     });
   }, [societyId]);
@@ -98,6 +113,29 @@ export default function GenerateLetterPage() {
     }
   };
 
+  // Auto-remplir les champs société quand on passe en mode immeuble
+  const handleBuildingSelect = useCallback(async (buildingId: string) => {
+    setSelectedBuildingId(buildingId);
+    if (!societyId || !buildingId) return;
+
+    // Auto-remplir les champs société (pas les champs locataire)
+    const result = await getAutoFillData(societyId);
+    if (result.success && result.data && template) {
+      const d = result.data;
+      const today = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
+      const newValues: Record<string, string> = { ...values };
+      for (const v of template.variables) {
+        switch (v.autoFill) {
+          case "society_name": newValues[v.key] = d.societyName; break;
+          case "society_address": newValues[v.key] = d.societyAddress; break;
+          case "society_siret": newValues[v.key] = d.societySiret; break;
+          case "today": newValues[v.key] = today; break;
+        }
+      }
+      setValues(newValues);
+    }
+  }, [societyId, values, template]);
+
   // Générer le PDF
   const handleGenerate = async () => {
     if (!societyId || !template) return;
@@ -136,7 +174,7 @@ export default function GenerateLetterPage() {
     setGenerating(false);
   };
 
-  // Envoyer par email
+  // Envoyer par email (individuel)
   const handleSendEmail = async () => {
     if (!societyId || !template || !selectedTenantId) return;
     setError(null);
@@ -157,9 +195,36 @@ export default function GenerateLetterPage() {
     });
 
     if (result.success) {
-      setSuccess("Courrier envoyé par email avec succès");
+      setSuccess("Courrier envoyé par email et sauvegardé dans l'espace du locataire");
     } else {
       setError(result.error ?? "Erreur lors de l'envoi");
+    }
+    setSending(false);
+  };
+
+  // Envoyer à tout l'immeuble
+  const handleSendToBuilding = async () => {
+    if (!societyId || !template || !selectedBuildingId) return;
+    setError(null);
+    setSuccess(null);
+
+    setSending(true);
+    const result = await sendLetterToBuilding(societyId, {
+      templateId,
+      buildingId: selectedBuildingId,
+      commonValues: values,
+    });
+
+    if (result.success && result.data) {
+      const { sent, errors: sendErrors } = result.data;
+      if (sendErrors.length > 0) {
+        setSuccess(`${sent} courrier(s) envoyé(s). ${sendErrors.length} erreur(s).`);
+        setError(sendErrors.join("\n"));
+      } else {
+        setSuccess(`${sent} courrier(s) envoyé(s) avec succès à tout l'immeuble`);
+      }
+    } else {
+      setError(result.error ?? "Erreur lors de l'envoi groupé");
     }
     setSending(false);
   };
@@ -182,6 +247,8 @@ export default function GenerateLetterPage() {
     );
   }
 
+  const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
+
   return (
     <div className="space-y-6">
       {/* En-tête */}
@@ -200,69 +267,157 @@ export default function GenerateLetterPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Formulaire */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Sélection du locataire pour auto-remplissage */}
+          {/* Mode d'envoi */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Pré-remplissage automatique
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Sélectionnez un locataire pour remplir automatiquement les champs
-              </CardDescription>
+              <CardTitle className="text-sm font-semibold">Mode d&apos;envoi</CardTitle>
             </CardHeader>
             <CardContent>
-              <NativeSelect
-                options={[
-                  { value: "", label: "-- Sélectionner un locataire --" },
-                  ...tenants.map((t) => ({ value: t.id, label: t.name })),
-                ]}
-                value={selectedTenantId}
-                onChange={(e) => handleTenantChange(e.target.value)}
-                disabled={autoFilling}
-              />
-              {autoFilling && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Chargement des données...
-                </p>
-              )}
+              <div className="flex gap-2">
+                <Button
+                  variant={sendMode === "individual" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => { setSendMode("individual"); setSelectedBuildingId(""); }}
+                >
+                  <Mail className="h-4 w-4" />
+                  Locataire individuel
+                </Button>
+                <Button
+                  variant={sendMode === "building" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => { setSendMode("building"); setSelectedTenantId(""); }}
+                >
+                  <Building2 className="h-4 w-4" />
+                  Par immeuble
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Sélection locataire OU immeuble */}
+          {sendMode === "individual" ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Pré-remplissage automatique
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Sélectionnez un locataire pour remplir automatiquement les champs
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <NativeSelect
+                  options={[
+                    { value: "", label: "-- Sélectionner un locataire --" },
+                    ...tenants.map((t) => ({ value: t.id, label: t.name })),
+                  ]}
+                  value={selectedTenantId}
+                  onChange={(e) => handleTenantChange(e.target.value)}
+                  disabled={autoFilling}
+                />
+                {autoFilling && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Chargement des données...
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  Envoi groupé par immeuble
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Le courrier sera personnalisé et envoyé à chaque locataire de l&apos;immeuble
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <NativeSelect
+                  options={[
+                    { value: "", label: "-- Sélectionner un immeuble --" },
+                    ...buildings.map((b) => ({
+                      value: b.id,
+                      label: `${b.name} — ${b.city} (${b.tenants.length} locataire${b.tenants.length > 1 ? "s" : ""})`,
+                    })),
+                  ]}
+                  value={selectedBuildingId}
+                  onChange={(e) => handleBuildingSelect(e.target.value)}
+                />
+                {selectedBuilding && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      {selectedBuilding.tenants.length} locataire{selectedBuilding.tenants.length > 1 ? "s" : ""} recevront le courrier :
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {selectedBuilding.tenants.map((t) => (
+                        <li key={t.id}>• {t.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Champs du courrier */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Informations du courrier</CardTitle>
+              {sendMode === "building" && (
+                <CardDescription className="text-xs">
+                  Les champs locataire seront remplis automatiquement pour chaque destinataire
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {template.variables.map((v) => (
-                <div key={v.key} className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    {v.label}
-                    {v.required && <span className="text-destructive">*</span>}
-                    {v.autoFill && values[v.key] && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        auto
-                      </Badge>
+              {template.variables.map((v) => {
+                const isTenantField = ["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount"].includes(v.autoFill ?? "");
+                const disabledInBuilding = sendMode === "building" && isTenantField;
+
+                return (
+                  <div key={v.key} className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      {v.label}
+                      {v.required && !disabledInBuilding && <span className="text-destructive">*</span>}
+                      {v.autoFill && values[v.key] && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          auto
+                        </Badge>
+                      )}
+                      {disabledInBuilding && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          par locataire
+                        </Badge>
+                      )}
+                    </Label>
+                    {v.type === "textarea" ? (
+                      <Textarea
+                        value={disabledInBuilding ? "" : (values[v.key] ?? "")}
+                        onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
+                        placeholder={disabledInBuilding ? "Rempli automatiquement pour chaque locataire" : v.placeholder}
+                        rows={4}
+                        disabled={disabledInBuilding}
+                        className={disabledInBuilding ? "opacity-50" : ""}
+                      />
+                    ) : (
+                      <Input
+                        type={v.type === "date" ? "date" : v.type === "number" ? "number" : "text"}
+                        value={disabledInBuilding ? "" : (values[v.key] ?? "")}
+                        onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
+                        placeholder={disabledInBuilding ? "Rempli automatiquement" : v.placeholder}
+                        disabled={disabledInBuilding}
+                        className={disabledInBuilding ? "opacity-50" : ""}
+                      />
                     )}
-                  </Label>
-                  {v.type === "textarea" ? (
-                    <Textarea
-                      value={values[v.key] ?? ""}
-                      onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
-                      placeholder={v.placeholder}
-                      rows={4}
-                    />
-                  ) : (
-                    <Input
-                      type={v.type === "date" ? "date" : v.type === "number" ? "number" : "text"}
-                      value={values[v.key] ?? ""}
-                      onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
-                      placeholder={v.placeholder}
-                    />
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -270,7 +425,7 @@ export default function GenerateLetterPage() {
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg px-4 py-3">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              {error}
+              <span className="whitespace-pre-line">{error}</span>
             </div>
           )}
           {success && (
@@ -282,27 +437,45 @@ export default function GenerateLetterPage() {
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            <Button onClick={handleGenerate} disabled={generating || sending} className="gap-2">
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Générer le PDF
-            </Button>
-            {selectedTenantId && (
+            {sendMode === "individual" && (
+              <>
+                <Button onClick={handleGenerate} disabled={generating || sending} className="gap-2">
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Générer le PDF
+                </Button>
+                {selectedTenantId && (
+                  <Button
+                    variant="outline"
+                    onClick={handleSendEmail}
+                    disabled={generating || sending}
+                    className="gap-2"
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
+                    Envoyer par email
+                  </Button>
+                )}
+              </>
+            )}
+            {sendMode === "building" && selectedBuildingId && (
               <Button
-                variant="outline"
-                onClick={handleSendEmail}
+                onClick={handleSendToBuilding}
                 disabled={generating || sending}
-                className="gap-2"
+                className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white"
               >
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Mail className="h-4 w-4" />
+                  <Building2 className="h-4 w-4" />
                 )}
-                Envoyer par email
+                Envoyer à tout l&apos;immeuble ({selectedBuilding?.tenants.length ?? 0} locataire{(selectedBuilding?.tenants.length ?? 0) > 1 ? "s" : ""})
               </Button>
             )}
           </div>
@@ -323,9 +496,11 @@ export default function GenerateLetterPage() {
                   {values.BAILLEUR_ADRESSE || "Adresse expéditeur"}
                 </p>
                 <div className="text-right mt-2">
-                  <p className="font-medium">{values.LOCATAIRE_NOM || "Destinataire"}</p>
+                  <p className="font-medium">
+                    {sendMode === "building" ? "[Chaque locataire]" : (values.LOCATAIRE_NOM || "Destinataire")}
+                  </p>
                   <p className="text-[10px] text-muted-foreground whitespace-pre-line">
-                    {values.LOCATAIRE_ADRESSE || "Adresse destinataire"}
+                    {sendMode === "building" ? "[Adresse du locataire]" : (values.LOCATAIRE_ADRESSE || "Adresse destinataire")}
                   </p>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-3">
@@ -339,7 +514,7 @@ export default function GenerateLetterPage() {
                 <div
                   className="mt-2 prose prose-xs text-[10px] leading-relaxed"
                   dangerouslySetInnerHTML={{
-                    __html: previewHtml(template.bodyHtml, values),
+                    __html: previewHtml(template.bodyHtml, values, sendMode === "building"),
                   }}
                 />
               </div>
@@ -355,10 +530,19 @@ export default function GenerateLetterPage() {
                 Ce modèle de courrier est conforme à la législation en vigueur
                 (loi n°89-462 du 6 juillet 1989).
               </p>
-              <p>
-                Le PDF généré peut être imprimé ou envoyé directement par email
-                au locataire sélectionné.
-              </p>
+              {sendMode === "building" ? (
+                <p>
+                  En mode immeuble, un courrier personnalisé est généré pour
+                  chaque locataire, envoyé par email et sauvegardé dans
+                  son espace personnel (portail locataire).
+                </p>
+              ) : (
+                <p>
+                  Le PDF généré peut être imprimé ou envoyé directement par email
+                  au locataire sélectionné. Le courrier sera aussi disponible
+                  dans l&apos;espace personnel du locataire.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -368,8 +552,12 @@ export default function GenerateLetterPage() {
 }
 
 /** Prévisualise le HTML en remplaçant les variables par les valeurs saisies ou des placeholders */
-function previewHtml(bodyHtml: string, values: Record<string, string>): string {
+function previewHtml(bodyHtml: string, values: Record<string, string>, isBuildingMode: boolean): string {
+  const tenantKeys = ["LOCATAIRE_NOM", "LOCATAIRE_ADRESSE", "ADRESSE_LOT", "DATE_DEBUT_BAIL", "DATE_FIN_BAIL", "MONTANT_LOYER", "MONTANT_CHARGES"];
   return bodyHtml.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    if (isBuildingMode && tenantKeys.includes(key)) {
+      return `<span class="text-muted-foreground italic">[par locataire]</span>`;
+    }
     const val = values[key];
     if (val) return `<strong class="text-primary">${val}</strong>`;
     return `<span class="text-muted-foreground italic">[${key}]</span>`;
