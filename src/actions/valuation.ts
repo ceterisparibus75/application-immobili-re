@@ -239,14 +239,6 @@ export async function runAiAnalysis(
       const values = analyses.filter((a) => a.estimatedValue != null).map((a) => a.estimatedValue!);
       if (values.length > 0) {
         const estimatedValueMid = values.reduce((a, b) => a + b, 0) / values.length;
-        const estimatedRentalValue = average(analyses.map((a) => a.rentalValue));
-
-        // Recalculer le taux de capitalisation à partir des valeurs moyennées
-        // Cap rate = Valeur locative / Valeur vénale (cohérence mathématique)
-        const capitalizationRate =
-          estimatedRentalValue && estimatedValueMid > 0
-            ? Math.round((estimatedRentalValue / estimatedValueMid) * 1000) / 10
-            : average(analyses.map((a) => a.capRate));
 
         await prisma.propertyValuation.update({
           where: { id: valuationId },
@@ -255,9 +247,9 @@ export async function runAiAnalysis(
             estimatedValueLow: Math.min(...values),
             estimatedValueMid,
             estimatedValueHigh: Math.max(...values),
-            estimatedRentalValue,
+            estimatedRentalValue: average(analyses.map((a) => a.rentalValue)),
             pricePerSqm: average(analyses.map((a) => a.pricePerSqm)),
-            capitalizationRate,
+            capitalizationRate: average(analyses.map((a) => a.capRate)),
           },
         });
 
