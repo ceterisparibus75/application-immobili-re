@@ -176,7 +176,7 @@ export async function cancelSepaMandate(
 
 // ── Lister les mandats d'un locataire ──────────────────────
 
-export async function getSepaMandaltes(
+export async function getSepaMandates(
   societyId: string,
   tenantId: string
 ) {

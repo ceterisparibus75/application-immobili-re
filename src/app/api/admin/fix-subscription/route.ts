@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getStripe, planIdFromPriceId } from "@/lib/stripe";
 
 export async function POST(request: NextRequest) {
-  const { secret } = await request.json();
-  if (secret !== process.env.CRON_SECRET) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

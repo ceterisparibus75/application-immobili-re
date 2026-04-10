@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
+import { requireSocietyAccess } from "@/lib/permissions";
 import ExcelJS from "exceljs";
 
 export type ParsedEntry = {
@@ -190,6 +192,14 @@ async function parseExcel(arrayBuffer: ArrayBuffer): Promise<ParsedEntry[]> {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Non authentifié" } },
+        { status: 401 }
+      );
+    }
+
     const cookieStore = await cookies();
     const societyId = cookieStore.get("active-society-id")?.value;
     if (!societyId) {
@@ -198,6 +208,8 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     if (!file) {
