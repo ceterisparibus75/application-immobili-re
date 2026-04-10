@@ -507,6 +507,264 @@ export async function getOwnerProfile(): Promise<ActionResult<{
   return { success: true, data: user };
 }
 
+// ── Consolidated data for proprietaire tabs ──
+
+export type ConsolidatedBuilding = {
+  id: string;
+  name: string;
+  city: string;
+  buildingType: string;
+  totalArea: number;
+  totalLots: number;
+  occupiedLots: number;
+  annualRent: number;
+  totalCost: number;
+  venalValue: number | null;
+  yieldRate: number | null;
+  societyName: string;
+  societyId: string;
+};
+
+export type ConsolidatedLease = {
+  id: string;
+  lotLabel: string;
+  buildingName: string;
+  buildingCity: string;
+  tenantName: string;
+  status: string;
+  leaseType: string;
+  destination: string | null;
+  startDate: Date;
+  endDate: Date | null;
+  currentRentHT: number;
+  paymentFrequency: string;
+  indexType: string | null;
+  lastRevisionDate: Date | null;
+  societyName: string;
+  societyId: string;
+};
+
+export type ConsolidatedLoan = {
+  id: string;
+  label: string;
+  lender: string;
+  loanType: string;
+  status: string;
+  amount: number;
+  interestRate: number;
+  insuranceRate: number | null;
+  durationMonths: number;
+  startDate: Date;
+  endDate: Date | null;
+  remainingBalance: number;
+  currentPeriod: number;
+  monthlyPayment: number;
+  buildingName: string | null;
+  buildingCity: string | null;
+  societyName: string;
+  societyId: string;
+};
+
+const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+
+async function getOwnerSocietyIds(userId: string, proprietaireId?: string): Promise<string[]> {
+  const where = proprietaireId
+    ? { proprietaireId, proprietaire: { userId } }
+    : { ownerId: userId };
+  const societies = await prisma.society.findMany({
+    where,
+    select: { id: true },
+  });
+  return societies.map((s) => s.id);
+}
+
+export async function getConsolidatedBuildings(proprietaireId?: string): Promise<ActionResult<ConsolidatedBuilding[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    const ids = await getOwnerSocietyIds(session.user.id, proprietaireId);
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const buildings = await prisma.building.findMany({
+      where: { societyId: { in: ids } },
+      include: {
+        society: { select: { id: true, name: true } },
+        lots: {
+          select: {
+            status: true,
+            area: true,
+            leases: {
+              where: { status: "EN_COURS" },
+              select: { currentRentHT: true, paymentFrequency: true },
+              take: 1,
+            },
+          },
+        },
+        propertyValuations: {
+          where: { status: "COMPLETED" },
+          select: { estimatedValueMid: true },
+          orderBy: { valuationDate: "desc" },
+          take: 1,
+        },
+        additionalAcquisitions: {
+          select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const data: ConsolidatedBuilding[] = buildings.map((b) => {
+      const occupied = b.lots.filter((l) => l.status === "OCCUPE").length;
+      const annualRent = b.lots.reduce((s, lot) => {
+        const lease = lot.leases[0];
+        if (!lease) return s;
+        return s + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12);
+      }, 0);
+      const baseCost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
+      const additionalCost = (b.additionalAcquisitions ?? []).reduce((s, a) => s + (a.acquisitionPrice ?? 0) + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0), 0);
+      const totalCost = baseCost + additionalCost;
+      const venalValue = b.propertyValuations?.[0]?.estimatedValueMid ?? null;
+      const yieldRate = totalCost > 0 && annualRent > 0 ? Math.round((annualRent / totalCost) * 1000) / 10 : null;
+      const totalArea = b.totalArea ?? b.lots.reduce((s, l) => s + (l.area ?? 0), 0);
+
+      return {
+        id: b.id,
+        name: b.name,
+        city: b.city,
+        buildingType: b.buildingType,
+        totalArea,
+        totalLots: b.lots.length,
+        occupiedLots: occupied,
+        annualRent,
+        totalCost,
+        venalValue,
+        yieldRate,
+        societyName: b.society.name,
+        societyId: b.society.id,
+      };
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("[getConsolidatedBuildings]", error);
+    return { success: false, error: "Erreur lors du chargement des immeubles consolidés" };
+  }
+}
+
+export async function getConsolidatedLeases(proprietaireId?: string): Promise<ActionResult<ConsolidatedLease[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    const ids = await getOwnerSocietyIds(session.user.id, proprietaireId);
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const leases = await prisma.lease.findMany({
+      where: { societyId: { in: ids } },
+      include: {
+        society: { select: { id: true, name: true } },
+        lot: {
+          select: {
+            number: true,
+            building: { select: { name: true, postalCode: true, city: true } },
+          },
+        },
+        tenant: {
+          select: { entityType: true, companyName: true, firstName: true, lastName: true },
+        },
+        rentRevisions: {
+          where: { isValidated: true },
+          orderBy: { effectiveDate: "desc" },
+          take: 1,
+          select: { effectiveDate: true },
+        },
+      },
+      orderBy: [{ status: "asc" }, { startDate: "desc" }],
+    });
+
+    const data: ConsolidatedLease[] = leases.map((l) => ({
+      id: l.id,
+      lotLabel: `Lot ${l.lot.number}`,
+      buildingName: l.lot.building.name,
+      buildingCity: `${l.lot.building.postalCode} ${l.lot.building.city}`,
+      tenantName: l.tenant.entityType === "PERSONNE_MORALE"
+        ? (l.tenant.companyName ?? "—")
+        : `${l.tenant.firstName ?? ""} ${l.tenant.lastName ?? ""}`.trim() || "—",
+      status: l.status,
+      leaseType: l.leaseType,
+      destination: l.destination,
+      startDate: l.startDate,
+      endDate: l.endDate,
+      currentRentHT: l.currentRentHT,
+      paymentFrequency: l.paymentFrequency,
+      indexType: l.indexType,
+      lastRevisionDate: l.rentRevisions?.[0]?.effectiveDate ?? null,
+      societyName: l.society.name,
+      societyId: l.society.id,
+    }));
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("[getConsolidatedLeases]", error);
+    return { success: false, error: "Erreur lors du chargement des baux consolidés" };
+  }
+}
+
+export async function getConsolidatedLoans(proprietaireId?: string): Promise<ActionResult<ConsolidatedLoan[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    const ids = await getOwnerSocietyIds(session.user.id, proprietaireId);
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const loans = await prisma.loan.findMany({
+      where: { societyId: { in: ids } },
+      include: {
+        society: { select: { id: true, name: true } },
+        building: { select: { name: true, city: true } },
+        amortizationLines: {
+          where: { isPaid: true },
+          orderBy: { period: "desc" },
+          take: 1,
+          select: { remainingBalance: true, period: true, totalPayment: true },
+        },
+      },
+      orderBy: [{ status: "asc" }, { startDate: "desc" }],
+    });
+
+    const data: ConsolidatedLoan[] = loans.map((l) => {
+      const lastLine = l.amortizationLines[0];
+      return {
+        id: l.id,
+        label: l.label,
+        lender: l.lender || "Autre",
+        loanType: l.loanType,
+        status: l.status,
+        amount: l.amount,
+        interestRate: l.interestRate,
+        insuranceRate: l.insuranceRate,
+        durationMonths: l.durationMonths,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        remainingBalance: lastLine?.remainingBalance ?? l.amount,
+        currentPeriod: lastLine?.period ?? 0,
+        monthlyPayment: lastLine?.totalPayment ?? 0,
+        buildingName: l.building?.name ?? null,
+        buildingCity: l.building?.city ?? null,
+        societyName: l.society.name,
+        societyId: l.society.id,
+      };
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("[getConsolidatedLoans]", error);
+    return { success: false, error: "Erreur lors du chargement des emprunts consolidés" };
+  }
+}
+
 export async function updateOwnerProfile(input: OwnerProfileInput): Promise<ActionResult<void>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
