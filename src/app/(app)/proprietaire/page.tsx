@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getOwnerAnalytics, getClaimableSocieties } from "@/actions/owner";
+import { getOwnerAnalytics, getClaimableSocieties, getConsolidatedBuildings, getConsolidatedLeases, getConsolidatedLoans } from "@/actions/owner";
 import { getConsolidatedAnalyticsData } from "@/actions/analytics";
 import { getProprietaires, getProprietaire, migrateOwnerToProprietaire } from "@/actions/proprietaire";
 import { getSocieties } from "@/actions/society";
@@ -8,14 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, Layers, Landmark, Banknote,
-  TrendingUp, Calendar, Wallet, Plus, Clock,
-  BarChart3, ArrowUp, ArrowDown, Home, Users,
-  FileText, Wrench, ShieldCheck,
+  Building2, Landmark, Banknote,
+  TrendingUp, Calendar, Wallet, Plus,
+  ArrowUp, ArrowDown, Home, Users,
+  FileText, Wrench, ChevronRight,
+  CheckCircle2, AlertTriangle, Minus,
 } from "lucide-react";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/permissions";
-import type { UserRole } from "@/generated/prisma/client";
+import type { UserRole, BuildingType, LeaseStatus, LeaseType, LeaseDestination, LoanStatus } from "@/generated/prisma/client";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
@@ -37,6 +38,55 @@ function fmt(n: number) {
 function pct(occupied: number, total: number) {
   if (total === 0) return 0;
   return Math.round((occupied / total) * 100);
+}
+
+const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
+  BUREAU: "Bureau", COMMERCE: "Commerce", MIXTE: "Mixte", ENTREPOT: "Entrepôt",
+};
+
+const LEASE_STATUS_LABELS: Record<LeaseStatus, string> = {
+  EN_COURS: "En cours", RESILIE: "Résilié", RENOUVELE: "Renouvelé",
+  EN_NEGOCIATION: "En négociation", CONTENTIEUX: "Contentieux",
+};
+
+const LEASE_STATUS_COLORS: Record<LeaseStatus, string> = {
+  EN_COURS: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]",
+  RESILIE: "bg-gray-100 text-gray-500",
+  RENOUVELE: "bg-blue-50 text-blue-600",
+  EN_NEGOCIATION: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]",
+  CONTENTIEUX: "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]",
+};
+
+const LEASE_TYPE_LABELS: Record<LeaseType, string> = {
+  HABITATION: "Habitation", MEUBLE: "Meublé", ETUDIANT: "Étudiant", MOBILITE: "Mobilité",
+  COLOCATION: "Colocation", SAISONNIER: "Saisonnier", LOGEMENT_FONCTION: "Logement fonction",
+  ANAH: "ANAH", CIVIL: "Civil", GLISSANT: "Glissant", SOUS_LOCATION: "Sous-location",
+  COMMERCIAL_369: "3-6-9", DEROGATOIRE: "Dérogatoire", PRECAIRE: "Précaire",
+  BAIL_PROFESSIONNEL: "Professionnel", MIXTE: "Mixte", EMPHYTEOTIQUE: "Emphytéotique",
+  CONSTRUCTION: "Construction", REHABILITATION: "Réhabilitation", BRS: "BRS", RURAL: "Rural",
+};
+
+const DESTINATION_LABELS: Record<LeaseDestination, string> = {
+  HABITATION: "Habitation", BUREAU: "Bureau", COMMERCE: "Commerce", ACTIVITE: "Activité",
+  ENTREPOT: "Entrepôt", INDUSTRIEL: "Industriel", PROFESSIONNEL: "Professionnel",
+  MIXTE: "Mixte", PARKING: "Parking", TERRAIN: "Terrain", AGRICOLE: "Agricole",
+  HOTELLERIE: "Hôtellerie", EQUIPEMENT: "Équipement", AUTRE: "Autre",
+};
+
+const LOAN_STATUS_LABELS: Record<LoanStatus, { label: string; color: string }> = {
+  EN_COURS: { label: "En cours", color: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" },
+  TERMINE: { label: "Terminé", color: "bg-gray-100 text-gray-500" },
+  REMBOURSE_ANTICIPE: { label: "Remboursé", color: "bg-blue-50 text-blue-600" },
+};
+
+const LOAN_TYPE_LABELS: Record<string, string> = {
+  AMORTISSABLE: "Amortissable", IN_FINE: "In fine", BULLET: "Bullet",
+};
+
+const FREQ_MULT_ANNUAL: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+
+function formatDate(date: Date | string): string {
+  return new Date(date).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default async function ProprietaireDashboardPage({
@@ -74,10 +124,13 @@ export default async function ProprietaireDashboardPage({
     : proprietaires[0]?.id ?? null;
 
   // Charger les analytics consolidées (même format que le dashboard société) + les analytics owner (pour le tableau par société)
-  const [consolidatedData, ownerResult, proprietaireDetail] = await Promise.all([
+  const [consolidatedData, ownerResult, proprietaireDetail, buildingsResult, leasesResult, loansResult] = await Promise.all([
     getConsolidatedAnalyticsData(activePid ?? undefined),
     getOwnerAnalytics(activePid ?? undefined),
     activePid ? getProprietaire(activePid) : Promise.resolve({ success: false as const, data: undefined, error: "" }),
+    getConsolidatedBuildings(activePid ?? undefined),
+    getConsolidatedLeases(activePid ?? undefined),
+    getConsolidatedLoans(activePid ?? undefined),
   ]);
 
   const claimable = claimableResult.success ? (claimableResult.data ?? []) : [];
@@ -93,6 +146,10 @@ export default async function ProprietaireDashboardPage({
   // Données owner pour les tableaux par société
   const ownerSocieties = ownerData?.societies ?? [];
   const ownerSocietyIds = ownerSocieties.map((s) => s.id);
+  // Données consolidées pour les onglets
+  const consolidatedBuildings = buildingsResult.success ? (buildingsResult.data ?? []) : [];
+  const consolidatedLeases = leasesResult.success ? (leasesResult.data ?? []) : [];
+  const consolidatedLoans = loansResult.success ? (loansResult.data ?? []) : [];
 
   const dashboardContent = data ? (
     <div className="space-y-6">
@@ -604,67 +661,434 @@ export default async function ProprietaireDashboardPage({
     </div>
   );
 
-  const societiesContent = (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {societies.length} société{societies.length > 1 ? "s" : ""}
-        </p>
-        <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
-          <Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
-            <Plus className="h-4 w-4" />
-            Nouvelle société
-          </Button>
-        </Link>
-      </div>
+  // ── Patrimoine tab content ──
+  const totalBuildingLots = consolidatedBuildings.reduce((s, b) => s + b.totalLots, 0);
+  const totalBuildingOccupied = consolidatedBuildings.reduce((s, b) => s + b.occupiedLots, 0);
+  const globalBuildingOccupancy = totalBuildingLots > 0 ? Math.round((totalBuildingOccupied / totalBuildingLots) * 100) : 0;
+  const totalAnnualRent = consolidatedBuildings.reduce((s, b) => s + b.annualRent, 0);
+  const totalCostAll = consolidatedBuildings.reduce((s, b) => s + b.totalCost, 0);
+  const totalVenalValue = consolidatedBuildings.reduce((s, b) => s + (b.venalValue ?? 0), 0);
 
-      {societies.length === 0 ? (
+  const patrimoineContent = (
+    <div className="space-y-5">
+      {/* KPIs */}
+      {consolidatedBuildings.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Immeubles</p>
+            <p className="text-2xl font-bold tabular-nums">{consolidatedBuildings.length}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Occupation</p>
+            <p className="text-2xl font-bold tabular-nums">{totalBuildingOccupied}/{totalBuildingLots} <span className="text-base font-medium text-muted-foreground">({globalBuildingOccupancy}%)</span></p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Revenus annuels HT</p>
+            <p className="text-2xl font-bold tabular-nums">{fmt(totalAnnualRent)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Coût complet</p>
+            <p className="text-2xl font-bold tabular-nums">{totalCostAll > 0 ? fmt(totalCostAll) : "—"}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Valeur vénale totale</p>
+            <p className="text-2xl font-bold tabular-nums">{totalVenalValue > 0 ? fmt(totalVenalValue) : "—"}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      {consolidatedBuildings.length === 0 ? (
         <Card className="border-0 shadow-brand bg-white rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
-              <Building2 className="h-7 w-7 text-[var(--color-brand-blue)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">Aucune société</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Créez votre première société propriétaire pour commencer à gérer votre patrimoine immobilier.
-            </p>
-            <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
-              <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
-                <Plus className="h-4 w-4" />
-                Créer une société
-              </Button>
-            </Link>
+            <Building2 className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun immeuble</h3>
+            <p className="text-sm text-muted-foreground">Ajoutez des immeubles dans vos sociétés pour les voir ici.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {societies.map((society) => (
-            <Link key={society.id} href={`/societes/${society.id}`}>
-              <Card className="border-0 shadow-brand bg-white rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg text-[var(--color-brand-deep)]">{society.name}</CardTitle>
-                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-gray-100 text-gray-500"}`}>
-                      {society.isActive ? "Active" : "Inactive"}
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+          <CardContent className="p-0">
+            <div className="hidden md:grid md:grid-cols-[1fr_100px_75px_110px_110px_110px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Immeuble</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Occup.</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Loyers/an</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Coût complet</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Val. vénale</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Variation</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Rendt.</span>
+            </div>
+            {consolidatedBuildings.map((building, index) => {
+              const occupancyPctB = building.totalLots > 0 ? Math.round((building.occupiedLots / building.totalLots) * 100) : 0;
+              const variation = building.totalCost > 0 && building.venalValue ? Math.round(((building.venalValue - building.totalCost) / building.totalCost) * 1000) / 10 : null;
+              return (
+                <Link
+                  key={building.id}
+                  href={`/patrimoine/immeubles/${building.id}`}
+                  className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedBuildings.length - 1 ? "border-b" : ""}`}
+                >
+                  {/* Desktop */}
+                  <div className="hidden md:grid md:grid-cols-[1fr_100px_75px_110px_110px_110px_80px_80px] gap-2 items-center px-5 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5">
+                        <Building2 className="h-4.5 w-4.5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold truncate">{building.name}</span>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{BUILDING_TYPE_LABELS[building.buildingType as BuildingType] ?? building.buildingType}</Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate block">
+                          {building.city} — {building.totalLots} lot{building.totalLots !== 1 ? "s" : ""}
+                          {building.totalArea > 0 && ` — ${building.totalArea.toLocaleString("fr-FR")} m²`}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate">{building.societyName}</span>
+                    <div className="flex justify-center">
+                      <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full ${occupancyPctB === 100 ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : occupancyPctB >= 50 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]"}`}>
+                        {building.occupiedLots}/{building.totalLots}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium tabular-nums text-right">
+                      {building.annualRent > 0 ? fmt(building.annualRent) : <span className="text-muted-foreground font-normal">—</span>}
                     </span>
+                    <span className="text-sm tabular-nums text-right">
+                      {building.totalCost > 0 ? fmt(building.totalCost) : <span className="text-muted-foreground">—</span>}
+                    </span>
+                    <span className="text-sm tabular-nums text-right">
+                      {building.venalValue ? fmt(building.venalValue) : <span className="text-muted-foreground">—</span>}
+                    </span>
+                    <div className="flex justify-center">
+                      {variation !== null ? (
+                        <span className={`text-sm font-semibold tabular-nums ${variation >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
+                          {variation >= 0 ? "+" : ""}{variation.toFixed(1)}%
+                        </span>
+                      ) : <span className="text-muted-foreground text-sm">—</span>}
+                    </div>
+                    <div className="flex justify-center">
+                      {building.yieldRate !== null ? (
+                        <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-blue)]">{building.yieldRate.toFixed(1)}%</span>
+                      ) : <span className="text-muted-foreground text-sm">—</span>}
+                    </div>
                   </div>
-                  <CardDescription>
-                    {society.legalForm} &bull; {society.siret}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{society.city}</span>
-                    <Badge variant="outline">
-                      {ROLE_LABELS[society.role as UserRole]}
-                    </Badge>
+                  {/* Mobile */}
+                  <div className="md:hidden px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-semibold truncate">{building.name}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{building.societyName}</span>
+                      <span>{building.occupiedLots}/{building.totalLots} occupé{building.occupiedLots > 1 ? "s" : ""}</span>
+                      {building.annualRent > 0 && <span>{fmt(building.annualRent)}/an</span>}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  // ── Baux tab content ──
+  const activeLeasesConsolidated = consolidatedLeases.filter((l) => l.status === "EN_COURS");
+  const otherLeasesConsolidated = consolidatedLeases.filter((l) => l.status !== "EN_COURS");
+  const totalMonthlyRent = activeLeasesConsolidated.reduce((s, l) => s + l.currentRentHT / (FREQ_MULT_ANNUAL[l.paymentFrequency] ?? 12) * 12 / 12, 0);
+
+  const bauxContent = (
+    <div className="space-y-5">
+      {/* Summary */}
+      {consolidatedLeases.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Baux actifs</p>
+            <p className="text-2xl font-bold tabular-nums">{activeLeasesConsolidated.length}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Baux résiliés/autres</p>
+            <p className="text-2xl font-bold tabular-nums">{otherLeasesConsolidated.length}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Loyer mensuel HT</p>
+            <p className="text-2xl font-bold tabular-nums">{fmt(totalMonthlyRent)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Sociétés concernées</p>
+            <p className="text-2xl font-bold tabular-nums">{new Set(consolidatedLeases.map((l) => l.societyId)).size}</p>
+          </div>
         </div>
       )}
+
+      {consolidatedLeases.length === 0 ? (
+        <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun bail</h3>
+            <p className="text-sm text-muted-foreground">Créez des baux dans vos sociétés pour les voir ici.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+          <CardContent className="p-0">
+            <div className="hidden md:grid md:grid-cols-[1fr_120px_100px_90px_100px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Locataire / Lot</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Loyer HT</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Type</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Échéance</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Statut</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Index.</span>
+            </div>
+            {consolidatedLeases.map((lease, index) => {
+              const hasRevision = lease.lastRevisionDate !== null;
+              const revisionRecent = hasRevision && (new Date().getTime() - new Date(lease.lastRevisionDate!).getTime()) < 365 * 24 * 60 * 60 * 1000;
+              const endSoon = lease.endDate && (new Date(lease.endDate).getTime() - new Date().getTime()) < 90 * 24 * 60 * 60 * 1000 && lease.status === "EN_COURS";
+              return (
+                <Link
+                  key={lease.id}
+                  href={`/baux/${lease.id}`}
+                  className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedLeases.length - 1 ? "border-b" : ""}`}
+                >
+                  {/* Desktop */}
+                  <div className="hidden md:grid md:grid-cols-[1fr_120px_100px_90px_100px_80px_80px] gap-2 items-center px-5 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{lease.tenantName}</p>
+                        {endSoon && <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)] shrink-0" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{lease.lotLabel} — {lease.buildingName}, {lease.buildingCity}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate">{lease.societyName}</span>
+                    <span className="text-sm font-medium tabular-nums text-right">{fmt(lease.currentRentHT)}</span>
+                    <span className="text-xs text-center text-muted-foreground">
+                      {lease.destination ? (DESTINATION_LABELS[lease.destination as LeaseDestination] ?? lease.destination) : (LEASE_TYPE_LABELS[lease.leaseType as LeaseType] ?? lease.leaseType)}
+                    </span>
+                    <span className="text-xs text-center text-muted-foreground">
+                      {lease.endDate ? formatDate(lease.endDate) : "—"}
+                    </span>
+                    <div className="flex justify-center">
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-gray-100 text-gray-500"}`}>
+                        {LEASE_STATUS_LABELS[lease.status as LeaseStatus] ?? lease.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-center">
+                      {!lease.indexType ? (
+                        <Minus className="h-3.5 w-3.5 text-muted-foreground/30" />
+                      ) : revisionRecent ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
+                      ) : (
+                        <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
+                      )}
+                    </div>
+                  </div>
+                  {/* Mobile */}
+                  <div className="md:hidden px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium truncate">{lease.tenantName}</span>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-gray-100 text-gray-500"}`}>
+                        {LEASE_STATUS_LABELS[lease.status as LeaseStatus] ?? lease.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{lease.societyName}</span>
+                      <span>{lease.lotLabel}</span>
+                      <span>{fmt(lease.currentRentHT)}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  // ── Emprunts tab content ──
+  const activeLoans = consolidatedLoans.filter((l) => l.status === "EN_COURS");
+  const totalCapital = consolidatedLoans.reduce((s, l) => s + l.amount, 0);
+  const totalRemaining = consolidatedLoans.reduce((s, l) => s + l.remainingBalance, 0);
+  const totalMonthlyPayment = activeLoans.reduce((s, l) => s + (l.remainingBalance > 0 ? l.monthlyPayment : 0), 0);
+
+  const empruntsContent = (
+    <div className="space-y-5">
+      {/* KPIs */}
+      {consolidatedLoans.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Capital emprunté</p>
+            <p className="text-2xl font-bold tabular-nums">{fmt(totalCapital)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Capital restant dû</p>
+            <p className="text-2xl font-bold tabular-nums text-[var(--color-status-negative)]">{fmt(totalRemaining)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Capital remboursé</p>
+            <p className="text-2xl font-bold tabular-nums text-[var(--color-status-positive)]">{fmt(totalCapital - totalRemaining)}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-xs text-muted-foreground font-medium">Échéance mensuelle</p>
+            <p className="text-2xl font-bold tabular-nums">{fmt(totalMonthlyPayment)}</p>
+          </div>
+        </div>
+      )}
+
+      {consolidatedLoans.length === 0 ? (
+        <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Landmark className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun emprunt</h3>
+            <p className="text-sm text-muted-foreground">Ajoutez des emprunts dans vos sociétés pour les voir ici.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+          <CardContent className="p-0">
+            <div className="hidden md:grid md:grid-cols-[1fr_100px_100px_100px_100px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Emprunt</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Capital</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Restant dû</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">Mensualité</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Avancement</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-center">Statut</span>
+            </div>
+            {consolidatedLoans.map((loan, index) => {
+              const pctRepaid = loan.amount > 0 ? Math.round(((loan.amount - loan.remainingBalance) / loan.amount) * 100) : 0;
+              return (
+                <Link
+                  key={loan.id}
+                  href={`/emprunts/${loan.id}`}
+                  className={`block transition-colors hover:bg-accent/50 group ${index < consolidatedLoans.length - 1 ? "border-b" : ""}`}
+                >
+                  {/* Desktop */}
+                  <div className="hidden md:grid md:grid-cols-[1fr_100px_100px_100px_100px_80px_80px] gap-2 items-center px-5 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{loan.label}</p>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{LOAN_TYPE_LABELS[loan.loanType] ?? loan.loanType}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {loan.lender}{loan.buildingName ? ` — ${loan.buildingName}` : ""} — {loan.interestRate}%
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground truncate">{loan.societyName}</span>
+                    <span className="text-sm tabular-nums text-right">{fmt(loan.amount)}</span>
+                    <span className="text-sm font-medium tabular-nums text-right text-[var(--color-status-negative)]">{fmt(loan.remainingBalance)}</span>
+                    <span className="text-sm tabular-nums text-right">{loan.monthlyPayment > 0 ? fmt(loan.monthlyPayment) : "—"}</span>
+                    <div className="flex justify-center">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-12 rounded-full bg-gray-200 overflow-hidden">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${pctRepaid}%` }} />
+                        </div>
+                        <span className="text-[10px] tabular-nums text-muted-foreground">{pctRepaid}%</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-center">
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-gray-100 text-gray-500"}`}>
+                        {LOAN_STATUS_LABELS[loan.status as LoanStatus]?.label ?? loan.status}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Mobile */}
+                  <div className="md:hidden px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium truncate">{loan.label}</span>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-gray-100 text-gray-500"}`}>
+                        {LOAN_STATUS_LABELS[loan.status as LoanStatus]?.label ?? loan.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{loan.societyName}</span>
+                      <span>{loan.lender}</span>
+                      <span>CRD: {fmt(loan.remainingBalance)}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  // ── Profil propriétaire tab content (merged profile + societies) ──
+  const profileContent = (
+    <div className="space-y-6">
+      {/* Formulaire profil propriétaire */}
+      {activePropDetail && <ProprietaireProfileForm proprietaire={activePropDetail} />}
+
+      {/* Sociétés */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-[var(--color-brand-deep)]">
+            Sociétés ({societies.length})
+          </h3>
+          <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
+            <Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nouvelle société
+            </Button>
+          </Link>
+        </div>
+
+        {societies.length === 0 ? (
+          <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
+                <Building2 className="h-7 w-7 text-[var(--color-brand-blue)]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">Aucune société</h3>
+              <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+                Créez votre première société propriétaire pour commencer à gérer votre patrimoine immobilier.
+              </p>
+              <Link href={`/societes/nouvelle${activePid ? `?proprietaireId=${activePid}` : ""}`}>
+                <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  Créer une société
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {societies.map((society) => (
+              <Link key={society.id} href={`/societes/${society.id}`}>
+                <Card className="border-0 shadow-brand bg-white rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg text-[var(--color-brand-deep)]">{society.name}</CardTitle>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-gray-100 text-gray-500"}`}>
+                        {society.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <CardDescription>
+                      {society.legalForm} &bull; {society.siret}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{society.city}</span>
+                      <Badge variant="outline">
+                        {ROLE_LABELS[society.role as UserRole]}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -695,12 +1119,10 @@ export default async function ProprietaireDashboardPage({
 
       <ProprietaireTabs
         dashboardContent={dashboardContent}
-        profileContent={
-          <div className="space-y-6">
-            {activePropDetail && <ProprietaireProfileForm proprietaire={activePropDetail} />}
-          </div>
-        }
-        societiesContent={societiesContent}
+        patrimoineContent={patrimoineContent}
+        bauxContent={bauxContent}
+        empruntsContent={empruntsContent}
+        profileContent={profileContent}
       />
     </div>
   );
