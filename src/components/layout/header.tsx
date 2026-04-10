@@ -47,7 +47,7 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6">
-        <Button variant="ghost" size="icon" className="lg:hidden -ml-2" onClick={() => setMobileMenuOpen(true)}>
+        <Button variant="ghost" size="icon" className="lg:hidden -ml-2" onClick={() => setMobileMenuOpen(true)} aria-label="Ouvrir le menu">
           <Menu className="h-5 w-5" />
         </Button>
 
@@ -62,7 +62,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileSearchOpen(true)}>
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher">
             <Search className="h-4 w-4" />
           </Button>
           <ThemeToggle />

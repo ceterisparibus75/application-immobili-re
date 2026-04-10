@@ -155,3 +155,46 @@
 .shadow-brand-lg {
   box-shadow: 0 2px 8px rgba(12, 35, 64, 0.06), 0 16px 48px rgba(12, 35, 64, 0.08);
 }
+
+/* --- Print stylesheet --- */
+@media print {
+  /* Masquer navigation, sidebar, header, bannières */
+  header, nav, aside,
+  .no-print,
+  [data-sidebar],
+  [role="banner"],
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Reset background et couleurs pour économie d'encre */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  /* Contenu principal en pleine largeur */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Pas de coupure dans les cartes et tableaux */
+  .card, table, tr {
+    break-inside: avoid;
+  }
+
+  /* Liens visibles à l'impression */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+  a[href^="/"]::after,
+  a[href^="#"]::after {
+    content: none;
+  }
+}

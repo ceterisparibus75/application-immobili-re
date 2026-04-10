@@ -14,15 +14,16 @@ type BannerState = {
 export function SubscriptionBanner() {
   const { activeSociety } = useSociety();
   const [banner, setBanner] = useState<BannerState>({ type: null, message: "" });
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+
+  const societyId = activeSociety?.id;
 
   useEffect(() => {
-    if (!activeSociety?.id) return;
-    setDismissed(false);
+    if (!societyId) return;
 
     async function checkStatus() {
       try {
-        const res = await fetch(`/api/subscription/status?societyId=${activeSociety!.id}`);
+        const res = await fetch(`/api/subscription/status?societyId=${societyId}`);
         if (!res.ok) return;
         const data = await res.json();
         setBanner(data);
@@ -31,9 +32,9 @@ export function SubscriptionBanner() {
       }
     }
     checkStatus();
-  }, [activeSociety?.id]);
+  }, [societyId]);
 
-  if (!banner.type || dismissed) return null;
+  if (!banner.type || dismissed === societyId) return null;
 
   const styles = {
     trial_warning: "bg-[var(--color-status-caution-bg)] border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]",
@@ -60,7 +61,7 @@ export function SubscriptionBanner() {
         {banner.type === "trial_warning" ? "Souscrire" : "Gérer l'abonnement"}
       </Link>
       {banner.type === "trial_warning" && (
-        <button onClick={() => setDismissed(true)} className="shrink-0 p-0.5 rounded hover:bg-[var(--color-status-caution)]/10">
+        <button onClick={() => setDismissed(societyId ?? null)} className="shrink-0 p-0.5 rounded hover:bg-[var(--color-status-caution)]/10" aria-label="Fermer la bannière">
           <X className="h-3.5 w-3.5" />
         </button>
       )}

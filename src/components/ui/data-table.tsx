@@ -329,6 +329,7 @@ export function DataTable<T>({
             className="h-8 w-8"
             disabled={page <= 1}
             onClick={() => handlePageChange(1)}
+            aria-label="Première page"
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
@@ -338,6 +339,7 @@ export function DataTable<T>({
             className="h-8 w-8"
             disabled={page <= 1}
             onClick={() => handlePageChange(page - 1)}
+            aria-label="Page précédente"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -350,6 +352,7 @@ export function DataTable<T>({
             className="h-8 w-8"
             disabled={page >= totalPages}
             onClick={() => handlePageChange(page + 1)}
+            aria-label="Page suivante"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -359,6 +362,7 @@ export function DataTable<T>({
             className="h-8 w-8"
             disabled={page >= totalPages}
             onClick={() => handlePageChange(totalPages)}
+            aria-label="Dernière page"
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>
