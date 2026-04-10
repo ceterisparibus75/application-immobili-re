@@ -131,7 +131,11 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   // 5. Evolution patrimoine (cumul par date acquisition)
   const buildingsForPatrimony = await prisma.building.findMany({
     where: { societyId },
-    select: { id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true },
+    select: {
+      id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true,
+      acquisitionFees: true, acquisitionTaxes: true, acquisitionOtherCosts: true, worksCost: true,
+      additionalAcquisitions: { select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true } },
+    },
     orderBy: { acquisitionDate: "asc" },
   });
 
@@ -311,9 +315,16 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   }
   const activeLoanCount = activeLoansForDebt.length;
 
-  // Valeur patrimoine = dernière évaluation IA ou marketValue
+  // LTV basé sur le coût complet (prix + frais + taxes + travaux + acquisitions complémentaires)
+  const totalCostForLtv = buildingsForPatrimony.reduce((s, b) => {
+    let cost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
+    for (const aa of b.additionalAcquisitions) {
+      cost += (aa.acquisitionPrice ?? 0) + (aa.acquisitionFees ?? 0) + (aa.acquisitionTaxes ?? 0) + (aa.otherCosts ?? 0);
+    }
+    return s + cost;
+  }, 0);
   const patrimonyValue = totalPatrimony;
-  const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
+  const ltv = totalCostForLtv > 0 ? Math.round((totalDebt / totalCostForLtv) * 1000) / 10 : null;
 
   // 14. Patrimoine détaillé : immeubles, lots, locataires, baux, diagnostics, maintenances
   const in90DaysDiag = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
@@ -512,7 +523,11 @@ async function fetchConsolidatedAnalytics(societyIds: string[]): Promise<Analyti
   // 5. Évolution patrimoine
   const buildingsForPatrimony = await prisma.building.findMany({
     where: { societyId: { in: societyIds } },
-    select: { id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true },
+    select: {
+      id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true,
+      acquisitionFees: true, acquisitionTaxes: true, acquisitionOtherCosts: true, worksCost: true,
+      additionalAcquisitions: { select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true } },
+    },
     orderBy: { acquisitionDate: "asc" },
   });
 
@@ -683,8 +698,16 @@ async function fetchConsolidatedAnalytics(societyIds: string[]): Promise<Analyti
     }
   }
   const activeLoanCount = activeLoansForDebt.length;
+  // LTV basé sur le coût complet (prix + frais + taxes + travaux + acquisitions complémentaires)
+  const totalCostForLtv = buildingsForPatrimony.reduce((s, b) => {
+    let cost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
+    for (const aa of b.additionalAcquisitions) {
+      cost += (aa.acquisitionPrice ?? 0) + (aa.acquisitionFees ?? 0) + (aa.acquisitionTaxes ?? 0) + (aa.otherCosts ?? 0);
+    }
+    return s + cost;
+  }, 0);
   const patrimonyValue = totalPatrimony;
-  const ltv = patrimonyValue > 0 ? Math.round((totalDebt / patrimonyValue) * 1000) / 10 : null;
+  const ltv = totalCostForLtv > 0 ? Math.round((totalDebt / totalCostForLtv) * 1000) / 10 : null;
 
   // 14. Compteurs détaillés
   const in90DaysDiag = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
