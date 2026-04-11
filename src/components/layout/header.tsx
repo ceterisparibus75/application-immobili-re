@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle } from "lucide-react";
+import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle, Settings, ScrollText, Merge, Shield } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { MobileSidebar } from "./mobile-sidebar";
 import { useSociety } from "@/providers/society-provider";
@@ -114,6 +114,35 @@ export function Header() {
                     >
                       <CreditCard className="h-4 w-4 text-muted-foreground" />
                       Abonnement
+                    </Link>
+                    <Link
+                      href="/parametres"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Settings className="h-4 w-4 text-muted-foreground" />
+                      Paramètres
+                    </Link>
+                  </div>
+                  <div className="p-1.5 border-t">
+                    <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      Administration
+                    </p>
+                    <Link
+                      href="/administration/audit"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <ScrollText className="h-4 w-4 text-muted-foreground" />
+                      Journal d&apos;audit
+                    </Link>
+                    <Link
+                      href="/administration/fusions"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Merge className="h-4 w-4 text-muted-foreground" />
+                      Fusions
                     </Link>
                   </div>
                   <div className="p-1.5 border-t">

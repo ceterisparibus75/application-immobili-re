@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText } from "lucide-react";
+import {
+  ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
+  Building2, Layers, Bot, Upload,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
 import { ProprietaireSwitcher } from "./proprietaire-switcher";
@@ -22,27 +25,38 @@ interface NavItem {
 
 const NAV_ITEMS_BEFORE: NavItem[] = [
   { name: "Dashboard", href: "/dashboard" },
-  { name: "Patrimoine", href: "/patrimoine" },
 ];
 
-const NAV_ITEMS_AFTER_BAUX: NavItem[] = [
-  { name: "Locataires", href: "/locataires" },
+// ── Sous-items du menu "Patrimoine" ──────────────────────────────
+
+const PATRIMOINE_ITEMS = [
+  { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
+  { name: "Lots", href: "/patrimoine/lots", icon: Layers },
+  { name: "Évaluations IA", href: "/patrimoine/evaluations", icon: Bot },
 ];
+
+const PATRIMOINE_PATHS = ["/patrimoine"];
 
 // ── Sous-items du menu "Baux" ──────────────────────────────────
 
 const BAUX_ITEMS = [
   { name: "Liste des baux", href: "/baux", icon: FileText },
   { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
+  { name: "Import bail PDF", href: "/import", icon: Upload },
 ];
 
-const BAUX_PATHS = ["/baux", "/indices"];
+const BAUX_PATHS = ["/baux", "/indices", "/import"];
+
+const NAV_ITEMS_AFTER_BAUX: NavItem[] = [
+  { name: "Locataires", href: "/locataires" },
+];
 
 const NAV_ITEMS_AFTER: NavItem[] = [
   { name: "Banque", href: "/banque" },
   { name: "Emprunts", href: "/emprunts" },
   { name: "Comptabilité", href: "/comptabilite" },
   { name: "Prévisionnel", href: "/comptabilite/previsionnel" },
+  { name: "Cash-flow", href: "/comptabilite/cashflow" },
   { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
@@ -64,6 +78,10 @@ const GESTION_LOCATIVE_PATHS = GESTION_LOCATIVE_ITEMS.map((i) => i.href);
 
 export function TopNav() {
   const pathname = usePathname();
+
+  const isPatrimoineActive = PATRIMOINE_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
 
   const isBauxActive = BAUX_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
@@ -95,6 +113,40 @@ export function TopNav() {
             {NAV_ITEMS_BEFORE.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
+
+            {/* Menu déroulant Patrimoine */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap outline-none",
+                  isPatrimoineActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                )}
+              >
+                Patrimoine
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {PATRIMOINE_ITEMS.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer",
+                          isActive && "text-primary font-medium"
+                        )}
+                      >
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Menu déroulant Baux */}
             <DropdownMenu>
