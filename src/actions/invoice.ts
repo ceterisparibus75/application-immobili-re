@@ -207,10 +207,16 @@ export async function recordPayment(
 
     revalidatePath("/facturation");
     revalidatePath(`/facturation/${parsed.data.invoiceId}`);
-    // Mettre à jour la fiche comptable du locataire
     revalidatePath("/locataires");
     if (invoice.tenantId) {
       revalidatePath(`/locataires/${invoice.tenantId}`);
+    }
+
+    // Génération automatique de quittance si l'appel de loyer est entièrement payé
+    if (newStatus === "PAYE" && invoice.invoiceType === "APPEL_LOYER") {
+      generateAndSendQuittance(societyId, parsed.data.invoiceId, new Date(parsed.data.paidAt)).catch((err) => {
+        console.error("[recordPayment] Quittance auto échouée:", err);
+      });
     }
 
     return { success: true, data: { id: payment.id } };
@@ -219,6 +225,289 @@ export async function recordPayment(
     console.error("[recordPayment]", error);
     return { success: false, error: "Erreur lors de l'enregistrement du paiement" };
   }
+}
+
+// ============================================================
+// GENERATION AUTOMATIQUE DE QUITTANCE
+// ============================================================
+
+/**
+ * Génère automatiquement une quittance depuis un appel de loyer payé,
+ * envoie par email et dépose dans l'espace locataire.
+ * Appelée après un rapprochement bancaire réussi.
+ */
+export async function generateAndSendQuittance(
+  societyId: string,
+  paidInvoiceId: string,
+  paymentDate: Date
+): Promise<ActionResult<{ quittanceId: string }>> {
+  try {
+    // 1. Récupérer la facture payée avec ses lignes
+    const paidInvoice = await prisma.invoice.findFirst({
+      where: { id: paidInvoiceId, societyId },
+      include: {
+        lines: true,
+        tenant: true,
+        lease: { select: { id: true, lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
+        payments: { orderBy: { paidAt: "asc" } },
+        society: true,
+      },
+    });
+    if (!paidInvoice) return { success: false, error: "Facture introuvable" };
+    if (paidInvoice.invoiceType !== "APPEL_LOYER") return { success: false, error: "Seuls les appels de loyer génèrent des quittances" };
+
+    // Vérifier qu'une quittance n'existe pas déjà pour cette période
+    const existingQuittance = await prisma.invoice.findFirst({
+      where: {
+        societyId,
+        tenantId: paidInvoice.tenantId,
+        invoiceType: "QUITTANCE",
+        periodStart: paidInvoice.periodStart,
+        periodEnd: paidInvoice.periodEnd,
+      },
+    });
+    if (existingQuittance) return { success: true, data: { quittanceId: existingQuittance.id } };
+
+    // 2. Créer la quittance (copie de l'appel de loyer avec type QUITTANCE)
+    const quittance = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      return tx.invoice.create({
+        data: {
+          societyId,
+          tenantId: paidInvoice.tenantId,
+          leaseId: paidInvoice.leaseId,
+          invoiceNumber,
+          invoiceType: "QUITTANCE",
+          status: "VALIDEE",
+          issueDate: new Date(),
+          dueDate: paymentDate,
+          periodStart: paidInvoice.periodStart,
+          periodEnd: paidInvoice.periodEnd,
+          totalHT: paidInvoice.totalHT,
+          totalVAT: paidInvoice.totalVAT,
+          totalTTC: paidInvoice.totalTTC,
+          lines: {
+            create: paidInvoice.lines.map((l) => ({
+              label: l.label,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              vatRate: l.vatRate,
+              totalHT: l.totalHT,
+              totalVAT: l.totalVAT,
+              totalTTC: l.totalTTC,
+            })),
+          },
+        },
+      });
+    });
+
+    // 3. Copier le paiement sur la quittance pour indiquer qu'elle est réglée
+    await prisma.payment.create({
+      data: {
+        invoiceId: quittance.id,
+        amount: paidInvoice.totalTTC,
+        paidAt: paymentDate,
+        method: "virement",
+      },
+    });
+    await prisma.invoice.update({
+      where: { id: quittance.id },
+      data: { status: "PAYE" },
+    });
+
+    // 4. Générer le PDF, envoyer par email et déposer dans l'espace locataire
+    // Ceci est fait en arrière-plan pour ne pas bloquer le rapprochement
+    generateQuittancePdfAndSend(societyId, quittance.id, paidInvoice).catch((err) => {
+      console.error("[generateAndSendQuittance] Envoi email/PDF échoué:", err);
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath("/locataires");
+    if (paidInvoice.tenantId) {
+      revalidatePath(`/locataires/${paidInvoice.tenantId}`);
+    }
+
+    return { success: true, data: { quittanceId: quittance.id } };
+  } catch (error) {
+    console.error("[generateAndSendQuittance]", error);
+    return { success: false, error: "Erreur lors de la génération de la quittance" };
+  }
+}
+
+/**
+ * Génère le PDF de la quittance, l'envoie par email et le dépose dans Supabase.
+ * Exécuté en arrière-plan (non bloquant pour le rapprochement).
+ */
+async function generateQuittancePdfAndSend(
+  societyId: string,
+  quittanceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  originalInvoice: any
+) {
+  const { renderToBuffer } = await import("@react-pdf/renderer");
+  const { InvoicePdf } = await import("@/lib/invoice-pdf");
+  const { sendReceiptEmail } = await import("@/lib/email");
+  const { getAllEmailCopyBcc } = await import("@/lib/email-copy");
+  const { createClient } = await import("@supabase/supabase-js");
+  const React = (await import("react")).default;
+
+  const quittance = await prisma.invoice.findFirst({
+    where: { id: quittanceId },
+    include: {
+      lines: true,
+      payments: { orderBy: { paidAt: "asc" } },
+      society: true,
+      tenant: true,
+      lease: { select: { lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
+    },
+  });
+  if (!quittance) return;
+
+  const soc = quittance.society;
+  const tenant = quittance.tenant;
+  const to = tenant.billingEmail || tenant.email;
+  if (!to) return;
+
+  // Déchiffrement IBAN/BIC
+  let iban: string | null = null;
+  let bic: string | null = null;
+  try {
+    if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
+    if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
+  } catch { /* non bloquant */ }
+
+  // Logo
+  let logoSignedUrl: string | null = null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = url && key ? createClient(url, key) : null;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+
+  if (soc?.logoUrl && supabase) {
+    try {
+      const cleanPath = soc.logoUrl.replace(/\.\.\//g, "").replace(/^\//, "");
+      let storagePath = cleanPath;
+      if (cleanPath.startsWith("http")) {
+        const m = cleanPath.match(/\/storage\/v1\/object\/(?:upload\/sign\/|sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/);
+        storagePath = m ? m[1] : "";
+      }
+      if (storagePath) {
+        const { data: blob } = await supabase.storage.from(bucket).download(storagePath);
+        if (blob) {
+          const ab = await blob.arrayBuffer();
+          const b64 = Buffer.from(ab).toString("base64");
+          const mime = /\.png$/i.test(storagePath) ? "image/png" : "image/jpeg";
+          logoSignedUrl = `data:${mime};base64,${b64}`;
+        }
+      }
+    } catch { /* non bloquant */ }
+  }
+
+  const tenantName = tenant.entityType === "PERSONNE_MORALE"
+    ? (tenant.companyName ?? "—")
+    : (`${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—");
+  const tenantAddress = tenant.entityType === "PERSONNE_MORALE"
+    ? tenant.companyAddress
+    : tenant.personalAddress;
+
+  const pdfData = {
+    invoiceNumber: quittance.invoiceNumber,
+    invoiceType: "QUITTANCE",
+    issueDate: quittance.issueDate.toISOString(),
+    dueDate: quittance.dueDate.toISOString(),
+    periodStart: quittance.periodStart?.toISOString() ?? null,
+    periodEnd: quittance.periodEnd?.toISOString() ?? null,
+    totalHT: quittance.totalHT,
+    totalVAT: quittance.totalVAT,
+    totalTTC: quittance.totalTTC,
+    previousBalance: 0,
+    isAvoir: false,
+    society: soc ? {
+      name: soc.name, addressLine1: soc.addressLine1, postalCode: soc.postalCode,
+      city: soc.city, country: soc.country, phone: soc.phone, siret: soc.siret,
+      vatNumber: soc.vatNumber, legalForm: soc.legalForm, shareCapital: soc.shareCapital,
+      bankName: soc.bankName, vatRegime: soc.vatRegime, legalMentions: soc.legalMentions,
+      signatoryName: soc.signatoryName, logoSignedUrl, iban, bic, email: soc.email ?? null,
+    } : null,
+    tenant: { name: tenantName, address: tenantAddress ?? null, email: to },
+    lotLabel: quittance.lease?.lot
+      ? `${quittance.lease.lot.building.name} - Lot ${quittance.lease.lot.number}`
+      : null,
+    lines: quittance.lines.map((l) => ({
+      label: l.label, lotNumber: null, totalHT: l.totalHT, vatRate: l.vatRate, totalTTC: l.totalTTC,
+    })),
+    payments: quittance.payments.map((p) => ({
+      paidAt: p.paidAt.toISOString(), method: p.method ?? null, amount: p.amount,
+    })),
+    creditNoteForNumber: null,
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfBuffer = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
+
+  const period = quittance.periodStart
+    ? new Date(quittance.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+    : new Date(quittance.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+  const lotAddress = quittance.lease?.lot?.building?.addressLine1 ?? "";
+  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
+  const pdfFileName = [quittance.invoiceNumber, sanitize(lotAddress), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
+
+  // Envoi email
+  const bcc = await getAllEmailCopyBcc(societyId);
+  await sendReceiptEmail({
+    to,
+    tenantName,
+    invoiceRef: quittance.invoiceNumber,
+    amount: quittance.totalTTC,
+    period,
+    paidAt: quittance.payments[0]
+      ? new Date(quittance.payments[0].paidAt).toLocaleDateString("fr-FR")
+      : new Date().toLocaleDateString("fr-FR"),
+    societyName: soc?.name ?? "",
+    pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
+    bcc,
+  });
+
+  // Dépôt dans Supabase + enregistrement document
+  if (supabase) {
+    const year = new Date(quittance.issueDate).getFullYear();
+    const docStoragePath = `quittances/${societyId}/${year}/${pdfFileName}`;
+
+    await supabase.storage.from(bucket).upload(docStoragePath, pdfBuffer, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+
+    await prisma.invoice.update({
+      where: { id: quittanceId },
+      data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to, status: "ENVOYEE" },
+    });
+
+    await prisma.document.create({
+      data: {
+        societyId,
+        tenantId: quittance.tenantId,
+        ...(quittance.leaseId ? { leaseId: quittance.leaseId } : {}),
+        fileName: pdfFileName,
+        fileUrl: docStoragePath,
+        storagePath: docStoragePath,
+        fileSize: pdfBuffer.length,
+        mimeType: "application/pdf",
+        category: "quittance",
+        description: `Quittance ${quittance.invoiceNumber} générée automatiquement le ${new Date().toLocaleDateString("fr-FR")}`,
+      },
+    });
+  }
+
+  await createAuditLog({
+    societyId,
+    userId: "system",
+    action: "SEND_EMAIL",
+    entity: "Invoice",
+    entityId: quittanceId,
+    details: { to, invoiceNumber: quittance.invoiceNumber, type: "AUTO_QUITTANCE" },
+  });
 }
 
 export async function getInvoices(societyId: string) {

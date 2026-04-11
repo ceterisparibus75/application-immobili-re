@@ -7,6 +7,7 @@ import { createAuditLog } from "@/lib/audit";
 import { bankReconciliationSchema, type BankReconciliationInput } from "@/validations/bank";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { generateAndSendQuittance } from "@/actions/invoice";
 
 // ─── Données pour le rapprochement ────────────────────────────────────────────
 
@@ -589,11 +590,18 @@ export async function reconcileWithInvoice(
     revalidatePath("/banque");
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     revalidatePath("/facturation");
-    // Mettre à jour la fiche comptable du locataire
     revalidatePath("/locataires");
     if (invoice.tenantId) {
       revalidatePath(`/locataires/${invoice.tenantId}`);
     }
+
+    // Génération automatique de quittance si l'appel de loyer est entièrement payé
+    if (newStatus === "PAYE" && invoice.invoiceType === "APPEL_LOYER") {
+      generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate).catch((err) => {
+        console.error("[reconcileWithInvoice] Quittance auto échouée:", err);
+      });
+    }
+
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
