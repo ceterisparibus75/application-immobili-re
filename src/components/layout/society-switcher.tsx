@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 
 function getInitials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -49,7 +50,7 @@ export function SocietySwitcher() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold leading-tight truncate text-[#0C2340]">{activeSociety.name}</p>
-          <p className="text-[10px] leading-tight text-[#94A3B8] truncate">{activeSociety.legalForm}</p>
+          <p className="text-[10px] leading-tight text-[#94A3B8] truncate">{LEGAL_FORM_LABELS[activeSociety.legalForm] ?? activeSociety.legalForm}</p>
         </div>
         {canSwitch && (
           <ChevronDown className={cn("h-3 w-3 text-[#94A3B8] shrink-0 transition-transform duration-150", open && "rotate-180")} />
@@ -87,7 +88,7 @@ export function SocietySwitcher() {
                       "font-semibold truncate leading-tight text-sm",
                       isActive ? "text-[#1B4F8A]" : "text-[#0C2340]",
                     )}>{s.name}</p>
-                    <p className="text-[11px] text-[#94A3B8] leading-tight">{s.legalForm} · {s.city}</p>
+                    <p className="text-[11px] text-[#94A3B8] leading-tight">{LEGAL_FORM_LABELS[s.legalForm] ?? s.legalForm} · {s.city}</p>
                   </div>
                   {isActive && (
                     <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-gradient-soft">

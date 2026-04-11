@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { LEGAL_FORMS, TAX_REGIMES, VAT_REGIMES } from "@/lib/constants";
+import { LEGAL_FORMS, TAX_REGIMES, VAT_REGIMES, FISCAL_REGIMES } from "@/lib/constants";
 import { ArrowLeft, Loader2, Check, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -69,6 +69,7 @@ export default function NouvelleSocietePage() {
     city: "",
     taxRegime: "IR" as "IR" | "IS",
     vatRegime: "FRANCHISE" as "FRANCHISE" | "TVA",
+    fiscalRegime: "" as string,
   });
   const [physSuccess, setPhysSuccess] = useState(false);
 
@@ -137,6 +138,7 @@ export default function NouvelleSocietePage() {
       city: physForm.city || undefined,
       taxRegime: physForm.taxRegime,
       vatRegime: physForm.vatRegime,
+      fiscalRegime: (physForm.fiscalRegime as "MICRO_FONCIER" | "REEL_FONCIER" | "LMNP_MICRO_BIC" | "LMNP_REEL" | "LMP" | "MEUBLE_TOURISME") || undefined,
       proprietaireId: proprietaireIdParam || undefined,
     });
     setIsLoading(false);
@@ -196,9 +198,21 @@ export default function NouvelleSocietePage() {
                 />
                 <p className="text-xs text-muted-foreground">Si vous avez un SIRET en tant que loueur meublé, renseignez-le ici.</p>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="phys-fiscalRegime">Regime d&apos;exploitation *</Label>
+                <NativeSelect
+                  id="phys-fiscalRegime"
+                  options={[{ value: "", label: "Choisir un regime..." }, ...FISCAL_REGIMES]}
+                  value={physForm.fiscalRegime}
+                  onChange={(e) => setPhysForm(prev => ({ ...prev, fiscalRegime: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vous pourrez aussi choisir un regime different pour chaque lot.
+                </p>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="phys-taxRegime">Régime d&apos;imposition</Label>
+                  <Label htmlFor="phys-taxRegime">Regime d&apos;imposition</Label>
                   <NativeSelect
                     id="phys-taxRegime"
                     options={[...TAX_REGIMES]}
@@ -207,7 +221,7 @@ export default function NouvelleSocietePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phys-vatRegime">Régime TVA</Label>
+                  <Label htmlFor="phys-vatRegime">Regime TVA</Label>
                   <NativeSelect
                     id="phys-vatRegime"
                     options={[...VAT_REGIMES]}

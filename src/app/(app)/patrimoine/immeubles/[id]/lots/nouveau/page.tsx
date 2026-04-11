@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { LOT_TYPES, LOT_STATUSES } from "@/lib/constants";
+import { LOT_TYPES, LOT_STATUSES, FISCAL_REGIMES } from "@/lib/constants";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
@@ -60,6 +60,7 @@ export default function NouveauLotPage() {
       position: data.position,
       description: data.description,
       status: (data.status as "OCCUPE" | "VACANT" | "EN_TRAVAUX" | "RESERVE") || "VACANT",
+      fiscalRegime: (data.fiscalRegime as "MICRO_FONCIER" | "REEL_FONCIER" | "LMNP_MICRO_BIC" | "LMNP_REEL" | "LMP" | "MEUBLE_TOURISME" | "") || undefined,
       marketRentValue: data.marketRentValue ? parseFloat(data.marketRentValue) : undefined,
       currentRent: data.currentRent ? parseFloat(data.currentRent) : undefined,
     });
@@ -223,6 +224,18 @@ export default function NouveauLotPage() {
             </div>
 
             <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="fiscalRegime">Regime fiscal du lot</Label>
+              <NativeSelect
+                id="fiscalRegime"
+                name="fiscalRegime"
+                options={[{ value: "", label: "Herite de la societe" }, ...FISCAL_REGIMES]}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Si different du regime de la societe (ex: un lot en LMNP et un autre en location nue).
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description / Notes</Label>

@@ -12,14 +12,15 @@ import type { TenantEntityType, LegalForm } from "@/generated/prisma/client";
 import { PrintButton } from "./_components/print-button";
 
 const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
-  SCI:   "Société Civile Immobilière (SCI)",
+  SCI:   "Societe Civile Immobiliere (SCI)",
   SARL:  "SARL",
   SAS:   "SAS",
   SA:    "SA",
   EURL:  "EURL",
   SASU:  "SASU",
   SNC:   "SNC",
-  AUTRE: "Société",
+  AUTRE: "Societe",
+  PERSONNE_PHYSIQUE: "Proprietaire",
 };
 
 function tenantName(t: {

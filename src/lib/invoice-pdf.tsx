@@ -70,8 +70,9 @@ function fmt(v: number) { return new Intl.NumberFormat("fr-FR", { style: "curren
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("fr-FR"); }
 
 const LEGAL_FORM_LABELS: Record<string, string> = {
-  SCI: "Société Civile Immobilière (SCI)", SARL: "SARL",
-  SAS: "SAS", SA: "SA", EURL: "EURL", SASU: "SASU", SNC: "SNC", AUTRE: "Société",
+  SCI: "Societe Civile Immobiliere (SCI)", SARL: "SARL",
+  SAS: "SAS", SA: "SA", EURL: "EURL", SASU: "SASU", SNC: "SNC", AUTRE: "Societe",
+  PERSONNE_PHYSIQUE: "Proprietaire",
 };
 
 function typeTitle(invoiceType: string, isAvoir: boolean): string {

@@ -10,7 +10,7 @@ import {
   resetModulePermissions,
 } from "@/actions/user";
 import {
-  MODULES,
+  DISPLAY_MODULES,
   MODULE_LABELS,
   getDefaultPermissions,
   type ModulePermissions,
@@ -147,7 +147,7 @@ export default function PermissionsMatrix({
             </tr>
           </thead>
           <tbody>
-            {MODULES.map((module) => (
+            {DISPLAY_MODULES.map((module) => (
               <tr key={module} className="border-b hover:bg-muted/30">
                 <td className="p-3 font-medium">{MODULE_LABELS[module]}</td>
                 {PERMISSIONS.map((perm) => {

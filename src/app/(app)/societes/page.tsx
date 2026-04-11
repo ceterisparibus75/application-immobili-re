@@ -12,6 +12,7 @@ import { ROLE_LABELS } from "@/lib/permissions";
 import { Building2, Plus } from "lucide-react";
 import Link from "next/link";
 import type { UserRole } from "@/generated/prisma/client";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 
 export const metadata = {
   title: "Sociétés",
@@ -71,7 +72,7 @@ export default async function SocietesPage() {
                     </Badge>
                   </div>
                   <CardDescription>
-                    {society.legalForm} &bull; {society.siret}
+                    {LEGAL_FORM_LABELS[society.legalForm] ?? society.legalForm}{society.siret ? <> &bull; {society.siret}</> : null}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

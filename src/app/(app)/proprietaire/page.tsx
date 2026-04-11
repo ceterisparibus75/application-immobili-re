@@ -1077,7 +1077,7 @@ export default async function ProprietaireDashboardPage({
                       </span>
                     </div>
                     <CardDescription>
-                      {society.legalForm} &bull; {society.siret}
+                      {society.legalForm === "PERSONNE_PHYSIQUE" ? "Nom propre" : society.legalForm}{society.siret ? <> &bull; {society.siret}</> : null}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

@@ -72,6 +72,7 @@ export async function createLot(
         position: data.position ?? null,
         description: data.description ?? null,
         status: data.status,
+        fiscalRegime: data.fiscalRegime || null,
         marketRentValue: data.marketRentValue ?? null,
         currentRent: data.currentRent ?? null,
       },

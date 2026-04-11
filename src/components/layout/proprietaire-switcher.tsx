@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, Check, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 
 type ProprietaireData = {
   id: string;
@@ -166,7 +167,7 @@ export function ProprietaireSwitcher() {
                             )}>
                               {soc.name}
                             </p>
-                            <p className="text-[10px] text-[#94A3B8]">{soc.legalForm}</p>
+                            <p className="text-[10px] text-[#94A3B8]">{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm}</p>
                           </div>
                           {isActiveSoc && <Check className="h-3 w-3 text-primary shrink-0" />}
                         </button>

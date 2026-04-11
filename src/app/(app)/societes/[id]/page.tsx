@@ -12,6 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Building2, FileText, Home, Pencil, Plus, Users } from "lucide-react";
 import type { BuildingType } from "@/generated/prisma/client";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 
 const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
   BUREAU: "Bureau",
@@ -52,7 +53,7 @@ export default async function SocieteDetailPage({
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {society.legalForm} &bull; SIRET {society.siret}
+              {LEGAL_FORM_LABELS[society.legalForm] ?? society.legalForm}{society.siret ? <> &bull; SIRET {society.siret}</> : null}
             </p>
           </div>
         </div>
@@ -147,8 +148,8 @@ export default async function SocieteDetailPage({
           </CardHeader>
           <CardContent className="space-y-3">
             <InfoRow label="Raison sociale" value={society.name} />
-            <InfoRow label="Forme juridique" value={society.legalForm} />
-            <InfoRow label="SIRET" value={society.siret} />
+            <InfoRow label="Forme juridique" value={LEGAL_FORM_LABELS[society.legalForm] ?? society.legalForm} />
+            {society.siret && <InfoRow label="SIRET" value={society.siret} />}
             <InfoRow
               label="TVA intracommunautaire"
               value={society.vatNumber}

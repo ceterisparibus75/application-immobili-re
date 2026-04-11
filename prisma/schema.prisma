@@ -34,6 +34,7 @@ enum LegalForm {
   SASU
   SNC
   AUTRE
+  PERSONNE_PHYSIQUE
 }
 
 enum TaxRegime {
@@ -44,6 +45,16 @@ enum TaxRegime {
 enum VatRegime {
   TVA
   FRANCHISE
+}
+
+// Regime fiscal specifique (personne physique / lot)
+enum FiscalRegime {
+  MICRO_FONCIER         // Location nue, revenus bruts < 15 000 EUR/an, abattement 30%
+  REEL_FONCIER          // Location nue, regime reel (deduction charges reelles)
+  LMNP_MICRO_BIC        // Meuble non professionnel, micro-BIC, abattement 50%
+  LMNP_REEL             // Meuble non professionnel, reel simplifie (amortissement)
+  LMP                   // Loueur meuble professionnel (recettes > 23k EUR et > revenus activite)
+  MEUBLE_TOURISME       // Meuble de tourisme (classe ou non)
 }
 
 enum BuildingType {
@@ -394,7 +405,7 @@ model Society {
   // Identité
   name          String // Raison sociale
   legalForm     LegalForm
-  siret         String    @unique
+  siret         String?   @unique
   vatNumber     String? // Numéro TVA intracommunautaire
   addressLine1  String
   addressLine2  String?
@@ -412,8 +423,9 @@ model Society {
   bankName      String?
 
   // Fiscalité
-  taxRegime TaxRegime
-  vatRegime VatRegime
+  taxRegime     TaxRegime
+  vatRegime     VatRegime
+  fiscalRegime  FiscalRegime? // Regime fiscal specifique (personne physique)
 
   // Expert-comptable
   accountantName  String?
@@ -818,6 +830,7 @@ model Lot {
   position        String?
   description     String?   @db.Text
   status          LotStatus @default(VACANT)
+  fiscalRegime    FiscalRegime? // Regime fiscal du lot (surcharge le regime de la societe)
   marketRentValue Float? // Valeur locative de marché
   currentRent     Float? // Loyer pratiqué
 

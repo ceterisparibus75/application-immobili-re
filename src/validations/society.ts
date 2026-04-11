@@ -5,10 +5,12 @@ export const createSocietySchema = z.object({
     .string()
     .min(2, "La raison sociale doit contenir au moins 2 caractères")
     .max(200),
-  legalForm: z.enum(["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "AUTRE"]),
+  legalForm: z.enum(["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "AUTRE", "PERSONNE_PHYSIQUE"]),
   siret: z
     .string()
-    .regex(/^\d{14}$/, "Le SIRET doit contenir exactement 14 chiffres"),
+    .regex(/^\d{14}$/, "Le SIRET doit contenir exactement 14 chiffres")
+    .optional()
+    .or(z.literal("")),
   vatNumber: z
     .string()
     .regex(/^FR\d{2}\d{9}$/, "Format TVA invalide (ex: FR12345678901)")

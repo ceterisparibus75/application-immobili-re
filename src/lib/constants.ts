@@ -10,7 +10,21 @@ export const LEGAL_FORMS = [
   { value: "SASU", label: "SASU" },
   { value: "SNC", label: "SNC" },
   { value: "AUTRE", label: "Autre" },
+  { value: "PERSONNE_PHYSIQUE", label: "Personne physique" },
 ] as const;
+
+/** Labels lisibles pour les formes juridiques */
+export const LEGAL_FORM_LABELS: Record<string, string> = {
+  SCI: "SCI",
+  SARL: "SARL",
+  SAS: "SAS",
+  SA: "SA",
+  EURL: "EURL",
+  SASU: "SASU",
+  SNC: "SNC",
+  AUTRE: "Autre",
+  PERSONNE_PHYSIQUE: "Nom propre",
+};
 
 export const TAX_REGIMES = [
   { value: "IS", label: "Impôt sur les Sociétés (IS)" },
@@ -29,6 +43,25 @@ export const USER_ROLES = [
   { value: "COMPTABLE", label: "Comptable" },
   { value: "LECTURE", label: "Lecture seule" },
 ] as const;
+
+/** Regimes fiscaux specifiques (personne physique / lot) */
+export const FISCAL_REGIMES = [
+  { value: "MICRO_FONCIER", label: "Micro-foncier (location nue < 15 000 \u20ac)" },
+  { value: "REEL_FONCIER", label: "Reel foncier (location nue)" },
+  { value: "LMNP_MICRO_BIC", label: "LMNP micro-BIC (meuble)" },
+  { value: "LMNP_REEL", label: "LMNP reel simplifie (meuble)" },
+  { value: "LMP", label: "LMP (loueur meuble professionnel)" },
+  { value: "MEUBLE_TOURISME", label: "Meuble de tourisme" },
+] as const;
+
+export const FISCAL_REGIME_LABELS: Record<string, string> = {
+  MICRO_FONCIER: "Micro-foncier",
+  REEL_FONCIER: "Reel foncier",
+  LMNP_MICRO_BIC: "LMNP micro-BIC",
+  LMNP_REEL: "LMNP reel",
+  LMP: "LMP",
+  MEUBLE_TOURISME: "Meuble tourisme",
+};
 
 export const ITEMS_PER_PAGE = 25;
 

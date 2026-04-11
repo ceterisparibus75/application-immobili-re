@@ -43,12 +43,14 @@ export async function createSociety(
     const socLimit = await checkSocietyLimit(session.user.id);
     if (!socLimit.allowed) return { success: false, error: socLimit.message };
 
-    // Vérifier que le SIRET n'existe pas déjà
-    const existing = await prisma.society.findUnique({
-      where: { siret: data.siret },
-    });
-    if (existing) {
-      return { success: false, error: "Ce SIRET est déjà enregistré" };
+    // Vérifier que le SIRET n'existe pas déjà (si fourni)
+    if (data.siret) {
+      const existing = await prisma.society.findUnique({
+        where: { siret: data.siret },
+      });
+      if (existing) {
+        return { success: false, error: "Ce SIRET est déjà enregistré" };
+      }
     }
 
     // Chiffrer les données bancaires si fournies
@@ -59,7 +61,7 @@ export async function createSociety(
       data: {
         name: data.name,
         legalForm: data.legalForm,
-        siret: data.siret,
+        siret: data.siret || null,
         vatNumber: data.vatNumber || null,
         addressLine1: data.addressLine1,
         addressLine2: data.addressLine2 || null,
@@ -113,7 +115,7 @@ export async function createSociety(
       action: "CREATE",
       entity: "Society",
       entityId: society.id,
-      details: { name: society.name, siret: society.siret },
+      details: { name: society.name, siret: society.siret ?? undefined },
     });
 
     revalidatePath("/", "layout");

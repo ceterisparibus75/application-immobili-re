@@ -72,7 +72,7 @@ export type OwnerAnalytics = {
   lenderSummaries: LenderSummary[];
 };
 
-export async function getOwnerSocieties(proprietaireId?: string): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string; city: string; isActive: boolean; logoUrl: string | null }[]>> {
+export async function getOwnerSocieties(proprietaireId?: string): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string | null; city: string; isActive: boolean; logoUrl: string | null }[]>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 
@@ -401,7 +401,7 @@ export async function isOwnerOfSociety(userId: string, societyId: string): Promi
   return !!society;
 }
 
-export async function getClaimableSocieties(): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string; city: string }[]>> {
+export async function getClaimableSocieties(): Promise<ActionResult<{ id: string; name: string; legalForm: string; siret: string | null; city: string }[]>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Non authentifie" };
 

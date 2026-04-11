@@ -18,14 +18,16 @@ const personalSocietySchema = z.object({
   city: z.string().optional().or(z.literal("")),
   taxRegime: z.enum(["IS", "IR"]).optional().default("IR"),
   vatRegime: z.enum(["TVA", "FRANCHISE"]).optional().default("FRANCHISE"),
+  fiscalRegime: z.enum(["MICRO_FONCIER", "REEL_FONCIER", "LMNP_MICRO_BIC", "LMNP_REEL", "LMP", "MEUBLE_TOURISME"]).optional(),
   proprietaireId: z.string().cuid().optional(),
 });
 
 export type PersonalSocietyInput = z.infer<typeof personalSocietySchema>;
 
 /**
- * Crée une "société" pour un propriétaire personne physique.
+ * Cree une "societe" pour un proprietaire personne physique.
  * SIRET optionnel (utile pour les LMNP par exemple).
+ * Utilise legalForm = PERSONNE_PHYSIQUE pour distinguer des vraies societes.
  */
 export async function createPersonalSociety(
   input?: PersonalSocietyInput
@@ -33,7 +35,7 @@ export async function createPersonalSociety(
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
+      return { success: false, error: "Non authentifie" };
     }
 
     const parsed = personalSocietySchema.safeParse(input ?? {});
@@ -45,7 +47,7 @@ export async function createPersonalSociety(
     }
     const data = parsed.data;
 
-    // Récupérer le profil utilisateur
+    // Recuperer le profil utilisateur
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -67,32 +69,31 @@ export async function createPersonalSociety(
 
     const ownerName = user.firstName && user.lastName
       ? `${user.firstName} ${user.lastName}`
-      : user.name ?? "Propriétaire";
+      : user.name ?? "Proprietaire";
 
-    // SIRET : utiliser celui fourni, ou générer un interne
-    let siret = data.siret?.trim() || "";
-    if (!siret) {
-      const suffix = Date.now().toString().slice(-6);
-      siret = `00000000${suffix.padStart(6, "0")}`;
-    }
+    // SIRET optionnel — null si non fourni
+    const siret = data.siret?.trim() || null;
 
-    // Vérifier unicité SIRET
-    const existingSiret = await prisma.society.findUnique({ where: { siret } });
-    if (existingSiret) {
-      return { success: false, error: "Ce SIRET est déjà enregistré" };
+    // Verifier unicite SIRET si fourni
+    if (siret) {
+      const existingSiret = await prisma.society.findUnique({ where: { siret } });
+      if (existingSiret) {
+        return { success: false, error: "Ce SIRET est deja enregistre" };
+      }
     }
 
     const society = await prisma.society.create({
       data: {
-        name: `${ownerName} — Nom propre`,
-        legalForm: "AUTRE",
+        name: ownerName,
+        legalForm: "PERSONNE_PHYSIQUE",
         siret,
-        addressLine1: data.addressLine1?.trim() || user.address || "À compléter",
-        city: data.city?.trim() || user.ownerCity || "À compléter",
+        addressLine1: data.addressLine1?.trim() || user.address || "A completer",
+        city: data.city?.trim() || user.ownerCity || "A completer",
         postalCode: data.postalCode?.trim() || user.postalCode || "00000",
         country: "France",
         taxRegime: data.taxRegime ?? "IR",
         vatRegime: data.vatRegime ?? "FRANCHISE",
+        fiscalRegime: data.fiscalRegime ?? null,
         phone: user.phone ?? null,
         signatoryName: ownerName,
         ownerId: session.user.id,
@@ -108,7 +109,7 @@ export async function createPersonalSociety(
       },
     });
 
-    // Créer un abonnement d'essai implicite (14 jours)
+    // Creer un abonnement d'essai implicite (14 jours)
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 14);
     await prisma.subscription.create({
@@ -137,6 +138,6 @@ export async function createPersonalSociety(
     return { success: true, data: { id: society.id } };
   } catch (error) {
     console.error("[createPersonalSociety]", error);
-    return { success: false, error: "Erreur lors de la création de l'espace propriétaire" };
+    return { success: false, error: "Erreur lors de la creation de l'espace proprietaire" };
   }
 }

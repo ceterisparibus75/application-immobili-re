@@ -29,6 +29,7 @@ const LEGAL_FORMS = [
   { value: "SASU", label: "SASU" },
   { value: "SNC", label: "SNC" },
   { value: "AUTRE", label: "Autre" },
+  { value: "PERSONNE_PHYSIQUE", label: "Personne physique (nom propre)" },
 ];
 
 export default function ModifierSocietePage() {
