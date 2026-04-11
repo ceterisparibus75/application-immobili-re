@@ -19,8 +19,18 @@ export type LenderSummary = { lender: string; loanCount: number; totalCapital: n
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
-  if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "—";
-  return (t.firstName ?? "" + " " + (t.lastName ?? "")).trim() || "—";
+  if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "\u2014";
+  return (((t.firstName ?? "") + " " + (t.lastName ?? "")).trim()) || "\u2014";
+}
+
+/** Normalise un nom de locataire pour regrouper les variantes (casse, accents, espaces). */
+function normalizeTenantKey(name: string): string {
+  return name
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // retire les accents
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function monthLabel(d: Date): string {
@@ -203,20 +213,23 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
   const freqMult: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
   const buildingRentMap = new Map<string, number>();
   const tenantRentMap = new Map<string, number>();
+  const tenantDisplayNames = new Map<string, string>();
   for (const l of riskLeases) {
     const annual = l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12);
     const bName = l.lot.building.name;
     buildingRentMap.set(bName, (buildingRentMap.get(bName) ?? 0) + annual);
     const tName = displayTenantName(l.tenant);
-    tenantRentMap.set(tName, (tenantRentMap.get(tName) ?? 0) + annual);
+    const tKey = normalizeTenantKey(tName);
+    tenantRentMap.set(tKey, (tenantRentMap.get(tKey) ?? 0) + annual);
+    if (!tenantDisplayNames.has(tKey)) tenantDisplayNames.set(tKey, tName);
   }
   const totalAnnualRentRisk = riskLeases.reduce((s, l) => s + l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12), 0);
-  const toRiskItems = (m: Map<string, number>) =>
+  const toRiskItems = (m: Map<string, number>, displayMap?: Map<string, string>) =>
     [...m.entries()]
-      .map(([name, annualRent]) => ({ name, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
+      .map(([key, annualRent]) => ({ name: displayMap?.get(key) ?? key, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
       .sort((a, b) => b.pct - a.pct);
   const byBuilding = toRiskItems(buildingRentMap);
-  const byTenant = toRiskItems(tenantRentMap);
+  const byTenant = toRiskItems(tenantRentMap, tenantDisplayNames);
   // Indice Herfindahl-Hirschman (0 = diversifié, 10000 = concentré)
   const hhi = (items: { pct: number }[]) => Math.round(items.reduce((s, i) => s + (i.pct * i.pct), 0));
   const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: hhi(byBuilding), hhiTenant: hhi(byTenant) };
@@ -593,20 +606,23 @@ async function fetchConsolidatedAnalytics(societyIds: string[]): Promise<Analyti
   const freqMult: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
   const buildingRentMap = new Map<string, number>();
   const tenantRentMap = new Map<string, number>();
+  const tenantDisplayNames = new Map<string, string>();
   for (const l of riskLeases) {
     const annual = l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12);
     const bName = l.lot.building.name;
     buildingRentMap.set(bName, (buildingRentMap.get(bName) ?? 0) + annual);
     const tName = displayTenantName(l.tenant);
-    tenantRentMap.set(tName, (tenantRentMap.get(tName) ?? 0) + annual);
+    const tKey = normalizeTenantKey(tName);
+    tenantRentMap.set(tKey, (tenantRentMap.get(tKey) ?? 0) + annual);
+    if (!tenantDisplayNames.has(tKey)) tenantDisplayNames.set(tKey, tName);
   }
   const totalAnnualRentRisk = riskLeases.reduce((s, l) => s + l.currentRentHT * (freqMult[l.paymentFrequency] ?? 12), 0);
-  const toRiskItems = (m: Map<string, number>) =>
+  const toRiskItems = (m: Map<string, number>, displayMap?: Map<string, string>) =>
     [...m.entries()]
-      .map(([name, annualRent]) => ({ name, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
+      .map(([key, annualRent]) => ({ name: displayMap?.get(key) ?? key, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
       .sort((a, b) => b.pct - a.pct);
   const byBuilding = toRiskItems(buildingRentMap);
-  const byTenant = toRiskItems(tenantRentMap);
+  const byTenant = toRiskItems(tenantRentMap, tenantDisplayNames);
   const hhi = (items: { pct: number }[]) => Math.round(items.reduce((s, i) => s + (i.pct * i.pct), 0));
   const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: hhi(byBuilding), hhiTenant: hhi(byTenant) };
 
