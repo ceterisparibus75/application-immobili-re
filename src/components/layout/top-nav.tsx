@@ -55,7 +55,6 @@ const NAV_ITEMS_AFTER: NavItem[] = [
   { name: "Banque", href: "/banque" },
   { name: "Emprunts", href: "/emprunts" },
   { name: "Comptabilité", href: "/comptabilite" },
-  { name: "Prévisionnel", href: "/comptabilite/previsionnel" },
   { name: "Cash-flow", href: "/comptabilite/cashflow" },
   { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },

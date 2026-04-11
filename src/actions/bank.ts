@@ -230,6 +230,7 @@ export async function createBankTransaction(
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${parsed.data.bankAccountId}`);
+    revalidatePath("/comptabilite/cashflow");
 
     return { success: true, data: { id: transaction.id } };
   } catch (error) {

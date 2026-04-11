@@ -88,6 +88,7 @@ export async function initiateOpenBanking(
       details: { connectorId, connectorName },
     });
 
+    // eslint-disable-next-line no-console
     console.log("[initiateOpenBanking] webviewUrl:", webviewUrl);
     return { success: true, data: { authLink: webviewUrl, connectionId: connection.id } };
   } catch (error) {
@@ -139,6 +140,7 @@ export async function syncOpenBankingAccounts(
       synced++;
     }
     revalidatePath("/banque");
+    revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { synced } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -197,6 +199,7 @@ export async function syncAllAccounts(
     }
 
     revalidatePath("/banque");
+    revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { totalImported, accountsSynced } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -261,6 +264,7 @@ export async function syncAccountTransactions(
 
     revalidatePath("/banque");
     revalidatePath("/banque/" + bankAccountId);
+    revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -474,6 +478,7 @@ export async function syncQontoAccountTransactions(
 
     revalidatePath("/banque");
     revalidatePath("/banque/" + bankAccountId);
+    revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

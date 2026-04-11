@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Landmark, Plus, Wallet } from "lucide-react";
+import { Landmark, Plus, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -38,6 +38,13 @@ export default async function BanquePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/comptabilite/cashflow">
+            <Button variant="outline" className="gap-1.5">
+              <BarChart3 className="h-4 w-4" />
+              Cash-flow
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </Link>
           {accounts.length > 0 && <SyncAllButton societyId={societyId} />}
           <Link href="/banque/nouveau-compte">
             <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">

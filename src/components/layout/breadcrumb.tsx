@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react";
 const LABELS: Record<string, string> = {
   dashboard: "Tableau de bord", patrimoine: "Patrimoine", immeubles: "Immeubles",
   lots: "Lots", baux: "Baux", locataires: "Locataires", facturation: "Facturation",
-  charges: "Charges", comptabilite: "Comptabilité", previsionnel: "Prévisionnel",
+  charges: "Charges", comptabilite: "Comptabilité", cashflow: "Cash-flow",
   banque: "Banque", emprunts: "Emprunts", relances: "Relances", contacts: "Contacts",
   documents: "Documents", indices: "Indices", rgpd: "RGPD", parametres: "Paramètres",
   administration: "Administration", utilisateurs: "Utilisateurs", fusions: "Fusions",

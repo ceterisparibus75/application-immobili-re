@@ -17,7 +17,13 @@ export default function SyncAllButton({ societyId }: { societyId: string }) {
         toast.success(
           totalImported === 0
             ? `${accountsSynced} compte(s) synchronisé(s) — aucune nouvelle transaction`
-            : `${totalImported} transaction(s) importée(s) sur ${accountsSynced} compte(s)`
+            : `${totalImported} transaction(s) importée(s) sur ${accountsSynced} compte(s)`,
+          {
+            description: totalImported > 0 ? "Les données Cash-flow ont été mises à jour automatiquement." : undefined,
+            action: totalImported > 0
+              ? { label: "Voir le Cash-flow", onClick: () => window.location.assign("/comptabilite/cashflow") }
+              : undefined,
+          }
         );
       } else {
         toast.error(result.error ?? "Erreur lors de la synchronisation");

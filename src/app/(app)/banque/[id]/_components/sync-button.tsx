@@ -20,10 +20,17 @@ export default function SyncButton({ bankAccountId, societyId }: SyncButtonProps
     setIsLoading(false);
 
     if (result.success) {
+      const count = result.data?.imported ?? 0;
       toast.success(
-        result.data?.imported === 0
+        count === 0
           ? "Aucune nouvelle transaction"
-          : `${result.data?.imported} transaction${(result.data?.imported ?? 0) > 1 ? "s" : ""} importée${(result.data?.imported ?? 0) > 1 ? "s" : ""}`
+          : `${count} transaction${count > 1 ? "s" : ""} importée${count > 1 ? "s" : ""}`,
+        {
+          description: count > 0 ? "Les données Cash-flow ont été mises à jour." : undefined,
+          action: count > 0
+            ? { label: "Voir le Cash-flow", onClick: () => window.location.assign("/comptabilite/cashflow") }
+            : undefined,
+        }
       );
     } else {
       toast.error(result.error ?? "Erreur lors de la synchronisation");
