@@ -178,7 +178,7 @@ export function RevisionActions({
     try {
       const result = await createManualRevision(societyId, {
         leaseId: lease.id,
-        effectiveDate: new Date().toISOString(),
+        effectiveDate: lease.nextRevisionDate,
         newIndexValue: preview.indexValue,
       });
 
@@ -215,7 +215,7 @@ export function RevisionActions({
 
       const result = await createManualRevision(societyId, {
         leaseId: lease.id,
-        effectiveDate: new Date().toISOString(),
+        effectiveDate: lease.nextRevisionDate,
         newIndexValue: preview.indexValue,
       });
 
