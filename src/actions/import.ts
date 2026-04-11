@@ -197,8 +197,8 @@ export async function importFromPdf(
       }
 
       // Check no active lease on this lot
-      const activeLease = await tx.lease.findFirst({
-        where: { lotId: lot.id, status: "EN_COURS" },
+      const activeLease = await tx.leaseLot.findFirst({
+        where: { lotId: lot.id, lease: { status: "EN_COURS" } },
       });
       if (activeLease) throw new Error("Ce lot a déjà un bail actif");
 
@@ -243,7 +243,12 @@ export async function importFromPdf(
         },
       });
 
-      // 5. Mise à jour statut du lot
+      // 5. Créer l'entrée LeaseLot
+      await tx.leaseLot.create({
+        data: { leaseId: lease.id, lotId: lot.id, isPrimary: true },
+      });
+
+      // 6. Mise à jour statut du lot
       await tx.lot.update({
         where: { id: lot.id },
         data: { status: "OCCUPE", currentRent: input.lease.baseRentHT },

@@ -836,6 +836,7 @@ model Lot {
 
   building             Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   leases               Lease[]
+  leaseLots            LeaseLot[]
   announcements        Announcement[]
   documents            Document[]
   allocationKeyEntries AllocationKeyEntry[]
@@ -953,6 +954,7 @@ model Lease {
 
   managingContact       Contact?  @relation("ManagedLeases", fields: [managingContactId], references: [id], onDelete: SetNull)
 
+  leaseLots             LeaseLot[]
   inspections           Inspection[]
   rentRevisions         RentRevision[]
   invoices              Invoice[]
@@ -973,6 +975,22 @@ model Lease {
   @@index([endDate])
   @@index([leaseTemplateId])
   @@index([isThirdPartyManaged])
+}
+
+/// Table de liaison bail ↔ lots (un bail peut couvrir plusieurs lots)
+model LeaseLot {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  leaseId   String
+  lotId     String
+  isPrimary Boolean  @default(false) // Lot principal du bail
+
+  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  lot   Lot   @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@unique([leaseId, lotId])
+  @@index([leaseId])
+  @@index([lotId])
 }
 
 

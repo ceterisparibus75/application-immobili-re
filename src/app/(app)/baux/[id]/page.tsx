@@ -42,6 +42,7 @@ import { RentRevisions } from "./_components/rent-revisions";
 import { LeaseAmendments } from "./_components/lease-amendments";
 import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
+import { LeaseStatusCard } from "./_components/lease-status-card";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -178,7 +179,9 @@ export default async function BailDetailPage({
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {lease.lot.building.name} — Lot {lease.lot.number},{" "}
+              {lease.lot.building.name} — {lease.leaseLots.length > 1
+                ? `${lease.leaseLots.length} lots`
+                : `Lot ${lease.lot.number}`},{" "}
               {lease.lot.building.city}
             </p>
           </div>
@@ -586,20 +589,35 @@ export default async function BailDetailPage({
           </Card>
 
           {/* Factures récentes */}
-          {lease.invoices.length > 0 && (
-            <Card>
-              <CardHeader>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Receipt className="h-4 w-4" />
-                  Factures récentes ({lease._count.invoices})
+                  Factures ({lease._count.invoices})
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
+                {isActive && (
+                  <Link href={`/facturation/generer?leaseId=${lease.id}`}>
+                    <Button variant="outline" size="sm">
+                      <Plus className="h-4 w-4" />
+                      Générer
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {lease.invoices.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Aucune facture émise pour ce bail
+                </p>
+              ) : (
                 <div className="divide-y">
                   {lease.invoices.map((inv) => (
-                    <div
+                    <Link
                       key={inv.id}
-                      className="flex items-center justify-between py-3"
+                      href={`/facturation/${inv.id}`}
+                      className="flex items-center justify-between py-3 hover:bg-muted/30 -mx-1 px-1 rounded transition-colors"
                     >
                       <div>
                         <p className="text-sm font-medium">{inv.invoiceNumber}</p>
@@ -620,16 +638,30 @@ export default async function BailDetailPage({
                           {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
                         </Badge>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+              {lease._count.invoices > 6 && (
+                <Link href={`/facturation?leaseId=${lease.id}`}>
+                  <Button variant="ghost" size="sm" className="w-full mt-2 text-xs">
+                    Voir toutes les factures
+                  </Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Colonne latérale */}
         <div className="space-y-6">
+          {/* Statut du bail */}
+          <LeaseStatusCard
+            leaseId={lease.id}
+            societyId={societyId}
+            currentStatus={lease.status}
+          />
+
           {/* Locataire */}
           <Card>
             <CardHeader>
@@ -673,41 +705,48 @@ export default async function BailDetailPage({
             </CardContent>
           </Card>
 
-          {/* Lot */}
+          {/* Lots */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Bien loué
+                {lease.leaseLots.length > 1 ? `Biens loués (${lease.leaseLots.length})` : "Bien loué"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm font-medium">
-                  {lease.lot.building.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {lease.lot.building.city}
-                  {lease.lot.building.postalCode
-                    ? ` (${lease.lot.building.postalCode})`
-                    : ""}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Lot</p>
-                <p className="text-sm font-medium">N° {lease.lot.number}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Surface</p>
-                <p className="text-sm">{lease.lot.area} m²</p>
-              </div>
-              <Link
-                href={`/patrimoine/immeubles/${lease.lot.building.id}/lots/${lease.lot.id}`}
-              >
-                <Button variant="outline" size="sm" className="w-full mt-2">
-                  Voir le lot
-                </Button>
-              </Link>
+            <CardContent className="space-y-4">
+              {lease.leaseLots.map((ll, idx) => (
+                <div key={ll.lot.id} className={idx > 0 ? "border-t pt-3" : ""}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium">
+                      N° {ll.lot.number}
+                    </p>
+                    {ll.isPrimary && lease.leaseLots.length > 1 && (
+                      <Badge variant="outline" className="text-[10px]">Principal</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {ll.lot.building.name} — {ll.lot.building.city}
+                    {ll.lot.building.postalCode ? ` (${ll.lot.building.postalCode})` : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {ll.lot.area} m²
+                  </p>
+                  <Link
+                    href={`/patrimoine/immeubles/${ll.lot.building.id}/lots/${ll.lot.id}`}
+                  >
+                    <Button variant="ghost" size="sm" className="w-full mt-1 text-xs h-7">
+                      Voir le lot
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+              {lease.leaseLots.length > 1 && (
+                <div className="border-t pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Surface totale : {lease.leaseLots.reduce((sum, ll) => sum + ll.lot.area, 0)} m²
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
@@ -169,6 +170,7 @@ export default function NouveauBailPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [lots, setLots] = useState<LotOption[]>([]);
+  const [selectedLotIds, setSelectedLotIds] = useState<string[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -220,6 +222,14 @@ export default function NouveauBailPage() {
 
   const defaultLotId = searchParams.get("lotId") ?? "";
   const defaultTenantId = searchParams.get("tenantId") ?? "";
+
+  // Pré-sélectionner le lot si passé en paramètre
+  useEffect(() => {
+    if (defaultLotId && selectedLotIds.length === 0) {
+      setSelectedLotIds([defaultLotId]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultLotId]);
 
   useEffect(() => {
     async function fetchOptions() {
@@ -280,8 +290,14 @@ export default function NouveauBailPage() {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as Record<string, string>;
 
+    if (selectedLotIds.length === 0) {
+      setError("Sélectionnez au moins un lot");
+      setIsLoading(false);
+      return;
+    }
+
     const result = await createLease(activeSociety.id, {
-      lotId: data.lotId,
+      lotIds: selectedLotIds,
       tenantId: data.tenantId,
       leaseType: data.leaseType as LeaseType,
       destination: (data.destination || null) as CreateLeaseInput["destination"],
@@ -353,27 +369,55 @@ export default function NouveauBailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="lotId">Lot *</Label>
-              <select
-                id="lotId"
-                name="lotId"
-                defaultValue={defaultLotId}
-                required
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">Sélectionner un lot vacant...</option>
-                {lots.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {lotLabel(l)}
-                  </option>
-                ))}
-              </select>
-              {lots.length === 0 && (
+              <Label>Lot(s) concerné(s) *</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Sélectionnez un ou plusieurs lots (ex : local + parking + cave).
+                Le premier lot coché sera le lot principal du bail.
+              </p>
+              {lots.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Aucun lot vacant disponible.{" "}
                   <Link href="/patrimoine/immeubles" className="underline">
                     Gérer les lots
                   </Link>
+                </p>
+              ) : (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-input p-2 space-y-1">
+                  {lots.map((l) => {
+                    const checked = selectedLotIds.includes(l.id);
+                    return (
+                      <label
+                        key={l.id}
+                        className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors ${
+                          checked ? "bg-primary/5 font-medium" : "hover:bg-muted/50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedLotIds((prev) =>
+                              prev.includes(l.id)
+                                ? prev.filter((id) => id !== l.id)
+                                : [...prev, l.id]
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span className="truncate">{lotLabel(l)}</span>
+                        {checked && selectedLotIds[0] === l.id && (
+                          <Badge variant="outline" className="ml-auto text-[10px] shrink-0">
+                            Principal
+                          </Badge>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedLotIds.length > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedLotIds.length} lots sélectionnés
                 </p>
               )}
             </div>

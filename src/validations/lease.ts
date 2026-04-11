@@ -180,7 +180,7 @@ export function getDefaultDepositMonths(type: LeaseType): number {
 }
 
 export const createLeaseSchema = z.object({
-  lotId: z.string().cuid(),
+  lotIds: z.array(z.string().cuid()).min(1, "Sélectionnez au moins un lot"),
   tenantId: z.string().cuid(),
   leaseType: z.enum(LEASE_TYPES),
   destination: z.enum(LEASE_DESTINATIONS).optional().nullable(),

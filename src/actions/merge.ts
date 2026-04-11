@@ -103,8 +103,10 @@ export async function mergeLots(
     if (!target) return { success: false, error: "Lot cible introuvable" };
 
     await prisma.$transaction([
-      // Transférer les baux
+      // Transférer les baux (lot principal)
       prisma.lease.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
+      // Transférer les entrées LeaseLot
+      prisma.leaseLot.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
       // Transférer les provisions de charges
       prisma.chargeProvision.updateMany({ where: { lotId: sourceId }, data: { lotId: targetId } }),
       // Transférer les clés de répartition

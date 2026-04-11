@@ -141,7 +141,23 @@ async function ensureSection(categoryId, name, description, position) {
   return data.section;
 }
 
+async function getDefaultPermissionGroupId() {
+  try {
+    const data = await zendeskRequest("GET", `https://${SUBDOMAIN}.zendesk.com/api/v2/guide/permission_groups.json`);
+    const groups = data.permission_groups || [];
+    if (groups.length > 0) return groups[0].id;
+  } catch { /* ignore */ }
+  return null;
+}
+
+let _permissionGroupId = null;
+
 async function ensureArticle(sectionId, title, body, position) {
+  // Charger le permission_group_id une seule fois
+  if (!_permissionGroupId) {
+    _permissionGroupId = await getDefaultPermissionGroupId();
+  }
+
   const existing = await findArticleByTitle(sectionId, title);
   if (existing) {
     // Met à jour le contenu si l'article existe déjà
@@ -152,19 +168,22 @@ async function ensureArticle(sectionId, title, body, position) {
     await sleep(500);
     return existing;
   }
+  const articleData = {
+    title,
+    body,
+    locale: LOCALE,
+    position,
+    draft: false,
+    promoted: false,
+  };
+  if (_permissionGroupId) {
+    articleData.permission_group_id = _permissionGroupId;
+    articleData.user_segment_id = null;
+  }
   const data = await zendeskRequest(
     "POST",
     `/sections/${sectionId}/articles.json`,
-    {
-      article: {
-        title,
-        body,
-        locale: LOCALE,
-        position,
-        draft: false,
-        promoted: false,
-      },
-    }
+    { article: articleData }
   );
   console.log(`  ✓ Article créé : "${title}" (id: ${data.article.id})`);
   await sleep(500);
@@ -901,49 +920,180 @@ ${faqItem("Comment exporter le tableau d'amortissement ?", "Fiche de l'emprunt &
 </ul>
 
 <h2>Ajouter un document</h2>
-${stepBlock(1, "Choisissez l'entité", "Depuis la fiche d'un immeuble, bail ou locataire, section <strong>Documents</strong>.")}
-${stepBlock(2, "Uploadez le fichier", "Cliquez sur <strong>Ajouter un document</strong>. Formats acceptés : PDF, JPG, PNG, DOCX. Taille maximale : 20 Mo.")}
-${stepBlock(3, "Renseignez les métadonnées", "Nom, catégorie et date d'expiration (optionnelle). Les documents avec date d'expiration déclenchent des alertes automatiques.")}
+<p>L'upload de documents est optimisé pour les fichiers volumineux grâce à un système d'envoi par morceaux (TUS). Vous pouvez envoyer un seul fichier ou un dossier entier en une seule opération.</p>
 
-<h2>Dataroom partagée</h2>
-<p>La <strong>Dataroom</strong> est un espace de partage sécurisé destiné à vos partenaires externes : banques, notaires, acquéreurs potentiels, experts-comptables.</p>
-${stepBlock(1, "Créez un lien de partage", "Sélectionnez les documents à partager et cliquez sur <strong>Créer un lien Dataroom</strong>.")}
-${stepBlock(2, "Configurez l'accès", "Durée de validité (7 jours, 30 jours...) et mot de passe optionnel. Le destinataire consulte sans se connecter à MyGestia.")}
-${stepBlock(3, "Partagez le lien", "Copiez et envoyez par email. Vous pouvez révoquer l'accès à tout moment.")}
-${infoBox("warning", "Le destinataire de la Dataroom n'a accès qu'aux documents explicitement sélectionnés. Il ne peut pas naviguer dans l'application.")}
+<h3>Upload d'un fichier unique</h3>
+${stepBlock(1, "Accédez à la GED", "Menu latéral &gt; <strong>Documents</strong> &gt; bouton <strong>Ajouter un document</strong>. Vous pouvez aussi y accéder depuis la fiche d'un immeuble, bail ou locataire, section Documents.")}
+${stepBlock(2, "Sélectionnez le fichier", "Glissez-déposez le fichier dans la zone d'upload ou cliquez pour parcourir vos fichiers. <strong>Formats acceptés :</strong> PDF, JPG, PNG, WebP, Word (DOC/DOCX). <strong>Taille maximale :</strong> 20 Mo.")}
+${stepBlock(3, "Rattachez à une entité", "Associez le document à un <strong>immeuble</strong>, un <strong>lot</strong>, un <strong>bail</strong> ou un <strong>locataire</strong>. Ce rattachement permet de retrouver facilement le document depuis la fiche correspondante.")}
+${stepBlock(4, "Renseignez les métadonnées", "Choisissez la <strong>catégorie</strong> (bail, diagnostic, assurance, etc.), ajoutez une <strong>description</strong> et une <strong>date d'expiration</strong> si applicable. Les documents avec date d'expiration déclenchent des alertes automatiques (badge orange 90 jours avant, rouge après expiration).")}
+${stepBlock(5, "Analyse IA automatique", "Si votre plan le permet, l'IA analyse le document en arrière-plan et propose automatiquement un résumé, des mots-clés et une catégorie.")}
+
+<h3>Upload d'un dossier complet</h3>
+<p>Vous pouvez uploader un <strong>dossier entier</strong> en une seule opération (utile pour importer tous les documents d'un locataire ou d'un immeuble). Basculez en mode <strong>Dossier</strong> dans la zone d'upload, puis sélectionnez le dossier. Chaque fichier est uploadé individuellement avec sa propre barre de progression.</p>
+
+${infoBox("tip", "L'upload utilise un système de découpage (TUS) qui permet de reprendre l'envoi en cas de coupure réseau. Les fichiers volumineux sont envoyés par morceaux de 3,67 Mo.")}
+
+<h2>Dataroom : espace de partage sécurisé</h2>
+<p>La <strong>Dataroom</strong> est un espace de partage sécurisé destiné à vos partenaires externes : banques, notaires, acquéreurs potentiels, experts-comptables, avocats. Elle permet de mettre à disposition des documents sans donner accès à l'application MyGestia.</p>
+
+<h3>3 statuts d'une Dataroom</h3>
+<ul>
+<li><strong>Brouillon</strong> : en préparation. Ajoutez et organisez vos documents avant de partager. Le lien de partage n'est pas encore actif.</li>
+<li><strong style="color:#16A34A;">Active</strong> : le lien de partage est généré et fonctionnel. Les destinataires peuvent consulter les documents. Chaque accès est tracé.</li>
+<li><strong style="color:#6B7280;">Archivée</strong> : le lien de partage est désactivé. Les documents restent dans la Dataroom mais ne sont plus accessibles de l'extérieur.</li>
+</ul>
+
+<h3>Créer et configurer une Dataroom — étape par étape</h3>
+${stepBlock(1, "Accédez au module Dataroom", "Depuis le menu latéral, cliquez sur <strong>Dataroom</strong>. La page affiche toutes vos Datarooms existantes sous forme de cartes avec le nombre de documents, le nombre d'accès et le statut.")}
+${stepBlock(2, "Créez une nouvelle Dataroom", "Cliquez sur <strong>Nouvelle Dataroom</strong>. Renseignez : le <strong>nom</strong> (ex: &laquo; Due diligence SCI Soleil &raquo;), une <strong>description</strong> (optionnelle), le <strong>destinataire</strong> (nom et email), et l'<strong>objet</strong> du partage (vente, audit, financement...).")}
+${stepBlock(3, "Configurez la sécurité", "Deux options de protection :<br/><strong>Date d'expiration</strong> : le lien sera automatiquement désactivé après cette date (7 jours, 30 jours, date personnalisée).<br/><strong>Mot de passe</strong> (optionnel) : le destinataire devra saisir un mot de passe pour accéder aux documents. Le mot de passe est chiffré (bcrypt).")}
+${stepBlock(4, "Ajoutez des documents", "Depuis la fiche Dataroom, cliquez sur <strong>Ajouter un document</strong>. Sélectionnez les fichiers depuis votre GED (documents déjà uploadés). Vous pouvez réorganiser l'ordre d'affichage par glisser-déposer.")}
+${stepBlock(5, "Activez le partage", "Quand votre Dataroom est prête, cliquez sur <strong>Activer</strong>. Un <strong>lien unique sécurisé</strong> est généré. Copiez-le et envoyez-le par email à votre destinataire.")}
+${stepBlock(6, "Suivez les consultations", "La fiche Dataroom affiche un <strong>journal d'accès</strong> : nom du visiteur, email, adresse IP et date/heure de chaque consultation. Vous savez exactement qui a vu quoi et quand.")}
+${stepBlock(7, "Archivez quand c'est terminé", "Cliquez sur <strong>Archiver</strong> pour désactiver le lien. Les documents restent consultables en interne mais le lien externe ne fonctionne plus.")}
+${infoBox("warning", "Le destinataire de la Dataroom n'a accès <strong>qu'aux documents explicitement ajoutés</strong> dans cet espace. Il ne peut pas naviguer dans l'application, voir d'autres sociétés ou accéder à des données non partagées.")}
+${infoBox("tip", "Vous pouvez aussi ajouter un document à une Dataroom existante directement depuis la GED : ouvrez le document, puis cliquez sur <strong>Ajouter à une Dataroom</strong>.")}
 
 <h2>Signatures électroniques</h2>
-<p>MyGestia intègre un module de signature électronique pour baux, avenants, mandats SEPA, états des lieux, etc.</p>
-${stepBlock(1, "Préparez le document", "Uploadez le PDF à signer. Indiquez les zones de signature pour chaque signataire.")}
-${stepBlock(2, "Envoyez pour signature", "Renseignez l'email des signataires. Chaque personne reçoit un lien sécurisé pour signer depuis son navigateur, <strong>sans créer de compte</strong>.")}
-${stepBlock(3, "Suivez l'avancement", "État en temps réel : en attente, signé, refusé. Une fois terminé, le document final est archivé automatiquement.")}
+<p>MyGestia intègre un module de <strong>signature électronique</strong> basé sur <strong>DocuSign</strong>, permettant de faire signer numériquement tous vos documents immobiliers directement depuis l'application.</p>
+${infoBox("info", "La signature électronique est disponible uniquement sur le <strong>plan Enterprise</strong>. Elle est conforme au règlement européen <strong>eIDAS</strong> et a la même valeur juridique qu'une signature manuscrite.")}
 
-<h2>Organisation et recherche</h2>
+<h3>4 types de documents signables</h3>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Type</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Description</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Exemple d'usage</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Bail</td><td style="padding:10px;border:1px solid #E5E7EB;">Contrat de location complet</td><td style="padding:10px;border:1px solid #E5E7EB;">Nouveau bail habitation ou commercial</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">État des lieux</td><td style="padding:10px;border:1px solid #E5E7EB;">Constat d'entrée ou de sortie</td><td style="padding:10px;border:1px solid #E5E7EB;">État des lieux d'entrée avec photos</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Mandat</td><td style="padding:10px;border:1px solid #E5E7EB;">Mandat de gestion ou SEPA</td><td style="padding:10px;border:1px solid #E5E7EB;">Autorisation de prélèvement SEPA</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Autre</td><td style="padding:10px;border:1px solid #E5E7EB;">Tout document nécessitant signature</td><td style="padding:10px;border:1px solid #E5E7EB;">Avenant, attestation, courrier officiel</td></tr>
+</tbody>
+</table>
+
+<h3>Envoyer un document à la signature — étape par étape</h3>
+${stepBlock(1, "Accédez au module signature", "Depuis la <strong>fiche d'un bail</strong>, repérez la section <strong>Signature électronique</strong> dans le panneau latéral. Vous y trouverez un bouton <strong>Envoyer à la signature</strong> et l'historique des demandes passées.")}
+${stepBlock(2, "Sélectionnez ou uploadez le document", "Le système propose automatiquement le contrat de bail associé. Vous pouvez aussi envoyer un autre document PDF (avenant, mandat, état des lieux) en le sélectionnant depuis la GED ou en l'uploadant directement.")}
+${stepBlock(3, "Renseignez les informations du signataire", "Indiquez le <strong>nom complet</strong> et l'<strong>adresse email</strong> du signataire. Un objet et un message personnalisé peuvent être ajoutés pour contextualiser la demande.")}
+${stepBlock(4, "Choisissez le mode de signature", "Deux modes disponibles :<br/><strong>Par email</strong> : le signataire reçoit un lien sécurisé DocuSign dans sa boîte mail. Idéal pour la signature à distance.<br/><strong>Signature intégrée</strong> : le signataire signe directement dans l'application MyGestia, sur votre écran. Idéal pour les rendez-vous en présentiel (état des lieux, signature de bail en agence).")}
+${stepBlock(5, "Envoyez la demande de signature", "Cliquez sur <strong>Envoyer</strong>. La demande est transmise instantanément à DocuSign. Le signataire reçoit un email contenant un lien sécurisé vers la page de signature.")}
+${stepBlock(6, "Le signataire signe depuis son navigateur", "Le signataire ouvre le lien, consulte le document complet et appose sa signature électronique. <strong>Aucun compte DocuSign n'est nécessaire</strong> : la signature se fait directement dans le navigateur web, sur ordinateur, tablette ou téléphone.")}
+${stepBlock(7, "Document signé archivé automatiquement", "Une fois la signature apposée, le document final (avec certificat de signature intégré) est automatiquement archivé dans la GED de MyGestia et rattaché au bail concerné. Un log d'audit est créé.")}
+
+<h3>Suivi en temps réel de l'avancement</h3>
+<p>Le statut de chaque demande de signature est mis à jour <strong>automatiquement en temps réel</strong> grâce aux webhooks DocuSign. Vous n'avez rien à faire : le statut se met à jour tout seul.</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Statut</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Signification</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Action possible</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;"><span style="background:#DBEAFE;color:#1D4ED8;padding:2px 8px;border-radius:9999px;font-size:0.85em;">Envoyé</span></td><td style="padding:10px;border:1px solid #E5E7EB;">Le document a été envoyé au signataire par email</td><td style="padding:10px;border:1px solid #E5E7EB;">Attendre ou annuler</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;"><span style="background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:9999px;font-size:0.85em;">Remis</span></td><td style="padding:10px;border:1px solid #E5E7EB;">Le signataire a ouvert le document mais n'a pas encore signé</td><td style="padding:10px;border:1px solid #E5E7EB;">Attendre ou relancer</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;"><span style="background:#D1FAE5;color:#065F46;padding:2px 8px;border-radius:9999px;font-size:0.85em;">Signé</span></td><td style="padding:10px;border:1px solid #E5E7EB;">La signature a été apposée avec succès. Le document final est archivé.</td><td style="padding:10px;border:1px solid #E5E7EB;">Télécharger le PDF signé</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;"><span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:9999px;font-size:0.85em;">Refusé</span></td><td style="padding:10px;border:1px solid #E5E7EB;">Le signataire a décliné la signature du document</td><td style="padding:10px;border:1px solid #E5E7EB;">Contacter le signataire, renvoyer</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;"><span style="background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:9999px;font-size:0.85em;">Annulé</span></td><td style="padding:10px;border:1px solid #E5E7EB;">La demande a été annulée par l'expéditeur avant signature</td><td style="padding:10px;border:1px solid #E5E7EB;">Créer une nouvelle demande</td></tr>
+</tbody>
+</table>
+
+<h3>Annuler une demande de signature</h3>
+<p>Tant que le document n'a pas été signé, vous pouvez annuler la demande à tout moment :</p>
+${stepBlock(1, "Accédez à la fiche bail", "Section <strong>Signature électronique</strong>, repérez la demande en cours (statut Envoyé ou Remis).")}
+${stepBlock(2, "Cliquez sur la demande", "Les détails s'affichent : signataire, date d'envoi, statut actuel.")}
+${stepBlock(3, "Annulez la demande", "Cliquez sur <strong>Annuler</strong>, puis renseignez le motif d'annulation. Le signataire est notifié automatiquement par email et le lien de signature est désactivé immédiatement.")}
+${infoBox("warning", "Une demande déjà signée (statut Signé) ne peut pas être annulée. Le document signé a valeur juridique.")}
+
+<h3>Où retrouver vos signatures dans MyGestia ?</h3>
 <ul>
-<li><strong>Par entité</strong> : depuis la fiche d'un immeuble, bail ou locataire</li>
-<li><strong>Par catégorie</strong> : filtrez par type de document</li>
-<li><strong>Par recherche</strong> : barre de recherche globale (Ctrl+K)</li>
-<li><strong>Par expiration</strong> : badges orange (expire bientôt) ou rouge (expiré)</li>
+<li><strong>Fiche bail → Signature électronique</strong> : historique complet de toutes les demandes de signature pour ce bail, avec statut en temps réel, nom du signataire, date d'envoi et date de signature</li>
+<li><strong>GED (Documents)</strong> : les documents signés sont automatiquement archivés et classés dans la catégorie correspondante (bail, état des lieux, mandat)</li>
+<li><strong>Journal d'audit</strong> : chaque envoi, ouverture, signature, refus et annulation est tracé dans <strong>Administration &gt; Audit</strong></li>
 </ul>
+${infoBox("tip", "Depuis la fiche d'un bail, vous pouvez envoyer directement le contrat à la signature électronique <strong>en un seul clic</strong>, sans quitter la page. Le nom et l'email du locataire sont pré-remplis automatiquement.")}
+
+<h2>Analyse IA des documents</h2>
+<p>MyGestia utilise l'intelligence artificielle (Claude d'Anthropic) pour analyser automatiquement vos documents et vous faire gagner du temps dans le classement et la recherche.</p>
+${stepBlock(1, "Uploadez un document", "Lors de l'ajout d'un fichier dans la GED, l'analyse IA se déclenche <strong>automatiquement en arrière-plan</strong>. Vous pouvez continuer à travailler pendant l'analyse.")}
+${stepBlock(2, "L'IA lit et comprend le document", "Le contenu du document est analysé par l'IA qui en extrait : un <strong>résumé court</strong> (2-3 phrases), des <strong>mots-clés</strong> pertinents et la <strong>catégorie</strong> la plus adaptée parmi les 9 catégories disponibles.")}
+${stepBlock(3, "Résultat visible dans la GED", "Un <strong>badge IA</strong> apparaît sur le document. Cliquez dessus pour voir le résumé, les tags et la catégorie proposée. Vous pouvez corriger la catégorie si nécessaire.")}
+<p><strong>9 catégories détectées automatiquement :</strong> bail, avenant, quittance, facture, diagnostic, assurance, titre de propriété, contrat, état des lieux.</p>
+${infoBox("info", "L'analyse IA est disponible sur le <strong>plan Enterprise</strong>. Elle nécessite une clé API Anthropic configurée par l'administrateur.")}
+
+<h3>Poser des questions sur un document (Chat IA)</h3>
+<p>Vous pouvez <strong>poser des questions en langage naturel</strong> directement sur le contenu d'un document analysé. Depuis la GED, ouvrez un document et utilisez la fonction <strong>Chat</strong>.</p>
+<p><strong>Exemples de questions :</strong></p>
+<ul>
+<li>&laquo; Quelle est la durée de ce bail ? &raquo;</li>
+<li>&laquo; Quel est le montant du loyer mensuel ? &raquo;</li>
+<li>&laquo; Quelles sont les conditions de résiliation ? &raquo;</li>
+<li>&laquo; Ce diagnostic est-il encore valide ? &raquo;</li>
+</ul>
+
+<h2>Navigation et recherche dans la GED</h2>
+<p>La GED (Gestion Électronique des Documents) offre plusieurs modes de navigation pour retrouver rapidement vos fichiers :</p>
+
+<h3>Arborescence latérale</h3>
+<p>Un panneau latéral affiche l'arborescence de votre patrimoine : immeubles &gt; lots. Cliquez sur un élément pour filtrer les documents rattachés à cet immeuble ou ce lot spécifique. Les documents généraux (non rattachés) sont accessibles via la racine.</p>
+
+<h3>Modes d'affichage</h3>
+<ul>
+<li><strong>Vue liste</strong> : affichage détaillé avec nom, catégorie, date, taille, statut IA et actions. Idéal pour parcourir de nombreux documents.</li>
+<li><strong>Vue grille</strong> : affichage en cartes avec aperçu visuel. Idéal pour les documents visuels (photos, plans).</li>
+</ul>
+
+<h3>Recherche et filtres</h3>
+<ul>
+<li><strong>Recherche par nom</strong> : barre de recherche en haut de la GED</li>
+<li><strong>Recherche globale</strong> : <strong>Ctrl+K</strong> depuis n'importe quelle page de l'application</li>
+<li><strong>Tri</strong> : par nom, date d'ajout, catégorie ou taille de fichier</li>
+<li><strong>Filtrage par expiration</strong> : badges <span style="color:#D97706;">orange</span> (expire dans 90 jours) ou <span style="color:#DC2626;">rouge</span> (expiré)</li>
+<li><strong>Filtrage par entité</strong> : depuis la fiche d'un immeuble, bail ou locataire, section Documents</li>
+</ul>
+
+<h3>Aperçu et prévisualisation</h3>
+<p>Cliquez sur un document pour ouvrir le <strong>panneau de prévisualisation</strong> sans quitter la GED. Les fichiers PDF et les images s'affichent directement. Vous pouvez aussi modifier les métadonnées (catégorie, description, date d'expiration) depuis ce panneau.</p>
 
 <h2>Sécurité des documents</h2>
-<ul>
-<li><strong>Stockage chiffré</strong> : infrastructure européenne (Supabase Frankfurt)</li>
-<li><strong>URLs signées</strong> : expirent après 5 minutes</li>
-<li><strong>Contrôle d'accès</strong> : seuls les utilisateurs de la société peuvent voir les documents</li>
-<li><strong>Audit trail</strong> : chaque consultation et téléchargement est enregistré</li>
-<li><strong>Dataroom isolée</strong> : partenaires ne voient que les documents partagés</li>
-</ul>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Mesure de sécurité</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Détails</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Stockage chiffré</td><td style="padding:10px;border:1px solid #E5E7EB;">Infrastructure européenne Supabase (Frankfurt, Allemagne). Données au repos chiffrées.</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">URLs signées temporaires</td><td style="padding:10px;border:1px solid #E5E7EB;">Chaque lien de téléchargement expire après <strong>5 minutes</strong>. Impossible de partager un lien permanent.</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Contrôle d'accès strict</td><td style="padding:10px;border:1px solid #E5E7EB;">Seuls les utilisateurs membres de la société peuvent voir les documents. Isolation complète entre sociétés.</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Journal d'audit</td><td style="padding:10px;border:1px solid #E5E7EB;">Chaque upload, consultation, modification et suppression est tracé avec l'utilisateur, la date et l'action.</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Dataroom isolée</td><td style="padding:10px;border:1px solid #E5E7EB;">Les partenaires externes ne voient <strong>que</strong> les documents explicitement ajoutés à leur Dataroom.</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Upload sécurisé</td><td style="padding:10px;border:1px solid #E5E7EB;">Protocole TUS avec upload signé (signed URL). Le fichier transite directement vers le stockage sans passer par le serveur applicatif.</td></tr>
+</tbody>
+</table>
 
 <h2>Questions fréquentes</h2>
-${faqItem("Quels formats de fichiers sont acceptés ?", "PDF, JPG, PNG, DOCX et XLSX. Taille maximale : 20 Mo par fichier.")}
-${faqItem("Comment partager des documents avec un notaire ou une banque ?", "Créez un lien Dataroom avec les documents sélectionnés. Le lien peut avoir un mot de passe et une durée de validité.")}
-${faqItem("Comment fonctionne la signature électronique ?", "Uploadez un PDF, définissez les zones de signature, envoyez par email. Les signataires signent depuis leur navigateur sans créer de compte.")}
-${faqItem("La signature électronique a-t-elle une valeur légale ?", "Oui, reconnue par la loi française et européenne (règlement eIDAS). Même valeur qu'une signature manuscrite.")}
-${faqItem("Comment retrouver un document précis ?", "Recherche globale (Ctrl+K), filtrage par catégorie ou par entité. Les documents arrivant à expiration sont signalés.")}
-${faqItem("Les documents sont-ils sauvegardés automatiquement ?", "Oui, stockés sur infrastructure européenne sécurisée avec redondance. Aucune sauvegarde manuelle nécessaire.")}
-${faqItem("Comment révoquer l'accès à une Dataroom ?", "Page Dataroom &gt; supprimez le lien de partage. L'accès est immédiatement révoqué.")}
-${faqItem("Puis-je classer automatiquement mes documents ?", "Oui, l'analyse IA (plan Enterprise) catégorise automatiquement en 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre de propriété, contrat, état des lieux.")}
+${faqItem("Quels formats de fichiers sont acceptés ?", "PDF, JPG, PNG, WebP et Word (DOC/DOCX). Taille maximale : <strong>20 Mo</strong> par fichier. L'upload par morceaux (TUS) garantit la fiabilité même pour les gros fichiers.")}
+${faqItem("Comment uploader un dossier entier ?", "Documents &gt; Ajouter &gt; basculez en mode <strong>Dossier</strong>. Sélectionnez un dossier complet, chaque fichier sera uploadé individuellement avec sa propre barre de progression.")}
+${faqItem("Comment partager des documents avec un notaire ou une banque ?", "Créez une <strong>Dataroom</strong> : ajoutez les documents à partager, configurez un mot de passe et une date d'expiration, puis activez le lien. Le destinataire consulte les documents depuis son navigateur sans se connecter à MyGestia.")}
+${faqItem("Comment configurer un mot de passe sur une Dataroom ?", "Lors de la création ou modification de la Dataroom, renseignez le champ Mot de passe. Le destinataire devra le saisir pour accéder aux documents. Le mot de passe est chiffré en bcrypt.")}
+${faqItem("Comment savoir qui a consulté ma Dataroom ?", "Fiche Dataroom &gt; section <strong>Journal d'accès</strong>. Chaque consultation est enregistrée avec : nom du visiteur, email, adresse IP et date/heure.")}
+${faqItem("Comment fonctionne la signature électronique ?", "Depuis la fiche bail &gt; Signature électronique &gt; Envoyer. Renseignez nom et email du signataire. Il reçoit un lien DocuSign sécurisé et signe depuis son navigateur <strong>sans créer de compte</strong>. Le document signé est archivé automatiquement.")}
+${faqItem("La signature électronique a-t-elle une valeur légale ?", "Oui, conforme au <strong>règlement européen eIDAS</strong> et reconnue par la loi française. La signature électronique DocuSign a la même valeur juridique qu'une signature manuscrite.")}
+${faqItem("Comment annuler une demande de signature ?", "Fiche bail &gt; Signature électronique &gt; cliquez sur la demande &gt; <strong>Annuler</strong>. Renseignez le motif. Le signataire est notifié et le lien est désactivé. Possible uniquement tant que le document n'est pas signé.")}
+${faqItem("Comment retrouver un document précis ?", "4 façons : <strong>Ctrl+K</strong> (recherche globale), barre de recherche dans la GED, arborescence latérale (par immeuble/lot), ou filtrage par catégorie. Les documents arrivant à expiration sont signalés par des badges colorés.")}
+${faqItem("Les documents sont-ils sauvegardés automatiquement ?", "Oui, stockés sur infrastructure européenne sécurisée (Supabase Frankfurt) avec redondance. Aucune sauvegarde manuelle nécessaire.")}
+${faqItem("Comment révoquer l'accès à une Dataroom ?", "Deux options : <strong>Archiver</strong> la Dataroom (le lien est désactivé, les documents restent consultables en interne) ou <strong>Supprimer</strong> la Dataroom (uniquement si elle est en brouillon ou archivée).")}
+${faqItem("Puis-je classer automatiquement mes documents ?", "Oui, l'<strong>analyse IA</strong> (plan Enterprise) catégorise automatiquement vos documents en 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre de propriété, contrat, état des lieux. L'IA génère aussi un résumé et des mots-clés.")}
+${faqItem("Puis-je poser des questions sur le contenu d'un document ?", "Oui, la fonction <strong>Chat IA</strong> (plan Enterprise) permet d'interroger le contenu d'un document en langage naturel. Exemple : &laquo; Quelle est la durée du bail ? &raquo;, &laquo; Quel est le montant du loyer ? &raquo;.")}
+${faqItem("Comment supprimer un document ?", "Depuis la GED, ouvrez le document et cliquez sur <strong>Supprimer</strong>. Le fichier est supprimé du stockage et de la base de données. Cette action est irréversible.")}
 `,
       },
     ],
@@ -997,19 +1147,41 @@ ${faqItem("Puis-je classer automatiquement mes documents ?", "Oui, l'analyse IA 
 <p>La section <strong>Tâches du jour</strong> affiche les actions urgentes : factures à valider, relances à envoyer, diagnostics expirant, baux à renouveler. Chaque tâche est cliquable et redirige vers l'écran correspondant.</p>
 
 <h2>Rapports et exports</h2>
-<p>9 types de rapports disponibles :</p>
-<ol>
-<li>Balance âgée</li>
-<li>Compte-rendu de gestion</li>
-<li>État des impayés</li>
-<li>Rentabilité par lot</li>
-<li>Récap charges locataire</li>
-<li>Situation locative</li>
-<li>Suivi mensuel</li>
-<li>Suivi travaux</li>
-<li>Vacance locative</li>
-</ol>
-<p>Exports en <strong>PDF</strong> ou <strong>Excel</strong>. Planification d'envoi automatique par email depuis <strong>Rapports &gt; Planification</strong>.</p>
+<p>MyGestia propose <strong>9 types de rapports</strong> couvrant tous les aspects de la gestion immobilière. Chaque rapport est générable à la demande ou planifiable pour un envoi automatique par email.</p>
+
+<h3>Les 9 rapports disponibles</h3>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Rapport</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Contenu</th>
+<th style="text-align:center;padding:10px;border:1px solid #E5E7EB;">Format</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Catégorie</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Situation locative</td><td style="padding:10px;border:1px solid #E5E7EB;">Occupation de chaque lot par immeuble : locataire, loyer, dates du bail, statut</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Patrimoine</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Vacance locative</td><td style="padding:10px;border:1px solid #E5E7EB;">Taux de vacance par immeuble, durée moyenne de vacance, impact financier</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Patrimoine</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Compte-rendu de gestion</td><td style="padding:10px;border:1px solid #E5E7EB;">Synthèse annuelle : revenus, charges, résultat net, occupation, événements</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Comptabilité</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Balance âgée</td><td style="padding:10px;border:1px solid #E5E7EB;">Impayés par tranche d'ancienneté (0-30j, 30-60j, 60-90j, 90j+) par locataire</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Comptabilité</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">État des impayés</td><td style="padding:10px;border:1px solid #E5E7EB;">Liste détaillée des factures impayées : locataire, montant, jours de retard, relances envoyées</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF / Excel</td><td style="padding:10px;border:1px solid #E5E7EB;">Comptabilité</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Suivi mensuel</td><td style="padding:10px;border:1px solid #E5E7EB;">Tableau de bord mensuel par immeuble : encaissements, charges, solde, occupation</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Comptabilité</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Rentabilité par lot</td><td style="padding:10px;border:1px solid #E5E7EB;">Revenus annuels par lot, rendement brut, comparaison entre lots</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">Excel</td><td style="padding:10px;border:1px solid #E5E7EB;">Comptabilité</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Récap charges locataire</td><td style="padding:10px;border:1px solid #E5E7EB;">Détail des charges par locataire : provisions versées, charges réelles, solde</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">PDF</td><td style="padding:10px;border:1px solid #E5E7EB;">Par locataire</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Suivi travaux</td><td style="padding:10px;border:1px solid #E5E7EB;">Liste des interventions annuelles : nature, prestataire, coût, statut</td><td style="text-align:center;padding:10px;border:1px solid #E5E7EB;">Excel</td><td style="padding:10px;border:1px solid #E5E7EB;">Travaux</td></tr>
+</tbody>
+</table>
+
+<h3>Générer un rapport</h3>
+${stepBlock(1, "Accédez aux rapports", "Menu latéral &gt; <strong>Rapports</strong>. Les rapports sont organisés par catégorie : Patrimoine, Comptabilité, Par locataire, Travaux.")}
+${stepBlock(2, "Sélectionnez le type de rapport", "Choisissez le rapport souhaité et renseignez les paramètres : <strong>année</strong>, <strong>format</strong> (PDF ou Excel) et, si applicable, le <strong>locataire</strong> ou l'<strong>immeuble</strong> concerné.")}
+${stepBlock(3, "Générez et téléchargez", "Cliquez sur <strong>Générer</strong>. Le rapport est créé en temps réel et téléchargé automatiquement.")}
+
+<h3>Planifier l'envoi automatique de rapports</h3>
+${stepBlock(1, "Accédez à la planification", "<strong>Rapports &gt; Planification</strong>.")}
+${stepBlock(2, "Créez une planification", "Définissez : le type de rapport, la fréquence (hebdomadaire, mensuelle, trimestrielle), les destinataires (emails) et le format.")}
+${stepBlock(3, "Envoi automatique", "Les rapports sont générés et envoyés par email selon la fréquence définie, sans aucune action manuelle.")}
+${infoBox("tip", "Depuis la <strong>Vue Propriétaire</strong>, vous pouvez aussi générer des rapports consolidés qui regroupent les données de toutes vos sociétés.")}
 
 <h2>Questions fréquentes</h2>
 ${faqItem("Comment personnaliser mon tableau de bord ?", "Le dashboard affiche les données de la société active. Changez de société via le sélecteur en haut de page.")}
@@ -1100,16 +1272,64 @@ ${infoBox("warning", "Si vous perdez l'accès à votre application d'authentific
 </table>
 
 <h2>Portail locataire</h2>
-<p>Chaque locataire dispose d'un <strong>portail personnel sécurisé</strong> accessible via un lien individuel, sans créer de compte MyGestia.</p>
-<p>Depuis son portail, le locataire peut :</p>
+<p>Chaque locataire dispose d'un <strong>portail personnel sécurisé</strong>, totalement indépendant de l'application principale. Le locataire n'a pas besoin de compte MyGestia : il se connecte via un lien individuel envoyé par email.</p>
+
+<h3>Activer le portail pour un locataire</h3>
+${stepBlock(1, "Accédez à la fiche locataire", "Menu <strong>Locataires</strong> &gt; cliquez sur le locataire concerné.")}
+${stepBlock(2, "Activez le portail", "Cliquez sur <strong>Activer le portail</strong>. Un email d'invitation est envoyé automatiquement à l'adresse email du locataire.")}
+${stepBlock(3, "Première connexion du locataire", "Le locataire reçoit un email avec un lien d'activation. Il crée son accès (aucun mot de passe nécessaire) et accède directement à son espace personnel.")}
+
+<h3>Connexion sécurisée en 2 étapes</h3>
+<p>Le portail utilise une authentification par <strong>code à usage unique</strong>, sans mot de passe :</p>
+${stepBlock(1, "Le locataire saisit son email", "Sur la page de connexion du portail, il entre l'adresse email associée à son bail.")}
+${stepBlock(2, "Il reçoit un code à 6 chiffres", "Un code de vérification est envoyé instantanément par email. Ce code est valable quelques minutes.")}
+${stepBlock(3, "Il saisit le code et accède au portail", "La session est ouverte pour <strong>24 heures</strong> (token JWT sécurisé, cookie httpOnly).")}
+${infoBox("info", "Pas de mot de passe à retenir ni à réinitialiser. Le locataire se connecte toujours via un code envoyé par email, ce qui est plus sécurisé qu'un mot de passe classique.")}
+
+<h3>Ce que le locataire voit sur son portail</h3>
+<p>Le portail offre 5 sections principales :</p>
+
+<p><strong>1. Tableau de bord</strong></p>
 <ul>
-<li>Consulter ses factures et quittances</li>
-<li>Télécharger ses documents (bail, états des lieux, diagnostics)</li>
-<li>Voir le détail de ses charges</li>
-<li>Consulter son attestation d'assurance</li>
-<li>Effectuer des paiements en ligne</li>
+<li>Résumé de ses baux actifs (adresse, loyer, dates)</li>
+<li>Montant des factures impayées avec alerte visuelle</li>
+<li>Statut de son attestation d'assurance (valide, expirant, expirée)</li>
+<li>Coordonnées du gestionnaire pour le contacter</li>
 </ul>
-${infoBox("info", "Le portail utilise une authentification JWT séparée (token 24h, cookie httpOnly). Le locataire accède uniquement à ses propres données.")}
+
+<p><strong>2. Mes documents</strong></p>
+<ul>
+<li>Accès à toutes ses factures et quittances de loyer</li>
+<li>Téléchargement des PDF en un clic</li>
+<li>Historique complet de la facturation</li>
+</ul>
+
+<p><strong>3. Mes charges</strong></p>
+<ul>
+<li>Détail des charges par bail</li>
+<li>Ventilation par catégorie de charges</li>
+<li>Historique des provisions versées</li>
+</ul>
+
+<p><strong>4. Mon assurance</strong></p>
+<ul>
+<li>Statut actuel de l'attestation d'assurance</li>
+<li>Formulaire d'upload pour envoyer une nouvelle attestation</li>
+<li>Alertes automatiques si l'assurance est expirée ou proche de l'expiration</li>
+</ul>
+
+<p><strong>5. Mes tickets de support</strong></p>
+<ul>
+<li>Créer une demande de support (signaler un problème, poser une question)</li>
+<li>Suivre l'avancement de ses tickets</li>
+<li>Échanger des messages avec le gestionnaire</li>
+<li>Consulter l'historique des demandes passées</li>
+</ul>
+
+${infoBox("warning", "Le portail est <strong>totalement isolé</strong>. Un locataire ne peut voir que ses propres données : ses baux, ses factures, ses documents. Il n'a aucun accès aux données d'autres locataires ni aux données de gestion.")}
+
+<h3>Gestion multi-société</h3>
+<p>Si un locataire a des baux dans plusieurs sociétés gérées par le même propriétaire, il accède à toutes ses locations depuis un seul portail, avec un sélecteur de société.</p>
 
 <h2>Logs d'activité et audit</h2>
 <p>Toutes les actions sont enregistrées : création, modification, suppression, consultation de données sensibles, envoi d'emails, connexions. Accessibles depuis <strong>Mon compte &gt; Activité</strong> ou <strong>Administration &gt; Audit</strong>. Rétention : 1 an.</p>
@@ -1141,7 +1361,150 @@ ${faqItem("Qui peut voir les logs d'activité ?", "Les administrateurs (Admin So
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // SECTION 12 : FAQ générale
+  // SECTION 12 : Courriers et modèles
+  // ──────────────────────────────────────────────────────────────────────────
+  {
+    name: "Courriers et modèles",
+    description:
+      "Bibliothèque de modèles de courriers, variables dynamiques et envoi personnalisé.",
+    articles: [
+      {
+        title: "Courriers personnalisés et bibliothèque de modèles",
+        body: `
+<h2>Bibliothèque de modèles de courriers</h2>
+<p>MyGestia inclut une bibliothèque de <strong>plus de 30 modèles de courriers</strong> prêts à l'emploi, classés par catégorie. Chaque modèle utilise des variables dynamiques qui sont automatiquement remplacées par les données réelles de votre société, locataire et bail.</p>
+
+<h3>6 catégories de modèles</h3>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Catégorie</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Exemples de courriers</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Loyer et paiements</td><td style="padding:10px;border:1px solid #E5E7EB;">Appel de loyer, rappel de paiement, mise en demeure, accusé de réception de paiement</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Bail et occupation</td><td style="padding:10px;border:1px solid #E5E7EB;">Congé donné par le bailleur, avis de renouvellement, notification de révision de loyer, attestation de domicile</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Charges</td><td style="padding:10px;border:1px solid #E5E7EB;">Régularisation annuelle de charges, appel de provisions, détail des charges récupérables</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Travaux</td><td style="padding:10px;border:1px solid #E5E7EB;">Avis de travaux, demande d'accès au logement, notification de fin de travaux</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Assurance</td><td style="padding:10px;border:1px solid #E5E7EB;">Demande d'attestation d'assurance, relance assurance expirée, déclaration de sinistre</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Administratif</td><td style="padding:10px;border:1px solid #E5E7EB;">Attestation de loyer, certificat de non-dette, confirmation de résiliation</td></tr>
+</tbody>
+</table>
+
+<h2>Envoyer un courrier personnalisé</h2>
+${stepBlock(1, "Accédez aux courriers", "Menu latéral &gt; <strong>Courriers</strong>. La page affiche la bibliothèque de modèles avec un moteur de recherche et des filtres par catégorie.")}
+${stepBlock(2, "Choisissez un modèle", "Parcourez les catégories ou recherchez un modèle par mot-clé. Chaque modèle affiche une description et le nombre de variables dynamiques.")}
+${stepBlock(3, "Sélectionnez le destinataire", "Choisissez le locataire ou le bail concerné. Les variables du modèle sont <strong>automatiquement remplies</strong> avec les données réelles.")}
+${stepBlock(4, "Personnalisez si nécessaire", "Le texte est entièrement modifiable. Ajustez le contenu, ajoutez des paragraphes ou modifiez les montants avant envoi.")}
+${stepBlock(5, "Envoyez ou téléchargez", "Deux options : <strong>Envoyer par email</strong> directement au locataire, ou <strong>Télécharger en PDF</strong> pour impression et envoi postal.")}
+
+<h3>Variables dynamiques disponibles</h3>
+<p>Les variables suivantes sont automatiquement remplacées par les données réelles :</p>
+<ul>
+<li><strong>Société</strong> : nom, adresse complète, SIRET, forme juridique</li>
+<li><strong>Locataire</strong> : nom, prénom, adresse, email, téléphone</li>
+<li><strong>Bail</strong> : dates de début et fin, loyer HT, charges, dépôt de garantie</li>
+<li><strong>Dates</strong> : date du jour, date d'échéance, date de révision</li>
+<li><strong>Montants</strong> : loyer, charges, total TTC, solde impayé</li>
+</ul>
+${infoBox("tip", "Vous pouvez aussi <strong>créer vos propres modèles</strong> personnalisés depuis Courriers &gt; Modèles &gt; Créer. Les modèles personnalisés sont propres à votre société.")}
+
+<h3>Envoi groupé par immeuble</h3>
+<p>Besoin d'envoyer le même courrier à tous les locataires d'un immeuble ? Sélectionnez le mode <strong>Envoi par immeuble</strong>. Chaque locataire recevra un courrier personnalisé avec ses propres données (nom, adresse, loyer, etc.).</p>
+
+<h2>Questions fréquentes</h2>
+${faqItem("Puis-je créer mes propres modèles de courrier ?", "Oui, <strong>Courriers &gt; Modèles &gt; Créer</strong>. Rédigez votre texte et insérez les variables dynamiques disponibles. Les modèles personnalisés sont propres à votre société.")}
+${faqItem("Comment envoyer un courrier à tous les locataires d'un immeuble ?", "Sélectionnez un modèle, puis choisissez le mode <strong>Envoi par immeuble</strong>. Sélectionnez l'immeuble et chaque locataire recevra un courrier personnalisé avec ses propres données.")}
+${faqItem("Puis-je envoyer un courrier par email ET le télécharger en PDF ?", "Oui, les deux options sont disponibles pour chaque courrier. Vous pouvez envoyer par email et conserver une copie PDF.")}
+${faqItem("Les courriers sont-ils enregistrés dans l'historique ?", "Oui, chaque envoi est tracé dans le journal d'audit avec la date, le destinataire et le type de courrier.")}
+${faqItem("Comment modifier un modèle existant ?", "Courriers &gt; Modèles &gt; cliquez sur le modèle &gt; Modifier. Les modèles système ne sont pas modifiables, mais vous pouvez les dupliquer et personnaliser la copie.")}
+`,
+      },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION 13 : Import et export de données
+  // ──────────────────────────────────────────────────────────────────────────
+  {
+    name: "Import et export de données",
+    description:
+      "Importation CSV/Excel, analyse IA de baux PDF et exports de données.",
+    articles: [
+      {
+        title: "Importer et exporter vos données",
+        body: `
+<h2>Import de données en masse (CSV / Excel)</h2>
+<p>Si vous migrez depuis un autre logiciel ou si vous devez créer de nombreux éléments en une fois, le module d'import vous permet de charger vos données depuis un <strong>fichier CSV ou Excel</strong>.</p>
+
+<h3>3 types d'entités importables</h3>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<thead>
+<tr style="background:#F3F4F6;">
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Type</th>
+<th style="text-align:left;padding:10px;border:1px solid #E5E7EB;">Colonnes attendues</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Locataires</td><td style="padding:10px;border:1px solid #E5E7EB;">Nom, prénom, email, téléphone → créés en tant que personne physique</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Immeubles</td><td style="padding:10px;border:1px solid #E5E7EB;">Nom, adresse, ville, code postal, type (habitation, bureau, commerce, etc.)</td></tr>
+<tr><td style="padding:10px;border:1px solid #E5E7EB;font-weight:500;">Lots</td><td style="padding:10px;border:1px solid #E5E7EB;">Référence/numéro, type, surface, étage, identifiant de l'immeuble</td></tr>
+</tbody>
+</table>
+
+<h3>Procédure d'import étape par étape</h3>
+${stepBlock(1, "Accédez au module d'import", "Menu <strong>Administration &gt; Import</strong>. La page affiche les types d'entités importables et les colonnes attendues.")}
+${stepBlock(2, "Sélectionnez le type d'entité", "Choisissez ce que vous importez : locataires, immeubles ou lots.")}
+${stepBlock(3, "Uploadez votre fichier", "Glissez-déposez ou parcourez pour sélectionner votre fichier. <strong>Formats acceptés :</strong> CSV (séparateur point-virgule), XLS et XLSX. <strong>Taille maximale :</strong> 10 Mo.")}
+${stepBlock(4, "Prévisualisez les données", "Un tableau affiche les premières lignes de votre fichier. Vérifiez que les colonnes correspondent aux champs attendus.")}
+${stepBlock(5, "Lancez l'import", "Cliquez sur <strong>Importer</strong>. Chaque ligne est validée individuellement : les lignes valides sont créées, les lignes en erreur sont signalées avec le numéro de ligne et le message d'erreur.")}
+${stepBlock(6, "Consultez le résultat", "Un résumé affiche le nombre de lignes importées avec succès et le détail des erreurs éventuelles.")}
+${infoBox("warning", "L'import est soumis aux <strong>limites de votre plan</strong>. Si vous atteignez la limite de lots (20 pour Starter, 50 pour Pro), l'import s'arrête et vous en êtes informé.")}
+
+<h2>Import intelligent de bail par IA</h2>
+<p>MyGestia peut analyser un <strong>contrat de bail au format PDF</strong> et en extraire automatiquement toutes les informations grâce à l'intelligence artificielle.</p>
+${stepBlock(1, "Uploadez le PDF du bail", "Administration &gt; Import &gt; section <strong>Import de bail par IA</strong>. Uploadez le fichier PDF de votre contrat de bail.")}
+${stepBlock(2, "L'IA analyse le document", "L'IA (Claude d'Anthropic) lit le contrat et en extrait automatiquement : les informations de l'immeuble et du lot, l'identité du locataire, le type de bail (habitation, commercial, professionnel...), le montant du loyer, la durée, les dates, l'indice de révision, etc.")}
+${stepBlock(3, "Vérifiez et validez", "Les données extraites s'affichent dans un formulaire pré-rempli. Vérifiez les informations, corrigez si nécessaire, puis validez. L'immeuble, le lot, le locataire et le bail sont créés en une seule opération.")}
+${infoBox("info", "L'import IA de bail est disponible sur le <strong>plan Enterprise</strong>. Il nécessite une clé API Anthropic configurée. L'IA détecte automatiquement le type de bail, la destination, le taux de TVA et le mode de révision.")}
+
+<h2>Exports de données</h2>
+<p>Chaque page principale de l'application dispose d'un <strong>bouton d'export</strong> permettant de télécharger les données au format CSV (séparateur point-virgule, format français).</p>
+
+<h3>Données exportables</h3>
+<ul>
+<li><strong>Locataires</strong> : liste complète avec coordonnées et indicateurs de risque</li>
+<li><strong>Baux</strong> : liste des baux avec locataire, lot, loyer, dates et statut</li>
+<li><strong>Factures</strong> : historique de facturation avec montants, statuts et dates</li>
+<li><strong>Transactions bancaires</strong> : relevé avec dates, montants et statuts de rapprochement</li>
+<li><strong>Charges</strong> : détail des charges par catégorie et par immeuble</li>
+<li><strong>Contacts</strong> : carnet de contacts complet</li>
+</ul>
+
+<h3>Export FEC (Fichier des Écritures Comptables)</h3>
+<p>Le FEC est un format réglementaire exigé par l'administration fiscale française. L'export est accessible depuis <strong>Comptabilité &gt; Exports</strong>.</p>
+${stepBlock(1, "Sélectionnez l'exercice", "Choisissez l'exercice comptable ou la période souhaitée.")}
+${stepBlock(2, "Validez les données", "L'application vérifie automatiquement la cohérence des écritures et signale les anomalies éventuelles.")}
+${stepBlock(3, "Téléchargez le fichier", "Format TXT tabulé réglementaire, directement transmissible à votre comptable ou à l'administration fiscale.")}
+
+<h3>Export RGPD complet</h3>
+<p>Pour exercer le droit de portabilité, vous pouvez exporter l'intégralité des données d'un locataire depuis <strong>RGPD &gt; Nouvelle demande &gt; Portabilité</strong>. L'export génère une archive structurée contenant toutes les données personnelles.</p>
+
+<h2>Questions fréquentes</h2>
+${faqItem("Quels formats de fichiers sont acceptés pour l'import ?", "CSV (séparateur point-virgule), XLS et XLSX. Taille maximale : 10 Mo. Encodage UTF-8 recommandé pour le CSV.")}
+${faqItem("Que se passe-t-il si une ligne du fichier contient une erreur ?", "Les lignes valides sont importées normalement. Les lignes en erreur sont signalées avec le numéro de ligne et le message d'erreur. L'import n'est pas bloqué par les erreurs individuelles.")}
+${faqItem("Puis-je importer des baux en masse ?", "L'import CSV ne couvre pas les baux (trop de champs complexes). Utilisez l'<strong>import IA de bail par PDF</strong> (plan Enterprise) pour créer un bail complet à partir d'un contrat PDF.")}
+${faqItem("Comment exporter mes données en CSV ?", "Chaque page (locataires, baux, factures, etc.) dispose d'un bouton d'export en haut à droite. Le fichier CSV utilise le format français (séparateur point-virgule, virgule décimale).")}
+${faqItem("Comment transmettre le FEC à mon comptable ?", "<strong>Comptabilité &gt; Exports &gt; FEC</strong>. Sélectionnez l'exercice et téléchargez. Le fichier est au format réglementaire, directement utilisable.")}
+${faqItem("Comment exporter toutes les données d'un locataire (RGPD) ?", "<strong>RGPD &gt; Nouvelle demande &gt; Portabilité</strong>. Sélectionnez le locataire. L'export génère une archive complète de toutes ses données personnelles.")}
+`,
+      },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION 14 : FAQ générale
   // ──────────────────────────────────────────────────────────────────────────
   {
     name: "FAQ générale",

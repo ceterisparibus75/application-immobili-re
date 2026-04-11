@@ -197,7 +197,9 @@ export default async function BauxPage() {
   const exportData = leases.map((l) => ({
     tenantName: tenantName(l.tenant),
     building: l.lot.building.name,
-    lotNumber: l.lot.number,
+    lotNumber: l.leaseLots.length > 1
+      ? l.leaseLots.map((ll) => ll.lot.number).join(" + ")
+      : l.lot.number,
     leaseType: TYPE_LABELS[l.leaseType] ?? l.leaseType,
     status: l.status,
     startDate: l.startDate.toLocaleDateString("fr-FR"),
@@ -309,7 +311,11 @@ export default async function BauxPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-xs text-muted-foreground">Lot {lease.lot.number}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {lease.leaseLots.length > 1
+                                    ? `Lots ${lease.leaseLots.map((ll) => ll.lot.number).join(", ")}`
+                                    : `Lot ${lease.lot.number}`}
+                                </span>
                                 {lease.destination && (
                                   <>
                                     <span className="text-muted-foreground/30">·</span>
@@ -397,7 +403,9 @@ export default async function BauxPage() {
                                     )}
                                   </div>
                                   <p className="text-xs text-muted-foreground">
-                                    Lot {lease.lot.number}
+                                    {lease.leaseLots.length > 1
+                                      ? `Lots ${lease.leaseLots.map((ll) => ll.lot.number).join(", ")}`
+                                      : `Lot ${lease.lot.number}`}
                                     {lease.destination && (
                                       <>
                                         <span className="mx-1 text-muted-foreground/30">·</span>

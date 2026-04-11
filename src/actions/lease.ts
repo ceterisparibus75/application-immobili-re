@@ -39,23 +39,37 @@ export async function createLease(
 
     const data = parsed.data;
 
-    // Vérifier que le lot et le locataire appartiennent à la société
-    const [lot, tenant] = await Promise.all([
-      prisma.lot.findFirst({ where: { id: data.lotId, building: { societyId } } }),
-      prisma.tenant.findFirst({ where: { id: data.tenantId, societyId, isActive: true } }),
-    ]);
+    // Le premier lot de la liste est le lot principal
+    const primaryLotId = data.lotIds[0];
 
-    if (!lot) return { success: false, error: "Lot introuvable" };
+    // Vérifier que tous les lots appartiennent à la société
+    const lots = await prisma.lot.findMany({
+      where: { id: { in: data.lotIds }, building: { societyId } },
+      select: { id: true, buildingId: true },
+    });
+    if (lots.length !== data.lotIds.length) {
+      return { success: false, error: "Un ou plusieurs lots sont introuvables" };
+    }
+
+    // Vérifier que le locataire appartient à la société
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: data.tenantId, societyId, isActive: true },
+    });
     if (!tenant) return { success: false, error: "Locataire introuvable ou inactif" };
 
-    // Vérifier qu'il n'y a pas déjà un bail actif sur ce lot
-    const existingActiveLease = await prisma.lease.findFirst({
-      where: { societyId, lotId: data.lotId, status: "EN_COURS" },
+    // Vérifier qu'aucun lot n'a déjà un bail actif
+    const existingActiveLeases = await prisma.leaseLot.findMany({
+      where: {
+        lotId: { in: data.lotIds },
+        lease: { societyId, status: "EN_COURS" },
+      },
+      include: { lot: { select: { number: true } } },
     });
-    if (existingActiveLease) {
+    if (existingActiveLeases.length > 0) {
+      const lotNumbers = existingActiveLeases.map((ll) => ll.lot.number).join(", ");
       return {
         success: false,
-        error: "Ce lot a déjà un bail actif. Résiliez-le avant d'en créer un nouveau.",
+        error: `Le(s) lot(s) ${lotNumbers} ont déjà un bail actif. Résiliez-le avant d'en créer un nouveau.`,
       };
     }
 
@@ -69,7 +83,7 @@ export async function createLease(
     const lease = await prisma.lease.create({
       data: {
         societyId,
-        lotId: data.lotId,
+        lotId: primaryLotId,
         tenantId: data.tenantId,
         leaseNumber,
         leaseTemplateId: data.leaseTemplateId ?? null,
@@ -102,13 +116,25 @@ export async function createLease(
         managementFeeValue: data.managementFeeValue ?? null,
         managementFeeBasis: data.managementFeeBasis ?? null,
         managementFeeVatRate: data.managementFeeVatRate ?? null,
+        // Créer les entrées LeaseLot
+        leaseLots: {
+          create: data.lotIds.map((lotId, index) => ({
+            lotId,
+            isPrimary: index === 0,
+          })),
+        },
       },
     });
 
-    // Mettre à jour le statut du lot
+    // Mettre à jour le statut de tous les lots
+    await prisma.lot.updateMany({
+      where: { id: { in: data.lotIds } },
+      data: { status: "OCCUPE" },
+    });
+    // Mettre à jour le loyer uniquement sur le lot principal
     await prisma.lot.update({
-      where: { id: data.lotId },
-      data: { status: "OCCUPE", currentRent: data.baseRentHT },
+      where: { id: primaryLotId },
+      data: { currentRent: data.baseRentHT },
     });
 
     await createAuditLog({
@@ -118,7 +144,7 @@ export async function createLease(
       entity: "Lease",
       entityId: lease.id,
       details: {
-        lotId: data.lotId,
+        lotIds: data.lotIds,
         tenantId: data.tenantId,
         baseRentHT: data.baseRentHT,
         startDate: data.startDate,
@@ -126,7 +152,9 @@ export async function createLease(
     });
 
     revalidatePath("/baux");
-    revalidatePath(`/patrimoine/immeubles/${lot.buildingId}`);
+    for (const lot of lots) {
+      revalidatePath(`/patrimoine/immeubles/${lot.buildingId}`);
+    }
     revalidatePath(`/locataires/${data.tenantId}`);
 
     return { success: true, data: { id: lease.id } };
@@ -172,13 +200,20 @@ export async function updateLease(
     if (startDate !== undefined && startDate) updateData.startDate = new Date(startDate);
     if (endDate !== undefined && endDate) updateData.endDate = new Date(endDate);
 
-    // Si résiliation : mettre à jour le lot
+    // Si résiliation : mettre à jour tous les lots du bail
     if (data.status === "RESILIE" && existing.status !== "RESILIE") {
       updateData.exitDate = updateData.exitDate ?? new Date();
-      await prisma.lot.update({
-        where: { id: existing.lotId },
-        data: { status: "VACANT", currentRent: null },
+      const leaseLots = await prisma.leaseLot.findMany({
+        where: { leaseId: id },
+        select: { lotId: true },
       });
+      const lotIds = leaseLots.map((ll) => ll.lotId);
+      if (lotIds.length > 0) {
+        await prisma.lot.updateMany({
+          where: { id: { in: lotIds } },
+          data: { status: "VACANT", currentRent: null },
+        });
+      }
     }
 
     await prisma.lease.update({ where: { id }, data: updateData });
@@ -217,7 +252,7 @@ export async function deleteLease(
 
     const lease = await prisma.lease.findFirst({
       where: { id: leaseId, societyId },
-      select: { id: true, status: true, lotId: true },
+      select: { id: true, status: true, lotId: true, leaseLots: { select: { lotId: true } } },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
 
@@ -228,17 +263,22 @@ export async function deleteLease(
       };
     }
 
+    const lotIds = lease.leaseLots.map((ll) => ll.lotId);
+
+    // Cascade supprime les LeaseLot automatiquement
     await prisma.lease.delete({ where: { id: leaseId } });
 
-    // Remettre le lot en vacant si plus aucun bail actif
-    const remainingActive = await prisma.lease.count({
-      where: { lotId: lease.lotId, status: "EN_COURS" },
-    });
-    if (remainingActive === 0) {
-      await prisma.lot.update({
-        where: { id: lease.lotId },
-        data: { status: "VACANT" },
+    // Remettre chaque lot en vacant s'il n'a plus de bail actif
+    for (const lotId of lotIds) {
+      const remainingActive = await prisma.leaseLot.count({
+        where: { lotId, lease: { status: "EN_COURS" } },
       });
+      if (remainingActive === 0) {
+        await prisma.lot.update({
+          where: { id: lotId },
+          data: { status: "VACANT" },
+        });
+      }
     }
 
     await createAuditLog({
@@ -272,6 +312,16 @@ export async function getLeases(societyId: string) {
         include: {
           building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
         },
+      },
+      leaseLots: {
+        include: {
+          lot: {
+            include: {
+              building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
+            },
+          },
+        },
+        orderBy: { isPrimary: "desc" },
       },
       tenant: {
         select: {
@@ -340,6 +390,18 @@ export async function getLeaseById(societyId: string, leaseId: string) {
             select: { id: true, name: true, city: true, postalCode: true },
           },
         },
+      },
+      leaseLots: {
+        include: {
+          lot: {
+            include: {
+              building: {
+                select: { id: true, name: true, city: true, postalCode: true },
+              },
+            },
+          },
+        },
+        orderBy: { isPrimary: "desc" },
       },
       tenant: true,
       managingContact: {

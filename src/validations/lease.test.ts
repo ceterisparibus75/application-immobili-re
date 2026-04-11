@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest"
 import { createLeaseSchema } from "@/validations/lease"
 
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t"
+const VALID_CUID2 = "clh3x2z4k0001qh8g7z1y2v3u"
 
 const validLease = {
-  lotId: VALID_CUID,
+  lotIds: [VALID_CUID],
   tenantId: VALID_CUID,
   leaseType: "COMMERCIAL_369" as const,
   startDate: "2024-01-01",
@@ -17,8 +18,19 @@ describe("createLeaseSchema", () => {
     expect(result.success).toBe(true)
   })
 
-  it("echoue si lotId manquant", () => {
-    const result = createLeaseSchema.safeParse({ ...validLease, lotId: undefined })
+  it("valide un bail avec plusieurs lots", () => {
+    const result = createLeaseSchema.safeParse({ ...validLease, lotIds: [VALID_CUID, VALID_CUID2] })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.lotIds).toHaveLength(2)
+  })
+
+  it("echoue si lotIds vide", () => {
+    const result = createLeaseSchema.safeParse({ ...validLease, lotIds: [] })
+    expect(result.success).toBe(false)
+  })
+
+  it("echoue si lotIds manquant", () => {
+    const result = createLeaseSchema.safeParse({ ...validLease, lotIds: undefined })
     expect(result.success).toBe(false)
   })
 
