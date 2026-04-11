@@ -189,6 +189,9 @@ export async function autoReconcile(
     revalidatePath(`/banque/${bankAccountId}`);
     revalidatePath(`/banque/${bankAccountId}/rapprochement`);
     revalidatePath("/comptabilite");
+    revalidatePath("/facturation");
+    // Mettre à jour les fiches comptables des locataires
+    revalidatePath("/locataires");
 
     return { success: true, data: { matched } };
   } catch (error) {
@@ -252,6 +255,18 @@ export async function manualReconcile(
 
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath("/facturation");
+    // Mettre à jour la fiche comptable du locataire
+    revalidatePath("/locataires");
+    if (payment.invoiceId) {
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: payment.invoiceId },
+        select: { tenantId: true },
+      });
+      if (invoice?.tenantId) {
+        revalidatePath(`/locataires/${invoice.tenantId}`);
+      }
+    }
 
     return { success: true };
   } catch (error) {
@@ -304,6 +319,8 @@ export async function unreconcile(
 
     revalidatePath(`/banque/${reconciliation.transaction.bankAccountId}/rapprochement`);
     revalidatePath(`/banque/${reconciliation.transaction.bankAccountId}`);
+    revalidatePath("/facturation");
+    revalidatePath("/locataires");
 
     return { success: true };
   } catch (error) {
@@ -572,6 +589,11 @@ export async function reconcileWithInvoice(
     revalidatePath("/banque");
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     revalidatePath("/facturation");
+    // Mettre à jour la fiche comptable du locataire
+    revalidatePath("/locataires");
+    if (invoice.tenantId) {
+      revalidatePath(`/locataires/${invoice.tenantId}`);
+    }
     return { success: true };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

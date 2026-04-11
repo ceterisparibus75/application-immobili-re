@@ -207,6 +207,11 @@ export async function recordPayment(
 
     revalidatePath("/facturation");
     revalidatePath(`/facturation/${parsed.data.invoiceId}`);
+    // Mettre à jour la fiche comptable du locataire
+    revalidatePath("/locataires");
+    if (invoice.tenantId) {
+      revalidatePath(`/locataires/${invoice.tenantId}`);
+    }
 
     return { success: true, data: { id: payment.id } };
   } catch (error) {
