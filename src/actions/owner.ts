@@ -133,7 +133,17 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
   ] = await Promise.all([
     prisma.building.findMany({
       where: { societyId: { in: ids } },
-      select: { societyId: true },
+      select: {
+        societyId: true,
+        acquisitionPrice: true,
+        acquisitionFees: true,
+        acquisitionTaxes: true,
+        acquisitionOtherCosts: true,
+        worksCost: true,
+        additionalAcquisitions: {
+          select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true },
+        },
+      },
     }),
     prisma.lot.findMany({
       where: { building: { societyId: { in: ids } } },
@@ -222,13 +232,20 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
 
   // Maps par société
   const bMap = new Map<string, number>();
+  const patrimonyMap = new Map<string, number>();
+  let totalPatrimonyValue = 0;
   for (const b of buildings) {
     bMap.set(b.societyId, (bMap.get(b.societyId) ?? 0) + 1);
-  }
-  // Patrimoine = somme des valeurs d'acquisition (purchaseValue, fallback sur amount)
-  let totalPatrimonyValue = 0;
-  for (const loan of loans) {
-    totalPatrimonyValue += Number(loan.purchaseValue ?? loan.amount ?? 0);
+    // Coût complet = acquisition + frais + taxes + autres frais + travaux + acquisitions complémentaires
+    const baseCost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
+    const additionalCost = (b.additionalAcquisitions ?? []).reduce(
+      (s: number, a: { acquisitionPrice: number | null; acquisitionFees: number | null; acquisitionTaxes: number | null; otherCosts: number | null }) =>
+        s + (a.acquisitionPrice ?? 0) + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0),
+      0,
+    );
+    const buildingTotalCost = baseCost + additionalCost;
+    patrimonyMap.set(b.societyId, (patrimonyMap.get(b.societyId) ?? 0) + buildingTotalCost);
+    totalPatrimonyValue += buildingTotalCost;
   }
   const lMap = new Map<string, { total: number; occupied: number }>();
   for (const l of lots) {
@@ -250,12 +267,10 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
     cashMap.set(ba.societyId, (cashMap.get(ba.societyId) ?? 0) + Number(ba.currentBalance));
   }
 
-  // Dette et patrimoine par société
+  // Dette par société (via emprunts actifs)
   const debtMap = new Map<string, number>();
   const loanPayMap = new Map<string, number>();
-  const patrimonyMap = new Map<string, number>();
   for (const loan of loans) {
-    patrimonyMap.set(loan.societyId, (patrimonyMap.get(loan.societyId) ?? 0) + Number(loan.purchaseValue ?? loan.amount ?? 0));
     const line = loan.amortizationLines[0];
     if (line) {
       debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));
