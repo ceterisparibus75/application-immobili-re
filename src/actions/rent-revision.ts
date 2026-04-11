@@ -168,6 +168,18 @@ export async function validateRevision(
     if (revision.isValidated)
       return { success: false, error: "Cette révision est déjà validée" };
 
+    // Rechercher le trimestre correspondant au nouvel indice
+    const matchingIndex = await prisma.inseeIndex.findFirst({
+      where: {
+        indexType: revision.indexType,
+        value: revision.newIndexValue,
+      },
+      orderBy: { year: "desc" },
+    });
+    const newBaseIndexQuarter = matchingIndex
+      ? `T${matchingIndex.quarter} ${matchingIndex.year}`
+      : null;
+
     await prisma.$transaction([
       prisma.rentRevision.update({
         where: { id: revisionId },
@@ -182,6 +194,7 @@ export async function validateRevision(
         data: {
           currentRentHT: revision.newRentHT,
           baseIndexValue: revision.newIndexValue,
+          ...(newBaseIndexQuarter ? { baseIndexQuarter: newBaseIndexQuarter } : {}),
         },
       }),
     ]);
