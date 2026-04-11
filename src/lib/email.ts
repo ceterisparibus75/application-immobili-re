@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
-const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "contact@mygestia.immo"}>`;
+const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
 
@@ -219,7 +219,7 @@ async function sendMail(
   bcc?: string | string[]
 ): Promise<EmailResult> {
   try {
-    const fromAddress = process.env.EMAIL_FROM ?? "contact@mygestia.immo";
+    const fromAddress = process.env.EMAIL_FROM ?? "noreply@mygestia.immo";
     const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]).filter(Boolean) : [];
     const { data, error } = await getResend().emails.send({
       from: FROM,

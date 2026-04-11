@@ -167,7 +167,7 @@ export async function POST(request: Request) {
   // Action: test_send - envoie un email simple sans piece jointe
   if (body.action === "test_send" && body.to) {
     const resend = new Resend(apiKey);
-    const fromAddress = process.env.EMAIL_FROM ?? "contact@mygestia.immo";
+    const fromAddress = process.env.EMAIL_FROM ?? "noreply@mygestia.immo";
     const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobiliere";
     const { data, error } = await resend.emails.send({
       from: `"${appName}" <${fromAddress}>`,
