@@ -145,12 +145,13 @@ export default auth(async (req) => {
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const cspValue = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://static.zdassets.com https://*.zendesk.com https://*.zopim.com`,
+    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
     "img-src 'self' blob: data: https:",
-    "font-src 'self'",
+    "font-src 'self' https://static.zdassets.com",
     "object-src 'none'",
-    "frame-src 'self'",
+    "frame-src 'self' https://*.zendesk.com",
+    "connect-src 'self' https://*.zendesk.com https://*.zopim.com wss://*.zendesk.com wss://*.zopim.com https://ekr.zdassets.com",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'self'",
