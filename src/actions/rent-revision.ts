@@ -780,6 +780,17 @@ async function buildCatchUpPreview(
   });
   let effectiveDate = new Date(lastRevision?.effectiveDate ?? lease.startDate);
 
+  // Avancer la date d'effet jusqu'à la dernière occurrence AVANT l'année
+  // de la première révision manquée, pour que les dates correspondent
+  // aux années d'indices (et non à un décalage depuis la date du bail)
+  const firstCatchUpYear = baseYear + 1;
+  while (true) {
+    const next = new Date(effectiveDate);
+    next.setMonth(next.getMonth() + frequency);
+    if (next.getFullYear() >= firstCatchUpYear) break;
+    effectiveDate = next;
+  }
+
   for (let year = baseYear + 1; year <= targetYear; year++) {
     const yearIndex = indexMap.get(year);
     if (!yearIndex) continue; // Indice manquant pour cette année, on passe
