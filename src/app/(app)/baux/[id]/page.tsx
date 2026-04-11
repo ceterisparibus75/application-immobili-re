@@ -43,6 +43,7 @@ import { LeaseAmendments } from "./_components/lease-amendments";
 import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
 import { LeaseStatusCard } from "./_components/lease-status-card";
+import { RentSteps } from "./_components/rent-steps";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -461,6 +462,32 @@ export default async function BailDetailPage({
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Paliers de loyer */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Paliers de loyer {lease._count.rentSteps > 0 && `(${lease._count.rentSteps})`}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <RentSteps
+                leaseId={lease.id}
+                societyId={societyId}
+                steps={lease.rentSteps.map((s) => ({
+                  ...s,
+                  startDate: s.startDate.toISOString(),
+                  endDate: s.endDate?.toISOString() ?? null,
+                }))}
+                isActive={isActive}
+                leaseStartDate={lease.startDate.toISOString()}
+                leaseEndDate={lease.endDate?.toISOString() ?? null}
+              />
             </CardContent>
           </Card>
 

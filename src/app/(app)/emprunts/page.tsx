@@ -25,6 +25,8 @@ const TYPE_LABELS: Record<string, string> = {
   AMORTISSABLE: "Amortissable",
   IN_FINE: "In fine",
   BULLET: "Bullet",
+  OBLIGATION: "Obligation",
+  COMPTE_COURANT: "Compte courant",
 };
 
 export default async function EmpruntsPage() {
@@ -36,12 +38,15 @@ export default async function EmpruntsPage() {
 
   const totalCapital = loans.reduce((s, l) => s + l.amount, 0);
   const totalRemaining = loans.reduce((s, l) => {
+    // Les comptes courants utilisent currentBalance
+    if (l.loanType === "COMPTE_COURANT") return s + (l.currentBalance ?? 0);
     const last = l.amortizationLines[0];
     return s + (last?.remainingBalance ?? l.amount);
   }, 0);
   const enCours = loans.filter((l) => l.status === "EN_COURS");
 
   const totalMonthly = enCours.reduce((s, l) => {
+    if (l.loanType === "COMPTE_COURANT") return s; // Pas d'échéance mensuelle fixe
     const line = l.amortizationLines[0];
     return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
   }, 0);
@@ -64,9 +69,11 @@ export default async function EmpruntsPage() {
     lenderGroups.get(lender)!.push(loan);
   }
   const sortedLenders = [...lenderGroups.entries()].sort((a, b) => {
-    const remainA = a[1].reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
-    const remainB = b[1].reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
-    return remainB - remainA;
+    const getRemaining = (loans: typeof a[1]) => loans.reduce((s, l) => {
+      if (l.loanType === "COMPTE_COURANT") return s + (l.currentBalance ?? 0);
+      return s + (l.amortizationLines[0]?.remainingBalance ?? l.amount);
+    }, 0);
+    return getRemaining(b[1]) - getRemaining(a[1]);
   });
 
   const fmt = (v: number) =>
@@ -160,7 +167,10 @@ export default async function EmpruntsPage() {
               <tbody>
                 {sortedLenders.map(([lender, lenderLoans]) => {
                   const gCapital = lenderLoans.reduce((s, l) => s + l.amount, 0);
-                  const gRemaining = lenderLoans.reduce((s, l) => s + (l.amortizationLines[0]?.remainingBalance ?? l.amount), 0);
+                  const gRemaining = lenderLoans.reduce((s, l) => {
+                    if (l.loanType === "COMPTE_COURANT") return s + (l.currentBalance ?? 0);
+                    return s + (l.amortizationLines[0]?.remainingBalance ?? l.amount);
+                  }, 0);
                   const gPaid = gCapital - gRemaining;
                   const gPct = gCapital > 0 ? Math.round((gPaid / gCapital) * 100) : 0;
                   return (
@@ -224,11 +234,13 @@ export default async function EmpruntsPage() {
         <div className="space-y-6">
           {sortedLenders.map(([lender, lenderLoans]) => {
             const groupRemaining = lenderLoans.reduce((s, l) => {
+              if (l.loanType === "COMPTE_COURANT") return s + (l.currentBalance ?? 0);
               const last = l.amortizationLines[0];
               return s + (last?.remainingBalance ?? l.amount);
             }, 0);
             const groupCapital = lenderLoans.reduce((s, l) => s + l.amount, 0);
             const groupMonthly = lenderLoans.filter((l) => l.status === "EN_COURS").reduce((s, l) => {
+              if (l.loanType === "COMPTE_COURANT") return s;
               const line = l.amortizationLines[0];
               return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
             }, 0);
@@ -266,10 +278,11 @@ export default async function EmpruntsPage() {
                       </thead>
                       <tbody>
                         {lenderLoans.map((loan) => {
+                          const isCC = loan.loanType === "COMPTE_COURANT";
                           const last = loan.amortizationLines[0];
-                          const remaining = last?.remainingBalance ?? loan.amount;
-                          const paid = loan.amount - remaining;
-                          const progress = loan.amount > 0 ? (paid / loan.amount) * 100 : 0;
+                          const remaining = isCC ? (loan.currentBalance ?? 0) : (last?.remainingBalance ?? loan.amount);
+                          const paid = isCC ? (loan.amount - remaining) : (loan.amount - remaining);
+                          const progress = loan.amount > 0 ? Math.max(0, (paid / loan.amount) * 100) : 0;
                           const statusInfo = STATUS_LABELS[loan.status];
                           const currentPeriod = last?.period ?? 0;
                           const remainingMonths = loan.durationMonths - currentPeriod;
@@ -289,31 +302,40 @@ export default async function EmpruntsPage() {
                                 </Link>
                               </td>
                               <td className="py-3 px-4">
-                                <div className="min-w-[140px]">
-                                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-primary transition-all"
-                                      style={{ width: Math.min(100, progress) + "%" }}
-                                    />
+                                {isCC ? (
+                                  <div className="min-w-[140px]">
+                                    <p className="text-sm font-medium tabular-nums">{fmt(remaining)}</p>
+                                    <p className="text-xs text-muted-foreground">{loan._count.movements} mouvement{loan._count.movements !== 1 ? "s" : ""}</p>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-muted-foreground tabular-nums">
-                                      {Math.round(progress)}%
-                                    </span>
-                                    {loan.status === "EN_COURS" && remainingMonths > 0 && (
-                                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {remainingYears > 0
-                                          ? `${remainingYears} an${remainingYears > 1 ? "s" : ""}${remainingMo > 0 ? ` ${remainingMo} m` : ""}`
-                                          : `${remainingMonths} mois`}
+                                ) : (
+                                  <div className="min-w-[140px]">
+                                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-primary transition-all"
+                                        style={{ width: Math.min(100, progress) + "%" }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-xs text-muted-foreground tabular-nums">
+                                        {Math.round(progress)}%
                                       </span>
-                                    )}
+                                      {loan.status === "EN_COURS" && remainingMonths > 0 && (
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                          <Clock className="h-3 w-3" />
+                                          {remainingYears > 0
+                                            ? `${remainingYears} an${remainingYears > 1 ? "s" : ""}${remainingMo > 0 ? ` ${remainingMo} m` : ""}`
+                                            : `${remainingMonths} mois`}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
+                                )}
                               </td>
                               <td className="py-3 px-4 text-right">
                                 <p className="font-semibold tabular-nums">{fmt(remaining)}</p>
-                                <p className="text-xs text-muted-foreground tabular-nums">/ {fmt(loan.amount)}</p>
+                                {!isCC && (
+                                  <p className="text-xs text-muted-foreground tabular-nums">/ {fmt(loan.amount)}</p>
+                                )}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <Badge variant={statusInfo?.variant ?? "outline"} className="shrink-0">

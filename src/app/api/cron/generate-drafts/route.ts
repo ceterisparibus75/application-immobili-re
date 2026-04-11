@@ -50,6 +50,10 @@ async function generateDraftInvoices() {
       vatRate: true,
       rentFreeMonths: true,
       progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
       chargeProvisions: {
         where: { isActive: true },
         select: { monthlyAmount: true, vatRate: true, label: true },
@@ -95,7 +99,7 @@ async function generateDraftInvoices() {
       }
 
       // Calculer le loyer
-      const rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0);
+      const rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps);
       const vatRate = lease.vatApplicable ? (lease.vatRate ?? 20) : 0;
 
       const lotLabel = lease.lot
@@ -265,7 +269,8 @@ function computeRent(
   startDate: Date,
   currentRentHT: number,
   progressiveRent: unknown,
-  rentFreeMonths: number
+  rentFreeMonths: number,
+  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[]
 ): number {
   const start = new Date(startDate);
   const now = new Date();
@@ -273,6 +278,20 @@ function computeRent(
 
   if (months < Math.floor(rentFreeMonths)) return 0;
 
+  // Priorité 1 : paliers de loyer (LeaseRentStep) basés sur les dates
+  if (rentSteps && rentSteps.length > 0) {
+    // Chercher le palier actif pour la date courante
+    for (let i = rentSteps.length - 1; i >= 0; i--) {
+      const step = rentSteps[i];
+      const stepStart = new Date(step.startDate);
+      const stepEnd = step.endDate ? new Date(step.endDate) : null;
+      if (now >= stepStart && (!stepEnd || now <= stepEnd)) {
+        return step.rentHT;
+      }
+    }
+  }
+
+  // Priorité 2 : ancien champ progressiveRent JSON (rétrocompatibilité)
   if (progressiveRent && typeof progressiveRent === "object" && Array.isArray((progressiveRent as { steps?: unknown[] }).steps)) {
     const steps = (progressiveRent as { steps: { fromMonth: number; rentHT: number }[] }).steps;
     const sorted = [...steps].sort((a, b) => b.fromMonth - a.fromMonth);

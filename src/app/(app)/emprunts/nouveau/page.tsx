@@ -30,9 +30,11 @@ import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 type Building = { id: string; name: string; city: string };
 
 const LOAN_TYPES = [
-  { value: "AMORTISSABLE", label: "Amortissable (annuité constante)" },
-  { value: "IN_FINE", label: "In fine (intérêts + capital en fin)" },
-  { value: "BULLET", label: "Bullet (tout à l'échéance)" },
+  { value: "AMORTISSABLE", label: "Amortissable (annuité constante)", group: "Emprunts classiques" },
+  { value: "IN_FINE", label: "In fine (intérêts + capital en fin)", group: "Emprunts classiques" },
+  { value: "BULLET", label: "Bullet (tout à l'échéance)", group: "Emprunts classiques" },
+  { value: "OBLIGATION", label: "Émission obligataire (coupons + capital en fin)", group: "Financements alternatifs" },
+  { value: "COMPTE_COURANT", label: "Compte courant d'associé", group: "Financements alternatifs" },
 ];
 
 function calcMonthlyPayment(amount: number, annualRate: number, months: number): number {
@@ -84,21 +86,43 @@ function ManualForm({
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const lt = formData.get("loanType") as string;
+    const data: Record<string, unknown> = {
       label: formData.get("label") as string,
       lender: formData.get("lender") as string,
-      loanType: formData.get("loanType") as string,
+      loanType: lt,
       amount: parseFloat(formData.get("amount") as string),
       interestRate: parseFloat(formData.get("interestRate") as string),
       insuranceRate: parseFloat(formData.get("insuranceRate") as string) || 0,
       durationMonths: parseInt(formData.get("durationMonths") as string),
       startDate: formData.get("startDate") as string,
-      buildingId: formData.get("buildingId") as string,
+      buildingId: (formData.get("buildingId") as string) || null,
       purchaseValue: formData.get("purchaseValue")
         ? parseFloat(formData.get("purchaseValue") as string)
         : null,
       notes: (formData.get("notes") as string) || null,
     };
+
+    // Champs spécifiques Obligation
+    if (lt === "OBLIGATION") {
+      const nv = formData.get("nominalValue") as string;
+      const bc = formData.get("bondCount") as string;
+      const ip = formData.get("issuePrice") as string;
+      data.nominalValue = nv ? parseFloat(nv) : null;
+      data.bondCount = bc ? parseInt(bc) : null;
+      data.couponFrequency = (formData.get("couponFrequency") as string) || null;
+      data.issuePrice = ip ? parseFloat(ip) : null;
+    }
+
+    // Champs spécifiques Compte courant
+    if (lt === "COMPTE_COURANT") {
+      const ma = formData.get("maxAmount") as string;
+      const ps = formData.get("partnerShare") as string;
+      data.partnerName = (formData.get("partnerName") as string) || null;
+      data.partnerShare = ps ? parseFloat(ps) : null;
+      data.maxAmount = ma ? parseFloat(ma) : null;
+      data.conventionDate = (formData.get("conventionDate") as string) || null;
+    }
 
     const result = await createLoan(activeSocietyId, data);
     if ("error" in result) {
@@ -150,20 +174,27 @@ function ManualForm({
                 onChange={(e) => setLoanType(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {LOAN_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
+                {(() => {
+                  const groups = [...new Set(LOAN_TYPES.map((t) => t.group))];
+                  return groups.map((group) => (
+                    <optgroup key={group} label={group}>
+                      {LOAN_TYPES.filter((t) => t.group === group).map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </optgroup>
+                  ));
+                })()}
               </select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="buildingId">Bien immobilier lié *</Label>
+            <Label htmlFor="buildingId">
+              Bien immobilier lié {loanType !== "COMPTE_COURANT" ? "*" : "(optionnel)"}
+            </Label>
             <select
               id="buildingId"
               name="buildingId"
-              required
+              required={loanType !== "COMPTE_COURANT"}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">— Sélectionner un immeuble —</option>
@@ -176,6 +207,85 @@ function ManualForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* Champs spécifiques Émission obligataire */}
+      {loanType === "OBLIGATION" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Paramètres de l&apos;émission obligataire</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="nominalValue">Valeur nominale par obligation (€)</Label>
+                <Input id="nominalValue" name="nominalValue" type="number" step="0.01" min="0" placeholder="1000" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bondCount">Nombre d&apos;obligations émises</Label>
+                <Input id="bondCount" name="bondCount" type="number" step="1" min="1" placeholder="250" />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="couponFrequency">Fréquence des coupons</Label>
+                <select
+                  id="couponFrequency"
+                  name="couponFrequency"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="ANNUEL">Annuel</option>
+                  <option value="SEMESTRIEL">Semestriel</option>
+                  <option value="TRIMESTRIEL">Trimestriel</option>
+                  <option value="MENSUEL">Mensuel</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="issuePrice">Prix d&apos;émission (€)</Label>
+                <Input id="issuePrice" name="issuePrice" type="number" step="0.01" min="0" placeholder="990" />
+                <p className="text-xs text-muted-foreground">Si différent de la valeur nominale (prime/décote)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Champs spécifiques Compte courant d'associé */}
+      {loanType === "COMPTE_COURANT" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Compte courant d&apos;associé</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="partnerName">Nom de l&apos;associé</Label>
+                <Input id="partnerName" name="partnerName" placeholder="Jean Dupont" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partnerShare">Part au capital (%)</Label>
+                <Input id="partnerShare" name="partnerShare" type="number" step="0.01" min="0" max="100" placeholder="25" />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="maxAmount">Plafond du compte courant (€)</Label>
+                <Input id="maxAmount" name="maxAmount" type="number" step="0.01" min="0" placeholder="500000" />
+                <p className="text-xs text-muted-foreground">Montant maximum autorisé par la convention</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="conventionDate">Date de la convention</Label>
+                <Input id="conventionDate" name="conventionDate" type="date" />
+              </div>
+            </div>
+            <div className="rounded-md bg-muted/50 p-3">
+              <p className="text-xs text-muted-foreground">
+                Le montant saisi dans &quot;Capital emprunté&quot; correspond à l&apos;apport initial.
+                Les mouvements ultérieurs (apports, retraits, intérêts) seront gérés depuis la fiche détaillée.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -287,6 +397,21 @@ function ManualForm({
                 <span className="font-medium text-destructive">
                   {fmt(Math.max(0, totalInterest))}
                 </span>
+              </div>
+            </div>
+          )}
+          {(loanType === "IN_FINE" || loanType === "OBLIGATION") && amountN > 0 && rateN > 0 && monthsN > 0 && (
+            <div className="rounded-md bg-muted p-4 space-y-2">
+              <p className="text-sm font-semibold">Simulation</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <span className="text-muted-foreground">
+                  {loanType === "OBLIGATION" ? "Coupon mensuel" : "Intérêts mensuels"}
+                </span>
+                <span className="font-medium">{fmt(amountN * rateN / 100 / 12)}</span>
+                <span className="text-muted-foreground">Capital à rembourser à l&apos;échéance</span>
+                <span className="font-semibold text-primary">{fmt(amountN)}</span>
+                <span className="text-muted-foreground">Coût total des intérêts</span>
+                <span className="font-medium text-destructive">{fmt(amountN * rateN / 100 * monthsN / 12)}</span>
               </div>
             </div>
           )}

@@ -426,6 +426,18 @@ ${infoBox("tip", "Un indicateur d'alerte s'affiche si un bail expire dans les 90
 </ul>
 ${infoBox("info", "Un lot ne peut avoir qu'un seul bail actif à la fois. Pour changer de locataire, il faut d'abord résilier le bail en cours, puis en créer un nouveau.")}
 
+<h2>Fiche lot détaillée</h2>
+<p>En cliquant sur un lot depuis la fiche immeuble, vous accédez à sa fiche complète qui regroupe toutes les informations :</p>
+<ul>
+<li><strong>Informations générales</strong> : numéro du lot, type (habitation, commercial, parking...), étage, surface (m²), loyer de référence, statut actuel (vacant, occupé, en travaux, réservé)</li>
+<li><strong>Bail en cours</strong> : si le lot est occupé, vous voyez le bail actif avec le nom du locataire, le loyer mensuel, les dates de début et fin, et le statut du bail. Un lien direct vers la fiche bail complète est disponible.</li>
+<li><strong>Historique des loyers</strong> : l'évolution du loyer dans le temps, avec les révisions successives et les dates d'effet de chaque changement. Utile pour suivre la progression du rendement.</li>
+<li><strong>Documents rattachés</strong> : tous les documents liés au lot (état des lieux, photos, plans, diagnostics spécifiques au lot). Vous pouvez ajouter de nouveaux documents directement depuis cette section.</li>
+<li><strong>Diagnostics</strong> : les diagnostics obligatoires spécifiques au lot (DPE, plomb, amiante, etc.) avec leur statut (valide, expirant, expiré).</li>
+<li><strong>Historique des baux</strong> : la liste de tous les baux passés et présents pour ce lot, avec les locataires successifs, les durées et les loyers pratiqués.</li>
+</ul>
+${infoBox("tip", "La fiche lot est le point d'entrée idéal pour avoir une vision complète d'une unité locative : qui l'occupe, à quel prix, quels diagnostics sont à jour et quels documents sont disponibles.")}
+
 <h2>Diagnostics obligatoires</h2>
 <p>MyGestia vous aide à suivre les diagnostics obligatoires de vos immeubles et à anticiper les renouvellements.</p>
 <p><strong>Types de diagnostics gérés :</strong> DPE (Diagnostic de Performance Énergétique), amiante, plomb, gaz, électricité, termites, ERP (État des Risques et Pollutions), loi Carrez, assainissement et autres.</p>
@@ -438,9 +450,13 @@ ${infoBox("info", "Un lot ne peut avoir qu'un seul bail actif à la fois. Pour c
 ${infoBox("warning", "Des diagnostics expirés peuvent entraîner des sanctions légales. L'application vous alerte automatiquement avant l'expiration.")}
 
 <h2>Maintenances et interventions</h2>
-<p>Suivez toutes les interventions techniques : plomberie, électricité, toiture, ravalement, etc.</p>
-${stepBlock(1, "Planifier une intervention", "Depuis la fiche immeuble, section <strong>Interventions</strong>, cliquez sur <strong>Nouvelle intervention</strong>.")}
-${stepBlock(2, "Suivre l'avancement", "Mettez à jour le statut : planifiée &rarr; en cours &rarr; terminée &rarr; annulée. Ajoutez le coût réel une fois terminée.")}
+<p>Suivez toutes les interventions techniques : plomberie, électricité, toiture, ravalement, etc. Chaque intervention est rattachée à un immeuble et/ou à un lot spécifique.</p>
+${stepBlock(1, "Créer une intervention", "Depuis la fiche immeuble, section <strong>Interventions</strong>, cliquez sur <strong>Nouvelle intervention</strong>. Renseignez le titre (ex: « Fuite robinet salle de bain »), la description détaillée du problème, le type d'intervention (plomberie, électricité, serrurerie, toiture, ravalement, peinture, etc.), la date de début prévue et le coût estimé.")}
+${stepBlock(2, "Affecter à un immeuble ou un lot", "Sélectionnez l'<strong>immeuble</strong> concerné, puis éventuellement le <strong>lot précis</strong> si l'intervention concerne un logement spécifique (ex: appartement 3B). Si l'intervention concerne les parties communes (toiture, ascenseur, façade), ne sélectionnez pas de lot.")}
+${stepBlock(3, "Suivre les changements de statut", "Mettez à jour le statut au fil de l'avancement. Quatre statuts disponibles : <strong>Planifiée</strong> (intervention prévue, non encore démarrée) → <strong>En cours</strong> (travaux en cours d'exécution) → <strong>Terminée</strong> (travaux achevés) ou <strong>Annulée</strong> (intervention annulée, par exemple si le problème s'est résolu). Chaque changement de statut est horodaté dans l'historique.")}
+${stepBlock(4, "Enregistrer le coût réel", "Une fois l'intervention terminée, renseignez le <strong>coût réel</strong> en remplacement du coût estimé. L'écart entre estimation et coût réel est affiché pour vous aider à mieux anticiper vos futurs budgets de maintenance.")}
+${stepBlock(5, "Lier à une charge comptable", "Si l'intervention représente une dépense, vous pouvez la rattacher à une <strong>charge</strong> dans le module Charges. Indiquez si la charge est de type <strong>exploitant</strong> (à votre charge en tant que propriétaire) ou <strong>récupérable</strong> (refacturable au locataire dans le cadre de la régularisation annuelle).")}
+${infoBox("tip", "L'historique des interventions sur un immeuble vous permet de suivre l'entretien global du bâtiment et d'anticiper les travaux futurs. Pensez à documenter chaque intervention pour conserver une trace complète.")}
 
 <h2>États des lieux</h2>
 <p>Les états des lieux d'entrée et de sortie sont accessibles depuis la fiche bail. Ils documentent l'état de chaque pièce et équipement du lot. Vous pouvez joindre des photos et le document PDF signé.</p>
@@ -495,6 +511,16 @@ ${faqItem("Comment ajouter des photos à un état des lieux ?", "Depuis la fiche
 <li><strong style="color:#991B1B;">Contentieux</strong> : litige en cours</li>
 </ul>
 
+<h3>Bail multi-lots</h3>
+<p>Lors de la création d'un bail, vous pouvez sélectionner <strong>plusieurs lots</strong> pour un même bail. C'est utile dans les cas suivants :</p>
+<ul>
+<li>Un locataire qui loue un appartement <strong>et</strong> un parking dans le même immeuble</li>
+<li>Un commerce avec un local principal <strong>et</strong> une réserve ou une cave</li>
+<li>Un bureau avec plusieurs pièces réparties sur différents étages</li>
+</ul>
+<p>Le loyer du bail est alors le loyer global pour l'ensemble des lots sélectionnés. Tous les lots liés au bail passent au statut <strong>Occupé</strong> lors de l'activation du bail, et redeviennent <strong>Vacant</strong> lors de la résiliation.</p>
+${infoBox("info", "Chaque lot ne peut toujours avoir qu'un seul bail actif à la fois. Si l'un des lots sélectionnés a déjà un bail en cours, l'application vous en informe et bloque la création.")}
+
 <h2>Fiche bail détaillée</h2>
 <p>En cliquant sur un bail, vous accédez à sa fiche complète :</p>
 <ul>
@@ -518,8 +544,11 @@ ${faqItem("Comment ajouter des photos à un état des lieux ?", "Depuis la fiche
 </ul>
 
 <h3>Ajouter un locataire</h3>
-${stepBlock(1, "Créez le locataire", "Cliquez sur <strong>Nouveau locataire</strong>. Renseignez l'identité (personne physique : nom, prénom, date de naissance ; personne morale : raison sociale, SIRET), les coordonnées et l'adresse.")}
-${stepBlock(2, "Documents du locataire", "Joignez les pièces justificatives : pièce d'identité, justificatif de domicile, attestation d'assurance. L'assurance est suivie avec alerte d'expiration automatique.")}
+${stepBlock(1, "Créez le locataire", "Cliquez sur <strong>Nouveau locataire</strong>. Choisissez le type d'entité : <strong>personne physique</strong> (nom, prénom, date de naissance, nationalité) ou <strong>personne morale</strong> (raison sociale, SIRET, forme juridique, représentant légal). Renseignez ensuite les coordonnées (email, téléphone) et l'adresse postale.")}
+${stepBlock(2, "Joindre les documents d'identité", "Depuis la fiche locataire, section <strong>Documents</strong>, uploadez les pièces justificatives : pièce d'identité (CNI, passeport), justificatif de domicile, bulletins de salaire ou avis d'imposition. Ces documents sont stockés de manière sécurisée et conservés conformément au RGPD (3 ans après fin de relation).")}
+${stepBlock(3, "Lier une attestation d'assurance", "Ajoutez l'<strong>attestation d'assurance habitation</strong> du locataire avec sa date d'expiration. L'application surveille automatiquement cette date : un badge orange apparaît 30 jours avant expiration, et un badge rouge s'affiche une fois l'assurance expirée. Une alerte vous permet de relancer le locataire.")}
+${stepBlock(4, "Configurer le niveau de risque", "Attribuez un indicateur de risque au locataire : <strong style=\"color:#16A34A;\">Fiable</strong> (paiements à jour, dossier complet), <strong style=\"color:#D97706;\">Vigilance</strong> (retards ponctuels, documents manquants) ou <strong style=\"color:#DC2626;\">Risque</strong> (impayés récurrents, assurance expirée). Cet indicateur est visible sur la liste des locataires et vous permet de prioriser vos actions de gestion.")}
+${stepBlock(5, "Vérifier les informations de contact", "Assurez-vous que l'email et le téléphone du locataire sont corrects. L'email est utilisé pour l'envoi des factures, quittances et relances automatiques. Un email invalide empêchera la réception de ces documents importants.")}
 
 <h2>Révisions de loyer</h2>
 <p>Les révisions sont calculées automatiquement à partir des indices INSEE : <strong>IRL</strong> pour l'habitation, <strong>ILC</strong> pour le commerce, <strong>ILAT</strong> pour les bureaux.</p>
@@ -529,10 +558,47 @@ ${stepBlock(2, "Validez ou rejetez", "Pour chaque révision : <strong>Valider</s
 ${infoBox("tip", "Les indices sont mis à jour automatiquement le 1er de chaque mois. Vous pouvez les consulter dans le module Indices.")}
 
 <h2>Charges et provisions</h2>
-<p>Le module <strong>Charges</strong> permet de suivre toutes les dépenses liées à vos immeubles. Chaque charge est classée par catégorie et par nature : <strong>exploitant</strong> (à la charge du propriétaire) ou <strong>récupérable</strong> (refacturable au locataire).</p>
+<p>Le module <strong>Charges</strong> permet de suivre toutes les dépenses liées à vos immeubles. Chaque charge est classée par catégorie et par nature.</p>
+
+<h3>Catégories de charges</h3>
+<p>Les charges sont organisées en catégories personnalisables pour faciliter le suivi et la régularisation. Exemples de catégories courantes :</p>
 <ul>
-<li><strong>Bibliothèque de charges</strong> : modèles de charges récurrentes</li>
-<li><strong>Comptes rendus</strong> : rapports récapitulatifs par immeuble ou catégorie</li>
+<li><strong>Eau</strong> : consommation d'eau froide et chaude</li>
+<li><strong>Électricité</strong> : parties communes, ascenseur</li>
+<li><strong>Chauffage</strong> : chauffage collectif, entretien chaudière</li>
+<li><strong>Entretien</strong> : nettoyage, espaces verts, contrats de maintenance</li>
+<li><strong>Ordures ménagères</strong> : taxe ou redevance d'enlèvement</li>
+<li><strong>Assurance</strong> : assurance de l'immeuble (PNO)</li>
+<li><strong>Travaux</strong> : réparations, améliorations</li>
+</ul>
+<p>Vous pouvez créer vos propres catégories depuis <strong>Charges &gt; Catégories</strong>.</p>
+
+<h3>Charges exploitant vs récupérables</h3>
+<p>La distinction est essentielle pour la régularisation annuelle :</p>
+<ul>
+<li><strong>Charges exploitant</strong> : dépenses à la charge exclusive du propriétaire (gros travaux, ravalement de façade, honoraires de gestion, assurance PNO). Elles ne sont <strong>pas refacturées</strong> au locataire.</li>
+<li><strong>Charges récupérables</strong> : dépenses que le propriétaire avance puis refacture au locataire lors de la régularisation annuelle (eau, chauffage, entretien courant, ordures ménagères). La liste des charges récupérables est encadrée par le <strong>décret du 26 août 1987</strong>.</li>
+</ul>
+${infoBox("info", "Lors de la création d'une charge, sélectionnez toujours la bonne nature (exploitant ou récupérable). Cela détermine si la charge sera prise en compte dans la régularisation annuelle des provisions.")}
+
+<h3>Créer une provision sur charges</h3>
+<p>Les provisions sont des avances mensuelles versées par le locataire pour couvrir les charges récupérables.</p>
+${stepBlock(1, "Accédez au bail", "Depuis la fiche du bail concerné, rendez-vous dans la section <strong>Provisions sur charges</strong>.")}
+${stepBlock(2, "Ajoutez une provision", "Cliquez sur <strong>Ajouter une provision</strong>. Sélectionnez la catégorie de charge (eau, chauffage, entretien...) et définissez le montant mensuel provisionné.")}
+${stepBlock(3, "Facturation automatique", "La provision est automatiquement incluse dans les factures mensuelles du locataire, en plus du loyer. Le détail (loyer + provisions) apparaît sur chaque facture.")}
+
+<h3>Régularisation annuelle des charges</h3>
+<p>En fin d'exercice, vous comparez le total des provisions versées par le locataire avec les charges réelles constatées :</p>
+<ul>
+<li><strong>Charges réelles &gt; provisions versées</strong> : le locataire doit un complément. Créez une facture de régularisation positive.</li>
+<li><strong>Charges réelles &lt; provisions versées</strong> : le locataire a trop payé. Émettez un avoir ou déduisez le montant de la prochaine facture.</li>
+</ul>
+${infoBox("tip", "Le rapport <strong>Récapitulatif des charges par locataire</strong> (module Rapports) détaille les provisions versées et les charges réelles par catégorie, facilitant la régularisation.")}
+
+<h3>Outils complémentaires</h3>
+<ul>
+<li><strong>Bibliothèque de charges</strong> : modèles de charges récurrentes réutilisables d'un exercice à l'autre</li>
+<li><strong>Comptes rendus</strong> : rapports récapitulatifs par immeuble ou catégorie, exportables en PDF</li>
 </ul>
 
 <h2>Carnet de contacts</h2>
@@ -585,6 +651,15 @@ ${stepBlock(2, "Validez les factures", "Cliquez sur <strong>Valider</strong> pou
 ${stepBlock(3, "Envoyez par email", "Le PDF est généré automatiquement avec votre logo et vos coordonnées bancaires.")}
 ${infoBox("tip", "Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer des appels</strong>.")}
 
+<h2>Génération manuelle de factures</h2>
+<p>En plus de la génération automatique quotidienne, vous pouvez créer des factures manuellement pour des cas spécifiques : régularisation de charges, facturation exceptionnelle, dépôt de garantie, etc.</p>
+${stepBlock(1, "Accédez à la création", "Depuis la page <strong>Facturation</strong>, cliquez sur <strong>Nouvelle facture</strong>.")}
+${stepBlock(2, "Sélectionnez le bail", "Choisissez le bail concerné dans la liste déroulante. Les informations du locataire, du lot et du loyer sont pré-remplies automatiquement.")}
+${stepBlock(3, "Définissez la période", "Indiquez la période couverte par la facture (ex: du 1er au 30 avril 2026). Pour une facture ponctuelle (régularisation, dépôt de garantie), la période peut correspondre à une date unique.")}
+${stepBlock(4, "Ajoutez les lignes de facturation", "La facture contient par défaut une ligne pour le loyer. Vous pouvez ajouter des <strong>lignes personnalisées</strong> : provisions sur charges, régularisation, frais annexes, taxe foncière refacturée, etc. Pour chaque ligne, renseignez la désignation, la quantité et le montant unitaire HT.")}
+${stepBlock(5, "Vérifiez et enregistrez", "Contrôlez le récapitulatif : montant HT, TVA (si applicable), montant TTC. La facture est créée en statut <strong>Brouillon</strong>. Vous pourrez la valider puis l'envoyer par email ultérieurement.")}
+${infoBox("info", "Les factures manuelles suivent exactement le même cycle de vie que les factures automatiques : Brouillon → Validée → Envoyée → Payée.")}
+
 <h2>Les 9 statuts d'une facture</h2>
 <table style="width:100%;border-collapse:collapse;margin:16px 0;">
 <thead>
@@ -629,13 +704,24 @@ ${stepBlock(3, "Paiement multi-factures", "Si le locataire paie plusieurs factur
 </table>
 
 <h2>Quittances de loyer</h2>
-<p>Une quittance est un reçu officiel attestant que le locataire a payé son loyer. Elle est générée uniquement pour les factures dont le paiement est complet.</p>
-${stepBlock(1, "Générer une quittance", "Depuis la fiche d'une facture payée, cliquez sur <strong>Générer la quittance</strong>.")}
-${stepBlock(2, "Envoyer par email", "La quittance peut être envoyée directement par email au locataire ou téléchargée en PDF.")}
+<p>Une quittance est un reçu officiel attestant que le locataire a payé son loyer. Elle est <strong>obligatoire</strong> lorsque le locataire en fait la demande (article 21 de la loi du 6 juillet 1989). Elle est générée uniquement pour les factures dont le paiement est complet.</p>
+${stepBlock(1, "Vérifier le paiement complet", "Assurez-vous que la facture est au statut <strong>Payée</strong> (paiement intégral reçu). Une quittance ne peut pas être générée pour une facture partiellement payée ou en attente — dans ce cas, seul un reçu d'acompte est possible.")}
+${stepBlock(2, "Générer la quittance", "Depuis la fiche de la facture payée, cliquez sur <strong>Générer la quittance</strong>. Le document PDF est créé automatiquement avec les informations du bailleur, du locataire, le détail du paiement (loyer + charges), la période concernée et la date de paiement.")}
+${stepBlock(3, "Vérifier le contenu", "La quittance mentionne : le nom du bailleur et du locataire, l'adresse du bien, la période couverte, le détail loyer/charges, le montant total payé et la date de réception du paiement. Vérifiez que toutes les informations sont correctes avant envoi.")}
+${stepBlock(4, "Envoyer ou télécharger", "Deux options : <strong>Envoyer par email</strong> directement au locataire (le PDF est joint automatiquement), ou <strong>Télécharger le PDF</strong> pour impression ou archivage. La quittance envoyée est conservée dans les documents de la facture.")}
+${infoBox("tip", "Le locataire peut également accéder à ses quittances depuis le <strong>portail locataire</strong> s'il est activé pour votre société.")}
 
 <h2>Prélèvement SEPA</h2>
 ${stepBlock(1, "Créez un mandat SEPA", "Pour chaque locataire qui paie par prélèvement, créez un mandat SEPA avec ses coordonnées bancaires (IBAN/BIC).")}
 ${stepBlock(2, "Générez le fichier de prélèvement", "En fin de mois, générez un fichier SEPA regroupant tous les prélèvements. Ce fichier au format XML est transmis à votre banque.")}
+
+<h2>Factures de régularisation de charges</h2>
+<p>En fin d'exercice, vous devez comparer les <strong>provisions versées</strong> par le locataire avec les <strong>charges réelles</strong> constatées. Cette opération s'appelle la régularisation annuelle des charges.</p>
+${stepBlock(1, "Consultez le récapitulatif", "Depuis le module <strong>Rapports</strong>, générez un rapport <strong>Récapitulatif des charges par locataire</strong>. Il détaille, pour chaque catégorie de charge (eau, chauffage, entretien...), le montant provisionné et le montant réel.")}
+${stepBlock(2, "Calculez l'écart", "L'application calcule automatiquement la différence : <strong>charges réelles - provisions versées</strong>. Si le résultat est positif, le locataire doit un complément. Si le résultat est négatif, le locataire a trop payé.")}
+${stepBlock(3, "Créez la facture de régularisation", "Depuis <strong>Facturation &gt; Nouvelle facture</strong>, sélectionnez le bail et ajoutez une ligne <strong>Régularisation de charges</strong>. Si le montant est positif, le locataire reçoit une facture de complément. Si le montant est négatif, émettez un <strong>avoir</strong> ou déduisez le montant de la prochaine facture de loyer.")}
+${stepBlock(4, "Envoyez le décompte au locataire", "Joignez le récapitulatif détaillé des charges à la facture de régularisation. Le locataire a le droit de consulter les justificatifs pendant un mois après réception du décompte.")}
+${infoBox("warning", "La régularisation des charges doit être effectuée au moins une fois par an. Un retard de plus de 3 ans entraîne la prescription des charges récupérables (le locataire n'est plus tenu de les payer).")}
 
 <h2>Avoirs (notes de crédit)</h2>
 <p>Pour annuler ou corriger une facture déjà validée, émettez un <strong>avoir</strong>. Depuis la fiche facture, cliquez sur <strong>Créer un avoir</strong>. Renseignez le motif et le montant (total ou partiel). La facture originale est automatiquement mise à jour.</p>
@@ -682,8 +768,14 @@ ${infoBox("info", "La synchronisation automatique s'exécute chaque jour à 6h d
 <h2>Rapprochement bancaire</h2>
 <p>Le rapprochement associe chaque transaction bancaire à la facture ou écriture correspondante pour garantir la cohérence comptable.</p>
 ${stepBlock(1, "Accédez au rapprochement", "Depuis la fiche d'un compte, cliquez sur <strong>Rapprochement</strong>. L'écran se divise en deux colonnes : transactions à gauche, factures/écritures à droite.")}
-${stepBlock(2, "Associez les éléments", "Sélectionnez une transaction et la facture correspondante, puis cliquez sur <strong>Rapprocher</strong>. L'application suggère automatiquement les correspondances.")}
-${stepBlock(3, "Vérifiez les écarts", "Si un écart existe, un avertissement s'affiche. Vous pouvez créer une écriture d'ajustement.")}
+${stepBlock(2, "Associez manuellement", "Sélectionnez une transaction et la facture correspondante, puis cliquez sur <strong>Rapprocher</strong>. L'application suggère automatiquement les correspondances les plus probables.")}
+${stepBlock(3, "Utilisez le rapprochement automatique", "Cliquez sur le bouton <strong>Rapprochement automatique</strong> pour lancer l'algorithme en 3 passes successives :")}
+<div style="margin-left:40px;">
+<p><strong>Passe 1 — Référence exacte + montant</strong> : l'application recherche les transactions dont la <strong>référence</strong> (numéro de facture dans le libellé) correspond exactement à une facture, et dont le <strong>montant</strong> est identique. C'est la correspondance la plus fiable.</p>
+<p><strong>Passe 2 — Montant approché + date proche</strong> : pour les transactions sans référence identifiable, l'application cherche une correspondance par <strong>montant</strong> (tolérance de ±0,01 €) et <strong>date</strong> (±3 jours par rapport à la date d'échéance de la facture).</p>
+<p><strong>Passe 3 — Montant net pour baux gérés</strong> : pour les baux en gestion (avec honoraires de gestion), l'application compare le <strong>montant net</strong> (loyer - honoraires) avec la transaction. Cela permet de rapprocher correctement les virements de locataires qui paient le montant net après déduction des frais de gestion.</p>
+</div>
+${stepBlock(4, "Vérifiez les écarts", "Si un écart existe entre le montant de la transaction et celui de la facture rapprochée, un avertissement s'affiche. Vous pouvez créer une écriture d'ajustement pour compenser la différence.")}
 
 <h2>Module comptabilité</h2>
 <p>La page <strong>Comptabilité</strong> centralise toute votre tenue de comptes avec 4 KPI en haut de page : écritures totales, brouillons, validées et comptes actifs.</p>
@@ -708,8 +800,48 @@ ${stepBlock(1, "Accédez aux exports", "<strong>Comptabilité &gt; Export FEC</s
 ${stepBlock(2, "Sélectionnez la période", "Choisissez l'exercice comptable ou la plage de dates.")}
 ${stepBlock(3, "Téléchargez le fichier", "Format réglementaire TXT tabulé, téléchargé automatiquement.")}
 
+<h2>Prévisionnel de trésorerie</h2>
+<p>Le module <strong>Prévisionnel</strong> vous donne une vision prospective de votre trésorerie sur les mois à venir, en comparant les flux entrants et sortants attendus.</p>
+
+<h3>Revenus attendus (flux entrants)</h3>
+<ul>
+<li><strong>Loyers</strong> : projection des loyers à percevoir sur la base des baux actifs, en tenant compte des révisions de loyer prévues</li>
+<li><strong>Provisions sur charges</strong> : montants provisionnels mensuels facturés aux locataires</li>
+<li><strong>Régularisations à recevoir</strong> : compléments de charges attendus après régularisation</li>
+</ul>
+
+<h3>Dépenses attendues (flux sortants)</h3>
+<ul>
+<li><strong>Charges d'exploitation</strong> : charges récurrentes (eau, chauffage, entretien, assurance) basées sur l'historique</li>
+<li><strong>Échéances d'emprunts</strong> : mensualités des prêts immobiliers (capital + intérêts), importées automatiquement depuis le module Emprunts</li>
+<li><strong>Travaux planifiés</strong> : coûts estimés des maintenances et interventions prévues</li>
+<li><strong>Taxes et impôts</strong> : taxe foncière, CFE et autres charges fiscales annuelles</li>
+</ul>
+
+<h3>Projection mensuelle</h3>
+<p>Un graphique interactif affiche mois par mois le <strong>solde prévisionnel</strong> : revenus attendus - dépenses attendues. Les mois où le solde est négatif sont mis en évidence en rouge pour vous permettre d'anticiper les besoins de trésorerie.</p>
+${infoBox("tip", "Consultez régulièrement le prévisionnel avant les échéances de remboursement d'emprunt ou les périodes de travaux importants, afin d'anticiper un éventuel besoin de financement.")}
+
 <h2>Exercices comptables</h2>
-<p>Un exercice correspond généralement à une année civile (1er janvier au 31 décembre). La <strong>clôture est irréversible</strong> : vérifiez que tous les brouillons sont validés avant de clôturer.</p>
+<p>Un exercice correspond généralement à une année civile (1er janvier au 31 décembre). Il structure votre comptabilité en périodes distinctes.</p>
+
+<h3>Ouvrir un exercice</h3>
+${stepBlock(1, "Accédez aux exercices", "Depuis <strong>Comptabilité &gt; Exercices</strong>, cliquez sur <strong>Nouvel exercice</strong>.")}
+${stepBlock(2, "Définissez les dates", "Renseignez la date de début et la date de fin de l'exercice. Par défaut, l'application propose l'année civile (1er janvier au 31 décembre).")}
+${stepBlock(3, "Reprise des soldes", "Si un exercice précédent existe, les soldes de clôture sont automatiquement reportés comme soldes d'ouverture du nouvel exercice.")}
+
+<h3>Clôturer un exercice</h3>
+${infoBox("warning", "La clôture d'un exercice est une opération <strong>irréversible</strong>. Une fois clôturé, aucune écriture ne peut être modifiée, ajoutée ou supprimée dans cet exercice. Assurez-vous que tout est en ordre avant de procéder.")}
+<p><strong>Vérifications à effectuer avant la clôture :</strong></p>
+<ul>
+<li>Tous les <strong>brouillons d'écritures</strong> doivent être validés (aucun brouillon ne doit subsister)</li>
+<li>Le <strong>rapprochement bancaire</strong> doit être complet : toutes les transactions doivent être rapprochées ou justifiées</li>
+<li>La <strong>balance comptable</strong> doit être équilibrée (total débits = total crédits)</li>
+<li>Les <strong>régularisations de charges</strong> doivent être effectuées pour tous les locataires</li>
+<li>L'<strong>export FEC</strong> doit être généré et archivé (obligation légale en cas de contrôle fiscal)</li>
+</ul>
+${stepBlock(1, "Lancez la clôture", "Depuis <strong>Comptabilité &gt; Exercices</strong>, cliquez sur <strong>Clôturer</strong> sur l'exercice concerné.")}
+${stepBlock(2, "Confirmez l'opération", "Un message de confirmation vous rappelle que l'opération est irréversible. Validez pour figer définitivement toutes les écritures de l'exercice.")}
 
 <h2>Questions fréquentes</h2>
 ${faqItem("Comment ajouter un compte bancaire ?", "<strong>Banque &gt; Nouveau compte</strong>. Renseignez le nom, la banque et l'IBAN. Données chiffrées en AES-256.")}

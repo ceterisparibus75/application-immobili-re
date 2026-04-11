@@ -17,7 +17,7 @@ interface AmortizationInput {
   annualInsuranceRate: number; // taux assurance annuel en %
   durationMonths: number;
   startDate: Date;
-  loanType: "AMORTISSABLE" | "IN_FINE" | "BULLET";
+  loanType: "AMORTISSABLE" | "IN_FINE" | "BULLET" | "OBLIGATION" | "COMPTE_COURANT";
 }
 
 interface AmortizationLine {
@@ -55,8 +55,13 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
     return lines;
   }
 
-  if (loanType === "IN_FINE") {
-    // Intérêts seuls chaque mois + capital à la dernière échéance
+  if (loanType === "COMPTE_COURANT") {
+    // Pas de tableau d'amortissement pour un compte courant — géré par LoanMovement
+    return [];
+  }
+
+  if (loanType === "OBLIGATION" || loanType === "IN_FINE") {
+    // Coupons/intérêts périodiques + capital remboursé à maturité
     const monthlyInterest = amount * monthlyRate;
     const monthlyInsurance = amount * monthlyInsuranceRate;
     for (let i = 1; i <= durationMonths; i++) {
@@ -68,9 +73,9 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
         period: i,
         dueDate,
         principalPayment: principal,
-        interestPayment: monthlyInterest,
-        insurancePayment: monthlyInsurance,
-        totalPayment: principal + monthlyInterest + monthlyInsurance,
+        interestPayment: Math.round(monthlyInterest * 100) / 100,
+        insurancePayment: Math.round(monthlyInsurance * 100) / 100,
+        totalPayment: Math.round((principal + monthlyInterest + monthlyInsurance) * 100) / 100,
         remainingBalance: isLast ? 0 : amount,
       });
     }
@@ -121,21 +126,31 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
 const createLoanSchema = z.object({
   label: z.string().min(1),
   lender: z.string().min(1),
-  loanType: z.enum(["AMORTISSABLE", "IN_FINE", "BULLET"]),
+  loanType: z.enum(["AMORTISSABLE", "IN_FINE", "BULLET", "OBLIGATION", "COMPTE_COURANT"]),
   amount: z.number().positive(),
   interestRate: z.number().min(0),
   insuranceRate: z.number().min(0).default(0),
   durationMonths: z.number().int().positive(),
   startDate: z.string().min(1),
-  buildingId: z.string().min(1, "L'immeuble est obligatoire"),
+  buildingId: z.string().optional().nullable(),
   purchaseValue: z.number().positive().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Champs spécifiques Émission obligataire
+  nominalValue: z.number().positive().optional().nullable(),
+  bondCount: z.number().int().positive().optional().nullable(),
+  couponFrequency: z.enum(["MENSUEL", "TRIMESTRIEL", "SEMESTRIEL", "ANNUEL"]).optional().nullable(),
+  issuePrice: z.number().positive().optional().nullable(),
+  // Champs spécifiques Compte courant d'associé
+  partnerName: z.string().optional().nullable(),
+  partnerShare: z.number().min(0).max(100).optional().nullable(),
+  maxAmount: z.number().positive().optional().nullable(),
+  conventionDate: z.string().optional().nullable(),
 });
 
 const createLoanFromPdfSchema = z.object({
   label: z.string().min(1),
   lender: z.string().min(1),
-  loanType: z.enum(["AMORTISSABLE", "IN_FINE", "BULLET"]),
+  loanType: z.enum(["AMORTISSABLE", "IN_FINE", "BULLET", "OBLIGATION", "COMPTE_COURANT"]),
   amount: z.number().positive(),
   interestRate: z.number().min(0),
   insuranceRate: z.number().min(0).default(0),
@@ -246,7 +261,7 @@ export async function createLoan(societyId: string, data: unknown) {
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + d.durationMonths);
 
-  // Générer le tableau d'amortissement
+  // Générer le tableau d'amortissement (vide pour COMPTE_COURANT)
   const amortLines = generateAmortizationTable({
     amount: d.amount,
     annualRate: d.interestRate,
@@ -256,25 +271,60 @@ export async function createLoan(societyId: string, data: unknown) {
     loanType: d.loanType,
   });
 
+  // Construire les données spécifiques selon le type
+  const loanData: Record<string, unknown> = {
+    societyId,
+    label: d.label,
+    lender: d.lender,
+    loanType: d.loanType,
+    amount: d.amount,
+    interestRate: d.interestRate,
+    insuranceRate: d.insuranceRate,
+    durationMonths: d.durationMonths,
+    startDate,
+    endDate,
+    buildingId: d.buildingId ?? null,
+    purchaseValue: d.purchaseValue ?? null,
+    notes: d.notes ?? null,
+  };
+
+  // Champs spécifiques Obligation
+  if (d.loanType === "OBLIGATION") {
+    loanData.nominalValue = d.nominalValue ?? null;
+    loanData.bondCount = d.bondCount ?? null;
+    loanData.couponFrequency = d.couponFrequency ?? null;
+    loanData.issuePrice = d.issuePrice ?? null;
+  }
+
+  // Champs spécifiques Compte courant
+  if (d.loanType === "COMPTE_COURANT") {
+    loanData.partnerName = d.partnerName ?? null;
+    loanData.partnerShare = d.partnerShare ?? null;
+    loanData.maxAmount = d.maxAmount ?? null;
+    loanData.conventionDate = d.conventionDate ? new Date(d.conventionDate) : null;
+    loanData.currentBalance = d.amount; // Solde initial = montant apporté
+  }
+
+  // Ajouter les lignes d'amortissement seulement si elles existent
+  if (amortLines.length > 0) {
+    (loanData as Record<string, unknown>).amortizationLines = { create: amortLines };
+  }
+
+  // Créer le mouvement initial pour un compte courant
+  if (d.loanType === "COMPTE_COURANT") {
+    (loanData as Record<string, unknown>).movements = {
+      create: [{
+        date: startDate,
+        type: "APPORT" as const,
+        amount: d.amount,
+        balanceAfter: d.amount,
+        description: "Apport initial",
+      }],
+    };
+  }
+
   const loan = await prisma.loan.create({
-    data: {
-      societyId,
-      label: d.label,
-      lender: d.lender,
-      loanType: d.loanType,
-      amount: d.amount,
-      interestRate: d.interestRate,
-      insuranceRate: d.insuranceRate,
-      durationMonths: d.durationMonths,
-      startDate,
-      endDate,
-      buildingId: d.buildingId ?? null,
-      purchaseValue: d.purchaseValue ?? null,
-      notes: d.notes ?? null,
-      amortizationLines: {
-        create: amortLines,
-      },
-    },
+    data: loanData as Parameters<typeof prisma.loan.create>[0]["data"],
   });
 
   await createAuditLog({
@@ -306,7 +356,7 @@ export async function getLoans(societyId: string) {
         take: 1,
         select: { remainingBalance: true, period: true, totalPayment: true },
       },
-      _count: { select: { amortizationLines: true } },
+      _count: { select: { amortizationLines: true, movements: true } },
     },
     orderBy: { startDate: "desc" },
   });
@@ -323,6 +373,7 @@ export async function getLoanById(societyId: string, loanId: string) {
     include: {
       building: { select: { id: true, name: true, city: true } },
       amortizationLines: { orderBy: { period: "asc" } },
+      movements: { orderBy: { date: "desc" } },
     },
   });
 }
@@ -429,7 +480,7 @@ export async function regenerateAmortizationTable(societyId: string, loanId: str
     annualInsuranceRate: loan.insuranceRate,
     durationMonths: loan.durationMonths,
     startDate: new Date(loan.startDate),
-    loanType: loan.loanType as "AMORTISSABLE" | "IN_FINE" | "BULLET",
+    loanType: loan.loanType as AmortizationInput["loanType"],
   });
 
   // Créer les nouvelles lignes en restaurant le statut payé
@@ -520,6 +571,164 @@ export async function upsertBudgetLine(societyId: string, data: unknown) {
 
   revalidatePath("/comptabilite/previsionnel");
   return { data: result };
+}
+
+// ============================================================
+// MOUVEMENTS COMPTE COURANT D'ASSOCIÉ
+// ============================================================
+
+const addMovementSchema = z.object({
+  loanId: z.string().min(1),
+  date: z.string().min(1),
+  type: z.enum(["APPORT", "RETRAIT", "INTERETS"]),
+  amount: z.number().positive("Le montant doit être positif"),
+  description: z.string().optional().nullable(),
+});
+
+export async function addLoanMovement(societyId: string, data: unknown) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const parsed = addMovementSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+  }
+
+  const d = parsed.data;
+
+  // Vérifier que l'emprunt est un compte courant
+  const loan = await prisma.loan.findFirst({
+    where: { id: d.loanId, societyId, loanType: "COMPTE_COURANT" },
+    select: { id: true, currentBalance: true, maxAmount: true, label: true },
+  });
+  if (!loan) return { error: "Compte courant introuvable" };
+
+  const currentBalance = loan.currentBalance ?? 0;
+  let newBalance: number;
+
+  if (d.type === "APPORT") {
+    newBalance = currentBalance + d.amount;
+    // Vérifier le plafond si défini
+    if (loan.maxAmount && newBalance > loan.maxAmount) {
+      return { error: `Le plafond de ${loan.maxAmount.toLocaleString("fr-FR")} € serait dépassé` };
+    }
+  } else if (d.type === "RETRAIT") {
+    newBalance = currentBalance - d.amount;
+    if (newBalance < 0) {
+      return { error: "Solde insuffisant pour ce retrait" };
+    }
+  } else {
+    // INTERETS — les intérêts augmentent le solde (dus à l'associé)
+    newBalance = currentBalance + d.amount;
+  }
+
+  newBalance = Math.round(newBalance * 100) / 100;
+
+  const movement = await prisma.loanMovement.create({
+    data: {
+      loanId: d.loanId,
+      date: new Date(d.date),
+      type: d.type,
+      amount: d.amount,
+      balanceAfter: newBalance,
+      description: d.description ?? null,
+    },
+  });
+
+  // Mettre à jour le solde courant
+  await prisma.loan.update({
+    where: { id: d.loanId },
+    data: { currentBalance: newBalance },
+  });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "CREATE",
+    entity: "LoanMovement",
+    entityId: movement.id,
+    details: { loanId: d.loanId, type: d.type, amount: d.amount, newBalance },
+  });
+
+  revalidatePath(`/emprunts/${d.loanId}`);
+  return { data: movement };
+}
+
+export async function getLoanMovements(societyId: string, loanId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.loanMovement.findMany({
+    where: { loanId, loan: { societyId } },
+    orderBy: { date: "desc" },
+  });
+}
+
+export async function deleteLoanMovement(societyId: string, movementId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const movement = await prisma.loanMovement.findFirst({
+    where: { id: movementId, loan: { societyId } },
+    include: { loan: { select: { id: true, loanType: true } } },
+  });
+  if (!movement) return { error: "Mouvement introuvable" };
+
+  // Recalculer le solde en rejouant tous les mouvements sauf celui supprimé
+  const allMovements = await prisma.loanMovement.findMany({
+    where: { loanId: movement.loanId, id: { not: movementId } },
+    orderBy: { date: "asc" },
+  });
+
+  let balance = 0;
+  for (const m of allMovements) {
+    if (m.type === "RETRAIT") {
+      balance -= m.amount;
+    } else {
+      balance += m.amount;
+    }
+    balance = Math.round(balance * 100) / 100;
+    // Mettre à jour le balanceAfter de chaque mouvement restant
+    await prisma.loanMovement.update({
+      where: { id: m.id },
+      data: { balanceAfter: balance },
+    });
+  }
+
+  // Supprimer le mouvement
+  await prisma.loanMovement.delete({ where: { id: movementId } });
+
+  // Mettre à jour le solde du compte courant
+  await prisma.loan.update({
+    where: { id: movement.loanId },
+    data: { currentBalance: balance },
+  });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "DELETE",
+    entity: "LoanMovement",
+    entityId: movementId,
+    details: { loanId: movement.loanId, type: movement.type, amount: movement.amount },
+  });
+
+  revalidatePath(`/emprunts/${movement.loanId}`);
+  return { success: true };
 }
 
 export async function getBudgetLines(societyId: string, year: number) {

@@ -273,5 +273,25 @@ export const updateLeaseSchema = z.object({
   managementFeeVatRate: z.coerce.number().min(0).max(100).default(20).optional().nullable(),
 });
 
+// --- Paliers de loyer ---
+export const rentStepSchema = z.object({
+  label: z.string().min(1, "Le libellé est requis"),
+  startDate: z.string().min(1, "La date de début est requise"),
+  endDate: z.string().optional().nullable(),
+  rentHT: z.coerce.number().min(0, "Le loyer doit être positif"),
+  chargesHT: z.coerce.number().min(0).optional().nullable(),
+});
+
+export const createRentStepsSchema = z.object({
+  leaseId: z.string().cuid(),
+  steps: z.array(rentStepSchema).min(1, "Au moins un palier est requis"),
+});
+
+export const updateRentStepSchema = rentStepSchema.extend({
+  id: z.string().cuid(),
+});
+
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
 export type UpdateLeaseInput = z.infer<typeof updateLeaseSchema>;
+export type RentStepInput = z.infer<typeof rentStepSchema>;
+export type CreateRentStepsInput = z.infer<typeof createRentStepsSchema>;

@@ -333,6 +333,21 @@ enum LoanType {
   AMORTISSABLE // Remboursement progressif (annuité constante)
   IN_FINE // Intérêts seuls + capital en fin de prêt
   BULLET // Capital + intérêts en une seule fois
+  OBLIGATION // Émission obligataire (coupons + remboursement à maturité)
+  COMPTE_COURANT // Apport en compte courant d'associé (solde variable)
+}
+
+enum CouponFrequency {
+  MENSUEL
+  TRIMESTRIEL
+  SEMESTRIEL
+  ANNUEL
+}
+
+enum LoanMovementType {
+  APPORT
+  RETRAIT
+  INTERETS
 }
 
 enum LoanStatus {
@@ -967,6 +982,7 @@ model Lease {
   rentValuations        RentValuation[]
   signatureRequests     SignatureRequest[]
   managementReports     ManagementReport[]
+  rentSteps             LeaseRentStep[]
 
   @@index([societyId])
   @@index([lotId])
@@ -975,6 +991,26 @@ model Lease {
   @@index([endDate])
   @@index([leaseTemplateId])
   @@index([isThirdPartyManaged])
+}
+
+/// Palier de loyer — loyer variable dans le temps
+model LeaseRentStep {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leaseId   String
+
+  label     String // "Franchise", "Loyer réduit 1ère année", "Plein tarif"
+  startDate DateTime // Date de début du palier
+  endDate   DateTime? // Date de fin (null = jusqu'au prochain palier ou fin de bail)
+  rentHT    Float // Loyer HT pour cette période
+  chargesHT Float? // Provision sur charges (optionnel, si variable aussi)
+  position  Int      @default(0) // Ordre d'affichage
+
+  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@index([leaseId])
+  @@index([leaseId, startDate])
 }
 
 /// Table de liaison bail ↔ lots (un bail peut couvrir plusieurs lots)
@@ -2151,9 +2187,23 @@ model Loan {
   // Notes
   notes String? @db.Text
 
+  // --- Champs spécifiques Émission obligataire ---
+  nominalValue    Float? // Valeur nominale d'une obligation (€)
+  bondCount       Int? // Nombre d'obligations émises
+  couponFrequency CouponFrequency? // Fréquence de détachement du coupon
+  issuePrice      Float? // Prix d'émission (si != nominal → prime d'émission)
+
+  // --- Champs spécifiques Compte courant d'associé ---
+  partnerName    String? // Nom de l'associé titulaire
+  partnerShare   Float? // Part de détention (%)
+  maxAmount      Float? // Plafond optionnel du compte courant
+  conventionDate DateTime? // Date de la convention
+  currentBalance Float?    @default(0) // Solde courant du compte
+
   society           Society                @relation(fields: [societyId], references: [id], onDelete: Cascade)
   building          Building?              @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   amortizationLines LoanAmortizationLine[]
+  movements         LoanMovement[]
 
   @@index([societyId])
   @@index([societyId, status])
@@ -2180,6 +2230,24 @@ model LoanAmortizationLine {
 
   @@index([loanId])
   @@index([loanId, dueDate])
+}
+
+/// Mouvement sur un compte courant d'associé
+model LoanMovement {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  loanId    String
+
+  date         DateTime
+  type         LoanMovementType
+  amount       Float // Montant du mouvement (toujours positif)
+  balanceAfter Float // Solde du compte après ce mouvement
+  description  String? // Libellé ex: "Apport travaux toiture"
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([loanId, date])
 }
 
 // ============================================================

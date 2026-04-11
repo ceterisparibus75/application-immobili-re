@@ -382,7 +382,8 @@ function computeRentForPeriod(
   startDate: Date,
   currentRentHT: number,
   progressiveRent: unknown,
-  rentFreeMonths: number
+  rentFreeMonths: number,
+  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[]
 ): number {
   const start = new Date(startDate);
   start.setDate(1);
@@ -394,6 +395,19 @@ function computeRentForPeriod(
 
   if (monthsSinceStart < Math.floor(rentFreeMonths)) return 0;
 
+  // Priorité 1 : paliers de loyer (LeaseRentStep) basés sur les dates
+  if (rentSteps && rentSteps.length > 0) {
+    for (let i = rentSteps.length - 1; i >= 0; i--) {
+      const step = rentSteps[i];
+      const stepStart = new Date(step.startDate);
+      const stepEnd = step.endDate ? new Date(step.endDate) : null;
+      if (now >= stepStart && (!stepEnd || now <= stepEnd)) {
+        return step.rentHT;
+      }
+    }
+  }
+
+  // Priorité 2 : ancien champ progressiveRent JSON (rétrocompatibilité)
   const progressive = progressiveRent as
     | Array<{ months: number; rentHT: number }>
     | null;
@@ -524,6 +538,10 @@ export async function getActiveLeasesForInvoicing(societyId: string) {
       vatRate: true,
       rentFreeMonths: true,
       progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
       tenant: {
         select: {
           id: true,
@@ -570,6 +588,10 @@ export async function getLeaseForInvoice(societyId: string, leaseId: string) {
       vatRate: true,
       rentFreeMonths: true,
       progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
       tenantId: true,
       tenant: {
         select: {
@@ -663,6 +685,10 @@ async function computeInvoicePreview(
       vatRate: true,
       rentFreeMonths: true,
       progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
       chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true, vatRate: true, label: true } },
       tenant: {
         select: {
@@ -770,7 +796,8 @@ async function computeInvoicePreview(
     lease.startDate,
     lease.currentRentHT,
     lease.progressiveRent,
-    lease.rentFreeMonths ?? 0
+    lease.rentFreeMonths ?? 0,
+    lease.rentSteps
   );
   // Prorata temporis sur le premier mois
   let prorataLabel = "";
@@ -1003,6 +1030,10 @@ export async function generateInvoiceFromLease(
         vatRate: true,
         rentFreeMonths: true,
         progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
         isThirdPartyManaged: true,
         managementFeeType: true,
         managementFeeValue: true,
@@ -1048,7 +1079,8 @@ export async function generateInvoiceFromLease(
       lease.startDate,
       lease.currentRentHT,
       lease.progressiveRent,
-      lease.rentFreeMonths ?? 0
+      lease.rentFreeMonths ?? 0,
+      lease.rentSteps
     );
 
     // Prorata temporis sur le premier mois
@@ -1266,6 +1298,10 @@ export async function generateBatchInvoices(
         vatRate: true,
         rentFreeMonths: true,
         progressiveRent: true,
+      rentSteps: {
+        orderBy: { position: "asc" as const },
+        select: { startDate: true, endDate: true, rentHT: true },
+      },
         chargeProvisions: {
           where: { isActive: true },
           select: { monthlyAmount: true, vatRate: true, label: true },
@@ -1308,7 +1344,8 @@ export async function generateBatchInvoices(
           lease.startDate,
           lease.currentRentHT,
           lease.progressiveRent,
-          lease.rentFreeMonths ?? 0
+          lease.rentFreeMonths ?? 0,
+          lease.rentSteps
         );
 
         const vatRate = lease.vatApplicable ? lease.vatRate : 0;

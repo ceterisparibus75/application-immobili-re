@@ -8,8 +8,11 @@ import { createAuditLog } from "@/lib/audit";
 import {
   createLeaseSchema,
   updateLeaseSchema,
+  createRentStepsSchema,
+  updateRentStepSchema,
   type CreateLeaseInput,
   type UpdateLeaseInput,
+  type CreateRentStepsInput,
 } from "@/validations/lease";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -464,6 +467,18 @@ export async function getLeaseById(societyId: string, leaseId: string) {
       leaseTemplate: {
         select: { id: true, name: true, leaseType: true },
       },
+      rentSteps: {
+        orderBy: { position: "asc" },
+        select: {
+          id: true,
+          label: true,
+          startDate: true,
+          endDate: true,
+          rentHT: true,
+          chargesHT: true,
+          position: true,
+        },
+      },
       inspections: {
         orderBy: { performedAt: "desc" },
         take: 5,
@@ -480,8 +495,168 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           rentRevisions: true,
           inspections: true,
           amendments: true,
+          rentSteps: true,
         },
       },
     },
+  });
+}
+
+// ============================================================
+// PALIERS DE LOYER (LeaseRentStep)
+// ============================================================
+
+export async function createRentSteps(
+  societyId: string,
+  input: CreateRentStepsInput
+): Promise<ActionResult<{ count: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = createRentStepsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const { leaseId, steps } = parsed.data;
+
+    // Vérifier que le bail appartient à la société
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId },
+      select: { id: true },
+    });
+    if (!lease) return { success: false, error: "Bail introuvable" };
+
+    // Supprimer les anciens paliers et recréer
+    await prisma.leaseRentStep.deleteMany({ where: { leaseId } });
+
+    const created = await prisma.leaseRentStep.createMany({
+      data: steps.map((step, index) => ({
+        leaseId,
+        label: step.label,
+        startDate: new Date(step.startDate),
+        endDate: step.endDate ? new Date(step.endDate) : null,
+        rentHT: step.rentHT,
+        chargesHT: step.chargesHT ?? null,
+        position: index,
+      })),
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "LeaseRentStep",
+      entityId: leaseId,
+      details: { stepsCount: created.count },
+    });
+
+    revalidatePath(`/baux/${leaseId}`);
+    return { success: true, data: { count: created.count } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createRentSteps]", error);
+    return { success: false, error: "Erreur lors de la création des paliers" };
+  }
+}
+
+export async function updateRentStep(
+  societyId: string,
+  input: { id: string; label: string; startDate: string; endDate?: string | null; rentHT: number; chargesHT?: number | null }
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const parsed = updateRentStepSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const { id, ...data } = parsed.data;
+
+    const step = await prisma.leaseRentStep.findFirst({
+      where: { id, lease: { societyId } },
+      select: { id: true, leaseId: true },
+    });
+    if (!step) return { success: false, error: "Palier introuvable" };
+
+    await prisma.leaseRentStep.update({
+      where: { id },
+      data: {
+        label: data.label,
+        startDate: new Date(data.startDate),
+        endDate: data.endDate ? new Date(data.endDate) : null,
+        rentHT: data.rentHT,
+        chargesHT: data.chargesHT ?? null,
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "LeaseRentStep",
+      entityId: id,
+    });
+
+    revalidatePath(`/baux/${step.leaseId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateRentStep]", error);
+    return { success: false, error: "Erreur lors de la mise à jour du palier" };
+  }
+}
+
+export async function deleteRentStep(
+  societyId: string,
+  stepId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const step = await prisma.leaseRentStep.findFirst({
+      where: { id: stepId, lease: { societyId } },
+      select: { id: true, leaseId: true },
+    });
+    if (!step) return { success: false, error: "Palier introuvable" };
+
+    await prisma.leaseRentStep.delete({ where: { id: stepId } });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "LeaseRentStep",
+      entityId: stepId,
+    });
+
+    revalidatePath(`/baux/${step.leaseId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteRentStep]", error);
+    return { success: false, error: "Erreur lors de la suppression du palier" };
+  }
+}
+
+export async function getRentSteps(societyId: string, leaseId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.leaseRentStep.findMany({
+    where: { leaseId, lease: { societyId } },
+    orderBy: { position: "asc" },
   });
 }
