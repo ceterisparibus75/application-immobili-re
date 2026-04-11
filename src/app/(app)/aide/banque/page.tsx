@@ -121,6 +121,63 @@ export default function BanquePage() {
         </p>
         <ScreenshotPlaceholder alt="Gestion des exercices" caption="Liste des exercices avec dates, statut et actions (clôturer, ouvrir)" src="/aide/screenshots/comptabilite-main.png" />
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur la banque et comptabilité">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter un compte bancaire ?</p>
+            <p>Allez dans <strong>Banque &gt; Nouveau compte</strong>. Renseignez le nom du compte, le nom de la banque et l&apos;IBAN. Les données bancaires sont chiffrées en AES-256 pour garantir leur sécurité.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment connecter ma banque pour la synchronisation automatique ?</p>
+            <p>Allez dans <strong>Banque &gt; Connexion bancaire</strong>. Via le protocole Open Banking (Powens), vos transactions sont synchronisées automatiquement chaque jour à 6h du matin.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Ma banque n&apos;apparaît pas dans la liste, que faire ?</p>
+            <p>Toutes les banques ne sont pas encore supportées par Open Banking. Vous pouvez ajouter manuellement vos transactions depuis la fiche du compte bancaire en attendant que votre banque soit disponible.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment rapprocher une transaction bancaire ?</p>
+            <p>Allez dans <strong>Rapprochement</strong>. Sélectionnez une transaction bancaire à gauche, puis l&apos;élément correspondant à droite (paiement, facture ou échéance de prêt) et cliquez sur <strong>Rapprocher</strong>.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que le rapprochement automatique ?</p>
+            <p>Le bouton <strong>Rapprochement automatique</strong> associe les transactions bancaires et les paiements qui correspondent exactement en montant et en date, sans intervention manuelle de votre part.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter une transaction manuellement ?</p>
+            <p>Depuis la fiche du compte bancaire, cliquez sur <strong>Nouvelle transaction</strong>. Renseignez la date, le libellé, le montant et la référence de l&apos;opération.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que le FEC ?</p>
+            <p>Le Fichier des Écritures Comptables (FEC) est un format réglementaire exigé par l&apos;administration fiscale française en cas de contrôle. Vous pouvez l&apos;exporter depuis <strong>Comptabilité &gt; Export FEC</strong>.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment créer une écriture comptable ?</p>
+            <p>Allez dans <strong>Comptabilité &gt; Saisir une écriture</strong>. Renseignez la date, le libellé, puis les lignes de débit et de crédit (principe de la partie double : le total débit doit être égal au total crédit).</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment consulter le grand livre ?</p>
+            <p>Allez dans <strong>Comptabilité &gt; Grand Livre</strong>. Vous y trouverez toutes les écritures classées par compte comptable, avec le solde de chaque compte.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que la balance comptable ?</p>
+            <p>C&apos;est une vue synthétique montrant le solde débiteur et créditeur de chaque compte comptable. Elle est accessible depuis <strong>Comptabilité &gt; Balance</strong> et permet de vérifier l&apos;équilibre de vos comptes.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment clôturer un exercice comptable ?</p>
+            <p>Allez dans <strong>Comptabilité &gt; Exercices &gt; Clôturer</strong>. Vérifiez d&apos;abord que tous les brouillons d&apos;écritures sont validés. Attention : cette opération est irréversible et fige définitivement les écritures de l&apos;exercice.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment gérer le plan comptable ?</p>
+            <p>Allez dans <strong>Comptabilité &gt; Plan comptable</strong>. Vous pouvez ajouter, modifier ou désactiver des comptes. Le plan est pré-configuré avec les comptes standards de la gestion immobilière.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment voir le prévisionnel de trésorerie ?</p>
+            <p>Accédez au module <strong>Prévisionnel</strong> dans le menu. Vous y trouverez une vue des flux entrants (loyers attendus) et sortants (charges, échéances d&apos;emprunts) sur les mois à venir, pour anticiper votre trésorerie.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

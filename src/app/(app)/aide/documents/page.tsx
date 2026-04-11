@@ -114,6 +114,43 @@ export default function DocumentsPage() {
           <li><strong>Dataroom isolée</strong> : les partenaires externes ne voient que les documents explicitement partagés</li>
         </ul>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur les documents">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Quels formats de fichiers sont acceptés ?</p>
+            <p>PDF, JPG, PNG, DOCX et XLSX. La taille maximale est de 20 Mo par fichier.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment partager des documents avec un notaire ou une banque ?</p>
+            <p>Créez un lien Dataroom avec les documents sélectionnés. Le lien peut avoir un mot de passe et une durée de validité limitée. Le destinataire consulte les fichiers sans se connecter à {APP_NAME}.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment fonctionne la signature électronique ?</p>
+            <p>Uploadez un PDF, définissez les zones de signature pour chaque signataire, puis envoyez-le par email. Les signataires signent directement depuis leur navigateur sans créer de compte.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">La signature électronique a-t-elle une valeur légale ?</p>
+            <p>Oui, la signature électronique est reconnue par la loi française et européenne (règlement eIDAS). Elle a la même valeur qu&apos;une signature manuscrite.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment retrouver un document précis ?</p>
+            <p>Utilisez la recherche globale (Ctrl+K), filtrez par catégorie ou par entité (immeuble, bail, locataire). Les documents arrivant à expiration sont également signalés par un badge.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Les documents sont-ils sauvegardés automatiquement ?</p>
+            <p>Oui, ils sont stockés sur une infrastructure européenne sécurisée (Supabase Frankfurt) avec redondance. Aucune sauvegarde manuelle n&apos;est nécessaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment révoquer l&apos;accès à une Dataroom ?</p>
+            <p>Depuis la page Dataroom, cliquez sur le lien de partage et supprimez-le. L&apos;accès est immédiatement révoqué pour le destinataire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je classer automatiquement mes documents ?</p>
+            <p>Oui, l&apos;analyse IA (plan Enterprise) catégorise automatiquement les documents uploadés en 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre de propriété, contrat et état des lieux.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

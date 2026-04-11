@@ -123,6 +123,55 @@ export default function PatrimoinePage() {
         </p>
         <ScreenshotPlaceholder alt="État des lieux" caption="Formulaire d'état des lieux avec observations par pièce" src="/aide/screenshots/patrimoine-detail.png" />
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur le patrimoine">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment modifier les informations d&apos;un immeuble ?</p>
+            <p>Rendez-vous sur la fiche de l&apos;immeuble concerné, puis cliquez sur le bouton <strong>Modifier</strong> en haut de page. Vous pourrez mettre à jour le nom, l&apos;adresse, le type de bien, l&apos;année de construction et la surface totale.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je supprimer un immeuble ?</p>
+            <p>Uniquement si aucun lot de cet immeuble n&apos;a de bail actif. Si c&apos;est le cas, la suppression est possible depuis la fiche immeuble. Dans le cas contraire, vous devrez d&apos;abord résilier tous les baux en cours.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment changer le statut d&apos;un lot (vacant, occupé, en travaux) ?</p>
+            <p>Le statut d&apos;un lot est mis à jour automatiquement en fonction des baux : il passe à « Occupé » lorsqu&apos;un bail est actif et à « Vacant » lorsque le bail est résilié. Vous pouvez également forcer manuellement le statut depuis la fiche lot (par exemple pour le passer en « En travaux »).</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Un lot peut-il avoir plusieurs baux en même temps ?</p>
+            <p>Non, un seul bail actif est autorisé par lot. Pour changer de locataire, vous devez d&apos;abord résilier le bail en cours, puis en créer un nouveau.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter un diagnostic DPE ?</p>
+            <p>Depuis la fiche immeuble, rendez-vous dans la section <strong>Diagnostics</strong>, puis cliquez sur <strong>Ajouter un diagnostic</strong>. Choisissez le type (DPE), renseignez la date de réalisation, le résultat et joignez le fichier PDF du rapport.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Quand suis-je alerté pour un diagnostic expirant ?</p>
+            <p>L&apos;application vous alerte 90 jours avant l&apos;expiration d&apos;un diagnostic avec un badge orange « Expire bientôt ». Une fois le diagnostic expiré, un badge rouge « Expiré » s&apos;affiche pour vous inciter à le renouveler rapidement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment planifier une maintenance ?</p>
+            <p>Depuis la fiche immeuble, allez dans la section <strong>Interventions</strong> et cliquez sur <strong>Nouvelle intervention</strong>. Renseignez le titre, la description, la date planifiée et le coût estimé. Vous pourrez ensuite suivre l&apos;avancement et ajouter le coût réel.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment importer plusieurs lots en même temps ?</p>
+            <p>Rendez-vous dans <strong>Administration &gt; Import</strong> et uploadez un fichier CSV ou Excel contenant les colonnes suivantes : numéro, type, étage, surface et loyer. L&apos;application vérifiera les données et créera les lots automatiquement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment voir tous les lots vacants ?</p>
+            <p>Sur la page <strong>Patrimoine</strong>, le taux d&apos;occupation est affiché pour chaque immeuble. Pour voir le détail, ouvrez la fiche d&apos;un immeuble et filtrez les lots par statut « Vacant » dans le tableau des lots.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que l&apos;évaluation IA d&apos;un immeuble ?</p>
+            <p>Il s&apos;agit d&apos;une estimation automatique de la valeur de votre immeuble, basée sur l&apos;adresse, la surface, le type de bien, le taux d&apos;occupation et les données de marché (transactions récentes DVF). Accessible depuis la fiche immeuble via le bouton <strong>Évaluation IA</strong>.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter des photos à un état des lieux ?</p>
+            <p>Depuis la fiche bail, rendez-vous dans la section <strong>États des lieux</strong>. Lors de la création ou de la modification d&apos;un état des lieux, vous pouvez joindre des photos pour chaque pièce inspectée afin de documenter l&apos;état du logement.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

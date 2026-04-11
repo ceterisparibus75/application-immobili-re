@@ -144,6 +144,43 @@ export default function ProprietairePage() {
           Cette situation peut se produire si la société a été créée avant la mise en place du système propriétaire, ou si elle a été créée par un autre utilisateur qui vous a ensuite donné les droits d&apos;administration.
         </InfoBox>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur la vue propriétaire">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Quelle est la différence entre propriétaire et société ?</p>
+            <p>Le propriétaire est la personne (physique ou morale) qui détient une ou plusieurs sociétés. La société est l&apos;entité juridique qui gère les immeubles et les baux.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment créer un nouveau propriétaire ?</p>
+            <p>Un propriétaire est créé automatiquement lors de la création d&apos;une société. Vous pouvez aussi en créer un manuellement depuis Propriétaire &gt; Nouveau propriétaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment rattacher une société existante à un propriétaire ?</p>
+            <p>Depuis la Vue Propriétaire, utilisez le bouton Revendiquer des sociétés. Sélectionnez les sociétés non rattachées que vous souhaitez associer au propriétaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter un co-propriétaire ?</p>
+            <p>Vue Propriétaire &gt; Profil &gt; Modifier &gt; Section Co-propriétaires &gt; Ajouter. Renseignez le nom, la part de détention et la qualité (co-propriétaire, usufruitier, nu-propriétaire, indivisaire).</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Le tableau de bord propriétaire consolide-t-il toutes les sociétés ?</p>
+            <p>Oui, les KPI (revenus, taux d&apos;occupation, impayés, trésorerie) sont agrégés sur toutes les sociétés rattachées au propriétaire sélectionné.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment envoyer un rapport consolidé au propriétaire ?</p>
+            <p>Depuis Rapports &gt; Planification, créez un rapport consolidé. Il regroupera automatiquement les données de toutes les sociétés du propriétaire et sera envoyé par email.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je avoir plusieurs propriétaires ?</p>
+            <p>Oui, si vous gérez des biens pour plusieurs propriétaires distincts. Chaque propriétaire dispose de son propre tableau de bord consolidé et de son propre profil.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment modifier le type de propriétaire (physique vs morale) ?</p>
+            <p>Le type est défini à la création et ne peut pas être changé ensuite. Si nécessaire, créez un nouveau propriétaire avec le type souhaité et rattachez-y les sociétés concernées.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

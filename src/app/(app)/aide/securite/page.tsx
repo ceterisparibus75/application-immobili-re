@@ -160,6 +160,51 @@ export default function SecuritePage() {
           Toutes les données restent en Europe. Aucun transfert de données hors UE n&apos;est effectué.
         </InfoBox>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur la sécurité">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment activer la double authentification ?</p>
+            <p>Allez dans Paramètres &gt; Sécurité &gt; Activer la 2FA. Scannez le QR code avec une application comme Google Authenticator ou Authy, puis confirmez avec le code à 6 chiffres.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">J&apos;ai perdu mon téléphone, comment me reconnecter ?</p>
+            <p>Utilisez vos codes de récupération fournis lors de l&apos;activation de la 2FA. Si vous les avez également perdus, contactez le support pour une procédure de vérification d&apos;identité.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Mon compte est verrouillé, que faire ?</p>
+            <p>Après 5 tentatives de connexion échouées, le compte est automatiquement verrouillé pendant 15 minutes. Attendez ce délai puis réessayez, ou réinitialisez votre mot de passe via le lien &quot;Mot de passe oublié&quot;.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Mes données sont-elles stockées en France ?</p>
+            <p>Les données sont stockées en Europe (Frankfurt, Allemagne) sur une infrastructure conforme RGPD. Aucun transfert de données hors Union Européenne n&apos;est effectué.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Un locataire peut-il voir les données d&apos;un autre locataire ?</p>
+            <p>Non, le portail locataire est totalement isolé. Chaque locataire ne voit que ses propres données : factures, documents, charges et paiements.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment exercer mes droits RGPD ?</p>
+            <p>Depuis le menu RGPD, cliquez sur Nouvelle demande. Choisissez le type de droit à exercer : accès, rectification, suppression ou portabilité des données.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Combien de temps mes données sont-elles conservées ?</p>
+            <p>Locataire actif : durée du bail. Locataire archivé : 5 ans après fin de bail. Données bancaires : 10 ans (obligation légale comptable). Logs d&apos;activité : 1 an. Consentements : 3 ans après révocation.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">L&apos;application est-elle conforme RGPD ?</p>
+            <p>Oui, 100% conforme : consentement explicite, droits des personnes, registre des traitements, durées de conservation respectées et hébergement exclusivement européen.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment fonctionne le timeout d&apos;inactivité ?</p>
+            <p>Après 10 minutes sans activité (souris, clavier), un avertissement apparaît. Si aucune action n&apos;est effectuée dans la minute suivante, la session est automatiquement fermée pour protéger vos données.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qui peut voir les logs d&apos;activité ?</p>
+            <p>Les administrateurs (Admin Société et Super Admin) ont accès à tous les logs depuis Administration &gt; Audit. Les utilisateurs standards ne voient que leur propre activité.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

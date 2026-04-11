@@ -100,6 +100,51 @@ export default function DemarragePage() {
           </ul>
         </div>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur le démarrage">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Combien de temps dure l&apos;essai gratuit ?</p>
+            <p>L&apos;essai gratuit dure 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une fois l&apos;essai terminé, votre compte passe en lecture seule jusqu&apos;à la souscription d&apos;un abonnement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je importer mes données depuis un autre logiciel ?</p>
+            <p>Oui, rendez-vous dans Administration &gt; Import. Vous pouvez importer vos données au format CSV ou Excel. Un assistant de mappage vous guide pour faire correspondre vos colonnes aux champs de l&apos;application.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Faut-il créer la société avant les immeubles ?</p>
+            <p>Oui, la société est l&apos;entité centrale de l&apos;application. Tous les immeubles, locataires, baux et factures sont rattachés à une société. Vous devez donc créer votre société en premier.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je modifier les informations de ma société plus tard ?</p>
+            <p>Oui, vous pouvez modifier les informations de votre société à tout moment depuis la fiche société en cliquant sur le bouton Modifier.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter mon logo sur les factures ?</p>
+            <p>Depuis la fiche de votre société, rendez-vous dans la section Logo et uploadez votre image. Le logo apparaîtra automatiquement sur vos factures, quittances et courriers.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Est-ce que les factures sont générées automatiquement ?</p>
+            <p>Oui, chaque jour à 7h, l&apos;application génère automatiquement des brouillons de factures pour tous les baux actifs. Il vous suffit de les vérifier et de les valider avant envoi.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment inviter un collaborateur ?</p>
+            <p>Rendez-vous dans Mon compte &gt; Utilisateurs, puis cliquez sur Créer. Renseignez l&apos;adresse email et le rôle souhaité. Un email d&apos;invitation sera envoyé automatiquement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Que se passe-t-il si je dépasse les limites de mon plan ?</p>
+            <p>Une alerte s&apos;affiche pour vous prévenir. Vous ne pourrez pas créer de nouveaux éléments (lots, utilisateurs, sociétés) au-delà des limites de votre plan. Passez à un plan supérieur pour débloquer la situation.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment passer d&apos;un plan gratuit à un plan payant ?</p>
+            <p>Rendez-vous dans Mon compte &gt; Abonnement, choisissez le plan qui vous convient et procédez au paiement par carte bancaire via Stripe. Vos données sont conservées intégralement lors du passage.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je tester toutes les fonctionnalités pendant l&apos;essai ?</p>
+            <p>Oui, l&apos;essai gratuit donne accès à toutes les fonctionnalités du plan Enterprise, sans aucune restriction. Vous pouvez ainsi évaluer l&apos;ensemble des capacités de l&apos;application.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

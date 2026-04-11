@@ -160,6 +160,63 @@ export default function LocatifPage() {
         </p>
         <ScreenshotPlaceholder alt="Carnet de contacts" caption="Contacts affichés en cartes avec type, coordonnées et spécialité" src="/aide/screenshots/contacts-main.png" />
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur la gestion locative">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment résilier un bail ?</p>
+            <p>Rendez-vous sur la fiche du bail concerné et cliquez sur le bouton <strong>Résilier</strong>. Renseignez la date de résiliation et le motif. Le lot associé redeviendra automatiquement vacant.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je renouveler un bail expiré ?</p>
+            <p>Non, un bail résilié ou expiré ne peut pas être réactivé. Vous devez créer un nouveau bail pour le même lot et le même locataire si nécessaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment modifier le loyer d&apos;un bail ?</p>
+            <p>Le loyer peut être modifié de deux façons : via une révision de loyer automatique basée sur les indices INSEE (IRL, ILC, ILAT), ou via un avenant au bail pour toute modification contractuelle.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment fonctionne la révision automatique de loyer ?</p>
+            <p>La révision est basée sur les indices INSEE. La formule appliquée est : nouveau loyer = ancien loyer × (nouvel indice / ancien indice). L&apos;application propose automatiquement la révision à la date anniversaire du bail. Vous pouvez la valider ou la rejeter.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment faire un rattrapage de révisions en retard ?</p>
+            <p>Rendez-vous sur la page <strong>Indices</strong> et cliquez sur le bouton <strong>Rattraper</strong>. L&apos;application calculera année par année les révisions manquées et vous proposera de les appliquer.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter un avenant au bail ?</p>
+            <p>Depuis la fiche bail, rendez-vous dans la section <strong>Avenants</strong> et cliquez sur <strong>Nouvel avenant</strong>. Renseignez l&apos;objet de la modification, la date d&apos;effet et les nouvelles conditions applicables.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment gérer le dépôt de garantie ?</p>
+            <p>Le montant du dépôt de garantie est renseigné lors de la création du bail. Il est affiché sur la fiche bail et pris en compte dans les rapports financiers. Sa restitution est gérée lors de la résiliation du bail.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment archiver un locataire qui est parti ?</p>
+            <p>Le locataire est automatiquement archivé lorsque son dernier bail est résilié. Conformément au RGPD, ses données personnelles sont conservées pendant 5 ans après la fin de la relation contractuelle, puis supprimées.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment gérer les charges récupérables ?</p>
+            <p>Dans le module <strong>Charges</strong>, créez des charges avec la nature « Récupérable ». Ces charges seront automatiquement prises en compte lors de la régularisation annuelle et refacturées au locataire concerné.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment créer une provision sur charges ?</p>
+            <p>Depuis la fiche bail, rendez-vous dans la section <strong>Charges</strong> et cliquez sur <strong>Ajouter une provision</strong>. Définissez la catégorie de charge et le montant mensuel provisionné.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment faire la régularisation annuelle des charges ?</p>
+            <p>Comparez le total des provisions versées par le locataire au total réel des charges récupérables de l&apos;année. Créez ensuite une facture de régularisation : positive si le locataire doit un complément, négative si un trop-perçu doit lui être remboursé.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment synchroniser les locataires dans le carnet de contacts ?</p>
+            <p>Rendez-vous sur la page <strong>Contacts</strong> et cliquez sur le bouton <strong>Synchroniser les locataires</strong>. Tous les locataires actifs seront automatiquement importés dans votre carnet de contacts.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment ajouter un garant ou une caution pour un locataire ?</p>
+            <p>Lors de la création du bail, vous pouvez renseigner les informations du garant : nom, prénom, adresse et profession. Ces informations sont conservées dans la fiche bail et accessibles à tout moment.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

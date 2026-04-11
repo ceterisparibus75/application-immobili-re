@@ -135,6 +135,43 @@ export default function DashboardPage() {
           Le champ email du profil propriétaire permet de recevoir automatiquement les rapports programmés. Configurez-le dans la vue Propriétaire &gt; Profil.
         </InfoBox>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur le tableau de bord">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment personnaliser mon tableau de bord ?</p>
+            <p>Le tableau de bord affiche automatiquement les données de la société active. Changez de société via le sélecteur en haut de page pour voir les données d&apos;une autre société.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Les données sont-elles en temps réel ?</p>
+            <p>Oui, les KPI et graphiques sont recalculés à chaque chargement de la page avec les données les plus récentes.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment voir les données de toutes mes sociétés ?</p>
+            <p>Utilisez la Vue Propriétaire qui consolide les données de toutes vos sociétés en un seul tableau de bord.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment exporter un rapport en PDF ?</p>
+            <p>Module Rapports &gt; Sélectionnez le type de rapport et la période &gt; Générer. Le PDF est téléchargé automatiquement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Quels types de rapports sont disponibles ?</p>
+            <p>9 types : balance âgée, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment planifier l&apos;envoi automatique de rapports ?</p>
+            <p>Rapports &gt; Planification. Définissez le type de rapport, la fréquence et les destinataires. Les rapports sont envoyés automatiquement par email selon le calendrier défini.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Que signifie le taux d&apos;occupation ?</p>
+            <p>C&apos;est le pourcentage de lots occupés par un bail actif. 100% signifie que tous les lots sont loués. En dessous de 80%, une alerte orange apparaît pour signaler un taux de vacance élevé.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment interpréter l&apos;indicateur de concentration des risques ?</p>
+            <p>Si un locataire représente plus de 30% de vos revenus, c&apos;est un risque de concentration. Si ce locataire part, vous perdez une part importante de vos revenus. Diversifiez votre base locative.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

@@ -143,6 +143,67 @@ export default function FacturationPage() {
         </p>
         <ScreenshotPlaceholder alt="Création d'un avoir" caption="Formulaire d'avoir avec motif et montant" src="/aide/screenshots/facturation-main.png" />
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur la facturation">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment créer une facture manuellement ?</p>
+            <p>Allez dans <strong>Facturation &gt; Nouvelle facture</strong>. Sélectionnez le bail, la période et les lignes de facturation (loyer, charges, taxes, honoraires). La facture est créée en brouillon.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment annuler une facture déjà validée ?</p>
+            <p>Depuis la fiche facture, cliquez sur <strong>Créer un avoir</strong>. L&apos;avoir annule le montant et la facture originale est automatiquement marquée comme annulée. Vous ne pouvez pas supprimer une facture validée directement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment gérer un paiement partiel ?</p>
+            <p>Enregistrez le paiement avec le montant effectivement reçu. La facture passe au statut <strong>Partiellement payée</strong> et le solde restant dû est affiché clairement sur la fiche facture.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment envoyer une facture par email au locataire ?</p>
+            <p>Depuis la fiche facture, cliquez sur le bouton <strong>Envoyer par email</strong>. Un PDF est généré automatiquement avec votre logo et vos coordonnées bancaires, puis envoyé à l&apos;adresse email du locataire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Les factures sont-elles générées automatiquement ?</p>
+            <p>Oui, chaque jour à 7h du matin, {APP_NAME} génère des brouillons de factures pour tous les baux actifs. Ces brouillons doivent ensuite être vérifiés et validés manuellement avant envoi.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment valider plusieurs factures en une fois ?</p>
+            <p>Dans l&apos;onglet <strong>Brouillons</strong>, sélectionnez les factures souhaitées à l&apos;aide des cases à cocher, puis utilisez l&apos;action groupée <strong>Valider</strong> pour les valider toutes en un clic.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment voir les factures impayées ?</p>
+            <p>Cliquez sur l&apos;onglet <strong>En retard</strong> sur la page Facturation. Le KPI <strong>Impayés</strong> en haut de page affiche le montant total des factures impayées ainsi que leur nombre.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment personnaliser le contenu d&apos;une facture ?</p>
+            <p>Chaque facture peut comporter des lignes personnalisées : loyer, charges, taxes, honoraires ou tout autre intitulé. Modifiez les lignes directement depuis la fiche facture, tant qu&apos;elle est au statut brouillon.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce qu&apos;une quittance de loyer ?</p>
+            <p>C&apos;est un reçu officiel attestant que le locataire a payé son loyer pour une période donnée. Elle est générée uniquement pour les factures dont le paiement est complet (pas pour les paiements partiels).</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment générer une quittance ?</p>
+            <p>Depuis la fiche d&apos;une facture entièrement payée, cliquez sur <strong>Générer la quittance</strong>. Le PDF est créé automatiquement et peut être téléchargé ou envoyé par email au locataire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment fonctionnent les relances automatiques ?</p>
+            <p>Les relances suivent 3 niveaux : <strong>courtoise</strong> (7 jours après l&apos;échéance), <strong>ferme</strong> (21 jours) et <strong>mise en demeure</strong> (45 jours). Elles sont envoyées automatiquement chaque lundi à 8h du matin.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment désactiver les relances automatiques pour un locataire ?</p>
+            <p>Les relances automatiques s&apos;appliquent à toutes les factures impayées. Si vous souhaitez gérer un locataire au cas par cas, vous pouvez envoyer les relances manuellement depuis la page <strong>Relances</strong>.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que le prélèvement SEPA ?</p>
+            <p>C&apos;est un système de prélèvement automatique européen. Créez un mandat SEPA avec l&apos;IBAN du locataire, puis générez un fichier XML regroupant tous les prélèvements à effectuer. Ce fichier est à transmettre directement à votre banque.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment régulariser les charges en fin d&apos;année ?</p>
+            <p>Comparez les provisions versées par le locataire avec les charges réellement engagées, puis créez une facture de régularisation. Si le locataire a trop payé, émettez un avoir pour le montant excédentaire.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

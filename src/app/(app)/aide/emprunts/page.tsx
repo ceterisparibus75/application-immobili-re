@@ -147,6 +147,43 @@ export default function EmpruntsPage() {
           Le LTV est visible sur le tableau de bord principal et sur la vue Propriétaire.
         </p>
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur les emprunts et évaluations">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Quelle est la différence entre un emprunt amortissable et in fine ?</p>
+            <p>Amortissable : remboursement progressif du capital + intérêts à chaque échéance. In fine : seuls les intérêts sont payés chaque mois, le capital est remboursé en totalité à l&apos;échéance du prêt.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment modifier un emprunt existant ?</p>
+            <p>Depuis la fiche de l&apos;emprunt, cliquez sur le bouton Modifier. Vous pouvez ajuster le taux, la durée ou le montant de l&apos;assurance.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment suivre le remboursement de mes emprunts ?</p>
+            <p>Le tableau d&apos;amortissement montre chaque échéance avec le détail capital, intérêts et restant dû. Les échéances payées sont cochées automatiquement lors du rapprochement bancaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que le ratio LTV ?</p>
+            <p>Loan-to-Value = Capital restant dû / Valeur du patrimoine &times; 100. C&apos;est un indicateur d&apos;endettement visible sur le tableau de bord et la vue Propriétaire.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">L&apos;évaluation IA est-elle fiable ?</p>
+            <p>C&apos;est une estimation indicative basée sur les données de marché (comparables, DVF, loyers). Elle ne remplace pas une expertise immobilière professionnelle mais donne une bonne tendance pour piloter votre patrimoine.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment associer un emprunt à un immeuble ?</p>
+            <p>Lors de la création ou modification de l&apos;emprunt, sélectionnez l&apos;immeuble concerné dans le champ dédié. Le ratio LTV sera alors calculé automatiquement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je ajouter une assurance emprunteur ?</p>
+            <p>Oui, renseignez le montant mensuel d&apos;assurance lors de la création de l&apos;emprunt. Il sera inclus dans les échéances du tableau d&apos;amortissement.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment exporter le tableau d&apos;amortissement ?</p>
+            <p>Depuis la fiche de l&apos;emprunt, utilisez le bouton d&apos;export pour télécharger le tableau au format CSV ou PDF.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }

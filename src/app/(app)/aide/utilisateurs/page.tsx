@@ -153,6 +153,51 @@ export default function UtilisateursPage() {
         </p>
         <ScreenshotPlaceholder alt="Sélecteur de société" caption="Basculez entre vos sociétés via le menu déroulant dans la barre du haut" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
+
+      <HelpSection id="faq" title="Questions fréquentes sur les utilisateurs">
+        <div className="space-y-3">
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Un utilisateur peut-il avoir des rôles différents selon la société ?</p>
+            <p>Oui, le rôle est attribué par société. Un même utilisateur peut par exemple être Admin Société sur la SCI A et Comptable sur la SARL B.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment réinitialiser le mot de passe d&apos;un utilisateur ?</p>
+            <p>L&apos;utilisateur doit cliquer sur &laquo; Mot de passe oublié &raquo; sur la page de connexion. Il recevra un email avec un lien pour définir un nouveau mot de passe.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Combien d&apos;utilisateurs puis-je créer ?</p>
+            <p>Le nombre d&apos;utilisateurs dépend de votre plan d&apos;abonnement : Starter permet 2 utilisateurs, Pro en permet 5 et Enterprise offre un nombre illimité. Consultez Mon compte &gt; Abonnement pour vérifier votre quota.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment supprimer un utilisateur ?</p>
+            <p>Rendez-vous dans Administration &gt; Utilisateurs, cliquez sur l&apos;utilisateur concerné puis sur le bouton Supprimer. Ses données (logs d&apos;audit, actions passées) restent dans le système pour la traçabilité.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Un comptable externe peut-il accéder à l&apos;application ?</p>
+            <p>Oui, créez un utilisateur avec le rôle Comptable. Il aura accès en lecture sur tous les modules et en écriture sur la facturation, la comptabilité, la banque et les relances.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment personnaliser les droits d&apos;un utilisateur par module ?</p>
+            <p>Depuis la fiche de l&apos;utilisateur, rendez-vous dans la section Permissions. Vous pouvez cocher les droits par module : Lecture, Écriture et Suppression, indépendamment du rôle global.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Que voit un utilisateur en lecture seule ?</p>
+            <p>Un utilisateur avec le rôle Lecture seule peut consulter toutes les données de la société (immeubles, locataires, baux, factures, etc.) mais ne peut rien créer, modifier ou supprimer.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Le propriétaire de la société a-t-il toujours tous les droits ?</p>
+            <p>Oui, le créateur de la société (owner) a automatiquement un accès complet à toutes les fonctionnalités, quels que soient les paramètres de rôle ou de permissions configurés.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment savoir qui a fait quoi dans l&apos;application ?</p>
+            <p>Rendez-vous dans Administration &gt; Audit. Le journal d&apos;activité affiche chaque action avec la date, l&apos;utilisateur concerné, le type d&apos;action et l&apos;entité modifiée.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Puis-je désactiver temporairement un utilisateur sans le supprimer ?</p>
+            <p>Pour le moment, il n&apos;existe pas de fonction de désactivation. Vous pouvez cependant changer son rôle en Lecture seule pour limiter ses actions en attendant.</p>
+          </div>
+        </div>
+      </HelpSection>
     </HelpPageLayout>
   );
 }
