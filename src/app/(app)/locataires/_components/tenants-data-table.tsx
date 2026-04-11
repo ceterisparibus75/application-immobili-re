@@ -14,6 +14,7 @@ interface TenantRow {
   riskVariant: "success" | "warning" | "destructive";
   riskLabel: string;
   totalRent: number;
+  balance: number;
   location: string | null;
   _count: { leases: number };
   isActive: boolean;
@@ -97,6 +98,23 @@ const columns: DataTableColumn<TenantRow>[] = [
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
+  },
+  {
+    key: "balance",
+    label: "Solde",
+    sortable: true,
+    align: "right",
+    render: (row) => {
+      if (row.balance === 0) {
+        return <span className="text-sm text-muted-foreground tabular-nums">0,00 €</span>;
+      }
+      const isDebt = row.balance > 0;
+      return (
+        <span className={`text-sm font-semibold tabular-nums ${isDebt ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
+          {isDebt ? "+" : ""}{row.balance.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €
+        </span>
+      );
+    },
   },
 ];
 

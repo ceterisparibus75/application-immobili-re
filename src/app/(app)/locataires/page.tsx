@@ -75,6 +75,7 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
       riskVariant: RISK_VARIANTS[t.riskIndicator],
       riskLabel: RISK_LABELS[t.riskIndicator],
       totalRent: t.leases.reduce((s, l) => s + l.currentRentHT, 0),
+      balance: t.balance,
       location: t.leases.length > 0
         ? t.leases.map((l) => `${l.lot.building.name} — Lot ${l.lot.number}`).join(", ")
         : null,

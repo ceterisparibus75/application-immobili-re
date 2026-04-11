@@ -18,6 +18,82 @@ import { hash, compare } from "bcryptjs";
 import { randomInt } from "crypto";
 import { sendPortalActivationEmail } from "@/lib/email";
 
+// ============================================================
+// CALCUL DU SOLDE LOCATAIRE
+// ============================================================
+
+/**
+ * Calcule le solde d'un locataire (montant dû).
+ * Solde = somme des factures TTC (hors annulées) - somme des paiements - somme des avoirs
+ * Un solde positif = le locataire doit de l'argent.
+ */
+export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      societyId,
+      tenantId,
+      status: { notIn: ["ANNULEE"] },
+    },
+    select: {
+      totalTTC: true,
+      invoiceType: true,
+      payments: { select: { amount: true } },
+    },
+  });
+
+  let balance = 0;
+  for (const inv of invoices) {
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      // Un avoir réduit le solde
+      balance -= inv.totalTTC;
+    } else {
+      balance += inv.totalTTC - paid;
+    }
+  }
+
+  return Math.round(balance * 100) / 100;
+}
+
+/**
+ * Calcule les soldes de plusieurs locataires en une seule requête optimisée.
+ */
+async function computeTenantBalances(societyId: string, tenantIds: string[]): Promise<Map<string, number>> {
+  if (tenantIds.length === 0) return new Map();
+
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      societyId,
+      tenantId: { in: tenantIds },
+      status: { notIn: ["ANNULEE"] },
+    },
+    select: {
+      tenantId: true,
+      totalTTC: true,
+      invoiceType: true,
+      payments: { select: { amount: true } },
+    },
+  });
+
+  const balances = new Map<string, number>();
+  for (const inv of invoices) {
+    const current = balances.get(inv.tenantId) ?? 0;
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      balances.set(inv.tenantId, current - inv.totalTTC);
+    } else {
+      balances.set(inv.tenantId, current + (inv.totalTTC - paid));
+    }
+  }
+
+  // Arrondir
+  for (const [id, val] of balances) {
+    balances.set(id, Math.round(val * 100) / 100);
+  }
+
+  return balances;
+}
+
 const tenantContactSchema = z.object({
   name: z.string().min(1, "Le nom est requis"),
   role: z.string().optional().nullable(),
@@ -368,7 +444,15 @@ export async function getTenantsPaginated(
     prisma.tenant.count({ where }),
   ]);
 
-  return { data, total };
+  // Calculer les soldes en batch pour éviter N+1
+  const tenantIds = data.map((t) => t.id);
+  const balances = await computeTenantBalances(societyId, tenantIds);
+  const dataWithBalance = data.map((t) => ({
+    ...t,
+    balance: balances.get(t.id) ?? 0,
+  }));
+
+  return { data: dataWithBalance, total };
 }
 
 export async function getTenants(societyId: string) {
@@ -445,6 +529,65 @@ export async function getTenantById(societyId: string, tenantId: string) {
       _count: { select: { leases: true } },
     },
   });
+}
+
+/**
+ * Récupère le relevé de compte complet d'un locataire :
+ * toutes les factures (appels de loyer, DG, régularisations, avoirs) et paiements.
+ */
+export async function getTenantAccountStatement(
+  societyId: string,
+  tenantId: string
+) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const invoices = await prisma.invoice.findMany({
+    where: { societyId, tenantId },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      invoiceType: true,
+      status: true,
+      issueDate: true,
+      dueDate: true,
+      periodStart: true,
+      periodEnd: true,
+      totalHT: true,
+      totalVAT: true,
+      totalTTC: true,
+      payments: {
+        select: {
+          id: true,
+          amount: true,
+          paidAt: true,
+          method: true,
+          reference: true,
+        },
+        orderBy: { paidAt: "asc" },
+      },
+    },
+    orderBy: { issueDate: "desc" },
+  });
+
+  // Calculer le solde courant
+  let balance = 0;
+  for (const inv of invoices) {
+    if (inv.status === "ANNULEE") continue;
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      balance -= inv.totalTTC;
+    } else {
+      balance += inv.totalTTC - paid;
+    }
+  }
+
+  return {
+    invoices,
+    balance: Math.round(balance * 100) / 100,
+  };
 }
 
 export async function createTenantContact(
@@ -780,4 +923,129 @@ export async function getTenantsForSelect(): Promise<{ id: string; name: string 
       ? (t.companyName ?? "—")
       : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—",
   }));
+}
+
+// ============================================================
+// SAISIE MANUELLE DE SOMMES DUES
+// ============================================================
+
+const manualDebitSchema = z.object({
+  tenantId: z.string().cuid(),
+  label: z.string().min(1, "Le libellé est requis"),
+  amount: z.coerce.number().positive("Le montant doit être positif"),
+  dueDate: z.string().min(1, "La date d'échéance est requise"),
+  vatRate: z.coerce.number().min(0).max(100).default(20),
+  notes: z.string().optional(),
+});
+
+/**
+ * Crée une facture manuelle (type REFACTURATION) pour enregistrer
+ * des sommes dues par le locataire : reprise de solde, arriéré, etc.
+ */
+export async function createManualDebit(
+  societyId: string,
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    const parsed = manualDebitSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: parsed.data.tenantId, societyId },
+    });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    // Trouver le bail actif si existant
+    const activeLease = await prisma.lease.findFirst({
+      where: { societyId, tenantId: parsed.data.tenantId, status: "EN_COURS" },
+      select: { id: true },
+    });
+
+    const totalHT = parsed.data.amount;
+    const totalVAT = Math.round(totalHT * parsed.data.vatRate / 100 * 100) / 100;
+    const totalTTC = Math.round((totalHT + totalVAT) * 100) / 100;
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      // Numérotation atomique
+      const currentYear = new Date().getFullYear();
+      const current = await tx.society.findUnique({
+        where: { id: societyId },
+        select: { invoiceNumberYear: true, nextInvoiceNumber: true, invoicePrefix: true },
+      });
+      const yearChanged = !current || current.invoiceNumberYear !== currentYear;
+      const society = await tx.society.update({
+        where: { id: societyId },
+        data: {
+          invoiceNumberYear: currentYear,
+          nextInvoiceNumber: yearChanged ? 2 : { increment: 1 },
+        },
+        select: { invoicePrefix: true, nextInvoiceNumber: true },
+      });
+      const seq = yearChanged ? 1 : (society.nextInvoiceNumber - 1);
+      const prefix = society.invoicePrefix || "FAC";
+      const invoiceNumber = `${prefix}-${currentYear}-${String(seq).padStart(4, "0")}`;
+
+      return tx.invoice.create({
+        data: {
+          societyId,
+          tenantId: parsed.data.tenantId,
+          leaseId: activeLease?.id ?? null,
+          invoiceNumber,
+          invoiceType: "REFACTURATION",
+          status: "VALIDEE",
+          issueDate: new Date(),
+          dueDate: new Date(parsed.data.dueDate),
+          totalHT,
+          totalVAT,
+          totalTTC,
+          lines: {
+            create: [{
+              label: parsed.data.notes
+                ? `${parsed.data.label} — ${parsed.data.notes}`
+                : parsed.data.label,
+              quantity: 1,
+              unitPrice: totalHT,
+              vatRate: parsed.data.vatRate,
+              totalHT,
+              totalVAT,
+              totalTTC,
+            }],
+          },
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: invoice.id,
+      details: {
+        type: "MANUAL_DEBIT",
+        tenantId: parsed.data.tenantId,
+        label: parsed.data.label,
+        totalTTC,
+      },
+    });
+
+    revalidatePath(`/locataires/${parsed.data.tenantId}`);
+    revalidatePath("/facturation");
+
+    return { success: true, data: { id: invoice.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createManualDebit]", error);
+    return { success: false, error: "Erreur lors de la création de la somme due" };
+  }
 }

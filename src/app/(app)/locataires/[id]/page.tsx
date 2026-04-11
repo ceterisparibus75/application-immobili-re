@@ -1,4 +1,4 @@
-import { getTenantById } from "@/actions/tenant";
+import { getTenantById, getTenantAccountStatement } from "@/actions/tenant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
   User,
 } from "lucide-react";
 import { TenantContactsSection } from "./contacts-section";
+import { TenantAccount } from "./tenant-account";
 import { DeleteTenantButton } from "./delete-tenant-button";
 import { InviteTenantButton } from "./invite-tenant-button";
 import Link from "next/link";
@@ -68,7 +69,10 @@ export default async function LocataireDetailPage({
 
   if (!societyId) redirect("/societes");
 
-  const tenant = await getTenantById(societyId, id);
+  const [tenant, accountData] = await Promise.all([
+    getTenantById(societyId, id),
+    getTenantAccountStatement(societyId, id),
+  ]);
   if (!tenant) notFound();
 
   const activeLease = tenant.leases.find((l) => l.status === "EN_COURS");
@@ -234,6 +238,27 @@ export default async function LocataireDetailPage({
         tenantId={tenant.id}
         contacts={tenant.secondaryContacts}
       />
+
+      {/* Compte locataire */}
+      {accountData && (
+        <TenantAccount
+          tenantId={tenant.id}
+          societyId={societyId}
+          invoices={accountData.invoices.map((inv) => ({
+            ...inv,
+            issueDate: inv.issueDate.toISOString(),
+            dueDate: inv.dueDate.toISOString(),
+            periodStart: inv.periodStart?.toISOString() ?? null,
+            periodEnd: inv.periodEnd?.toISOString() ?? null,
+            payments: inv.payments.map((p) => ({
+              ...p,
+              paidAt: p.paidAt.toISOString(),
+            })),
+          }))}
+          balance={accountData.balance}
+          tenantName={tenantDisplayName(tenant)}
+        />
+      )}
 
       {/* Historique des baux */}
       {tenant.leases.length > 0 && (
