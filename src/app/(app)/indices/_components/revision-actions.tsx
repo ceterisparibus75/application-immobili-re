@@ -175,17 +175,23 @@ export function RevisionActions({
     setGenerating(lease.id);
     setConfirmDialog(null);
 
-    const result = await createManualRevision(societyId, {
-      leaseId: lease.id,
-      effectiveDate: new Date().toISOString(),
-      newIndexValue: preview.indexValue,
-    });
+    try {
+      const result = await createManualRevision(societyId, {
+        leaseId: lease.id,
+        effectiveDate: new Date().toISOString(),
+        newIndexValue: preview.indexValue,
+      });
 
-    setGenerating(null);
-    if (result.success) {
-      toast.success("Revision generee — en attente de validation");
-    } else {
-      toast.error(result.error ?? "Erreur lors de la generation");
+      setGenerating(null);
+      if (result.success) {
+        toast.success("Revision generee — en attente de validation");
+      } else {
+        toast.error(result.error ?? "Erreur lors de la generation");
+      }
+    } catch (err) {
+      setGenerating(null);
+      console.error("[confirmGenerate]", err);
+      toast.error("Erreur lors de la génération de la révision");
     }
   }
 
@@ -235,15 +241,21 @@ export function RevisionActions({
     setValidating(lease.pendingRevisionId);
     setConfirmDialog(null);
 
-    const result = await validateRevision(societyId, lease.pendingRevisionId);
-    setValidating(null);
+    try {
+      const result = await validateRevision(societyId, lease.pendingRevisionId);
+      setValidating(null);
 
-    if (result.success) {
-      toast.success(
-        `Loyer mis a jour : ${formatCurrency(result.data!.newRentHT)} HT`
-      );
-    } else {
-      toast.error(result.error ?? "Erreur lors de la validation");
+      if (result.success) {
+        toast.success(
+          `Loyer mis a jour : ${formatCurrency(result.data!.newRentHT)} HT`
+        );
+      } else {
+        toast.error(result.error ?? "Erreur lors de la validation");
+      }
+    } catch (err) {
+      setValidating(null);
+      console.error("[confirmValidate]", err);
+      toast.error("Erreur lors de la validation de la révision");
     }
   }
 
@@ -271,32 +283,45 @@ export function RevisionActions({
 
   async function handleCatchUp(lease: LeaseRevisionData) {
     setCatchingUp(lease.id);
-    const result = await previewCatchUpRevisions(societyId, lease.id);
-    setCatchingUp(null);
+    try {
+      const result = await previewCatchUpRevisions(societyId, lease.id);
+      setCatchingUp(null);
 
-    if (!result.success || !result.data) {
-      toast.error(result.error ?? "Impossible de calculer le rattrapage");
-      return;
+      if (!result.success || !result.data) {
+        toast.error(result.error ?? "Impossible de calculer le rattrapage");
+        return;
+      }
+
+      setCatchUpPreview(result.data);
+      setConfirmDialog({ type: "catchUp", lease });
+    } catch (err) {
+      setCatchingUp(null);
+      console.error("[handleCatchUp]", err);
+      toast.error("Erreur lors du calcul du rattrapage. Vérifiez la console pour plus de détails.");
     }
-
-    setCatchUpPreview(result.data);
-    setConfirmDialog({ type: "catchUp", lease });
   }
 
   async function confirmCatchUp(lease: LeaseRevisionData) {
     setCatchingUp(lease.id);
     setConfirmDialog(null);
 
-    const result = await applyCatchUpRevisions(societyId, lease.id);
-    setCatchingUp(null);
-    setCatchUpPreview(null);
+    try {
+      const result = await applyCatchUpRevisions(societyId, lease.id);
+      setCatchingUp(null);
+      setCatchUpPreview(null);
 
-    if (result.success && result.data) {
-      toast.success(
-        `Rattrapage appliqué : ${result.data.stepsCount} révision${result.data.stepsCount > 1 ? "s" : ""} — nouveau loyer : ${formatCurrency(result.data.finalRent)} HT`
-      );
-    } else {
-      toast.error(result.error ?? "Erreur lors du rattrapage");
+      if (result.success && result.data) {
+        toast.success(
+          `Rattrapage appliqué : ${result.data.stepsCount} révision${result.data.stepsCount > 1 ? "s" : ""} — nouveau loyer : ${formatCurrency(result.data.finalRent)} HT`
+        );
+      } else {
+        toast.error(result.error ?? "Erreur lors du rattrapage");
+      }
+    } catch (err) {
+      setCatchingUp(null);
+      setCatchUpPreview(null);
+      console.error("[confirmCatchUp]", err);
+      toast.error("Erreur lors de l'application du rattrapage. Vérifiez la console pour plus de détails.");
     }
   }
 
