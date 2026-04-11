@@ -176,8 +176,8 @@ export default async function UtilisateursPage() {
                     <tr key={user.id} className="border-b hover:bg-muted/30">
                       <td className="p-3">
                         <span className="font-medium">
-                          {user.name}
-                          {user.firstName ? ` ${user.firstName}` : ""}
+                          {user.firstName ? `${user.firstName} ` : ""}
+                          {user.name ?? ""}
                         </span>
                       </td>
                       <td className="p-3 text-muted-foreground">

@@ -352,3 +352,102 @@ export async function getBuildingById(societyId: string, buildingId: string) {
     },
   });
 }
+
+// ── Acquisitions complémentaires ──────────────────────────────────────────
+
+export type CreateAdditionalAcquisitionInput = {
+  label: string;
+  acquisitionDate: string;
+  acquisitionPrice: number;
+  acquisitionFees?: number | null;
+  acquisitionTaxes?: number | null;
+  otherCosts?: number | null;
+  description?: string | null;
+};
+
+export async function createAdditionalAcquisition(
+  societyId: string,
+  buildingId: string,
+  input: CreateAdditionalAcquisitionInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await checkSubscriptionActive(societyId);
+
+    if (!input.label?.trim()) return { success: false, error: "Le libellé est obligatoire" };
+    if (!input.acquisitionPrice || input.acquisitionPrice <= 0) return { success: false, error: "Le prix d'acquisition doit être positif" };
+    if (!input.acquisitionDate) return { success: false, error: "La date d'acquisition est obligatoire" };
+
+    // Vérifier que l'immeuble appartient à la société
+    const building = await prisma.building.findFirst({ where: { id: buildingId, societyId } });
+    if (!building) return { success: false, error: "Immeuble introuvable" };
+
+    const acquisition = await prisma.additionalAcquisition.create({
+      data: {
+        buildingId,
+        societyId,
+        label: input.label.trim(),
+        acquisitionDate: new Date(input.acquisitionDate),
+        acquisitionPrice: input.acquisitionPrice,
+        acquisitionFees: input.acquisitionFees ?? null,
+        acquisitionTaxes: input.acquisitionTaxes ?? null,
+        otherCosts: input.otherCosts ?? null,
+        description: input.description?.trim() || null,
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "AdditionalAcquisition",
+      entityId: acquisition.id,
+      details: { buildingId, label: input.label },
+    });
+
+    revalidatePath(`/patrimoine/immeubles/${buildingId}`);
+    return { success: true, data: { id: acquisition.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createAdditionalAcquisition]", error);
+    return { success: false, error: "Erreur lors de l'ajout de l'acquisition" };
+  }
+}
+
+export async function deleteAdditionalAcquisition(
+  societyId: string,
+  acquisitionId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+
+    const acquisition = await prisma.additionalAcquisition.findFirst({
+      where: { id: acquisitionId, societyId },
+    });
+    if (!acquisition) return { success: false, error: "Acquisition introuvable" };
+
+    await prisma.additionalAcquisition.delete({ where: { id: acquisitionId } });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "AdditionalAcquisition",
+      entityId: acquisitionId,
+      details: { buildingId: acquisition.buildingId },
+    });
+
+    revalidatePath(`/patrimoine/immeubles/${acquisition.buildingId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteAdditionalAcquisition]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}

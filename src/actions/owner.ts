@@ -477,6 +477,7 @@ export type OwnerProfileInput = {
   ownerCity?: string;
   profession?: string;
   nationality?: string;
+  company?: string;
   emailCopyEnabled?: boolean;
   emailCopyAddress?: string;
 };
@@ -492,6 +493,7 @@ export async function getOwnerProfile(): Promise<ActionResult<{
   ownerCity: string | null;
   profession: string | null;
   nationality: string | null;
+  company: string | null;
   email: string;
   emailCopyEnabled: boolean;
   emailCopyAddress: string | null;
@@ -513,6 +515,7 @@ export async function getOwnerProfile(): Promise<ActionResult<{
       ownerCity: true,
       profession: true,
       nationality: true,
+      company: true,
       emailCopyEnabled: true,
       emailCopyAddress: true,
     },
@@ -802,6 +805,7 @@ export async function updateOwnerProfile(input: OwnerProfileInput): Promise<Acti
       ownerCity: input.ownerCity?.trim() || null,
       profession: input.profession?.trim() || null,
       nationality: input.nationality?.trim() || null,
+      company: input.company?.trim() || null,
       ...(input.emailCopyEnabled !== undefined ? { emailCopyEnabled: input.emailCopyEnabled } : {}),
       ...(input.emailCopyAddress !== undefined ? { emailCopyAddress: input.emailCopyAddress?.trim() || null } : {}),
     },

@@ -229,7 +229,7 @@ function UserRow({
         <td className="p-3">
           <div>
             <span className="font-medium">
-              {user.name ?? ""}{user.firstName && !user.name?.includes(user.firstName) ? ` ${user.firstName}` : ""}
+              {user.firstName ? `${user.firstName} ` : ""}{user.name ?? ""}
             </span>
             {isSelf && (
               <Badge variant="outline" className="ml-2 text-[10px]">
@@ -630,7 +630,7 @@ function AssignAccessDialog({
         <DialogHeader>
           <DialogTitle>Ajouter un accès</DialogTitle>
           <DialogDescription>
-            Donner à {user.name}{user.firstName ? ` ${user.firstName}` : ""} accès
+            Donner à {user.firstName ? `${user.firstName} ` : ""}{user.name ?? ""} accès
             à une société supplémentaire.
           </DialogDescription>
         </DialogHeader>

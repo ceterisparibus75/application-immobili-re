@@ -87,10 +87,10 @@ function tenantLabel(
     lastName: string | null;
   } | null
 ): string {
-  if (!t) return "\u2014";
+  if (!t) return "—";
   return (
     t.companyName ??
-    (((t.firstName ?? "") + " " + (t.lastName ?? "")).trim() || "\u2014")
+    (((t.firstName ?? "") + " " + (t.lastName ?? "")).trim() || "—")
   );
 }
 
@@ -129,11 +129,11 @@ export default function ReconciliationClient({
         const n = result.data?.matched ?? 0;
         toast.success(
           n === 0
-            ? "Aucun rapprochement automatique trouv\u00e9"
+            ? "Aucun rapprochement automatique trouvé"
             : n +
                 " rapprochement" +
                 (n > 1 ? "s" : "") +
-                " effectu\u00e9" +
+                " effectué" +
                 (n > 1 ? "s" : "")
         );
       } else {
@@ -161,7 +161,7 @@ export default function ReconciliationClient({
         result = await reconcileWithLoanLine(societyId, selectedTxId, rightId);
       }
       if (result.success) {
-        toast.success("Rapprochement effectu\u00e9");
+        toast.success("Rapprochement effectué");
         setSelectedTxId(null);
       } else {
         toast.error(result.error ?? "Erreur rapprochement");
@@ -181,9 +181,9 @@ export default function ReconciliationClient({
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
           <GitMerge className="h-12 w-12 text-[var(--color-status-positive)] mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Tout est \u00e0 jour !</h3>
+          <h3 className="text-lg font-semibold mb-2">Tout est à jour !</h3>
           <p className="text-sm text-muted-foreground">
-            Toutes les transactions et paiements sont rapproch\u00e9s.
+            Toutes les transactions et paiements sont rapprochés.
           </p>
         </CardContent>
       </Card>
@@ -218,7 +218,7 @@ export default function ReconciliationClient({
         <p className="text-sm text-muted-foreground">
           {selectedTx ? (
             <>
-              Transaction s\u00e9lectionn\u00e9e :{" "}
+              Transaction sélectionnée :{" "}
               <span className="font-medium text-foreground">
                 {selectedTx.label}
               </span>{" "}
@@ -237,7 +237,7 @@ export default function ReconciliationClient({
               )
             </>
           ) : (
-            "S\u00e9lectionnez une transaction \u00e0 gauche, puis rapprochez-la \u00e0 droite."
+            "Sélectionnez une transaction à gauche, puis rapprochez-la à droite."
           )}
         </p>
         <Button
@@ -266,7 +266,7 @@ export default function ReconciliationClient({
           <CardContent className="p-0 max-h-[600px] overflow-y-auto">
             {transactions.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                Aucune transaction \u00e0 rapprocher
+                Aucune transaction à rapprocher
               </p>
             ) : (
               <div className="divide-y">
@@ -285,7 +285,7 @@ export default function ReconciliationClient({
                       <p className="text-sm font-medium">{tx.label}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(tx.transactionDate)}
-                        {tx.reference && " \u00b7 " + tx.reference}
+                        {tx.reference && ` · ${tx.reference}`}
                       </p>
                     </div>
                     <span
@@ -306,12 +306,12 @@ export default function ReconciliationClient({
           </CardContent>
         </Card>
 
-        {/* Colonne droite : \u00c9l\u00e9ments \u00e0 rapprocher */}
+        {/* Colonne droite : Éléments à rapprocher */}
         <Card>
           <CardHeader className="pb-0">
             <CardTitle className="text-base flex items-center gap-2">
               <Receipt className="h-4 w-4 text-muted-foreground" />
-              \u00c9l\u00e9ments \u00e0 rapprocher
+              Éléments à rapprocher
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -338,7 +338,7 @@ export default function ReconciliationClient({
                     )}
                   </TabsTrigger>
                   <TabsTrigger value="loans" className="flex-1 gap-1.5">
-                    Pr\u00eats
+                    Prêts
                     {loanLines.length > 0 && (
                       <Badge className="text-xs px-1.5 py-0 h-4 bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] hover:bg-[var(--color-status-caution-bg)]">
                         {loanLines.length}
@@ -352,7 +352,7 @@ export default function ReconciliationClient({
               <TabsContent value="payments" className="mt-0 max-h-[520px] overflow-y-auto">
                 {payments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
-                    Aucun paiement \u00e0 rapprocher
+                    Aucun paiement à rapprocher
                   </p>
                 ) : (
                   <div className="divide-y">
@@ -367,8 +367,8 @@ export default function ReconciliationClient({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {formatDate(p.paidAt)}
-                            {p.method && " \u00b7 " + p.method}
-                            {p.reference && " \u00b7 " + p.reference}
+                            {p.method && ` · ${p.method}`}
+                            {p.reference && ` · ${p.reference}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 ml-2 shrink-0">
@@ -420,7 +420,7 @@ export default function ReconciliationClient({
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {inv.invoiceNumber} \u00b7 \u00c9ch.{" "}
+                              {inv.invoiceNumber} · Éch.{" "}
                               {formatDate(inv.dueDate)}
                             </p>
                           </div>
@@ -437,11 +437,11 @@ export default function ReconciliationClient({
                 )}
               </TabsContent>
 
-              {/* \u00c9ch\u00e9ances de pr\u00eats */}
+              {/* Échéances de prêts */}
               <TabsContent value="loans" className="mt-0 max-h-[520px] overflow-y-auto">
                 {loanLines.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
-                    Aucune \u00e9ch\u00e9ance de pr\u00eat en attente
+                    Aucune échéance de prêt en attente
                   </p>
                 ) : (
                   <div className="divide-y">
@@ -455,16 +455,15 @@ export default function ReconciliationClient({
                             {line.loan.label}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {line.loan.lender} \u00b7 \u00c9ch. n\u00b0
-                            {line.period} \u00b7 {formatDate(line.dueDate)}
+                            {line.loan.lender} · Éch. n°
+                            {line.period} · {formatDate(line.dueDate)}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Capital {formatCurrency(line.principalPayment)}{" "}
-                            \u00b7 Int\u00e9r\u00eats{" "}
+                            Capital {formatCurrency(line.principalPayment)}
+                            {" "}· Intérêts{" "}
                             {formatCurrency(line.interestPayment)}
                             {line.insurancePayment > 0 &&
-                              " \u00b7 Ass. " +
-                                formatCurrency(line.insurancePayment)}
+                              ` · Ass. ${formatCurrency(line.insurancePayment)}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 ml-2 shrink-0">

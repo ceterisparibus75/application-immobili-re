@@ -25,31 +25,32 @@ export default function ComptePage() {
     ownerCity: "",
     profession: "",
     nationality: "",
+    company: "",
   });
 
   useEffect(() => {
+    async function loadProfile() {
+      const result = await getOwnerProfile();
+      if (result.success && result.data) {
+        const d = result.data;
+        setForm({
+          firstName: d.firstName ?? "",
+          lastName: d.lastName ?? "",
+          phone: d.phone ?? "",
+          birthDate: d.birthDate ? new Date(d.birthDate).toISOString().split("T")[0] : "",
+          birthPlace: d.birthPlace ?? "",
+          address: d.address ?? "",
+          postalCode: d.postalCode ?? "",
+          ownerCity: d.ownerCity ?? "",
+          profession: d.profession ?? "",
+          nationality: d.nationality ?? "",
+          company: d.company ?? "",
+        });
+      }
+      setLoading(false);
+    }
     loadProfile();
   }, []);
-
-  async function loadProfile() {
-    const result = await getOwnerProfile();
-    if (result.success && result.data) {
-      const d = result.data;
-      setForm({
-        firstName: d.firstName ?? "",
-        lastName: d.lastName ?? "",
-        phone: d.phone ?? "",
-        birthDate: d.birthDate ? new Date(d.birthDate).toISOString().split("T")[0] : "",
-        birthPlace: d.birthPlace ?? "",
-        address: d.address ?? "",
-        postalCode: d.postalCode ?? "",
-        ownerCity: d.ownerCity ?? "",
-        profession: d.profession ?? "",
-        nationality: d.nationality ?? "",
-      });
-    }
-    setLoading(false);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -118,6 +119,10 @@ export default function ComptePage() {
               <Label htmlFor="profession">Profession</Label>
               <Input id="profession" name="profession" value={form.profession} onChange={handleChange} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="company">Société</Label>
+            <Input id="company" name="company" value={form.company} onChange={handleChange} placeholder="Nom de votre entreprise (facultatif)" />
           </div>
         </CardContent>
       </Card>

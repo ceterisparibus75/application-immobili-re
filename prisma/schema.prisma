@@ -586,6 +586,7 @@ model User {
   ownerCity     String?
   profession    String?
   nationality   String?
+  company       String?   // Société / employeur de l'utilisateur
   passwordHash  String // bcrypt
   image         String?
   isActive      Boolean   @default(true)
