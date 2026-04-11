@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -17,15 +18,25 @@ import {
 } from "@/components/ui/dialog";
 import {
   Users, UserPlus, ChevronDown, ChevronRight, Plus, Trash2,
-  Loader2, Building2, Mail, Send,
+  Loader2, Building2, Mail, Send, ShieldCheck, RotateCcw, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createUser, assignUserToSociety, removeUserFromSociety,
-  resendInvitation,
+  resendInvitation, getModulePermissions, updateModulePermissions,
+  resetModulePermissions,
 } from "@/actions/user";
 import type { ManagedUser, AvailableSociety } from "@/actions/user";
 import { EmailCopyToggle } from "./email-copy-toggle";
+import {
+  DISPLAY_MODULES,
+  MODULE_LABELS,
+  getDefaultPermissions,
+  type ModulePermissions,
+  type Module,
+  type Permission,
+} from "@/lib/permissions-shared";
+import type { UserRole } from "@/generated/prisma/client";
 
 const ROLE_OPTIONS = [
   { value: "ADMIN_SOCIETE", label: "Administrateur" },
@@ -339,6 +350,7 @@ function AccessRow({
   const [isPending, startTransition] = useTransition();
   const [role, setRole] = useState(access.role);
   const [editing, setEditing] = useState(false);
+  const [showPermissions, setShowPermissions] = useState(false);
 
   function handleRoleChange(newRole: string) {
     setRole(newRole);
@@ -374,52 +386,74 @@ function AccessRow({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
-      <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{access.societyName}</p>
-        <p className="text-xs text-muted-foreground">{access.proprietaireLabel}</p>
-      </div>
+    <>
+      <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
+        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{access.societyName}</p>
+          <p className="text-xs text-muted-foreground">{access.proprietaireLabel}</p>
+        </div>
 
-      {editing ? (
-        <Select value={role} onValueChange={handleRoleChange} disabled={isPending}>
-          <SelectTrigger className="w-40 h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ROLE_OPTIONS.map((r) => (
-              <SelectItem key={r.value} value={r.value}>
-                {r.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <Badge
-          variant={ROLE_VARIANT[role] ?? "outline"}
-          className="cursor-pointer text-xs"
-          onClick={() => setEditing(true)}
-        >
-          {ROLE_LABELS[role] ?? role}
-        </Badge>
-      )}
+        {editing ? (
+          <Select value={role} onValueChange={handleRoleChange} disabled={isPending}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge
+            variant={ROLE_VARIANT[role] ?? "outline"}
+            className="cursor-pointer text-xs"
+            onClick={() => setEditing(true)}
+          >
+            {ROLE_LABELS[role] ?? role}
+          </Badge>
+        )}
 
-      {!isSelf && (
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          onClick={handleRemove}
-          disabled={isPending}
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+          onClick={() => setShowPermissions(true)}
+          title="Permissions par module"
         >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Trash2 className="h-3.5 w-3.5" />
-          )}
+          <ShieldCheck className="h-3.5 w-3.5" />
         </Button>
+
+        {!isSelf && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            onClick={handleRemove}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+      </div>
+
+      {showPermissions && (
+        <PermissionsDialog
+          userId={userId}
+          societyId={access.societyId}
+          societyName={access.societyName}
+          role={role}
+          onClose={() => setShowPermissions(false)}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -696,6 +730,229 @@ function AssignAccessDialog({
               </Button>
             </DialogFooter>
           </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Dialogue : Matrice de permissions par module ───────────────────────────────
+
+const PERMISSION_LABELS: Record<Permission, string> = {
+  read: "Lecture",
+  write: "Écriture",
+  delete: "Suppression",
+};
+
+const PERMISSIONS_LIST: Permission[] = ["read", "write", "delete"];
+
+function PermissionsDialog({
+  userId, societyId, societyName, role, onClose,
+}: {
+  userId: string;
+  societyId: string;
+  societyName: string;
+  role: string;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState<ModulePermissions | null>(null);
+  const [isCustom, setIsCustom] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const defaults = getDefaultPermissions(role as UserRole);
+
+  // Charger les permissions à l'ouverture
+  useState(() => {
+    (async () => {
+      const result = await getModulePermissions(userId, societyId);
+      if (result.success && result.data) {
+        setPermissions(result.data.modulePermissions);
+        setIsCustom(result.data.isCustom);
+      } else {
+        setPermissions(getDefaultPermissions(role as UserRole));
+      }
+      setLoading(false);
+    })();
+  });
+
+  const hasPermission = useCallback(
+    (module: Module, permission: Permission): boolean => {
+      return permissions?.[module]?.includes(permission) ?? false;
+    },
+    [permissions]
+  );
+
+  const isDefault = useCallback(
+    (module: Module, permission: Permission): boolean => {
+      return defaults[module]?.includes(permission) ?? false;
+    },
+    [defaults]
+  );
+
+  const togglePermission = useCallback(
+    (module: Module, permission: Permission) => {
+      setPermissions((prev) => {
+        if (!prev) return prev;
+        const current = prev[module] ?? [];
+        let updated: Permission[];
+
+        if (current.includes(permission)) {
+          updated = current.filter((p) => p !== permission);
+        } else {
+          updated = [...current, permission];
+          if ((permission === "write" || permission === "delete") && !updated.includes("read")) {
+            updated = ["read", ...updated];
+          }
+        }
+
+        if (permission === "read" && !updated.includes("read")) {
+          updated = [];
+        }
+
+        return { ...prev, [module]: updated };
+      });
+    },
+    []
+  );
+
+  function handleSave() {
+    if (!permissions) return;
+    startTransition(async () => {
+      const result = await updateModulePermissions({
+        userId,
+        societyId,
+        modulePermissions: permissions,
+      });
+      if (result.success) {
+        setIsCustom(true);
+        toast.success("Permissions mises à jour");
+      } else {
+        toast.error(result.error ?? "Erreur lors de la sauvegarde");
+      }
+    });
+  }
+
+  function handleReset() {
+    startTransition(async () => {
+      const result = await resetModulePermissions(userId, societyId);
+      if (result.success) {
+        setPermissions(getDefaultPermissions(role as UserRole));
+        setIsCustom(false);
+        toast.success("Permissions réinitialisées");
+      } else {
+        toast.error(result.error ?? "Erreur");
+      }
+    });
+  }
+
+  function handleResetLocal() {
+    setPermissions(getDefaultPermissions(role as UserRole));
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" />
+            Permissions — {societyName}
+          </DialogTitle>
+          <DialogDescription>
+            Personnalisez les droits par module. Les cases surlignées correspondent
+            aux permissions par défaut du rôle ({ROLE_LABELS[role] ?? role}).
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : permissions ? (
+          <div className="space-y-4">
+            {isCustom && (
+              <Badge variant="outline" className="text-xs">
+                Permissions personnalisées
+              </Badge>
+            )}
+
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium min-w-[160px]">Module</th>
+                    {PERMISSIONS_LIST.map((perm) => (
+                      <th key={perm} className="text-center p-3 font-medium w-28">
+                        {PERMISSION_LABELS[perm]}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DISPLAY_MODULES.map((module) => (
+                    <tr key={module} className="border-b hover:bg-muted/30">
+                      <td className="p-3 font-medium text-sm">{MODULE_LABELS[module]}</td>
+                      {PERMISSIONS_LIST.map((perm) => {
+                        const checked = hasPermission(module, perm);
+                        const isDefaultPerm = isDefault(module, perm);
+                        return (
+                          <td
+                            key={perm}
+                            className={`text-center p-3 ${isDefaultPerm ? "bg-primary/5" : ""}`}
+                          >
+                            <div className="flex items-center justify-center">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={() => togglePermission(module, perm)}
+                                disabled={isPending}
+                                aria-label={`${MODULE_LABELS[module]} — ${PERMISSION_LABELS[perm]}`}
+                              />
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetLocal}
+                  disabled={isPending}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                  Défaut du rôle
+                </Button>
+                {isCustom && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={isPending}
+                  >
+                    Supprimer la personnalisation
+                  </Button>
+                )}
+              </div>
+              <Button onClick={handleSave} disabled={isPending}>
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-1.5" />
+                )}
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            Impossible de charger les permissions.
+          </p>
         )}
       </DialogContent>
     </Dialog>
