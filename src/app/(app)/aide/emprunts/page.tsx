@@ -1,5 +1,5 @@
 import { TrendingUp } from "lucide-react";
-import { HelpPageLayout, HelpSection, HelpStep, ScreenshotPlaceholder, InfoBox } from "../_components/help-page-layout";
+import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/help-page-layout";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
@@ -17,20 +17,19 @@ export default function EmpruntsPage() {
     >
       <HelpSection id="evaluation-ia" title="Évaluation IA du patrimoine">
         <p>
-          {APP_NAME} intègre un système d&apos;évaluation automatique de la valeur de vos immeubles, basé sur l&apos;intelligence artificielle et les données du marché immobilier.
+          {APP_NAME} intègre un système d'évaluation automatique de la valeur de vos immeubles, basé sur l'intelligence artificielle et les données du marché immobilier.
         </p>
         <HelpStep number={1} title="Lancez une évaluation">
-          <p>Depuis la fiche d&apos;un immeuble, section <strong>Valorisation</strong>, cliquez sur le bouton <strong>Évaluation IA</strong>.</p>
+          <p>Depuis la fiche d'un immeuble, section <strong>Valorisation</strong>, cliquez sur le bouton <strong>Évaluation IA</strong>.</p>
         </HelpStep>
         <HelpStep number={2} title="L'IA analyse votre bien">
-          <p>L&apos;algorithme prend en compte l&apos;adresse, la surface, le type de bien, l&apos;année de construction, le taux d&apos;occupation, les loyers perçus et les données de marché locales pour calculer une estimation.</p>
+          <p>L'algorithme prend en compte l'adresse, la surface, le type de bien, l'année de construction, le taux d'occupation, les loyers perçus et les données de marché locales pour calculer une estimation.</p>
         </HelpStep>
         <HelpStep number={3} title="Consultez le rapport">
-          <p>Un rapport détaillé est généré avec la valeur estimée, la méthode de calcul, les comparables utilisés et un indice de confiance. Vous pouvez l&apos;enregistrer comme valeur de référence de l&apos;immeuble.</p>
+          <p>Un rapport détaillé est généré avec la valeur estimée, la méthode de calcul, les comparables utilisés et un indice de confiance. Vous pouvez l'enregistrer comme valeur de référence de l'immeuble.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Rapport d'évaluation IA" caption="Rapport avec valeur estimée, méthode, comparables et indice de confiance" src="/aide/screenshots/emprunts-main.png" />
         <InfoBox type="info">
-          L&apos;évaluation IA est une estimation indicative. Elle ne remplace pas une expertise immobilière professionnelle mais constitue un excellent outil de pilotage.
+          L'évaluation IA est une estimation indicative. Elle ne remplace pas une expertise immobilière professionnelle mais constitue un excellent outil de pilotage.
         </InfoBox>
       </HelpSection>
 
@@ -51,7 +50,6 @@ export default function EmpruntsPage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Page emprunts" caption="KPI d'endettement et liste des emprunts groupés par prêteur" src="/aide/screenshots/emprunts-main.png" />
         <p>
           Les emprunts sont regroupés par <strong>prêteur</strong> (banque ou organisme). Pour chaque prêteur, vous voyez le total du capital restant dû, la mensualité globale et le nombre de prêts. Une barre de progression indique visuellement le taux de remboursement.
         </p>
@@ -62,16 +60,16 @@ export default function EmpruntsPage() {
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-2">Emprunt amortissable</p>
             <p>Le type le plus courant. Chaque mensualité rembourse une partie du capital et une partie des intérêts. Le montant du capital remboursé augmente progressivement tandis que les intérêts diminuent.</p>
-            <p className="mt-2 text-xs font-medium text-muted-foreground">Exemple : prêt de 200 000 &euro; sur 20 ans à 2% &rarr; mensualité fixe d&apos;environ 1 012 &euro;</p>
+            <p className="mt-2 text-xs font-medium text-muted-foreground">Exemple : prêt de 200 000 &euro; sur 20 ans à 2% &rarr; mensualité fixe d'environ 1 012 &euro;</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-2">Emprunt in fine</p>
-            <p>Seuls les intérêts sont payés chaque mois. Le capital est remboursé en totalité à l&apos;échéance du prêt. Utilisé pour optimiser la fiscalité (intérêts déductibles) ou en attente de revente.</p>
+            <p>Seuls les intérêts sont payés chaque mois. Le capital est remboursé en totalité à l'échéance du prêt. Utilisé pour optimiser la fiscalité (intérêts déductibles) ou en attente de revente.</p>
             <p className="mt-2 text-xs font-medium text-muted-foreground">Exemple : prêt de 200 000 &euro; sur 10 ans à 2.5% &rarr; mensualité de 417 &euro; (intérêts uniquement) + remboursement de 200 000 &euro; à la fin</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-2">Emprunt bullet (ballon)</p>
-            <p>Aucun paiement intermédiaire : ni intérêts, ni capital. La totalité (capital + intérêts) est remboursée en un seul versement à l&apos;échéance. Rare, utilisé pour des financements relais de courte durée.</p>
+            <p>Aucun paiement intermédiaire : ni intérêts, ni capital. La totalité (capital + intérêts) est remboursée en un seul versement à l'échéance. Rare, utilisé pour des financements relais de courte durée.</p>
           </div>
         </div>
       </HelpSection>
@@ -81,20 +79,19 @@ export default function EmpruntsPage() {
           <p>Depuis la page Emprunts, cliquez sur le bouton <strong>Nouvel emprunt</strong>.</p>
         </HelpStep>
         <HelpStep number={2} title="Renseignez les caractéristiques">
-          <p>Libellé du prêt, type (amortissable, in fine, bullet), montant emprunté, taux d&apos;intérêt annuel, durée en mois, date de début, nom du prêteur.</p>
+          <p>Libellé du prêt, type (amortissable, in fine, bullet), montant emprunté, taux d'intérêt annuel, durée en mois, date de début, nom du prêteur.</p>
         </HelpStep>
         <HelpStep number={3} title="Associez à un immeuble (optionnel)">
-          <p>Liez l&apos;emprunt à un immeuble pour calculer automatiquement le ratio LTV (Loan-to-Value) et suivre l&apos;endettement par bien.</p>
+          <p>Liez l'emprunt à un immeuble pour calculer automatiquement le ratio LTV (Loan-to-Value) et suivre l'endettement par bien.</p>
         </HelpStep>
         <HelpStep number={4} title="Consultez le tableau d'amortissement">
-          <p>Une fois créé, {APP_NAME} génère automatiquement le tableau d&apos;amortissement complet : pour chaque échéance, vous voyez le capital remboursé, les intérêts, l&apos;assurance et le capital restant dû.</p>
+          <p>Une fois créé, {APP_NAME} génère automatiquement le tableau d'amortissement complet : pour chaque échéance, vous voyez le capital remboursé, les intérêts, l'assurance et le capital restant dû.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire de création d'emprunt" caption="Formulaire avec type, montant, taux, durée et prêteur" src="/aide/screenshots/emprunts-main.png" />
       </HelpSection>
 
       <HelpSection id="amortissement" title="Tableau d'amortissement">
         <p>
-          Le tableau d&apos;amortissement détaille chaque échéance de votre emprunt :
+          Le tableau d'amortissement détaille chaque échéance de votre emprunt :
         </p>
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
@@ -128,12 +125,11 @@ export default function EmpruntsPage() {
             </tbody>
           </table>
         </div>
-        <ScreenshotPlaceholder alt="Tableau d'amortissement complet" caption="Vue complète du tableau d'amortissement avec toutes les échéances" src="/aide/screenshots/emprunts-main.png" />
       </HelpSection>
 
       <HelpSection id="ltv" title="Ratio LTV (Loan-to-Value)">
         <p>
-          Le ratio LTV mesure l&apos;endettement par rapport à la valeur du patrimoine. Il est calculé automatiquement par {APP_NAME} :
+          Le ratio LTV mesure l'endettement par rapport à la valeur du patrimoine. Il est calculé automatiquement par {APP_NAME} :
         </p>
         <div className="rounded-lg border p-4 bg-muted/20 font-mono text-sm text-center">
           LTV = Capital restant dû / Valeur du patrimoine &times; 100
@@ -152,35 +148,35 @@ export default function EmpruntsPage() {
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Quelle est la différence entre un emprunt amortissable et in fine ?</p>
-            <p>Amortissable : remboursement progressif du capital + intérêts à chaque échéance. In fine : seuls les intérêts sont payés chaque mois, le capital est remboursé en totalité à l&apos;échéance du prêt.</p>
+            <p>Amortissable : remboursement progressif du capital + intérêts à chaque échéance. In fine : seuls les intérêts sont payés chaque mois, le capital est remboursé en totalité à l'échéance du prêt.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment modifier un emprunt existant ?</p>
-            <p>Depuis la fiche de l&apos;emprunt, cliquez sur le bouton Modifier. Vous pouvez ajuster le taux, la durée ou le montant de l&apos;assurance.</p>
+            <p>Depuis la fiche de l'emprunt, cliquez sur le bouton Modifier. Vous pouvez ajuster le taux, la durée ou le montant de l'assurance.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment suivre le remboursement de mes emprunts ?</p>
-            <p>Le tableau d&apos;amortissement montre chaque échéance avec le détail capital, intérêts et restant dû. Les échéances payées sont cochées automatiquement lors du rapprochement bancaire.</p>
+            <p>Le tableau d'amortissement montre chaque échéance avec le détail capital, intérêts et restant dû. Les échéances payées sont cochées automatiquement lors du rapprochement bancaire.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Qu&apos;est-ce que le ratio LTV ?</p>
-            <p>Loan-to-Value = Capital restant dû / Valeur du patrimoine &times; 100. C&apos;est un indicateur d&apos;endettement visible sur le tableau de bord et la vue Propriétaire.</p>
+            <p className="font-semibold text-foreground mb-1">Qu'est-ce que le ratio LTV ?</p>
+            <p>Loan-to-Value = Capital restant dû / Valeur du patrimoine &times; 100. C'est un indicateur d'endettement visible sur le tableau de bord et la vue Propriétaire.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">L&apos;évaluation IA est-elle fiable ?</p>
-            <p>C&apos;est une estimation indicative basée sur les données de marché (comparables, DVF, loyers). Elle ne remplace pas une expertise immobilière professionnelle mais donne une bonne tendance pour piloter votre patrimoine.</p>
+            <p className="font-semibold text-foreground mb-1">L'évaluation IA est-elle fiable ?</p>
+            <p>C'est une estimation indicative basée sur les données de marché (comparables, DVF, loyers). Elle ne remplace pas une expertise immobilière professionnelle mais donne une bonne tendance pour piloter votre patrimoine.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment associer un emprunt à un immeuble ?</p>
-            <p>Lors de la création ou modification de l&apos;emprunt, sélectionnez l&apos;immeuble concerné dans le champ dédié. Le ratio LTV sera alors calculé automatiquement.</p>
+            <p>Lors de la création ou modification de l'emprunt, sélectionnez l'immeuble concerné dans le champ dédié. Le ratio LTV sera alors calculé automatiquement.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Puis-je ajouter une assurance emprunteur ?</p>
-            <p>Oui, renseignez le montant mensuel d&apos;assurance lors de la création de l&apos;emprunt. Il sera inclus dans les échéances du tableau d&apos;amortissement.</p>
+            <p>Oui, renseignez le montant mensuel d'assurance lors de la création de l'emprunt. Il sera inclus dans les échéances du tableau d'amortissement.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Comment exporter le tableau d&apos;amortissement ?</p>
-            <p>Depuis la fiche de l&apos;emprunt, utilisez le bouton d&apos;export pour télécharger le tableau au format CSV ou PDF.</p>
+            <p className="font-semibold text-foreground mb-1">Comment exporter le tableau d'amortissement ?</p>
+            <p>Depuis la fiche de l'emprunt, utilisez le bouton d'export pour télécharger le tableau au format CSV ou PDF.</p>
           </div>
         </div>
       </HelpSection>

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -40,7 +39,7 @@ export function HelpPageLayout({ slug, icon, title, description, children }: Pro
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
           <Link href="/aide" className="hover:text-foreground transition-colors">
-            Centre d&apos;aide
+            Centre d'aide
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-foreground font-medium">{title}</span>
@@ -97,7 +96,7 @@ export function HelpPageLayout({ slug, icon, title, description, children }: Pro
         {/* Retour au centre d'aide */}
         <div className="text-center mt-8">
           <Link href="/aide" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-            &larr; Retour au centre d&apos;aide
+            &larr; Retour au centre d'aide
           </Link>
         </div>
       </main>
@@ -138,48 +137,6 @@ export function HelpStep({ number, title, children }: StepProps) {
         <p className="font-semibold text-foreground mb-1">{title}</p>
         <div className="text-sm text-muted-foreground">{children}</div>
       </div>
-    </div>
-  );
-}
-
-type ScreenshotProps = {
-  alt: string;
-  caption: string;
-  src?: string;
-};
-
-export function ScreenshotPlaceholder({ alt, caption, src }: ScreenshotProps) {
-  if (src) {
-    return (
-      <figure className="my-6">
-        <div className="rounded-xl border overflow-hidden shadow-sm bg-muted/10">
-          <Image
-            src={src}
-            alt={alt}
-            width={1920}
-            height={1080}
-            className="w-full h-auto"
-            quality={90}
-          />
-        </div>
-        <figcaption className="text-xs text-muted-foreground/70 text-center mt-2 italic">
-          {caption}
-        </figcaption>
-      </figure>
-    );
-  }
-
-  return (
-    <div className="my-4 rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-8 text-center">
-      <div className="flex justify-center mb-3">
-        <div className="p-2 bg-muted rounded-lg">
-          <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-          </svg>
-        </div>
-      </div>
-      <p className="text-sm font-medium text-muted-foreground">{alt}</p>
-      <p className="text-xs text-muted-foreground/60 mt-1">{caption}</p>
     </div>
   );
 }

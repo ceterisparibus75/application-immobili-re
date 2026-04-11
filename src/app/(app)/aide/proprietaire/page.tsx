@@ -1,5 +1,5 @@
 import { Layers } from "lucide-react";
-import { HelpPageLayout, HelpSection, HelpStep, ScreenshotPlaceholder, InfoBox } from "../_components/help-page-layout";
+import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/help-page-layout";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
@@ -17,7 +17,7 @@ export default function ProprietairePage() {
     >
       <HelpSection id="concept" title="Qu'est-ce qu'un propriétaire ?">
         <p>
-          Dans {APP_NAME}, un <strong>propriétaire</strong> est l&apos;entité qui détient une ou plusieurs sociétés (SCI, SARL, personne physique, etc.). C&apos;est le niveau le plus élevé de l&apos;arborescence :
+          Dans {APP_NAME}, un <strong>propriétaire</strong> est l'entité qui détient une ou plusieurs sociétés (SCI, SARL, personne physique, etc.). C'est le niveau le plus élevé de l'arborescence :
         </p>
         <div className="rounded-lg border p-4 bg-muted/20 font-mono text-sm">
           <p>Propriétaire (personne physique ou morale)</p>
@@ -32,13 +32,13 @@ export default function ProprietairePage() {
           Un propriétaire peut être une <strong>personne physique</strong> (un particulier ou un couple) ou une <strong>personne morale</strong> (une société : SCI, SARL, SAS, etc.).
         </p>
         <InfoBox type="info">
-          Le propriétaire est créé automatiquement la première fois que vous créez une société. Vous pouvez le personnaliser ensuite depuis l&apos;onglet Profil Propriétaire.
+          Le propriétaire est créé automatiquement la première fois que vous créez une société. Vous pouvez le personnaliser ensuite depuis l'onglet Profil Propriétaire.
         </InfoBox>
       </HelpSection>
 
       <HelpSection id="dashboard" title="Tableau de bord consolidé">
         <p>
-          L&apos;onglet <strong>Tableau de bord</strong> de la vue Propriétaire affiche des KPI agrégés sur toutes les sociétés du propriétaire sélectionné :
+          L'onglet <strong>Tableau de bord</strong> de la vue Propriétaire affiche des KPI agrégés sur toutes les sociétés du propriétaire sélectionné :
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
@@ -53,13 +53,11 @@ export default function ProprietairePage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Dashboard propriétaire" caption="KPI consolidés avec revenus, occupation, impayés et trésorerie" src="/aide/screenshots/proprietaire-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Tableau de performance par société :</p>
         <p>
-          Sous les KPI, un tableau compare les performances de chaque société : revenus mensuels, trésorerie, taux d&apos;occupation. Cela permet d&apos;identifier rapidement les sociétés qui performent et celles qui nécessitent une attention particulière.
+          Sous les KPI, un tableau compare les performances de chaque société : revenus mensuels, trésorerie, taux d'occupation. Cela permet d'identifier rapidement les sociétés qui performent et celles qui nécessitent une attention particulière.
         </p>
-        <ScreenshotPlaceholder alt="Tableau de performance" caption="Comparaison des sociétés avec revenus, cash et occupation" src="/aide/screenshots/proprietaire-main.png" />
 
         <p className="font-semibold text-foreground mt-6 mb-2">Graphiques interactifs :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -74,22 +72,21 @@ export default function ProprietairePage() {
 
       <HelpSection id="societes" title="Onglet Sociétés">
         <p>
-          L&apos;onglet <strong>Sociétés</strong> affiche les sociétés rattachées au propriétaire sous forme de cartes. Chaque carte montre le nom, la forme juridique, le SIRET, la ville, le statut (active/inactive) et votre rôle.
+          L'onglet <strong>Sociétés</strong> affiche les sociétés rattachées au propriétaire sous forme de cartes. Chaque carte montre le nom, la forme juridique, le SIRET, la ville, le statut (active/inactive) et votre rôle.
         </p>
         <p>
           Vous pouvez créer une nouvelle société directement depuis cet onglet via le bouton <strong>Nouvelle société</strong>. La société sera automatiquement rattachée au propriétaire sélectionné.
         </p>
-        <ScreenshotPlaceholder alt="Liste des sociétés du propriétaire" caption="Cartes des sociétés avec nom, forme juridique et statut" src="/aide/screenshots/proprietaire-main.png" />
       </HelpSection>
 
       <HelpSection id="profil" title="Onglet Profil Propriétaire">
         <p>
-          L&apos;onglet <strong>Profil Propriétaire</strong> affiche et permet de modifier les informations du propriétaire sélectionné.
+          L'onglet <strong>Profil Propriétaire</strong> affiche et permet de modifier les informations du propriétaire sélectionné.
         </p>
 
         <p className="font-semibold text-foreground mt-4 mb-2">Pour une personne physique :</p>
         <p>
-          Prénom, nom, email (pour l&apos;envoi de rapports), téléphone, date et lieu de naissance, profession, nationalité, adresse complète.
+          Prénom, nom, email (pour l'envoi de rapports), téléphone, date et lieu de naissance, profession, nationalité, adresse complète.
         </p>
 
         <p className="font-semibold text-foreground mt-4 mb-2">Pour une personne morale :</p>
@@ -97,19 +94,18 @@ export default function ProprietairePage() {
           Dénomination sociale, forme juridique (SCI, SARL, SAS, etc.), SIRET, SIREN, capital social, numéro de TVA intracommunautaire, ville du RCS, représentant légal (nom et fonction), téléphone, siège social.
         </p>
 
-        <ScreenshotPlaceholder alt="Fiche propriétaire" caption="Formulaire de profil avec tous les champs d'identité et d'adresse" src="/aide/screenshots/proprietaire-main.png" />
 
         <InfoBox type="tip">
-          Le champ <strong>Email</strong> du propriétaire est distinct de l&apos;email de votre compte utilisateur. Il sert spécifiquement à l&apos;envoi de rapports et de documents officiels au nom du propriétaire.
+          Le champ <strong>Email</strong> du propriétaire est distinct de l'email de votre compte utilisateur. Il sert spécifiquement à l'envoi de rapports et de documents officiels au nom du propriétaire.
         </InfoBox>
       </HelpSection>
 
       <HelpSection id="co-proprietaires" title="Co-propriétaires (associés)">
         <p>
-          Pour un propriétaire de type personne physique, vous pouvez déclarer des <strong>co-propriétaires</strong> (associés). C&apos;est utile pour les indivisions, les couples, ou toute détention partagée.
+          Pour un propriétaire de type personne physique, vous pouvez déclarer des <strong>co-propriétaires</strong> (associés). C'est utile pour les indivisions, les couples, ou toute détention partagée.
         </p>
         <HelpStep number={1} title="Passez en mode édition">
-          <p>Depuis l&apos;onglet Profil Propriétaire, cliquez sur <strong>Modifier</strong>.</p>
+          <p>Depuis l'onglet Profil Propriétaire, cliquez sur <strong>Modifier</strong>.</p>
         </HelpStep>
         <HelpStep number={2} title="Ajoutez un co-propriétaire">
           <p>Dans la section <strong>Co-propriétaires</strong> en bas du formulaire, cliquez sur <strong>Ajouter</strong>.</p>
@@ -120,7 +116,6 @@ export default function ProprietairePage() {
         <HelpStep number={4} title="Sauvegardez">
           <p>Cliquez sur <strong>Sauvegarder</strong>. Les co-propriétaires sont enregistrés et affichés dans des cartes individuelles en lecture seule.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Section co-propriétaires" caption="Formulaire d'ajout de co-propriétaires avec part et qualité" src="/aide/screenshots/proprietaire-main.png" />
         <InfoBox type="info">
           Les co-propriétaires ne sont disponibles que pour les propriétaires de type personne physique. Pour une personne morale (société), le représentant légal est renseigné dans la fiche principale.
         </InfoBox>
@@ -131,17 +126,16 @@ export default function ProprietairePage() {
           Si vous gérez plusieurs propriétaires, un sélecteur apparaît en haut de la page. Il affiche le propriétaire actif avec son libellé et le nombre de sociétés rattachées. Cliquez dessus pour basculer vers un autre propriétaire.
         </p>
         <p>
-          Le sélecteur est également visible dans la barre de navigation principale (à gauche du sélecteur de société), permettant de changer de propriétaire depuis n&apos;importe quelle page.
+          Le sélecteur est également visible dans la barre de navigation principale (à gauche du sélecteur de société), permettant de changer de propriétaire depuis n'importe quelle page.
         </p>
-        <ScreenshotPlaceholder alt="Sélecteur de propriétaire" caption="Menu déroulant avec la liste des propriétaires et leurs sociétés" src="/aide/screenshots/proprietaire-main.png" />
       </HelpSection>
 
       <HelpSection id="revendiquer" title="Revendiquer une société">
         <p>
-          Si une société vous appartient mais n&apos;est pas encore rattachée à un propriétaire, un bouton <strong>Revendiquer des sociétés</strong> apparaît en haut de la page. Cliquez dessus pour rattacher la société au propriétaire de votre choix.
+          Si une société vous appartient mais n'est pas encore rattachée à un propriétaire, un bouton <strong>Revendiquer des sociétés</strong> apparaît en haut de la page. Cliquez dessus pour rattacher la société au propriétaire de votre choix.
         </p>
         <InfoBox type="info">
-          Cette situation peut se produire si la société a été créée avant la mise en place du système propriétaire, ou si elle a été créée par un autre utilisateur qui vous a ensuite donné les droits d&apos;administration.
+          Cette situation peut se produire si la société a été créée avant la mise en place du système propriétaire, ou si elle a été créée par un autre utilisateur qui vous a ensuite donné les droits d'administration.
         </InfoBox>
       </HelpSection>
 
@@ -149,11 +143,11 @@ export default function ProprietairePage() {
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Quelle est la différence entre propriétaire et société ?</p>
-            <p>Le propriétaire est la personne (physique ou morale) qui détient une ou plusieurs sociétés. La société est l&apos;entité juridique qui gère les immeubles et les baux.</p>
+            <p>Le propriétaire est la personne (physique ou morale) qui détient une ou plusieurs sociétés. La société est l'entité juridique qui gère les immeubles et les baux.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment créer un nouveau propriétaire ?</p>
-            <p>Un propriétaire est créé automatiquement lors de la création d&apos;une société. Vous pouvez aussi en créer un manuellement depuis Propriétaire &gt; Nouveau propriétaire.</p>
+            <p>Un propriétaire est créé automatiquement lors de la création d'une société. Vous pouvez aussi en créer un manuellement depuis Propriétaire &gt; Nouveau propriétaire.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment rattacher une société existante à un propriétaire ?</p>
@@ -165,7 +159,7 @@ export default function ProprietairePage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Le tableau de bord propriétaire consolide-t-il toutes les sociétés ?</p>
-            <p>Oui, les KPI (revenus, taux d&apos;occupation, impayés, trésorerie) sont agrégés sur toutes les sociétés rattachées au propriétaire sélectionné.</p>
+            <p>Oui, les KPI (revenus, taux d'occupation, impayés, trésorerie) sont agrégés sur toutes les sociétés rattachées au propriétaire sélectionné.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment envoyer un rapport consolidé au propriétaire ?</p>

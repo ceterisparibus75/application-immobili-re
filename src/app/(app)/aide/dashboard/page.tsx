@@ -1,5 +1,5 @@
 import { BarChart3 } from "lucide-react";
-import { HelpPageLayout, HelpSection, HelpStep, ScreenshotPlaceholder, InfoBox } from "../_components/help-page-layout";
+import { HelpPageLayout, HelpSection, InfoBox } from "../_components/help-page-layout";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
@@ -25,7 +25,7 @@ export default function DashboardPage() {
             <p>Montant total des loyers perçus sur le mois en cours, avec la variation en pourcentage par rapport au mois précédent (flèche verte en hausse, rouge en baisse).</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Taux d&apos;occupation</p>
+            <p className="font-semibold text-foreground mb-1">Taux d'occupation</p>
             <p>Pourcentage de lots occupés sur le total de lots, avec une barre de progression visuelle. Indicateur clé de la performance locative.</p>
           </div>
           <div className="rounded-lg border p-4">
@@ -37,7 +37,6 @@ export default function DashboardPage() {
             <p>Selon le contexte : solde de trésorerie disponible ou rendement brut annualisé. Une alerte apparaît si des baux expirent prochainement.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="KPI du tableau de bord" caption="Les 4 indicateurs principaux en haut du tableau de bord" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="endettement" title="Synthèse de l'endettement">
@@ -47,7 +46,6 @@ export default function DashboardPage() {
         <p>
           Un tableau récapitulatif par prêteur montre : le nom de la banque, le nombre de prêts, le capital restant dû, la mensualité et une barre de progression du remboursement.
         </p>
-        <ScreenshotPlaceholder alt="Carte endettement" caption="Synthèse de l'endettement avec prêteurs, mensualités et progression" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="graphiques" title="Graphiques interactifs">
@@ -57,7 +55,7 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Revenus mensuels</p>
-            <p>Courbe d&apos;évolution des revenus sur les 12 derniers mois. Permet d&apos;identifier les tendances et les saisonnalités.</p>
+            <p>Courbe d'évolution des revenus sur les 12 derniers mois. Permet d'identifier les tendances et les saisonnalités.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Occupation par immeuble</p>
@@ -65,11 +63,11 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Impayés par ancienneté</p>
-            <p>Répartition des impayés par tranche d&apos;âge : 0-30 jours, 30-60 jours, plus de 60 jours. Plus l&apos;impayé est ancien, plus il est difficile à recouvrer.</p>
+            <p>Répartition des impayés par tranche d'âge : 0-30 jours, 30-60 jours, plus de 60 jours. Plus l'impayé est ancien, plus il est difficile à recouvrer.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Évolution du patrimoine</p>
-            <p>Courbe montrant l&apos;évolution de la valeur totale de votre patrimoine immobilier dans le temps.</p>
+            <p>Courbe montrant l'évolution de la valeur totale de votre patrimoine immobilier dans le temps.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Concentration des risques</p>
@@ -80,7 +78,6 @@ export default function DashboardPage() {
             <p>Vue chronologique des échéances de baux. Les baux expirant dans les 3 mois sont signalés en rouge, dans les 6 mois en orange.</p>
           </div>
         </div>
-        <ScreenshotPlaceholder alt="Graphiques du tableau de bord" caption="Vue des 6 graphiques interactifs (revenus, occupation, impayés, patrimoine, risques, baux)" src="/aide/screenshots/dashboard-full.png" />
       </HelpSection>
 
       <HelpSection id="monitoring" title="Panneau de monitoring détaillé">
@@ -102,7 +99,6 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-        <ScreenshotPlaceholder alt="Panneau de monitoring" caption="Indicateurs détaillés par catégorie dans le panneau latéral" src="/aide/screenshots/dashboard-full.png" />
       </HelpSection>
 
       <HelpSection id="taches" title="Tâches du jour">
@@ -110,9 +106,8 @@ export default function DashboardPage() {
           La section <strong>Tâches du jour</strong> affiche les actions urgentes nécessitant votre attention : factures à valider, relances à envoyer, diagnostics expirant, baux à renouveler, etc.
         </p>
         <p>
-          Chaque tâche est cliquable et vous redirige vers l&apos;écran correspondant pour agir immédiatement.
+          Chaque tâche est cliquable et vous redirige vers l'écran correspondant pour agir immédiatement.
         </p>
-        <ScreenshotPlaceholder alt="Tâches du jour" caption="Liste des actions urgentes avec liens directs vers les écrans concernés" src="/aide/screenshots/dashboard-main.png" />
       </HelpSection>
 
       <HelpSection id="rapports" title="Rapports et exports">
@@ -121,16 +116,15 @@ export default function DashboardPage() {
         </p>
         <ul className="list-disc pl-5 space-y-2">
           <li><strong>Rapport de revenus</strong> : détail des loyers perçus par mois, par immeuble ou par locataire</li>
-          <li><strong>Rapport d&apos;occupation</strong> : taux d&apos;occupation mensuel avec historique</li>
-          <li><strong>Rapport d&apos;impayés</strong> : analyse détaillée des retards de paiement</li>
+          <li><strong>Rapport d'occupation</strong> : taux d'occupation mensuel avec historique</li>
+          <li><strong>Rapport d'impayés</strong> : analyse détaillée des retards de paiement</li>
           <li><strong>Rapport de trésorerie</strong> : flux de trésorerie entrants et sortants</li>
           <li><strong>Export FEC</strong> : fichier des écritures comptables au format réglementaire</li>
           <li><strong>Rapport de valorisation</strong> : évolution de la valeur du patrimoine</li>
         </ul>
         <p>
-          Les rapports sont exportables en <strong>PDF</strong> ou <strong>Excel</strong>. Vous pouvez aussi planifier l&apos;envoi automatique de rapports par email.
+          Les rapports sont exportables en <strong>PDF</strong> ou <strong>Excel</strong>. Vous pouvez aussi planifier l'envoi automatique de rapports par email.
         </p>
-        <ScreenshotPlaceholder alt="Module rapports" caption="Interface de génération de rapports avec sélection de type et période" src="/aide/screenshots/rapports-main.png" />
         <InfoBox type="tip">
           Le champ email du profil propriétaire permet de recevoir automatiquement les rapports programmés. Configurez-le dans la vue Propriétaire &gt; Profil.
         </InfoBox>
@@ -140,7 +134,7 @@ export default function DashboardPage() {
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment personnaliser mon tableau de bord ?</p>
-            <p>Le tableau de bord affiche automatiquement les données de la société active. Changez de société via le sélecteur en haut de page pour voir les données d&apos;une autre société.</p>
+            <p>Le tableau de bord affiche automatiquement les données de la société active. Changez de société via le sélecteur en haut de page pour voir les données d'une autre société.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Les données sont-elles en temps réel ?</p>
@@ -159,16 +153,16 @@ export default function DashboardPage() {
             <p>9 types : balance âgée, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Comment planifier l&apos;envoi automatique de rapports ?</p>
+            <p className="font-semibold text-foreground mb-1">Comment planifier l'envoi automatique de rapports ?</p>
             <p>Rapports &gt; Planification. Définissez le type de rapport, la fréquence et les destinataires. Les rapports sont envoyés automatiquement par email selon le calendrier défini.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Que signifie le taux d&apos;occupation ?</p>
-            <p>C&apos;est le pourcentage de lots occupés par un bail actif. 100% signifie que tous les lots sont loués. En dessous de 80%, une alerte orange apparaît pour signaler un taux de vacance élevé.</p>
+            <p className="font-semibold text-foreground mb-1">Que signifie le taux d'occupation ?</p>
+            <p>C'est le pourcentage de lots occupés par un bail actif. 100% signifie que tous les lots sont loués. En dessous de 80%, une alerte orange apparaît pour signaler un taux de vacance élevé.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Comment interpréter l&apos;indicateur de concentration des risques ?</p>
-            <p>Si un locataire représente plus de 30% de vos revenus, c&apos;est un risque de concentration. Si ce locataire part, vous perdez une part importante de vos revenus. Diversifiez votre base locative.</p>
+            <p className="font-semibold text-foreground mb-1">Comment interpréter l'indicateur de concentration des risques ?</p>
+            <p>Si un locataire représente plus de 30% de vos revenus, c'est un risque de concentration. Si ce locataire part, vous perdez une part importante de vos revenus. Diversifiez votre base locative.</p>
           </div>
         </div>
       </HelpSection>

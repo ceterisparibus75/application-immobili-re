@@ -1,5 +1,5 @@
 import { Building2 } from "lucide-react";
-import { HelpPageLayout, HelpSection, HelpStep, ScreenshotPlaceholder, InfoBox } from "../_components/help-page-layout";
+import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/help-page-layout";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
@@ -17,9 +17,8 @@ export default function DemarragePage() {
     >
       <HelpSection id="essai-gratuit" title="Essai gratuit de 14 jours">
         <p>
-          À votre première connexion, vous bénéficiez automatiquement d&apos;un essai gratuit de 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une bannière vous indique le nombre de jours restants.
+          À votre première connexion, vous bénéficiez automatiquement d'un essai gratuit de 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une bannière vous indique le nombre de jours restants.
         </p>
-        <ScreenshotPlaceholder alt="Bannière d'essai gratuit" caption="La bannière apparaît en haut de l'écran avec le décompte des jours restants" src="/aide/screenshots/dashboard-main.png" />
         <InfoBox type="tip">
           Vous pouvez souscrire un abonnement à tout moment depuis Mon compte &gt; Abonnement. Vos données sont conservées intégralement lors du passage à un plan payant.
         </InfoBox>
@@ -27,21 +26,20 @@ export default function DemarragePage() {
 
       <HelpSection id="creer-societe" title="Créer votre première société">
         <p>
-          La société est l&apos;entité centrale de {APP_NAME}. Tous vos immeubles, locataires, factures et documents sont rattachés à une société. Vous pouvez gérer plusieurs sociétés (SCI, SARL, personne physique, etc.).
+          La société est l'entité centrale de {APP_NAME}. Tous vos immeubles, locataires, factures et documents sont rattachés à une société. Vous pouvez gérer plusieurs sociétés (SCI, SARL, personne physique, etc.).
         </p>
         <HelpStep number={1} title="Accédez à la création">
           <p>Cliquez sur le bouton <strong>Nouvelle société</strong> depuis le menu principal ou depuis la page Sociétés.</p>
         </HelpStep>
         <HelpStep number={2} title="Renseignez les informations">
-          <p>Remplissez le formulaire : nom de la société, forme juridique (SCI, SARL, SAS, personne physique...), SIRET, adresse du siège social. Les champs obligatoires sont marqués d&apos;un astérisque.</p>
+          <p>Remplissez le formulaire : nom de la société, forme juridique (SCI, SARL, SAS, personne physique...), SIRET, adresse du siège social. Les champs obligatoires sont marqués d'un astérisque.</p>
         </HelpStep>
         <HelpStep number={3} title="Ajoutez votre logo (optionnel)">
           <p>Uploadez le logo de votre société. Il apparaîtra sur vos factures, quittances et courriers.</p>
         </HelpStep>
         <HelpStep number={4} title="Configurez votre compte bancaire">
-          <p>Renseignez l&apos;IBAN et le BIC de votre compte principal. Ces informations sont chiffrées (AES-256) et apparaîtront sur vos factures et mandats SEPA.</p>
+          <p>Renseignez l'IBAN et le BIC de votre compte principal. Ces informations sont chiffrées (AES-256) et apparaîtront sur vos factures et mandats SEPA.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Formulaire de création de société" caption="Formulaire avec les champs nom, forme juridique, SIRET et adresse" src="/aide/screenshots/administration-main.png" />
       </HelpSection>
 
       <HelpSection id="premier-immeuble" title="Ajouter votre premier immeuble">
@@ -52,12 +50,11 @@ export default function DemarragePage() {
           <p>Depuis le menu latéral, cliquez sur <strong>Patrimoine</strong> puis sur le bouton <strong>Nouvel immeuble</strong>.</p>
         </HelpStep>
         <HelpStep number={2} title="Informations de l'immeuble">
-          <p>Renseignez le nom, l&apos;adresse complète, le type (habitation, bureau, commerce, mixte), l&apos;année de construction et la surface totale.</p>
+          <p>Renseignez le nom, l'adresse complète, le type (habitation, bureau, commerce, mixte), l'année de construction et la surface totale.</p>
         </HelpStep>
         <HelpStep number={3} title="Ajoutez des lots">
-          <p>Depuis la fiche immeuble, cliquez sur <strong>Ajouter un lot</strong>. Renseignez le numéro, le type, l&apos;étage, la surface et le loyer de référence.</p>
+          <p>Depuis la fiche immeuble, cliquez sur <strong>Ajouter un lot</strong>. Renseignez le numéro, le type, l'étage, la surface et le loyer de référence.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Page de création d'immeuble" caption="Formulaire de saisie des informations d'un immeuble" src="/aide/screenshots/patrimoine-main.png" />
         <InfoBox type="info">
           Vous pouvez également importer vos données depuis un fichier Excel ou CSV via le module Import (Administration &gt; Import).
         </InfoBox>
@@ -65,18 +62,17 @@ export default function DemarragePage() {
 
       <HelpSection id="premier-locataire" title="Enregistrer un locataire et créer un bail">
         <HelpStep number={1} title="Créez le locataire">
-          <p>Allez dans <strong>Locataires &gt; Nouveau locataire</strong>. Renseignez son identité (nom, prénom ou raison sociale), ses coordonnées (email, téléphone) et son adresse. Vous pouvez préciser s&apos;il s&apos;agit d&apos;une personne physique ou morale.</p>
+          <p>Allez dans <strong>Locataires &gt; Nouveau locataire</strong>. Renseignez son identité (nom, prénom ou raison sociale), ses coordonnées (email, téléphone) et son adresse. Vous pouvez préciser s'il s'agit d'une personne physique ou morale.</p>
         </HelpStep>
         <HelpStep number={2} title="Créez le bail">
           <p>Allez dans <strong>Baux &gt; Nouveau bail</strong>. Sélectionnez le locataire et le lot concerné, puis renseignez les conditions : type de bail (habitation, meublé, commercial 3/6/9...), loyer mensuel, charges, dépôt de garantie, dates de début et fin.</p>
         </HelpStep>
         <HelpStep number={3} title="Configurez la révision de loyer">
-          <p>Si le bail est indexé, sélectionnez l&apos;indice (IRL, ILC, ILAT), le trimestre de référence et la fréquence de révision. Les révisions seront calculées automatiquement.</p>
+          <p>Si le bail est indexé, sélectionnez l'indice (IRL, ILC, ILAT), le trimestre de référence et la fréquence de révision. Les révisions seront calculées automatiquement.</p>
         </HelpStep>
         <HelpStep number={4} title="Générez la première facture">
           <p>La facturation est automatique : chaque mois, un brouillon de facture est généré. Validez-le et envoyez-le par email en un clic.</p>
         </HelpStep>
-        <ScreenshotPlaceholder alt="Création d'un bail" caption="Formulaire de création de bail avec sélection du locataire et du lot" src="/aide/screenshots/baux-main.png" />
       </HelpSection>
 
       <HelpSection id="checklist" title="Checklist de démarrage">
@@ -104,16 +100,16 @@ export default function DemarragePage() {
       <HelpSection id="faq" title="Questions fréquentes sur le démarrage">
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Combien de temps dure l&apos;essai gratuit ?</p>
-            <p>L&apos;essai gratuit dure 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une fois l&apos;essai terminé, votre compte passe en lecture seule jusqu&apos;à la souscription d&apos;un abonnement.</p>
+            <p className="font-semibold text-foreground mb-1">Combien de temps dure l'essai gratuit ?</p>
+            <p>L'essai gratuit dure 14 jours, sans carte bancaire requise. Pendant cette période, toutes les fonctionnalités sont accessibles. Une fois l'essai terminé, votre compte passe en lecture seule jusqu'à la souscription d'un abonnement.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Puis-je importer mes données depuis un autre logiciel ?</p>
-            <p>Oui, rendez-vous dans Administration &gt; Import. Vous pouvez importer vos données au format CSV ou Excel. Un assistant de mappage vous guide pour faire correspondre vos colonnes aux champs de l&apos;application.</p>
+            <p>Oui, rendez-vous dans Administration &gt; Import. Vous pouvez importer vos données au format CSV ou Excel. Un assistant de mappage vous guide pour faire correspondre vos colonnes aux champs de l'application.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Faut-il créer la société avant les immeubles ?</p>
-            <p>Oui, la société est l&apos;entité centrale de l&apos;application. Tous les immeubles, locataires, baux et factures sont rattachés à une société. Vous devez donc créer votre société en premier.</p>
+            <p>Oui, la société est l'entité centrale de l'application. Tous les immeubles, locataires, baux et factures sont rattachés à une société. Vous devez donc créer votre société en premier.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Puis-je modifier les informations de ma société plus tard ?</p>
@@ -125,23 +121,23 @@ export default function DemarragePage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Est-ce que les factures sont générées automatiquement ?</p>
-            <p>Oui, chaque jour à 7h, l&apos;application génère automatiquement des brouillons de factures pour tous les baux actifs. Il vous suffit de les vérifier et de les valider avant envoi.</p>
+            <p>Oui, chaque jour à 7h, l'application génère automatiquement des brouillons de factures pour tous les baux actifs. Il vous suffit de les vérifier et de les valider avant envoi.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment inviter un collaborateur ?</p>
-            <p>Rendez-vous dans Mon compte &gt; Utilisateurs, puis cliquez sur Créer. Renseignez l&apos;adresse email et le rôle souhaité. Un email d&apos;invitation sera envoyé automatiquement.</p>
+            <p>Rendez-vous dans Mon compte &gt; Utilisateurs, puis cliquez sur Créer. Renseignez l'adresse email et le rôle souhaité. Un email d'invitation sera envoyé automatiquement.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Que se passe-t-il si je dépasse les limites de mon plan ?</p>
-            <p>Une alerte s&apos;affiche pour vous prévenir. Vous ne pourrez pas créer de nouveaux éléments (lots, utilisateurs, sociétés) au-delà des limites de votre plan. Passez à un plan supérieur pour débloquer la situation.</p>
+            <p>Une alerte s'affiche pour vous prévenir. Vous ne pourrez pas créer de nouveaux éléments (lots, utilisateurs, sociétés) au-delà des limites de votre plan. Passez à un plan supérieur pour débloquer la situation.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Comment passer d&apos;un plan gratuit à un plan payant ?</p>
+            <p className="font-semibold text-foreground mb-1">Comment passer d'un plan gratuit à un plan payant ?</p>
             <p>Rendez-vous dans Mon compte &gt; Abonnement, choisissez le plan qui vous convient et procédez au paiement par carte bancaire via Stripe. Vos données sont conservées intégralement lors du passage.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Puis-je tester toutes les fonctionnalités pendant l&apos;essai ?</p>
-            <p>Oui, l&apos;essai gratuit donne accès à toutes les fonctionnalités du plan Enterprise, sans aucune restriction. Vous pouvez ainsi évaluer l&apos;ensemble des capacités de l&apos;application.</p>
+            <p className="font-semibold text-foreground mb-1">Puis-je tester toutes les fonctionnalités pendant l'essai ?</p>
+            <p>Oui, l'essai gratuit donne accès à toutes les fonctionnalités du plan Enterprise, sans aucune restriction. Vous pouvez ainsi évaluer l'ensemble des capacités de l'application.</p>
           </div>
         </div>
       </HelpSection>
