@@ -409,7 +409,7 @@ function computeRentForPeriod(
 }
 
 /** Calcule les honoraires de gestion tiers */
-export function computeManagementFee(
+function computeManagementFee(
   lease: {
     managementFeeType: string | null;
     managementFeeValue: number | null;
