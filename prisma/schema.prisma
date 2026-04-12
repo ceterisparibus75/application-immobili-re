@@ -503,6 +503,7 @@ model Society {
   tickets                 Ticket[]
   managementReports       ManagementReport[]
   coproprietes            Copropriete[]
+  seasonalProperties      SeasonalProperty[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -3239,4 +3240,128 @@ enum CoproVoteChoice {
   POUR
   CONTRE
   ABSTENTION
+}
+
+// ============================================================
+// PHASE 14 — LOCATION SAISONNIÈRE
+// ============================================================
+
+/// Bien en location saisonnière
+model SeasonalProperty {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  lotId     String?  // Optionnel: lié à un lot existant
+
+  name          String       // Nom commercial (ex: "Villa Tropicale")
+  description   String? @db.Text
+  address       String
+  city          String
+  postalCode    String
+  country       String  @default("France")
+  propertyType  SeasonalPropertyType @default(APARTMENT)
+  capacity      Int          // Nombre de personnes max
+  bedrooms      Int
+  bathrooms     Int
+  area          Float?       // Surface m²
+  amenities     Json?        // Array de string (piscine, wifi, parking...)
+  photos        Json?        // Array de { url, caption }
+  checkInTime   String  @default("15:00")
+  checkOutTime  String  @default("11:00")
+  minStay       Int     @default(1)    // Nombre de nuits minimum
+  isActive      Boolean @default(true)
+
+  // OTA / Channel Manager
+  otaConnections Json?  // { airbnb?: { listingId }, booking?: { propertyId }, ... }
+  icalUrl        String? // URL iCal pour synchronisation
+
+  society    Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  bookings   SeasonalBooking[]
+  pricing    SeasonalPricing[]
+  blockedDates SeasonalBlockedDate[]
+
+  @@index([societyId])
+  @@index([lotId])
+}
+
+enum SeasonalPropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  STUDIO
+  ROOM
+  GITE
+  CHALET
+}
+
+/// Réservation saisonnière
+model SeasonalBooking {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  propertyId String
+
+  guestName    String
+  guestEmail   String?
+  guestPhone   String?
+  guestCount   Int    @default(1)
+  checkIn      DateTime
+  checkOut     DateTime
+  nights       Int
+  totalPrice   Float
+  cleaningFee  Float   @default(0)
+  platformFee  Float   @default(0)
+  netRevenue   Float          // Prix total - frais plateforme
+  status       SeasonalBookingStatus @default(CONFIRMED)
+  source       String?        // "direct", "airbnb", "booking", etc.
+  externalId   String?        // ID sur la plateforme OTA
+  notes        String? @db.Text
+
+  property SeasonalProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([checkIn])
+  @@index([checkOut])
+}
+
+enum SeasonalBookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+/// Tarification saisonnière (périodes)
+model SeasonalPricing {
+  id         String   @id @default(cuid())
+  propertyId String
+
+  name       String        // "Haute saison", "Basse saison", "Noël"...
+  startDate  DateTime
+  endDate    DateTime
+  pricePerNight Float
+  weeklyDiscount Float?   // % de réduction semaine
+  monthlyDiscount Float?  // % de réduction mois
+
+  property SeasonalProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([startDate, endDate])
+}
+
+/// Dates bloquées (indisponibilités)
+model SeasonalBlockedDate {
+  id         String   @id @default(cuid())
+  propertyId String
+
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+
+  property SeasonalProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
