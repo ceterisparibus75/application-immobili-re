@@ -8,6 +8,11 @@ import {
   BellRing,
   TrendingUp,
   Receipt,
+  Bot,
+  Building,
+  CalendarRange,
+  Workflow,
+  UserSearch,
 } from "lucide-react";
 import type { ElementType } from "react";
 
@@ -98,6 +103,36 @@ export const features: Feature[] = [
       "Tous types de baux français, facturation automatique, révisions indicielles IRL/ILC/ILAT, relances programmées.",
   },
   {
+    icon: Building,
+    title: "Copropriété",
+    description:
+      "Gestion des copropriétés, suivi des charges et appels de fonds, répartition par tantièmes et pilotage des assemblées générales.",
+  },
+  {
+    icon: CalendarRange,
+    title: "Location saisonnière",
+    description:
+      "Module dédié à la gestion des locations courte durée : calendrier de disponibilité, tarification dynamique et suivi des réservations.",
+  },
+  {
+    icon: Bot,
+    title: "Assistant IA intégré",
+    description:
+      "Chatbot conversationnel, génération automatique de courriers, prédiction des impayés et analyse documentaire assistée par intelligence artificielle.",
+  },
+  {
+    icon: Workflow,
+    title: "Automatisation par workflows",
+    description:
+      "Créez des workflows personnalisés pour automatiser vos processus récurrents : relances, notifications, affectations et validations.",
+  },
+  {
+    icon: UserSearch,
+    title: "CRM & Candidatures",
+    description:
+      "Centralisez et qualifiez les candidatures locataires. Suivi du pipeline, scoring des dossiers et communication intégrée.",
+  },
+  {
     icon: BarChart3,
     title: "Reporting et KPI consolidés",
     description:
@@ -185,6 +220,9 @@ export const plans: Plan[] = [
       "Pilotage du patrimoine",
       "Gestion des baux et locataires",
       "Facturation et quittances PDF",
+      "Copropriété",
+      "Location saisonnière",
+      "CRM & Candidatures",
       "Tableau de bord analytique",
       "Support par email",
     ],
@@ -202,6 +240,7 @@ export const plans: Plan[] = [
       "Rapprochement bancaire automatique",
       "Recouvrement par relances progressives",
       "Portail locataire sécurisé",
+      "Workflows & automatisations",
       "Support prioritaire",
     ],
     highlighted: true,
@@ -215,8 +254,9 @@ export const plans: Plan[] = [
     features: [
       "Tout Professionnel +",
       "Lots et sociétés illimités",
+      "Assistant IA (chatbot, courriers, prédiction)",
       "Signature électronique",
-      "Import documentaire assisté",
+      "Import documentaire assisté par IA",
       "Accès API & intégrations",
       "Support dédié & SLA 99,9%",
     ],

@@ -49,7 +49,7 @@ export default function CGVPage() {
               </div>
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold mb-2">Enterprise</h3>
-                <p className="text-muted-foreground">Toutes les fonctionnalites Pro, plus lots et societes illimites, signature electronique, import IA de documents, support prioritaire et acces API.</p>
+                <p className="text-muted-foreground">Toutes les fonctionnalites Pro, plus lots et societes illimites, signature electronique, import IA de documents, fonctionnalites d&apos;intelligence artificielle (analyse de documents, generation de courriers, prediction de paiements, evaluation patrimoniale), support prioritaire et acces API.</p>
               </div>
             </div>
             <p className="text-muted-foreground mt-3">
@@ -131,7 +131,25 @@ export default function CGVPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-4">12. Loi applicable</h2>
+            <h2 className="text-xl font-semibold mb-4">12. Fonctionnalites d&apos;intelligence artificielle</h2>
+            <div className="space-y-3 text-muted-foreground">
+              <p>
+                Le plan ENTERPRISE inclut des fonctionnalites d&apos;intelligence artificielle (IA) alimentees par l&apos;API Claude d&apos;Anthropic. Ces fonctionnalites sont optionnelles et comprennent :
+              </p>
+              <ul className="list-disc pl-6 space-y-1">
+                <li>Analyse automatique de documents (classification, extraction de resume et de metadonnees)</li>
+                <li>Generation assistee de courriers et de lettres</li>
+                <li>Prediction de paiements et analyse de risques locatifs</li>
+                <li>Evaluation patrimoniale assistee (estimation de loyers, valeur venale, analyse SWOT)</li>
+              </ul>
+              <p><strong className="text-foreground">Tarification :</strong> les fonctionnalites IA sont incluses dans l&apos;abonnement ENTERPRISE sans cout supplementaire. L&apos;Editeur se reserve le droit d&apos;introduire des limites d&apos;utilisation (nombre de requetes par mois) ou une tarification specifique a l&apos;usage, avec un preavis de 30 jours.</p>
+              <p><strong className="text-foreground">Disponibilite :</strong> les fonctionnalites IA dependent de la disponibilite du fournisseur tiers (Anthropic). L&apos;Editeur ne garantit pas une disponibilite ininterrompue de ces fonctionnalites et ne saurait etre tenu responsable des interruptions liees au fournisseur IA.</p>
+              <p><strong className="text-foreground">Limitations :</strong> les resultats generes par l&apos;IA sont fournis &quot;en l&apos;etat&quot;, a titre informatif, et ne se substituent pas a l&apos;expertise humaine. L&apos;Editeur ne garantit pas l&apos;exactitude, l&apos;exhaustivite ou la pertinence des resultats de l&apos;IA.</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-4">13. Loi applicable</h2>
             <p className="text-muted-foreground">
               Les presentes CGV sont soumises au droit francais. Tout litige sera soumis a la competence exclusive des tribunaux de Paris, sous reserve des regles imperatives de competence applicables aux consommateurs.
             </p>
