@@ -10,6 +10,7 @@ import { SubscriptionBanner } from "@/components/layout/subscription-banner";
 import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
 import { KeyboardShortcutsProvider } from "@/providers/keyboard-shortcuts-provider";
 import { PageTransition } from "@/components/ui/page-transition";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 
@@ -67,6 +68,7 @@ export default async function AppLayout({
               <PageTransition>{children}</PageTransition>
             </main>
           </div>
+          <OnboardingWizard />
         </KeyboardShortcutsProvider>
       </IdleTimeoutProvider>
     </SocietyProvider>
