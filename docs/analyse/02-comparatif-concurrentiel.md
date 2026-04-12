@@ -1,219 +1,206 @@
-# PARTIE 2 - Comparatif concurrentiel
+# Comparatif concurrentiel
 
-## 1. Paysage concurrentiel en France (2026)
-
-Le marche francais de la gestion locative SaaS se segmente en 3 categories :
-
-- **Particuliers / petits bailleurs** (1-10 lots) : GererSeul, BailFacile, Rentila, iGestionlocative, Hestia
-- **Professionnels mid-market** (10-200 lots) : MyGestia, Ublo, Tylto, LOCKimmo
-- **Grands comptes / institutionnels** (200+ lots) : Powimo (Seiitra), Thetrawin, Aareon, MRI Software
+> **Date :** 12 avril 2026
+> **Marché :** Gestion locative immobilière SaaS - France
 
 ---
 
-## 2. Comparatif detaille par concurrent
+## Le marché français en 2026
 
-### 2.1 Segment particuliers (concurrence indirecte)
+Le marché se segmente en **3 catégories** :
 
-#### GererSeul
-- **Positionnement** : Leader particuliers, meilleur note Trustpilot (4.8/5)
-- **Prix** : A partir de 12 EUR/mois
-- **Forces** : Support juridique avec fiscalistes, tous types de baux, declarations fiscales, signature electronique
-- **Faiblesses** : Pas de comptabilite pro (FEC), pas d'open banking, pas de portail locataire avance
-- **Menace pour MyGestia** : Faible (segment different)
+| Segment | Cible | Acteurs principaux |
+|:--|:--|:--|
+| **Particuliers / petits bailleurs** (1-10 lots) | Propriétaires individuels, SCI simples | GérerSeul, BailFacile, Rentila, iGestionlocative, Hestia |
+| **Professionnels mid-market** (10-200 lots) | Cabinets indépendants, SCI/SARL, foncières | **MyGestia**, LOCKimmo, Ublo, Tylto |
+| **Grands comptes / institutionnels** (200+ lots) | Administrateurs de biens, bailleurs sociaux | Powimo (Seiitra), Thetrawin, Aareon |
+
+**MyGestia se positionne sur le segment professionnel mid-market.**
+
+---
+
+## Fiches concurrents détaillées
+
+### Concurrents directs (même segment)
+
+#### LOCKimmo - Menace ÉLEVÉE
+
+- **Qui :** N.1 autoproclamé des logiciels pro, **19 ans d'expérience**
+- **Prix :** Sur devis (estimé 50-150 EUR/mois selon nombre de lots)
+- **Cible :** Administrateurs de biens, agences, syndics, gestionnaires indépendants
+- **Ce qu'il fait bien :**
+  - Notoriété et base installée importante
+  - Modules syndic + transaction + saisonnier (que MyGestia n'a pas)
+  - Reconnaissance automatique des factures (IA)
+  - Synchronisation bancaire et signature électronique
+  - Nouvelle version LOCKimmo.IO plus rapide
+- **Ses faiblesses :**
+  - Interface historiquement datée (refonte en cours)
+  - Prix opaque (sur devis = friction à l'achat)
+  - Pas de portail locataire avancé
+  - Pas d'évaluation patrimoniale IA
+  - Pas d'Open Banking PSD2 multi-providers
+
+#### Ublo - Menace MODÉRÉE
+
+- **Qui :** Solution tout-en-un moderne pour gestionnaires pro et bailleurs sociaux
+- **Prix :** Sur devis
+- **Ce qu'il fait bien :**
+  - Interface moderne et intuitive
+  - Ticketing et états des lieux en ligne avec photos
+  - CRM immobilier intégré
+  - Portail locataire complet
+  - Conformité RGPD
+- **Ses faiblesses :**
+  - Moins de profondeur comptable (pas de FEC)
+  - Pas d'IA documentaire ni d'évaluation patrimoniale
+  - Pas d'Open Banking multi-providers
+  - Moins de types de rapports
+
+#### Tylto - Menace MODÉRÉE
+
+- **Qui :** Plateforme 100% web pour administrateurs de biens et agences
+- **Prix :** Sur devis
+- **Ce qu'il fait bien :**
+  - Full web sans installation
+  - Gestion contrats, suivi loyers/impayés
+  - Paiement électronique, relance automatique
+  - Stockage documents sécurisé
+- **Ses faiblesses :**
+  - Pas d'IA, pas d'Open Banking PSD2
+  - Communauté plus petite, moins de visibilité
+  - Moins de fonctionnalités avancées globalement
+
+---
+
+### Concurrents indirects (segment particuliers)
+
+#### GérerSeul
+
+- **Prix :** À partir de 12 EUR/mois
+- **Note :** Trustpilot 4.8/5 - Leader particuliers
+- **Forces :** Support juridique avec fiscalistes, tous types de baux, déclarations fiscales
+- **Limite :** Pas de comptabilité pro (FEC), pas d'Open Banking, pas de portail locataire avancé
+- **Menace :** Faible (segment différent)
 
 #### BailFacile
-- **Positionnement** : Primo-bailleurs, experience simple
-- **Prix** : A partir de 7.99 EUR/mois, premium 29 EUR/mois
-- **Forces** : Interface tres intuitive, ressources pedagogiques, bonne UX mobile
-- **Faiblesses** : Fonctionnalites basiques, pas de comptabilite, pas de rapprochement bancaire
-- **Menace pour MyGestia** : Faible (pas le meme segment)
+
+- **Prix :** À partir de 7.99 EUR/mois, premium 29 EUR/mois
+- **Forces :** Interface très intuitive, excellentes ressources pédagogiques, bonne UX mobile
+- **Limite :** Fonctionnalités basiques, pas de comptabilité, pas de rapprochement bancaire
+- **Menace :** Faible
 
 #### Rentila
-- **Positionnement** : Alternative gratuite/low-cost
-- **Prix** : Gratuit (1 lot), 4.90 EUR/mois (2-5 lots), 9.90 EUR/mois (illimite)
-- **Forces** : Gratuit, comptabilite basique, relances, 3200 avis (4.6/5)
-- **Faiblesses** : Interface datee, pas d'IA, pas d'open banking, fonctionnalites limitees
-- **Menace pour MyGestia** : Faible
+
+- **Prix :** Gratuit (1 lot), 4.90 EUR/mois (2-5 lots), 9.90 EUR/mois (illimité)
+- **Forces :** Gratuit, comptabilité basique, relances, 3 200 avis (4.6/5)
+- **Limite :** Interface datée, pas d'IA, pas d'Open Banking
+- **Menace :** Faible
 
 #### Hestia Software
-- **Positionnement** : Gratuit complet (sans freemium)
-- **Prix** : 100% gratuit
-- **Forces** : Gratuit, bail ALUR conforme, signature electronique eIDAS, note 4.8/5
-- **Faiblesses** : Modele economique fragile (gratuit), pas de comptabilite avancee
-- **Menace pour MyGestia** : Faible (modele non soutenable pour les pro)
 
-#### iGestionlocative
-- **Positionnement** : Simple et conforme, particuliers et SCI
-- **Prix** : 59 EUR/an (illimite)
-- **Forces** : Tres bon rapport qualite/prix, interface claire (refonte 2025), conformite legale
-- **Faiblesses** : Pas de comptabilite pro, pas d'IA, pas d'open banking
-- **Menace pour MyGestia** : Faible
+- **Prix :** 100% gratuit (pas de freemium)
+- **Forces :** Gratuit, bail ALUR conforme, signature électronique eIDAS, note 4.8/5
+- **Limite :** Modèle économique fragile, pas de comptabilité avancée
+- **Menace :** Faible
 
-### 2.2 Segment professionnel mid-market (concurrence directe)
+---
 
-#### LOCKimmo
-- **Positionnement** : N 1 autoprocl. logiciel pro, 19 ans d'experience
-- **Prix** : Sur devis (estime 50-150 EUR/mois selon lots)
-- **Cible** : Administrateurs de biens, agences, syndics, gestionnaires independants
-- **Forces** :
-  - 19 ans d'anciennete et de notoriete
-  - Modules syndic + transaction + saisonnier
-  - Reconnaissance auto des factures (IA)
-  - Synchronisation bancaire
-  - Signature electronique
-  - Annonces IA
-  - LOCKimmo.IO (nouvelle version plus rapide)
-- **Faiblesses** :
-  - Interface historiquement datee (refonte en cours)
-  - Prix non transparent (sur devis)
-  - Pas de portail locataire aussi avance
-  - Pas d'evaluation patrimoniale IA
-- **Menace pour MyGestia** : ELEVEE (meme segment, plus d'anciennete)
-
-#### Ublo
-- **Positionnement** : Gestion locative tout-en-un moderne
-- **Prix** : Sur devis
-- **Cible** : Gestionnaires professionnels, bailleurs sociaux
-- **Forces** :
-  - Interface moderne et intuitive
-  - Quittancement, ticketing, etats des lieux en ligne avec photos
-  - CRM immobilier integre
-  - Portail locataire
-  - Conformite RGPD
-- **Faiblesses** :
-  - Moins de profondeur comptable
-  - Pas d'IA documentaire
-  - Pas d'evaluation patrimoniale
-  - Pas d'open banking multi-providers
-- **Menace pour MyGestia** : MODEREE (design concurrent mais moins riche)
-
-#### Tylto
-- **Positionnement** : Full web, administrateurs de biens et agences
-- **Prix** : Sur devis
-- **Forces** :
-  - 100% web sans installation
-  - Gestion contrats, suivi loyers/impayes
-  - Paiement electronique, relance auto
-  - Suivi comptable
-  - Stockage documents securise
-- **Faiblesses** :
-  - Moins de fonctionnalites avancees (pas d'IA, pas d'open banking PSD2)
-  - Communaute plus petite
-  - Moins de visibilite marche
-- **Menace pour MyGestia** : MODEREE
-
-### 2.3 Segment grands comptes (concurrence aspirationnelle)
+### Concurrent aspirationnel (segment grands comptes)
 
 #### Powimo (Seiitra)
-- **Positionnement** : Leader institutionnel, 10 000 professionnels
-- **Prix** : Sur devis (estime 300-1000+ EUR/mois)
-- **Forces** :
-  - 10 000 utilisateurs professionnels quotidiens
-  - Couverture complete : gestion locative, syndic, transaction
-  - Comptabilite immobiliere avancee
-  - Responsive design
-  - Ecosysteme Seiitra complet
-- **Faiblesses** :
-  - Prix tres eleve
-  - Interface moins moderne que les nouveaux entrants
-  - Migration complexe
-- **Menace pour MyGestia** : FAIBLE (segment different, mais reference aspirationnelle)
+
+- **Qui :** Leader institutionnel, **10 000 professionnels** utilisent la solution au quotidien
+- **Prix :** Sur devis (estimé 300-1 000+ EUR/mois)
+- **Forces :** Couverture complète (gestion locative, syndic, transaction), comptabilité immobilière avancée
+- **Limite :** Prix très élevé, interface moins moderne, migration complexe
+- **Menace :** Faible (segment différent, mais référence à atteindre)
 
 ---
 
-## 3. Matrice comparative des fonctionnalites
+## Matrice comparative des fonctionnalités
 
-| Fonctionnalite | MyGestia | LOCKimmo | Ublo | Tylto | GererSeul | BailFacile | Rentila |
-|---|---|---|---|---|---|---|---|
-| **Gestion patrimoine** | +++ | +++ | ++ | ++ | + | + | + |
-| **Baux (17 types)** | +++ | ++ | ++ | ++ | ++ | + | + |
-| **Indexation IRL auto** | +++ | ++ | + | + | ++ | + | + |
-| **Facturation avancee** | +++ | +++ | ++ | ++ | ++ | + | + |
-| **Comptabilite/FEC** | +++ | +++ | + | ++ | - | - | + |
-| **Open Banking (PSD2)** | +++ | ++ | - | - | - | - | - |
-| **Rapprochement bancaire** | +++ | ++ | + | + | - | - | - |
-| **SEPA direct debit** | +++ | + | - | + | - | - | - |
-| **Signature electronique** | +++ | ++ | - | - | ++ | - | - |
-| **IA documentaire** | +++ | ++ | - | - | - | - | - |
-| **Evaluation patrimoniale IA** | +++ | - | - | - | - | - | - |
-| **Portail locataire** | +++ | + | ++ | + | - | - | - |
-| **Tickets support locataire** | +++ | - | ++ | - | - | - | - |
-| **Rapports avances (9 types)** | +++ | ++ | + | + | + | - | + |
-| **Multi-societe** | +++ | ++ | + | + | + | - | + |
-| **Multi-proprietaire** | +++ | + | + | - | + | - | - |
-| **RGPD natif** | +++ | + | ++ | + | + | + | + |
-| **2FA / Securite avancee** | +++ | + | + | + | + | + | + |
-| **Emprunts / Amortissement** | +++ | + | - | - | - | - | - |
-| **Cash-flow / Previsionnel** | +++ | + | - | - | - | - | - |
-| **Dataroom** | +++ | - | - | - | - | - | - |
-| **Centre d'aide integre** | +++ | + | + | + | ++ | ++ | + |
-| **App mobile native** | - | - | + | - | + | + | + |
-| **Syndic copropriete** | - | +++ | + | + | - | - | - |
-| **Transaction immobiliere** | - | ++ | - | + | - | - | - |
-| **Location saisonniere** | - | ++ | - | - | + | + | - |
+**Légende :** +++ Excellent | ++ Bon | + Basique | - Absent
 
-**Legende** : +++ = Excellent/Complet | ++ = Bon | + = Basique | - = Absent
+| Fonctionnalité | MyGestia | LOCKimmo | Ublo | Tylto | GérerSeul | BailFacile | Rentila |
+|:--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Gestion patrimoine | +++ | +++ | ++ | ++ | + | + | + |
+| Baux (17 types) | +++ | ++ | ++ | ++ | ++ | + | + |
+| Indexation IRL auto | +++ | ++ | + | + | ++ | + | + |
+| Facturation avancée | +++ | +++ | ++ | ++ | ++ | + | + |
+| Comptabilité / FEC | +++ | +++ | + | ++ | - | - | + |
+| Open Banking (PSD2) | +++ | ++ | - | - | - | - | - |
+| Rapprochement bancaire | +++ | ++ | + | + | - | - | - |
+| SEPA direct debit | +++ | + | - | + | - | - | - |
+| Signature électronique | +++ | ++ | - | - | ++ | - | - |
+| **IA documentaire** | **+++** | ++ | - | - | - | - | - |
+| **Évaluation patrimoniale IA** | **+++** | **-** | **-** | **-** | **-** | **-** | **-** |
+| Portail locataire | +++ | + | ++ | + | - | - | - |
+| Tickets support locataire | +++ | - | ++ | - | - | - | - |
+| Rapports avancés (9 types) | +++ | ++ | + | + | + | - | + |
+| Multi-société | +++ | ++ | + | + | + | - | + |
+| Multi-propriétaire | +++ | + | + | - | + | - | - |
+| RGPD natif | +++ | + | ++ | + | + | + | + |
+| 2FA / Sécurité avancée | +++ | + | + | + | + | + | + |
+| Emprunts / Amortissement | +++ | + | - | - | - | - | - |
+| Cash-flow / Prévisionnel | +++ | + | - | - | - | - | - |
+| Dataroom | +++ | - | - | - | - | - | - |
+| App mobile native | **-** | - | + | - | + | + | + |
+| Syndic copropriété | **-** | **+++** | + | + | - | - | - |
+| Location saisonnière | **-** | ++ | - | - | + | + | - |
 
 ---
 
-## 4. Comparatif tarifaire
+## Comparatif tarifaire
 
-| Solution | Entree de gamme | Mid-range | Premium | Essai gratuit |
-|---|---|---|---|---|
-| **MyGestia** | 19 EUR/mois (20 lots) | 79 EUR/mois (50 lots) | 199 EUR/mois (illimite) | 14 jours |
-| **LOCKimmo** | Sur devis (~50 EUR/mois) | Sur devis (~100 EUR/mois) | Sur devis (~150+ EUR/mois) | Demo |
-| **Ublo** | Sur devis | Sur devis | Sur devis | Demo |
-| **Tylto** | Sur devis | Sur devis | Sur devis | Demo |
-| **GererSeul** | 12 EUR/mois | 20 EUR/mois | 30 EUR/mois | 14 jours |
-| **BailFacile** | 7.99 EUR/mois | 14.99 EUR/mois | 29 EUR/mois | Gratuit limite |
-| **Rentila** | Gratuit (1 lot) | 4.90 EUR/mois | 9.90 EUR/mois | Gratuit |
-| **iGestionlocative** | 59 EUR/an | - | - | Gratuit limite |
-| **Hestia** | Gratuit | Gratuit | Gratuit | N/A |
-| **Powimo** | Sur devis (~300 EUR/mois) | Sur devis | Sur devis (~1000+ EUR/mois) | Demo |
+| Solution | Entrée de gamme | Milieu de gamme | Premium | Essai gratuit |
+|:--|:--|:--|:--|:--|
+| **MyGestia** | **19 EUR/mois** (20 lots) | **79 EUR/mois** (50 lots) | **199 EUR/mois** (illimité) | 14 jours |
+| LOCKimmo | ~50 EUR/mois (devis) | ~100 EUR/mois (devis) | ~150+ EUR/mois (devis) | Démo |
+| Ublo | Sur devis | Sur devis | Sur devis | Démo |
+| Tylto | Sur devis | Sur devis | Sur devis | Démo |
+| GérerSeul | 12 EUR/mois | 20 EUR/mois | 30 EUR/mois | 14 jours |
+| BailFacile | 7.99 EUR/mois | 14.99 EUR/mois | 29 EUR/mois | Gratuit limité |
+| Rentila | Gratuit (1 lot) | 4.90 EUR/mois | 9.90 EUR/mois | Gratuit |
+| Powimo | ~300 EUR/mois (devis) | Sur devis | ~1 000+ EUR/mois | Démo |
 
----
-
-## 5. Comparatif design et ergonomie
-
-| Critere | MyGestia | LOCKimmo | Ublo | BailFacile | GererSeul |
-|---|---|---|---|---|---|
-| **Design moderne** | 8/10 | 6/10 | 8/10 | 9/10 | 7/10 |
-| **Dark mode** | Oui | Non | Non | Non | Non |
-| **Responsive mobile** | Oui | Partiel | Oui | Oui | Oui |
-| **Onboarding guide** | Checklist | Formation | Wizard | Excellent | Bon |
-| **Recherche globale** | Cmd+K | Basique | Basique | Non | Basique |
-| **Composants UI** | shadcn/ui (moderne) | Interface legacy | Custom | Moderne | Custom |
-| **Animations** | Subtiles (fade, scale) | Minimales | Presentes | Bonnes | Minimales |
-| **Accessibilite** | ARIA basique | Limitee | Basique | Bonne | Limitee |
-| **Impression** | Stylesheet dedie | PDF export | PDF export | PDF export | PDF export |
+**Avantage MyGestia :** prix transparent et publié, alors que les concurrents pro (LOCKimmo, Ublo, Tylto, Powimo) fonctionnent sur devis.
 
 ---
 
-## 6. Positionnement strategique de MyGestia
+## Comparatif design et ergonomie
 
-### Avantages concurrentiels uniques
+| Critère | MyGestia | LOCKimmo | Ublo | BailFacile | GérerSeul |
+|:--|:--:|:--:|:--:|:--:|:--:|
+| Design moderne | 8/10 | 6/10 | 8/10 | 9/10 | 7/10 |
+| Dark mode | Oui | Non | Non | Non | Non |
+| Responsive mobile | Oui | Partiel | Oui | Oui | Oui |
+| Onboarding guidé | Checklist | Formation | Wizard | Excellent | Bon |
+| Recherche globale | Cmd+K | Basique | Basique | Non | Basique |
+| Composants UI | shadcn/ui | Legacy | Custom | Moderne | Custom |
 
-1. **IA integree a tous les niveaux** : Aucun concurrent mid-market n'offre evaluation patrimoniale IA, analyse documentaire, categorisation cash-flow ET narration de rapports
-2. **Open Banking triple** : GoCardless + Qonto + Powens = couverture bancaire inegalee
-3. **Profondeur comptable + Conformite FEC** : Rare dans le segment mid-market moderne
-4. **Dataroom securisee** : Fonctionnalite unique dans le segment
-5. **Prix transparent** : Grille claire vs devis opaques des concurrents pro
+---
 
-### Vulnerabilites
+## Positionnement stratégique recommandé
 
-1. **Notoriete** : LOCKimmo (19 ans), Powimo (10 000 users) ont une base installee
-2. **Absence syndic/transaction** : LOCKimmo couvre ces modules supplementaires
-3. **Pas d'app mobile native** : BailFacile et GererSeul en ont une
-4. **Marque jeune** : Pas encore d'avis Trustpilot/Google significatifs
-5. **Location saisonniere** : Creneau non couvert
+### Nos 5 avantages concurrentiels uniques
 
-### Positionnement recommande
+1. **IA intégrée à tous les niveaux** - Aucun concurrent mid-market n'offre évaluation patrimoniale IA + analyse documentaire + catégorisation cash-flow + narration de rapports
+2. **Open Banking triple** - GoCardless + Qonto + Powens = couverture bancaire inégalée sur le marché
+3. **Profondeur comptable + FEC** - Rare dans le segment mid-market moderne
+4. **Dataroom sécurisée** - Fonctionnalité unique dans notre segment
+5. **Prix transparent** - Grille claire et publique vs devis opaques des concurrents
 
-**MyGestia = la plateforme IA de gestion immobiliere pour professionnels exigeants.**
+### Nos 5 vulnérabilités à adresser
 
-Ni un outil basique pour particuliers, ni un ERP lourd pour institutionnels.
-Le "sweet spot" : 10 a 500 lots, SCI/SARL/fonciers, cabinets de gestion independants qui veulent :
-- La puissance d'un LOCKimmo avec la modernite d'un Ublo
-- L'IA pour gagner du temps (documents, evaluations, rapports)
-- La conformite sans compromis (FEC, RGPD, indices INSEE)
-- Un prix transparent et previsible
+1. **Notoriété** - LOCKimmo (19 ans) et Powimo (10 000 users) ont une base installée
+2. **Pas de module syndic/transaction** - LOCKimmo couvre ces besoins
+3. **Pas d'app mobile native** - BailFacile et GérerSeul en proposent une
+4. **Marque jeune** - Pas encore d'avis Trustpilot/Google significatifs
+5. **Pas de location saisonnière** - Créneau en forte croissance non couvert
+
+### Positionnement en une phrase
+
+> **MyGestia = la plateforme IA de gestion immobilière pour professionnels exigeants qui veulent la puissance d'un LOCKimmo avec la modernité d'un Ublo, la conformité sans compromis, et un prix transparent.**
+
+**Sweet spot :** 10 à 500 lots, SCI/SARL/foncières, cabinets de gestion indépendants.

@@ -1,253 +1,273 @@
-# PARTIE 4 - Plan de scalabilite et montee en charge
+# Scalabilité et montée en charge
 
-## 1. Architecture actuelle
-
-| Composant | Technologie | Limites actuelles |
-|---|---|---|
-| **Hosting** | Vercel (Serverless, Frankfurt) | Concurrency limitee par plan, cold starts |
-| **Base de donnees** | Supabase PostgreSQL (pooling PgBouncer) | Plan gratuit : 500 Mo, Pro : 8 Go |
-| **Stockage fichiers** | Supabase Storage | Plan gratuit : 1 Go, Pro : 100 Go |
-| **Cache/Rate limit** | Upstash Redis | Plan gratuit : 10k req/jour |
-| **Emails** | Resend | Plan gratuit : 100/jour, Pro : 50k/mois |
-| **Cron jobs** | Vercel Cron | Limite selon plan Vercel |
-| **CDN** | Vercel Edge Network | Inclus |
+> **Date :** 12 avril 2026
+> Plan d'infrastructure en 5 paliers, de 0 à 5 000+ utilisateurs
 
 ---
 
-## 2. Paliers de montee en charge
+## Architecture actuelle
 
-### PALIER 1 : 0 - 50 utilisateurs (Lancement)
+| Composant | Technologie | Limite actuelle |
+|:--|:--|:--|
+| Hébergement | Vercel Serverless (Frankfurt, UE) | Concurrency limitée par plan, cold starts |
+| Base de données | Supabase PostgreSQL (pooling PgBouncer) | Pro : 8 Go |
+| Stockage fichiers | Supabase Storage | Pro : 100 Go |
+| Cache / Rate limiting | Upstash Redis | Pro : 10k requêtes/jour |
+| Emails | Resend | Pro : 50k emails/mois |
+| Cron jobs | Vercel Cron | Limité selon le plan |
+| CDN | Vercel Edge Network | Inclus |
 
-**Profil** : Phase beta / early adopters
-**Volume estime** : ~500 lots geres, ~2000 factures/mois, ~5 Go stockage
+---
 
-#### Infrastructure requise
+## Les 5 paliers de montée en charge
 
-| Composant | Configuration | Cout mensuel estime |
-|---|---|---|
-| Vercel | Pro ($20/mois) | 20 EUR |
-| Supabase | Pro ($25/mois, 8 Go DB, 100 Go storage) | 25 EUR |
-| Upstash Redis | Pro (10k req/jour) | 10 EUR |
+---
+
+### Palier 1 : 0 - 50 utilisateurs (Lancement)
+
+**Profil :** Phase bêta, early adopters
+
+**Volumes estimés :**
+- ~500 lots gérés
+- ~2 000 factures/mois
+- ~5 Go de stockage fichiers
+
+#### Coût infrastructure
+
+| Service | Configuration | Coût mensuel |
+|:--|:--|--:|
+| Vercel | Pro (20 $/mois) | 20 EUR |
+| Supabase | Pro (25 $/mois - 8 Go DB, 100 Go storage) | 25 EUR |
+| Upstash Redis | Pro | 10 EUR |
 | Resend | Pro (50k emails/mois) | 20 EUR |
 | Sentry | Team (50k events) | 26 EUR |
-| **TOTAL** | | **~100 EUR/mois** |
+| **Total** | | **~100 EUR/mois** |
 
-#### Actions requises
-- [x] Deploiement Vercel standard
-- [x] Supabase Pro pour la base de donnees
-- [x] Monitoring Sentry basique
-- [ ] Mettre en place les sauvegardes automatiques quotidiennes
-- [ ] Configurer les alertes de performance (temps de reponse > 3s)
-- [ ] Tests de charge initiaux (k6 ou Artillery) : 50 utilisateurs simultanes
-- [ ] Plan de reprise d'activite (PRA) documente
+#### Ce qu'il faut faire
 
-#### Metriques a surveiller
-- Temps de reponse moyen des pages < 2s
-- Temps de reponse des Server Actions < 1s
-- Taux d'erreur < 0.1%
-- Disponibilite > 99.5%
+- Mettre en place les sauvegardes automatiques quotidiennes
+- Configurer les alertes de performance (temps de réponse > 3 secondes)
+- Lancer des tests de charge initiaux avec k6 ou Artillery (50 utilisateurs simultanés)
+- Rédiger un plan de reprise d'activité (PRA)
+
+#### Métriques cibles
+
+| Métrique | Cible |
+|:--|:--|
+| Temps de réponse moyen des pages | < 2 secondes |
+| Temps de réponse des Server Actions | < 1 seconde |
+| Taux d'erreur | < 0.1% |
+| Disponibilité | > 99.5% |
 
 ---
 
-### PALIER 2 : 50 - 200 utilisateurs (Croissance)
+### Palier 2 : 50 - 200 utilisateurs (Croissance)
 
-**Profil** : Traction confirmee, premiers clients payants significatifs
-**Volume estime** : ~3 000 lots, ~15 000 factures/mois, ~30 Go stockage, ~100 sessions simultanees
+**Profil :** Traction confirmée, premiers clients payants significatifs
 
-#### Infrastructure requise
+**Volumes estimés :**
+- ~3 000 lots gérés
+- ~15 000 factures/mois
+- ~30 Go de stockage
+- ~100 sessions simultanées
 
-| Composant | Configuration | Cout mensuel estime |
-|---|---|---|
-| Vercel | Pro + (plus de compute) | 50 EUR |
-| Supabase | Pro avec add-ons (compute M, 50 Go DB) | 75 EUR |
-| Upstash Redis | Pro (100k req/jour) | 30 EUR |
+#### Coût infrastructure
+
+| Service | Configuration | Coût mensuel |
+|:--|:--|--:|
+| Vercel | Pro+ (plus de compute) | 50 EUR |
+| Supabase | Pro + add-ons (compute M, 50 Go DB) | 75 EUR |
+| Upstash Redis | Pro (100k requêtes/jour) | 30 EUR |
 | Resend | Business (100k emails/mois) | 50 EUR |
 | Sentry | Team (100k events) | 50 EUR |
-| CDN images | Vercel Image Optimization | 20 EUR |
-| **TOTAL** | | **~275 EUR/mois** |
+| Vercel Image Optimization | CDN images | 20 EUR |
+| **Total** | | **~275 EUR/mois** |
 
-#### Actions requises
+#### Ce qu'il faut faire
 
-**Base de donnees :**
-- [ ] Activer les replicas en lecture (Supabase Read Replicas)
-- [ ] Optimiser les requetes lentes : ajouter des index sur les colonnes frequemment filtrees
-  - `Invoice.societyId + status + dueDate` (index composite)
-  - `Lease.societyId + status + endDate`
-  - `BankTransaction.societyId + reconciled + date`
-  - `AuditLog.societyId + createdAt`
-- [ ] Mettre en place le connection pooling avance (PgBouncer transaction mode)
-- [ ] Planifier les VACUUM et ANALYZE automatiques
-- [ ] Archivage des donnees > 3 ans dans des tables d'archive
+**Base de données :**
+- Activer les read replicas Supabase (lectures lourdes sur le replica)
+- Ajouter des index composites sur les colonnes fréquemment filtrées :
+  ```sql
+  CREATE INDEX idx_invoice_society_status ON "Invoice" ("societyId", "status", "dueDate");
+  CREATE INDEX idx_lease_society_status ON "Lease" ("societyId", "status", "endDate");
+  CREATE INDEX idx_bank_tx_reconciled ON "BankTransaction" ("societyId", "reconciled", "date");
+  CREATE INDEX idx_audit_created ON "AuditLog" ("societyId", "createdAt" DESC);
+  ```
+- Mettre en place le connection pooling avancé (PgBouncer transaction mode)
+- Planifier les VACUUM et ANALYZE automatiques
+- Archiver les données de plus de 3 ans dans des tables d'archive
 
-**Performance :**
-- [ ] Implementer le cache Redis pour les donnees frequemment lues :
-  - Dashboard KPIs (TTL 5 min)
-  - Liste des societes/lots d'un utilisateur (TTL 10 min)
-  - Indices INSEE (TTL 24h)
-  - Plan comptable (TTL 1h)
-- [ ] Activer ISR (Incremental Static Regeneration) pour les pages semi-statiques (aide, blog)
-- [ ] Lazy loading des composants lourds (graphiques Recharts, editeur PDF)
-- [ ] Pagination systematique cote serveur (pas de chargement > 100 elements)
-- [ ] Optimisation des images : WebP/AVIF, lazy loading, srcset responsive
+**Cache Redis :**
+- Dashboard KPIs : TTL 5 minutes
+- Liste des sociétés/lots d'un utilisateur : TTL 10 minutes
+- Indices INSEE : TTL 24 heures
+- Plan comptable : TTL 1 heure
 
-**Stockage :**
-- [ ] Politique de retention des fichiers : compression des PDFs > 1 an
-- [ ] Nettoyage automatique des fichiers temporaires
-- [ ] CDN pour les fichiers statiques (logos, templates)
+**Performance frontend :**
+- Activer ISR (Incremental Static Regeneration) pour les pages semi-statiques (aide, blog)
+- Lazy loading des composants lourds (graphiques Recharts, éditeur PDF)
+- Pagination systématique côté serveur (jamais plus de 100 éléments chargés)
+- Optimisation images : WebP/AVIF, lazy loading, srcset responsive
 
 **Monitoring :**
-- [ ] Dashboard de monitoring en temps reel (Vercel Analytics + custom)
-- [ ] Alertes Slack/email sur : erreurs 5xx, latence > 3s, DB connections > 80%
-- [ ] Logs structures (JSON) avec correlation ID par requete
+- Dashboard de monitoring temps réel (Vercel Analytics + custom)
+- Alertes Slack/email : erreurs 5xx, latence > 3s, connexions DB > 80%
+- Logs structurés (JSON) avec correlation ID par requête
 
 ---
 
-### PALIER 3 : 200 - 1 000 utilisateurs (Scale-up)
+### Palier 3 : 200 - 1 000 utilisateurs (Scale-up)
 
-**Profil** : Croissance soutenue, besoins enterprise emergents
-**Volume estime** : ~15 000 lots, ~60 000 factures/mois, ~200 Go stockage, ~500 sessions simultanees
+**Profil :** Croissance soutenue, besoins enterprise émergents
 
-#### Infrastructure requise
+**Volumes estimés :**
+- ~15 000 lots gérés
+- ~60 000 factures/mois
+- ~200 Go de stockage
+- ~500 sessions simultanées
 
-| Composant | Configuration | Cout mensuel estime |
-|---|---|---|
+#### Coût infrastructure
+
+| Service | Configuration | Coût mensuel |
+|:--|:--|--:|
 | Vercel | Enterprise ou migration VPS | 200-500 EUR |
 | Supabase | Pro XL (compute L, 200 Go DB, read replicas) | 300 EUR |
 | Redis | Upstash Pro ou Redis Cloud | 80 EUR |
 | Resend | Enterprise (500k emails/mois) | 200 EUR |
 | Sentry | Business | 100 EUR |
 | Stockage | Supabase Storage 500 Go + CDN | 100 EUR |
-| Backup | Backup offsite automatise | 50 EUR |
-| **TOTAL** | | **~1 000 - 1 300 EUR/mois** |
+| Backup offsite | Automatisé | 50 EUR |
+| **Total** | | **~1 000 - 1 300 EUR/mois** |
 
-#### Actions requises
+#### Ce qu'il faut faire
 
 **Architecture :**
-- [ ] Evaluer la migration vers une infrastructure dediee :
-  - Option A : Rester Vercel Enterprise (simplicite, cout plus eleve)
-  - Option B : Migration VPS (Hetzner/OVH) + Docker + Kubernetes lite (k3s)
-  - Option C : AWS/GCP avec ECS/Cloud Run (flexibilite, complexite)
-  - **Recommandation** : Rester Vercel tant que le ratio cout/simplicite est acceptable
-- [ ] Mettre en place un CDN dedie (Cloudflare) devant Vercel
-- [ ] Separer les cron jobs lourds dans des workers dedies (Inngest ou Trigger.dev)
+- Évaluer la migration vers une infrastructure dédiée :
+  - **Option A :** Rester Vercel Enterprise (simplicité, coût plus élevé) - **recommandé tant que le ratio coût/simplicité est acceptable**
+  - **Option B :** VPS (Hetzner/OVH) + Docker + k3s
+  - **Option C :** AWS/GCP avec ECS/Cloud Run
+- Mettre en place un CDN dédié (Cloudflare) devant Vercel
+- Séparer les cron jobs lourds dans des workers dédiés (Inngest ou Trigger.dev)
 
-**Base de donnees :**
-- [ ] Read replicas actifs pour les requetes de lecture lourdes (rapports, analytics)
-- [ ] Partitionnement des tables volumineuses par date :
+**Base de données :**
+- Partitionnement des tables volumineuses par date :
   - `AuditLog` : partitionnement mensuel
-  - `BankTransaction` : partitionnement annuel
-  - `Invoice` : partitionnement annuel
-- [ ] Connection pooling avance avec Supavisor ou PgBouncer dediv
-- [ ] Monitoring DB dediv (pganalyze ou Supabase Dashboard)
-- [ ] Politique de purge : archiver les audit logs > 1 an, transactions reconciliees > 3 ans
+  - `BankTransaction` et `Invoice` : partitionnement annuel
+- Monitoring DB dédié (pganalyze ou Supabase Dashboard)
+- Politique de purge : archiver les audit logs > 1 an, transactions réconciliées > 3 ans
 
 **Cache multi-niveaux :**
-- [ ] Niveau 1 : In-memory (LRU cache Node.js pour les donnees chaudes)
-- [ ] Niveau 2 : Redis (sessions, KPIs, resultats de recherche)
-- [ ] Niveau 3 : CDN edge (pages statiques, assets)
-- [ ] Cache invalidation event-driven (revalidatePath + Redis pub/sub)
+- Niveau 1 : In-memory (LRU cache Node.js pour les données chaudes)
+- Niveau 2 : Redis (sessions, KPIs, résultats de recherche)
+- Niveau 3 : CDN edge (pages statiques, assets)
+- Invalidation event-driven (revalidatePath + Redis pub/sub)
 
-**Securite renforcee :**
-- [ ] WAF (Web Application Firewall) - Cloudflare ou Vercel
-- [ ] DDoS protection avancee
-- [ ] Audit de securite externe (pentest)
-- [ ] SOC 2 Type I preparation
-- [ ] Encryption at rest pour la base de donnees
-- [ ] Backup chiffre avec rotation des cles
+**Sécurité renforcée :**
+- WAF (Web Application Firewall) via Cloudflare ou Vercel
+- Protection DDoS avancée
+- Audit de sécurité externe (pentest annuel)
+- Préparation SOC 2 Type I
+- Chiffrement at-rest pour la base de données
+- Backups chiffrés avec rotation des clés
 
 **Stockage :**
-- [ ] Migration possible vers S3/R2 si les couts Supabase Storage deviennent prohibitifs
-- [ ] Politique de tiering : fichiers recents en hot storage, > 1 an en cold storage
-- [ ] Compression automatique des documents a l'upload (tinify pour images, ghostscript pour PDF)
+- Migration possible vers S3/R2 si les coûts Supabase Storage deviennent prohibitifs
+- Politique de tiering : fichiers récents en hot storage, > 1 an en cold storage
+- Compression automatique des documents à l'upload
 
 ---
 
-### PALIER 4 : 1 000 - 5 000 utilisateurs (Entreprise)
+### Palier 4 : 1 000 - 5 000 utilisateurs (Enterprise)
 
-**Profil** : Leader du marche, clients grands comptes
-**Volume estime** : ~75 000 lots, ~300 000 factures/mois, ~1 To stockage, ~2 000 sessions simultanees
+**Profil :** Leader du marché, clients grands comptes
 
-#### Infrastructure requise
+**Volumes estimés :**
+- ~75 000 lots gérés
+- ~300 000 factures/mois
+- ~1 To de stockage
+- ~2 000 sessions simultanées
 
-| Composant | Configuration | Cout mensuel estime |
-|---|---|---|
+#### Coût infrastructure
+
+| Service | Configuration | Coût mensuel |
+|:--|:--|--:|
 | Compute | Kubernetes (EKS/GKE) ou Vercel Enterprise | 1 500 EUR |
-| Base de donnees | PostgreSQL dedie (RDS/Cloud SQL) + read replicas | 800 EUR |
+| Base de données | PostgreSQL dédié (RDS/Cloud SQL) + read replicas | 800 EUR |
 | Redis | Redis Cluster (3 noeuds) | 200 EUR |
 | Stockage | S3/R2 (1 To) + CDN | 200 EUR |
 | Emails | Resend Enterprise + SES fallback | 400 EUR |
 | Monitoring | Datadog ou Grafana Cloud | 300 EUR |
-| Securite | WAF + DDoS + pentest trimestriel | 500 EUR |
-| Backup | Multi-region, retention 90 jours | 200 EUR |
-| **TOTAL** | | **~4 000 - 5 000 EUR/mois** |
+| Sécurité | WAF + DDoS + pentest trimestriel | 500 EUR |
+| Backup | Multi-région, rétention 90 jours | 200 EUR |
+| **Total** | | **~4 000 - 5 000 EUR/mois** |
 
-#### Actions requises
+#### Ce qu'il faut faire
 
-**Architecture :**
-- [ ] Migration vers infrastructure dediee (Kubernetes) si ce n'est pas deja fait
-- [ ] Architecture microservices pour les modules lourds :
-  - Service PDF (generation en parallele, queue)
-  - Service IA (analyse documents, evaluations)
-  - Service email (queue avec retry)
-  - Service cron/jobs (Inngest/Temporal)
-- [ ] Base de donnees : master-replica avec failover automatique
-- [ ] Multi-region : deploiement secondaire pour la DR (Disaster Recovery)
-- [ ] Queue de messages (BullMQ / RabbitMQ) pour les operations asynchrones
+**Architecture microservices :**
+- Service PDF : génération en parallèle avec file d'attente
+- Service IA : analyse documents et évaluations
+- Service email : file d'attente avec retry automatique
+- Service cron/jobs : Inngest ou Temporal
 
-**Performance :**
-- [ ] API GraphQL ou tRPC pour optimiser les requetes frontend
-- [ ] Server-Sent Events ou WebSockets pour les mises a jour en temps reel
-- [ ] Pre-rendering des rapports pendant les heures creuses
-- [ ] Materialized views PostgreSQL pour les KPIs complexes
+**Base de données :**
+- Master-replica avec failover automatique
+- Multi-région pour le Disaster Recovery
+- File de messages (BullMQ / RabbitMQ) pour les opérations asynchrones
+- Materialized views PostgreSQL pour les KPIs complexes
 
-**Donnees :**
-- [ ] Data warehouse separe pour l'analytique (ClickHouse ou BigQuery)
-- [ ] ETL pipeline pour alimenter le data warehouse
-- [ ] Retention policy automatisee avec archivage S3 Glacier
+**Données :**
+- Data warehouse séparé pour l'analytique (ClickHouse ou BigQuery)
+- ETL pipeline pour alimenter le data warehouse
+- Rétention automatisée avec archivage S3 Glacier
 
-**Equipe :**
-- [ ] DevOps / SRE dedie (au moins 1 personne)
-- [ ] On-call rotation pour les incidents
-- [ ] Runbooks documentes pour les incidents courants
-- [ ] SLA contractuels (99.9% uptime)
+**Équipe :**
+- DevOps / SRE dédié (au minimum 1 personne)
+- Rotation d'astreinte pour les incidents
+- Runbooks documentés pour les incidents courants
+- SLA contractuels : 99.9% de disponibilité
 
 ---
 
-### PALIER 5 : 5 000+ utilisateurs (Scale enterprise)
+### Palier 5 : 5 000+ utilisateurs (Scale international)
 
-**Profil** : Expansion internationale, multi-marche
-**Volume estime** : ~500 000 lots, ~2M factures/mois, ~10 To stockage
+**Profil :** Expansion internationale, multi-marchés
 
-#### Evolution architecturale
+**Volumes estimés :**
+- ~500 000 lots gérés
+- ~2 millions de factures/mois
+- ~10 To de stockage
 
-- [ ] Multi-tenant par base de donnees (un schema/DB par gros client) pour les comptes enterprise
-- [ ] CDN multi-region (Europe, DOM-TOM, Afrique francophone)
-- [ ] Sharding de la base de donnees par region ou par client
-- [ ] API gateway (Kong/Tyk) pour le rate limiting, auth, et routing
-- [ ] Service mesh (Istio) pour la communication inter-services
-- [ ] Observabilite complete : traces distribuees (OpenTelemetry), metriques, logs
+#### Évolution architecturale
 
-**Cout estime** : 15 000 - 30 000 EUR/mois d'infrastructure
+- Multi-tenant par base de données (un schéma/DB par gros client enterprise)
+- CDN multi-région (Europe, DOM-TOM, Afrique francophone)
+- Sharding de la base de données par région ou par client
+- API gateway (Kong/Tyk) pour le rate limiting, l'authentification et le routing
+- Service mesh (Istio) pour la communication inter-services
+- Observabilité complète : traces distribuées (OpenTelemetry), métriques, logs
 
----
-
-## 3. Tableau recapitulatif des paliers
-
-| Palier | Utilisateurs | Lots geres | Infra mensuelle | Action cle |
-|---|---|---|---|---|
-| 1 - Lancement | 0-50 | ~500 | ~100 EUR | Vercel + Supabase Pro |
-| 2 - Croissance | 50-200 | ~3 000 | ~275 EUR | Read replicas, cache Redis, index DB |
-| 3 - Scale-up | 200-1 000 | ~15 000 | ~1 200 EUR | CDN, workers separes, partitionnement |
-| 4 - Enterprise | 1 000-5 000 | ~75 000 | ~4 500 EUR | Kubernetes, microservices, multi-region |
-| 5 - Scale | 5 000+ | ~500 000 | ~20 000 EUR | Sharding, API gateway, service mesh |
+**Coût estimé : 15 000 - 30 000 EUR/mois d'infrastructure**
 
 ---
 
-## 4. Optimisations de performance immediates (a faire avant le lancement)
+## Tableau récapitulatif
 
-### 4.1 Base de donnees
+| Palier | Utilisateurs | Lots gérés | Infra/mois | Action clé |
+|:--|:--|:--|--:|:--|
+| **1 - Lancement** | 0 - 50 | ~500 | ~100 EUR | Vercel + Supabase Pro, monitoring basique |
+| **2 - Croissance** | 50 - 200 | ~3 000 | ~275 EUR | Read replicas, cache Redis, index DB |
+| **3 - Scale-up** | 200 - 1 000 | ~15 000 | ~1 200 EUR | CDN Cloudflare, workers séparés, partitionnement |
+| **4 - Enterprise** | 1 000 - 5 000 | ~75 000 | ~4 500 EUR | Kubernetes, microservices, multi-région |
+| **5 - International** | 5 000+ | ~500 000 | ~20 000 EUR | Sharding, API gateway, service mesh |
+
+---
+
+## Optimisations à faire avant le lancement
+
+### Base de données : index critiques
+
 ```sql
--- Index critiques a ajouter
 CREATE INDEX idx_invoice_society_status_date ON "Invoice" ("societyId", "status", "dueDate");
 CREATE INDEX idx_lease_society_status_end ON "Lease" ("societyId", "status", "endDate");
 CREATE INDEX idx_bank_tx_society_reconciled ON "BankTransaction" ("societyId", "reconciled", "date");
@@ -256,29 +276,31 @@ CREATE INDEX idx_tenant_society_active ON "Tenant" ("societyId", "isArchived");
 CREATE INDEX idx_lot_society_status ON "Lot" ("societyId", "status");
 ```
 
-### 4.2 Cache strategie
-```
-Donnees chaudes (TTL 5 min)  : Dashboard KPIs, compteurs
-Donnees tiedes (TTL 1h)      : Plan comptable, categories charges
-Donnees froides (TTL 24h)    : Indices INSEE, liste des societes
-Donnees statiques (TTL 7j)   : Templates courriers, aide
-```
+### Stratégie de cache
 
-### 4.3 Frontend
-- Code splitting par route (deja natif Next.js App Router)
-- Lazy loading Recharts (import dynamique)
+| Type de données | Durée de cache (TTL) | Exemples |
+|:--|:--|:--|
+| Chaudes | 5 minutes | Dashboard KPIs, compteurs |
+| Tièdes | 1 heure | Plan comptable, catégories de charges |
+| Froides | 24 heures | Indices INSEE, liste des sociétés |
+| Statiques | 7 jours | Templates de courriers, pages d'aide |
+
+### Frontend
+
+- Code splitting par route (natif Next.js App Router)
+- Lazy loading des graphiques Recharts (import dynamique)
 - Compression Brotli (actif sur Vercel)
-- Prefetch des pages probables (liens sidebar)
-- Image optimization : logos < 50 Ko, documents preview < 200 Ko
+- Prefetch des pages probables (liens de la sidebar)
+- Images optimisées : logos < 50 Ko, aperçus documents < 200 Ko
 
-### 4.4 Metriques cibles
+### Métriques cibles par palier
 
-| Metrique | Cible Palier 1 | Cible Palier 3 | Cible Palier 5 |
-|---|---|---|---|
-| TTFB (Time to First Byte) | < 500ms | < 300ms | < 200ms |
-| LCP (Largest Contentful Paint) | < 2.5s | < 2s | < 1.5s |
-| FID (First Input Delay) | < 100ms | < 50ms | < 30ms |
+| Métrique | Palier 1 | Palier 3 | Palier 5 |
+|:--|:--|:--|:--|
+| TTFB (Time to First Byte) | < 500 ms | < 300 ms | < 200 ms |
+| LCP (Largest Contentful Paint) | < 2.5 s | < 2 s | < 1.5 s |
+| FID (First Input Delay) | < 100 ms | < 50 ms | < 30 ms |
 | CLS (Cumulative Layout Shift) | < 0.1 | < 0.05 | < 0.05 |
-| Temps Server Action moyen | < 1s | < 500ms | < 300ms |
-| Disponibilite | 99.5% | 99.9% | 99.95% |
-| Erreurs 5xx / jour | < 10 | < 5 | < 1 |
+| Temps Server Action moyen | < 1 s | < 500 ms | < 300 ms |
+| Disponibilité | 99.5% | 99.9% | 99.95% |
+| Erreurs 5xx par jour | < 10 | < 5 | < 1 |
