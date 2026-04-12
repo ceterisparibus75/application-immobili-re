@@ -48,3 +48,7 @@ next-env.d.ts
 # Prisma generated client
 src/generated/
 .claude/worktrees/
+
+# Migration SQL files (use Prisma migrations instead)
+supabase-migration*.sql
+supabase-migration*.txt
