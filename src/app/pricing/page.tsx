@@ -19,6 +19,9 @@ const plans = [
       "Gestion de patrimoine",
       "Baux et locataires",
       "Facturation et quittances PDF",
+      "Copropriété",
+      "Location saisonnière",
+      "CRM & Candidatures",
       "Tableau de bord analytique",
       "Support par email",
     ],
@@ -36,6 +39,7 @@ const plans = [
       "Connexion bancaire automatique",
       "Relances automatiques",
       "Portail locataire",
+      "Workflows & automatisations",
       "Support prioritaire",
     ],
     cta: "Démarrer l\u2019essai gratuit",
@@ -49,9 +53,10 @@ const plans = [
     features: [
       "Tout Pro +",
       "Lots et sociétés illimités",
+      "Assistant IA (chatbot, courriers, prédiction)",
       "Signature électronique",
       "Import IA de documents",
-      "Accès API",
+      "Accès API & intégrations",
       "Support dédié & SLA 99,9%",
     ],
     cta: "Contacter l\u2019équipe commerciale",
@@ -196,11 +201,19 @@ export default function PricingPage() {
             </div>
             <div className="border-b pb-5">
               <p className="font-bold text-base">Quelles fonctionnalités sont réservées au plan Enterprise ?</p>
-              <p className="text-muted-foreground mt-2">Le plan Enterprise inclut : lots et sociétés illimités, signature électronique intégrée, import IA de documents (Excel, CSV), accès API, et un support dédié avec SLA 99,9%.</p>
+              <p className="text-muted-foreground mt-2">Le plan Enterprise inclut : lots et sociétés illimités, assistant IA (chatbot conversationnel, génération de courriers, prédiction des impayés), signature électronique, import documentaire assisté par IA, accès API et intégrations, et un support dédié avec SLA 99,9%.</p>
             </div>
-            <div>
+            <div className="border-b pb-5">
               <p className="font-bold text-base">Puis-je importer mes données existantes ?</p>
               <p className="text-muted-foreground mt-2">Oui. Vous pouvez importer vos immeubles, lots, locataires et baux depuis des fichiers Excel ou CSV. Le plan Enterprise propose un import assisté par intelligence artificielle qui détecte et mappe automatiquement vos données.</p>
+            </div>
+            <div className="border-b pb-5">
+              <p className="font-bold text-base">La copropriété et la location saisonnière sont-elles incluses ?</p>
+              <p className="text-muted-foreground mt-2">Oui. Les modules Copropriété et Location saisonnière sont disponibles dans tous les plans, dès l&apos;offre Starter. Le module Workflows & automatisations est inclus à partir du plan Pro.</p>
+            </div>
+            <div>
+              <p className="font-bold text-base">Comment fonctionne l&apos;assistant IA ?</p>
+              <p className="text-muted-foreground mt-2">L&apos;assistant IA (plan Enterprise) comprend un chatbot conversationnel pour répondre à vos questions, la génération automatique de courriers professionnels et la prédiction des risques d&apos;impayés basée sur l&apos;historique de paiement.</p>
             </div>
           </div>
         </div>

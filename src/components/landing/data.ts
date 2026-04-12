@@ -271,7 +271,7 @@ export const faqs: Faq[] = [
   },
   {
     q: "Est-il possible de migrer nos données existantes ?",
-    a: "MyGestia permet l'import structuré via CSV et Excel : immeubles, lots, locataires, baux et écritures comptables.",
+    a: "MyGestia permet l'import structuré via CSV et Excel : immeubles, lots, locataires, baux et écritures comptables. Le plan Institutionnel propose un import assisté par intelligence artificielle.",
   },
   {
     q: "Quelle est la politique de sécurité des données ?",
@@ -288,6 +288,14 @@ export const faqs: Faq[] = [
   {
     q: "Puis-je gérer plusieurs sociétés et structures juridiques ?",
     a: "Oui. MyGestia est conçu pour le multi-sociétés. Chaque structure (SCI, SARL, SAS) dispose de sa propre comptabilité, avec consolidation au niveau propriétaire.",
+  },
+  {
+    q: "Quelles fonctionnalités sont réservées au plan Institutionnel ?",
+    a: "Le plan Institutionnel inclut : lots et sociétés illimités, assistant IA (chatbot, génération de courriers, prédiction des impayés), signature électronique, import documentaire assisté par IA, accès API et support dédié avec SLA 99,9%.",
+  },
+  {
+    q: "La copropriété et la location saisonnière sont-elles incluses ?",
+    a: "Oui. Les modules Copropriété et Location saisonnière sont inclus dans tous les plans dès l'offre Essentiel. Le module Workflows & automatisations est disponible à partir du plan Professionnel.",
   },
 ];
 
