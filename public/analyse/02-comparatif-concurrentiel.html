@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGestia - Comparatif concurrentiel</title>
+  
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Inter, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 2em;
+    color: #0C2340;
+    border-bottom: 3px solid #22B8CF;
+    padding-bottom: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.45em;
+    color: #1B4F8A;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #0C2340;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1.05em;
+    color: #1B4F8A;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  blockquote {
+    background: #f0f9ff;
+    border-left: 4px solid #22B8CF;
+    padding: 14px 20px;
+    margin: 16px 0 20px;
+    border-radius: 0 8px 8px 0;
+    color: #334155;
+    font-size: 0.95em;
+  }
+  blockquote strong { color: #0C2340; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.9em;
+  }
+  thead th {
+    background: #0C2340;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8ecf0;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #eef6ff; }
+  strong { color: #0C2340; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 5px; }
+  li ul, li ol { margin-top: 4px; margin-bottom: 4px; }
+  code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #1B4F8A;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 32px 0;
+  }
+  .nav {
+    background: #0C2340;
+    padding: 16px 0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav a {
+    color: #22B8CF;
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .nav a:hover { color: #fff; }
+  .nav a.active { color: #fff; border-bottom: 2px solid #22B8CF; padding-bottom: 2px; }
+  @media print {
+    body { background: #fff; }
+    .container { box-shadow: none; padding: 20px; }
+    .nav { display: none; }
+    table { font-size: 0.8em; }
+    h1 { font-size: 1.6em; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 24px 20px; }
+    table { font-size: 0.8em; }
+    thead th, tbody td { padding: 6px 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <nav class="nav"><a href="01-audit-fonctionnel.html">Audit fonctionnel</a><a href="02-comparatif-concurrentiel.html" class="active">Comparatif concurrentiel</a><a href="03-pistes-amelioration.html">Améliorations</a><a href="04-scalabilite-infrastructure.html">Scalabilité</a><a href="05-strategie-marketing.html">Marketing</a></nav>
+  <div class="container">
+    <h1>Comparatif concurrentiel</h1>
+<blockquote>
+<p><strong>Date :</strong> 12 avril 2026
+<strong>Marché :</strong> Gestion locative immobilière SaaS - France</p>
+</blockquote>
+<hr>
+<h2>Le marché français en 2026</h2>
+<p>Le marché se segmente en <strong>3 catégories</strong> :</p>
+<table>
+<thead>
+<tr>
+<th align="left">Segment</th>
+<th align="left">Cible</th>
+<th align="left">Acteurs principaux</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Particuliers / petits bailleurs</strong> (1-10 lots)</td>
+<td align="left">Propriétaires individuels, SCI simples</td>
+<td align="left">GérerSeul, BailFacile, Rentila, iGestionlocative, Hestia</td>
+</tr>
+<tr>
+<td align="left"><strong>Professionnels mid-market</strong> (10-200 lots)</td>
+<td align="left">Cabinets indépendants, SCI/SARL, foncières</td>
+<td align="left"><strong>MyGestia</strong>, LOCKimmo, Ublo, Tylto</td>
+</tr>
+<tr>
+<td align="left"><strong>Grands comptes / institutionnels</strong> (200+ lots)</td>
+<td align="left">Administrateurs de biens, bailleurs sociaux</td>
+<td align="left">Powimo (Seiitra), Thetrawin, Aareon</td>
+</tr>
+</tbody></table>
+<p><strong>MyGestia se positionne sur le segment professionnel mid-market.</strong></p>
+<hr>
+<h2>Fiches concurrents détaillées</h2>
+<h3>Concurrents directs (même segment)</h3>
+<h4>LOCKimmo - Menace ÉLEVÉE</h4>
+<ul>
+<li><strong>Qui :</strong> N.1 autoproclamé des logiciels pro, <strong>19 ans d&#39;expérience</strong></li>
+<li><strong>Prix :</strong> Sur devis (estimé 50-150 EUR/mois selon nombre de lots)</li>
+<li><strong>Cible :</strong> Administrateurs de biens, agences, syndics, gestionnaires indépendants</li>
+<li><strong>Ce qu&#39;il fait bien :</strong><ul>
+<li>Notoriété et base installée importante</li>
+<li>Modules syndic + transaction + saisonnier (que MyGestia n&#39;a pas)</li>
+<li>Reconnaissance automatique des factures (IA)</li>
+<li>Synchronisation bancaire et signature électronique</li>
+<li>Nouvelle version LOCKimmo.IO plus rapide</li>
+</ul>
+</li>
+<li><strong>Ses faiblesses :</strong><ul>
+<li>Interface historiquement datée (refonte en cours)</li>
+<li>Prix opaque (sur devis = friction à l&#39;achat)</li>
+<li>Pas de portail locataire avancé</li>
+<li>Pas d&#39;évaluation patrimoniale IA</li>
+<li>Pas d&#39;Open Banking PSD2 multi-providers</li>
+</ul>
+</li>
+</ul>
+<h4>Ublo - Menace MODÉRÉE</h4>
+<ul>
+<li><strong>Qui :</strong> Solution tout-en-un moderne pour gestionnaires pro et bailleurs sociaux</li>
+<li><strong>Prix :</strong> Sur devis</li>
+<li><strong>Ce qu&#39;il fait bien :</strong><ul>
+<li>Interface moderne et intuitive</li>
+<li>Ticketing et états des lieux en ligne avec photos</li>
+<li>CRM immobilier intégré</li>
+<li>Portail locataire complet</li>
+<li>Conformité RGPD</li>
+</ul>
+</li>
+<li><strong>Ses faiblesses :</strong><ul>
+<li>Moins de profondeur comptable (pas de FEC)</li>
+<li>Pas d&#39;IA documentaire ni d&#39;évaluation patrimoniale</li>
+<li>Pas d&#39;Open Banking multi-providers</li>
+<li>Moins de types de rapports</li>
+</ul>
+</li>
+</ul>
+<h4>Tylto - Menace MODÉRÉE</h4>
+<ul>
+<li><strong>Qui :</strong> Plateforme 100% web pour administrateurs de biens et agences</li>
+<li><strong>Prix :</strong> Sur devis</li>
+<li><strong>Ce qu&#39;il fait bien :</strong><ul>
+<li>Full web sans installation</li>
+<li>Gestion contrats, suivi loyers/impayés</li>
+<li>Paiement électronique, relance automatique</li>
+<li>Stockage documents sécurisé</li>
+</ul>
+</li>
+<li><strong>Ses faiblesses :</strong><ul>
+<li>Pas d&#39;IA, pas d&#39;Open Banking PSD2</li>
+<li>Communauté plus petite, moins de visibilité</li>
+<li>Moins de fonctionnalités avancées globalement</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3>Concurrents indirects (segment particuliers)</h3>
+<h4>GérerSeul</h4>
+<ul>
+<li><strong>Prix :</strong> À partir de 12 EUR/mois</li>
+<li><strong>Note :</strong> Trustpilot 4.8/5 - Leader particuliers</li>
+<li><strong>Forces :</strong> Support juridique avec fiscalistes, tous types de baux, déclarations fiscales</li>
+<li><strong>Limite :</strong> Pas de comptabilité pro (FEC), pas d&#39;Open Banking, pas de portail locataire avancé</li>
+<li><strong>Menace :</strong> Faible (segment différent)</li>
+</ul>
+<h4>BailFacile</h4>
+<ul>
+<li><strong>Prix :</strong> À partir de 7.99 EUR/mois, premium 29 EUR/mois</li>
+<li><strong>Forces :</strong> Interface très intuitive, excellentes ressources pédagogiques, bonne UX mobile</li>
+<li><strong>Limite :</strong> Fonctionnalités basiques, pas de comptabilité, pas de rapprochement bancaire</li>
+<li><strong>Menace :</strong> Faible</li>
+</ul>
+<h4>Rentila</h4>
+<ul>
+<li><strong>Prix :</strong> Gratuit (1 lot), 4.90 EUR/mois (2-5 lots), 9.90 EUR/mois (illimité)</li>
+<li><strong>Forces :</strong> Gratuit, comptabilité basique, relances, 3 200 avis (4.6/5)</li>
+<li><strong>Limite :</strong> Interface datée, pas d&#39;IA, pas d&#39;Open Banking</li>
+<li><strong>Menace :</strong> Faible</li>
+</ul>
+<h4>Hestia Software</h4>
+<ul>
+<li><strong>Prix :</strong> 100% gratuit (pas de freemium)</li>
+<li><strong>Forces :</strong> Gratuit, bail ALUR conforme, signature électronique eIDAS, note 4.8/5</li>
+<li><strong>Limite :</strong> Modèle économique fragile, pas de comptabilité avancée</li>
+<li><strong>Menace :</strong> Faible</li>
+</ul>
+<hr>
+<h3>Concurrent aspirationnel (segment grands comptes)</h3>
+<h4>Powimo (Seiitra)</h4>
+<ul>
+<li><strong>Qui :</strong> Leader institutionnel, <strong>10 000 professionnels</strong> utilisent la solution au quotidien</li>
+<li><strong>Prix :</strong> Sur devis (estimé 300-1 000+ EUR/mois)</li>
+<li><strong>Forces :</strong> Couverture complète (gestion locative, syndic, transaction), comptabilité immobilière avancée</li>
+<li><strong>Limite :</strong> Prix très élevé, interface moins moderne, migration complexe</li>
+<li><strong>Menace :</strong> Faible (segment différent, mais référence à atteindre)</li>
+</ul>
+<hr>
+<h2>Matrice comparative des fonctionnalités</h2>
+<p><strong>Légende :</strong> +++ Excellent | ++ Bon | + Basique | - Absent</p>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="center">MyGestia</th>
+<th align="center">LOCKimmo</th>
+<th align="center">Ublo</th>
+<th align="center">Tylto</th>
+<th align="center">GérerSeul</th>
+<th align="center">BailFacile</th>
+<th align="center">Rentila</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Gestion patrimoine</td>
+<td align="center">+++</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Baux (17 types)</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Indexation IRL auto</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Facturation avancée</td>
+<td align="center">+++</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Comptabilité / FEC</td>
+<td align="center">+++</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Open Banking (PSD2)</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Rapprochement bancaire</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">SEPA direct debit</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Signature électronique</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left"><strong>IA documentaire</strong></td>
+<td align="center"><strong>+++</strong></td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left"><strong>Évaluation patrimoniale IA</strong></td>
+<td align="center"><strong>+++</strong></td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>-</strong></td>
+</tr>
+<tr>
+<td align="left">Portail locataire</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Tickets support locataire</td>
+<td align="center">+++</td>
+<td align="center">-</td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Rapports avancés (9 types)</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Multi-société</td>
+<td align="center">+++</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Multi-propriétaire</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">RGPD natif</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">2FA / Sécurité avancée</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Emprunts / Amortissement</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Cash-flow / Prévisionnel</td>
+<td align="center">+++</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Dataroom</td>
+<td align="center">+++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">App mobile native</td>
+<td align="center"><strong>-</strong></td>
+<td align="center">-</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">+</td>
+</tr>
+<tr>
+<td align="left">Syndic copropriété</td>
+<td align="center"><strong>-</strong></td>
+<td align="center"><strong>+++</strong></td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">-</td>
+</tr>
+<tr>
+<td align="left">Location saisonnière</td>
+<td align="center"><strong>-</strong></td>
+<td align="center">++</td>
+<td align="center">-</td>
+<td align="center">-</td>
+<td align="center">+</td>
+<td align="center">+</td>
+<td align="center">-</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Comparatif tarifaire</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Solution</th>
+<th align="left">Entrée de gamme</th>
+<th align="left">Milieu de gamme</th>
+<th align="left">Premium</th>
+<th align="left">Essai gratuit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>MyGestia</strong></td>
+<td align="left"><strong>19 EUR/mois</strong> (20 lots)</td>
+<td align="left"><strong>79 EUR/mois</strong> (50 lots)</td>
+<td align="left"><strong>199 EUR/mois</strong> (illimité)</td>
+<td align="left">14 jours</td>
+</tr>
+<tr>
+<td align="left">LOCKimmo</td>
+<td align="left">~50 EUR/mois (devis)</td>
+<td align="left">~100 EUR/mois (devis)</td>
+<td align="left">~150+ EUR/mois (devis)</td>
+<td align="left">Démo</td>
+</tr>
+<tr>
+<td align="left">Ublo</td>
+<td align="left">Sur devis</td>
+<td align="left">Sur devis</td>
+<td align="left">Sur devis</td>
+<td align="left">Démo</td>
+</tr>
+<tr>
+<td align="left">Tylto</td>
+<td align="left">Sur devis</td>
+<td align="left">Sur devis</td>
+<td align="left">Sur devis</td>
+<td align="left">Démo</td>
+</tr>
+<tr>
+<td align="left">GérerSeul</td>
+<td align="left">12 EUR/mois</td>
+<td align="left">20 EUR/mois</td>
+<td align="left">30 EUR/mois</td>
+<td align="left">14 jours</td>
+</tr>
+<tr>
+<td align="left">BailFacile</td>
+<td align="left">7.99 EUR/mois</td>
+<td align="left">14.99 EUR/mois</td>
+<td align="left">29 EUR/mois</td>
+<td align="left">Gratuit limité</td>
+</tr>
+<tr>
+<td align="left">Rentila</td>
+<td align="left">Gratuit (1 lot)</td>
+<td align="left">4.90 EUR/mois</td>
+<td align="left">9.90 EUR/mois</td>
+<td align="left">Gratuit</td>
+</tr>
+<tr>
+<td align="left">Powimo</td>
+<td align="left">~300 EUR/mois (devis)</td>
+<td align="left">Sur devis</td>
+<td align="left">~1 000+ EUR/mois</td>
+<td align="left">Démo</td>
+</tr>
+</tbody></table>
+<p><strong>Avantage MyGestia :</strong> prix transparent et publié, alors que les concurrents pro (LOCKimmo, Ublo, Tylto, Powimo) fonctionnent sur devis.</p>
+<hr>
+<h2>Comparatif design et ergonomie</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Critère</th>
+<th align="center">MyGestia</th>
+<th align="center">LOCKimmo</th>
+<th align="center">Ublo</th>
+<th align="center">BailFacile</th>
+<th align="center">GérerSeul</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Design moderne</td>
+<td align="center">8/10</td>
+<td align="center">6/10</td>
+<td align="center">8/10</td>
+<td align="center">9/10</td>
+<td align="center">7/10</td>
+</tr>
+<tr>
+<td align="left">Dark mode</td>
+<td align="center">Oui</td>
+<td align="center">Non</td>
+<td align="center">Non</td>
+<td align="center">Non</td>
+<td align="center">Non</td>
+</tr>
+<tr>
+<td align="left">Responsive mobile</td>
+<td align="center">Oui</td>
+<td align="center">Partiel</td>
+<td align="center">Oui</td>
+<td align="center">Oui</td>
+<td align="center">Oui</td>
+</tr>
+<tr>
+<td align="left">Onboarding guidé</td>
+<td align="center">Checklist</td>
+<td align="center">Formation</td>
+<td align="center">Wizard</td>
+<td align="center">Excellent</td>
+<td align="center">Bon</td>
+</tr>
+<tr>
+<td align="left">Recherche globale</td>
+<td align="center">Cmd+K</td>
+<td align="center">Basique</td>
+<td align="center">Basique</td>
+<td align="center">Non</td>
+<td align="center">Basique</td>
+</tr>
+<tr>
+<td align="left">Composants UI</td>
+<td align="center">shadcn/ui</td>
+<td align="center">Legacy</td>
+<td align="center">Custom</td>
+<td align="center">Moderne</td>
+<td align="center">Custom</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Positionnement stratégique recommandé</h2>
+<h3>Nos 5 avantages concurrentiels uniques</h3>
+<ol>
+<li><strong>IA intégrée à tous les niveaux</strong> - Aucun concurrent mid-market n&#39;offre évaluation patrimoniale IA + analyse documentaire + catégorisation cash-flow + narration de rapports</li>
+<li><strong>Open Banking triple</strong> - GoCardless + Qonto + Powens = couverture bancaire inégalée sur le marché</li>
+<li><strong>Profondeur comptable + FEC</strong> - Rare dans le segment mid-market moderne</li>
+<li><strong>Dataroom sécurisée</strong> - Fonctionnalité unique dans notre segment</li>
+<li><strong>Prix transparent</strong> - Grille claire et publique vs devis opaques des concurrents</li>
+</ol>
+<h3>Nos 5 vulnérabilités à adresser</h3>
+<ol>
+<li><strong>Notoriété</strong> - LOCKimmo (19 ans) et Powimo (10 000 users) ont une base installée</li>
+<li><strong>Pas de module syndic/transaction</strong> - LOCKimmo couvre ces besoins</li>
+<li><strong>Pas d&#39;app mobile native</strong> - BailFacile et GérerSeul en proposent une</li>
+<li><strong>Marque jeune</strong> - Pas encore d&#39;avis Trustpilot/Google significatifs</li>
+<li><strong>Pas de location saisonnière</strong> - Créneau en forte croissance non couvert</li>
+</ol>
+<h3>Positionnement en une phrase</h3>
+<blockquote>
+<p><strong>MyGestia = la plateforme IA de gestion immobilière pour professionnels exigeants qui veulent la puissance d&#39;un LOCKimmo avec la modernité d&#39;un Ublo, la conformité sans compromis, et un prix transparent.</strong></p>
+</blockquote>
+<p><strong>Sweet spot :</strong> 10 à 500 lots, SCI/SARL/foncières, cabinets de gestion indépendants.</p>
+
+  </div>
+</body>
+</html>

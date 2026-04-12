@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGestia - Améliorations</title>
+  
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Inter, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 2em;
+    color: #0C2340;
+    border-bottom: 3px solid #22B8CF;
+    padding-bottom: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.45em;
+    color: #1B4F8A;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #0C2340;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1.05em;
+    color: #1B4F8A;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  blockquote {
+    background: #f0f9ff;
+    border-left: 4px solid #22B8CF;
+    padding: 14px 20px;
+    margin: 16px 0 20px;
+    border-radius: 0 8px 8px 0;
+    color: #334155;
+    font-size: 0.95em;
+  }
+  blockquote strong { color: #0C2340; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.9em;
+  }
+  thead th {
+    background: #0C2340;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8ecf0;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #eef6ff; }
+  strong { color: #0C2340; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 5px; }
+  li ul, li ol { margin-top: 4px; margin-bottom: 4px; }
+  code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #1B4F8A;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 32px 0;
+  }
+  .nav {
+    background: #0C2340;
+    padding: 16px 0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav a {
+    color: #22B8CF;
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .nav a:hover { color: #fff; }
+  .nav a.active { color: #fff; border-bottom: 2px solid #22B8CF; padding-bottom: 2px; }
+  @media print {
+    body { background: #fff; }
+    .container { box-shadow: none; padding: 20px; }
+    .nav { display: none; }
+    table { font-size: 0.8em; }
+    h1 { font-size: 1.6em; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 24px 20px; }
+    table { font-size: 0.8em; }
+    thead th, tbody td { padding: 6px 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <nav class="nav"><a href="01-audit-fonctionnel.html">Audit fonctionnel</a><a href="02-comparatif-concurrentiel.html">Comparatif concurrentiel</a><a href="03-pistes-amelioration.html" class="active">Améliorations</a><a href="04-scalabilite-infrastructure.html">Scalabilité</a><a href="05-strategie-marketing.html">Marketing</a></nav>
+  <div class="container">
+    <h1>Pistes d&#39;amélioration</h1>
+<blockquote>
+<p><strong>Date :</strong> 12 avril 2026
+Organisation par priorité : Haute (avant commercialisation), Moyenne (trimestre suivant), Basse (6-12 mois)</p>
+</blockquote>
+<hr>
+<h2>1. Améliorations fonctionnelles</h2>
+<h3>Priorité haute - Avant commercialisation</h3>
+<h4>A. Onboarding guidé et wizard de première utilisation</h4>
+<p><strong>Constat :</strong> L&#39;application a 143 pages. Un nouvel utilisateur risque d&#39;être submergé.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Wizard en 5 étapes : Créer société &gt; Ajouter immeuble &gt; Créer lot &gt; Ajouter locataire &gt; Configurer bail</li>
+<li>Renforcer la checklist interactive existante avec des vidéos courtes (30 secondes)</li>
+<li>Ajouter un mode &quot;démo&quot; avec données fictives pré-remplies pour explorer sans risque</li>
+<li>Tooltips contextuels sur les fonctionnalités avancées (IA, rapprochement bancaire, FEC)</li>
+</ul>
+<hr>
+<h4>B. Application mobile (PWA puis native)</h4>
+<p><strong>Constat :</strong> BailFacile et GérerSeul ont une app mobile. Les gestionnaires sont souvent sur le terrain (visites, états des lieux, rendez-vous locataires).</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li><strong>Phase 1 :</strong> PWA avec service worker - notifications push et mode offline en lecture</li>
+<li><strong>Phase 2 :</strong> App React Native (Expo) avec les fonctionnalités clés :<ul>
+<li>Consultation du patrimoine et des baux</li>
+<li>Alertes et notifications</li>
+<li>Validation rapide des factures</li>
+<li>Photos pour états des lieux</li>
+</ul>
+</li>
+<li>Priorité : consultation et actions rapides (valider, relancer, noter)</li>
+</ul>
+<hr>
+<h4>C. Tableaux de bord personnalisables</h4>
+<p><strong>Constat :</strong> Le dashboard est riche mais figé. Chaque gestionnaire a des priorités différentes.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Widgets drag-and-drop repositionnables</li>
+<li>KPIs configurables par l&#39;utilisateur</li>
+<li>Vues filtrables : par propriétaire, par immeuble, par locataire</li>
+<li>Objectifs personnels (taux d&#39;occupation cible, délai d&#39;encaissement cible)</li>
+</ul>
+<hr>
+<h4>D. Recherche globale améliorée</h4>
+<p><strong>Constat :</strong> La recherche Cmd+K existe mais reste limitée en fonctionnalités.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Recherche sémantique IA (comprendre l&#39;intention, pas juste le texte)</li>
+<li>Filtres rapides : par type d&#39;entité, par société, par période</li>
+<li>Résultats avec aperçu (mini-card avec les infos clés)</li>
+<li>Historique des recherches récentes</li>
+</ul>
+<hr>
+<h3>Priorité moyenne - Trimestre suivant</h3>
+<h4>E. Module syndic de copropriété</h4>
+<p><strong>Constat :</strong> LOCKimmo couvre ce besoin et c&#39;est un argument de vente majeur. MyGestia ne le propose pas.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Assemblées générales en ligne : convocations, PV, votes</li>
+<li>Budget prévisionnel de copropriété</li>
+<li>Répartition des charges par tantièmes</li>
+<li>Carnet d&#39;entretien de l&#39;immeuble</li>
+<li><strong>Impact :</strong> Élargissement considérable de la cible client</li>
+</ul>
+<hr>
+<h4>F. Location saisonnière</h4>
+<p><strong>Constat :</strong> Créneau non couvert mais en forte croissance (Airbnb, Booking).</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Calendrier de disponibilité</li>
+<li>Tarification dynamique</li>
+<li>Connexion aux OTA (Airbnb, Booking, Abritel)</li>
+<li>Contrats saisonniers conformes à la réglementation</li>
+<li>État des lieux simplifié (photo + checklist)</li>
+</ul>
+<hr>
+<h4>G. CRM / Pipeline de candidatures locataires</h4>
+<p><strong>Constat :</strong> Aucune gestion des prospects locataires actuellement.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Pipeline visuel : candidature reçue &gt; visite programmée &gt; dossier déposé &gt; sélection &gt; bail signé</li>
+<li>Scoring automatique des dossiers (revenus, garanties, historique)</li>
+<li>Communication groupée avec les candidats</li>
+<li>Lien avec les annonces publiées sur les plateformes</li>
+</ul>
+<hr>
+<h4>H. Automatisation avancée (workflows visuels)</h4>
+<p><strong>Constat :</strong> Les automatisations actuelles sont des cron jobs (horaires fixes), pas déclenchées par événement.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Éditeur de workflows visuels : &quot;Quand facture impayée &gt; 30 jours → envoyer relance niveau 2&quot;</li>
+<li>Triggers personnalisables : bail arrive à échéance, assurance expirée, diagnostic périmé</li>
+<li>Actions chaînables : email + SMS + notification in-app + changement de statut</li>
+<li>Templates de workflows pré-configurés pour les cas courants</li>
+</ul>
+<hr>
+<h3>Priorité basse - Roadmap 6 à 12 mois</h3>
+<h4>I. API publique documentée</h4>
+<ul>
+<li>Documentation OpenAPI/Swagger accessible aux clients Enterprise</li>
+<li>Webhooks configurables par le client</li>
+<li>SDK JavaScript et Python</li>
+<li>Marketplace d&#39;intégrations (expert-comptable, courtier, notaire)</li>
+</ul>
+<h4>J. Multi-langue</h4>
+<ul>
+<li>Framework i18n (next-intl)</li>
+<li>Anglais en priorité (DOM-TOM anglophones, investisseurs internationaux)</li>
+<li>Espagnol et portugais pour l&#39;expansion outre-mer</li>
+</ul>
+<h4>K. IA générative avancée</h4>
+<ul>
+<li>Chatbot interne &quot;Demandez à MyGestia&quot; pour naviguer l&#39;application</li>
+<li>Génération automatique de courriers juridiques adaptés au contexte du bail</li>
+<li>Prédiction des impayés basée sur l&#39;historique de paiement</li>
+<li>Optimisation de loyer en temps réel basée sur les données de marché</li>
+</ul>
+<hr>
+<h2>2. Améliorations design et interface</h2>
+<h3>Priorité haute</h3>
+<h4>A. Refonte de la landing page</h4>
+<p><strong>Constat :</strong> 12 834 lignes dans un seul fichier. Difficile à maintenir, impact probable sur les performances (PageSpeed).</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Découper en composants réutilisables : Hero, Features, Pricing, Témoignages, FAQ, CTA</li>
+<li>Ajouter des animations au scroll (framer-motion ou Intersection Observer)</li>
+<li>Vidéo de démonstration en hero (30s, autoplay muet)</li>
+<li>Témoignages clients avec photos et métriques chiffrées</li>
+<li>Bandeau de logos clients / partenaires</li>
+<li>Chatbot de qualification (Intercom ou custom)</li>
+<li><strong>Objectif :</strong> Score PageSpeed &gt; 90</li>
+</ul>
+<hr>
+<h4>B. Micro-interactions et feedback visuel</h4>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Transitions fluides entre les pages (pas de flash blanc)</li>
+<li>Skeleton loaders plus détaillés (formes correspondant au contenu réel)</li>
+<li>Animation de succès sur les jalons importants (premier bail créé, première facture payée)</li>
+<li>Indicateurs de progression sur les processus multi-étapes</li>
+<li>État de sauvegarde visible : &quot;Enregistré&quot; avec horodatage</li>
+</ul>
+<hr>
+<h4>C. Système de notification enrichi</h4>
+<p><strong>Constat :</strong> Les notifications existent mais restent basiques.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Notifications push navigateur (avec consentement)</li>
+<li>Catégories visuelles : urgence (rouge), information (bleu), action requise (orange)</li>
+<li>Résumé quotidien par email (digest configurable)</li>
+<li>Centre de préférences de notification granulaire</li>
+</ul>
+<hr>
+<h3>Priorité moyenne</h3>
+<h4>D. Modes d&#39;affichage des tableaux</h4>
+<ul>
+<li>Toggle densité : confortable / compact / ultra-compact</li>
+<li>Colonnes masquables et réorganisables par l&#39;utilisateur</li>
+<li>Sauvegarde des préférences de vue par utilisateur</li>
+<li>Vues alternatives : tableau classique, cartes, kanban (par exemple : baux par statut)</li>
+</ul>
+<h4>E. Portail locataire amélioré</h4>
+<ul>
+<li>Design distinct du back-office avec branding propriétaire personnalisable</li>
+<li>Historique des échanges en timeline visuelle</li>
+<li>Upload de documents avec OCR automatique</li>
+<li>Notifications SMS en complément des emails</li>
+</ul>
+<h4>F. Accessibilité WCAG 2.1 niveau AA</h4>
+<ul>
+<li>Audit complet avec axe-core ou Lighthouse</li>
+<li>Navigation 100% clavier</li>
+<li>Contrastes vérifiés sur tous les textes</li>
+<li>Labels ARIA sur tous les composants interactifs</li>
+<li>Support lecteur d&#39;écran (VoiceOver, NVDA)</li>
+</ul>
+<hr>
+<h2>3. Améliorations ergonomie et UX</h2>
+<h3>Priorité haute</h3>
+<h4>A. Raccourcis clavier globaux</h4>
+<ul>
+<li><code>Cmd+K</code> : Recherche (existe déjà)</li>
+<li><code>Cmd+N</code> : Nouveau (contextuel selon la page : nouveau bail, nouvelle facture, etc.)</li>
+<li><code>Cmd+S</code> : Sauvegarder le formulaire en cours</li>
+<li><code>Cmd+E</code> : Exporter la vue courante</li>
+<li><code>?</code> : Afficher l&#39;aide des raccourcis</li>
+<li>Palette de commandes type VS Code pour les utilisateurs avancés</li>
+</ul>
+<hr>
+<h4>B. Actions en masse (bulk actions)</h4>
+<p><strong>Constat :</strong> La génération batch existe pour les factures mais pas pour les autres entités.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Checkbox de sélection multiple dans toutes les tables</li>
+<li>Actions groupées : supprimer, exporter CSV, envoyer email, changer statut</li>
+<li>Validation en lot des révisions de loyer</li>
+<li>Relance en masse de tous les impayés sélectionnés</li>
+</ul>
+<hr>
+<h4>C. Navigation contextuelle intelligente</h4>
+<p><strong>Constat :</strong> Le breadcrumb est auto-généré par le pathname mais affiche des IDs techniques sur les routes profondes.</p>
+<p><strong>Ce qu&#39;il faut faire :</strong></p>
+<ul>
+<li>Breadcrumb avec les vrais noms d&#39;entités (nom du locataire, adresse de l&#39;immeuble)</li>
+<li>Navigation latérale contextuelle : sur une page bail, liens rapides vers le locataire, le lot, les factures</li>
+<li>Bouton &quot;Retour&quot; intelligent (dernière page visitée, pas juste le parent dans l&#39;arborescence)</li>
+<li>Onglets persistants sur les pages de détail (infos, documents, historique, factures)</li>
+</ul>
+<hr>
+<h3>Priorité moyenne</h3>
+<h4>D. Formulaires intelligents</h4>
+<ul>
+<li>Auto-save brouillon toutes les 30 secondes</li>
+<li>Suggestions IA sur les champs (montant de loyer basé sur le marché, indices appropriés)</li>
+<li>Validation en temps réel (pas seulement à la soumission)</li>
+<li>Pré-remplissage intelligent basé sur l&#39;historique</li>
+<li>Mode multi-étapes pour les formulaires complexes (création de bail, ajout de locataire)</li>
+</ul>
+<h4>E. Tableau de bord d&#39;activité d&#39;équipe</h4>
+<ul>
+<li>Fil d&#39;activité type &quot;feed&quot; : qui a fait quoi, quand</li>
+<li>Assignation de tâches entre gestionnaires</li>
+<li>Commentaires internes sur les entités (bail, locataire, facture)</li>
+<li>Mentions @utilisateur dans les commentaires</li>
+<li>Vue kanban des tâches en cours</li>
+</ul>
+<h4>F. Expérience de première connexion</h4>
+<ul>
+<li>Écran de bienvenue personnalisé avec le nom de l&#39;utilisateur</li>
+<li>Question : &quot;Quel est votre profil ?&quot; (SCI familiale, cabinet pro, foncière)</li>
+<li>Configuration initiale adaptée au profil choisi</li>
+<li>Données de démonstration chargées automatiquement</li>
+<li>Parcours guidé avec spotlight sur les fonctionnalités clés</li>
+</ul>
+
+  </div>
+</body>
+</html>

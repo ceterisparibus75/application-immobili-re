@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGestia - Audit fonctionnel</title>
+  
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Inter, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 2em;
+    color: #0C2340;
+    border-bottom: 3px solid #22B8CF;
+    padding-bottom: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.45em;
+    color: #1B4F8A;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #0C2340;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1.05em;
+    color: #1B4F8A;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  blockquote {
+    background: #f0f9ff;
+    border-left: 4px solid #22B8CF;
+    padding: 14px 20px;
+    margin: 16px 0 20px;
+    border-radius: 0 8px 8px 0;
+    color: #334155;
+    font-size: 0.95em;
+  }
+  blockquote strong { color: #0C2340; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.9em;
+  }
+  thead th {
+    background: #0C2340;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8ecf0;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #eef6ff; }
+  strong { color: #0C2340; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 5px; }
+  li ul, li ol { margin-top: 4px; margin-bottom: 4px; }
+  code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #1B4F8A;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 32px 0;
+  }
+  .nav {
+    background: #0C2340;
+    padding: 16px 0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav a {
+    color: #22B8CF;
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .nav a:hover { color: #fff; }
+  .nav a.active { color: #fff; border-bottom: 2px solid #22B8CF; padding-bottom: 2px; }
+  @media print {
+    body { background: #fff; }
+    .container { box-shadow: none; padding: 20px; }
+    .nav { display: none; }
+    table { font-size: 0.8em; }
+    h1 { font-size: 1.6em; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 24px 20px; }
+    table { font-size: 0.8em; }
+    thead th, tbody td { padding: 6px 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <nav class="nav"><a href="01-audit-fonctionnel.html" class="active">Audit fonctionnel</a><a href="02-comparatif-concurrentiel.html">Comparatif concurrentiel</a><a href="03-pistes-amelioration.html">Améliorations</a><a href="04-scalabilite-infrastructure.html">Scalabilité</a><a href="05-strategie-marketing.html">Marketing</a></nav>
+  <div class="container">
+    <h1>Audit fonctionnel de MyGestia</h1>
+<blockquote>
+<p><strong>Date :</strong> 12 avril 2026
+<strong>Application :</strong> MyGestia - Plateforme SaaS de gestion immobilière
+<strong>Éditeur :</strong> MTG HOLDING (RCS 913 038 717) - 41 Rue de Paris, 97400 Saint-Denis (Réunion)</p>
+</blockquote>
+<hr>
+<h2>Synthèse générale</h2>
+<p>MyGestia est une plateforme SaaS complète de gestion locative immobilière. Elle s&#39;adresse aux professionnels de l&#39;immobilier : administrateurs de biens, foncières privées, SCI, cabinets de gestion indépendants.</p>
+<p>L&#39;application couvre <strong>l&#39;intégralité du cycle de vie</strong> de la gestion locative : patrimoine, baux, locataires, facturation, comptabilité, banque et conformité réglementaire.</p>
+<ul>
+<li><strong>143 pages</strong> dans l&#39;application</li>
+<li><strong>30+ modules métier</strong></li>
+<li><strong>8 tâches automatisées</strong> (cron jobs)</li>
+</ul>
+<p><strong>Stack technique :</strong> Next.js 16, React 19, TypeScript strict, Prisma 6 / PostgreSQL (Supabase), Tailwind CSS v4, NextAuth v5.</p>
+<p><strong>Hébergement :</strong> Vercel (Frankfurt, UE) avec Supabase pour la base de données et le stockage fichiers.</p>
+<hr>
+<h2>Cartographie des fonctionnalités</h2>
+<h3>1. Gestion du patrimoine</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Immeubles</td>
+<td align="left">Création complète, types (bureau, commerce, mixte, entrepôt), acquisitions multi-phases</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Lots / Unités</td>
+<td align="left">9 types : commercial, bureau, parking, cave, appartement, terrasse, réserve, activité, entrepôt</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Diagnostics</td>
+<td align="left">DPE, amiante, plomb, électricité, alertes d&#39;expiration, analyse IA des résultats</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Maintenances</td>
+<td align="left">Suivi des travaux avec coûts et historique</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Évaluations IA</td>
+<td align="left">Estimation valeur vénale et loyer marché via Claude + GPT-4o, données DVF, analyse SWOT, comparables</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Annonces</td>
+<td align="left">Publication sur 7 plateformes (SeLoger, Logic-Immo, BienIci, LeBonCoin, PAP)</td>
+<td align="left">Présente</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>2. Gestion des baux</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Types de bail</td>
+<td align="left"><strong>17 types</strong> : habitation, meublé, commercial, emphytéotique, rural, professionnel, etc.</td>
+<td align="left">Très complète</td>
+</tr>
+<tr>
+<td align="left">Indexation</td>
+<td align="left">IRL, ILC, ILAT, ICC avec détection automatique des révisions et calcul automatique</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Loyer progressif</td>
+<td align="left">Paliers de loyer programmés dans le temps</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Franchise de loyer</td>
+<td align="left">Périodes sans loyer configurables</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Droits d&#39;entrée</td>
+<td align="left">Pas-de-porte pour baux commerciaux</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Avenants</td>
+<td align="left">Modifications de bail avec historique complet</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Modèles de bail</td>
+<td align="left">Templates personnalisables par société</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Inspections</td>
+<td align="left">États des lieux entrée/sortie avec documentation</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Gestion tiers</td>
+<td align="left">Délégation de gestion avec structure de frais (% ou fixe)</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Alertes bail</td>
+<td align="left">Échéances automatiques : 3 ans, 6 ans, 18 mois, 12 mois avant fin</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>3. Gestion des locataires</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Types d&#39;entité</td>
+<td align="left">Personne physique et personne morale (SIRET, SIREN, TVA)</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Indicateurs de risque</td>
+<td align="left">Vert / Orange / Rouge avec suivi automatisé</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Suivi assurance</td>
+<td align="left">Tracking expiration avec alertes hebdomadaires automatiques</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Garanties</td>
+<td align="left">4 types : dépôt de garantie, caution personnelle, garantie bancaire, GLI</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Portail locataire</td>
+<td align="left">Accès autonome : factures, documents, tickets support, upload assurance</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Activation portail</td>
+<td align="left">Tokens uniques, login sans mot de passe (code 6 chiffres par email)</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>4. Facturation et paiements</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Factures</td>
+<td align="left"><strong>9 statuts</strong> : brouillon, validée, envoyée, payée, partiellement payée, en litige, etc.</td>
+<td align="left">Très complète</td>
+</tr>
+<tr>
+<td align="left">Types de facture</td>
+<td align="left">Appel de loyer, quittance, régularisation charges, avoir, refacturation</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Numérotation</td>
+<td align="left">Compteur atomique par année (zéro doublon possible)</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Génération batch</td>
+<td align="left">Génération en lot pour tous les baux actifs d&#39;un clic</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Paiements</td>
+<td align="left">Enregistrement multiple par facture, mise à jour automatique du statut</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">SEPA</td>
+<td align="left">Mandats de prélèvement via GoCardless, débit automatique</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">PDF</td>
+<td align="left">Génération via @react-pdf/renderer, upload automatique dans Supabase Storage</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Envoi email</td>
+<td align="left">Via Resend avec pièce jointe PDF intégrée</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Avoirs</td>
+<td align="left">Notes de crédit avec lien à la facture d&#39;origine</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Contentieux</td>
+<td align="left">Marquage litigieux / irrécouvrables</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>5. Charges et régularisation</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Natures</td>
+<td align="left">3 types : propriétaire, récupérable, mixte</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Répartition</td>
+<td align="left">5 méthodes : tantième, surface, nombre de lots, compteur, personnalisé</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Provisions</td>
+<td align="left">Provisions mensuelles pour charges annuelles</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Régularisation</td>
+<td align="left">Calcul annuel automatique (trop-perçu / complément)</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Catégories</td>
+<td align="left">Bibliothèque personnalisable par société</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Comptes-rendus</td>
+<td align="left">Rapports de charges par locataire</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>6. Comptabilité</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Écritures</td>
+<td align="left">Saisie manuelle et automatique (depuis rapprochement bancaire)</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Plan comptable</td>
+<td align="left">Importable, 4 types de comptes</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Grand livre</td>
+<td align="left">Consultation et import</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Balance</td>
+<td align="left">Balance des comptes</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left"><strong>Export FEC</strong></td>
+<td align="left">Fichier des Écritures Comptables (conformité DGFiP)</td>
+<td align="left"><strong>Critique - OK</strong></td>
+</tr>
+<tr>
+<td align="left">Clôture</td>
+<td align="left">Workflow de clôture d&#39;exercice fiscal</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Cash-flow</td>
+<td align="left">Analyse des flux de trésorerie avec catégorisation IA</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Prévisionnel</td>
+<td align="left">Budget prévisionnel</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>7. Banque et rapprochement</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Comptes bancaires</td>
+<td align="left">IBAN/BIC chiffrés en AES-256-GCM</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Open Banking</td>
+<td align="left">GoCardless (PSD2) + Qonto</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Powens</td>
+<td align="left">Intégration alternative (Budget Insight)</td>
+<td align="left">Présente</td>
+</tr>
+<tr>
+<td align="left">Synchronisation</td>
+<td align="left">Cron quotidien à 6h + synchronisation manuelle</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Rapprochement auto</td>
+<td align="left">Match montant exact + date entre transactions et factures</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Rapprochement manuel</td>
+<td align="left">Sélection utilisateur, paiements partiels, split</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Écritures GL</td>
+<td align="left">Génération automatique depuis le rapprochement</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>8. Emprunts</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Types</td>
+<td align="left">5 types : amortissable, in fine, bullet, obligation, compte courant</td>
+<td align="left">Complète</td>
+</tr>
+<tr>
+<td align="left">Mouvements</td>
+<td align="left">Apports, retraits, intérêts</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Amortissement</td>
+<td align="left">Tableaux d&#39;amortissement complets</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Parse PDF</td>
+<td align="left">Extraction IA des documents de prêt</td>
+<td align="left">Avancée</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>9. Communication et documents</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Courriers</td>
+<td align="left">Templates pré-construits : relances, congés, mise en demeure</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Relances</td>
+<td align="left">4 niveaux : amiable 1, amiable 2, mise en demeure, contentieux</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Emails</td>
+<td align="left">20+ templates HTML responsive via Resend</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Documents</td>
+<td align="left">Upload, stockage Supabase, analyse IA (Claude Sonnet 4)</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Chat document</td>
+<td align="left">Conversation IA avec le contenu d&#39;un document uploadé</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Dataroom</td>
+<td align="left">Partage sécurisé avec tokens à durée limitée</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Signature électronique</td>
+<td align="left">Intégration DocuSign (enveloppes, signing embarqué, webhooks)</td>
+<td align="left">Avancée</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>10. Rapports et analytics</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Dashboard</td>
+<td align="left">KPIs en temps réel, graphiques Recharts (revenus, occupation, impayés, risque)</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">9 types de rapports</td>
+<td align="left">Balance âgée, CRG, impayés, rentabilité, charges, situation, mensuel, travaux, vacance</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Rapports consolidés</td>
+<td align="left">Multi-sociétés</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Planification</td>
+<td align="left">Envoi automatique programmé par cron</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Export PDF</td>
+<td align="left">Dashboard et rapports individuels</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Analyse IA</td>
+<td align="left">Narration automatique des tendances et anomalies</td>
+<td align="left">Avancée</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>11. Administration et sécurité</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">RBAC</td>
+<td align="left">5 niveaux : Super Admin, Admin Société, Gestionnaire, Comptable, Lecture</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Permissions modules</td>
+<td align="left">Surcharges granulaires par module (lecture/écriture/suppression)</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">2FA TOTP</td>
+<td align="left">QR code, 6 chiffres, 30 secondes, codes de récupération chiffrés</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Verrouillage compte</td>
+<td align="left">5 tentatives = verrouillage 15 minutes</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Timeout inactivité</td>
+<td align="left">Déconnexion automatique après 10 min, avertissement 1 min avant</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Audit log</td>
+<td align="left">Toutes les mutations loguées (CRUD, login, export, email, PDF)</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">RGPD</td>
+<td align="left">Export données, consentements, droit à l&#39;oubli, durées de conservation</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Multi-tenant</td>
+<td align="left">Isolation complète par societyId, auto-scoping Prisma</td>
+<td align="left">Solide</td>
+</tr>
+<tr>
+<td align="left">Multi-propriétaire</td>
+<td align="left">Plusieurs entités propriétaires (SCI, SARL, personne physique)</td>
+<td align="left">Avancée</td>
+</tr>
+<tr>
+<td align="left">Import données</td>
+<td align="left">CSV/Excel avec analyse IA</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Fusion entités</td>
+<td align="left">Consolidation locataires, baux, immeubles</td>
+<td align="left">Avancée</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>12. Abonnements et monétisation</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Fonctionnalité</th>
+<th align="left">Description</th>
+<th align="left">Maturité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Plans</td>
+<td align="left">Starter (19 EUR/mois), Pro (79 EUR/mois), Enterprise (199 EUR/mois)</td>
+<td align="left">Défini</td>
+</tr>
+<tr>
+<td align="left">Essai gratuit</td>
+<td align="left">14 jours sans carte bancaire</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Stripe</td>
+<td align="left">Checkout, portail client, webhooks</td>
+<td align="left">Mature</td>
+</tr>
+<tr>
+<td align="left">Limites</td>
+<td align="left">Lots, sociétés, utilisateurs par plan</td>
+<td align="left">Appliquées</td>
+</tr>
+<tr>
+<td align="left">Feature gating</td>
+<td align="left">Signature, IA import, API = Enterprise uniquement</td>
+<td align="left">Mature</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Points forts</h2>
+<ol>
+<li><strong>Couverture fonctionnelle exceptionnelle</strong> : 143 pages, 30+ modules, couvre tout le cycle de vie</li>
+<li><strong>IA intégrée à tous les niveaux</strong> : analyse documentaire, évaluation patrimoniale, catégorisation cash-flow, narration de rapports</li>
+<li><strong>Conformité réglementaire totale</strong> : FEC, RGPD, indices INSEE, ALUR, durées de conservation</li>
+<li><strong>Architecture multi-tenant native</strong> : isolation des données par société, auto-scoping Prisma</li>
+<li><strong>Automatisation poussée</strong> : 8 cron jobs couvrant facturation, relances, banque, indices, rapports</li>
+<li><strong>Sécurité robuste</strong> : AES-256-GCM, 2FA TOTP, RBAC 5 niveaux, audit log, CSP, HSTS</li>
+<li><strong>Portail locataire autonome</strong> : authentification indépendante, tickets support, documents</li>
+<li><strong>Open Banking triple</strong> : GoCardless + Qonto + Powens</li>
+<li><strong>Signature électronique</strong> : DocuSign avec workflow complet et webhooks</li>
+<li><strong>Centre d&#39;aide intégré</strong> : 11 pages d&#39;aide contextuelle par module</li>
+</ol>
+<hr>
+<h2>Points faibles et risques identifiés</h2>
+<ol>
+<li><strong>Landing page monolithique</strong> : 12 834 lignes dans un seul fichier (impact performance et maintenabilité)</li>
+<li><strong>Complexité d&#39;onboarding</strong> : la richesse fonctionnelle peut submerger un nouvel utilisateur</li>
+<li><strong>Dépendance Vercel</strong> : déploiement couplé à Vercel (crons, edge functions)</li>
+<li><strong>Pas d&#39;application mobile native</strong> : uniquement responsive web</li>
+<li><strong>Documentation utilisateur limitée</strong> : centre d&#39;aide intégré mais pas de base de connaissances externe</li>
+<li><strong>Couverture de tests partielle</strong> : limitée aux fichiers lib/, actions/, validations/ - pas de tests E2E</li>
+<li><strong>Français uniquement</strong> : pas de structure d&#39;internationalisation (i18n)</li>
+<li><strong>Accessibilité basique</strong> : ARIA présent mais pas d&#39;audit WCAG complet</li>
+</ol>
+
+  </div>
+</body>
+</html>

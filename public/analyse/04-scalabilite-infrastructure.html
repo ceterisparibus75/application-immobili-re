@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGestia - Scalabilité</title>
+  
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Inter, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 2em;
+    color: #0C2340;
+    border-bottom: 3px solid #22B8CF;
+    padding-bottom: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.45em;
+    color: #1B4F8A;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #0C2340;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1.05em;
+    color: #1B4F8A;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  blockquote {
+    background: #f0f9ff;
+    border-left: 4px solid #22B8CF;
+    padding: 14px 20px;
+    margin: 16px 0 20px;
+    border-radius: 0 8px 8px 0;
+    color: #334155;
+    font-size: 0.95em;
+  }
+  blockquote strong { color: #0C2340; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.9em;
+  }
+  thead th {
+    background: #0C2340;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8ecf0;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #eef6ff; }
+  strong { color: #0C2340; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 5px; }
+  li ul, li ol { margin-top: 4px; margin-bottom: 4px; }
+  code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #1B4F8A;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 32px 0;
+  }
+  .nav {
+    background: #0C2340;
+    padding: 16px 0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav a {
+    color: #22B8CF;
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .nav a:hover { color: #fff; }
+  .nav a.active { color: #fff; border-bottom: 2px solid #22B8CF; padding-bottom: 2px; }
+  @media print {
+    body { background: #fff; }
+    .container { box-shadow: none; padding: 20px; }
+    .nav { display: none; }
+    table { font-size: 0.8em; }
+    h1 { font-size: 1.6em; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 24px 20px; }
+    table { font-size: 0.8em; }
+    thead th, tbody td { padding: 6px 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <nav class="nav"><a href="01-audit-fonctionnel.html">Audit fonctionnel</a><a href="02-comparatif-concurrentiel.html">Comparatif concurrentiel</a><a href="03-pistes-amelioration.html">Améliorations</a><a href="04-scalabilite-infrastructure.html" class="active">Scalabilité</a><a href="05-strategie-marketing.html">Marketing</a></nav>
+  <div class="container">
+    <h1>Scalabilité et montée en charge</h1>
+<blockquote>
+<p><strong>Date :</strong> 12 avril 2026
+Plan d&#39;infrastructure en 5 paliers, de 0 à 5 000+ utilisateurs</p>
+</blockquote>
+<hr>
+<h2>Architecture actuelle</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Composant</th>
+<th align="left">Technologie</th>
+<th align="left">Limite actuelle</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Hébergement</td>
+<td align="left">Vercel Serverless (Frankfurt, UE)</td>
+<td align="left">Concurrency limitée par plan, cold starts</td>
+</tr>
+<tr>
+<td align="left">Base de données</td>
+<td align="left">Supabase PostgreSQL (pooling PgBouncer)</td>
+<td align="left">Pro : 8 Go</td>
+</tr>
+<tr>
+<td align="left">Stockage fichiers</td>
+<td align="left">Supabase Storage</td>
+<td align="left">Pro : 100 Go</td>
+</tr>
+<tr>
+<td align="left">Cache / Rate limiting</td>
+<td align="left">Upstash Redis</td>
+<td align="left">Pro : 10k requêtes/jour</td>
+</tr>
+<tr>
+<td align="left">Emails</td>
+<td align="left">Resend</td>
+<td align="left">Pro : 50k emails/mois</td>
+</tr>
+<tr>
+<td align="left">Cron jobs</td>
+<td align="left">Vercel Cron</td>
+<td align="left">Limité selon le plan</td>
+</tr>
+<tr>
+<td align="left">CDN</td>
+<td align="left">Vercel Edge Network</td>
+<td align="left">Inclus</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Les 5 paliers de montée en charge</h2>
+<hr>
+<h3>Palier 1 : 0 - 50 utilisateurs (Lancement)</h3>
+<p><strong>Profil :</strong> Phase bêta, early adopters</p>
+<p><strong>Volumes estimés :</strong></p>
+<ul>
+<li>~500 lots gérés</li>
+<li>~2 000 factures/mois</li>
+<li>~5 Go de stockage fichiers</li>
+</ul>
+<h4>Coût infrastructure</h4>
+<table>
+<thead>
+<tr>
+<th align="left">Service</th>
+<th align="left">Configuration</th>
+<th align="right">Coût mensuel</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Vercel</td>
+<td align="left">Pro (20 $/mois)</td>
+<td align="right">20 EUR</td>
+</tr>
+<tr>
+<td align="left">Supabase</td>
+<td align="left">Pro (25 $/mois - 8 Go DB, 100 Go storage)</td>
+<td align="right">25 EUR</td>
+</tr>
+<tr>
+<td align="left">Upstash Redis</td>
+<td align="left">Pro</td>
+<td align="right">10 EUR</td>
+</tr>
+<tr>
+<td align="left">Resend</td>
+<td align="left">Pro (50k emails/mois)</td>
+<td align="right">20 EUR</td>
+</tr>
+<tr>
+<td align="left">Sentry</td>
+<td align="left">Team (50k events)</td>
+<td align="right">26 EUR</td>
+</tr>
+<tr>
+<td align="left"><strong>Total</strong></td>
+<td align="left"></td>
+<td align="right"><strong>~100 EUR/mois</strong></td>
+</tr>
+</tbody></table>
+<h4>Ce qu&#39;il faut faire</h4>
+<ul>
+<li>Mettre en place les sauvegardes automatiques quotidiennes</li>
+<li>Configurer les alertes de performance (temps de réponse &gt; 3 secondes)</li>
+<li>Lancer des tests de charge initiaux avec k6 ou Artillery (50 utilisateurs simultanés)</li>
+<li>Rédiger un plan de reprise d&#39;activité (PRA)</li>
+</ul>
+<h4>Métriques cibles</h4>
+<table>
+<thead>
+<tr>
+<th align="left">Métrique</th>
+<th align="left">Cible</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Temps de réponse moyen des pages</td>
+<td align="left">&lt; 2 secondes</td>
+</tr>
+<tr>
+<td align="left">Temps de réponse des Server Actions</td>
+<td align="left">&lt; 1 seconde</td>
+</tr>
+<tr>
+<td align="left">Taux d&#39;erreur</td>
+<td align="left">&lt; 0.1%</td>
+</tr>
+<tr>
+<td align="left">Disponibilité</td>
+<td align="left">&gt; 99.5%</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>Palier 2 : 50 - 200 utilisateurs (Croissance)</h3>
+<p><strong>Profil :</strong> Traction confirmée, premiers clients payants significatifs</p>
+<p><strong>Volumes estimés :</strong></p>
+<ul>
+<li>~3 000 lots gérés</li>
+<li>~15 000 factures/mois</li>
+<li>~30 Go de stockage</li>
+<li>~100 sessions simultanées</li>
+</ul>
+<h4>Coût infrastructure</h4>
+<table>
+<thead>
+<tr>
+<th align="left">Service</th>
+<th align="left">Configuration</th>
+<th align="right">Coût mensuel</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Vercel</td>
+<td align="left">Pro+ (plus de compute)</td>
+<td align="right">50 EUR</td>
+</tr>
+<tr>
+<td align="left">Supabase</td>
+<td align="left">Pro + add-ons (compute M, 50 Go DB)</td>
+<td align="right">75 EUR</td>
+</tr>
+<tr>
+<td align="left">Upstash Redis</td>
+<td align="left">Pro (100k requêtes/jour)</td>
+<td align="right">30 EUR</td>
+</tr>
+<tr>
+<td align="left">Resend</td>
+<td align="left">Business (100k emails/mois)</td>
+<td align="right">50 EUR</td>
+</tr>
+<tr>
+<td align="left">Sentry</td>
+<td align="left">Team (100k events)</td>
+<td align="right">50 EUR</td>
+</tr>
+<tr>
+<td align="left">Vercel Image Optimization</td>
+<td align="left">CDN images</td>
+<td align="right">20 EUR</td>
+</tr>
+<tr>
+<td align="left"><strong>Total</strong></td>
+<td align="left"></td>
+<td align="right"><strong>~275 EUR/mois</strong></td>
+</tr>
+</tbody></table>
+<h4>Ce qu&#39;il faut faire</h4>
+<p><strong>Base de données :</strong></p>
+<ul>
+<li>Activer les read replicas Supabase (lectures lourdes sur le replica)</li>
+<li>Ajouter des index composites sur les colonnes fréquemment filtrées :<pre><code class="language-sql">CREATE INDEX idx_invoice_society_status ON &quot;Invoice&quot; (&quot;societyId&quot;, &quot;status&quot;, &quot;dueDate&quot;);
+CREATE INDEX idx_lease_society_status ON &quot;Lease&quot; (&quot;societyId&quot;, &quot;status&quot;, &quot;endDate&quot;);
+CREATE INDEX idx_bank_tx_reconciled ON &quot;BankTransaction&quot; (&quot;societyId&quot;, &quot;reconciled&quot;, &quot;date&quot;);
+CREATE INDEX idx_audit_created ON &quot;AuditLog&quot; (&quot;societyId&quot;, &quot;createdAt&quot; DESC);
+</code></pre>
+</li>
+<li>Mettre en place le connection pooling avancé (PgBouncer transaction mode)</li>
+<li>Planifier les VACUUM et ANALYZE automatiques</li>
+<li>Archiver les données de plus de 3 ans dans des tables d&#39;archive</li>
+</ul>
+<p><strong>Cache Redis :</strong></p>
+<ul>
+<li>Dashboard KPIs : TTL 5 minutes</li>
+<li>Liste des sociétés/lots d&#39;un utilisateur : TTL 10 minutes</li>
+<li>Indices INSEE : TTL 24 heures</li>
+<li>Plan comptable : TTL 1 heure</li>
+</ul>
+<p><strong>Performance frontend :</strong></p>
+<ul>
+<li>Activer ISR (Incremental Static Regeneration) pour les pages semi-statiques (aide, blog)</li>
+<li>Lazy loading des composants lourds (graphiques Recharts, éditeur PDF)</li>
+<li>Pagination systématique côté serveur (jamais plus de 100 éléments chargés)</li>
+<li>Optimisation images : WebP/AVIF, lazy loading, srcset responsive</li>
+</ul>
+<p><strong>Monitoring :</strong></p>
+<ul>
+<li>Dashboard de monitoring temps réel (Vercel Analytics + custom)</li>
+<li>Alertes Slack/email : erreurs 5xx, latence &gt; 3s, connexions DB &gt; 80%</li>
+<li>Logs structurés (JSON) avec correlation ID par requête</li>
+</ul>
+<hr>
+<h3>Palier 3 : 200 - 1 000 utilisateurs (Scale-up)</h3>
+<p><strong>Profil :</strong> Croissance soutenue, besoins enterprise émergents</p>
+<p><strong>Volumes estimés :</strong></p>
+<ul>
+<li>~15 000 lots gérés</li>
+<li>~60 000 factures/mois</li>
+<li>~200 Go de stockage</li>
+<li>~500 sessions simultanées</li>
+</ul>
+<h4>Coût infrastructure</h4>
+<table>
+<thead>
+<tr>
+<th align="left">Service</th>
+<th align="left">Configuration</th>
+<th align="right">Coût mensuel</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Vercel</td>
+<td align="left">Enterprise ou migration VPS</td>
+<td align="right">200-500 EUR</td>
+</tr>
+<tr>
+<td align="left">Supabase</td>
+<td align="left">Pro XL (compute L, 200 Go DB, read replicas)</td>
+<td align="right">300 EUR</td>
+</tr>
+<tr>
+<td align="left">Redis</td>
+<td align="left">Upstash Pro ou Redis Cloud</td>
+<td align="right">80 EUR</td>
+</tr>
+<tr>
+<td align="left">Resend</td>
+<td align="left">Enterprise (500k emails/mois)</td>
+<td align="right">200 EUR</td>
+</tr>
+<tr>
+<td align="left">Sentry</td>
+<td align="left">Business</td>
+<td align="right">100 EUR</td>
+</tr>
+<tr>
+<td align="left">Stockage</td>
+<td align="left">Supabase Storage 500 Go + CDN</td>
+<td align="right">100 EUR</td>
+</tr>
+<tr>
+<td align="left">Backup offsite</td>
+<td align="left">Automatisé</td>
+<td align="right">50 EUR</td>
+</tr>
+<tr>
+<td align="left"><strong>Total</strong></td>
+<td align="left"></td>
+<td align="right"><strong>~1 000 - 1 300 EUR/mois</strong></td>
+</tr>
+</tbody></table>
+<h4>Ce qu&#39;il faut faire</h4>
+<p><strong>Architecture :</strong></p>
+<ul>
+<li>Évaluer la migration vers une infrastructure dédiée :<ul>
+<li><strong>Option A :</strong> Rester Vercel Enterprise (simplicité, coût plus élevé) - <strong>recommandé tant que le ratio coût/simplicité est acceptable</strong></li>
+<li><strong>Option B :</strong> VPS (Hetzner/OVH) + Docker + k3s</li>
+<li><strong>Option C :</strong> AWS/GCP avec ECS/Cloud Run</li>
+</ul>
+</li>
+<li>Mettre en place un CDN dédié (Cloudflare) devant Vercel</li>
+<li>Séparer les cron jobs lourds dans des workers dédiés (Inngest ou Trigger.dev)</li>
+</ul>
+<p><strong>Base de données :</strong></p>
+<ul>
+<li>Partitionnement des tables volumineuses par date :<ul>
+<li><code>AuditLog</code> : partitionnement mensuel</li>
+<li><code>BankTransaction</code> et <code>Invoice</code> : partitionnement annuel</li>
+</ul>
+</li>
+<li>Monitoring DB dédié (pganalyze ou Supabase Dashboard)</li>
+<li>Politique de purge : archiver les audit logs &gt; 1 an, transactions réconciliées &gt; 3 ans</li>
+</ul>
+<p><strong>Cache multi-niveaux :</strong></p>
+<ul>
+<li>Niveau 1 : In-memory (LRU cache Node.js pour les données chaudes)</li>
+<li>Niveau 2 : Redis (sessions, KPIs, résultats de recherche)</li>
+<li>Niveau 3 : CDN edge (pages statiques, assets)</li>
+<li>Invalidation event-driven (revalidatePath + Redis pub/sub)</li>
+</ul>
+<p><strong>Sécurité renforcée :</strong></p>
+<ul>
+<li>WAF (Web Application Firewall) via Cloudflare ou Vercel</li>
+<li>Protection DDoS avancée</li>
+<li>Audit de sécurité externe (pentest annuel)</li>
+<li>Préparation SOC 2 Type I</li>
+<li>Chiffrement at-rest pour la base de données</li>
+<li>Backups chiffrés avec rotation des clés</li>
+</ul>
+<p><strong>Stockage :</strong></p>
+<ul>
+<li>Migration possible vers S3/R2 si les coûts Supabase Storage deviennent prohibitifs</li>
+<li>Politique de tiering : fichiers récents en hot storage, &gt; 1 an en cold storage</li>
+<li>Compression automatique des documents à l&#39;upload</li>
+</ul>
+<hr>
+<h3>Palier 4 : 1 000 - 5 000 utilisateurs (Enterprise)</h3>
+<p><strong>Profil :</strong> Leader du marché, clients grands comptes</p>
+<p><strong>Volumes estimés :</strong></p>
+<ul>
+<li>~75 000 lots gérés</li>
+<li>~300 000 factures/mois</li>
+<li>~1 To de stockage</li>
+<li>~2 000 sessions simultanées</li>
+</ul>
+<h4>Coût infrastructure</h4>
+<table>
+<thead>
+<tr>
+<th align="left">Service</th>
+<th align="left">Configuration</th>
+<th align="right">Coût mensuel</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Compute</td>
+<td align="left">Kubernetes (EKS/GKE) ou Vercel Enterprise</td>
+<td align="right">1 500 EUR</td>
+</tr>
+<tr>
+<td align="left">Base de données</td>
+<td align="left">PostgreSQL dédié (RDS/Cloud SQL) + read replicas</td>
+<td align="right">800 EUR</td>
+</tr>
+<tr>
+<td align="left">Redis</td>
+<td align="left">Redis Cluster (3 noeuds)</td>
+<td align="right">200 EUR</td>
+</tr>
+<tr>
+<td align="left">Stockage</td>
+<td align="left">S3/R2 (1 To) + CDN</td>
+<td align="right">200 EUR</td>
+</tr>
+<tr>
+<td align="left">Emails</td>
+<td align="left">Resend Enterprise + SES fallback</td>
+<td align="right">400 EUR</td>
+</tr>
+<tr>
+<td align="left">Monitoring</td>
+<td align="left">Datadog ou Grafana Cloud</td>
+<td align="right">300 EUR</td>
+</tr>
+<tr>
+<td align="left">Sécurité</td>
+<td align="left">WAF + DDoS + pentest trimestriel</td>
+<td align="right">500 EUR</td>
+</tr>
+<tr>
+<td align="left">Backup</td>
+<td align="left">Multi-région, rétention 90 jours</td>
+<td align="right">200 EUR</td>
+</tr>
+<tr>
+<td align="left"><strong>Total</strong></td>
+<td align="left"></td>
+<td align="right"><strong>~4 000 - 5 000 EUR/mois</strong></td>
+</tr>
+</tbody></table>
+<h4>Ce qu&#39;il faut faire</h4>
+<p><strong>Architecture microservices :</strong></p>
+<ul>
+<li>Service PDF : génération en parallèle avec file d&#39;attente</li>
+<li>Service IA : analyse documents et évaluations</li>
+<li>Service email : file d&#39;attente avec retry automatique</li>
+<li>Service cron/jobs : Inngest ou Temporal</li>
+</ul>
+<p><strong>Base de données :</strong></p>
+<ul>
+<li>Master-replica avec failover automatique</li>
+<li>Multi-région pour le Disaster Recovery</li>
+<li>File de messages (BullMQ / RabbitMQ) pour les opérations asynchrones</li>
+<li>Materialized views PostgreSQL pour les KPIs complexes</li>
+</ul>
+<p><strong>Données :</strong></p>
+<ul>
+<li>Data warehouse séparé pour l&#39;analytique (ClickHouse ou BigQuery)</li>
+<li>ETL pipeline pour alimenter le data warehouse</li>
+<li>Rétention automatisée avec archivage S3 Glacier</li>
+</ul>
+<p><strong>Équipe :</strong></p>
+<ul>
+<li>DevOps / SRE dédié (au minimum 1 personne)</li>
+<li>Rotation d&#39;astreinte pour les incidents</li>
+<li>Runbooks documentés pour les incidents courants</li>
+<li>SLA contractuels : 99.9% de disponibilité</li>
+</ul>
+<hr>
+<h3>Palier 5 : 5 000+ utilisateurs (Scale international)</h3>
+<p><strong>Profil :</strong> Expansion internationale, multi-marchés</p>
+<p><strong>Volumes estimés :</strong></p>
+<ul>
+<li>~500 000 lots gérés</li>
+<li>~2 millions de factures/mois</li>
+<li>~10 To de stockage</li>
+</ul>
+<h4>Évolution architecturale</h4>
+<ul>
+<li>Multi-tenant par base de données (un schéma/DB par gros client enterprise)</li>
+<li>CDN multi-région (Europe, DOM-TOM, Afrique francophone)</li>
+<li>Sharding de la base de données par région ou par client</li>
+<li>API gateway (Kong/Tyk) pour le rate limiting, l&#39;authentification et le routing</li>
+<li>Service mesh (Istio) pour la communication inter-services</li>
+<li>Observabilité complète : traces distribuées (OpenTelemetry), métriques, logs</li>
+</ul>
+<p><strong>Coût estimé : 15 000 - 30 000 EUR/mois d&#39;infrastructure</strong></p>
+<hr>
+<h2>Tableau récapitulatif</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Palier</th>
+<th align="left">Utilisateurs</th>
+<th align="left">Lots gérés</th>
+<th align="right">Infra/mois</th>
+<th align="left">Action clé</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>1 - Lancement</strong></td>
+<td align="left">0 - 50</td>
+<td align="left">~500</td>
+<td align="right">~100 EUR</td>
+<td align="left">Vercel + Supabase Pro, monitoring basique</td>
+</tr>
+<tr>
+<td align="left"><strong>2 - Croissance</strong></td>
+<td align="left">50 - 200</td>
+<td align="left">~3 000</td>
+<td align="right">~275 EUR</td>
+<td align="left">Read replicas, cache Redis, index DB</td>
+</tr>
+<tr>
+<td align="left"><strong>3 - Scale-up</strong></td>
+<td align="left">200 - 1 000</td>
+<td align="left">~15 000</td>
+<td align="right">~1 200 EUR</td>
+<td align="left">CDN Cloudflare, workers séparés, partitionnement</td>
+</tr>
+<tr>
+<td align="left"><strong>4 - Enterprise</strong></td>
+<td align="left">1 000 - 5 000</td>
+<td align="left">~75 000</td>
+<td align="right">~4 500 EUR</td>
+<td align="left">Kubernetes, microservices, multi-région</td>
+</tr>
+<tr>
+<td align="left"><strong>5 - International</strong></td>
+<td align="left">5 000+</td>
+<td align="left">~500 000</td>
+<td align="right">~20 000 EUR</td>
+<td align="left">Sharding, API gateway, service mesh</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Optimisations à faire avant le lancement</h2>
+<h3>Base de données : index critiques</h3>
+<pre><code class="language-sql">CREATE INDEX idx_invoice_society_status_date ON &quot;Invoice&quot; (&quot;societyId&quot;, &quot;status&quot;, &quot;dueDate&quot;);
+CREATE INDEX idx_lease_society_status_end ON &quot;Lease&quot; (&quot;societyId&quot;, &quot;status&quot;, &quot;endDate&quot;);
+CREATE INDEX idx_bank_tx_society_reconciled ON &quot;BankTransaction&quot; (&quot;societyId&quot;, &quot;reconciled&quot;, &quot;date&quot;);
+CREATE INDEX idx_audit_society_created ON &quot;AuditLog&quot; (&quot;societyId&quot;, &quot;createdAt&quot; DESC);
+CREATE INDEX idx_tenant_society_active ON &quot;Tenant&quot; (&quot;societyId&quot;, &quot;isArchived&quot;);
+CREATE INDEX idx_lot_society_status ON &quot;Lot&quot; (&quot;societyId&quot;, &quot;status&quot;);
+</code></pre>
+<h3>Stratégie de cache</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Type de données</th>
+<th align="left">Durée de cache (TTL)</th>
+<th align="left">Exemples</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Chaudes</td>
+<td align="left">5 minutes</td>
+<td align="left">Dashboard KPIs, compteurs</td>
+</tr>
+<tr>
+<td align="left">Tièdes</td>
+<td align="left">1 heure</td>
+<td align="left">Plan comptable, catégories de charges</td>
+</tr>
+<tr>
+<td align="left">Froides</td>
+<td align="left">24 heures</td>
+<td align="left">Indices INSEE, liste des sociétés</td>
+</tr>
+<tr>
+<td align="left">Statiques</td>
+<td align="left">7 jours</td>
+<td align="left">Templates de courriers, pages d&#39;aide</td>
+</tr>
+</tbody></table>
+<h3>Frontend</h3>
+<ul>
+<li>Code splitting par route (natif Next.js App Router)</li>
+<li>Lazy loading des graphiques Recharts (import dynamique)</li>
+<li>Compression Brotli (actif sur Vercel)</li>
+<li>Prefetch des pages probables (liens de la sidebar)</li>
+<li>Images optimisées : logos &lt; 50 Ko, aperçus documents &lt; 200 Ko</li>
+</ul>
+<h3>Métriques cibles par palier</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Métrique</th>
+<th align="left">Palier 1</th>
+<th align="left">Palier 3</th>
+<th align="left">Palier 5</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">TTFB (Time to First Byte)</td>
+<td align="left">&lt; 500 ms</td>
+<td align="left">&lt; 300 ms</td>
+<td align="left">&lt; 200 ms</td>
+</tr>
+<tr>
+<td align="left">LCP (Largest Contentful Paint)</td>
+<td align="left">&lt; 2.5 s</td>
+<td align="left">&lt; 2 s</td>
+<td align="left">&lt; 1.5 s</td>
+</tr>
+<tr>
+<td align="left">FID (First Input Delay)</td>
+<td align="left">&lt; 100 ms</td>
+<td align="left">&lt; 50 ms</td>
+<td align="left">&lt; 30 ms</td>
+</tr>
+<tr>
+<td align="left">CLS (Cumulative Layout Shift)</td>
+<td align="left">&lt; 0.1</td>
+<td align="left">&lt; 0.05</td>
+<td align="left">&lt; 0.05</td>
+</tr>
+<tr>
+<td align="left">Temps Server Action moyen</td>
+<td align="left">&lt; 1 s</td>
+<td align="left">&lt; 500 ms</td>
+<td align="left">&lt; 300 ms</td>
+</tr>
+<tr>
+<td align="left">Disponibilité</td>
+<td align="left">99.5%</td>
+<td align="left">99.9%</td>
+<td align="left">99.95%</td>
+</tr>
+<tr>
+<td align="left">Erreurs 5xx par jour</td>
+<td align="left">&lt; 10</td>
+<td align="left">&lt; 5</td>
+<td align="left">&lt; 1</td>
+</tr>
+</tbody></table>
+
+  </div>
+</body>
+</html>

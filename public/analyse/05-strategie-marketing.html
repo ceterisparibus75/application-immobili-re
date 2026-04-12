@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGestia - Marketing</title>
+  
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Inter, -apple-system, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px;
+    min-height: 100vh;
+    box-shadow: 0 0 40px rgba(0,0,0,0.06);
+  }
+  h1 {
+    font-size: 2em;
+    color: #0C2340;
+    border-bottom: 3px solid #22B8CF;
+    padding-bottom: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.45em;
+    color: #1B4F8A;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  h3 {
+    font-size: 1.15em;
+    color: #0C2340;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1.05em;
+    color: #1B4F8A;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  blockquote {
+    background: #f0f9ff;
+    border-left: 4px solid #22B8CF;
+    padding: 14px 20px;
+    margin: 16px 0 20px;
+    border-radius: 0 8px 8px 0;
+    color: #334155;
+    font-size: 0.95em;
+  }
+  blockquote strong { color: #0C2340; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 0.9em;
+  }
+  thead th {
+    background: #0C2340;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8ecf0;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #eef6ff; }
+  strong { color: #0C2340; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 5px; }
+  li ul, li ol { margin-top: 4px; margin-bottom: 4px; }
+  code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #1B4F8A;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px 22px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    font-size: 0.85em;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 32px 0;
+  }
+  .nav {
+    background: #0C2340;
+    padding: 16px 0;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav a {
+    color: #22B8CF;
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .nav a:hover { color: #fff; }
+  .nav a.active { color: #fff; border-bottom: 2px solid #22B8CF; padding-bottom: 2px; }
+  @media print {
+    body { background: #fff; }
+    .container { box-shadow: none; padding: 20px; }
+    .nav { display: none; }
+    table { font-size: 0.8em; }
+    h1 { font-size: 1.6em; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 24px 20px; }
+    table { font-size: 0.8em; }
+    thead th, tbody td { padding: 6px 8px; }
+  }
+</style>
+
+</head>
+<body>
+  <nav class="nav"><a href="01-audit-fonctionnel.html">Audit fonctionnel</a><a href="02-comparatif-concurrentiel.html">Comparatif concurrentiel</a><a href="03-pistes-amelioration.html">Améliorations</a><a href="04-scalabilite-infrastructure.html">Scalabilité</a><a href="05-strategie-marketing.html" class="active">Marketing</a></nav>
+  <div class="container">
+    <h1>Stratégie de commercialisation et marketing</h1>
+<blockquote>
+<p><strong>Date :</strong> 12 avril 2026
+Plan en 3 phases sur 12 mois : pré-lancement, lancement, croissance</p>
+</blockquote>
+<hr>
+<h2>1. Le marché cible</h2>
+<h3>Segmentation des clients potentiels</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Segment</th>
+<th align="right">Taille en France</th>
+<th align="left">Lots moyens</th>
+<th align="left">Budget logiciel</th>
+<th align="left">Problème principal</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">SCI familiales</td>
+<td align="right">~300 000</td>
+<td align="left">2-20 lots</td>
+<td align="left">0-50 EUR/mois</td>
+<td align="left">Gestion manuelle sur Excel, erreurs d&#39;indexation, conformité fiscale</td>
+</tr>
+<tr>
+<td align="left">Cabinets de gestion indépendants</td>
+<td align="right">~15 000</td>
+<td align="left">20-200 lots</td>
+<td align="left">50-200 EUR/mois</td>
+<td align="left">Outils datés, rapprochement bancaire manuel, reporting fastidieux</td>
+</tr>
+<tr>
+<td align="left">Foncières privées</td>
+<td align="right">~5 000</td>
+<td align="left">50-500 lots</td>
+<td align="left">100-500 EUR/mois</td>
+<td align="left">Multi-sociétés fragmenté, pas d&#39;évaluations, pas de consolidation</td>
+</tr>
+<tr>
+<td align="left">Administrateurs de biens</td>
+<td align="right">~8 000</td>
+<td align="left">100-2 000 lots</td>
+<td align="left">200-1 000 EUR/mois</td>
+<td align="left">Productivité, automatisation, portail locataire</td>
+</tr>
+<tr>
+<td align="left">Family offices</td>
+<td align="right">~2 000</td>
+<td align="left">50-500 lots</td>
+<td align="left">200-500 EUR/mois</td>
+<td align="left">Confidentialité, dataroom, consolidation</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>3 personas prioritaires</h3>
+<h4>Sophie - Gérante de SCI familiale (cible primaire)</h4>
+<ul>
+<li>35-55 ans, gère 5 à 30 lots résidentiels et commerciaux</li>
+<li>Utilise actuellement Excel + expert-comptable</li>
+<li><strong>Ses douleurs :</strong> perte de temps sur la facturation, erreurs d&#39;indexation IRL, conformité FEC</li>
+<li><strong>Son budget :</strong> 19-79 EUR/mois</li>
+<li><strong>Comment la toucher :</strong> SEO, réseaux sociaux, bouche-à-oreille</li>
+</ul>
+<h4>Laurent - Gestionnaire indépendant (cible primaire)</h4>
+<ul>
+<li>30-50 ans, gère 50 à 200 lots pour plusieurs propriétaires</li>
+<li>Utilise un logiciel daté (LOCKimmo ancienne version) ou Excel</li>
+<li><strong>Ses douleurs :</strong> rapprochement bancaire manuel, relances chronophages, reporting fastidieux</li>
+<li><strong>Son budget :</strong> 79-199 EUR/mois</li>
+<li><strong>Comment le toucher :</strong> SEO professionnel, salons immobilier, partenariats experts-comptables</li>
+</ul>
+<h4>Marie - Directrice de foncière privée (cible secondaire)</h4>
+<ul>
+<li>40-60 ans, gère 100 à 500 lots répartis sur plusieurs sociétés</li>
+<li><strong>Ses douleurs :</strong> vision fragmentée, pas d&#39;IA, outils multiples non intégrés</li>
+<li><strong>Son budget :</strong> 199 EUR/mois et plus</li>
+<li><strong>Comment la toucher :</strong> LinkedIn, événements sectoriels, approche commerciale directe</li>
+</ul>
+<hr>
+<h2>2. Positionnement</h2>
+<h3>Proposition de valeur (USP)</h3>
+<blockquote>
+<p><strong>&quot;MyGestia - L&#39;intelligence artificielle au service de votre patrimoine immobilier&quot;</strong></p>
+</blockquote>
+<h3>Messages clés</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Ce qu&#39;on vend</th>
+<th align="left">Le message</th>
+<th align="left">La preuve</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">IA intégrée</td>
+<td align="left">&quot;Gagnez 10h/mois grâce à l&#39;IA&quot;</td>
+<td align="left">Analyse documents, évaluation patrimoine, catégorisation, rapports</td>
+</tr>
+<tr>
+<td align="left">Open Banking</td>
+<td align="left">&quot;Votre banque synchronisée en temps réel&quot;</td>
+<td align="left">3 providers : GoCardless, Qonto, Powens</td>
+</tr>
+<tr>
+<td align="left">Conformité totale</td>
+<td align="left">&quot;Dormez tranquille, tout est conforme&quot;</td>
+<td align="left">FEC, RGPD, indices INSEE, chiffrement AES-256</td>
+</tr>
+<tr>
+<td align="left">Prix transparent</td>
+<td align="left">&quot;Pas de devis, pas de surprise&quot;</td>
+<td align="left">Grille publique vs concurrents opaques</td>
+</tr>
+<tr>
+<td align="left">Portail locataire</td>
+<td align="left">&quot;Vos locataires autonomes, vous libéré&quot;</td>
+<td align="left">Tickets, documents, paiements en self-service</td>
+</tr>
+<tr>
+<td align="left">Multi-tout</td>
+<td align="left">&quot;Toutes vos sociétés, un seul écran&quot;</td>
+<td align="left">Multi-société, multi-propriétaire, multi-utilisateur</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Phase 1 : Pré-lancement (M-3 à M0)</h2>
+<h3>Site web et SEO</h3>
+<ul>
+<li>Refondre la landing page (composants, vidéo démo, témoignages)</li>
+<li>Publier <strong>12 articles SEO</strong> avant le lancement :<ol>
+<li>&quot;Comment indexer un loyer avec l&#39;IRL en 2026&quot;</li>
+<li>&quot;Guide FEC : export comptable conforme pour SCI&quot;</li>
+<li>&quot;Rapprochement bancaire automatique : le guide complet&quot;</li>
+<li>&quot;RGPD et gestion locative : vos obligations en 2026&quot;</li>
+<li>&quot;Évaluation patrimoniale : méthodes et outils&quot;</li>
+<li>&quot;Comparatif logiciels gestion locative 2026&quot;</li>
+<li>&quot;Automatiser la facturation de vos loyers&quot;</li>
+<li>&quot;Portail locataire : pourquoi et comment&quot;</li>
+<li>&quot;Gestion multi-sociétés : SCI, SARL, indivision&quot;</li>
+<li>&quot;Signature électronique des baux : guide pratique&quot;</li>
+<li>&quot;Charges locatives : régularisation annuelle pas à pas&quot;</li>
+<li>&quot;Relances impayés : les 4 niveaux efficaces&quot;</li>
+</ol>
+</li>
+<li>Créer les pages de comparaison : &quot;MyGestia vs LOCKimmo&quot;, &quot;MyGestia vs Rentila&quot;, etc.</li>
+<li>SEO technique : sitemap, schema.org, meta descriptions optimisées</li>
+<li><strong>Objectif : 50 mots-clés en top 30 Google.fr avant le lancement</strong></li>
+</ul>
+<h3>Réseaux sociaux</h3>
+<ul>
+<li>Créer les comptes : <strong>LinkedIn</strong> (priorité), Twitter/X, YouTube</li>
+<li>LinkedIn : 3 posts/semaine (tips gestion locative, témoignages, fonctionnalités)</li>
+<li>YouTube : 1 vidéo/semaine (tutos, démos, webinaires)</li>
+<li>Formats : carousels LinkedIn, shorts YouTube, threads Twitter</li>
+</ul>
+<h3>Email marketing</h3>
+<ul>
+<li>Page &quot;liste d&#39;attente&quot; avec incentive : <strong>1 mois offert aux 100 premiers inscrits</strong></li>
+<li>Séquence email de nurturing (6 emails sur 3 semaines) :<ol>
+<li>Bienvenue + vision MyGestia</li>
+<li>&quot;Pourquoi Excel ne suffit plus pour gérer votre patrimoine&quot;</li>
+<li>Démo des 3 fonctionnalités phares (IA, Open Banking, FEC)</li>
+<li>Témoignage d&#39;un bêta-testeur</li>
+<li>Offre early adopter : -30% la première année</li>
+<li>&quot;Lancement dans X jours&quot; - dernière chance</li>
+</ol>
+</li>
+</ul>
+<h3>Programme bêta-testeurs</h3>
+<ul>
+<li>Recruter <strong>20 à 50 bêta-testeurs</strong></li>
+<li>Critères : SCI avec 5+ lots ou cabinets avec 20+ lots</li>
+<li>Offre : 6 mois gratuits + accès prioritaire aux nouvelles fonctionnalités</li>
+<li>Contrepartie : feedback bi-mensuel, témoignage vidéo, avis Trustpilot</li>
+<li>Canaux : LinkedIn InMail, groupes Facebook SCI/investisseurs, forums immobilier</li>
+</ul>
+<h3>Partenariats stratégiques</h3>
+<ul>
+<li><strong>Experts-comptables :</strong> programme partenaire avec commission 15% récurrente</li>
+<li><strong>Courtiers immobiliers :</strong> recommandation croisée</li>
+<li><strong>Notaires :</strong> intégration dataroom pour les transactions</li>
+<li><strong>Associations professionnelles :</strong> FNAIM, UNIS - partenariats éditoriaux</li>
+</ul>
+<hr>
+<h2>4. Phase 2 : Lancement (M0 à M+3)</h2>
+<h3>Événement de lancement</h3>
+<ul>
+<li>Webinaire de lancement (1h) : démo live + Q&amp;A</li>
+<li>Communiqué de presse vers les médias immobiliers : Immo Matin, Journal de l&#39;Agence, Le Moniteur, MySweetimmo</li>
+<li>Post LinkedIn du fondateur : storytelling personnel</li>
+<li>Vidéo de lancement YouTube (3 min, qualité professionnelle)</li>
+</ul>
+<h3>Offre de lancement</h3>
+<ul>
+<li><strong>-30%</strong> sur l&#39;abonnement annuel pendant les 6 premiers mois</li>
+<li>Migration gratuite depuis un autre logiciel (import CSV/Excel accompagné)</li>
+<li>Onboarding personnalisé 1h pour les plans Pro et Enterprise</li>
+<li>Garantie &quot;satisfait ou remboursé&quot; 30 jours</li>
+</ul>
+<h3>Acquisition payante</h3>
+<h4>Google Ads - Budget : 1 500 à 3 000 EUR/mois</h4>
+<p>Mots-clés cibles :</p>
+<ul>
+<li>&quot;logiciel gestion locative&quot; (volume élevé, concurrence forte)</li>
+<li>&quot;logiciel gestion SCI&quot; (volume moyen, concurrence modérée)</li>
+<li>&quot;rapprochement bancaire immobilier&quot; (volume faible, intention forte)</li>
+<li>&quot;export FEC gestion locative&quot; (niche, intention très forte)</li>
+<li>&quot;évaluation patrimoniale immobilier&quot; (niche, exclusif MyGestia)</li>
+</ul>
+<p>Landing pages dédiées par mot-clé. A/B testing systématique.
+<strong>Objectif CPA (Coût Par Acquisition) : &lt; 100 EUR</strong></p>
+<h4>LinkedIn Ads - Budget : 500 à 1 000 EUR/mois</h4>
+<ul>
+<li>Ciblage : gérants SCI, directeurs immobilier, administrateurs de biens</li>
+<li>Formats : Sponsored Content (carousels) + InMail</li>
+<li>Retargeting des visiteurs du site web</li>
+</ul>
+<h4>Meta Ads - Budget : 500 EUR/mois</h4>
+<ul>
+<li>Ciblage : investisseurs immobiliers, propriétaires bailleurs</li>
+<li>Formats : vidéo démos courtes (30s), témoignages</li>
+<li>Objectif : notoriété et trafic</li>
+</ul>
+<h3>Content marketing continu</h3>
+<ul>
+<li>Blog : 2 articles/semaine (alterner SEO profond et actualité)</li>
+<li>Newsletter mensuelle : tendances marché, mises à jour produit, conseils</li>
+<li>Webinaires mensuels sur un sujet métier approfondi :<ul>
+<li>&quot;Régularisation des charges : méthode complète&quot;</li>
+<li>&quot;Révision des loyers IRL/ILC : ne manquez aucune échéance&quot;</li>
+<li>&quot;Open Banking : automatisez votre rapprochement bancaire&quot;</li>
+</ul>
+</li>
+<li>Études de cas clients (1/mois dès que les clients sont en production)</li>
+<li>Livre blanc : &quot;Guide complet de la gestion locative numérique en 2026&quot; (lead magnet)</li>
+</ul>
+<hr>
+<h2>5. Phase 3 : Croissance (M+3 à M+12)</h2>
+<h3>Rétention client</h3>
+<ul>
+<li>Mesurer le NPS (Net Promoter Score) mensuellement</li>
+<li>Séquence d&#39;onboarding email automatisée (10 emails sur 30 jours)</li>
+<li>Messages in-app contextuels pour découvrir les fonctionnalités non utilisées</li>
+<li>Programme de fidélité : -10% sur le renouvellement annuel</li>
+<li>Customer Success Manager dédié pour les comptes Enterprise</li>
+<li>Communauté utilisateurs (forum privé ou groupe Slack)</li>
+</ul>
+<h3>Programme de parrainage</h3>
+<ul>
+<li>&quot;Parrainez un collègue, recevez 1 mois gratuit chacun&quot;</li>
+<li>Widget de partage intégré dans l&#39;application</li>
+<li>Tracking des parrainages avec dashboard partenaire</li>
+<li>Super-parrains (3 filleuls) = upgrade de plan gratuit pendant 1 mois</li>
+</ul>
+<h3>Événements et salons</h3>
+<ul>
+<li><strong>RENT</strong> (salon immobilier tech, Paris) - Stand ou sponsoring</li>
+<li><strong>SIMI</strong> (Salon de l&#39;Immobilier d&#39;Entreprise)</li>
+<li>Salon des SCI et de l&#39;investissement locatif</li>
+<li>Meetups &quot;PropTech&quot; dans les grandes villes</li>
+<li>Présentations dans les CCI (Chambres de Commerce et d&#39;Industrie)</li>
+</ul>
+<h3>Relations presse et influence</h3>
+<ul>
+<li>Tribunes d&#39;expert dans les médias immobiliers</li>
+<li>Partenariats avec des influenceurs YouTube investissement immobilier</li>
+<li>Podcast dédié : &quot;MyGestia Talks&quot; - interviews de professionnels de l&#39;immobilier</li>
+<li>Participation aux podcasts immobilier existants</li>
+</ul>
+<hr>
+<h2>6. Objectifs chiffrés</h2>
+<h3>KPIs de lancement (M0 à M+6)</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Métrique</th>
+<th align="right">M+1</th>
+<th align="right">M+3</th>
+<th align="right">M+6</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Inscriptions (trial)</td>
+<td align="right">50</td>
+<td align="right">200</td>
+<td align="right">500</td>
+</tr>
+<tr>
+<td align="left">Conversions payantes</td>
+<td align="right">10</td>
+<td align="right">50</td>
+<td align="right">150</td>
+</tr>
+<tr>
+<td align="left">MRR (revenus mensuels récurrents)</td>
+<td align="right">500 EUR</td>
+<td align="right">3 000 EUR</td>
+<td align="right">10 000 EUR</td>
+</tr>
+<tr>
+<td align="left">Taux de conversion trial &gt; payant</td>
+<td align="right">15%</td>
+<td align="right">20%</td>
+<td align="right">25%</td>
+</tr>
+<tr>
+<td align="left">Churn mensuel</td>
+<td align="right">&lt; 10%</td>
+<td align="right">&lt; 7%</td>
+<td align="right">&lt; 5%</td>
+</tr>
+<tr>
+<td align="left">NPS</td>
+<td align="right">&gt; 30</td>
+<td align="right">&gt; 40</td>
+<td align="right">&gt; 50</td>
+</tr>
+<tr>
+<td align="left">Trafic site web /mois</td>
+<td align="right">2 000</td>
+<td align="right">8 000</td>
+<td align="right">20 000</td>
+</tr>
+<tr>
+<td align="left">Avis Trustpilot</td>
+<td align="right">10</td>
+<td align="right">30</td>
+<td align="right">80</td>
+</tr>
+</tbody></table>
+<h3>KPIs de croissance (M+6 à M+12)</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Métrique</th>
+<th align="right">M+9</th>
+<th align="right">M+12</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Clients payants</td>
+<td align="right">300</td>
+<td align="right">500</td>
+</tr>
+<tr>
+<td align="left">MRR</td>
+<td align="right">20 000 EUR</td>
+<td align="right">35 000 EUR</td>
+</tr>
+<tr>
+<td align="left">ARR (revenus annuels récurrents)</td>
+<td align="right">240 000 EUR</td>
+<td align="right">420 000 EUR</td>
+</tr>
+<tr>
+<td align="left">LTV (valeur vie client) moyenne</td>
+<td align="right">1 500 EUR</td>
+<td align="right">2 000 EUR</td>
+</tr>
+<tr>
+<td align="left">CAC (coût d&#39;acquisition client)</td>
+<td align="right">&lt; 150 EUR</td>
+<td align="right">&lt; 120 EUR</td>
+</tr>
+<tr>
+<td align="left">Ratio LTV/CAC</td>
+<td align="right">&gt; 10</td>
+<td align="right">&gt; 15</td>
+</tr>
+<tr>
+<td align="left">Taux de rétention annuel</td>
+<td align="right">&gt; 85%</td>
+<td align="right">&gt; 90%</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>7. Budget marketing année 1</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Poste</th>
+<th align="right">Budget annuel</th>
+<th align="right">%</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Google Ads</td>
+<td align="right">24 000 EUR</td>
+<td align="right">30%</td>
+</tr>
+<tr>
+<td align="left">LinkedIn Ads</td>
+<td align="right">9 600 EUR</td>
+<td align="right">12%</td>
+</tr>
+<tr>
+<td align="left">Meta Ads (Facebook/Instagram)</td>
+<td align="right">4 800 EUR</td>
+<td align="right">6%</td>
+</tr>
+<tr>
+<td align="left">Contenu (rédacteur, vidéo, design)</td>
+<td align="right">12 000 EUR</td>
+<td align="right">15%</td>
+</tr>
+<tr>
+<td align="left">Outils marketing (email, analytics, SEO)</td>
+<td align="right">4 800 EUR</td>
+<td align="right">6%</td>
+</tr>
+<tr>
+<td align="left">Salons et événements</td>
+<td align="right">8 000 EUR</td>
+<td align="right">10%</td>
+</tr>
+<tr>
+<td align="left">Relations presse</td>
+<td align="right">4 000 EUR</td>
+<td align="right">5%</td>
+</tr>
+<tr>
+<td align="left">Programme partenaires (commissions)</td>
+<td align="right">6 000 EUR</td>
+<td align="right">7.5%</td>
+</tr>
+<tr>
+<td align="left">Design et branding</td>
+<td align="right">3 000 EUR</td>
+<td align="right">3.5%</td>
+</tr>
+<tr>
+<td align="left">Réserve / tests</td>
+<td align="right">4 000 EUR</td>
+<td align="right">5%</td>
+</tr>
+<tr>
+<td align="left"><strong>Total</strong></td>
+<td align="right"><strong>80 000 EUR</strong></td>
+<td align="right"><strong>100%</strong></td>
+</tr>
+</tbody></table>
+<p><strong>ROI cible :</strong> ARR visé de 420 000 EUR à M+12 pour un budget marketing de 80 000 EUR = <strong>ratio de 5.25x</strong> (soutenable et attractif pour des investisseurs).</p>
+<hr>
+<h2>8. Roadmap marketing résumée</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Période</th>
+<th align="left">Actions clés</th>
+<th align="left">Objectif</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>M-3 à M-1</strong></td>
+<td align="left">SEO, blog, liste d&#39;attente, bêta-testeurs, partenariats experts-comptables</td>
+<td align="left">500 inscrits liste d&#39;attente</td>
+</tr>
+<tr>
+<td align="left"><strong>M0</strong></td>
+<td align="left">Lancement, webinaire, relations presse, offre early adopter</td>
+<td align="left">50 trials, 10 payants</td>
+</tr>
+<tr>
+<td align="left"><strong>M+1 à M+3</strong></td>
+<td align="left">Google Ads, LinkedIn Ads, content marketing intensif</td>
+<td align="left">200 trials, 50 payants</td>
+</tr>
+<tr>
+<td align="left"><strong>M+3 à M+6</strong></td>
+<td align="left">Études de cas, parrainage, webinaires mensuels, salon RENT</td>
+<td align="left">500 trials, 150 payants</td>
+</tr>
+<tr>
+<td align="left"><strong>M+6 à M+9</strong></td>
+<td align="left">Optimisation CAC, programme partenaires, expansion régionale</td>
+<td align="left">300 payants, MRR 20k EUR</td>
+</tr>
+<tr>
+<td align="left"><strong>M+9 à M+12</strong></td>
+<td align="left">Podcast, influence, API marketplace, préparation levée de fonds</td>
+<td align="left">500 payants, ARR 420k EUR</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>9. Les 7 actions à faire cette semaine</h2>
+<ol>
+<li>Créer le compte LinkedIn entreprise MyGestia</li>
+<li>Rédiger et publier les 3 premiers articles de blog SEO</li>
+<li>Mettre en place la page &quot;liste d&#39;attente&quot; avec Resend pour l&#39;emailing</li>
+<li>Contacter 10 SCI / cabinets pour le programme bêta</li>
+<li>Configurer Google Analytics 4 + Google Search Console</li>
+<li>Créer les pages de comparaison &quot;MyGestia vs X&quot; (LOCKimmo, Rentila, BailFacile)</li>
+<li>Préparer le deck de présentation (10 slides) pour les partenaires experts-comptables</li>
+</ol>
+
+  </div>
+</body>
+</html>
