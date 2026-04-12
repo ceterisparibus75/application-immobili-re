@@ -48,3 +48,6 @@ next-env.d.ts
 # Prisma generated client
 src/generated/
 .claude/worktrees/
+
+# Sentry Config File
+.env.sentry-build-plugin

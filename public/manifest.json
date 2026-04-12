@@ -1,12 +1,14 @@
 {
-  "name": "MyGestia",
+  "name": "MyGestia — Gestion locative intelligente",
   "short_name": "MyGestia",
-  "description": "Plateforme SaaS de gestion locative et patrimoine immobilier",
+  "description": "Plateforme SaaS de gestion locative et patrimoine immobilier avec IA",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "theme_color": "#0C2340",
   "orientation": "portrait-primary",
+  "id": "mygestia-app",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -28,24 +30,39 @@
   ],
   "categories": [
     "business",
-    "finance"
+    "finance",
+    "productivity"
   ],
   "lang": "fr",
+  "dir": "ltr",
+  "screenshots": [],
   "shortcuts": [
     {
       "name": "Tableau de bord",
+      "short_name": "Dashboard",
       "url": "/dashboard",
-      "description": "Vue d ensemble"
+      "description": "Vue d'ensemble de votre patrimoine",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Factures",
+      "short_name": "Factures",
       "url": "/facturation",
       "description": "Gestion des factures"
     },
     {
       "name": "Locataires",
+      "short_name": "Locataires",
       "url": "/locataires",
       "description": "Liste des locataires"
+    },
+    {
+      "name": "Patrimoine",
+      "short_name": "Patrimoine",
+      "url": "/patrimoine",
+      "description": "Gestion des immeubles et lots"
     }
-  ]
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

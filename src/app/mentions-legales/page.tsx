@@ -77,7 +77,30 @@ export default function MentionsLegalesPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-4">7. Contact</h2>
+            <h2 className="text-xl font-semibold mb-4">7. Fonctionnalités d&apos;intelligence artificielle</h2>
+            <div className="space-y-3 text-muted-foreground">
+              <p>
+                Le Service intègre des fonctionnalités optionnelles d&apos;intelligence artificielle (IA), réservées aux abonnés du plan ENTERPRISE. Ces fonctionnalités incluent notamment :
+              </p>
+              <ul className="list-disc pl-6 space-y-1">
+                <li>Analyse automatique de documents (classification, extraction de résumés et de métadonnées)</li>
+                <li>Génération assistée de courriers et de lettres</li>
+                <li>Prédiction de paiements et analyse de risques locatifs</li>
+                <li>Évaluation patrimoniale assistée par IA (estimation de loyers et de valeur vénale)</li>
+              </ul>
+              <p>
+                Ces fonctionnalités sont alimentées par l&apos;API Claude d&apos;Anthropic, PBC (San Francisco, CA 94104, États-Unis — <a href="https://www.anthropic.com" className="text-primary underline" target="_blank" rel="noopener noreferrer">anthropic.com</a>).
+                Les données transmises à Anthropic sont traitées conformément à leur politique de confidentialité commerciale et ne sont <strong className="text-foreground">pas utilisées pour entraîner leurs modèles d&apos;IA</strong>.
+              </p>
+              <p>
+                L&apos;utilisation des fonctionnalités IA est entièrement facultative. Les utilisateurs peuvent désactiver ces fonctionnalités à tout moment.
+                Pour plus de détails, consultez notre <Link href="/politique-confidentialite" className="text-primary underline">Politique de confidentialité</Link> et notre <Link href="/dpa" className="text-primary underline">Accord de traitement des données (DPA)</Link>.
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-4">8. Contact</h2>
             <p className="text-muted-foreground">
               Pour toute question relative aux mentions légales, vous pouvez nous contacter à :
               <strong className="text-foreground"> contact@mygestia.immo</strong>

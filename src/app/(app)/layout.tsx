@@ -8,6 +8,11 @@ import { Header } from "@/components/layout/header";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { SubscriptionBanner } from "@/components/layout/subscription-banner";
 import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
+import { KeyboardShortcutsProvider } from "@/providers/keyboard-shortcuts-provider";
+import { PageTransition } from "@/components/ui/page-transition";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { WelcomeScreen } from "@/components/welcome-screen";
+import { SkipToContent, KeyboardFocusIndicator } from "@/components/ui/accessibility";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 
@@ -55,13 +60,21 @@ export default async function AppLayout({
   return (
     <SocietyProvider initialSocieties={societies}>
       <IdleTimeoutProvider>
-        <div className="flex flex-col h-screen overflow-hidden">
-          <TopNav />
-          <Header />
-          <SubscriptionBanner />
-          <Breadcrumb />
-          <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
-        </div>
+        <KeyboardShortcutsProvider>
+          <SkipToContent />
+          <KeyboardFocusIndicator />
+          <div className="flex flex-col h-screen overflow-hidden">
+            <TopNav />
+            <Header />
+            <SubscriptionBanner />
+            <Breadcrumb />
+            <main id="main-content" className="flex-1 overflow-y-auto px-6 py-6 lg:px-8" role="main">
+              <PageTransition>{children}</PageTransition>
+            </main>
+          </div>
+          <OnboardingWizard />
+          <WelcomeScreen userName={session.user.name ?? undefined} />
+        </KeyboardShortcutsProvider>
       </IdleTimeoutProvider>
     </SocietyProvider>
   );

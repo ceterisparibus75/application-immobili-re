@@ -18,6 +18,7 @@ interface Society {
   isActive: boolean;
   logoUrl: string | null;
   role: string;
+  ownerId?: string | null;
 }
 
 interface SocietyContextType {

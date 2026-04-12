@@ -18,6 +18,23 @@ export function mockAuthSession(
   prismaMock.userSociety.findUnique.mockResolvedValue(
     buildMembership(role, { societyId })
   )
+  // Mock active subscription so checkSubscriptionActive() passes
+  prismaMock.subscription.findUnique.mockResolvedValue({
+    id: "sub-1",
+    societyId,
+    plan: "PRO",
+    status: "ACTIVE",
+    stripeCustomerId: "cus_test",
+    stripeSubscriptionId: "sub_test",
+    stripePriceId: "price_test",
+    currentPeriodStart: new Date(),
+    currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    trialEnd: null,
+    cancelAt: null,
+    canceledAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never)
 }
 
 export function mockUnauthenticated() {

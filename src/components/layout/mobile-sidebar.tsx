@@ -7,6 +7,7 @@ import {
   TrendingUp, Landmark, BookOpen, Contact,
   Settings, Shield, ScrollText, Layers, X, FolderOpen,
   Upload, Banknote, BarChart3, FileBarChart, Merge, Mail, Bell, HelpCircle,
+  Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ const navigation = [
   { title: "Patrimoine", items: [
     { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
     { name: "Lots", href: "/patrimoine/lots", icon: Layers },
+    { name: "Copropriété", href: "/copropriete", icon: Building },
+    { name: "Saisonnier", href: "/saisonnier", icon: UmbrellaOff },
   ]},
   { title: "Gestion locative", items: [
     { name: "Baux", href: "/baux", icon: FileText },
@@ -39,8 +42,16 @@ const navigation = [
   ]},
   { title: "Communication", items: [
     { name: "Contacts", href: "/contacts", icon: Contact },
+    { name: "Candidatures", href: "/candidatures", icon: UserSearch },
   ]},
-  { title: "Aide", items: [{ name: "Centre d'aide", href: "/aide", icon: HelpCircle }] },
+  { title: "Outils IA", items: [
+    { name: "Assistant IA", href: "/assistant", icon: Sparkles },
+    { name: "Workflows", href: "/workflows", icon: Workflow },
+  ]},
+  { title: "Aide", items: [
+    { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
+    { name: "API / Développeurs", href: "/api-docs", icon: Code },
+  ]},
   { title: "Administration", items: [
     { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
     { name: "Fusions", href: "/administration/fusions", icon: Merge },

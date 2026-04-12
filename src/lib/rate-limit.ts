@@ -93,6 +93,21 @@ export function get2FARatelimit(): RateLimiterLike {
   return inMemory2FALimiter;
 }
 
+/** Endpoints IA : 5 requêtes par minute par IP (coût API élevé) */
+const inMemoryAILimiter = new InMemoryRateLimiter(5, 60_000);
+export function getAIRatelimit(): RateLimiterLike {
+  const redis = getRedis();
+  if (redis) {
+    return new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, "60 s"),
+      analytics: false,
+      prefix: "rl:ai",
+    });
+  }
+  return inMemoryAILimiter;
+}
+
 /** Portail locataire : 5 tentatives par 5 minutes par email */
 export function getPortalRatelimit(): RateLimiterLike {
   const redis = getRedis();

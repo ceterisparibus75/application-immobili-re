@@ -56,6 +56,9 @@ export default function DPAPage() {
               <li>Envoi de communications (relances, notifications, documents)</li>
               <li>Generation de documents (factures, quittances, lettres)</li>
               <li>Conformite reglementaire (diagnostics, indices, charges)</li>
+              <li>Analyse automatique de documents par intelligence artificielle (plan ENTERPRISE uniquement)</li>
+              <li>Generation assistee de courriers par intelligence artificielle (plan ENTERPRISE uniquement)</li>
+              <li>Prediction de paiements et evaluation patrimoniale par intelligence artificielle (plan ENTERPRISE uniquement)</li>
             </ul>
           </section>
 
@@ -134,6 +137,14 @@ export default function DPAPage() {
                     <td className="py-2 pr-4">Consentements</td>
                     <td className="py-2">3 ans apres revocation</td>
                   </tr>
+                  <tr>
+                    <td className="py-2 pr-4">Requetes et conversations IA</td>
+                    <td className="py-2">Non conservees cote serveur (traitement en temps reel uniquement)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4">Resultats d&apos;analyse IA</td>
+                    <td className="py-2">Duree de conservation du document ou de l&apos;entite associee</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -196,6 +207,11 @@ export default function DPAPage() {
                     <td className="py-2 pr-4">Cache et rate limiting (Redis)</td>
                     <td className="py-2">UE (Frankfurt)</td>
                   </tr>
+                  <tr>
+                    <td className="py-2 pr-4">Anthropic</td>
+                    <td className="py-2 pr-4">Intelligence artificielle — analyse de documents, generation de courriers, prediction de paiements, evaluation patrimoniale (plan ENTERPRISE uniquement)</td>
+                    <td className="py-2">US (clauses contractuelles types)</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -253,14 +269,33 @@ export default function DPAPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-4">13. Duree</h2>
+            <h2 className="text-xl font-semibold mb-4">13. Traitements lies a l&apos;intelligence artificielle</h2>
+            <div className="space-y-3 text-muted-foreground">
+              <p>Le Service integre des fonctionnalites optionnelles d&apos;intelligence artificielle (IA), reservees au plan ENTERPRISE, faisant appel au sous-traitant Anthropic (API Claude).</p>
+              <p><strong className="text-foreground">Donnees transmises :</strong> conformement au principe de minimisation (article 5.1.c du RGPD), seules les donnees strictement necessaires sont transmises a Anthropic pour chaque traitement. Selon la fonctionnalite :</p>
+              <ul className="list-disc pl-6 space-y-1">
+                <li>Analyse de documents : contenu textuel du document a analyser</li>
+                <li>Generation de courriers : informations contextuelles du bail et du locataire necessaires a la redaction</li>
+                <li>Prediction de paiements : historique de paiement anonymise ou pseudonymise</li>
+                <li>Evaluation patrimoniale : donnees du lot (surface, localisation, type) et donnees de marche</li>
+              </ul>
+              <p><strong className="text-foreground">Pas d&apos;entrainement :</strong> conformement aux conditions d&apos;utilisation commerciales d&apos;Anthropic (API Terms of Service), les donnees transmises via l&apos;API ne sont pas utilisees pour entrainer, ameliorer ou affiner les modeles d&apos;IA d&apos;Anthropic.</p>
+              <p><strong className="text-foreground">Conservation IA :</strong> les requetes et reponses IA ne sont pas conservees cote serveur {APP_NAME} apres le traitement. Seuls les resultats structures (resume, tags, categorie, score de confiance) sont stockes dans la base de donnees du Service. Anthropic peut conserver temporairement les logs de requetes conformement a sa politique de retention (30 jours maximum pour les API commerciales), exclusivement a des fins de detection d&apos;abus et de securite.</p>
+              <p><strong className="text-foreground">Transferts internationaux :</strong> les donnees transmises a Anthropic font l&apos;objet d&apos;un transfert vers les Etats-Unis, encadre par des clauses contractuelles types (CCT) conformement a l&apos;article 46 du RGPD.</p>
+              <p><strong className="text-foreground">Droit d&apos;opposition :</strong> le Responsable de traitement peut a tout moment desactiver les fonctionnalites IA pour sa societe. Les personnes concernees (locataires) peuvent exercer leur droit d&apos;opposition au traitement IA via le Responsable de traitement ou directement aupres du Sous-traitant a contact@mygestia.immo.</p>
+              <p><strong className="text-foreground">Analyse d&apos;impact (AIPD) :</strong> une analyse d&apos;impact relative a la protection des donnees a ete realisee pour les traitements IA conformement a l&apos;article 35 du RGPD. Cette analyse est disponible sur demande aupres du Sous-traitant.</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-4">14. Duree</h2>
             <p className="text-muted-foreground">
               Le present accord est conclu pour la duree de la relation contractuelle entre le Responsable de traitement et le Sous-traitant. Il prend fin automatiquement lors de la resiliation de l&apos;abonnement au Service, sous reserve des obligations de conservation legales.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-4">14. Loi applicable</h2>
+            <h2 className="text-xl font-semibold mb-4">15. Loi applicable</h2>
             <p className="text-muted-foreground">
               Le present accord est regi par le droit francais et le RGPD. En cas de litige relatif a l&apos;interpretation ou l&apos;execution du present accord, les tribunaux competents de Paris seront seuls competents.
             </p>

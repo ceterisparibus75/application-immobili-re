@@ -117,7 +117,26 @@ export default function CGUPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-4">10. Loi applicable et juridiction</h2>
+            <h2 className="text-xl font-semibold mb-4">10. Fonctionnalites d&apos;intelligence artificielle</h2>
+            <div className="space-y-3 text-muted-foreground">
+              <p>
+                Le Service integre des fonctionnalites optionnelles d&apos;intelligence artificielle (IA), accessibles exclusivement avec le plan ENTERPRISE. Ces fonctionnalites comprennent :
+              </p>
+              <ul className="list-disc pl-6 space-y-2">
+                <li><strong className="text-foreground">Analyse de documents</strong> : classification automatique, extraction de resume, identification de tags et de categorie (bail, avenant, quittance, facture, diagnostic, assurance, titre de propriete, contrat, etat des lieux).</li>
+                <li><strong className="text-foreground">Generation de courriers</strong> : redaction assistee de lettres et de courriers a destination des locataires ou partenaires.</li>
+                <li><strong className="text-foreground">Prediction de paiements</strong> : analyse du comportement de paiement des locataires et estimation des risques d&apos;impayes.</li>
+                <li><strong className="text-foreground">Evaluation patrimoniale</strong> : estimation de loyers et de valeur venale, analyse SWOT, score de confiance, comparables de marche.</li>
+              </ul>
+              <p><strong className="text-foreground">Fournisseur IA :</strong> ces fonctionnalites utilisent l&apos;API Claude d&apos;Anthropic (Etats-Unis). Les donnees sont traitees conformement a la politique commerciale d&apos;Anthropic et ne sont <strong>pas utilisees pour entrainer leurs modeles</strong>.</p>
+              <p><strong className="text-foreground">Resultats indicatifs :</strong> les analyses, predictions et evaluations generees par l&apos;IA sont fournies a titre informatif uniquement. Elles ne constituent ni un conseil juridique, ni un conseil financier, ni une expertise immobiliere. L&apos;Utilisateur reste seul responsable des decisions prises sur la base de ces resultats.</p>
+              <p><strong className="text-foreground">Caractere facultatif :</strong> l&apos;Utilisateur n&apos;est pas tenu d&apos;utiliser les fonctionnalites IA. Leur non-utilisation n&apos;affecte pas le fonctionnement des autres modules du Service. L&apos;Utilisateur peut exercer son droit d&apos;opposition au traitement IA a tout moment en contactant <strong className="text-foreground">contact@mygestia.immo</strong>.</p>
+              <p><strong className="text-foreground">Conservation des donnees IA :</strong> les requetes et conversations IA ne sont pas conservees cote serveur apres le traitement. Seuls les resultats structures (resume, tags, categorie, score) sont stockes dans la base de donnees du Service.</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-4">11. Loi applicable et juridiction</h2>
             <p className="text-muted-foreground">
               Les presentes CGU sont regies par le droit francais. En cas de litige, les parties s&apos;engagent a rechercher une solution amiable. A defaut, les tribunaux competents de Paris seront seuls competents.
             </p>

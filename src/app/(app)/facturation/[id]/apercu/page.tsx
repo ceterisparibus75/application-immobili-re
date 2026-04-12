@@ -19,8 +19,8 @@ const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
   EURL:  "EURL",
   SASU:  "SASU",
   SNC:   "SNC",
-  AUTRE: "Societe",
-  PERSONNE_PHYSIQUE: "Proprietaire",
+  AUTRE: "Société",
+  PERSONNE_PHYSIQUE: "Personne physique",
 };
 
 function tenantName(t: {

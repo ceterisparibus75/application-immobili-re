@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
-  Building2, Layers, Bot, Upload,
+  Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -69,9 +69,22 @@ const GESTION_LOCATIVE_ITEMS = [
   { name: "Charges", href: "/charges", icon: ScrollText },
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
+  { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
+  { name: "Candidatures", href: "/candidatures", icon: UserSearch },
 ];
 
 const GESTION_LOCATIVE_PATHS = GESTION_LOCATIVE_ITEMS.map((i) => i.href);
+
+// ── Sous-items du menu "Modules" ────────────────────────────────
+
+const MODULES_ITEMS = [
+  { name: "Copropriété", href: "/copropriete", icon: Building },
+  { name: "Saisonnier", href: "/saisonnier", icon: UmbrellaOff },
+  { name: "Assistant IA", href: "/assistant", icon: Sparkles },
+  { name: "Workflows", href: "/workflows", icon: Workflow },
+];
+
+const MODULES_PATHS = MODULES_ITEMS.map((i) => i.href);
 
 // ── Composant ───────────────────────────────────────────────────
 
@@ -87,6 +100,10 @@ export function TopNav() {
   );
 
   const isGestionActive = GESTION_LOCATIVE_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+
+  const isModulesActive = MODULES_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
@@ -219,7 +236,41 @@ export function TopNav() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Items après le dropdown */}
+            {/* Menu déroulant Modules */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap outline-none",
+                  isModulesActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                )}
+              >
+                Modules
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {MODULES_ITEMS.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer",
+                          isActive && "text-primary font-medium"
+                        )}
+                      >
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Items après les dropdowns */}
             {NAV_ITEMS_AFTER.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}

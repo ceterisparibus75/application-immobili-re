@@ -75,7 +75,7 @@ export default auth(async (req) => {
 
   // Rate limiting — toujours actif (fallback in-memory si pas de Redis)
   {
-    const { getLoginRatelimit, getApiRatelimit, get2FARatelimit } = await import("@/lib/rate-limit");
+    const { getLoginRatelimit, getApiRatelimit, get2FARatelimit, getAIRatelimit } = await import("@/lib/rate-limit");
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("x-real-ip") ??
@@ -85,6 +85,8 @@ export default auth(async (req) => {
       limiter = get2FARatelimit();
     } else if (pathname === "/login" || pathname.startsWith("/api/auth")) {
       limiter = getLoginRatelimit();
+    } else if (pathname.startsWith("/api/ai/")) {
+      limiter = getAIRatelimit();
     } else if (
       pathname.startsWith("/api/") &&
       !pathname.startsWith("/api/storage/") &&

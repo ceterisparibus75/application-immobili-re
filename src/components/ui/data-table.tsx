@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useRef, useState, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,8 +21,12 @@ import {
   ArrowDown,
   Search,
   X,
+  CheckSquare,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import { ViewToggle, DensityToggle, getDensityClass, type ViewMode, type Density } from "@/components/ui/view-toggle";
 
 /* ────────────────────────── Types ────────────────────────── */
 
@@ -48,6 +52,14 @@ export interface GroupInfo {
   icon?: ReactNode;
 }
 
+export interface BulkAction<T> {
+  id: string;
+  label: string;
+  icon?: ReactNode;
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost";
+  action: (selectedRows: T[]) => void | Promise<void>;
+}
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   data: T[];
@@ -69,6 +81,16 @@ export interface DataTableProps<T> {
   emptyIcon?: ReactNode;
   /** Optional grouping: extract group info from each row to render section headers */
   groupBy?: (row: T) => GroupInfo;
+  /** Enable row selection with checkboxes */
+  selectable?: boolean;
+  /** Bulk actions displayed when rows are selected */
+  bulkActions?: BulkAction<T>[];
+  /** Enable view mode toggle (table, cards, compact) */
+  showViewToggle?: boolean;
+  /** Enable density toggle */
+  showDensityToggle?: boolean;
+  /** Card renderer for cards view mode */
+  renderCard?: (row: T, index: number) => ReactNode;
 }
 
 /* ────────────────────────── Component ────────────────────────── */
@@ -92,16 +114,71 @@ export function DataTable<T>({
   emptyMessage = "Aucun résultat",
   emptyIcon,
   groupBy,
+  selectable,
+  bulkActions,
+  showViewToggle,
+  showDensityToggle,
+  renderCard,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(search ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [density, setDensity] = useState<Density>("comfortable");
 
   const totalPages = Math.ceil(total / pageSize);
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
+
+  // Selection helpers
+  const allKeys = useMemo(() => data.map((r) => rowKey(r)), [data, rowKey]);
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.has(k));
+  const someSelected = allKeys.some((k) => selectedKeys.has(k));
+
+  const toggleAll = useCallback(() => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const k of allKeys) next.delete(k);
+      } else {
+        for (const k of allKeys) next.add(k);
+      }
+      return next;
+    });
+  }, [allKeys, allSelected]);
+
+  const toggleOne = useCallback((key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedKeys(new Set()), []);
+
+  const selectedRows = useMemo(
+    () => data.filter((r) => selectedKeys.has(rowKey(r))),
+    [data, selectedKeys, rowKey],
+  );
+
+  const handleBulkAction = useCallback(
+    async (action: BulkAction<T>) => {
+      setBulkLoading(true);
+      try {
+        await action.action(selectedRows);
+        clearSelection();
+      } finally {
+        setBulkLoading(false);
+      }
+    },
+    [selectedRows, clearSelection],
+  );
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -205,13 +282,94 @@ export function DataTable<T>({
             Effacer
           </Button>
         )}
+
+        {/* View & Density toggles */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {showDensityToggle && viewMode === "table" && (
+            <DensityToggle density={density} onDensityChange={setDensity} />
+          )}
+          {showViewToggle && (
+            <ViewToggle
+              view={viewMode}
+              onViewChange={setViewMode}
+              availableViews={renderCard ? ["table", "cards", "compact"] : ["table", "compact"]}
+            />
+          )}
+        </div>
       </div>
 
+      {/* ── Bulk action bar ── */}
+      {selectable && selectedKeys.size > 0 && bulkActions && bulkActions.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 animate-in slide-in-from-top-1 duration-200">
+          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-medium text-foreground">
+            {selectedKeys.size} élément{selectedKeys.size > 1 ? "s" : ""} sélectionné{selectedKeys.size > 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {bulkActions.map((ba) => (
+              <Button
+                key={ba.id}
+                variant={ba.variant ?? "outline"}
+                size="sm"
+                className="h-8 text-xs"
+                disabled={bulkLoading}
+                onClick={() => handleBulkAction(ba)}
+              >
+                {ba.icon}
+                <span className="ml-1.5">{ba.label}</span>
+              </Button>
+            ))}
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={clearSelection}>
+              <X className="h-3.5 w-3.5 mr-1" />
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cards view ── */}
+      {viewMode === "cards" && renderCard && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoading
+            ? Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
+                <div key={i} className="rounded-lg border bg-card p-4">
+                  <Skeleton className="h-4 w-3/4 mb-3" />
+                  <Skeleton className="h-3 w-1/2 mb-2" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              ))
+            : data.length === 0
+              ? (
+                <div className="col-span-full flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                  {emptyIcon}
+                  <span className="text-sm">{emptyMessage}</span>
+                </div>
+              )
+              : data.map((row, i) => (
+                <div key={rowKey(row)} className="animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                  {renderCard(row, i)}
+                </div>
+              ))
+          }
+        </div>
+      )}
+
       {/* ── Table ── */}
+      {(viewMode === "table" || viewMode === "compact") && (
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableRow className={cn("bg-muted/40 hover:bg-muted/40", viewMode === "compact" && "text-xs")}>
+              {selectable && (
+                <TableHead className="w-[40px] px-3">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleAll}
+                    aria-label="Sélectionner tout"
+                    className={someSelected && !allSelected ? "opacity-60" : ""}
+                  />
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead
                   key={col.key}
@@ -236,6 +394,9 @@ export function DataTable<T>({
             {isLoading ? (
               Array.from({ length: Math.min(pageSize, 5) }).map((_, i) => (
                 <TableRow key={i}>
+                  {selectable && (
+                    <TableCell className="px-3"><Skeleton className="h-4 w-4" /></TableCell>
+                  )}
                   {columns.map((col) => (
                     <TableCell key={col.key}>
                       <Skeleton className="h-4 w-full" />
@@ -245,7 +406,7 @@ export function DataTable<T>({
               ))
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center">
+                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     {emptyIcon}
                     <span className="text-sm">{emptyMessage}</span>
@@ -262,11 +423,12 @@ export function DataTable<T>({
                   const showGroupHeader = group && group.key !== lastGroupKey;
                   if (group) lastGroupKey = group.key;
 
+                  const isSelected = selectable && selectedKeys.has(key);
                   return (
                     <Fragment key={key}>
                       {showGroupHeader && group && (
                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableCell colSpan={columns.length} className="py-2 px-4">
+                          <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="py-2 px-4">
                             <div className="flex items-center gap-2">
                               {group.icon}
                               <span className="font-semibold text-sm text-foreground">{group.label}</span>
@@ -278,15 +440,30 @@ export function DataTable<T>({
                         </TableRow>
                       )}
                       <TableRow
-                        className={href ? "cursor-pointer" : ""}
-                        onClick={href ? () => router.push(href) : undefined}
+                        className={cn(
+                          href ? "cursor-pointer" : "",
+                          isSelected ? "bg-primary/5" : "",
+                          viewMode === "compact" && "text-xs",
+                          getDensityClass(density),
+                        )}
+                        onClick={href && !selectable ? () => router.push(href) : undefined}
                       >
+                        {selectable && (
+                          <TableCell className="px-3" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleOne(key)}
+                              aria-label={`Sélectionner la ligne ${i + 1}`}
+                            />
+                          </TableCell>
+                        )}
                         {columns.map((col) => (
                           <TableCell
                             key={col.key}
                             className={`${
                               col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : ""
                             } ${col.className ?? ""}`}
+                            onClick={href && selectable ? () => router.push(href) : undefined}
                           >
                             {col.render(row, i)}
                           </TableCell>
@@ -300,6 +477,7 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* ── Pagination footer ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground px-1">

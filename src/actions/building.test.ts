@@ -180,7 +180,10 @@ describe("getBuildings", () => {
 
   it("retourne la liste des immeubles", async () => {
     mockAuthSession()
-    const buildings = [buildBuilding(), buildBuilding({ id: "clh3x2z4k0000qh8g7z1y2v4u", name: "Immeuble B" })]
+    const buildings = [
+      buildBuilding({ lots: [], additionalAcquisitions: [] }),
+      buildBuilding({ id: "clh3x2z4k0000qh8g7z1y2v4u", name: "Immeuble B", lots: [], additionalAcquisitions: [] }),
+    ]
     prismaMock.building.findMany.mockResolvedValue(buildings as never)
     const result = await getBuildings("society-1")
     expect(result).toHaveLength(2)
