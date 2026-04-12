@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { SubscriptionBanner } from "@/components/layout/subscription-banner";
 import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
 import { KeyboardShortcutsProvider } from "@/providers/keyboard-shortcuts-provider";
+import { PageTransition } from "@/components/ui/page-transition";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 
@@ -62,7 +63,9 @@ export default async function AppLayout({
             <Header />
             <SubscriptionBanner />
             <Breadcrumb />
-            <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">{children}</main>
+            <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">
+              <PageTransition>{children}</PageTransition>
+            </main>
           </div>
         </KeyboardShortcutsProvider>
       </IdleTimeoutProvider>
