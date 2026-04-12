@@ -1,0 +1,13 @@
+export { Navbar } from "./navbar";
+export { Hero } from "./hero";
+export { SocialProof } from "./social-proof";
+export { ProblemSection, SolutionSection } from "./problem-solution";
+export { FeaturesGrid } from "./features-grid";
+export { HighlightsBanner } from "./highlights";
+export { HowItWorks } from "./how-it-works";
+export { Pricing } from "./pricing";
+export { Solutions } from "./solutions";
+export { CaseStudies } from "./case-studies";
+export { FAQ } from "./faq";
+export { FinalCTA } from "./final-cta";
+export { Footer } from "./footer";
