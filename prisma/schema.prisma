@@ -455,6 +455,7 @@ model Society {
   seasonalProperties      SeasonalProperty[]
   candidates              Candidate[]
   candidatePipelines      CandidatePipeline[]
+  workflows               Workflow[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -3334,4 +3335,55 @@ enum CandidateActivityType {
   DOCUMENT_RECEIVED
   STATUS_CHANGE
   SCORE_UPDATE
+}
+
+// ============================================================
+// PHASE 16 — WORKFLOWS VISUELS
+// ============================================================
+
+/// Workflow automatisé
+model Workflow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  name        String
+  description String?
+  isActive    Boolean @default(false)
+  trigger     Json    // { type: "event"|"schedule"|"manual", config: {...} }
+  steps       Json    // Array de { id, type, config, position, connections }
+  lastRunAt   DateTime?
+  runCount    Int     @default(0)
+
+  society  Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  runs     WorkflowRun[]
+
+  @@index([societyId])
+}
+
+/// Exécution d'un workflow
+model WorkflowRun {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  workflowId String
+
+  status     WorkflowRunStatus @default(RUNNING)
+  triggeredBy String?           // userId ou "system"
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  error      String?  @db.Text
+  stepResults Json?   // Array de { stepId, status, output, duration }
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([createdAt])
+}
+
+enum WorkflowRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
