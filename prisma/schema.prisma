@@ -453,6 +453,8 @@ model Society {
   managementReports       ManagementReport[]
   coproprietes            Copropriete[]
   seasonalProperties      SeasonalProperty[]
+  candidates              Candidate[]
+  candidatePipelines      CandidatePipeline[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -3236,4 +3238,100 @@ model SeasonalBlockedDate {
   property SeasonalProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+}
+
+// ============================================================
+// PHASE 15 — CRM / PIPELINE CANDIDATURES
+// ============================================================
+
+/// Pipeline de candidatures personnalisable
+model CandidatePipeline {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  societyId String
+
+  name   String   // "Pipeline standard", "Location bureaux"...
+  stages Json     // Array de { id, name, order, color }
+
+  society    Society     @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  candidates Candidate[]
+
+  @@index([societyId])
+}
+
+/// Candidature locataire
+model Candidate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  pipelineId String?
+  lotId      String?  // Lot visé
+
+  // Identité
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  company    String?
+
+  // Pipeline
+  stageId    String?          // ID du stage dans pipeline.stages
+  score      Int?             // Score 0-100
+  source     String?          // "site", "leboncoin", "seloger", "recommandation"...
+  status     CandidateStatus @default(NEW)
+
+  // Dossier
+  monthlyIncome  Float?
+  guarantorName  String?
+  desiredMoveIn  DateTime?
+  notes          String? @db.Text
+  documents      Json?   // Array de { name, url }
+  tags           Json?   // Array de string
+
+  society  Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  pipeline CandidatePipeline? @relation(fields: [pipelineId], references: [id])
+  activities CandidateActivity[]
+
+  @@index([societyId])
+  @@index([pipelineId])
+  @@index([status])
+}
+
+enum CandidateStatus {
+  NEW
+  CONTACTED
+  VISIT_SCHEDULED
+  VISIT_DONE
+  DOSSIER_RECEIVED
+  DOSSIER_VALIDATED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+/// Historique d'activité sur une candidature
+model CandidateActivity {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  candidateId String
+
+  type    CandidateActivityType
+  content String?  @db.Text   // Note, message, détail...
+  userId  String?              // Qui a fait l'action
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([createdAt])
+}
+
+enum CandidateActivityType {
+  NOTE
+  EMAIL_SENT
+  CALL
+  VISIT
+  DOCUMENT_RECEIVED
+  STATUS_CHANGE
+  SCORE_UPDATE
 }
