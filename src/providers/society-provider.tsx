@@ -13,11 +13,12 @@ interface Society {
   id: string;
   name: string;
   legalForm: string;
-  siret: string;
+  siret: string | null;
   city: string;
   isActive: boolean;
   logoUrl: string | null;
   role: string;
+  ownerId?: string | null;
 }
 
 interface SocietyContextType {

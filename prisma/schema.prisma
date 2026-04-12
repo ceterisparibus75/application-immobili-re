@@ -34,6 +34,7 @@ enum LegalForm {
   SASU
   SNC
   AUTRE
+  PERSONNE_PHYSIQUE
 }
 
 enum TaxRegime {

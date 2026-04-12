@@ -20,6 +20,7 @@ const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
   SASU:  "SASU",
   SNC:   "SNC",
   AUTRE: "Société",
+  PERSONNE_PHYSIQUE: "Personne physique",
 };
 
 function tenantName(t: {

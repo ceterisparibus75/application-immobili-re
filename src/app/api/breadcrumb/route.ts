@@ -44,25 +44,25 @@ async function resolveEntityName(
       case "immeubles": {
         const b = await prisma.building.findUnique({
           where: { id },
-          select: { name: true, address: true },
+          select: { name: true, addressLine1: true },
         });
-        return b ? (b.name || b.address || null) : null;
+        return b ? (b.name || b.addressLine1 || null) : null;
       }
       case "lots": {
         const l = await prisma.lot.findUnique({
           where: { id },
-          select: { label: true },
+          select: { number: true, description: true },
         });
-        return l?.label ?? null;
+        return l ? (l.description || `Lot ${l.number}`) : null;
       }
       case "baux": {
         const lease = await prisma.lease.findUnique({
           where: { id },
-          select: { lot: { select: { label: true } }, tenant: { select: { firstName: true, lastName: true } } },
+          select: { lot: { select: { number: true, description: true } }, tenant: { select: { firstName: true, lastName: true } } },
         });
         if (!lease) return null;
         const tenantName = [lease.tenant?.firstName, lease.tenant?.lastName].filter(Boolean).join(" ");
-        return tenantName ? `Bail — ${tenantName}` : (lease.lot?.label ?? null);
+        return tenantName ? `Bail — ${tenantName}` : (lease.lot?.description || `Lot ${lease.lot?.number}` || null);
       }
       case "locataires": {
         const t = await prisma.tenant.findUnique({
@@ -75,16 +75,16 @@ async function resolveEntityName(
       case "facturation": {
         const inv = await prisma.invoice.findUnique({
           where: { id },
-          select: { label: true, number: true },
+          select: { invoiceNumber: true },
         });
-        return inv ? (inv.number ? `Facture ${inv.number}` : inv.label) : null;
+        return inv ? (inv.invoiceNumber ? `Facture ${inv.invoiceNumber}` : null) : null;
       }
       case "banque": {
         const ba = await prisma.bankAccount.findUnique({
           where: { id },
-          select: { label: true },
+          select: { accountName: true, bankName: true },
         });
-        return ba?.label ?? null;
+        return ba ? (ba.accountName || ba.bankName || null) : null;
       }
       case "emprunts": {
         const loan = await prisma.loan.findUnique({
@@ -103,9 +103,9 @@ async function resolveEntityName(
       case "charges": {
         const ch = await prisma.charge.findUnique({
           where: { id },
-          select: { label: true },
+          select: { description: true },
         });
-        return ch?.label ?? null;
+        return ch?.description ?? null;
       }
       case "utilisateurs": {
         const u = await prisma.user.findUnique({

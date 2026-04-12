@@ -39,54 +39,46 @@ export async function POST() {
     data: {
       societyId,
       name: "Résidence Les Orchidées (démo)",
-      address: "12 rue des Flamboyants",
+      addressLine1: "12 rue des Flamboyants",
       city: "Saint-Denis",
-      zipCode: "97400",
-      country: "FR",
-      type: "RESIDENTIAL",
-      floors: 3,
-      constructionYear: 2015,
+      postalCode: "97400",
+      country: "France",
+      buildingType: "MIXTE",
     },
   });
 
   const lot1 = await prisma.lot.create({
     data: {
-      societyId,
       buildingId: building.id,
-      label: "Apt T3 — 2e étage gauche (démo)",
-      type: "HABITATION",
-      surface: 65,
-      rooms: 3,
-      floor: 2,
+      number: "201",
+      lotType: "APPARTEMENT",
+      area: 65,
+      description: "Apt T3 — 2e étage gauche (démo)",
       status: "OCCUPE",
-      baseRent: 850,
-      charges: 120,
+      currentRent: 850,
     },
   });
 
   const lot2 = await prisma.lot.create({
     data: {
-      societyId,
       buildingId: building.id,
-      label: "Apt T2 — 1er étage droit (démo)",
-      type: "HABITATION",
-      surface: 45,
-      rooms: 2,
-      floor: 1,
-      status: "LIBRE",
-      baseRent: 650,
-      charges: 90,
+      number: "101",
+      lotType: "APPARTEMENT",
+      area: 45,
+      description: "Apt T2 — 1er étage droit (démo)",
+      status: "VACANT",
+      currentRent: 650,
     },
   });
 
   const tenant = await prisma.tenant.create({
     data: {
       societyId,
+      entityType: "PERSONNE_PHYSIQUE",
       firstName: "Marie",
       lastName: "Dupont (démo)",
       email: "demo-locataire@mygestia.example",
       phone: "0692 00 00 00",
-      type: "PARTICULIER",
     },
   });
 
@@ -99,14 +91,12 @@ export async function POST() {
       societyId,
       lotId: lot1.id,
       tenantId: tenant.id,
-      type: "HABITATION_VIDE",
-      status: "ACTIF",
+      leaseType: "HABITATION",
+      status: "EN_COURS",
       startDate,
       endDate,
-      rentAmount: 850,
-      chargesAmount: 120,
-      paymentDay: 5,
-      revisionIndex: "IRL",
+      baseRentHT: 850,
+      currentRentHT: 850,
       depositAmount: 850,
     },
   });

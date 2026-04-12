@@ -18,7 +18,7 @@ type ClaimableSociety = {
   id: string;
   name: string;
   legalForm: string;
-  siret: string;
+  siret: string | null;
   city: string;
 };
 

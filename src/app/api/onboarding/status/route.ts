@@ -29,7 +29,7 @@ export async function GET() {
     await Promise.all([
       prisma.userSociety.count({ where: { societyId } }),
       prisma.building.count({ where: { societyId } }),
-      prisma.tenant.count({ where: { societyId, isArchived: false } }),
+      prisma.tenant.count({ where: { societyId, isActive: true } }),
       prisma.lease.count({ where: { societyId } }),
       prisma.bankAccount.count({ where: { societyId } }),
     ]);

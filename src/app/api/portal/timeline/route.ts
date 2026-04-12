@@ -33,7 +33,7 @@ export async function GET() {
         tenantId: { in: tenantIds },
         issueDate: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
       },
-      select: { id: true, number: true, totalTTC: true, status: true, issueDate: true, dueDate: true },
+      select: { id: true, invoiceNumber: true, totalTTC: true, status: true, issueDate: true, dueDate: true },
       orderBy: { issueDate: "desc" },
       take: 20,
     }),
@@ -72,7 +72,8 @@ export async function GET() {
   // Invoice events
   for (const inv of invoices) {
     const statusMap: Record<string, TimelineEvent["status"]> = {
-      PAYEE: "success",
+      PAYE: "success",
+      PARTIELLEMENT_PAYE: "success",
       EN_ATTENTE: "warning",
       EN_RETARD: "error",
       BROUILLON: "info",
@@ -80,10 +81,10 @@ export async function GET() {
     };
     events.push({
       id: `invoice-${inv.id}`,
-      type: inv.status === "PAYEE" ? "payment" : "invoice",
-      title: inv.status === "PAYEE"
-        ? `Paiement reçu — Facture ${inv.number}`
-        : `Facture ${inv.number} — ${inv.totalTTC.toFixed(2)} €`,
+      type: inv.status === "PAYE" || inv.status === "PARTIELLEMENT_PAYE" ? "payment" : "invoice",
+      title: inv.status === "PAYE"
+        ? `Paiement reçu — Facture ${inv.invoiceNumber ?? ""}`
+        : `Facture ${inv.invoiceNumber ?? ""} — ${inv.totalTTC.toFixed(2)} €`,
       description: inv.status === "EN_RETARD" ? "Cette facture est en retard de paiement" : undefined,
       date: inv.issueDate.toISOString(),
       status: statusMap[inv.status] ?? "info",
@@ -96,9 +97,9 @@ export async function GET() {
       id: `ticket-${ticket.id}`,
       type: "ticket",
       title: `Demande : ${ticket.subject}`,
-      description: ticket.status === "RESOLVED" ? "Résolue" : ticket.status === "IN_PROGRESS" ? "En cours de traitement" : "En attente",
+      description: ticket.status === "RESOLU" ? "Résolue" : ticket.status === "EN_COURS" ? "En cours de traitement" : "En attente",
       date: ticket.createdAt.toISOString(),
-      status: ticket.status === "RESOLVED" ? "success" : ticket.status === "IN_PROGRESS" ? "info" : "warning",
+      status: ticket.status === "RESOLU" ? "success" : ticket.status === "EN_COURS" ? "info" : "warning",
     });
   }
 
