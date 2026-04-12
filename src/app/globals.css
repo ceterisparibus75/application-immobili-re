@@ -188,6 +188,16 @@
   animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Accessibilité : focus visible uniquement au clavier */
+.keyboard-nav *:focus-visible {
+  outline: 2px solid var(--color-primary, #1B4F8A);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:not(.keyboard-nav) *:focus {
+  outline: none;
+}
+
 /* Brand gradient utilities — Logo 2.4 */
 .bg-brand-gradient {
   background: linear-gradient(135deg, var(--color-brand-deep) 0%, var(--color-brand-blue) 50%, var(--color-brand-cyan) 100%);

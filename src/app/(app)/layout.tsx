@@ -12,6 +12,7 @@ import { KeyboardShortcutsProvider } from "@/providers/keyboard-shortcuts-provid
 import { PageTransition } from "@/components/ui/page-transition";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { WelcomeScreen } from "@/components/welcome-screen";
+import { SkipToContent, KeyboardFocusIndicator } from "@/components/ui/accessibility";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 
@@ -60,12 +61,14 @@ export default async function AppLayout({
     <SocietyProvider initialSocieties={societies}>
       <IdleTimeoutProvider>
         <KeyboardShortcutsProvider>
+          <SkipToContent />
+          <KeyboardFocusIndicator />
           <div className="flex flex-col h-screen overflow-hidden">
             <TopNav />
             <Header />
             <SubscriptionBanner />
             <Breadcrumb />
-            <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-8">
+            <main id="main-content" className="flex-1 overflow-y-auto px-6 py-6 lg:px-8" role="main">
               <PageTransition>{children}</PageTransition>
             </main>
           </div>
