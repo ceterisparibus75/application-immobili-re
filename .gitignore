@@ -51,3 +51,7 @@ src/generated/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Migration SQL files (use Prisma migrations instead)
+supabase-migration*.sql
+supabase-migration*.txt

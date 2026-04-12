@@ -38,6 +38,7 @@ const navigation = [
     { name: "Cash-flow", href: "/comptabilite/cashflow", icon: BarChart3 },
     { name: "Emprunts", href: "/emprunts", icon: Banknote },
     { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
+    { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
     { name: "Rapports", href: "/rapports", icon: FileBarChart },
   ]},
   { title: "Communication", items: [

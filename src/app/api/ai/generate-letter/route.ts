@@ -10,11 +10,17 @@ const LETTER_TYPES = [
   "relance_loyer",
   "mise_en_demeure",
   "conge_locataire",
+  "conge_bailleur",
   "augmentation_loyer",
+  "revision_loyer",
   "resiliation_bail",
   "attestation_domicile",
+  "attestation",
   "quittance_manuelle",
   "courrier_travaux",
+  "avis_travaux",
+  "regularisation_charges",
+  "demande_assurance",
   "courrier_libre",
 ] as const;
 

@@ -21,6 +21,7 @@ import {
   Loader2, Building2, Mail, Send, ShieldCheck, RotateCcw, Save,
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   createUser, assignUserToSociety, removeUserFromSociety,
   resendInvitation, getModulePermissions, updateModulePermissions,
