@@ -42,7 +42,6 @@ export async function GET() {
     return NextResponse.json(summary);
   } catch (error) {
     console.error("[AI Prediction]", error);
-    const message = error instanceof Error ? error.message : "Erreur interne";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur lors de l'analyse prédictive" }, { status: 500 });
   }
 }

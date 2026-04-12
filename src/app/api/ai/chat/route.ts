@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { chatWithAssistant, type ChatMessage, type ChatContext } from "@/lib/ai-chatbot";
+import { chatWithAssistant, type ChatContext } from "@/lib/ai-chatbot";
+
+const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(8000),
+});
+
+const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).min(1).max(50),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +30,13 @@ export async function POST(req: NextRequest) {
 
     await requireSocietyAccess(session.user.id, societyId, "LECTURE");
 
-    const body = (await req.json()) as { messages: ChatMessage[] };
-    if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
-      return NextResponse.json({ error: "Messages requis" }, { status: 400 });
+    const body = await req.json();
+    const parsed = chatRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.errors.map((e) => e.message).join(", ") },
+        { status: 400 }
+      );
     }
 
     // Build context
@@ -49,12 +63,11 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const reply = await chatWithAssistant(body.messages, context);
+    const reply = await chatWithAssistant(parsed.data.messages, context);
 
     return NextResponse.json({ reply });
   } catch (error) {
     console.error("[AI Chat]", error);
-    const message = error instanceof Error ? error.message : "Erreur interne";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Erreur lors du traitement de la requête" }, { status: 500 });
   }
 }
