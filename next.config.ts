@@ -3,6 +3,14 @@ import path from "path";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // ESLint is run in CI separately — skip during next build to avoid blocking deploys
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    // TypeScript is checked in CI separately
+    ignoreBuildErrors: false,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "20mb",
