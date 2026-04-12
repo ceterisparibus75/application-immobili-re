@@ -451,6 +451,7 @@ model Society {
   leaseTemplates          LeaseTemplate[]
   tickets                 Ticket[]
   managementReports       ManagementReport[]
+  coproprietes            Copropriete[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -2931,4 +2932,183 @@ model ManagementReport {
   @@index([societyId])
   @@index([leaseId])
   @@index([periodStart])
+}
+
+// ============================================================
+// PHASE 13 — SYNDIC DE COPROPRIÉTÉ
+// ============================================================
+
+/// Copropriété gérée
+model Copropriete {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  name            String          // Nom de la copropriété
+  address         String          // Adresse complète
+  city            String
+  postalCode      String
+  totalTantiemes  Int             // Total des tantièmes (ex: 1000, 10000)
+  fiscalYearStart Int    @default(1)  // Mois de début exercice (1=janvier)
+  siret           String?
+  notes           String? @db.Text
+
+  society    Society          @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lots       CoproLot[]
+  budgets    CoproBudget[]
+  assemblies CoproAssembly[]
+
+  @@index([societyId])
+}
+
+/// Lot de copropriété avec tantièmes
+model CoproLot {
+  id            String @id @default(cuid())
+  coproprieteId String
+  lotNumber     String       // Numéro du lot
+  ownerName     String       // Nom du copropriétaire
+  ownerEmail    String?
+  tantiemes     Int          // Tantièmes du lot
+  description   String?      // Description (appartement, cave, parking...)
+  floor         String?
+  area          Float?       // Surface en m²
+
+  copropriete Copropriete @relation(fields: [coproprieteId], references: [id], onDelete: Cascade)
+  votes       CoproVote[]
+
+  @@index([coproprieteId])
+}
+
+/// Budget prévisionnel de copropriété
+model CoproBudget {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  coproprieteId String
+
+  year          Int            // Année du budget
+  status        CoproBudgetStatus @default(DRAFT)
+  totalAmount   Float          // Montant total du budget
+  lines         Json           // Array de { category, label, amount, description }
+  notes         String?  @db.Text
+  approvedAt    DateTime?
+  approvedByAssemblyId String?
+
+  copropriete Copropriete @relation(fields: [coproprieteId], references: [id], onDelete: Cascade)
+
+  @@unique([coproprieteId, year])
+  @@index([coproprieteId])
+}
+
+enum CoproBudgetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+/// Assemblée Générale de copropriété
+model CoproAssembly {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  coproprieteId String
+
+  title         String
+  date          DateTime
+  type          CoproAssemblyType @default(ORDINAIRE)
+  status        CoproAssemblyStatus @default(PLANNED)
+  location      String?        // Lieu ou lien visio
+  isOnline      Boolean  @default(false)
+  quorumRequired Float   @default(0.5) // Pourcentage tantièmes
+
+  // Convocation
+  convocationSentAt DateTime?
+  convocationFileUrl String?
+
+  // PV
+  pvFileUrl     String?
+  pvApprovedAt  DateTime?
+
+  notes         String?  @db.Text
+
+  copropriete Copropriete       @relation(fields: [coproprieteId], references: [id], onDelete: Cascade)
+  resolutions CoproResolution[]
+
+  @@index([coproprieteId])
+  @@index([date])
+}
+
+enum CoproAssemblyType {
+  ORDINAIRE
+  EXTRAORDINAIRE
+  MIXTE
+}
+
+enum CoproAssemblyStatus {
+  PLANNED
+  CONVOCATION_SENT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+/// Résolution d'AG
+model CoproResolution {
+  id         String @id @default(cuid())
+  assemblyId String
+
+  number     Int            // Numéro de résolution
+  title      String
+  description String? @db.Text
+  majority   CoproMajority  @default(SIMPLE) // Type de majorité requise
+  status     CoproResolutionStatus @default(PENDING)
+
+  // Résultats
+  votesFor     Int @default(0)   // Tantièmes pour
+  votesAgainst Int @default(0)   // Tantièmes contre
+  abstentions  Int @default(0)   // Tantièmes abstention
+
+  assembly CoproAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  votes    CoproVote[]
+
+  @@index([assemblyId])
+}
+
+enum CoproMajority {
+  SIMPLE          // Art. 24 — majorité simple des présents
+  ABSOLUE         // Art. 25 — majorité absolue de tous
+  DOUBLE          // Art. 26 — double majorité (2/3 tantièmes)
+  UNANIMITE       // Unanimité
+}
+
+enum CoproResolutionStatus {
+  PENDING
+  ADOPTED
+  REJECTED
+  DEFERRED
+}
+
+/// Vote individuel sur une résolution
+model CoproVote {
+  id           String @id @default(cuid())
+  resolutionId String
+  lotId        String
+
+  vote         CoproVoteChoice
+  proxy        Boolean @default(false)  // Vote par procuration
+  proxyName    String?                  // Nom du mandataire
+
+  resolution CoproResolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
+  lot        CoproLot        @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@unique([resolutionId, lotId])
+  @@index([resolutionId])
+}
+
+enum CoproVoteChoice {
+  POUR
+  CONTRE
+  ABSTENTION
 }
