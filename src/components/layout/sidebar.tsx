@@ -8,6 +8,7 @@ import {
   FolderOpen, Settings, Shield, ScrollText, Banknote,
   BarChart3, FileBarChart, Upload, Merge,
   Layers, Wallet, Mail, Bell, Bot, HelpCircle,
+  Building, UmbrellaOff, UserSearch, Workflow, Code, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -27,6 +28,8 @@ const navigation = [
       { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
       { name: "Lots", href: "/patrimoine/lots", icon: Layers },
       { name: "Évaluations IA", href: "/patrimoine/evaluations", icon: Bot },
+      { name: "Copropriété", href: "/copropriete", icon: Building },
+      { name: "Saisonnier", href: "/saisonnier", icon: UmbrellaOff },
     ],
   },
   {
@@ -58,11 +61,22 @@ const navigation = [
     title: "Communication",
     items: [
       { name: "Contacts", href: "/contacts", icon: Contact },
+      { name: "Candidatures", href: "/candidatures", icon: UserSearch },
+    ],
+  },
+  {
+    title: "Outils IA",
+    items: [
+      { name: "Assistant IA", href: "/assistant", icon: Sparkles },
+      { name: "Workflows", href: "/workflows", icon: Workflow },
     ],
   },
   {
     title: "Aide",
-    items: [{ name: "Centre d'aide", href: "/aide", icon: HelpCircle }],
+    items: [
+      { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
+      { name: "API / Développeurs", href: "/api-docs", icon: Code },
+    ],
   },
   {
     title: "Administration",

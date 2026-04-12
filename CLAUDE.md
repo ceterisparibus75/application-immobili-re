@@ -367,6 +367,35 @@ const lots = await prisma.lot.findMany({ where: { societyId } })
 - Toasts pour feedback succès/erreur
 - Responsive mobile-first obligatoire
 
+### Navigation (top-nav uniquement)
+
+L'application utilise **exclusivement la barre de navigation horizontale** (`top-nav.tsx`) — il n'y a pas de sidebar latérale gauche.
+
+**Architecture de navigation :**
+```
+AppLayout (src/app/(app)/layout.tsx)
+├── TopNav           → navigation horizontale principale (desktop)
+├── Header           → barre supérieure (logo, recherche, profil, burger menu mobile)
+│   └── MobileSidebar → tiroir latéral (mobile/tablette uniquement, déclenché par le burger menu)
+├── SubscriptionBanner
+├── Breadcrumb
+└── Main content (pleine largeur, pas de marge gauche pour sidebar)
+```
+
+**Composants actifs :**
+- `src/components/layout/top-nav.tsx` — Barre horizontale avec liens directs + dropdowns (Gestion locative, Modules). Contient `ProprietaireSwitcher` et `SocietySwitcher`.
+- `src/components/layout/mobile-sidebar.tsx` — Tiroir glissant pour mobile avec la navigation complète. Déclenché par le Header.
+- `src/components/layout/header.tsx` — Logo, recherche globale, notifications, profil utilisateur, bouton burger mobile.
+
+**Composant obsolète :**
+- `src/components/layout/sidebar.tsx` — ⚠️ **NE PAS UTILISER**. Fichier conservé mais non importé dans aucun layout. Ne pas l'importer ni le rendre.
+
+**Règles :**
+- ❌ **JAMAIS** importer ou rendre `Sidebar` dans un layout
+- ✅ Pour ajouter un nouveau lien de navigation, modifier `top-nav.tsx` (desktop) ET `mobile-sidebar.tsx` (mobile)
+- ✅ Le contenu principal occupe 100% de la largeur (pas de `lg:ml-[260px]` ni offset sidebar)
+- ✅ Les dropdowns dans `top-nav.tsx` regroupent les sous-sections (Gestion locative, Modules)
+
 ### Règles métier
 
 - Un lot ne peut avoir qu'un seul bail actif à la fois
