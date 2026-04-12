@@ -26,6 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { ViewToggle, DensityToggle, getDensityClass, type ViewMode, type Density } from "@/components/ui/view-toggle";
 
 /* ────────────────────────── Types ────────────────────────── */
 
@@ -84,6 +85,12 @@ export interface DataTableProps<T> {
   selectable?: boolean;
   /** Bulk actions displayed when rows are selected */
   bulkActions?: BulkAction<T>[];
+  /** Enable view mode toggle (table, cards, compact) */
+  showViewToggle?: boolean;
+  /** Enable density toggle */
+  showDensityToggle?: boolean;
+  /** Card renderer for cards view mode */
+  renderCard?: (row: T, index: number) => ReactNode;
 }
 
 /* ────────────────────────── Component ────────────────────────── */
@@ -109,6 +116,9 @@ export function DataTable<T>({
   groupBy,
   selectable,
   bulkActions,
+  showViewToggle,
+  showDensityToggle,
+  renderCard,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -117,6 +127,8 @@ export function DataTable<T>({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [density, setDensity] = useState<Density>("comfortable");
 
   const totalPages = Math.ceil(total / pageSize);
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -270,6 +282,20 @@ export function DataTable<T>({
             Effacer
           </Button>
         )}
+
+        {/* View & Density toggles */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {showDensityToggle && viewMode === "table" && (
+            <DensityToggle density={density} onDensityChange={setDensity} />
+          )}
+          {showViewToggle && (
+            <ViewToggle
+              view={viewMode}
+              onViewChange={setViewMode}
+              availableViews={renderCard ? ["table", "cards", "compact"] : ["table", "compact"]}
+            />
+          )}
+        </div>
       </div>
 
       {/* ── Bulk action bar ── */}
@@ -301,11 +327,39 @@ export function DataTable<T>({
         </div>
       )}
 
+      {/* ── Cards view ── */}
+      {viewMode === "cards" && renderCard && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoading
+            ? Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
+                <div key={i} className="rounded-lg border bg-card p-4">
+                  <Skeleton className="h-4 w-3/4 mb-3" />
+                  <Skeleton className="h-3 w-1/2 mb-2" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              ))
+            : data.length === 0
+              ? (
+                <div className="col-span-full flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                  {emptyIcon}
+                  <span className="text-sm">{emptyMessage}</span>
+                </div>
+              )
+              : data.map((row, i) => (
+                <div key={rowKey(row)} className="animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                  {renderCard(row, i)}
+                </div>
+              ))
+          }
+        </div>
+      )}
+
       {/* ── Table ── */}
+      {(viewMode === "table" || viewMode === "compact") && (
       <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableRow className={cn("bg-muted/40 hover:bg-muted/40", viewMode === "compact" && "text-xs")}>
               {selectable && (
                 <TableHead className="w-[40px] px-3">
                   <Checkbox
@@ -389,6 +443,8 @@ export function DataTable<T>({
                         className={cn(
                           href ? "cursor-pointer" : "",
                           isSelected ? "bg-primary/5" : "",
+                          viewMode === "compact" && "text-xs",
+                          getDensityClass(density),
                         )}
                         onClick={href && !selectable ? () => router.push(href) : undefined}
                       >
@@ -421,6 +477,7 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* ── Pagination footer ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground px-1">
