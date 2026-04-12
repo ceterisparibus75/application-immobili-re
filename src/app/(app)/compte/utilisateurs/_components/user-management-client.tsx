@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   Users, UserPlus, ChevronDown, ChevronRight, Plus, Trash2,
-  Loader2, Building2, Mail, Send,
+  Loader2, Building2, Mail, Send, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   createUser, assignUserToSociety, removeUserFromSociety,
   resendInvitation,
@@ -403,6 +404,17 @@ function AccessRow({
           {ROLE_LABELS[role] ?? role}
         </Badge>
       )}
+
+      <Link href={`/administration/utilisateurs/${userId}/permissions`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+          title="Permissions par module"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
 
       {!isSelf && (
         <Button

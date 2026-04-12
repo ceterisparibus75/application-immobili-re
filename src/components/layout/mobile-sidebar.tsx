@@ -36,6 +36,7 @@ const navigation = [
     { name: "Banque", href: "/banque", icon: Landmark },
     { name: "Emprunts", href: "/emprunts", icon: Banknote },
     { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
+    { name: "Cash-flow", href: "/comptabilite/cashflow", icon: TrendingUp },
     { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
     { name: "Rapports", href: "/rapports", icon: FileBarChart },
   ]},

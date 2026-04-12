@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, Building, UmbrellaOff, UserSearch, Sparkles, Workflow } from "lucide-react";
+import { ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, Building, UmbrellaOff, UserSearch, Sparkles, Workflow, Shield, Merge, FileSearch, Settings, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
 import { ProprietaireSwitcher } from "./proprietaire-switcher";
@@ -31,11 +31,11 @@ const NAV_ITEMS_AFTER: NavItem[] = [
   { name: "Banque", href: "/banque" },
   { name: "Emprunts", href: "/emprunts" },
   { name: "Comptabilité", href: "/comptabilite" },
+  { name: "Cash-flow", href: "/comptabilite/cashflow" },
   { name: "Prévisionnel", href: "/comptabilite/previsionnel" },
   { name: "Rapports", href: "/rapports" },
   { name: "Documents", href: "/documents" },
   { name: "Contacts", href: "/contacts" },
-  { name: "Centre d'aide", href: "/aide" },
 ];
 
 // ── Sous-items du menu "Gestion locative" ───────────────────────
@@ -62,6 +62,18 @@ const MODULES_ITEMS = [
 
 const MODULES_PATHS = MODULES_ITEMS.map((i) => i.href);
 
+// ── Sous-items du menu "Administration" ────────────────────────
+
+const ADMIN_ITEMS = [
+  { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
+  { name: "Fusions", href: "/administration/fusions", icon: Merge },
+  { name: "Audit / Logs", href: "/administration/audit", icon: FileSearch },
+  { name: "Paramètres", href: "/parametres", icon: Settings },
+  { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
+];
+
+const ADMIN_PATHS = ADMIN_ITEMS.map((i) => i.href);
+
 // ── Composant ───────────────────────────────────────────────────
 
 export function TopNav() {
@@ -72,6 +84,10 @@ export function TopNav() {
   );
 
   const isModulesActive = MODULES_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+
+  const isAdminActive = ADMIN_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
@@ -170,6 +186,40 @@ export function TopNav() {
             {NAV_ITEMS_AFTER.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
+
+            {/* Menu déroulant Administration */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap outline-none",
+                  isAdminActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                )}
+              >
+                Administration
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {ADMIN_ITEMS.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer",
+                          isActive && "text-primary font-medium"
+                        )}
+                      >
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
