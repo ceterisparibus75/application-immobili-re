@@ -11,6 +11,7 @@ import { IdleTimeoutProvider } from "@/providers/idle-timeout-provider";
 import { KeyboardShortcutsProvider } from "@/providers/keyboard-shortcuts-provider";
 import { PageTransition } from "@/components/ui/page-transition";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { WelcomeScreen } from "@/components/welcome-screen";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 
@@ -69,6 +70,7 @@ export default async function AppLayout({
             </main>
           </div>
           <OnboardingWizard />
+          <WelcomeScreen userName={session.user.name ?? undefined} />
         </KeyboardShortcutsProvider>
       </IdleTimeoutProvider>
     </SocietyProvider>
