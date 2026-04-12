@@ -11,8 +11,9 @@ const solutionCards = [
       "Vision consolidée du patrimoine et de la trésorerie",
       "Rendement brut, LTV et taux d'occupation en temps réel",
       "Reporting propriétaire multi-sociétés",
+      "Copropriété et location saisonnière intégrées",
+      "Assistant IA : prédiction des impayés et génération de courriers",
       "Gestion des emprunts et de l'amortissement",
-      "Préparation à la transmission patrimoniale",
     ],
   },
   {
@@ -21,7 +22,8 @@ const solutionCards = [
     description: "Automatisez vos flux opérationnels et structurez la relation locataire avec rigueur et traçabilité.",
     items: [
       "Facturation et quittancement automatisés",
-      "Recouvrement par relances progressives",
+      "Workflows & automatisations personnalisables",
+      "CRM & gestion des candidatures locataires",
       "Portail locataire sécurisé avec documents",
       "Comptabilité intégrée et export FEC conforme",
       "Rapprochement bancaire et suivi de trésorerie",
