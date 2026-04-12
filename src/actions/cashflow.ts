@@ -105,6 +105,24 @@ export async function getCashflowDashboard(
       orderBy: { transactionDate: "asc" },
     });
 
+    // ── 1b. Tableau d'amortissement pour ventiler capital / intérêts ────
+    const amortLines = await prisma.loanAmortizationLine.findMany({
+      where: {
+        loan: { societyId, status: "EN_COURS" },
+        dueDate: { gte: actualStart, lte: forecastEnd },
+      },
+      select: { dueDate: true, totalPayment: true, principalPayment: true, interestPayment: true },
+    });
+
+    // Index par mois → liste des échéances (pour rapprochement)
+    const amortByMonth = new Map<string, Array<{ totalPayment: number; principalPayment: number; interestPayment: number }>>();
+    for (const line of amortLines) {
+      const d = new Date(line.dueDate);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!amortByMonth.has(key)) amortByMonth.set(key, []);
+      amortByMonth.get(key)!.push(line);
+    }
+
     // Regrouper par mois
     const actualByMonth = new Map<string, { income: number; expenses: number; expenseCats: Map<string, number>; incomeCats: Map<string, number> }>();
     let uncategorizedCount = 0;
@@ -124,11 +142,30 @@ export async function getCashflowDashboard(
         bucket.income += tx.amount;
         bucket.incomeCats.set(cat, (bucket.incomeCats.get(cat) ?? 0) + tx.amount);
       } else {
-        bucket.expenses += Math.abs(tx.amount);
-        bucket.expenseCats.set(cat, (bucket.expenseCats.get(cat) ?? 0) + Math.abs(tx.amount));
+        const absAmount = Math.abs(tx.amount);
+
+        // Ventilation automatique capital / intérêts pour les remboursements d'emprunt
+        if (cat === "remboursement_emprunt") {
+          const monthLines = amortByMonth.get(key) ?? [];
+          // Trouver l'échéance la plus proche en montant (tolérance 15%)
+          const matched = monthLines.find((l) => Math.abs(l.totalPayment - absAmount) < absAmount * 0.15);
+          if (matched && matched.totalPayment > 0) {
+            const interestRatio = matched.interestPayment / matched.totalPayment;
+            const interestPart = round(absAmount * interestRatio);
+            const capitalPart = round(absAmount - interestPart);
+            bucket.expenses += absAmount;
+            bucket.expenseCats.set("interets_emprunt", (bucket.expenseCats.get("interets_emprunt") ?? 0) + interestPart);
+            bucket.expenseCats.set("remboursement_emprunt", (bucket.expenseCats.get("remboursement_emprunt") ?? 0) + capitalPart);
+            continue; // Ne pas ajouter une 2e fois ci-dessous
+          }
+        }
+
+        bucket.expenses += absAmount;
+        bucket.expenseCats.set(cat, (bucket.expenseCats.get(cat) ?? 0) + absAmount);
       }
 
-      if (!tx.category && tx.amount < 0) uncategorizedCount++;
+      // Compter toutes les transactions non catégorisées (dépenses + revenus)
+      if (!tx.category) uncategorizedCount++;
     }
 
     // ── 2. Projections : loyers actifs ───────────────────────────────────
@@ -341,7 +378,6 @@ export async function getUncategorizedTransactions(
       where: {
         bankAccount: { societyId },
         category: null,
-        amount: { lt: 0 }, // Seulement les débits (dépenses)
       },
       select: {
         id: true,
@@ -430,7 +466,27 @@ export async function categorizeTransactions(
 
 // ═══════════════════════════════════════════════════════════════════════════
 // aiSuggestCategories — suggestion de catégories par IA (Claude)
+// Vérifie d'abord les libellés déjà catégorisés, puis appelle l'IA
+// uniquement pour les transactions sans correspondance connue.
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Normalise un libellé bancaire pour faciliter la comparaison :
+ * minuscules, suppression des accents, espaces multiples, chiffres,
+ * dates (JJ/MM/AAAA), références alphanumériques longues.
+ */
+function normalizeLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")       // accents
+    .replace(/\d{2}\/\d{2}\/\d{4}/g, "")   // dates JJ/MM/AAAA
+    .replace(/\d{2}-\d{2}-\d{4}/g, "")     // dates JJ-MM-AAAA
+    .replace(/\b[a-z0-9]{10,}\b/g, "")     // refs longues (ex: SEPA IDs)
+    .replace(/[^a-z\s]/g, " ")             // ponctuation → espace
+    .replace(/\s+/g, " ")                  // espaces multiples
+    .trim();
+}
 
 export async function aiSuggestCategories(
   societyId: string,
@@ -441,10 +497,7 @@ export async function aiSuggestCategories(
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
     await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return { success: false, error: "Clé API Anthropic non configurée" };
-
-    // Récupérer les transactions
+    // ── 1. Récupérer les transactions à catégoriser ─────────────────────
     const transactions = await prisma.bankTransaction.findMany({
       where: { id: { in: transactionIds }, bankAccount: { societyId } },
       select: { id: true, label: true, amount: true, reference: true },
@@ -452,10 +505,117 @@ export async function aiSuggestCategories(
 
     if (transactions.length === 0) return { success: false, error: "Aucune transaction trouvée" };
 
-    const categoriesList = EXPENSE_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
+    // ── 2. Construire un index des libellés déjà catégorisés ────────────
+    // On récupère toutes les transactions de la société qui ont une catégorie
+    const categorizedTransactions = await prisma.bankTransaction.findMany({
+      where: {
+        bankAccount: { societyId },
+        category: { not: null },
+      },
+      select: { label: true, category: true },
+    });
 
-    const txList = transactions.map((tx, i) =>
-      `${i + 1}. id="${tx.id}" | label="${tx.label}" | montant=${tx.amount.toFixed(2)}€ | ref="${tx.reference ?? ""}"`
+    // Map : libellé normalisé → { catégorie, occurrences }
+    const labelCategoryMap = new Map<string, Map<string, number>>();
+    for (const tx of categorizedTransactions) {
+      const norm = normalizeLabel(tx.label);
+      if (!norm) continue;
+      if (!labelCategoryMap.has(norm)) {
+        labelCategoryMap.set(norm, new Map());
+      }
+      const catCounts = labelCategoryMap.get(norm)!;
+      catCounts.set(tx.category!, (catCounts.get(tx.category!) ?? 0) + 1);
+    }
+
+    // Fonction de lookup : retourne la catégorie la plus fréquente pour un libellé
+    function findMatchingCategory(label: string): string | null {
+      const norm = normalizeLabel(label);
+      if (!norm) return null;
+
+      // Correspondance exacte (après normalisation)
+      const exactMatch = labelCategoryMap.get(norm);
+      if (exactMatch) {
+        // Prendre la catégorie la plus fréquente
+        let bestCat = "";
+        let bestCount = 0;
+        for (const [cat, count] of exactMatch) {
+          if (count > bestCount) { bestCat = cat; bestCount = count; }
+        }
+        return bestCat || null;
+      }
+
+      // Correspondance partielle : chercher si le libellé normalisé contient
+      // ou est contenu dans un libellé déjà catégorisé (mots-clés principaux)
+      const normWords = norm.split(" ").filter((w) => w.length >= 4);
+      if (normWords.length === 0) return null;
+
+      let bestMatch: { cat: string; score: number; count: number } | null = null;
+      for (const [knownLabel, catCounts] of labelCategoryMap) {
+        const knownWords = knownLabel.split(" ").filter((w) => w.length >= 4);
+        if (knownWords.length === 0) continue;
+
+        // Score = nombre de mots en commun / max des deux longueurs
+        const common = normWords.filter((w) => knownWords.includes(w)).length;
+        const score = common / Math.max(normWords.length, knownWords.length);
+
+        // Seuil de similarité : au moins 60% de mots en commun
+        if (score >= 0.6 && common >= 2) {
+          // Prendre la catégorie la plus fréquente de ce libellé connu
+          let topCat = "";
+          let topCount = 0;
+          for (const [cat, count] of catCounts) {
+            if (count > topCount) { topCat = cat; topCount = count; }
+          }
+          const totalCount = Array.from(catCounts.values()).reduce((s, v) => s + v, 0);
+          if (!bestMatch || score > bestMatch.score || (score === bestMatch.score && totalCount > bestMatch.count)) {
+            bestMatch = { cat: topCat, score, count: totalCount };
+          }
+        }
+      }
+
+      return bestMatch?.cat ?? null;
+    }
+
+    // ── 3. Séparer : correspondances locales vs à envoyer à l'IA ───────
+    const localResults: Array<{ transactionId: string; suggestedCategory: string; confidence: number }> = [];
+    const needsAI: typeof transactions = [];
+    const allCatIds = new Set<string>(ALL_CATEGORIES.map((c) => c.id));
+
+    for (const tx of transactions) {
+      const matched = findMatchingCategory(tx.label);
+      if (matched && allCatIds.has(matched)) {
+        localResults.push({
+          transactionId: tx.id,
+          suggestedCategory: matched,
+          confidence: 0.95, // Haute confiance : basé sur l'historique
+        });
+      } else {
+        needsAI.push(tx);
+      }
+    }
+
+    // ── 4. Si tout est résolu localement, renvoyer directement ──────────
+    if (needsAI.length === 0) {
+      return { success: true, data: localResults };
+    }
+
+    // ── 5. Appeler Claude pour les transactions non résolues ────────────
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      // Pas de clé API : renvoyer les résultats locaux + marquer les autres en "divers"
+      const fallback = needsAI.map((tx) => ({
+        transactionId: tx.id,
+        suggestedCategory: tx.amount < 0 ? "divers_depense" : "autres_revenus",
+        confidence: 0.1,
+      }));
+      return { success: true, data: [...localResults, ...fallback] };
+    }
+
+    const expenseCatList = EXPENSE_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
+    const incomeCatList = INCOME_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
+
+    const txList = needsAI.map((tx, i) =>
+      `${i + 1}. id="${tx.id}" | label="${tx.label}" | montant=${tx.amount.toFixed(2)}€ (${tx.amount < 0 ? "DÉBIT" : "CRÉDIT"}) | ref="${tx.reference ?? ""}"`
     ).join("\n");
 
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
@@ -467,9 +627,13 @@ export async function aiSuggestCategories(
       messages: [
         {
           role: "user",
-          content: `Tu es un expert comptable en gestion immobilière. Catégorise chaque transaction bancaire ci-dessous dans l'une des catégories suivantes :
+          content: `Tu es un expert comptable en gestion immobilière. Catégorise chaque transaction bancaire ci-dessous.
 
-${categoriesList}
+CATÉGORIES DE DÉPENSES (pour les montants négatifs / DÉBIT) :
+${expenseCatList}
+
+CATÉGORIES DE REVENUS (pour les montants positifs / CRÉDIT) :
+${incomeCatList}
 
 Transactions à catégoriser :
 ${txList}
@@ -478,37 +642,43 @@ Réponds UNIQUEMENT en JSON (tableau), sans markdown ni explication :
 [{"id": "...", "category": "...", "confidence": 0.0-1.0}]
 
 Règles :
-- Utilise uniquement les identifiants de catégorie listés ci-dessus
+- Utilise les catégories de DÉPENSES pour les DÉBITS (montant négatif)
+- Utilise les catégories de REVENUS pour les CRÉDITS (montant positif)
 - "confidence" entre 0.0 et 1.0 (1.0 = très sûr)
-- Si tu n'es pas sûr, utilise "divers_depense" avec une confidence basse
+- Si tu n'es pas sûr : "divers_depense" (débit) ou "autres_revenus" (crédit)
 - Analyse le libellé et le montant pour déterminer la catégorie
-- Les prélèvements liés aux assurances → "assurance"
-- Les échéances de prêt → "remboursement_emprunt"
-- Les taxes foncières, CFE → "taxes"
-- Les factures EDF, eau, gaz → "energie"
-- Les frais de syndic/copro → "charges_copro"
-- Les virements vers notaire, comptable → "honoraires"`,
+- Prélèvements assurances → "assurance"
+- Échéances de prêt → "remboursement_emprunt"
+- Taxes foncières, CFE → "taxes"
+- Factures EDF, eau, gaz → "energie"
+- Frais de syndic/copro → "charges_copro"
+- Virements vers notaire, comptable → "honoraires"
+- Loyers reçus, virements locataires → "loyers"
+- Provisions/charges locatives reçues → "charges_locatives"
+- Dépôts de garantie reçus → "depot_garantie"`,
         },
       ],
     });
 
     const text = message.content[0].type === "text" ? message.content[0].text : "";
-    // Extraire le JSON
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return { success: false, error: "Réponse IA invalide" };
+    if (!jsonMatch) {
+      return { success: true, data: localResults };
+    }
 
     const { jsonrepair } = await import("jsonrepair");
     const parsed = JSON.parse(jsonrepair(jsonMatch[0])) as Array<{ id: string; category: string; confidence: number }>;
 
-    const result = parsed
-      .filter((p) => EXPENSE_CATEGORIES.some((c) => c.id === p.category))
+    const aiResults = parsed
+      .filter((p) => allCatIds.has(p.category))
       .map((p) => ({
         transactionId: p.id,
         suggestedCategory: p.category,
         confidence: Math.min(1, Math.max(0, p.confidence)),
       }));
 
-    return { success: true, data: result };
+    // ── 6. Fusionner résultats locaux + IA ──────────────────────────────
+    return { success: true, data: [...localResults, ...aiResults] };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[aiSuggestCategories]", error);
