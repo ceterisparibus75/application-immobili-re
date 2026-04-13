@@ -5,12 +5,29 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Printer, X, Zap } from "lucide-react";
 import type { InvoicePreview } from "@/actions/invoice";
 
+function sanitizeSpaces(str: string) { return str.replace(/\u00A0|\u202F|\u2009|\u200A|\u2007/g, " "); }
 function fmt(v: number) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+  return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v));
 }
-
+function fmtNum(v: number) {
+  return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(v));
+}
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR");
+}
+
+const LEGAL_FORM_LABELS: Record<string, string> = {
+  SCI: "Societe Civile Immobiliere (SCI)", SARL: "SARL",
+  SAS: "SAS", SA: "SA", EURL: "EURL", SASU: "SASU", SNC: "SNC", AUTRE: "Societe",
+  PERSONNE_PHYSIQUE: "Proprietaire",
+};
+
+function typeTitle(invoiceType: string): string {
+  if (invoiceType === "APPEL_LOYER") return "APPEL DE LOYER ET CHARGES";
+  if (invoiceType === "QUITTANCE") return "QUITTANCE DE LOYER";
+  if (invoiceType === "REGULARISATION_CHARGES") return "RÉGULARISATION DE CHARGES";
+  if (invoiceType === "REFACTURATION") return "REFACTURATION";
+  return "FACTURE";
 }
 
 type Props = {
@@ -67,161 +84,169 @@ export function InvoicePreviewSheet({
           </div>
         )}
 
-        {/* Document — scrollable */}
+        {/* Document — scrollable, reproduit la mise en page du PDF */}
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="bg-white text-gray-900 text-sm font-sans space-y-5">
+          <div className="bg-white text-gray-900 font-sans" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 10, padding: "50px 50px 70px" }}>
 
-            {/* Numéro + date */}
-            <div className="text-center text-xs text-gray-600">
-              <p>Facture n° : <span className="font-semibold text-gray-900">— prévisualisation —</span></p>
-              <p>Émise le : {fmtDate(preview.issueDate)}</p>
-            </div>
+            {/* Logo centré (comme le PDF) */}
+            {preview.logoResolvedUrl ? (
+              <div className="flex justify-center mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={preview.logoResolvedUrl} alt="Logo" style={{ maxHeight: 96, maxWidth: 240, objectFit: "contain" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            ) : null}
 
-            {/* Émetteur + Destinataire */}
-            <div className="flex items-start gap-6">
-              <div className="flex-1 space-y-0.5 text-xs">
-                {preview.logoResolvedUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview.logoResolvedUrl} alt="Logo" className="h-12 object-contain mb-2" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                ) : null}
-                <p className="font-bold text-sm">{s?.name ?? "—"}</p>
+            {/* Émetteur (gauche) + Destinataire (droite) */}
+            <div className="flex items-start mb-6">
+              <div className="flex-1 pr-4">
+                <p style={{ fontSize: 12, fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, marginBottom: 2 }}>{s?.name ?? "---"}</p>
                 {s?.addressLine1 && (
-                  <p className="text-gray-600">
+                  <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>
                     {s.addressLine1}, {[s.postalCode, s.city].filter(Boolean).join(" ")}
                   </p>
                 )}
-                {s?.siret && <p className="text-gray-500">SIRET : {s.siret}</p>}
+                {s?.phone && <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>Tél. : {s.phone}</p>}
+                {s?.legalForm && s?.shareCapital ? (
+                  <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>
+                    {LEGAL_FORM_LABELS[s.legalForm] ?? s.legalForm} au capital de {fmtNum(s.shareCapital)}{"\u20AC"}
+                  </p>
+                ) : s?.legalForm ? (
+                  <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>{LEGAL_FORM_LABELS[s.legalForm] ?? s.legalForm}</p>
+                ) : null}
+                {s?.siret && <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>SIRET : {s.siret}</p>}
+                {s?.vatNumber && <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 1 }}>N° TVA : {s.vatNumber}</p>}
               </div>
 
               {/* Destinataire avec coins + */}
-              <div className="w-52 relative p-4 text-xs">
-                <span className="absolute top-0.5 left-0.5 text-gray-400 select-none">+</span>
-                <span className="absolute top-0.5 right-0.5 text-gray-400 select-none">+</span>
-                <span className="absolute bottom-0.5 left-0.5 text-gray-400 select-none">+</span>
-                <span className="absolute bottom-0.5 right-0.5 text-gray-400 select-none">+</span>
-                <p className="font-semibold text-gray-900">{preview.tenantName}</p>
+              <div className="relative p-3" style={{ width: 180 }}>
+                <span className="absolute text-gray-300 select-none" style={{ top: 2, left: 2, fontSize: 10 }}>+</span>
+                <span className="absolute text-gray-300 select-none" style={{ top: 2, right: 2, fontSize: 10 }}>+</span>
+                <span className="absolute text-gray-300 select-none" style={{ bottom: 2, left: 2, fontSize: 10 }}>+</span>
+                <span className="absolute text-gray-300 select-none" style={{ bottom: 2, right: 2, fontSize: 10 }}>+</span>
+                <p style={{ fontSize: 9, fontWeight: 700, marginBottom: 3 }}>{preview.tenantName}</p>
                 {preview.tenantAddress ? (
-                  <p className="text-gray-600 whitespace-pre-line">{preview.tenantAddress}</p>
+                  <p className="whitespace-pre-line" style={{ fontSize: 8.5, color: "#6b7280" }}>{preview.tenantAddress}</p>
                 ) : (
-                  <p className="text-gray-400 italic">Adresse non renseignée</p>
+                  <p style={{ fontSize: 8, color: "#9ca3af" }}>{preview.tenantEmail ?? "Adresse non renseignée"}</p>
                 )}
-                {preview.tenantEmail && <p className="text-gray-600">{preview.tenantEmail}</p>}
               </div>
             </div>
 
             {/* Titre */}
-            <h2 className="text-lg font-bold">APPEL DE LOYER ET CHARGES</h2>
+            <p style={{ fontSize: 15, fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, marginBottom: 4 }}>{typeTitle(preview.invoiceType)}</p>
 
-            {/* Infos */}
-            <div className="space-y-0.5 text-xs">
-              <p>Date d&apos;échéance : {fmtDate(preview.dueDate)}</p>
-              <p>Pour la période : <span className="font-medium">du {fmtDate(preview.periodStartISO)} au {fmtDate(preview.periodEndISO)}</span></p>
-              {preview.lotLabel && (
-                <>
-                  <p>Lot(s) concerné(s) :</p>
-                  <p>{preview.lotLabel}</p>
-                </>
-              )}
+            {/* Infos facture */}
+            <div style={{ marginBottom: 2 }}>
+              <p style={{ fontSize: 8.5, marginBottom: 2 }}>Facture n° : — prévisualisation —&nbsp;&nbsp;&nbsp;Émise le : {fmtDate(preview.issueDate)}</p>
+              <p style={{ fontSize: 8.5, marginBottom: 2 }}>Date d&apos;échéance : {fmtDate(preview.dueDate)}</p>
+              <p style={{ fontSize: 8.5, marginBottom: 2 }}>Période du {fmtDate(preview.periodStartISO)} au {fmtDate(preview.periodEndISO)}.</p>
+              {preview.lotLabel && <p style={{ fontSize: 8.5, marginTop: 2 }}>Lot(s) : {preview.lotLabel}</p>}
             </div>
 
-            {/* Tableau */}
-            <table className="w-full text-xs border-collapse">
+            {/* Tableau des lignes */}
+            <table className="w-full border-collapse" style={{ fontSize: 8.5, marginTop: 10, marginBottom: 4 }}>
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="text-left px-2 py-1.5 font-semibold border border-gray-200">Libellé opération</th>
-                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-24">Montant HT</th>
-                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-16">TVA</th>
-                  <th className="text-right px-2 py-1.5 font-semibold border border-gray-200 w-24">Montant TTC</th>
+                <tr style={{ backgroundColor: "#f9fafb" }}>
+                  <th className="text-left" style={{ padding: 5, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", fontSize: 8, fontWeight: 700 }}>Libellé</th>
+                  <th className="text-right" style={{ padding: 5, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", fontSize: 8, fontWeight: 700, width: 70 }}>HT</th>
+                  <th className="text-right" style={{ padding: 5, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", fontSize: 8, fontWeight: 700, width: 50 }}>TVA</th>
+                  <th className="text-right" style={{ padding: 5, borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", fontSize: 8, fontWeight: 700, width: 70 }}>TTC</th>
                 </tr>
               </thead>
               <tbody>
                 {preview.lines.map((line, i) => (
-                  <tr key={i} className={i % 2 === 1 ? "bg-gray-50/40" : ""}>
-                    <td className="px-2 py-1.5 border-b border-gray-100">
-                      <p>{line.label}</p>
-                      {preview.lotNumber && <p className="text-gray-400">{preview.lotNumber}</p>}
+                  <tr key={i} style={{ backgroundColor: i % 2 === 1 ? "#fafafa" : undefined }}>
+                    <td style={{ padding: 5, borderBottom: "1px solid #e5e7eb" }}>
+                      <span style={{ fontSize: 8.5 }}>{line.label}</span>
+                      {preview.lotNumber && <br />}
+                      {preview.lotNumber && <span style={{ fontSize: 7, color: "#6b7280" }}>{preview.lotNumber}</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">{fmt(line.totalHT)}</td>
-                    <td className="px-2 py-1.5 text-right border-b border-gray-100 text-gray-500">
-                      {line.vatRate.toFixed(2).replace(".", ",")} %
-                    </td>
-                    <td className="px-2 py-1.5 text-right border-b border-gray-100 tabular-nums">{fmt(line.totalTTC)}</td>
+                    <td className="text-right tabular-nums" style={{ padding: 5, borderBottom: "1px solid #e5e7eb", fontSize: 8.5 }}>{fmt(line.totalHT)}</td>
+                    <td className="text-right" style={{ padding: 5, borderBottom: "1px solid #e5e7eb", fontSize: 8.5, color: "#6b7280" }}>{line.vatRate.toFixed(2).replace(".", ",")} %</td>
+                    <td className="text-right tabular-nums" style={{ padding: 5, borderBottom: "1px solid #e5e7eb", fontSize: 8.5 }}>{fmt(line.totalTTC)}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={2} />
-                  <td className="px-2 py-1.5 text-right text-gray-600 border-t border-gray-200">Total HT</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums border-t border-gray-200">{fmt(preview.totalHT)}</td>
-                </tr>
-                {preview.totalVAT > 0.001 && (
-                  <tr>
-                    <td colSpan={2} />
-                    <td className="px-2 py-1.5 text-right text-gray-600">TVA</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">{fmt(preview.totalVAT)}</td>
-                  </tr>
-                )}
-                <tr>
-                  <td colSpan={2} />
-                  <td className="px-2 py-1.5 text-right font-bold border-t border-gray-400">TOTAL TTC</td>
-                  <td className="px-2 py-1.5 text-right font-bold tabular-nums border-t border-gray-400">{fmt(preview.totalTTC)}</td>
-                </tr>
-              </tfoot>
             </table>
 
-            {/* Situation de compte */}
-            <div className="mt-4">
-              <p className="font-bold text-xs mb-1">Situation de compte au {fmtDate(preview.issueDate)}</p>
-              <table className="w-full text-xs border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="border border-gray-200 px-3 py-1.5">Solde précédent à date d&apos;édition</td>
-                    <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
-                      {preview.previousBalance !== 0
-                        ? `${preview.previousBalance > 0 ? "" : "−"} ${fmt(Math.abs(preview.previousBalance))}`
-                        : fmt(0)}
-                    </td>
-                  </tr>
-                  <tr className="font-bold">
-                    <td className="border border-gray-200 px-3 py-1.5">
-                      Total à payer avant le {fmtDate(preview.dueDate)}
-                    </td>
-                    <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">
-                      {fmt(Math.max(0, preview.previousBalance + preview.totalTTC))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* Totaux — alignés à droite comme le PDF */}
+            <div style={{ marginTop: 4, marginBottom: 10 }}>
+              <div className="flex justify-end">
+                <span className="text-right" style={{ width: 100, fontSize: 8.5, color: "#6b7280", paddingRight: 8 }}>Total HT</span>
+                <span className="text-right tabular-nums" style={{ width: 80, fontSize: 8.5 }}>{fmt(preview.totalHT)}</span>
+              </div>
+              {preview.totalVAT > 0.001 && (
+                <div className="flex justify-end">
+                  <span className="text-right" style={{ width: 100, fontSize: 8.5, color: "#6b7280", paddingRight: 8 }}>TVA</span>
+                  <span className="text-right tabular-nums" style={{ width: 80, fontSize: 8.5 }}>{fmt(preview.totalVAT)}</span>
+                </div>
+              )}
+              <div className="flex justify-end" style={{ borderTop: "1px solid #111827", paddingTop: 3, marginTop: 1 }}>
+                <span className="text-right" style={{ width: 100, fontSize: 9, fontWeight: 700, paddingRight: 8 }}>TOTAL TTC</span>
+                <span className="text-right tabular-nums" style={{ width: 80, fontSize: 9, fontWeight: 700 }}>{fmt(preview.totalTTC)}</span>
+              </div>
             </div>
 
-            {/* Mentions légales abrégées */}
-            <div className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+            {/* Situation de compte */}
+            <p style={{ fontSize: 9, fontWeight: 700, marginTop: 12, marginBottom: 4 }}>Situation de compte au {fmtDate(preview.issueDate)}</p>
+            <p style={{ fontSize: 8, color: "#6b7280", marginBottom: 6 }}>
+              Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s&apos;agit du montant de votre solde précédent auquel s&apos;ajoute le montant de cette facture.
+            </p>
+            <table className="w-full border-collapse" style={{ fontSize: 8.5, marginBottom: 12 }}>
+              <tbody>
+                <tr>
+                  <td style={{ flex: 1, padding: 6, border: "1px solid #e5e7eb" }}>Solde précédent</td>
+                  <td className="text-right tabular-nums" style={{ width: 100, padding: 6, border: "1px solid #e5e7eb" }}>{fmt(preview.previousBalance)}</td>
+                </tr>
+                <tr>
+                  <td style={{ flex: 1, padding: 6, border: "1px solid #e5e7eb", fontWeight: 700 }}>
+                    Total à payer au {fmtDate(preview.dueDate)}
+                  </td>
+                  <td className="text-right tabular-nums" style={{ width: 100, padding: 6, border: "1px solid #e5e7eb", fontWeight: 700 }}>
+                    {fmt(Math.max(0, preview.previousBalance + preview.totalTTC))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Mentions légales */}
+            <div style={{ fontSize: 7, color: "#6b7280", marginTop: 12, lineHeight: 1.4 }}>
               {s?.vatRegime === "FRANCHISE" && (
-                <p className="font-semibold text-gray-700 mb-1">TVA non applicable — art. 293 B du CGI</p>
+                <p style={{ fontWeight: 700, marginBottom: 2 }}>TVA non applicable - art. 293 B du CGI</p>
               )}
               <p>
-                Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité
-                égale à 3 fois le taux intérêt légal sera exigible (Art. L 441-10 C. com.).
+                Pas d&apos;escompte pour règlement anticipé. En cas de retard de paiement, une pénalité égale à 3 fois le taux intérêt légal sera exigible (Article L 441-10, alinéa 12 du Code de Commerce). Pour tout professionnel, en sus des indemnités de retard, toute somme, y compris l&apos;acompte, non payée à sa date d&apos;exigibilité produira de plein droit le paiement d&apos;une indemnité forfaitaire de 40 euros due au titre des frais de recouvrement (Art. 441-6, I al. 12 du code de commerce et D. 441-5 ibidem).
               </p>
-              {s?.legalMentions && <p className="mt-1 whitespace-pre-wrap">{s.legalMentions}</p>}
+              {s?.legalMentions && <p style={{ marginTop: 3 }}>{s.legalMentions}</p>}
             </div>
 
             {/* Signature */}
-            <div className="flex justify-between text-xs">
-              <p>Fait à {s?.city ?? "—"}, le {fmtDate(preview.issueDate)}</p>
-              {s?.signatoryName && <p>{s.signatoryName}, pour {s?.name}</p>}
+            <div className="text-right" style={{ marginTop: 12, marginBottom: 10 }}>
+              <p style={{ fontSize: 8.5 }}>Fait à {s?.city ?? "---"}, le {fmtDate(preview.issueDate)}</p>
+              {s?.signatoryName && <p style={{ fontSize: 8.5 }}>{s.signatoryName}, pour {s?.name}</p>}
             </div>
 
             {/* Coordonnées bancaires */}
             {(preview.iban || preview.bic || s?.bankName) && (
-              <div className="text-xs space-y-0.5 border-t border-gray-100 pt-3">
-                <p className="font-bold">Coordonnées bancaires</p>
+              <div style={{ marginTop: 8, fontSize: 8.5 }}>
+                <p style={{ fontWeight: 700, marginBottom: 2 }}>Coordonnées bancaires</p>
                 {s?.bankName && <p>Banque : {s.bankName}</p>}
                 {preview.iban && <p>IBAN : {preview.iban}</p>}
                 {preview.bic  && <p>BIC : {preview.bic}</p>}
               </div>
             )}
+
+            {/* Pied de page (simule le footer du PDF) */}
+            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 5 }}>
+              <p className="text-center" style={{ fontSize: 7, color: "#6b7280" }}>
+                {[
+                  s?.addressLine1 ? s.addressLine1 + ([s.postalCode, s.city].filter(Boolean).length > 0 ? ", " + [s.postalCode, s.city].filter(Boolean).join(" ") : "") : null,
+                  s?.legalForm && s?.shareCapital ? (LEGAL_FORM_LABELS[s.legalForm] ?? s.legalForm) + " au capital de " + fmtNum(s.shareCapital) + "\u20AC" : s?.legalForm ? (LEGAL_FORM_LABELS[s.legalForm] ?? s.legalForm) : null,
+                  s?.siret ? "SIRET : " + s.siret : null,
+                  s?.email ?? null,
+                ].filter((p): p is string => p !== null && p !== undefined && p !== "").join("  |  ")}
+              </p>
+            </div>
           </div>
         </div>
       </SheetContent>

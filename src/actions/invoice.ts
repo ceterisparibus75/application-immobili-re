@@ -933,10 +933,15 @@ export type InvoicePreviewSociety = {
   legalMentions: string | null;
   bankName: string | null;
   signatoryName: string | null;
+  phone: string | null;
+  legalForm: string | null;
+  shareCapital: number | null;
+  email: string | null;
 };
 
 export type InvoicePreview = {
   leaseId: string;
+  invoiceType: string;
   tenantName: string;
   tenantAddress: string | null;
   tenantEmail: string | null;
@@ -1024,6 +1029,10 @@ async function computeInvoicePreview(
       signatoryName: true,
       ibanEncrypted: true,
       bicEncrypted: true,
+      phone: true,
+      legalForm: true,
+      shareCapital: true,
+      email: true,
     },
   });
 
@@ -1207,10 +1216,15 @@ async function computeInvoicePreview(
     legalMentions: society.legalMentions,
     bankName: society.bankName,
     signatoryName: society.signatoryName,
+    phone: society.phone,
+    legalForm: society.legalForm,
+    shareCapital: society.shareCapital,
+    email: society.email,
   } : null;
 
   return {
     leaseId: lease.id,
+    invoiceType: "APPEL_LOYER",
     tenantName,
     tenantAddress,
     tenantEmail: lease.tenant.billingEmail || lease.tenant.email || null,
