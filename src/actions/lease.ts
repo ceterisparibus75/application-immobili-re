@@ -450,6 +450,18 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           createdAt: true,
         },
       },
+      documents: {
+        where: { category: "avenant" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          fileName: true,
+          fileUrl: true,
+          storagePath: true,
+          description: true,
+          createdAt: true,
+        },
+      },
       signatureRequests: {
         orderBy: { createdAt: "desc" },
         select: {

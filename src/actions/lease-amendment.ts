@@ -21,7 +21,7 @@ export async function createLeaseAmendment(
     newEndDate?: string;
     otherChanges?: Record<string, unknown>;
   }
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; amendmentNumber: number }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
@@ -78,7 +78,10 @@ export async function createLeaseAmendment(
 
     revalidatePath("/baux");
     revalidatePath(`/baux/${input.leaseId}`);
-    return { success: true, data: { id: amendment.id } };
+    return {
+      success: true,
+      data: { id: amendment.id, amendmentNumber: amendment.amendmentNumber },
+    };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createLeaseAmendment]", error);

@@ -8,6 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Building2, FileText, Plus, Upload, CheckCircle2, AlertTriangle, Minus, MapPin } from "lucide-react";
 import Link from "next/link";
 import { ExportBaux } from "@/components/exports/export-baux";
@@ -23,6 +29,37 @@ const FREQ_PERIOD_LABELS: Record<PaymentFrequency, string> = {
 };
 
 export const metadata = { title: "Baux" };
+
+function NewLeaseMenu({ align = "end" }: { align?: "start" | "center" | "end" }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm">
+          <Plus className="h-4 w-4" />
+          Ajouter un bail
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={align} className="w-80">
+        <DropdownMenuItem asChild>
+          <Link href="/baux/nouveau?mode=existing" className="flex flex-col items-start gap-1">
+            <span className="font-medium">Ajouter un bail déjà signé</span>
+            <span className="text-xs text-muted-foreground">
+              Pour intégrer un bail existant et passer directement à la gestion.
+            </span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/baux/nouveau?mode=workflow" className="flex flex-col items-start gap-1">
+            <span className="font-medium">Créer un bail à préparer et signer</span>
+            <span className="text-xs text-muted-foreground">
+              Pour lancer un parcours de préparation puis utiliser la signature électronique.
+            </span>
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -228,12 +265,7 @@ export default async function BauxPage() {
               Import PDF
             </Button>
           </Link>
-          <Link href="/baux/nouveau">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Nouveau bail
-            </Button>
-          </Link>
+          <NewLeaseMenu />
         </div>
       </div>
 
@@ -247,12 +279,7 @@ export default async function BauxPage() {
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
               Créez votre premier bail en associant un lot et un locataire.
             </p>
-            <Link href="/baux/nouveau">
-              <Button>
-                <Plus className="h-4 w-4" />
-                Créer un bail
-              </Button>
-            </Link>
+            <NewLeaseMenu align="center" />
           </CardContent>
         </Card>
       ) : (

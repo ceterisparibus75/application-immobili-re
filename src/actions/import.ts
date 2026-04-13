@@ -93,6 +93,7 @@ export type ImportInput = {
   lot: ImportLotInput;
   tenant: ImportTenantInput;
   lease: ImportLeaseInput;
+  secondaryLotIds?: string[];
 };
 
 export type ImportResult = {
@@ -162,6 +163,25 @@ export async function importFromPdf(
         });
       }
 
+      const secondaryLotIds = Array.from(
+        new Set((input.secondaryLotIds ?? []).filter((lotId) => lotId !== lot.id))
+      );
+      if (secondaryLotIds.length > 0) {
+        const secondaryLots = await tx.lot.findMany({
+          where: {
+            id: { in: secondaryLotIds },
+            building: { societyId },
+          },
+          select: { id: true },
+        });
+
+        if (secondaryLots.length !== secondaryLotIds.length) {
+          throw new Error("Un ou plusieurs lots secondaires sont introuvables");
+        }
+      }
+
+      const allLotIds = [lot.id, ...secondaryLotIds];
+
       // 3. Locataire
       let tenantId = input.tenant.existingId;
       if (!tenantId) {
@@ -201,6 +221,20 @@ export async function importFromPdf(
         where: { lotId: lot.id, lease: { status: "EN_COURS" } },
       });
       if (activeLease) throw new Error("Ce lot a déjà un bail actif");
+
+      if (secondaryLotIds.length > 0) {
+        const activeSecondaryLeases = await tx.leaseLot.findMany({
+          where: {
+            lotId: { in: secondaryLotIds },
+            lease: { status: "EN_COURS" },
+          },
+          include: { lot: { select: { number: true } } },
+        });
+        if (activeSecondaryLeases.length > 0) {
+          const lotNumbers = activeSecondaryLeases.map((item) => item.lot.number).join(", ");
+          throw new Error(`Le(s) lot(s) secondaire(s) ${lotNumbers} ont déjà un bail actif`);
+        }
+      }
 
       // 4. Bail
       const startDate = new Date(input.lease.startDate);
@@ -243,15 +277,23 @@ export async function importFromPdf(
         },
       });
 
-      // 5. Créer l'entrée LeaseLot
-      await tx.leaseLot.create({
-        data: { leaseId: lease.id, lotId: lot.id, isPrimary: true },
+      // 5. Créer les entrées LeaseLot
+      await tx.leaseLot.createMany({
+        data: allLotIds.map((lotId, index) => ({
+          leaseId: lease.id,
+          lotId,
+          isPrimary: index === 0,
+        })),
       });
 
-      // 6. Mise à jour statut du lot
+      // 6. Mise à jour statut des lots
+      await tx.lot.updateMany({
+        where: { id: { in: allLotIds } },
+        data: { status: "OCCUPE" },
+      });
       await tx.lot.update({
         where: { id: lot.id },
-        data: { status: "OCCUPE", currentRent: input.lease.baseRentHT },
+        data: { currentRent: input.lease.baseRentHT },
       });
 
       return { leaseId: lease.id, buildingId: buildingId!, lotId: lot.id, tenantId: tenantId! };

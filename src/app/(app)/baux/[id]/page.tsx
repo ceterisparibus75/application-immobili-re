@@ -208,7 +208,7 @@ export default async function BailDetailPage({
         {/* Colonne principale */}
         <div className="lg:col-span-2 space-y-6">
           {/* Document du bail */}
-          <Card>
+          <Card id="document-bail">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -221,18 +221,20 @@ export default async function BailDetailPage({
           </Card>
 
           {/* Signature electronique */}
-          <LeaseSignaturePanel
-            leaseId={lease.id}
-            leaseFileUrl={lease.leaseFileUrl ?? null}
-            signatureRequests={(lease.signatureRequests ?? []).map((sr) => ({
-              ...sr,
-              createdAt: sr.createdAt instanceof Date ? sr.createdAt.toISOString() : String(sr.createdAt),
-              signedAt: sr.signedAt instanceof Date ? sr.signedAt.toISOString() : sr.signedAt ? String(sr.signedAt) : null,
-              declinedAt: sr.declinedAt instanceof Date ? sr.declinedAt.toISOString() : sr.declinedAt ? String(sr.declinedAt) : null,
-              voidedAt: sr.voidedAt instanceof Date ? sr.voidedAt.toISOString() : sr.voidedAt ? String(sr.voidedAt) : null,
-            }))}
-            societyId={societyId}
-          />
+          <div id="signature-bail">
+            <LeaseSignaturePanel
+              leaseId={lease.id}
+              leaseFileUrl={lease.leaseFileUrl ?? null}
+              signatureRequests={(lease.signatureRequests ?? []).map((sr) => ({
+                ...sr,
+                createdAt: sr.createdAt instanceof Date ? sr.createdAt.toISOString() : String(sr.createdAt),
+                signedAt: sr.signedAt instanceof Date ? sr.signedAt.toISOString() : sr.signedAt ? String(sr.signedAt) : null,
+                declinedAt: sr.declinedAt instanceof Date ? sr.declinedAt.toISOString() : sr.declinedAt ? String(sr.declinedAt) : null,
+                voidedAt: sr.voidedAt instanceof Date ? sr.voidedAt.toISOString() : sr.voidedAt ? String(sr.voidedAt) : null,
+              }))}
+              societyId={societyId}
+            />
+          </div>
 
           {/* Numero de bail et modele */}
           {(lease.leaseNumber || lease.leaseTemplate) && (
@@ -549,10 +551,16 @@ export default async function BailDetailPage({
             <CardContent>
               <LeaseAmendments
                 amendments={lease.amendments}
+                amendmentDocuments={lease.documents}
                 leaseId={lease.id}
                 societyId={societyId}
                 isActive={isActive}
                 currentRentHT={lease.currentRentHT}
+                tenantId={lease.tenant.id}
+                primaryLotId={
+                  lease.leaseLots.find((leaseLot) => leaseLot.isPrimary)?.lot.id ??
+                  lease.lot.id
+                }
               />
             </CardContent>
           </Card>

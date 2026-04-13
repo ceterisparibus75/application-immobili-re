@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
     // Vérifier que le bail appartient à la société
     const lease = await prisma.lease.findFirst({
       where: { id: leaseId, societyId },
+      select: {
+        id: true,
+        societyId: true,
+        lotId: true,
+        tenantId: true,
+      },
     });
     if (!lease) {
       return NextResponse.json({ error: "Bail introuvable" }, { status: 404 });
@@ -70,6 +76,23 @@ export async function POST(req: NextRequest) {
       data: { leaseFileUrl: fileUrl, leaseFileStoragePath: storagePath },
     });
 
+    const document = await prisma.document.create({
+      data: {
+        societyId,
+        fileName: file.name,
+        fileUrl: fileUrl ?? storagePath,
+        fileSize: file.size,
+        mimeType: file.type,
+        category: "bail",
+        description: "PDF du bail signé",
+        leaseId: lease.id,
+        lotId: lease.lotId,
+        tenantId: lease.tenantId,
+        storagePath,
+        aiStatus: "pending",
+      },
+    });
+
     await createAuditLog({
       societyId,
       userId: session.user.id,
@@ -77,6 +100,21 @@ export async function POST(req: NextRequest) {
       entity: "Lease",
       entityId: leaseId,
       details: { action: "upload_pdf", fileName: file.name },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "Document",
+      entityId: document.id,
+      details: {
+        fileName: file.name,
+        category: "bail",
+        leaseId: lease.id,
+        lotId: lease.lotId,
+        tenantId: lease.tenantId,
+      },
     });
 
     return NextResponse.json({ success: true, fileUrl });
