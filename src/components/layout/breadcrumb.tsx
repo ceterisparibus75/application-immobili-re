@@ -21,6 +21,10 @@ const LABELS: Record<string, string> = {
   cloture: "Clôture", exports: "Exports", revisions: "Révisions",
   evaluations: "Évaluations", planification: "Planification", compte: "Compte",
   abonnement: "Abonnement", setup: "Configuration",
+  "releves-tiers": "Relevés tiers", "releves-gestion": "Décomptes de gestion",
+  copropriete: "Copropriété", saisonnier: "Saisonnier", candidatures: "Candidatures",
+  workflows: "Workflows", assistant: "Assistant IA", courriers: "Courriers",
+  previsionnel: "Prévisionnel", valorisation: "Valorisation",
 };
 
 function isIdSegment(segment: string): boolean {

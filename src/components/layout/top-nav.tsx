@@ -65,6 +65,7 @@ const NAV_ITEMS_AFTER: NavItem[] = [
 const GESTION_LOCATIVE_ITEMS = [
   { name: "Facturation", href: "/facturation", icon: Receipt },
   { name: "Charges", href: "/charges", icon: ScrollText },
+  { name: "Décomptes gestion", href: "/releves-gestion", icon: FileText },
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
   { name: "Candidatures", href: "/candidatures", icon: UserSearch },

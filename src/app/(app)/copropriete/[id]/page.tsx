@@ -5,8 +5,9 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import {
   Landmark, Users, Calendar, ArrowLeft,
-  BarChart3, Vote,
+  BarChart3, Vote, FileText, ChevronRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -37,6 +38,9 @@ export default async function CoproprieteDetailPage({ params }: PageProps) {
             select: { id: true, number: true, title: true, status: true, majority: true },
           },
         },
+      },
+      buildings: {
+        select: { id: true, name: true },
       },
     },
   });
@@ -253,6 +257,31 @@ export default async function CoproprieteDetailPage({ params }: PageProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Relevés tiers — immeubles liés */}
+      {copro.buildings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Relevés tiers (immeubles liés)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {copro.buildings.map((b) => (
+              <div key={b.id} className="flex items-center justify-between p-3 rounded-lg border">
+                <span className="text-sm font-medium">{b.name}</span>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/patrimoine/immeubles/${b.id}/releves-tiers`}>
+                    Relevés tiers
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

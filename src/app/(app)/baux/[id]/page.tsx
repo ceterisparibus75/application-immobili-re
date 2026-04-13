@@ -834,9 +834,9 @@ export default async function BailDetailPage({
                     </p>
                   )}
                 </div>
-                <Link href={`/baux/${lease.id}/gestion-tiers`}>
+                <Link href={`/baux/${lease.id}/releves-gestion`}>
                   <Button variant="outline" size="sm" className="w-full mt-2">
-                    Comptes-rendus de gestion
+                    Décomptes de gestion
                   </Button>
                 </Link>
               </CardContent>

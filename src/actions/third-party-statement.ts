@@ -31,13 +31,76 @@ interface VerificationLineResult {
   expectedAmount: number | null;
   ecart: number | null;
   verificationStatus: "OK" | "ECART" | "INFO" | "ANOMALIE";
+  leaseId?: string;
+  leaseName?: string;
+}
+
+interface LeaseVerificationResult {
+  leaseId: string;
+  leaseName: string;
+  tenantName: string;
+  status: "CONFORME" | "ECART" | "ANOMALIE";
+  lines: VerificationLineResult[];
 }
 
 interface VerificationResult {
   overallStatus: "CONFORME" | "ECART" | "ANOMALIE";
   lines: VerificationLineResult[];
+  byLease?: LeaseVerificationResult[];
   periodMonths: number;
   computedAt: string;
+}
+
+// ─── Récupérer les baux gérés par un tiers ──────────────────────────
+
+export async function getThirdPartyManagedLeases(
+  societyId: string
+): Promise<ActionResult<{ leases: unknown[] }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const leases = await prisma.lease.findMany({
+      where: {
+        societyId,
+        isThirdPartyManaged: true,
+        status: { in: ["EN_COURS", "RENOUVELE"] },
+      },
+      select: {
+        id: true,
+        leaseNumber: true,
+        currentRentHT: true,
+        vatApplicable: true,
+        vatRate: true,
+        managementFeeType: true,
+        managementFeeValue: true,
+        managementFeeBasis: true,
+        managementFeeVatRate: true,
+        lot: {
+          select: {
+            id: true,
+            number: true,
+            lotType: true,
+            building: { select: { id: true, name: true, addressLine1: true } },
+          },
+        },
+        tenant: { select: { id: true, firstName: true, lastName: true, companyName: true } },
+        chargeProvisions: {
+          where: { isActive: true },
+          select: { id: true, label: true, monthlyAmount: true },
+        },
+      },
+      orderBy: { leaseNumber: "asc" },
+    });
+
+    return { success: true, data: { leases } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getThirdPartyManagedLeases]", error);
+    return { success: false, error: "Erreur lors de la récupération des baux" };
+  }
 }
 
 // ─── Création ────────────────────────────────────────────────────────
@@ -70,12 +133,23 @@ export async function createStatement(
       if (!building) return { success: false, error: "Immeuble introuvable" };
     }
 
-    // Vérifier le bail si type gestion locative
-    if (data.leaseId) {
-      const lease = await prisma.lease.findFirst({
-        where: { id: data.leaseId, societyId },
+    // Vérifier le(s) bail(s)
+    const allLeaseIds: string[] = [];
+    if (data.leaseId) allLeaseIds.push(data.leaseId);
+    if (data.leaseIds) {
+      for (const lid of data.leaseIds) {
+        if (!allLeaseIds.includes(lid)) allLeaseIds.push(lid);
+      }
+    }
+
+    if (allLeaseIds.length > 0) {
+      const leases = await prisma.lease.findMany({
+        where: { id: { in: allLeaseIds }, societyId },
+        select: { id: true },
       });
-      if (!lease) return { success: false, error: "Bail introuvable" };
+      if (leases.length !== allLeaseIds.length) {
+        return { success: false, error: "Un ou plusieurs baux introuvables" };
+      }
     }
 
     // Vérifier le contact si renseigné
@@ -86,13 +160,13 @@ export async function createStatement(
       if (!contact) return { success: false, error: "Contact introuvable" };
     }
 
-    // Transaction : créer le relevé + lignes + éventuellement des charges
+    // Transaction : créer le relevé + lignes + liaisons baux + éventuellement des charges
     const result = await prisma.$transaction(async (tx) => {
       const statement = await tx.thirdPartyStatement.create({
         data: {
           societyId,
           buildingId: data.buildingId ?? null,
-          leaseId: data.leaseId ?? null,
+          leaseId: data.leaseId ?? (allLeaseIds.length === 1 ? allLeaseIds[0] : null),
           type: data.type,
           thirdPartyName: data.thirdPartyName,
           contactId: data.contactId ?? null,
@@ -113,10 +187,30 @@ export async function createStatement(
               categoryId: line.categoryId ?? null,
               nature: line.nature ?? null,
               recoverableRate: line.recoverableRate ?? null,
+              leaseId: line.leaseId ?? null,
             })),
           },
         },
       });
+
+      // Créer les liaisons baux (multi-baux)
+      if (allLeaseIds.length > 0) {
+        const leasesData = data.leases ?? [];
+        for (const leaseId of allLeaseIds) {
+          const leaseInfo = leasesData.find((l) => l.leaseId === leaseId);
+          await tx.thirdPartyStatementLease.create({
+            data: {
+              statementId: statement.id,
+              leaseId,
+              rentAmount: leaseInfo?.rentAmount ?? null,
+              provisionAmount: leaseInfo?.provisionAmount ?? null,
+              feeAmount: leaseInfo?.feeAmount ?? null,
+              deductionAmount: leaseInfo?.deductionAmount ?? null,
+              netAmount: leaseInfo?.netAmount ?? null,
+            },
+          });
+        }
+      }
 
       // Pour les types syndic, créer automatiquement des Charge pour chaque ligne CHARGE
       if (
@@ -159,13 +253,18 @@ export async function createStatement(
         thirdPartyName: data.thirdPartyName,
         totalAmount: data.totalAmount,
         linesCount: data.lines.length,
+        leasesCount: allLeaseIds.length,
       },
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
     revalidatePath("/charges");
     if (data.buildingId) {
       revalidatePath(`/patrimoine/immeubles/${data.buildingId}`);
+    }
+    for (const lid of allLeaseIds) {
+      revalidatePath(`/baux/${lid}`);
     }
 
     return { success: true, data: { id: result.id } };
@@ -191,21 +290,40 @@ export async function getStatements(
     const where: Record<string, unknown> = { societyId };
 
     if (filters?.buildingId) where.buildingId = filters.buildingId;
-    if (filters?.leaseId) where.leaseId = filters.leaseId;
     if (filters?.type) where.type = filters.type;
     if (filters?.status) where.status = filters.status;
+
+    // Pour le filtre par bail : chercher dans le bail principal OU les liaisons multi-baux
+    if (filters?.leaseId) {
+      where.OR = [
+        { leaseId: filters.leaseId },
+        { leases: { some: { leaseId: filters.leaseId } } },
+      ];
+    }
 
     const statements = await prisma.thirdPartyStatement.findMany({
       where,
       include: {
         lines: true,
+        leases: {
+          include: {
+            lease: {
+              select: {
+                id: true,
+                leaseNumber: true,
+                lot: { select: { id: true, number: true, lotType: true } },
+                tenant: { select: { id: true, firstName: true, lastName: true, companyName: true } },
+              },
+            },
+          },
+        },
         building: { select: { id: true, name: true } },
         lease: {
           select: {
             id: true,
             leaseNumber: true,
             lot: { select: { id: true, number: true, lotType: true } },
-            tenant: { select: { id: true, firstName: true, lastName: true } },
+            tenant: { select: { id: true, firstName: true, lastName: true, companyName: true } },
           },
         },
         contact: { select: { id: true, name: true } },
@@ -236,7 +354,42 @@ export async function getStatementById(
     const statement = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
       include: {
-        lines: true,
+        lines: {
+          include: {
+            lease: {
+              select: {
+                id: true,
+                leaseNumber: true,
+                lot: { select: { number: true } },
+                tenant: { select: { firstName: true, lastName: true } },
+              },
+            },
+          },
+        },
+        leases: {
+          include: {
+            lease: {
+              select: {
+                id: true,
+                leaseNumber: true,
+                currentRentHT: true,
+                vatApplicable: true,
+                vatRate: true,
+                isThirdPartyManaged: true,
+                managementFeeType: true,
+                managementFeeValue: true,
+                managementFeeBasis: true,
+                managementFeeVatRate: true,
+                lot: { select: { id: true, number: true, lotType: true, building: { select: { name: true } } } },
+                tenant: { select: { id: true, firstName: true, lastName: true, companyName: true } },
+                chargeProvisions: {
+                  where: { isActive: true },
+                  select: { id: true, label: true, monthlyAmount: true },
+                },
+              },
+            },
+          },
+        },
         building: { select: { id: true, name: true, addressLine1: true, city: true } },
         lease: {
           select: {
@@ -251,7 +404,7 @@ export async function getStatementById(
             managementFeeBasis: true,
             managementFeeVatRate: true,
             lot: { select: { id: true, number: true, lotType: true } },
-            tenant: { select: { id: true, firstName: true, lastName: true } },
+            tenant: { select: { id: true, firstName: true, lastName: true, companyName: true } },
             chargeProvisions: {
               where: { isActive: true },
               select: { id: true, label: true, monthlyAmount: true },
@@ -262,6 +415,11 @@ export async function getStatementById(
         document: { select: { id: true, fileName: true, fileUrl: true } },
         charges: {
           select: { id: true, description: true, amount: true, isPaid: true },
+        },
+        bankReconciliations: {
+          include: {
+            transaction: { select: { id: true, label: true, amount: true, transactionDate: true, reference: true } },
+          },
         },
       },
     });
@@ -296,7 +454,7 @@ export async function updateStatement(
       };
     }
 
-    const { id, lines, ...data } = parsed.data;
+    const { id, lines, leases: leasesInput, leaseIds, ...data } = parsed.data;
 
     const existing = await prisma.thirdPartyStatement.findFirst({
       where: { id, societyId },
@@ -330,15 +488,31 @@ export async function updateStatement(
         data: updateData,
       });
 
+      // Remplacer les liaisons baux si fournies
+      if (leaseIds && leaseIds.length > 0) {
+        await tx.thirdPartyStatementLease.deleteMany({ where: { statementId: id } });
+        const leasesData = leasesInput ?? [];
+        for (const leaseId of leaseIds) {
+          const leaseInfo = leasesData.find((l) => l.leaseId === leaseId);
+          await tx.thirdPartyStatementLease.create({
+            data: {
+              statementId: id,
+              leaseId,
+              rentAmount: leaseInfo?.rentAmount ?? null,
+              provisionAmount: leaseInfo?.provisionAmount ?? null,
+              feeAmount: leaseInfo?.feeAmount ?? null,
+              deductionAmount: leaseInfo?.deductionAmount ?? null,
+              netAmount: leaseInfo?.netAmount ?? null,
+            },
+          });
+        }
+      }
+
       // Remplacer les lignes si fournies
       if (lines && lines.length > 0) {
-        // Supprimer les charges liées aux anciennes lignes
         await tx.charge.deleteMany({ where: { statementId: id } });
-
-        // Supprimer les anciennes lignes
         await tx.thirdPartyStatementLine.deleteMany({ where: { statementId: id } });
 
-        // Créer les nouvelles lignes
         for (const line of lines) {
           await tx.thirdPartyStatementLine.create({
             data: {
@@ -349,6 +523,7 @@ export async function updateStatement(
               categoryId: line.categoryId ?? null,
               nature: line.nature ?? null,
               recoverableRate: line.recoverableRate ?? null,
+              leaseId: line.leaseId ?? null,
             },
           });
         }
@@ -392,6 +567,7 @@ export async function updateStatement(
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
     revalidatePath("/charges");
 
     return { success: true };
@@ -438,6 +614,7 @@ export async function validateStatement(
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
 
     return { success: true };
   } catch (error) {
@@ -527,6 +704,74 @@ export async function recordStatementPayment(
   }
 }
 
+// ─── Utilitaire : calcul attendu pour un bail ──────────────────────
+
+interface LeaseForVerification {
+  id: string;
+  leaseNumber: string | null;
+  currentRentHT: number;
+  vatApplicable: boolean;
+  vatRate: number | null;
+  managementFeeType: string | null;
+  managementFeeValue: number | null;
+  managementFeeBasis: string | null;
+  managementFeeVatRate: number | null;
+  chargeProvisions: Array<{ monthlyAmount: number }>;
+  lot?: { number: string } | null;
+  tenant?: { firstName: string; lastName: string; companyName?: string | null } | null;
+}
+
+function computeExpectedAmounts(
+  lease: LeaseForVerification,
+  months: number
+): { expectedRent: number; expectedProvisions: number; expectedFees: number | null } {
+  // Loyer attendu
+  const expectedRent = lease.vatApplicable
+    ? lease.currentRentHT * months * (1 + (lease.vatRate ?? 20) / 100)
+    : lease.currentRentHT * months;
+
+  // Provisions attendues
+  const totalMonthlyProvisions = lease.chargeProvisions.reduce(
+    (sum, p) => sum + p.monthlyAmount,
+    0
+  );
+  const expectedProvisions = totalMonthlyProvisions * months;
+
+  // Honoraires attendus
+  let expectedFees: number | null = null;
+  if (lease.managementFeeType && lease.managementFeeValue) {
+    const feeVatRate = lease.managementFeeVatRate ?? 20;
+
+    if (lease.managementFeeType === "POURCENTAGE") {
+      let basis = 0;
+      const monthlyRentHT = lease.currentRentHT;
+      const monthlyProvisions = totalMonthlyProvisions;
+
+      if (lease.managementFeeBasis === "LOYER_HT") {
+        basis = monthlyRentHT * months;
+      } else if (lease.managementFeeBasis === "LOYER_CHARGES_HT") {
+        basis = (monthlyRentHT + monthlyProvisions) * months;
+      } else if (lease.managementFeeBasis === "TOTAL_TTC") {
+        const rentTTC = lease.vatApplicable
+          ? monthlyRentHT * (1 + (lease.vatRate ?? 20) / 100)
+          : monthlyRentHT;
+        basis = (rentTTC + monthlyProvisions * (1 + feeVatRate / 100)) * months;
+      } else {
+        basis = monthlyRentHT * months;
+      }
+      expectedFees = basis * (lease.managementFeeValue / 100);
+    } else if (lease.managementFeeType === "FORFAIT") {
+      expectedFees = lease.managementFeeValue * months;
+    }
+
+    if (expectedFees !== null) {
+      expectedFees = expectedFees * (1 + feeVatRate / 100);
+    }
+  }
+
+  return { expectedRent, expectedProvisions, expectedFees };
+}
+
 // ─── Vérification d'un décompte de gestion locative ──────────────────
 
 export async function verifyManagementStatement(
@@ -543,11 +788,22 @@ export async function verifyManagementStatement(
       where: { id: statementId, societyId },
       include: {
         lines: true,
+        leases: {
+          include: {
+            lease: {
+              include: {
+                chargeProvisions: { where: { isActive: true } },
+                lot: { select: { number: true } },
+                tenant: { select: { firstName: true, lastName: true, companyName: true } },
+              },
+            },
+          },
+        },
         lease: {
           include: {
-            chargeProvisions: {
-              where: { isActive: true },
-            },
+            chargeProvisions: { where: { isActive: true } },
+            lot: { select: { number: true } },
+            tenant: { select: { firstName: true, lastName: true, companyName: true } },
           },
         },
       },
@@ -559,11 +815,22 @@ export async function verifyManagementStatement(
       return { success: false, error: "La vérification ne concerne que les décomptes de gestion" };
     }
 
-    if (!statement.lease) {
-      return { success: false, error: "Bail introuvable pour ce relevé" };
+    // Construire la liste des baux à vérifier
+    const leasesToVerify: LeaseForVerification[] = [];
+
+    if (statement.leases.length > 0) {
+      // Multi-baux
+      for (const sl of statement.leases) {
+        if (sl.lease) leasesToVerify.push(sl.lease as unknown as LeaseForVerification);
+      }
+    } else if (statement.lease) {
+      // Bail unique
+      leasesToVerify.push(statement.lease as unknown as LeaseForVerification);
     }
 
-    const lease = statement.lease;
+    if (leasesToVerify.length === 0) {
+      return { success: false, error: "Aucun bail trouvé pour ce relevé" };
+    }
 
     // Calculer le nombre de mois de la période
     const periodStart = statement.periodStart;
@@ -574,100 +841,66 @@ export async function verifyManagementStatement(
         (periodEnd.getMonth() - periodStart.getMonth()) + 1
     );
 
-    // Calculer le montant attendu des honoraires
-    let expectedFees: number | null = null;
-    if (lease.managementFeeType && lease.managementFeeValue) {
-      const feeVatRate = lease.managementFeeVatRate ?? 20;
-
-      if (lease.managementFeeType === "POURCENTAGE") {
-        // Base de calcul selon le paramétrage
-        let basis = 0;
-        const monthlyRentHT = lease.currentRentHT;
-        const monthlyProvisions = lease.chargeProvisions.reduce(
-          (sum, p) => sum + p.monthlyAmount,
-          0
-        );
-
-        if (lease.managementFeeBasis === "LOYER_HT") {
-          basis = monthlyRentHT * months;
-        } else if (lease.managementFeeBasis === "LOYER_CHARGES_HT") {
-          basis = (monthlyRentHT + monthlyProvisions) * months;
-        } else if (lease.managementFeeBasis === "TOTAL_TTC") {
-          const rentTTC = lease.vatApplicable
-            ? monthlyRentHT * (1 + (lease.vatRate ?? 20) / 100)
-            : monthlyRentHT;
-          basis = (rentTTC + monthlyProvisions * (1 + feeVatRate / 100)) * months;
-        } else {
-          // Défaut : loyer HT
-          basis = monthlyRentHT * months;
-        }
-
-        expectedFees = basis * (lease.managementFeeValue / 100);
-      } else if (lease.managementFeeType === "FORFAIT") {
-        expectedFees = lease.managementFeeValue * months;
-      }
-
-      // Appliquer la TVA sur les honoraires
-      if (expectedFees !== null) {
-        expectedFees = expectedFees * (1 + feeVatRate / 100);
-      }
-    }
-
-    // Vérifier chaque ligne
     const lineResults: VerificationLineResult[] = [];
+    const byLease: LeaseVerificationResult[] = [];
 
-    for (const line of statement.lines) {
-      let expectedAmount: number | null = null;
-      let verificationStatus: "OK" | "ECART" | "INFO" | "ANOMALIE" = "INFO";
+    if (leasesToVerify.length === 1) {
+      // Mode bail unique : vérification directe comme avant
+      const lease = leasesToVerify[0];
+      const expected = computeExpectedAmounts(lease, months);
 
-      const labelLower = line.label.toLowerCase();
+      for (const line of statement.lines) {
+        const result = verifyLine(line, expected);
+        lineResults.push(result);
+      }
+    } else {
+      // Mode multi-baux : vérification par bail
+      for (const lease of leasesToVerify) {
+        const expected = computeExpectedAmounts(lease, months);
+        const leaseLines = statement.lines.filter((l) => l.leaseId === lease.id);
+        const tenantName = lease.tenant
+          ? (lease.tenant.companyName || `${lease.tenant.firstName} ${lease.tenant.lastName}`)
+          : "Inconnu";
+        const leaseName = `${lease.lot?.number ?? ""} — ${lease.leaseNumber ?? ""}`.trim();
 
-      if (line.lineType === "ENCAISSEMENT") {
-        if (labelLower.includes("loyer") || labelLower.includes("lover")) {
-          // Calcul du loyer attendu
-          if (lease.vatApplicable) {
-            expectedAmount = lease.currentRentHT * months * (1 + (lease.vatRate ?? 20) / 100);
-          } else {
-            expectedAmount = lease.currentRentHT * months;
-          }
-        } else if (
-          labelLower.includes("provision") ||
-          labelLower.includes("charge")
-        ) {
-          // Calcul des provisions attendues
-          const totalMonthlyProvisions = lease.chargeProvisions.reduce(
-            (sum, p) => sum + p.monthlyAmount,
-            0
-          );
-          expectedAmount = totalMonthlyProvisions * months;
+        const leaseLineResults: VerificationLineResult[] = [];
+        for (const line of leaseLines) {
+          const result = verifyLine(line, expected);
+          result.leaseId = lease.id;
+          result.leaseName = leaseName;
+          leaseLineResults.push(result);
+          lineResults.push(result);
         }
-      } else if (line.lineType === "HONORAIRES") {
-        expectedAmount = expectedFees;
-      } else if (line.lineType === "DEDUCTION") {
-        // Pas de montant attendu pour les déductions — info seulement
-        expectedAmount = null;
+
+        const hasAnomalie = leaseLineResults.some((r) => r.verificationStatus === "ANOMALIE");
+        const hasEcart = leaseLineResults.some((r) => r.verificationStatus === "ECART");
+        let leaseStatus: "CONFORME" | "ECART" | "ANOMALIE" = "CONFORME";
+        if (hasAnomalie) leaseStatus = "ANOMALIE";
+        else if (hasEcart) leaseStatus = "ECART";
+
+        byLease.push({
+          leaseId: lease.id,
+          leaseName,
+          tenantName,
+          status: leaseStatus,
+          lines: leaseLineResults,
+        });
       }
 
-      // Déterminer le statut
-      if (expectedAmount !== null) {
-        const ecart = Math.abs(line.amount - expectedAmount);
-        if (ecart < 1) {
-          verificationStatus = "OK";
-        } else if (ecart < Math.abs(expectedAmount) * 0.1) {
-          verificationStatus = "ECART";
-        } else {
-          verificationStatus = "ANOMALIE";
-        }
+      // Lignes non affectées à un bail
+      const unassignedLines = statement.lines.filter(
+        (l) => !l.leaseId || !leasesToVerify.some((le) => le.id === l.leaseId)
+      );
+      for (const line of unassignedLines) {
+        lineResults.push({
+          lineType: line.lineType,
+          label: line.label,
+          amount: line.amount,
+          expectedAmount: null,
+          ecart: null,
+          verificationStatus: "INFO",
+        });
       }
-
-      lineResults.push({
-        lineType: line.lineType,
-        label: line.label,
-        amount: line.amount,
-        expectedAmount,
-        ecart: expectedAmount !== null ? Math.round((line.amount - expectedAmount) * 100) / 100 : null,
-        verificationStatus,
-      });
     }
 
     // Statut global
@@ -680,11 +913,12 @@ export async function verifyManagementStatement(
     const verification: VerificationResult = {
       overallStatus,
       lines: lineResults,
+      byLease: byLease.length > 0 ? byLease : undefined,
       periodMonths: months,
       computedAt: new Date().toISOString(),
     };
 
-    // Sauvegarder les résultats et mettre à jour les lignes
+    // Sauvegarder les résultats
     await prisma.$transaction(async (tx) => {
       await tx.thirdPartyStatement.update({
         where: { id: statementId },
@@ -695,7 +929,6 @@ export async function verifyManagementStatement(
         },
       });
 
-      // Mettre à jour chaque ligne avec le résultat
       for (let i = 0; i < statement.lines.length; i++) {
         const lineResult = lineResults[i];
         if (lineResult) {
@@ -720,16 +953,236 @@ export async function verifyManagementStatement(
         action: "VERIFICATION",
         overallStatus,
         periodMonths: months,
+        leasesVerified: leasesToVerify.length,
       },
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
 
     return { success: true, data: { verification } };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[verifyManagementStatement]", error);
     return { success: false, error: "Erreur lors de la vérification du décompte" };
+  }
+}
+
+// Utilitaire pour vérifier une ligne
+function verifyLine(
+  line: { lineType: string; label: string; amount: number },
+  expected: { expectedRent: number; expectedProvisions: number; expectedFees: number | null }
+): VerificationLineResult {
+  let expectedAmount: number | null = null;
+  let verificationStatus: "OK" | "ECART" | "INFO" | "ANOMALIE" = "INFO";
+
+  const labelLower = line.label.toLowerCase();
+
+  if (line.lineType === "ENCAISSEMENT") {
+    if (labelLower.includes("loyer") || labelLower.includes("lover")) {
+      expectedAmount = expected.expectedRent;
+    } else if (labelLower.includes("provision") || labelLower.includes("charge")) {
+      expectedAmount = expected.expectedProvisions;
+    }
+  } else if (line.lineType === "HONORAIRES") {
+    expectedAmount = expected.expectedFees;
+  }
+
+  if (expectedAmount !== null) {
+    const ecart = Math.abs(line.amount - expectedAmount);
+    if (ecart < 1) {
+      verificationStatus = "OK";
+    } else if (ecart < Math.abs(expectedAmount) * 0.1) {
+      verificationStatus = "ECART";
+    } else {
+      verificationStatus = "ANOMALIE";
+    }
+  }
+
+  return {
+    lineType: line.lineType,
+    label: line.label,
+    amount: line.amount,
+    expectedAmount,
+    ecart: expectedAmount !== null ? Math.round((line.amount - expectedAmount) * 100) / 100 : null,
+    verificationStatus,
+  };
+}
+
+// ─── Rapprochement bancaire avec un décompte de gestion ─────────────
+
+export async function reconcileWithStatement(
+  societyId: string,
+  statementId: string,
+  transactionId: string
+): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    // Charger le décompte avec les baux et leurs factures
+    const statement = await prisma.thirdPartyStatement.findFirst({
+      where: { id: statementId, societyId },
+      include: {
+        leases: {
+          include: {
+            lease: {
+              include: {
+                tenant: true,
+              },
+            },
+          },
+        },
+        lease: {
+          include: { tenant: true },
+        },
+      },
+    });
+
+    if (!statement) return { success: false, error: "Décompte introuvable" };
+    if (statement.type !== "DECOMPTE_GESTION") {
+      return { success: false, error: "Le rapprochement ne concerne que les décomptes de gestion" };
+    }
+
+    const transaction = await prisma.bankTransaction.findFirst({
+      where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+    });
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+
+    // Construire la ventilation par bail
+    interface LeasePaymentInfo {
+      leaseId: string;
+      tenantId: string | null;
+      netAmount: number;
+    }
+
+    const paymentInfos: LeasePaymentInfo[] = [];
+
+    if (statement.leases.length > 0) {
+      // Multi-baux : ventiler selon les montants nets par bail
+      for (const sl of statement.leases) {
+        if (sl.lease && sl.netAmount) {
+          paymentInfos.push({
+            leaseId: sl.leaseId,
+            tenantId: sl.lease.tenantId,
+            netAmount: sl.netAmount,
+          });
+        }
+      }
+    } else if (statement.lease) {
+      // Bail unique
+      paymentInfos.push({
+        leaseId: statement.leaseId!,
+        tenantId: statement.lease.tenantId,
+        netAmount: statement.netAmount ?? Math.abs(transaction.amount),
+      });
+    }
+
+    if (paymentInfos.length === 0) {
+      return { success: false, error: "Aucun bail à ventiler pour ce décompte" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Pour chaque bail, trouver la facture d'appel de loyer non payée et créer un paiement
+      for (const info of paymentInfos) {
+        // Chercher une facture en attente de paiement pour ce bail dans la période
+        const invoice = await tx.invoice.findFirst({
+          where: {
+            societyId,
+            leaseId: info.leaseId,
+            status: { in: ["ENVOYEE", "PARTIELLEMENT_PAYE"] },
+            invoiceType: "APPEL_LOYER",
+          },
+          orderBy: { dueDate: "asc" },
+        });
+
+        if (invoice) {
+          // Calculer le montant déjà payé
+          const paidAgg = await tx.payment.aggregate({
+            where: { invoiceId: invoice.id },
+            _sum: { amount: true },
+          });
+          const paidSoFar = paidAgg._sum.amount ?? 0;
+          const newTotal = paidSoFar + info.netAmount;
+          const targetAmount = invoice.isThirdPartyManaged && invoice.expectedNetAmount
+            ? invoice.expectedNetAmount
+            : invoice.totalTTC;
+          const newStatus = newTotal >= targetAmount - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+
+          const payment = await tx.payment.create({
+            data: {
+              invoiceId: invoice.id,
+              amount: info.netAmount,
+              paidAt: transaction.transactionDate,
+              method: "virement",
+              reference: transaction.reference ?? statement.reference ?? undefined,
+              notes: `Rapprochement décompte ${statement.thirdPartyName} — ${statement.periodLabel ?? ""}`,
+              isReconciled: true,
+            },
+          });
+
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { status: newStatus },
+          });
+
+          // Créer le rapprochement bancaire
+          await tx.bankReconciliation.create({
+            data: {
+              transactionId,
+              paymentId: payment.id,
+              statementId: statement.id,
+              isValidated: true,
+              validatedAt: new Date(),
+              validatedBy: session.user.id,
+              notes: `Ventilation automatique — ${statement.thirdPartyName}`,
+            },
+          });
+        }
+      }
+
+      // Marquer la transaction comme rapprochée
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true },
+      });
+
+      // Mettre à jour le décompte
+      await tx.thirdPartyStatement.update({
+        where: { id: statementId },
+        data: {
+          paidAmount: Math.abs(transaction.amount),
+          paidAt: transaction.transactionDate,
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "BankReconciliation",
+      entityId: transactionId,
+      details: {
+        statementId,
+        action: "reconcile_statement",
+        leasesCount: paymentInfos.length,
+        totalAmount: Math.abs(transaction.amount),
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath("/releves-gestion");
+    revalidatePath("/facturation");
+    revalidatePath("/locataires");
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileWithStatement]", error);
+    return { success: false, error: "Erreur lors du rapprochement bancaire" };
   }
 }
 
@@ -769,6 +1222,7 @@ export async function markStatementConforme(
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
     revalidatePath(`/baux`);
 
     return { success: true };
@@ -815,6 +1269,7 @@ export async function markStatementLitige(
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
     revalidatePath(`/baux`);
 
     return { success: true };
@@ -847,12 +1302,9 @@ export async function deleteStatement(
     }
 
     await prisma.$transaction(async (tx) => {
-      // Supprimer les charges liées
       await tx.charge.deleteMany({ where: { statementId } });
-
-      // Supprimer les lignes puis le relevé (cascade gérée par Prisma mais explicite ici)
+      await tx.thirdPartyStatementLease.deleteMany({ where: { statementId } });
       await tx.thirdPartyStatementLine.deleteMany({ where: { statementId } });
-
       await tx.thirdPartyStatement.delete({ where: { id: statementId } });
     });
 
@@ -870,6 +1322,7 @@ export async function deleteStatement(
     });
 
     revalidatePath("/releves-tiers");
+    revalidatePath("/releves-gestion");
     revalidatePath("/charges");
 
     return { success: true };

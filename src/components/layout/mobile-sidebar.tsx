@@ -27,6 +27,7 @@ const navigation = [
     { name: "Locataires", href: "/locataires", icon: Users },
     { name: "Facturation", href: "/facturation", icon: Receipt },
     { name: "Charges", href: "/charges", icon: ScrollText },
+    { name: "Décomptes gestion", href: "/releves-gestion", icon: FileText },
     { name: "Courriers", href: "/courriers", icon: Mail },
     { name: "Relances", href: "/relances", icon: Bell },
     { name: "Documents", href: "/documents", icon: FolderOpen },

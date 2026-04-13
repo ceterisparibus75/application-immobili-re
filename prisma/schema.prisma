@@ -992,7 +992,9 @@ model Lease {
   signatureRequests     SignatureRequest[]
   managementReports     ManagementReport[]
   rentSteps             LeaseRentStep[]
-  thirdPartyStatements  ThirdPartyStatement[]
+  thirdPartyStatements      ThirdPartyStatement[]
+  thirdPartyStatementLines  ThirdPartyStatementLine[]
+  thirdPartyStatementLeases ThirdPartyStatementLease[]
 
   @@index([societyId])
   @@index([lotId])
@@ -1728,18 +1730,21 @@ model BankReconciliation {
   createdAt     DateTime @default(now())
   transactionId String
   paymentId     String
+  statementId   String?  // Lien vers décompte de gestion (ventilation auto)
 
   isValidated Boolean   @default(false)
   validatedAt DateTime?
   validatedBy String?
   notes       String?
 
-  transaction BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  payment     Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  transaction BankTransaction     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  payment     Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  statement   ThirdPartyStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
 
   @@unique([transactionId, paymentId])
   @@index([transactionId])
   @@index([paymentId])
+  @@index([statementId])
 }
 
 /// Règle de matching automatique
@@ -3603,9 +3608,11 @@ model ThirdPartyStatement {
   lease     Lease?    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
   document  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  lines              ThirdPartyStatementLine[]
-  charges            Charge[]              // Charges créées à partir de ce relevé
-  regularizations    ChargeRegularization[] // Régularisations liées
+  lines                ThirdPartyStatementLine[]
+  leases               ThirdPartyStatementLease[] // Baux couverts (multi-baux)
+  charges              Charge[]              // Charges créées à partir de ce relevé
+  regularizations      ChargeRegularization[] // Régularisations liées
+  bankReconciliations  BankReconciliation[]  // Rapprochements bancaires liés
 
   @@index([societyId])
   @@index([buildingId])
@@ -3618,6 +3625,7 @@ model ThirdPartyStatement {
 model ThirdPartyStatementLine {
   id          String @id @default(cuid())
   statementId String
+  leaseId     String? // Ventilation par bail (multi-baux)
 
   lineType    String  // CHARGE, ENCAISSEMENT, DEDUCTION, HONORAIRES
   label       String
@@ -3631,6 +3639,29 @@ model ThirdPartyStatementLine {
   verificationStatus String? // OK, INFO, ECART, ANOMALIE
 
   statement ThirdPartyStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  lease     Lease?              @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   @@index([statementId])
+  @@index([leaseId])
+}
+
+/// Liaison relevé tiers ↔ baux couverts (multi-baux)
+model ThirdPartyStatementLease {
+  id          String @id @default(cuid())
+  statementId String
+  leaseId     String
+
+  // Montants ventilés par bail
+  rentAmount        Float?  // Loyers encaissés pour ce bail
+  provisionAmount   Float?  // Provisions encaissées pour ce bail
+  feeAmount         Float?  // Honoraires déduits pour ce bail
+  deductionAmount   Float?  // Autres déductions pour ce bail
+  netAmount         Float?  // Net reversé pour ce bail
+
+  statement ThirdPartyStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  lease     Lease               @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@unique([statementId, leaseId])
+  @@index([statementId])
+  @@index([leaseId])
 }

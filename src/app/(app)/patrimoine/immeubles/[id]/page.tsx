@@ -9,9 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft,
   Bot,
- 
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -19,6 +17,7 @@ import {
   ExternalLink,
   FileText,
   Home,
+  Landmark,
   Pencil,
   Plus,
   TriangleAlert,
@@ -607,6 +606,37 @@ export default async function ImmeubleDetailPage({
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Relevés tiers (syndic) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Landmark className="h-4 w-4" />
+              Relevés tiers (syndic)
+            </CardTitle>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/patrimoine/immeubles/${id}/releves-tiers`}>
+                Voir tout
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Appels de fonds et décomptes de charges envoyés par le syndic.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <Button size="sm" asChild>
+              <Link href={`/patrimoine/immeubles/${id}/releves-tiers/nouveau`}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Nouvel appel de fonds
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

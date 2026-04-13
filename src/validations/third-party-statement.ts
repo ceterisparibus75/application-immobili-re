@@ -9,16 +9,31 @@ export const statementLineSchema = z.object({
   categoryId: z.string().cuid().optional(),
   nature: z.enum(["PROPRIETAIRE", "RECUPERABLE", "MIXTE"]).optional(),
   recoverableRate: z.number().min(0).max(100).optional(),
+  leaseId: z.string().cuid().optional(), // Ventilation par bail (multi-baux)
 });
 
 export type StatementLineInput = z.infer<typeof statementLineSchema>;
+
+/* ─── Ventilation par bail (multi-baux) ───────────────────────────── */
+
+export const statementLeaseSchema = z.object({
+  leaseId: z.string().cuid(),
+  rentAmount: z.number().optional(),
+  provisionAmount: z.number().optional(),
+  feeAmount: z.number().optional(),
+  deductionAmount: z.number().optional(),
+  netAmount: z.number().optional(),
+});
+
+export type StatementLeaseInput = z.infer<typeof statementLeaseSchema>;
 
 /* ─── Création de relevé ───────────────────────────────────────────── */
 
 const createStatementBaseSchema = z.object({
   type: z.enum(["APPEL_FONDS", "DECOMPTE_CHARGES", "DECOMPTE_GESTION"]),
   buildingId: z.string().cuid().optional(),
-  leaseId: z.string().cuid().optional(),
+  leaseId: z.string().cuid().optional(),       // Bail principal (simple)
+  leaseIds: z.array(z.string().cuid()).optional(), // Multi-baux
   thirdPartyName: z.string().min(1, "Nom du tiers requis").max(200),
   contactId: z.string().cuid().optional(),
   reference: z.string().max(100).optional(),
@@ -31,15 +46,20 @@ const createStatementBaseSchema = z.object({
   netAmount: z.number().optional(),
   notes: z.string().max(5000).optional(),
   lines: z.array(statementLineSchema).min(1, "Au moins une ligne requise"),
+  leases: z.array(statementLeaseSchema).optional(), // Ventilation par bail
 });
 
 export const createStatementSchema = createStatementBaseSchema.refine(
   (data) => {
-    if (data.type === "DECOMPTE_GESTION" && !data.leaseId) return false;
+    if (data.type === "DECOMPTE_GESTION") {
+      // Au moins un bail (simple ou multi)
+      const hasLease = data.leaseId || (data.leaseIds && data.leaseIds.length > 0);
+      if (!hasLease) return false;
+    }
     if ((data.type === "APPEL_FONDS" || data.type === "DECOMPTE_CHARGES") && !data.buildingId) return false;
     return true;
   },
-  { message: "Immeuble requis pour syndic, bail requis pour gestion locative" }
+  { message: "Immeuble requis pour syndic, au moins un bail requis pour gestion locative" }
 );
 
 export type CreateStatementInput = z.infer<typeof createStatementSchema>;
@@ -63,3 +83,12 @@ export const recordStatementPaymentSchema = z.object({
 });
 
 export type RecordStatementPaymentInput = z.infer<typeof recordStatementPaymentSchema>;
+
+/* ─── Rapprochement avec décompte de gestion ─────────────────────── */
+
+export const reconcileStatementSchema = z.object({
+  statementId: z.string().cuid(),
+  transactionId: z.string().cuid(),
+});
+
+export type ReconcileStatementInput = z.infer<typeof reconcileStatementSchema>;
