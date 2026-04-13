@@ -507,6 +507,7 @@ model Society {
   candidates              Candidate[]
   candidatePipelines      CandidatePipeline[]
   workflows               Workflow[]
+  thirdPartyStatements    ThirdPartyStatement[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -784,6 +785,9 @@ model Building {
   loans                     Loan[]
   propertyValuations        PropertyValuation[]
   additionalAcquisitions    AdditionalAcquisition[]
+  coproprieteId             String?
+  copropriete               Copropriete?             @relation(fields: [coproprieteId], references: [id], onDelete: SetNull)
+  thirdPartyStatements      ThirdPartyStatement[]
 
   @@index([societyId])
   @@index([societyId, city])
@@ -988,6 +992,7 @@ model Lease {
   signatureRequests     SignatureRequest[]
   managementReports     ManagementReport[]
   rentSteps             LeaseRentStep[]
+  thirdPartyStatements  ThirdPartyStatement[]
 
   @@index([societyId])
   @@index([lotId])
@@ -1418,15 +1423,18 @@ model Charge {
   invoiceUrl   String?
   supplierName String?
   isPaid       Boolean  @default(false)
+  statementId  String?
 
-  society  Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building Building       @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  category ChargeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  society   Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building  Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  category  ChargeCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  statement ThirdPartyStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
 
   @@index([societyId])
   @@index([buildingId])
   @@index([categoryId])
   @@index([societyId, date])
+  @@index([statementId])
 }
 
 /// Clé de répartition personnalisée
@@ -1491,12 +1499,14 @@ model ChargeRegularization {
   totalProvisions  Float // Provisions appelées
   balance          Float // Solde (positif = dû, négatif = avoir)
   details          Json? // Détail par catégorie
-  statementFileUrl String? // Décompte PDF
-  isFinalized      Boolean   @default(false)
-  finalizedAt      DateTime?
+  statementFileUrl  String? // Décompte PDF
+  isFinalized       Boolean   @default(false)
+  finalizedAt       DateTime?
+  sourceStatementId String?
 
-  lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
-  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease           Lease                @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  society         Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  sourceStatement ThirdPartyStatement? @relation(fields: [sourceStatementId], references: [id], onDelete: SetNull)
 
   @@unique([leaseId, fiscalYear])
   @@index([leaseId])
@@ -1933,11 +1943,12 @@ model Contact {
   notes        String?     @db.Text
   isActive     Boolean     @default(true)
 
-  society       Society?      @relation(fields: [societyId], references: [id], onDelete: SetNull)
-  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  maintenances  Maintenance[]
-  contactNotes  ContactNote[]
-  managedLeases Lease[]       @relation("ManagedLeases")
+  society              Society?              @relation(fields: [societyId], references: [id], onDelete: SetNull)
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  maintenances         Maintenance[]
+  contactNotes         ContactNote[]
+  managedLeases        Lease[]               @relation("ManagedLeases")
+  thirdPartyStatements ThirdPartyStatement[]
 
   @@index([societyId])
   @@index([contactType])
@@ -2099,12 +2110,13 @@ model Document {
   aiAnalyzedAt DateTime?           // date derniere analyse IA
   aiStatus     String?             // pending | done | error
 
-  society           Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building          Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
-  lot               Lot?              @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  lease             Lease?            @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant            Tenant?           @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  dataroomDocuments DataroomDocument[]
+  society            Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building           Building?            @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  lot                Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  lease              Lease?               @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant             Tenant?              @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  dataroomDocuments  DataroomDocument[]
+  thirdPartyStatement ThirdPartyStatement?
 
   @@index([societyId])
   @@index([buildingId])
@@ -3090,6 +3102,7 @@ model Copropriete {
   lots       CoproLot[]
   budgets    CoproBudget[]
   assemblies CoproAssembly[]
+  buildings  Building[]
 
   @@index([societyId])
 }
@@ -3514,4 +3527,110 @@ enum WorkflowRunStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+// ── Relevés tiers ──────────────────────────────────────────────────────
+
+enum StatementType {
+  APPEL_FONDS       // Appel de fonds syndic
+  DECOMPTE_CHARGES  // Décompte annuel syndic
+  DECOMPTE_GESTION  // Décompte de gestion locative (agence)
+}
+
+enum StatementStatus {
+  BROUILLON
+  VALIDE
+  PAYE
+  PARTIELLEMENT_PAYE
+  REGULARISE
+  VERIFIE
+  CONFORME
+  LITIGE
+}
+
+/// Relevé reçu d'un tiers (syndic ou gestionnaire locatif)
+model ThirdPartyStatement {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  // Contexte
+  buildingId     String?  // Obligatoire pour syndic
+  leaseId        String?  // Obligatoire pour gestion locative
+  type           StatementType
+  status         StatementStatus @default(BROUILLON)
+
+  // Tiers
+  thirdPartyName String   // Nom du syndic ou de l'agence
+  contactId      String?  // Lien vers Contact
+
+  // Identification
+  reference      String?  // Numéro de référence du document
+  periodStart    DateTime
+  periodEnd      DateTime
+  periodLabel    String?  // "T1 2026", "Mars 2026", "Exercice 2025"
+
+  // Dates
+  receivedDate   DateTime
+  dueDate        DateTime? // Échéance de paiement (appels)
+  paidAt         DateTime?
+
+  // Montants
+  totalAmount    Float    // Total du relevé
+  paidAmount     Float    @default(0)
+  netAmount      Float?   // Montant net reversé (gestion)
+
+  // Paiement
+  paymentMethod    String?
+  paymentReference String?
+
+  // Document source
+  documentId     String?  @unique
+  aiExtracted    Boolean  @default(false)
+  aiConfidence   Float?
+
+  // Vérification (gestion locative)
+  verificationResult Json?   // Résultat détaillé de la vérification
+  verificationStatus String? // CONFORME / ECART / LITIGE
+
+  // Notes
+  notes          String? @db.Text
+
+  // Relations
+  society   Society   @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building  Building? @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  lease     Lease?    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  document  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  lines              ThirdPartyStatementLine[]
+  charges            Charge[]              // Charges créées à partir de ce relevé
+  regularizations    ChargeRegularization[] // Régularisations liées
+
+  @@index([societyId])
+  @@index([buildingId])
+  @@index([leaseId])
+  @@index([societyId, type])
+  @@index([societyId, status])
+}
+
+/// Ligne de détail d'un relevé tiers
+model ThirdPartyStatementLine {
+  id          String @id @default(cuid())
+  statementId String
+
+  lineType    String  // CHARGE, ENCAISSEMENT, DEDUCTION, HONORAIRES
+  label       String
+  amount      Float   // Positif = encaissement, négatif = déduction
+  categoryId  String? // Lien vers ChargeCategory (optionnel)
+  nature      String? // PROPRIETAIRE, RECUPERABLE, MIXTE
+  recoverableRate Float? // Pour MIXTE
+
+  // Vérification
+  expectedAmount     Float?  // Calculé par le système
+  verificationStatus String? // OK, INFO, ECART, ANOMALIE
+
+  statement ThirdPartyStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
 }

@@ -14,6 +14,9 @@ const CATEGORY_HINTS: Record<string, string> = {
   compte_rendu_gestion: "Extrais : periode (date debut, date fin), loyer brut encaisse (nombre), montant charges encaissees (nombre), honoraires de gestion HT (nombre), honoraires TTC (nombre), montant net vire au proprietaire (nombre), nom agence, detail par lot si disponible.",
   quittance_agence: "Extrais : periode (mois/annee), montant loyer, montant charges, total TTC, nom locataire, nom agence, numero de quittance.",
   facture_honoraires: "Extrais : montant HT, TVA, montant TTC, agence/prestataire, date, numero facture, periode concernee, base de calcul.",
+  appel_fonds: "Extrais : nom du syndic, numéro de référence, période couverte (trimestre, dates début et fin), montant total appelé, détail par poste de charge (catégorie, montant, nature récupérable/non récupérable si indiqué), date limite de paiement.",
+  decompte_charges: "Extrais : nom du syndic, exercice comptable (année, dates début et fin), montant total des charges réelles, détail par poste de charge (catégorie, montant réel, nature récupérable/non récupérable/mixte si indiqué), comparaison avec budget prévisionnel si présente.",
+  decompte_gestion: "Extrais : nom de l'agence ou du gestionnaire, période couverte, loyers encaissés, provisions sur charges encaissées, honoraires de gestion déduits (montant HT, TVA, TTC), autres déductions (travaux, assurance, etc.), montant net reversé au propriétaire, solde éventuel reporté.",
 };
 
 function mediaType(mime: string): "application/pdf" | "image/jpeg" | "image/png" | "image/webp" {
