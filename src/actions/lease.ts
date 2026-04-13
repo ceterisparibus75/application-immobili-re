@@ -526,9 +526,38 @@ export async function createRentSteps(
     // Vérifier que le bail appartient à la société
     const lease = await prisma.lease.findFirst({
       where: { id: leaseId, societyId },
-      select: { id: true },
+      select: { id: true, startDate: true, endDate: true },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
+
+    // Vérifier que les paliers respectent la période du bail
+    const leaseStart = new Date(lease.startDate);
+    const leaseEnd = lease.endDate ? new Date(lease.endDate) : null;
+    const sorted = [...steps].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    for (const step of sorted) {
+      const stepStart = new Date(step.startDate);
+      const stepEnd = step.endDate ? new Date(step.endDate) : null;
+
+      if (stepStart < leaseStart) {
+        return {
+          success: false,
+          error: `Le palier "${step.label}" commence avant le début du bail (${leaseStart.toLocaleDateString("fr-FR")})`,
+        };
+      }
+      if (leaseEnd && stepStart > leaseEnd) {
+        return {
+          success: false,
+          error: `Le palier "${step.label}" commence après la fin du bail (${leaseEnd.toLocaleDateString("fr-FR")})`,
+        };
+      }
+      if (leaseEnd && stepEnd && stepEnd > leaseEnd) {
+        return {
+          success: false,
+          error: `Le palier "${step.label}" se termine après la fin du bail (${leaseEnd.toLocaleDateString("fr-FR")})`,
+        };
+      }
+    }
 
     // Supprimer les anciens paliers et recréer
     await prisma.leaseRentStep.deleteMany({ where: { leaseId } });
@@ -585,6 +614,48 @@ export async function updateRentStep(
       select: { id: true, leaseId: true },
     });
     if (!step) return { success: false, error: "Palier introuvable" };
+
+    // Vérifier cohérence avec le bail et les autres paliers
+    const lease = await prisma.lease.findFirst({
+      where: { id: step.leaseId, societyId },
+      select: { startDate: true, endDate: true },
+    });
+    if (lease) {
+      const leaseStart = new Date(lease.startDate);
+      const leaseEnd = lease.endDate ? new Date(lease.endDate) : null;
+      const newStart = new Date(data.startDate);
+      const newEnd = data.endDate ? new Date(data.endDate) : null;
+
+      if (newEnd && newEnd <= newStart) {
+        return { success: false, error: "La date de fin doit être postérieure à la date de début" };
+      }
+      if (newStart < leaseStart) {
+        return { success: false, error: `La date de début ne peut pas être antérieure au début du bail (${leaseStart.toLocaleDateString("fr-FR")})` };
+      }
+      if (leaseEnd && newStart > leaseEnd) {
+        return { success: false, error: `La date de début ne peut pas être postérieure à la fin du bail (${leaseEnd.toLocaleDateString("fr-FR")})` };
+      }
+      if (leaseEnd && newEnd && newEnd > leaseEnd) {
+        return { success: false, error: `La date de fin ne peut pas dépasser la fin du bail (${leaseEnd.toLocaleDateString("fr-FR")})` };
+      }
+
+      // Vérifier les chevauchements avec les autres paliers
+      const otherSteps = await prisma.leaseRentStep.findMany({
+        where: { leaseId: step.leaseId, id: { not: id } },
+        select: { label: true, startDate: true, endDate: true },
+        orderBy: { startDate: "asc" },
+      });
+      for (const other of otherSteps) {
+        const oStart = new Date(other.startDate);
+        const oEnd = other.endDate ? new Date(other.endDate) : null;
+
+        const overlap =
+          (newEnd ? newEnd > oStart : true) && (oEnd ? oEnd > newStart : true);
+        if (overlap) {
+          return { success: false, error: `Chevauchement avec le palier "${other.label}"` };
+        }
+      }
+    }
 
     await prisma.leaseRentStep.update({
       where: { id },

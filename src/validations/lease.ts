@@ -285,6 +285,43 @@ export const rentStepSchema = z.object({
 export const createRentStepsSchema = z.object({
   leaseId: z.string().cuid(),
   steps: z.array(rentStepSchema).min(1, "Au moins un palier est requis"),
+}).superRefine((data, ctx) => {
+  const sorted = [...data.steps].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  for (let i = 0; i < sorted.length; i++) {
+    const step = sorted[i];
+    const start = new Date(step.startDate);
+    const end = step.endDate ? new Date(step.endDate) : null;
+
+    // Date de fin doit être après la date de début
+    if (end && end <= start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Palier "${step.label}" : la date de fin doit être postérieure à la date de début`,
+      });
+    }
+
+    // Vérifier les chevauchements avec le palier suivant
+    if (i < sorted.length - 1) {
+      const next = sorted[i + 1];
+      const nextStart = new Date(next.startDate);
+
+      if (end && end >= nextStart) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Les paliers "${step.label}" et "${next.label}" se chevauchent`,
+        });
+      }
+    }
+
+    // Le dernier palier doit avoir une date de fin (sauf si c'est le seul)
+    if (sorted.length > 1 && i < sorted.length - 1 && !end) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Le palier "${step.label}" doit avoir une date de fin car un palier suivant existe`,
+      });
+    }
+  }
 });
 
 export const updateRentStepSchema = rentStepSchema.extend({

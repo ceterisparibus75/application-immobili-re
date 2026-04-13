@@ -13,6 +13,7 @@ import {
   Save,
   X,
   CalendarDays,
+  AlertTriangle,
 } from "lucide-react";
 import { createRentSteps, deleteRentStep, updateRentStep } from "@/actions/lease";
 import { useRouter } from "next/navigation";
@@ -90,6 +91,64 @@ export function RentSteps({
     const end = s.endDate ? new Date(s.endDate) : null;
     return start <= today && (!end || end >= today);
   })?.id;
+
+  // Détecter les problèmes de périodes
+  const periodWarnings: string[] = [];
+  if (steps.length > 0) {
+    const sorted = [...steps].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    const leaseStartD = new Date(leaseStartDate);
+    const leaseEndD = leaseEndDate ? new Date(leaseEndDate) : null;
+
+    // Vérifier que le premier palier commence avec le bail
+    const firstStep = sorted[0];
+    const firstStart = new Date(firstStep.startDate);
+    if (firstStart > leaseStartD) {
+      const gap = Math.round((firstStart.getTime() - leaseStartD.getTime()) / (1000 * 60 * 60 * 24));
+      periodWarnings.push(`Trou de ${gap} jour${gap > 1 ? "s" : ""} entre le début du bail et le premier palier`);
+    }
+
+    for (let i = 0; i < sorted.length; i++) {
+      const s = sorted[i];
+      const sStart = new Date(s.startDate);
+      const sEnd = s.endDate ? new Date(s.endDate) : null;
+
+      // Date de fin avant date de début
+      if (sEnd && sEnd <= sStart) {
+        periodWarnings.push(`"${s.label}" : date de fin antérieure à la date de début`);
+      }
+
+      // Palier hors période du bail
+      if (sStart < leaseStartD) {
+        periodWarnings.push(`"${s.label}" commence avant le début du bail`);
+      }
+      if (leaseEndD && sEnd && sEnd > leaseEndD) {
+        periodWarnings.push(`"${s.label}" se termine après la fin du bail`);
+      }
+
+      // Chevauchement / trou avec le palier suivant
+      if (i < sorted.length - 1) {
+        const next = sorted[i + 1];
+        const nextStart = new Date(next.startDate);
+
+        if (sEnd && sEnd >= nextStart) {
+          periodWarnings.push(`"${s.label}" et "${next.label}" se chevauchent`);
+        } else if (sEnd) {
+          const nextDay = new Date(sEnd);
+          nextDay.setDate(nextDay.getDate() + 1);
+          if (nextStart > nextDay) {
+            const gap = Math.round((nextStart.getTime() - nextDay.getTime()) / (1000 * 60 * 60 * 24));
+            periodWarnings.push(`Trou de ${gap + 1} jour${gap + 1 > 1 ? "s" : ""} entre "${s.label}" et "${next.label}"`);
+          }
+        } else if (!sEnd) {
+          periodWarnings.push(`"${s.label}" n'a pas de date de fin mais un palier suivant existe`);
+        }
+      }
+    }
+  }
+
+  // Dates min/max pour contraindre les formulaires
+  const leaseStartISO = leaseStartDate.split("T")[0];
+  const leaseEndISO = leaseEndDate?.split("T")[0] ?? "";
 
   function addNewStepRow() {
     setNewSteps([...newSteps, { ...emptyStep }]);
@@ -198,6 +257,20 @@ export function RentSteps({
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       )}
 
+      {periodWarnings.length > 0 && (
+        <div className="rounded-md bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 p-3 text-sm text-[var(--color-status-caution)]">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium mb-1">Problèmes de périodes détectés</p>
+              <ul className="list-disc list-inside space-y-0.5 text-xs">
+                {periodWarnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {steps.length === 0 && !showForm && (
         <div className="text-center py-6">
           <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -249,6 +322,8 @@ export function RentSteps({
                                   type="date"
                                   value={editForm.startDate}
                                   onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                                  min={leaseStartISO}
+                                  max={leaseEndISO || undefined}
                                   required
                                 />
                               </div>
@@ -258,6 +333,8 @@ export function RentSteps({
                                   type="date"
                                   value={editForm.endDate}
                                   onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                                  min={editForm.startDate || leaseStartISO}
+                                  max={leaseEndISO || undefined}
                                 />
                               </div>
                               <div className="space-y-1">
@@ -387,6 +464,8 @@ export function RentSteps({
                   type="date"
                   value={step.startDate}
                   onChange={(e) => updateNewStep(index, "startDate", e.target.value)}
+                  min={leaseStartISO}
+                  max={leaseEndISO || undefined}
                   required
                 />
               </div>
@@ -396,6 +475,8 @@ export function RentSteps({
                   type="date"
                   value={step.endDate}
                   onChange={(e) => updateNewStep(index, "endDate", e.target.value)}
+                  min={step.startDate || leaseStartISO}
+                  max={leaseEndISO || undefined}
                 />
               </div>
               <div className="space-y-1">
