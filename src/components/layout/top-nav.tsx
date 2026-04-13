@@ -67,7 +67,6 @@ const GESTION_LOCATIVE_ITEMS = [
   { name: "Charges", href: "/charges", icon: ScrollText },
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
-  { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
   { name: "Candidatures", href: "/candidatures", icon: UserSearch },
 ];
 

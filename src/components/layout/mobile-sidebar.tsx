@@ -29,7 +29,6 @@ const navigation = [
     { name: "Charges", href: "/charges", icon: ScrollText },
     { name: "Courriers", href: "/courriers", icon: Mail },
     { name: "Relances", href: "/relances", icon: Bell },
-    { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
     { name: "Documents", href: "/documents", icon: FolderOpen },
     { name: "Import bail PDF", href: "/import", icon: Upload },
   ]},
