@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileText, Loader2, Plus, Save, Trash2, Users, Building2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Plus, Save, Trash2, Users, Building2, Upload, Sparkles, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -84,6 +84,74 @@ export default function NouveauDecompteGestionPage() {
   const [netAmount, setNetAmount] = useState<number | undefined>();
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<(StatementLineInput & { key: string })[]>([]);
+
+  // Extraction IA
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionConfidence, setExtractionConfidence] = useState<number | null>(null);
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    setExtractionConfidence(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "DECOMPTE_GESTION");
+
+      const res = await fetch("/api/statements/extract", { method: "POST", body: formData });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? "Erreur lors de l'extraction");
+        return;
+      }
+
+      const data = json.data as {
+        thirdPartyName: string | null;
+        reference: string | null;
+        periodStart: string | null;
+        periodEnd: string | null;
+        periodLabel: string | null;
+        totalAmount: number | null;
+        netAmount: number | null;
+        lines: Array<{ lineType: string; label: string; amount: number }>;
+        confidence: number;
+      };
+
+      // Remplir les champs du formulaire
+      if (data.thirdPartyName) setThirdPartyName(data.thirdPartyName);
+      if (data.reference) setReference(data.reference);
+      if (data.periodStart) setPeriodStart(data.periodStart);
+      if (data.periodEnd) setPeriodEnd(data.periodEnd);
+      if (data.periodLabel) setPeriodLabel(data.periodLabel);
+      if (data.netAmount) setNetAmount(data.netAmount);
+
+      // Remplir les lignes
+      if (data.lines.length > 0) {
+        const newLines: (StatementLineInput & { key: string })[] = data.lines.map((l) => ({
+          key: Math.random().toString(36).slice(2),
+          lineType: (["ENCAISSEMENT", "HONORAIRES", "DEDUCTION"].includes(l.lineType)
+            ? l.lineType
+            : "ENCAISSEMENT") as "ENCAISSEMENT" | "CHARGE" | "HONORAIRES" | "DEDUCTION",
+          label: l.label,
+          amount: l.amount,
+          leaseId: selectedLeaseIds.length === 1 ? selectedLeaseIds[0] : undefined,
+        }));
+        setLines(newLines);
+      }
+
+      setExtractionConfidence(data.confidence);
+      toast.success("Extraction IA terminée — vérifiez les données extraites");
+    } catch {
+      toast.error("Erreur lors de l'extraction IA");
+    } finally {
+      setIsExtracting(false);
+      e.target.value = "";
+    }
+  }
 
   // Charger les baux gérés par un tiers
   useEffect(() => {
@@ -331,6 +399,68 @@ export default function NouveauDecompteGestionPage() {
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Extraction IA */}
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              Extraction IA depuis un PDF
+            </CardTitle>
+            <CardDescription>
+              Importez le PDF du décompte pour pré-remplir automatiquement le formulaire
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <label
+                className={`flex-1 flex items-center justify-center gap-3 px-4 py-6 rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
+                  isExtracting
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/30"
+                }`}
+              >
+                {isExtracting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <span className="text-sm text-primary font-medium">Analyse en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Glissez ou cliquez pour importer un PDF, JPG ou PNG
+                    </span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isExtracting}
+                />
+              </label>
+            </div>
+            {extractionConfidence !== null && (
+              <div className="mt-3 flex items-center gap-2 text-sm">
+                {extractionConfidence >= 0.8 ? (
+                  <Badge variant="success" className="text-xs">
+                    Confiance : {Math.round(extractionConfidence * 100)}%
+                  </Badge>
+                ) : (
+                  <Badge variant="warning" className="text-xs flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Confiance : {Math.round(extractionConfidence * 100)}%
+                  </Badge>
+                )}
+                <span className="text-muted-foreground text-xs">
+                  Vérifiez et corrigez les données extraites avant de valider
+                </span>
               </div>
             )}
           </CardContent>
