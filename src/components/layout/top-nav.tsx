@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
   Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
-  Shield, Merge, FileSearch, Settings, HelpCircle, BookOpen, Wallet, BarChart3,
+  HelpCircle, BookOpen, Wallet, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -94,17 +94,7 @@ const FINANCES_ITEMS = [
 
 const FINANCES_PATHS = FINANCES_ITEMS.map((i) => i.href);
 
-// ── Sous-items du menu "Administration" ────────────────────────
-
-const ADMIN_ITEMS = [
-  { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
-  { name: "Fusions", href: "/administration/fusions", icon: Merge },
-  { name: "Audit / Logs", href: "/administration/audit", icon: FileSearch },
-  { name: "Paramètres", href: "/parametres", icon: Settings },
-  { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
-];
-
-const ADMIN_PATHS = ADMIN_ITEMS.map((i) => i.href);
+// ── Lien "Centre d'aide" (remplace l'ancien dropdown Administration) ──
 
 // ── Composant ───────────────────────────────────────────────────
 
@@ -128,10 +118,6 @@ export function TopNav() {
   );
 
   const isFinancesActive = FINANCES_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-
-  const isAdminActive = ADMIN_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
@@ -337,39 +323,19 @@ export function TopNav() {
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
 
-            {/* Menu déroulant Administration */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap outline-none",
-                  isAdminActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                )}
-              >
-                Administration
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                {ADMIN_ITEMS.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                  return (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-2 cursor-pointer",
-                          isActive && "text-primary font-medium"
-                        )}
-                      >
-                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                        {item.name}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Lien Centre d'aide */}
+            <Link
+              href="/aide"
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap",
+                pathname === "/aide" || pathname.startsWith("/aide/")
+                  ? "bg-primary/10 text-primary"
+                  : "text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              )}
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Centre d&apos;aide
+            </Link>
           </div>
         </div>
       </div>

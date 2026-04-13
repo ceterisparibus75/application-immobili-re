@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   Building2, LayoutDashboard, FileText, Users, Receipt,
   TrendingUp, Landmark, BookOpen, Contact,
-  Settings, Shield, ScrollText, Layers, X, FolderOpen,
-  Upload, Banknote, BarChart3, FileBarChart, Merge, Mail, Bell, HelpCircle,
+  ScrollText, Layers, X, FolderOpen,
+  Upload, Banknote, BarChart3, FileBarChart, Mail, Bell, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,12 +52,6 @@ const navigation = [
   { title: "Aide", items: [
     { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
     { name: "API / Développeurs", href: "/api-docs", icon: Code },
-  ]},
-  { title: "Administration", items: [
-    { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
-    { name: "Fusions", href: "/administration/fusions", icon: Merge },
-    { name: "Audit", href: "/administration/audit", icon: ScrollText },
-    { name: "Paramètres", href: "/parametres", icon: Settings },
   ]},
 ];
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Users, CreditCard, ScrollText, ShieldCheck } from "lucide-react";
+import { User, Users, CreditCard, ScrollText, ShieldCheck, Merge, Settings } from "lucide-react";
 
 const TABS = [
   { href: "/compte", label: "Mon profil", icon: User },
@@ -11,6 +11,8 @@ const TABS = [
   { href: "/compte/logs", label: "Logs", icon: ScrollText },
   { href: "/compte/rgpd", label: "RGPD", icon: ShieldCheck },
   { href: "/compte/abonnement", label: "Abonnement", icon: CreditCard },
+  { href: "/compte/fusions", label: "Fusions", icon: Merge },
+  { href: "/compte/parametres", label: "Paramètres", icon: Settings },
 ];
 
 export default function CompteLayout({ children }: { children: React.ReactNode }) {

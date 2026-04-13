@@ -66,7 +66,9 @@ const s = StyleSheet.create({
   footerPage: { fontSize: 7, color: GRAY, textAlign: "center" },
 });
 
-function fmt(v: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v).replace(/ /g, " ").replace(/ /g, " "); }
+function sanitizeSpaces(str: string) { return str.replace(/ | | | | /g, " "); }
+function fmt(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v)); }
+function fmtNum(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(v)); }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("fr-FR"); }
 
 const LEGAL_FORM_LABELS: Record<string, string> = {
@@ -92,11 +94,11 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   // Mention légale : "{Forme juridique} au capital de {montant} €"
   const legalFormLabel = soc?.legalForm ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null;
   const capitalMention = legalFormLabel && soc?.shareCapital
-    ? legalFormLabel + " au capital de " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €"
+    ? legalFormLabel + " au capital de " + fmtNum(soc.shareCapital) + "\u20AC"
     : legalFormLabel
       ? legalFormLabel
       : soc?.shareCapital
-        ? "Capital social : " + new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital) + " €"
+        ? "Capital social : " + fmtNum(soc.shareCapital) + "\u20AC"
         : null;
 
   const footerParts = [
@@ -122,7 +124,7 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             {soc?.addressLine1 ? <Text style={s.smallText}>{soc.addressLine1}, {[soc.postalCode, soc.city].filter(Boolean).join(" ")}</Text> : null}
             {soc?.phone ? <Text style={s.smallText}>Tél. : {soc.phone}</Text> : null}
             {soc?.legalForm && soc?.shareCapital ? (
-              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm} au capital de {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(soc.shareCapital)} €</Text>
+              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm} au capital de {fmtNum(soc.shareCapital)}{"\u20AC"}</Text>
             ) : soc?.legalForm ? (
               <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm}</Text>
             ) : null}
