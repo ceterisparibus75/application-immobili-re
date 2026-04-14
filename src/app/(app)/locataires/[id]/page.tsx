@@ -31,6 +31,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LeaseStatus, RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
+import { TenantPaymentChart, type PaymentMonthData } from "./_components/tenant-payment-chart";
 
 // ── Mappings ────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,31 @@ export default async function LocataireDetailPage({
   const unpaidCount = accountData?.invoices.filter(
     (i) => i.status !== "ANNULEE" && i.status !== "PAYE" && i.invoiceType !== "AVOIR" && i.invoiceType !== "QUITTANCE"
   ).length ?? 0;
+
+  // Historique mensuel des paiements (12 derniers mois)
+  const MONTH_LABELS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  const now = new Date();
+  const paymentHistory: PaymentMonthData[] = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const facture = (accountData?.invoices ?? [])
+      .filter((inv) =>
+        inv.status !== "ANNULEE" &&
+        inv.invoiceType !== "AVOIR" &&
+        new Date(inv.issueDate).getFullYear() === year &&
+        new Date(inv.issueDate).getMonth() === month
+      )
+      .reduce((s, inv) => s + inv.totalTTC, 0);
+    const paye = (accountData?.invoices ?? [])
+      .flatMap((inv) => inv.payments)
+      .filter((p) =>
+        new Date(p.paidAt).getFullYear() === year &&
+        new Date(p.paidAt).getMonth() === month
+      )
+      .reduce((s, p) => s + p.amount, 0);
+    return { month: MONTH_LABELS[month], facture, paye };
+  });
 
   return (
     <div className="space-y-6">
@@ -295,6 +321,9 @@ export default async function LocataireDetailPage({
           </div>
         )
       )}
+
+      {/* ── Historique des paiements ───────────────────────────────── */}
+      <TenantPaymentChart data={paymentHistory} />
 
       {/* ── Layout 2 colonnes : infos + contact ────────────────────── */}
       <div className="grid gap-6 lg:grid-cols-3">

@@ -10,6 +10,7 @@ import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { RiskConcentrationChart } from "@/components/dashboard/risk-concentration-chart";
 import { LeaseTimeline } from "@/components/dashboard/lease-timeline";
 import { TodayTasks } from "@/components/dashboard/today-tasks";
+import { EcheancesPanel } from "@/components/dashboard/echeances-panel";
 import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
 import { KpiCards } from "./_components/kpi-cards";
 import { ActionsBar } from "./_components/actions-bar";
@@ -170,6 +171,8 @@ export default async function DashboardPage() {
         {/* Colonne droite : Panneau de suivi (1/3) */}
         <div className="space-y-5">
           <TodayTasks societyId={societyId} />
+
+          <EcheancesPanel societyId={societyId} />
 
           <TrackingPanel kpis={kpis} />
         </div>

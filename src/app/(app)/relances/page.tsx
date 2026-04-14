@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
-import { RelancesOverdue } from "./_components/relances-overdue";
+import { RelancesViewToggle } from "./_components/relances-view-toggle";
 import { RelancesHistory } from "./_components/relances-history";
 
 export const metadata = { title: "Relances" };
@@ -421,7 +421,7 @@ export default async function RelancesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <RelancesOverdue
+          <RelancesViewToggle
             societyId={societyId}
             overdueInvoices={overdueData}
           />
