@@ -152,9 +152,28 @@ export async function syncOpenBankingAccounts(
 }
 
 // syncAllAccounts — synchronise tous les comptes bancaires de la société
+export type SyncAccountDetail = {
+  accountName: string;
+  provider: string;
+  imported: number;
+  status: "ok" | "error" | "skipped";
+  error?: string;
+  lastSyncAt: string | null;
+  oldestTransaction: string | null;
+  newestTransaction: string | null;
+};
+
+export type SyncAllResult = {
+  totalImported: number;
+  accountsSynced: number;
+  accountsFailed: number;
+  details: SyncAccountDetail[];
+  dateWarning: string | null;
+};
+
 export async function syncAllAccounts(
   societyId: string
-): Promise<ActionResult<{ totalImported: number; accountsSynced: number }>> {
+): Promise<ActionResult<SyncAllResult>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
@@ -174,39 +193,132 @@ export async function syncAllAccounts(
 
     let totalImported = 0;
     let accountsSynced = 0;
+    let accountsFailed = 0;
+    const details: SyncAccountDetail[] = [];
 
     for (const account of accounts) {
+      const detail: SyncAccountDetail = {
+        accountName: account.accountName,
+        provider: account.qontoAccountId ? "Qonto" : account.powensAccountId ? "Powens" : "Manuel",
+        imported: 0,
+        status: "skipped",
+        lastSyncAt: null,
+        oldestTransaction: null,
+        newestTransaction: null,
+      };
+
       try {
         let imported = 0;
         if (account.qontoAccountId && account.connection?.provider === "QONTO") {
-          if (!account.connection.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) continue;
+          if (!account.connection.qontoSlugEncrypted || !account.connection.qontoSecretKeyEncrypted) {
+            detail.status = "skipped";
+            detail.error = "Identifiants Qonto manquants";
+            details.push(detail);
+            continue;
+          }
           const slug = decrypt(account.connection.qontoSlugEncrypted);
           const secretKey = decrypt(account.connection.qontoSecretKeyEncrypted);
           imported = await syncQontoTransactionsInternal(societyId, account.id, account.qontoAccountId, slug, secretKey);
         } else if (account.powensAccountId) {
-          if (!account.connection?.powensAccessToken || !account.connection.powensUserId) continue;
+          if (!account.connection?.powensAccessToken || !account.connection.powensUserId) {
+            detail.status = "skipped";
+            detail.error = "Token Powens manquant";
+            details.push(detail);
+            continue;
+          }
           const userToken = decrypt(account.connection.powensAccessToken);
           const userId = parseInt(account.connection.powensUserId, 10);
           const powensAccountId = parseInt(account.powensAccountId, 10);
           imported = await syncAccountTransactionsInternal(societyId, account.id, powensAccountId, userId, userToken);
         } else {
+          details.push(detail);
           continue;
         }
+        detail.imported = imported;
+        detail.status = "ok";
         totalImported += imported;
         accountsSynced++;
       } catch (e) {
         console.error(`[syncAllAccounts] Erreur compte ${account.id}:`, e);
+        detail.status = "error";
+        detail.error = e instanceof Error ? e.message : "Erreur inconnue";
+        accountsFailed++;
+      }
+
+      // Récupérer les bornes temporelles du compte après sync
+      const updatedAccount = await prisma.bankAccount.findUnique({
+        where: { id: account.id },
+        select: { lastSyncAt: true },
+      });
+      detail.lastSyncAt = updatedAccount?.lastSyncAt?.toISOString() ?? null;
+
+      const [oldest, newest] = await Promise.all([
+        prisma.bankTransaction.findFirst({
+          where: { bankAccountId: account.id },
+          orderBy: { transactionDate: "asc" },
+          select: { transactionDate: true },
+        }),
+        prisma.bankTransaction.findFirst({
+          where: { bankAccountId: account.id },
+          orderBy: { transactionDate: "desc" },
+          select: { transactionDate: true },
+        }),
+      ]);
+      detail.oldestTransaction = oldest?.transactionDate?.toISOString() ?? null;
+      detail.newestTransaction = newest?.transactionDate?.toISOString() ?? null;
+      details.push(detail);
+    }
+
+    // ── Vérification cohérence des dates ─────────────────────────────
+    // Si les comptes connectés ont des plages de dates très différentes,
+    // cela peut fausser le cash flow (un compte a 3 mois d'historique,
+    // un autre seulement 2 semaines)
+    let dateWarning: string | null = null;
+    const connectedDetails = details.filter((d) => d.status === "ok" && d.oldestTransaction);
+    if (connectedDetails.length >= 2) {
+      const oldestDates = connectedDetails.map((d) => new Date(d.oldestTransaction!).getTime());
+      const newestDates = connectedDetails.map((d) => new Date(d.newestTransaction!).getTime());
+      const maxOldestGap = Math.max(...oldestDates) - Math.min(...oldestDates);
+      const maxNewestGap = Math.max(...newestDates) - Math.min(...newestDates);
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+
+      if (maxOldestGap > THIRTY_DAYS) {
+        const earlyAccount = connectedDetails.find(
+          (d) => new Date(d.oldestTransaction!).getTime() === Math.min(...oldestDates)
+        );
+        const lateAccount = connectedDetails.find(
+          (d) => new Date(d.oldestTransaction!).getTime() === Math.max(...oldestDates)
+        );
+        const gapDays = Math.round(maxOldestGap / (24 * 60 * 60 * 1000));
+        dateWarning = `Écart de ${gapDays} jours entre les historiques : « ${earlyAccount?.accountName} » remonte au ${fmtDate(earlyAccount!.oldestTransaction!)} tandis que « ${lateAccount?.accountName} » commence au ${fmtDate(lateAccount!.oldestTransaction!)}. Importez un relevé CSV pour compléter l'historique manquant.`;
+      } else if (maxNewestGap > SEVEN_DAYS) {
+        const freshAccount = connectedDetails.find(
+          (d) => new Date(d.newestTransaction!).getTime() === Math.max(...newestDates)
+        );
+        const staleAccount = connectedDetails.find(
+          (d) => new Date(d.newestTransaction!).getTime() === Math.min(...newestDates)
+        );
+        const gapDays = Math.round(maxNewestGap / (24 * 60 * 60 * 1000));
+        dateWarning = `« ${staleAccount?.accountName} » a ${gapDays} jour(s) de retard par rapport à « ${freshAccount?.accountName} ». Vérifiez la connexion bancaire de ce compte.`;
       }
     }
 
     revalidatePath("/banque");
     revalidatePath("/comptabilite/cashflow");
-    return { success: true, data: { totalImported, accountsSynced } };
+    return {
+      success: true,
+      data: { totalImported, accountsSynced, accountsFailed, details, dateWarning },
+    };
   } catch (error) {
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncAllAccounts]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };
   }
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 // syncAccountTransactions (appel UI — détecte automatiquement Powens ou Qonto)
