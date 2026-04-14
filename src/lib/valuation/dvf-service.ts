@@ -127,8 +127,9 @@ async function fetchDvfCsv(
     skipEmptyLines: true,
   });
 
+  const codesToMatch = new Set(getCodeCommunes(codeCommune));
   return parsed.data
-    .filter((row) => row.code_commune === codeCommune && row.nature_mutation === "Vente")
+    .filter((row) => codesToMatch.has(row.code_commune ?? "") && row.nature_mutation === "Vente")
     .map((row) => mapCsvRow(row, centerLat, centerLng));
 }
 
@@ -184,6 +185,27 @@ function mapCsvRow(row: DvfCsvRow, centerLat: number | null, centerLng: number |
 // ============================================================
 // Helpers
 // ============================================================
+
+/**
+ * Paris, Lyon, Marseille ont des arrondissements avec leurs propres codes INSEE dans le DVF.
+ * Le code renvoyé par geo.api.gouv.fr est le code ville (ex: 75056) mais le DVF stocke
+ * le code arrondissement (ex: 75101–75120). On traduit ici.
+ */
+function getCodeCommunes(codeCommune: string): string[] {
+  if (codeCommune === "75056") {
+    // Paris : arrondissements 75101–75120
+    return Array.from({ length: 20 }, (_, i) => `751${String(i + 1).padStart(2, "0")}`);
+  }
+  if (codeCommune === "69123") {
+    // Lyon : arrondissements 69381–69389
+    return Array.from({ length: 9 }, (_, i) => String(69381 + i));
+  }
+  if (codeCommune === "13055") {
+    // Marseille : arrondissements 13201–13216
+    return Array.from({ length: 16 }, (_, i) => `132${String(i + 1).padStart(2, "0")}`);
+  }
+  return [codeCommune];
+}
 
 function mapPropertyType(typeLocal: string): string {
   if (typeLocal.includes("Maison") || typeLocal.includes("Appartement")) return "HABITATION";
