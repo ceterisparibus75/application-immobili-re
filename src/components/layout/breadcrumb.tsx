@@ -26,6 +26,8 @@ const LABELS: Record<string, string> = {
   workflows: "Workflows", assistant: "Assistant IA", courriers: "Courriers",
   previsionnel: "Prévisionnel", valorisation: "Valorisation",
   aide: "Centre d'aide", logs: "Logs",
+  modeles: "Modèles de bail", "gestion-tiers": "Gestion par tiers",
+  rapide: "Bail rapide", complet: "Bail complet",
 };
 
 function isIdSegment(segment: string): boolean {

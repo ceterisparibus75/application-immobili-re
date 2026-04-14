@@ -8,6 +8,7 @@ import {
   ScrollText, Layers, X, FolderOpen,
   Upload, Banknote, BarChart3, FileBarChart, Mail, Bell, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
+  Plus, BookTemplate, BarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,15 @@ const navigation = [
     { name: "Copropriété", href: "/copropriete", icon: Building },
     { name: "Saisonnier", href: "/saisonnier", icon: UmbrellaOff },
   ]},
-  { title: "Gestion locative", items: [
-    { name: "Baux", href: "/baux", icon: FileText },
+  { title: "Baux", items: [
+    { name: "Tous les baux", href: "/baux", icon: FileText },
+    { name: "Nouveau bail", href: "/baux/nouveau", icon: Plus },
+    { name: "Import bail PDF", href: "/baux/import", icon: Upload },
+    { name: "Modèles de bail", href: "/baux/modeles", icon: BookTemplate },
     { name: "Révisions de loyer", href: "/baux/revisions", icon: TrendingUp },
+    { name: "Indices INSEE", href: "/indices", icon: BarChart },
+  ]},
+  { title: "Gestion locative", items: [
     { name: "Locataires", href: "/locataires", icon: Users },
     { name: "Facturation", href: "/facturation", icon: Receipt },
     { name: "Charges", href: "/charges", icon: ScrollText },
@@ -31,7 +38,6 @@ const navigation = [
     { name: "Courriers", href: "/courriers", icon: Mail },
     { name: "Relances", href: "/relances", icon: Bell },
     { name: "Documents", href: "/documents", icon: FolderOpen },
-    { name: "Import bail PDF", href: "/import", icon: Upload },
   ]},
   { title: "Finances", items: [
     { name: "Banque", href: "/banque", icon: Landmark },

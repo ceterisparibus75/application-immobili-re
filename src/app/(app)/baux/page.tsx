@@ -41,18 +41,26 @@ function NewLeaseMenu({ align = "end" }: { align?: "start" | "center" | "end" })
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-80">
         <DropdownMenuItem asChild>
-          <Link href="/baux/nouveau?mode=existing" className="flex flex-col items-start gap-1">
-            <span className="font-medium">Ajouter un bail déjà signé</span>
+          <Link href="/baux/nouveau/rapide" className="flex flex-col items-start gap-1">
+            <span className="font-medium">Bail rapide</span>
             <span className="text-xs text-muted-foreground">
-              Pour intégrer un bail existant et passer directement à la gestion.
+              Lot et locataire existants — renseignez les conditions et créez le bail.
             </span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/baux/nouveau?mode=workflow" className="flex flex-col items-start gap-1">
-            <span className="font-medium">Créer un bail à préparer et signer</span>
+          <Link href="/baux/import" className="flex flex-col items-start gap-1">
+            <span className="font-medium">Import depuis un PDF</span>
             <span className="text-xs text-muted-foreground">
-              Pour lancer un parcours de préparation puis utiliser la signature électronique.
+              L&apos;IA analyse le bail signé et prérempli les données automatiquement.
+            </span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/baux/nouveau/complet" className="flex flex-col items-start gap-1">
+            <span className="font-medium">Bail complet</span>
+            <span className="text-xs text-muted-foreground">
+              Créer immeuble, lot et locataire en même temps que le bail.
             </span>
           </Link>
         </DropdownMenuItem>

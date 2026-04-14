@@ -1,4 +1,4 @@
-import { getLeaseById } from "@/actions/lease";
+import { getLeaseById, getLeaseFinancialSummary, getLeaseDocuments } from "@/actions/lease";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import {
   CalendarClock,
   ClipboardList,
   FileText,
+  FolderOpen,
   Mail,
   Pencil,
   Phone,
@@ -23,6 +24,9 @@ import {
   TrendingUp,
   User,
   Wallet,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -155,7 +159,11 @@ export default async function BailDetailPage({
 
   if (!societyId) redirect("/societes");
 
-  const lease = await getLeaseById(societyId, id);
+  const [lease, financialSummary, leaseDocuments] = await Promise.all([
+    getLeaseById(societyId, id),
+    getLeaseFinancialSummary(societyId, id),
+    getLeaseDocuments(societyId, id),
+  ]);
   if (!lease) notFound();
 
   const isActive = lease.status === "EN_COURS";
@@ -686,6 +694,65 @@ export default async function BailDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Documents associés */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  Documents ({leaseDocuments.length})
+                </CardTitle>
+                <Link href="/documents">
+                  <Button variant="outline" size="sm" className="text-xs">
+                    Gérer les documents
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {leaseDocuments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Aucun document rattaché à ce bail
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {leaseDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between py-2.5"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{doc.fileName}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {doc.category && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {doc.category}
+                            </Badge>
+                          )}
+                          <span>{new Date(doc.createdAt).toLocaleDateString("fr-FR")}</span>
+                          {doc.fileSize && (
+                            <span>
+                              {doc.fileSize >= 1024 * 1024
+                                ? `${(doc.fileSize / (1024 * 1024)).toFixed(1)} Mo`
+                                : `${Math.round(doc.fileSize / 1024)} Ko`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {doc.storagePath && (
+                        <Link href={`/api/storage/view?path=${encodeURIComponent(doc.storagePath)}`} target="_blank">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Colonne latérale */}
@@ -901,6 +968,61 @@ export default async function BailDetailPage({
               })()}
             </CardContent>
           </Card>
+
+          {/* Récapitulatif financier */}
+          {financialSummary && financialSummary.nbFactures > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4" />
+                  Récapitulatif financier
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total facturé TTC</p>
+                  <p className="text-sm font-semibold">
+                    {financialSummary.totalFactureTTC.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total encaissé</p>
+                  <p className="text-sm font-semibold text-emerald-600">
+                    {financialSummary.totalEncaisse.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+                  </p>
+                </div>
+                {financialSummary.totalImpaye > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-destructive" />
+                      Solde impayé
+                    </p>
+                    <p className="text-sm font-semibold text-destructive">
+                      {financialSummary.totalImpaye.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
+                    </p>
+                  </div>
+                )}
+                {financialSummary.totalImpaye === 0 && (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Aucun impayé
+                  </p>
+                )}
+                <Separator />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{financialSummary.nbFactures} factures</span>
+                  {financialSummary.nbImpayees > 0 && (
+                    <span className="text-destructive">{financialSummary.nbImpayees} en retard</span>
+                  )}
+                </div>
+                <Link href={`/facturation?leaseId=${lease.id}`}>
+                  <Button variant="outline" size="sm" className="w-full mt-1">
+                    Voir la facturation
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Actions */}
           {isActive && (

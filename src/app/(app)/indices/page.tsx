@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { formatCurrency } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -18,11 +17,14 @@ import {
   Clock,
   Calendar,
   DatabaseZap,
+  ArrowRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { RevisionActions } from "./_components/revision-actions";
 import { SyncIndicesButton } from "./_components/sync-indices-button";
 
-export const metadata = { title: "Révisions / Indices" };
+export const metadata = { title: "Indices INSEE" };
 
 const INDEX_INFO: Record<
   string,
@@ -429,21 +431,32 @@ export default async function IndicesPage() {
 
   return (
     <div className="space-y-6">
-      {/* En-tête + bouton Synchroniser */}
+      {/* En-tête + boutons */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Révisions / Indices
+            Indices INSEE
           </h1>
           <p className="text-muted-foreground">
             {leases.length} {leases.length > 1 ? "baux" : "bail"} avec
-            indexation · Suivi et génération des révisions
+            indexation · Référentiel des indices et suivi des révisions
           </p>
         </div>
-        <SyncIndicesButton
-          societyId={societyId}
-          indexTypes={usedIndexTypes}
-        />
+        <div className="flex items-center gap-2">
+          {pendingCount > 0 && (
+            <Link href="/baux/revisions">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5" />
+                {pendingCount} révision{pendingCount > 1 ? "s" : ""} en attente
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          )}
+          <SyncIndicesButton
+            societyId={societyId}
+            indexTypes={usedIndexTypes}
+          />
+        </div>
       </div>
 
       {/* Bandeau si aucune donnée */}

@@ -514,6 +514,68 @@ export async function getLeaseById(societyId: string, leaseId: string) {
   });
 }
 
+/** Récapitulatif financier d'un bail */
+export async function getLeaseFinancialSummary(societyId: string, leaseId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  const invoices = await prisma.invoice.findMany({
+    where: { leaseId, societyId },
+    select: {
+      id: true,
+      totalHT: true,
+      totalTTC: true,
+      status: true,
+      payments: {
+        select: { amount: true },
+      },
+    },
+  });
+
+  const totalFactureHT = invoices.reduce((sum, inv) => sum + inv.totalHT, 0);
+  const totalFactureTTC = invoices.reduce((sum, inv) => sum + inv.totalTTC, 0);
+  const totalEncaisse = invoices.reduce(
+    (sum, inv) => sum + inv.payments.reduce((s, p) => s + p.amount, 0),
+    0
+  );
+  const totalImpaye = invoices
+    .filter((inv) => ["EN_RETARD", "RELANCEE", "LITIGIEUX", "EN_ATTENTE", "ENVOYEE", "PARTIELLEMENT_PAYE"].includes(inv.status))
+    .reduce((sum, inv) => {
+      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+      return sum + Math.max(0, inv.totalTTC - paid);
+    }, 0);
+  const nbFactures = invoices.length;
+  const nbImpayees = invoices.filter((inv) => ["EN_RETARD", "RELANCEE", "LITIGIEUX"].includes(inv.status)).length;
+
+  return { totalFactureHT, totalFactureTTC, totalEncaisse, totalImpaye, nbFactures, nbImpayees };
+}
+
+/** Documents associés à un bail (toutes catégories) */
+export async function getLeaseDocuments(societyId: string, leaseId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  await requireSocietyAccess(session.user.id, societyId);
+
+  return prisma.document.findMany({
+    where: { leaseId, societyId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      fileName: true,
+      fileUrl: true,
+      storagePath: true,
+      description: true,
+      category: true,
+      createdAt: true,
+      fileSize: true,
+    },
+  });
+}
+
 // ============================================================
 // PALIERS DE LOYER (LeaseRentStep)
 // ============================================================

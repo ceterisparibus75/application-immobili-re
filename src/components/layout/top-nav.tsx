@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
   Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
-  HelpCircle, BookOpen, Wallet, BarChart3,
+  HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -41,12 +41,15 @@ const PATRIMOINE_PATHS = ["/patrimoine"];
 // ── Sous-items du menu "Baux" ──────────────────────────────────
 
 const BAUX_ITEMS = [
-  { name: "Liste des baux", href: "/baux", icon: FileText },
-  { name: "Révisions / Indices", href: "/indices", icon: TrendingUp },
-  { name: "Import bail PDF", href: "/import", icon: Upload },
+  { name: "Tous les baux", href: "/baux", icon: FileText },
+  { name: "Nouveau bail", href: "/baux/nouveau", icon: Plus },
+  { name: "Import bail PDF", href: "/baux/import", icon: Upload },
+  { name: "Modèles de bail", href: "/baux/modeles", icon: BookTemplate },
+  { name: "Révisions de loyer", href: "/baux/revisions", icon: TrendingUp },
+  { name: "Indices INSEE", href: "/indices", icon: BarChart },
 ];
 
-const BAUX_PATHS = ["/baux", "/indices", "/import"];
+const BAUX_PATHS = ["/baux", "/indices"];
 
 const NAV_ITEMS_AFTER_BAUX: NavItem[] = [
   { name: "Locataires", href: "/locataires" },
