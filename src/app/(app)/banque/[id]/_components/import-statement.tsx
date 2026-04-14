@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import {
   Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertTriangle,
-  ArrowRight, X, ArrowDownLeft, ArrowUpRight,
+  ArrowRight, X, ArrowDownLeft, ArrowUpRight, Sparkles, FileText,
 } from "lucide-react";
 import { importBankStatement, type ImportRow } from "@/actions/bank";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Step = "upload" | "mapping" | "preview" | "result";
+type Step = "upload" | "analyzing" | "mapping" | "preview" | "result";
 
 type ParsedFile = {
   headers: string[];
@@ -55,15 +55,52 @@ export default function ImportStatement({
   const [parsedRows, setParsedRows] = useState<ImportRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
 
   // ── Étape 1 : Upload ───────────────────────────────────────────────────
 
   const handleFile = useCallback(async (f: File) => {
+    const isPdfFile = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+
+    if (isPdfFile) {
+      // Flux PDF → analyse IA directe
+      setIsPdf(true);
+      setStep("analyzing");
+
+      try {
+        const formData = new FormData();
+        formData.append("file", f);
+
+        const res = await fetch("/api/bank/parse-pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await res.json()) as { rows?: ImportRow[]; error?: string };
+
+        if (!res.ok || !data.rows) {
+          toast.error(data.error ?? "Erreur lors de l'analyse IA du PDF");
+          setStep("upload");
+          setIsPdf(false);
+          return;
+        }
+
+        setParsedRows(data.rows);
+        setFile({ headers: [], rows: [], filename: f.name });
+        setStep("preview");
+      } catch {
+        toast.error("Impossible d'analyser le PDF. Vérifiez votre connexion.");
+        setStep("upload");
+        setIsPdf(false);
+      }
+      return;
+    }
+
+    // Flux CSV/XLSX existant
+    setIsPdf(false);
     const buffer = await f.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
 
-    // Parser côté client via une route API légère
-    // ou directement avec la lib côté client
     const { parseImportFile } = await import("@/lib/import-parser");
     const result = await parseImportFile(
       Buffer.from(base64, "base64"),
@@ -196,6 +233,7 @@ export default function ImportStatement({
   function handleReset() {
     setStep("upload");
     setFile(null);
+    setIsPdf(false);
     setMapping({ date: "", amount: "", label: "", reference: "", debit: "", credit: "", amountMode: "single" });
     setParsedRows([]);
     setResult(null);
@@ -203,6 +241,23 @@ export default function ImportStatement({
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
+
+  if (step === "analyzing") {
+    return (
+      <div className="border-2 border-dashed border-[var(--color-brand-blue)]/40 rounded-xl p-6 text-center bg-[var(--color-brand-blue)]/5">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--color-brand-blue)]" />
+          <Sparkles className="h-5 w-5 text-[var(--color-brand-blue)]" />
+        </div>
+        <p className="text-sm font-medium text-[var(--color-brand-deep)]">
+          Analyse IA en cours…
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Claude lit votre relevé PDF et extrait les transactions
+        </p>
+      </div>
+    );
+  }
 
   if (step === "upload") {
     return (
@@ -219,10 +274,14 @@ export default function ImportStatement({
         <p className="text-xs text-muted-foreground mt-1">
           CSV, XLSX — glisser-déposer ou cliquer
         </p>
+        <p className="text-xs text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+          <Sparkles className="h-3 w-3 text-[var(--color-brand-blue)]" />
+          PDF analysé automatiquement par IA
+        </p>
         <input
           id="csv-upload"
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx,.xls,.pdf"
           className="hidden"
           onChange={handleInputChange}
         />
@@ -379,11 +438,21 @@ export default function ImportStatement({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)] flex items-center gap-2">
+                {isPdf && <Sparkles className="h-4 w-4 text-[var(--color-brand-blue)]" />}
                 Vérification avant import
               </CardTitle>
               <CardDescription className="mt-1">
+                {file?.filename && (
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3 w-3 shrink-0" />
+                    {file.filename} —{" "}
+                  </span>
+                )}
                 {parsedRows.length} transaction{parsedRows.length > 1 ? "s" : ""} valide{parsedRows.length > 1 ? "s" : ""} — les doublons seront automatiquement ignorés
+                {isPdf && (
+                  <span className="ml-1 text-[var(--color-brand-blue)]">· extrait par IA</span>
+                )}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={handleReset}>
@@ -444,7 +513,7 @@ export default function ImportStatement({
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep("mapping")} className="flex-1 rounded-lg">
+            <Button variant="outline" onClick={() => isPdf ? handleReset() : setStep("mapping")} className="flex-1 rounded-lg">
               Retour
             </Button>
             <Button
