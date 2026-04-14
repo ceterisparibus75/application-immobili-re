@@ -462,21 +462,26 @@ export async function categorizeTransactions(
       if (originalLabel) {
         const norm = normalizeLabel(originalLabel);
         if (norm.length >= 3) {
-          await prisma.transactionAutoTag.upsert({
-            where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
-            create: {
-              societyId,
-              normalizedLabel: norm,
-              category: item.category,
-              exampleLabel: originalLabel,
-              hitCount: 1,
-            },
-            update: {
-              category: item.category,
-              exampleLabel: originalLabel,
-              hitCount: { increment: 1 },
-            },
-          });
+          try {
+            await prisma.transactionAutoTag.upsert({
+              where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
+              create: {
+                societyId,
+                normalizedLabel: norm,
+                category: item.category,
+                exampleLabel: originalLabel,
+                hitCount: 1,
+              },
+              update: {
+                category: item.category,
+                exampleLabel: originalLabel,
+                hitCount: { increment: 1 },
+              },
+            });
+          } catch (e) {
+            // Table pas encore migrée — on continue sans bloquer la catégorisation
+            console.warn("[auto-tag] TransactionAutoTag upsert failed:", e);
+          }
         }
       }
     }
@@ -524,11 +529,16 @@ export async function aiSuggestCategories(
     if (transactions.length === 0) return { success: false, error: "Aucune transaction trouvée" };
 
     // ── 2a. Vérifier les auto-tags en priorité ────────────────────────
-    const autoTags = await prisma.transactionAutoTag.findMany({
-      where: { societyId },
-      select: { normalizedLabel: true, category: true },
-    });
-    const autoTagMap = new Map(autoTags.map((t) => [t.normalizedLabel, t.category]));
+    let autoTagMap = new Map<string, string>();
+    try {
+      const autoTags = await prisma.transactionAutoTag.findMany({
+        where: { societyId },
+        select: { normalizedLabel: true, category: true },
+      });
+      autoTagMap = new Map(autoTags.map((t) => [t.normalizedLabel, t.category]));
+    } catch {
+      // Table pas encore migrée — on continue sans auto-tags
+    }
 
     // ── 2b. Construire un index des libellés déjà catégorisés ───────
     // On récupère toutes les transactions de la société qui ont une catégorie
@@ -728,18 +738,21 @@ export async function applyAutoTag(
   const norm = normalizeLabel(label);
   if (!norm || norm.length < 3) return null;
 
-  const tag = await prisma.transactionAutoTag.findUnique({
-    where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
-    select: { category: true },
-  });
-
-  if (tag) {
-    // Incrémenter le compteur d'utilisation
-    await prisma.transactionAutoTag.update({
+  try {
+    const tag = await prisma.transactionAutoTag.findUnique({
       where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
-      data: { hitCount: { increment: 1 } },
+      select: { category: true },
     });
-    return tag.category;
+
+    if (tag) {
+      await prisma.transactionAutoTag.update({
+        where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
+        data: { hitCount: { increment: 1 } },
+      });
+      return tag.category;
+    }
+  } catch {
+    // Table pas encore migrée — on continue sans auto-tags
   }
 
   return null;
