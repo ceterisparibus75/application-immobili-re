@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
+import { isNeutralCategory } from "@/lib/cashflow-categories";
 import {
   ArrowLeft,
   ArrowDownLeft,
@@ -46,10 +47,10 @@ export default async function BankAccountDetailPage({
   if (!account) notFound();
 
   const credits = account.transactions
-    .filter((t) => t.amount > 0)
+    .filter((t) => t.amount > 0 && !isNeutralCategory(t.category ?? ""))
     .reduce((s, t) => s + t.amount, 0);
   const debits = account.transactions
-    .filter((t) => t.amount < 0)
+    .filter((t) => t.amount < 0 && !isNeutralCategory(t.category ?? ""))
     .reduce((s, t) => s + t.amount, 0);
 
   return (
