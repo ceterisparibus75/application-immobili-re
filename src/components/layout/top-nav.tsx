@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
   Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
-  HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart,
+  HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart, Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -67,6 +67,7 @@ const NAV_ITEMS_AFTER: NavItem[] = [
 
 const GESTION_LOCATIVE_ITEMS = [
   { name: "Facturation", href: "/facturation", icon: Receipt },
+  { name: "Factures fourn.", href: "/banque/factures-fournisseurs", icon: Package },
   { name: "Charges", href: "/charges", icon: ScrollText },
   { name: "Décomptes gestion", href: "/releves-gestion", icon: FileText },
   { name: "Courriers", href: "/courriers", icon: Mail },
@@ -74,7 +75,7 @@ const GESTION_LOCATIVE_ITEMS = [
   { name: "Candidatures", href: "/candidatures", icon: UserSearch },
 ];
 
-const GESTION_LOCATIVE_PATHS = GESTION_LOCATIVE_ITEMS.map((i) => i.href);
+const GESTION_LOCATIVE_PATHS = [...GESTION_LOCATIVE_ITEMS.map((i) => i.href), "/parametres/facturation"];
 
 // ── Sous-items du menu "Modules" ────────────────────────────────
 

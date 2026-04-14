@@ -407,6 +407,30 @@ enum ManagementFeeBasis {
   TOTAL_TTC           // Honoraires sur total TTC
 }
 
+// ── Factures fournisseurs ──────────────────────────────────────────────────────
+
+enum SupplierInvoiceStatus {
+  PENDING_REVIEW  // Reçue par email ou uploadée — en attente de validation
+  VALIDATED       // Validée → Charge + écriture AC créées
+  REJECTED        // Rejetée par l'utilisateur
+  PAID            // Paiement exécuté → écriture BQUE créée
+  ARCHIVED        // Archivée manuellement
+}
+
+enum SupplierPaymentMethod {
+  SEPA_XML  // Fichier PAIN.001 téléchargeable (virement manuel)
+  QONTO     // Virement via API Qonto (si compte Qonto connecté)
+  MANUAL    // Marqué payé manuellement (chèque, espèces, etc.)
+}
+
+enum SupplierPaymentStatus {
+  PENDING    // En attente d'exécution
+  SUBMITTED  // PAIN.001 téléchargé ou virement Qonto soumis
+  CONFIRMED  // Confirmé
+  FAILED     // Échec
+  CANCELLED  // Annulé
+}
+
 // ============================================================
 // PHASE 1 — SOCLE : UTILISATEURS, SOCIÉTÉS, RBAC, AUDIT
 // ============================================================
@@ -509,6 +533,8 @@ model Society {
   workflows               Workflow[]
   thirdPartyStatements    ThirdPartyStatement[]
   transactionAutoTags     TransactionAutoTag[]
+  supplierInboxConfig     SupplierInboxConfig?
+  supplierInvoices        SupplierInvoice[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -789,6 +815,7 @@ model Building {
   coproprieteId             String?
   copropriete               Copropriete?             @relation(fields: [coproprieteId], references: [id], onDelete: SetNull)
   thirdPartyStatements      ThirdPartyStatement[]
+  supplierInvoices          SupplierInvoice[]
 
   @@index([societyId])
   @@index([societyId, city])
@@ -996,6 +1023,7 @@ model Lease {
   thirdPartyStatements      ThirdPartyStatement[]
   thirdPartyStatementLines  ThirdPartyStatementLine[]
   thirdPartyStatementLeases ThirdPartyStatementLease[]
+  supplierInvoices          SupplierInvoice[]
 
   @@index([societyId])
   @@index([lotId])
@@ -1399,10 +1427,11 @@ model ChargeCategory {
   societyChargeCategoryId String?
   libraryCategory         SocietyChargeCategory? @relation(fields: [societyChargeCategoryId], references: [id], onDelete: SetNull)
 
-  building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  society        Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  charges        Charge[]
-  allocationKeys AllocationKey[]
+  building         Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  society          Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  charges          Charge[]
+  allocationKeys   AllocationKey[]
+  supplierInvoices SupplierInvoice[]
 
   @@unique([buildingId, name])
   @@index([societyId])
@@ -1429,9 +1458,10 @@ model Charge {
   statementId  String?
 
   society   Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building  Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  category  ChargeCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  statement ThirdPartyStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  building        Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  category        ChargeCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  statement       ThirdPartyStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+  supplierInvoice SupplierInvoice?     @relation("ChargeSupplierInvoice")
 
   @@index([societyId])
   @@index([buildingId])
@@ -1693,9 +1723,10 @@ model BankAccount {
   connectionId    String? // Lien vers BankConnection
   lastSyncAt      DateTime? // Dernière synchronisation
 
-  society      Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  connection   BankConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  transactions BankTransaction[]
+  society          Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  connection       BankConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  transactions     BankTransaction[]
+  supplierInvoices SupplierInvoice[]
 
   @@index([societyId])
 }
@@ -3685,4 +3716,121 @@ model ThirdPartyStatementLease {
   @@unique([statementId, leaseId])
   @@index([statementId])
   @@index([leaseId])
+}
+
+// ============================================================
+// PHASE 10 — WORKFLOW FACTURES FOURNISSEURS
+// ============================================================
+
+/// Configuration de la boîte mail dédiée à la réception des factures fournisseurs
+model SupplierInboxConfig {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String   @unique // 1 config par société
+
+  inboxEmail        String  @unique // ex: factures-sci123@inbox.mygestia.immo
+  inboxSlug         String  @unique // ex: "sci123" — utilisé pour router l'email entrant
+  isActive          Boolean @default(true)
+  webhookSecretHash String  // Hash bcrypt du secret de signature webhook
+  notifyEmails      String[] // Emails notifiés à chaque nouvelle facture reçue
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@index([inboxSlug])
+}
+
+/// Facture fournisseur — reçue par email ou uploadée manuellement
+model SupplierInvoice {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  // ── Statut & source ───────────────────────────────────────────────────────
+  status    SupplierInvoiceStatus @default(PENDING_REVIEW)
+  reference String?               // Référence interne (ex: FINV-2026-0042)
+  source    String                @default("manual_upload") // email_inbound | manual_upload
+
+  // ── Origine email (si inbound) ────────────────────────────────────────────
+  senderEmail  String?
+  emailSubject String?
+  receivedAt   DateTime?
+
+  // ── Fichier PDF ───────────────────────────────────────────────────────────
+  fileName    String
+  fileUrl     String   // URL signée ou chemin Supabase
+  storagePath String   // Chemin stable: documents/{societyId}/supplier-invoices/xxx.pdf
+  fileSize    Int?
+  mimeType    String   @default("application/pdf")
+
+  // ── Données extraites par IA (éditables par l'utilisateur) ───────────────
+  supplierName          String?
+  supplierSiret         String?
+  supplierAddress       String?  @db.Text
+  supplierIbanEncrypted String?  // IBAN chiffré AES-256
+  supplierBic           String?
+  invoiceNumber         String?
+  invoiceDate           DateTime?
+  dueDate               DateTime?
+  amountHT              Float?
+  amountVAT             Float?
+  amountTTC             Float?
+  vatRate               Float?
+  currency              String   @default("EUR")
+  description           String?  @db.Text
+  periodStart           DateTime?
+  periodEnd             DateTime?
+
+  // ── Analyse IA ────────────────────────────────────────────────────────────
+  aiAnalyzedAt  DateTime?
+  aiConfidence  Float?    // Score 0-1
+  aiRawMetadata Json?     // Réponse brute Claude
+  aiStatus      String    @default("pending") // pending | done | error | skipped
+
+  // ── Tagging immeuble / bail / catégorie (renseigné à la validation) ───────
+  buildingId String?
+  leaseId    String?
+  categoryId String?
+
+  // ── Objets créés à la validation ─────────────────────────────────────────
+  chargeId       String? @unique // Charge créée automatiquement
+  journalEntryId String?         // Écriture AC (achats) — référence ID uniquement
+
+  // ── Paiement ─────────────────────────────────────────────────────────────
+  paymentMethod       SupplierPaymentMethod?
+  paymentStatus       SupplierPaymentStatus?
+  paymentScheduledAt  DateTime?
+  paymentExecutedAt   DateTime?
+  paymentReference    String?
+  bankAccountId       String?  // Compte bancaire débité
+  sepaXmlUrl          String?
+  sepaXmlStoragePath  String?
+  qontoTransferId     String?  // ID transfert Qonto
+  bankJournalEntryId  String?         // Écriture BQUE — référence ID uniquement
+
+  // ── Rejet ────────────────────────────────────────────────────────────────
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?  @db.Text
+
+  // ── Validation ───────────────────────────────────────────────────────────
+  validatedAt DateTime?
+  validatedBy String?
+
+  // ── Relations ─────────────────────────────────────────────────────────────
+  society     Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building    Building?       @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  lease       Lease?          @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  category    ChargeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  charge      Charge?         @relation("ChargeSupplierInvoice", fields: [chargeId], references: [id], onDelete: SetNull)
+  bankAccount BankAccount?    @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([societyId, status])
+  @@index([societyId, createdAt])
+  @@index([buildingId])
+  @@index([leaseId])
+  @@index([supplierName])
+  @@index([invoiceDate])
 }

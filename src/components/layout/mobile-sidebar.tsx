@@ -8,7 +8,7 @@ import {
   ScrollText, Layers, X, FolderOpen,
   Upload, Banknote, BarChart3, FileBarChart, Mail, Bell, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
-  Plus, BookTemplate, BarChart,
+  Plus, BookTemplate, BarChart, Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ const navigation = [
   { title: "Gestion locative", items: [
     { name: "Locataires", href: "/locataires", icon: Users },
     { name: "Facturation", href: "/facturation", icon: Receipt },
+    { name: "Factures fournisseurs", href: "/banque/factures-fournisseurs", icon: Package },
     { name: "Charges", href: "/charges", icon: ScrollText },
     { name: "Décomptes gestion", href: "/releves-gestion", icon: FileText },
     { name: "Courriers", href: "/courriers", icon: Mail },

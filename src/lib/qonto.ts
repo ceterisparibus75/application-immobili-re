@@ -144,3 +144,72 @@ export async function getQontoTransactions(
 
   return allTransactions;
 }
+
+// ─── Virements sortants (External Transfers) ────────────────────────────────
+
+export interface QontoExternalTransfer {
+  id: string;
+  transaction_id: string | null;
+  status: string; // pending | processing | declined | canceled | settled
+  amount: number;
+  amount_cents: number;
+  currency: string;
+  beneficiary_name: string;
+  beneficiary_iban: string;
+  note: string | null;
+  reference: string | null;
+  scheduled_date: string | null;
+  settled_at: string | null;
+}
+
+export interface QontoCreateTransferInput {
+  beneficiary_name: string;
+  beneficiary_iban: string;   // sans espaces
+  beneficiary_bic?: string;
+  amount_cents: number;       // centimes ex: 150050 pour 1500.50€
+  currency: string;           // "EUR"
+  note?: string;
+  reference?: string;
+  scheduled_date?: string;    // YYYY-MM-DD optionnel
+}
+
+export async function createQontoTransfer(
+  slug: string,
+  secretKey: string,
+  bankAccountSlug: string,
+  input: QontoCreateTransferInput
+): Promise<QontoExternalTransfer> {
+  const url = `${BASE_URL}/external_transfers`;
+  const body = {
+    debit_account: { slug: bankAccountSlug },
+    ...input,
+    beneficiary_iban: input.beneficiary_iban.replace(/\s/g, ""),
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(slug, secretKey),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`[qonto] POST /external_transfers (${res.status}): ${txt}`);
+  }
+  const data = (await res.json()) as { external_transfer: QontoExternalTransfer };
+  return data.external_transfer;
+}
+
+export async function getQontoTransfer(
+  slug: string,
+  secretKey: string,
+  transferId: string
+): Promise<QontoExternalTransfer> {
+  const data = await qontoFetch<{ external_transfer: QontoExternalTransfer }>(
+    `/external_transfers/${transferId}`,
+    slug,
+    secretKey
+  );
+  return data.external_transfer;
+}
