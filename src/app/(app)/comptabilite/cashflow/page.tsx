@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator,
 } from "@/components/ui/select";
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -33,6 +33,7 @@ import { formatCurrency } from "@/lib/utils";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  NEUTRAL_CATEGORIES,
 } from "@/lib/cashflow-categories";
 import { downloadCsv, type CsvColumn } from "@/lib/export-csv";
 import { toast } from "sonner";
@@ -689,6 +690,15 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                            {cat.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                      {NEUTRAL_CATEGORIES.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           <div className="flex items-center gap-2">
                             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />

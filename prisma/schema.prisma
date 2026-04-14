@@ -508,6 +508,7 @@ model Society {
   candidatePipelines      CandidatePipeline[]
   workflows               Workflow[]
   thirdPartyStatements    ThirdPartyStatement[]
+  transactionAutoTags     TransactionAutoTag[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -1762,6 +1763,26 @@ model MatchingRule {
   toleranceDays   Int?    @default(0)
   isActive        Boolean @default(true)
 
+  @@index([societyId])
+}
+
+/// Auto-tag : associe un libellé bancaire normalisé à une catégorie cash-flow.
+/// Quand l'utilisateur catégorise une transaction, le pattern est mémorisé
+/// pour catégoriser automatiquement les futures transactions identiques.
+model TransactionAutoTag {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  normalizedLabel String  // Libellé normalisé (minuscule, sans accents, sans refs)
+  category        String  // Catégorie cash-flow (ex: "virement_interne", "loyers")
+  exampleLabel    String  // Libellé original pour référence
+  hitCount        Int     @default(1) // Nombre de fois que ce pattern a été appliqué
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, normalizedLabel])
   @@index([societyId])
 }
 

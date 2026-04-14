@@ -20,6 +20,7 @@ import {
 } from "@/lib/qonto";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { applyAutoTag } from "@/actions/cashflow";
 
 // ─── Liste des connecteurs (banques disponibles) ─────────────────────────────
 
@@ -316,10 +317,13 @@ export async function syncAccountTransactionsInternal(
     if (dup) continue;
     const amount = tx.value;
     const label = tx.simplified_wording ?? tx.label ?? tx.original_wording ?? "Transaction";
+    // Auto-tag : catégoriser automatiquement si le libellé est connu
+    const autoCategory = await applyAutoTag(societyId, label);
     await prisma.bankTransaction.create({ data: {
       bankAccountId, transactionDate: new Date(tx.date),
       valueDate: tx.value_date ? new Date(tx.value_date) : null,
       amount, label, reference: externalId, externalId,
+      category: autoCategory,
       importBatch: "sync-" + String(Date.now()),
     } });
     balanceDelta += amount;
@@ -520,6 +524,8 @@ export async function syncQontoTransactionsInternal(
 
     const amount = tx.side === "debit" ? -Math.abs(tx.amount) : Math.abs(tx.amount);
     const label = tx.label || "Transaction Qonto";
+    // Auto-tag : catégoriser automatiquement si le libellé est connu
+    const autoCategory = await applyAutoTag(societyId, label);
 
     await prisma.bankTransaction.create({
       data: {
@@ -529,7 +535,7 @@ export async function syncQontoTransactionsInternal(
         amount,
         label,
         reference: tx.reference || externalId,
-        category: tx.category || null,
+        category: tx.category || autoCategory,
         externalId,
         importBatch: "qonto-sync-" + String(Date.now()),
       },

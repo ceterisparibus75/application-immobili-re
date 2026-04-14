@@ -9,8 +9,11 @@ import type { ActionResult } from "@/actions/society";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  NEUTRAL_CATEGORIES,
   ALL_CATEGORIES,
+  isNeutralCategory,
 } from "@/lib/cashflow-categories";
+import { normalizeLabel } from "@/lib/normalize-label";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -128,6 +131,12 @@ export async function getCashflowDashboard(
     let uncategorizedCount = 0;
 
     for (const tx of bankTransactions) {
+      // Compter toutes les transactions non catégorisées (dépenses + revenus)
+      if (!tx.category) uncategorizedCount++;
+
+      // Les virements internes sont neutres : ils ne comptent ni en revenu ni en dépense
+      if (isNeutralCategory(tx.category ?? "")) continue;
+
       const d = new Date(tx.transactionDate);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
@@ -163,9 +172,6 @@ export async function getCashflowDashboard(
         bucket.expenses += absAmount;
         bucket.expenseCats.set(cat, (bucket.expenseCats.get(cat) ?? 0) + absAmount);
       }
-
-      // Compter toutes les transactions non catégorisées (dépenses + revenus)
-      if (!tx.category) uncategorizedCount++;
     }
 
     // ── 2. Projections : loyers actifs ───────────────────────────────────
@@ -435,6 +441,13 @@ export async function categorizeTransactions(
     });
     const validTxIds = new Set(txs.map((t) => t.id));
 
+    // Récupérer les libellés pour sauvegarder les auto-tags
+    const txDetails = await prisma.bankTransaction.findMany({
+      where: { id: { in: txIds }, bankAccount: { societyId } },
+      select: { id: true, label: true },
+    });
+    const txLabelMap = new Map(txDetails.map((t) => [t.id, t.label]));
+
     let updated = 0;
     for (const item of validItems) {
       if (!validTxIds.has(item.transactionId)) continue;
@@ -443,6 +456,29 @@ export async function categorizeTransactions(
         data: { category: item.category },
       });
       updated++;
+
+      // ── Auto-tag : mémoriser le pattern pour catégorisation automatique future ──
+      const originalLabel = txLabelMap.get(item.transactionId);
+      if (originalLabel) {
+        const norm = normalizeLabel(originalLabel);
+        if (norm.length >= 3) {
+          await prisma.transactionAutoTag.upsert({
+            where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
+            create: {
+              societyId,
+              normalizedLabel: norm,
+              category: item.category,
+              exampleLabel: originalLabel,
+              hitCount: 1,
+            },
+            update: {
+              category: item.category,
+              exampleLabel: originalLabel,
+              hitCount: { increment: 1 },
+            },
+          });
+        }
+      }
     }
 
     await createAuditLog({
@@ -470,24 +506,6 @@ export async function categorizeTransactions(
 // uniquement pour les transactions sans correspondance connue.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Normalise un libellé bancaire pour faciliter la comparaison :
- * minuscules, suppression des accents, espaces multiples, chiffres,
- * dates (JJ/MM/AAAA), références alphanumériques longues.
- */
-function normalizeLabel(label: string): string {
-  return label
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")       // accents
-    .replace(/\d{2}\/\d{2}\/\d{4}/g, "")   // dates JJ/MM/AAAA
-    .replace(/\d{2}-\d{2}-\d{4}/g, "")     // dates JJ-MM-AAAA
-    .replace(/\b[a-z0-9]{10,}\b/g, "")     // refs longues (ex: SEPA IDs)
-    .replace(/[^a-z\s]/g, " ")             // ponctuation → espace
-    .replace(/\s+/g, " ")                  // espaces multiples
-    .trim();
-}
-
 export async function aiSuggestCategories(
   societyId: string,
   transactionIds: string[]
@@ -505,7 +523,14 @@ export async function aiSuggestCategories(
 
     if (transactions.length === 0) return { success: false, error: "Aucune transaction trouvée" };
 
-    // ── 2. Construire un index des libellés déjà catégorisés ────────────
+    // ── 2a. Vérifier les auto-tags en priorité ────────────────────────
+    const autoTags = await prisma.transactionAutoTag.findMany({
+      where: { societyId },
+      select: { normalizedLabel: true, category: true },
+    });
+    const autoTagMap = new Map(autoTags.map((t) => [t.normalizedLabel, t.category]));
+
+    // ── 2b. Construire un index des libellés déjà catégorisés ───────
     // On récupère toutes les transactions de la société qui ont une catégorie
     const categorizedTransactions = await prisma.bankTransaction.findMany({
       where: {
@@ -527,15 +552,18 @@ export async function aiSuggestCategories(
       catCounts.set(tx.category!, (catCounts.get(tx.category!) ?? 0) + 1);
     }
 
-    // Fonction de lookup : retourne la catégorie la plus fréquente pour un libellé
+    // Fonction de lookup : vérifie d'abord les auto-tags, puis l'historique
     function findMatchingCategory(label: string): string | null {
       const norm = normalizeLabel(label);
       if (!norm) return null;
 
-      // Correspondance exacte (après normalisation)
+      // Priorité 1 : auto-tag explicite (posé par l'utilisateur)
+      const autoTagged = autoTagMap.get(norm);
+      if (autoTagged) return autoTagged;
+
+      // Priorité 2 : correspondance exacte dans l'historique (après normalisation)
       const exactMatch = labelCategoryMap.get(norm);
       if (exactMatch) {
-        // Prendre la catégorie la plus fréquente
         let bestCat = "";
         let bestCount = 0;
         for (const [cat, count] of exactMatch) {
@@ -544,8 +572,7 @@ export async function aiSuggestCategories(
         return bestCat || null;
       }
 
-      // Correspondance partielle : chercher si le libellé normalisé contient
-      // ou est contenu dans un libellé déjà catégorisé (mots-clés principaux)
+      // Priorité 3 : correspondance partielle (mots-clés principaux)
       const normWords = norm.split(" ").filter((w) => w.length >= 4);
       if (normWords.length === 0) return null;
 
@@ -554,13 +581,10 @@ export async function aiSuggestCategories(
         const knownWords = knownLabel.split(" ").filter((w) => w.length >= 4);
         if (knownWords.length === 0) continue;
 
-        // Score = nombre de mots en commun / max des deux longueurs
         const common = normWords.filter((w) => knownWords.includes(w)).length;
         const score = common / Math.max(normWords.length, knownWords.length);
 
-        // Seuil de similarité : au moins 60% de mots en commun
         if (score >= 0.6 && common >= 2) {
-          // Prendre la catégorie la plus fréquente de ce libellé connu
           let topCat = "";
           let topCount = 0;
           for (const [cat, count] of catCounts) {
@@ -613,6 +637,7 @@ export async function aiSuggestCategories(
 
     const expenseCatList = EXPENSE_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
     const incomeCatList = INCOME_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
+    const neutralCatList = NEUTRAL_CATEGORIES.map((c) => `- "${c.id}": ${c.label}`).join("\n");
 
     const txList = needsAI.map((tx, i) =>
       `${i + 1}. id="${tx.id}" | label="${tx.label}" | montant=${tx.amount.toFixed(2)}€ (${tx.amount < 0 ? "DÉBIT" : "CRÉDIT"}) | ref="${tx.reference ?? ""}"`
@@ -635,6 +660,9 @@ ${expenseCatList}
 CATÉGORIES DE REVENUS (pour les montants positifs / CRÉDIT) :
 ${incomeCatList}
 
+CATÉGORIES NEUTRES (pour les virements entre comptes du même propriétaire, débit OU crédit) :
+${neutralCatList}
+
 Transactions à catégoriser :
 ${txList}
 
@@ -644,6 +672,7 @@ Réponds UNIQUEMENT en JSON (tableau), sans markdown ni explication :
 Règles :
 - Utilise les catégories de DÉPENSES pour les DÉBITS (montant négatif)
 - Utilise les catégories de REVENUS pour les CRÉDITS (montant positif)
+- Utilise "virement_interne" pour les virements entre comptes du même propriétaire (compte courant ↔ compte courant, épargne, etc.). Indices : le libellé mentionne "VIR INST", "VIREMENT INSTANTANE", "APPROVISIONNEMENT", le nom de la société ou d'un autre compte du propriétaire
 - "confidence" entre 0.0 et 1.0 (1.0 = très sûr)
 - Si tu n'es pas sûr : "divers_depense" (débit) ou "autres_revenus" (crédit)
 - Analyse le libellé et le montant pour déterminer la catégorie
@@ -684,6 +713,36 @@ Règles :
     console.error("[aiSuggestCategories]", error);
     return { success: false, error: "Erreur lors de la suggestion IA" };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// applyAutoTag — catégorisation automatique à l'import
+// Vérifie si le libellé correspond à un auto-tag existant pour la société.
+// Retourne la catégorie si trouvée, null sinon.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function applyAutoTag(
+  societyId: string,
+  label: string
+): Promise<string | null> {
+  const norm = normalizeLabel(label);
+  if (!norm || norm.length < 3) return null;
+
+  const tag = await prisma.transactionAutoTag.findUnique({
+    where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
+    select: { category: true },
+  });
+
+  if (tag) {
+    // Incrémenter le compteur d'utilisation
+    await prisma.transactionAutoTag.update({
+      where: { societyId_normalizedLabel: { societyId, normalizedLabel: norm } },
+      data: { hitCount: { increment: 1 } },
+    });
+    return tag.category;
+  }
+
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

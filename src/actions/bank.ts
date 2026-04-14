@@ -15,6 +15,7 @@ import {
 } from "@/validations/bank";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import { applyAutoTag } from "@/actions/cashflow";
 
 // ─── Comptes bancaires ────────────────────────────────────────────────────────
 
@@ -202,6 +203,9 @@ export async function createBankTransaction(
     });
     if (!account) return { success: false, error: "Compte introuvable" };
 
+    // Auto-tag : si pas de catégorie fournie, tenter la catégorisation automatique
+    const category = parsed.data.category ?? await applyAutoTag(societyId, parsed.data.label);
+
     const transaction = await prisma.bankTransaction.create({
       data: {
         bankAccountId: parsed.data.bankAccountId,
@@ -209,7 +213,7 @@ export async function createBankTransaction(
         amount: parsed.data.amount,
         label: parsed.data.label,
         reference: parsed.data.reference ?? null,
-        category: parsed.data.category ?? null,
+        category,
       },
     });
 

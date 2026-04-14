@@ -30,13 +30,20 @@ export const INCOME_CATEGORIES = [
   { id: "autres_revenus", label: "Autres revenus", color: "#A7F3D0" },
 ] as const;
 
+// ── Catégories neutres (exclues du cash flow) ───────────────────────────────
+
+export const NEUTRAL_CATEGORIES = [
+  { id: "virement_interne", label: "Virement de compte à compte", color: "#64748B" },
+] as const;
+
 // ── Tous les catégories ─────────────────────────────────────────────────────
 
-export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
+export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...NEUTRAL_CATEGORIES];
 
 export type ExpenseCategoryId = (typeof EXPENSE_CATEGORIES)[number]["id"];
 export type IncomeCategoryId = (typeof INCOME_CATEGORIES)[number]["id"];
-export type CashflowCategoryId = ExpenseCategoryId | IncomeCategoryId;
+export type NeutralCategoryId = (typeof NEUTRAL_CATEGORIES)[number]["id"];
+export type CashflowCategoryId = ExpenseCategoryId | IncomeCategoryId | NeutralCategoryId;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,4 +63,8 @@ export function isExpenseCategory(id: string): boolean {
 
 export function isIncomeCategory(id: string): boolean {
   return INCOME_CATEGORIES.some((c) => c.id === id);
+}
+
+export function isNeutralCategory(id: string): boolean {
+  return NEUTRAL_CATEGORIES.some((c) => c.id === id);
 }
