@@ -62,19 +62,43 @@ npm run db:studio          # Ouvrir Prisma Studio
 Toutes les env vars sont **validées au démarrage** via `src/lib/env.ts` (Zod). Utiliser `env.NOM_VAR` depuis ce fichier plutôt que `process.env.NOM_VAR` directement dans le code.
 
 ```
-DATABASE_URL, DIRECT_URL              # Supabase PostgreSQL
-AUTH_SECRET, AUTH_URL                  # NextAuth v5
-ENCRYPTION_KEY                        # 32 bytes base64 (IBAN/BIC)
-RESEND_API_KEY, EMAIL_FROM            # Emails (contact@mtggroupe.org)
-NEXT_PUBLIC_APP_NAME                  # Branding UI
-INSEE_API_KEY, INSEE_API_SECRET       # Indices IRL
-CRON_SECRET                           # Jobs planifiés
-ANTHROPIC_API_KEY                     # Claude API (optionnel)
-GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY  # Intégration bancaire (optionnel)
-UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  # Cache Redis (optionnel)
-NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers (optionnel)
-POWENS_DOMAIN, POWENS_CLIENT_ID, POWENS_CLIENT_SECRET  # Connexion bancaire Powens (optionnel)
-NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT     # Monitoring Sentry (optionnel)
+# Obligatoires
+DATABASE_URL, DIRECT_URL                           # Supabase PostgreSQL
+AUTH_SECRET, AUTH_URL                              # NextAuth v5
+ENCRYPTION_KEY                                     # 32 bytes base64 (IBAN/BIC)
+RESEND_API_KEY, EMAIL_FROM                         # Emails
+NEXT_PUBLIC_APP_NAME                               # Branding UI
+INSEE_API_KEY, INSEE_API_SECRET                    # Indices IRL
+CRON_SECRET                                        # Jobs planifiés
+
+# IA (tous optionnels, dégradation gracieuse)
+ANTHROPIC_API_KEY                                  # Claude (chatbot, analyse docs, import IA, évaluation)
+OPENAI_API_KEY                                     # OpenAI (évaluation patrimoniale, fallback)
+GOOGLE_AI_API_KEY                                  # Gemini (évaluation patrimoniale, fallback)
+MISTRAL_API_KEY                                    # Mistral (optionnel)
+BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_ID          # Observabilité LLM (optionnel)
+
+# Bancaire (tous optionnels)
+GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY        # Open Banking PSD2 + SEPA
+POWENS_DOMAIN, POWENS_CLIENT_ID, POWENS_CLIENT_SECRET  # Powens / Budget Insight
+QONTO_CLIENT_ID, QONTO_CLIENT_SECRET               # Qonto (3e provider bancaire)
+
+# Paiements / Abonnements (optionnel)
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+STRIPE_PRICE_STARTER_MONTHLY, STRIPE_PRICE_STARTER_YEARLY
+STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_YEARLY
+STRIPE_PRICE_ENTERPRISE_MONTHLY, STRIPE_PRICE_ENTERPRISE_YEARLY
+
+# Signature électronique ENTERPRISE uniquement (optionnel)
+DOCUSIGN_API_KEY, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_USER_ID
+DOCUSIGN_PRIVATE_KEY                               # RSA en base64
+DOCUSIGN_BASE_URL, DOCUSIGN_AUTH_URL, DOCUSIGN_WEBHOOK_SECRET
+
+# Infrastructure (tous optionnels)
+UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  # Cache + rate-limiting
+NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers
+NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT  # Monitoring Sentry
+NEXT_PUBLIC_ZENDESK_KEY                           # Widget support Zendesk
 ```
 
 ## Structure et flux de requêtes
@@ -251,6 +275,10 @@ Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storag
 
 - **Analyse de documents** (`src/lib/document-ai.ts`) : extrait résumé, tags et catégorie via Claude Opus 4.5. 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre_propriete, contrat, etat_des_lieux. Nécessite `ANTHROPIC_API_KEY`.
 - **Évaluation patrimoniale** (`src/lib/valuation/ai-service.ts`) : estimation de loyers et de valeur vénale. Utilise Claude (principal), OpenAI et Gemini. Inclut analyse SWOT, comparables, score de confiance, données DVF (Demandes de Valeurs Foncières). Nécessite `ANTHROPIC_API_KEY`.
+- **Assistant IA** (`src/lib/ai-chatbot.ts`) : chatbot contextuel avec scope société/immeuble/bail. Répond en langage naturel sur la situation locative, les impayés, l'activité récente. Nécessite `ANTHROPIC_API_KEY`.
+- **Génération de courriers IA** (`src/lib/ai-letter-generator.ts`) : rédige des lettres immobilières (relance, résiliation, mise en demeure…) via Claude. Nécessite `ANTHROPIC_API_KEY`.
+- **Prédiction comportement locataires** (`src/lib/ai-prediction.ts`) : analyse l'historique des 12 derniers mois pour établir un profil de paiement et anticiper les risques d'impayés. Nécessite `ANTHROPIC_API_KEY`.
+- **Relevés de gestion IA** (`src/lib/management-report-ai.ts`) : analyse et résumé des relevés de gestion importés. Nécessite `ANTHROPIC_API_KEY`.
 
 ### Rapports (`src/lib/report-generator.ts`, `src/lib/reports/`)
 
@@ -263,12 +291,29 @@ Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storag
 
 ### Open Banking
 
-Deux intégrations bancaires parallèles, toutes deux optionnelles :
+Trois intégrations bancaires parallèles, toutes optionnelles :
 
 | Service | Lib | Variables | Usage |
 |---------|-----|-----------|-------|
-| **GoCardless** | `src/lib/gocardless.ts` | `GOCARDLESS_SECRET_ID/KEY` | PSD2 Open Banking Europe |
+| **GoCardless** | `src/lib/gocardless.ts` + `gocardless-sepa.ts` | `GOCARDLESS_SECRET_ID/KEY` | PSD2 Open Banking Europe + SEPA |
 | **Powens** (ex-Budget Insight) | `src/lib/powens.ts` | `POWENS_DOMAIN/CLIENT_ID/SECRET` | API bancaire alternative |
+| **Qonto** | `src/lib/qonto.ts` | `QONTO_CLIENT_ID/SECRET` | API Qonto (entreprises) |
+
+### Cashflow & Auto-tagging
+
+- **Catégorisation** (`src/actions/cashflow.ts`) : classe les transactions bancaires par catégorie (loyers, charges, travaux…). `aiSuggestCategories()` propose des catégories via IA, `categorizeTransactions()` les enregistre.
+- **Auto-tag** (`TransactionAutoTag`) : quand une transaction est catégorisée manuellement, le libellé normalisé est mémorisé pour catégoriser automatiquement les futures transactions identiques. `applyAutoTag()` déclenche l'application. Normalisé via `src/lib/normalize-label.ts`. La table `TransactionAutoTag` peut ne pas exister sur une ancienne DB — le code est résilient (try/catch silencieux).
+- **Virements internes** : les virements de compte à compte sont reconnus (`method: "virement"`) dans le rapprochement bancaire.
+
+### Comptabilité avancée
+
+- **Export FEC** (`src/lib/fec-export.ts`) : génère le Fichier des Écritures Comptables au format DGFiP (Article A.47 A-1). Séparateur tabulation, UTF-8, CRLF.
+- **Lettrage** (`src/actions/lettering.ts`) : rapprochement des écritures comptables par code de lettrage (`letterEntries()`, `unletterEntries()`).
+- **Export RGPD** (`src/lib/rgpd-export.ts`) : export de toutes les données personnelles d'un locataire au format JSON/CSV.
+
+### Signature électronique (ENTERPRISE)
+
+DocuSign (`src/lib/docusign.ts`) — JWT Grant server-to-server. Utilisé pour la signature des baux et avenants. Nécessite les 7 variables `DOCUSIGN_*`.
 
 ## Modules métier
 
@@ -278,29 +323,41 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 |--------|-------|---------|
 | Patrimoine (Immeubles, Lots) | `/patrimoine` | `building.ts`, `lot.ts` |
 | Diagnostics, Maintenances | `/patrimoine/immeubles/[id]/...` | `diagnostic.ts`, `maintenance.ts` |
-| Baux, Inspections | `/baux` | `lease.ts`, `inspection.ts` |
+| Baux | `/baux` | `lease.ts`, `lease-amendment.ts`, `lease-template.ts` |
+| Détail bail (onglets) | `/baux/[id]/` | sous-pages : `inspections/`, `gestion-tiers/`, `releves-gestion/`, `modifier/` |
+| Modèles de bail | `/baux/modeles` | `lease-template.ts` |
+| Révisions de loyer | `/revisions` | `rent-revision.ts`, `revision-prorata.ts` |
 | Locataires | `/locataires` | `tenant.ts` |
 | Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
 | Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |
-| Banque + Transactions + Rapprochement | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts` |
-| Comptabilité + Prévisionnel | `/comptabilite` | via API routes |
+| Banque + Rapprochement + Cashflow | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts`, `cashflow.ts` |
+| Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
 | Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
-| Indices ILC/ILAT/ICC | `/indices` | via API INSEE |
+| Indices ILC/ILAT/ICC | `/indices` | `insee-index.ts`, via API INSEE |
 | Relances | `/relances` | `reminder.ts` |
 | Contacts | `/contacts` | `contact.ts` |
-| RGPD | `/rgpd` | via API routes |
-| Documents | — | `document.ts` |
+| Courriers / Modèles de lettres | `/courriers` | `letter-template.ts`, `letter-template-email.ts` |
+| Candidatures (pipeline locataires) | `/candidatures` | `candidate.ts` |
+| Location saisonnière | `/saisonnier` | `seasonal.ts` |
+| Copropriété | `/copropriete` | `copropriete.ts` |
+| Tickets (portail + interne) | `/tickets` | `ticket.ts` |
+| Workflows (automatisation) | `/workflows` | `workflow.ts` |
+| Relevés de gestion tiers | `/baux/[id]/releves-gestion` | `management-report.ts` |
+| RGPD | `/rgpd` | `rgpd-export.ts`, via API routes |
+| Documents | `/documents` | `document.ts` |
+| Dataroom | `/dataroom` | `dataroom.ts` |
 | Signatures | — | `signature.ts` |
 | SEPA | — | `sepa.ts` |
 | Notifications | — | `notifications.ts` |
-| Import données | — | `import.ts` |
+| Import données | `/import` | `import.ts`, `import-parser.ts` |
 | Fusion entités | `/administration/fusions` | `merge.ts` |
 | Administration | `/administration/...` | `user.ts`, `auth.ts` |
 | Dashboard + Analytiques | `/dashboard` | `dashboard.ts`, `analytics.ts` |
 | Propriétaires | `/proprietaire` | `proprietaire.ts` |
 | Abonnements | `/compte/abonnement` | `subscription.ts` |
-| Évaluations patrimoine | `/patrimoine/evaluations` | `valuation.ts` |
-| Rapports | `/rapports`, `/rapports/planification` | `report-generator.ts` |
+| Évaluations patrimoine | `/patrimoine/evaluations` | `valuation.ts`, `rent-valuation.ts` |
+| Rapports | `/rapports`, `/rapports/planification` | `report-generator.ts`, `report-schedule.ts` |
+| Assistant IA | `/assistant` | `ai-chatbot.ts` |
 
 ## Cron Jobs (Vercel)
 
@@ -402,6 +459,9 @@ AppLayout (src/app/(app)/layout.tsx)
 - Un bail résilié ne peut pas être réactivé (créer un nouveau bail)
 - Les dates de bail utilisent le fuseau horaire `Europe/Paris`
 - Les indices IRL sont mis à jour trimestriellement (source INSEE)
+- Les avenants de bail sont dans `lease-amendment.ts` (séparé de `lease.ts`)
+- Les paliers de loyer (`RentStep`) sont dans `lease.ts` : `createRentSteps()`, `updateRentStep()`, `deleteRentStep()`
+- La gestion des tiers (sous-baux, mandats) est dans la sous-page `/baux/[id]/gestion-tiers`
 
 ## Durées de conservation RGPD
 

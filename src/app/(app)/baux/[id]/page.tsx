@@ -48,6 +48,7 @@ import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper"
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
 import { LeaseStatusCard } from "./_components/lease-status-card";
 import { RentSteps } from "./_components/rent-steps";
+import { LeaseTimelineBar } from "./_components/lease-timeline-bar";
 
 const STATUS_LABELS: Record<LeaseStatus, string> = {
   EN_COURS: "En cours",
@@ -167,6 +168,8 @@ export default async function BailDetailPage({
   if (!lease) notFound();
 
   const isActive = lease.status === "EN_COURS";
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
 
   return (
     <div className="space-y-6">
@@ -211,6 +214,22 @@ export default async function BailDetailPage({
           />
         </div>
       </div>
+
+      {/* Timeline de progression du bail */}
+      {lease.endDate && (
+        <LeaseTimelineBar
+          startDate={lease.startDate}
+          endDate={lease.endDate}
+          now={nowMs}
+          rentRevisions={(lease.rentRevisions ?? []).map((r) => ({
+            effectiveDate: r.effectiveDate,
+          }))}
+          rentSteps={(lease.rentSteps ?? []).map((s) => ({
+            startDate: s.startDate,
+            amount: s.rentHT,
+          }))}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Colonne principale */}
