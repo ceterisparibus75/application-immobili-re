@@ -29,24 +29,25 @@ export async function searchDvfTransactions(
 
     const centerLat = latitude ?? commune.lat;
     const centerLng = longitude ?? commune.lon;
-    const dept = commune.code.substring(0, 2);
+    // Départements DOM-TOM ont des codes à 3 chiffres (971, 972…)
+    const dept = commune.code.length >= 5 ? commune.code.substring(0, commune.code.length - 3) : commune.code.substring(0, 2);
 
-    // 2. Télécharger les CSV DVF pour chaque année
+    // 2. Télécharger les CSV DVF en parallèle pour chaque année
     const currentYear = new Date().getFullYear();
     const startYear = currentYear - periodYears;
-    const allTransactions: DvfTransaction[] = [];
-
-    // Les données DVF sont disponibles avec ~6 mois de retard
-    // On se limite à currentYear - 1 pour éviter les années sans données
+    // Les données DVF ont ~6 mois de retard : année courante jamais disponible
     const maxYear = currentYear - 1;
-    for (let year = Math.max(startYear, 2020); year <= maxYear; year++) {
-      try {
-        const yearTransactions = await fetchDvfCsv(dept, year, commune.code, centerLat, centerLng);
-        allTransactions.push(...yearTransactions);
-      } catch (error) {
-        // L'année peut ne pas être encore disponible
-        console.error(`[DVF] Année ${year} non disponible:`, error instanceof Error ? error.message : error);
-      }
+    const years = [];
+    for (let y = Math.max(startYear, 2020); y <= maxYear; y++) years.push(y);
+
+    const results = await Promise.allSettled(
+      years.map((year) => fetchDvfCsv(dept, year, commune.code, centerLat, centerLng))
+    );
+
+    const allTransactions: DvfTransaction[] = [];
+    for (const result of results) {
+      if (result.status === "fulfilled") allTransactions.push(...result.value);
+      else console.error("[DVF] Année non disponible:", result.reason instanceof Error ? result.reason.message : result.reason);
     }
 
     // 3. Filtrer et trier
@@ -110,10 +111,9 @@ async function fetchDvfCsv(
   centerLat: number | null,
   centerLng: number | null
 ): Promise<DvfTransaction[]> {
-  // CSV par commune (quelques Ko au lieu de 100+ Mo pour le département entier)
-  const url = `${DVF_CSV_BASE}/${year}/communes/${dept}/${codeCommune}.csv.gz`;
+  const url = `${DVF_CSV_BASE}/${year}/departements/${dept}.csv.gz`;
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  const response = await fetch(url, { signal: AbortSignal.timeout(25000) });
   if (!response.ok) {
     throw new Error(`data.gouv.fr ${response.status} pour ${url}`);
   }
@@ -127,9 +127,8 @@ async function fetchDvfCsv(
     skipEmptyLines: true,
   });
 
-  // Filtrer uniquement par type de mutation "Vente" (commune déjà ciblée par l'URL)
   return parsed.data
-    .filter((row) => row.nature_mutation === "Vente")
+    .filter((row) => row.code_commune === codeCommune && row.nature_mutation === "Vente")
     .map((row) => mapCsvRow(row, centerLat, centerLng));
 }
 

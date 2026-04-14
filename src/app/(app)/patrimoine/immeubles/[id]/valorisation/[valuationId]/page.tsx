@@ -1,3 +1,5 @@
+export const maxDuration = 90; // DVF télécharge 3 années de CSV en parallèle
+
 import { getValuation } from "@/actions/valuation";
 import { ValuationDashboard } from "@/components/valuation/valuation-dashboard";
 import { AiAnalysisPanel } from "@/components/valuation/ai-analysis-panel";
