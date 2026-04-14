@@ -16,6 +16,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { applyAutoTag } from "@/actions/cashflow";
+import { normalizeLabel } from "@/lib/normalize-label";
 
 // ─── Comptes bancaires ────────────────────────────────────────────────────────
 
@@ -350,4 +351,216 @@ export async function correctBankBalance(
     console.error("[correctBankBalance]", error);
     return { success: false, error: "Erreur lors de la correction du solde" };
   }
+}
+
+// ─── Import de relevé bancaire (CSV/XLSX) ───────────────────────────────────
+
+export type ImportRow = {
+  transactionDate: string; // ISO ou dd/MM/yyyy
+  amount: number;
+  label: string;
+  reference?: string;
+};
+
+export type ImportBankStatementResult = {
+  imported: number;
+  skipped: number;
+  duplicates: number;
+};
+
+/**
+ * Importe un relevé bancaire en masse avec dédoublonnage intelligent.
+ *
+ * Stratégie anti-doublon (3 niveaux) :
+ * 1. externalId exact (référence bancaire unique)
+ * 2. Empreinte (date + montant + libellé normalisé) — détecte les doublons
+ *    même si la référence diffère légèrement entre le fichier et la sync
+ * 3. Tolérance ±1 jour sur la date (les banques décalent parfois la date
+ *    d'opération vs date de valeur)
+ */
+export async function importBankStatement(
+  societyId: string,
+  bankAccountId: string,
+  rows: ImportRow[]
+): Promise<ActionResult<ImportBankStatementResult>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    if (rows.length === 0) return { success: false, error: "Aucune ligne à importer" };
+    if (rows.length > 2000) return { success: false, error: "Maximum 2000 lignes par import" };
+
+    // Vérifier que le compte appartient à la société
+    const account = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+      select: { id: true },
+    });
+    if (!account) return { success: false, error: "Compte introuvable" };
+
+    // ── Charger les transactions existantes pour dédoublonnage ────────
+    // Déterminer la plage de dates du fichier importé
+    const importDates = rows.map((r) => parseFlexDate(r.transactionDate)).filter(Boolean) as Date[];
+    if (importDates.length === 0) return { success: false, error: "Aucune date valide dans le fichier" };
+
+    const minDate = new Date(Math.min(...importDates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...importDates.map((d) => d.getTime())));
+    // Élargir de ±2 jours pour couvrir les décalages
+    minDate.setDate(minDate.getDate() - 2);
+    maxDate.setDate(maxDate.getDate() + 2);
+
+    const existingTxs = await prisma.bankTransaction.findMany({
+      where: {
+        bankAccountId,
+        transactionDate: { gte: minDate, lte: maxDate },
+      },
+      select: {
+        transactionDate: true,
+        amount: true,
+        label: true,
+        externalId: true,
+      },
+    });
+
+    // Index des empreintes existantes : "YYYY-MM-DD|montant|label_norm"
+    const existingFingerprints = new Set<string>();
+    // Index élargi ±1 jour pour tolérance de date
+    const existingFingerprintsLoose = new Set<string>();
+    const existingExternalIds = new Set<string>();
+
+    for (const tx of existingTxs) {
+      if (tx.externalId) existingExternalIds.add(tx.externalId);
+      const d = new Date(tx.transactionDate);
+      const dateStr = toDateKey(d);
+      const norm = normalizeLabel(tx.label);
+      const amountKey = Math.round(tx.amount * 100).toString();
+      existingFingerprints.add(`${dateStr}|${amountKey}|${norm}`);
+
+      // ±1 jour
+      for (const offset of [-1, 0, 1]) {
+        const offsetDate = new Date(d);
+        offsetDate.setDate(offsetDate.getDate() + offset);
+        existingFingerprintsLoose.add(`${toDateKey(offsetDate)}|${amountKey}|${norm}`);
+      }
+    }
+
+    // ── Importer ─────────────────────────────────────────────────────
+    const batchId = "csv-import-" + String(Date.now());
+    let imported = 0;
+    let skipped = 0;
+    let duplicates = 0;
+    let balanceDelta = 0;
+
+    for (const row of rows) {
+      // Valider la ligne
+      const date = parseFlexDate(row.transactionDate);
+      if (!date || !row.label?.trim() || isNaN(row.amount)) {
+        skipped++;
+        continue;
+      }
+
+      const dateStr = toDateKey(date);
+      const norm = normalizeLabel(row.label);
+      const amountKey = Math.round(row.amount * 100).toString();
+      const fingerprint = `${dateStr}|${amountKey}|${norm}`;
+
+      // Niveau 1 : référence exacte
+      if (row.reference && existingExternalIds.has(row.reference)) {
+        duplicates++;
+        continue;
+      }
+
+      // Niveau 2 : empreinte exacte (date + montant + libellé)
+      if (existingFingerprints.has(fingerprint)) {
+        duplicates++;
+        continue;
+      }
+
+      // Niveau 3 : empreinte avec tolérance ±1 jour
+      if (existingFingerprintsLoose.has(fingerprint)) {
+        duplicates++;
+        continue;
+      }
+
+      // Auto-tag
+      const category = await applyAutoTag(societyId, row.label);
+
+      await prisma.bankTransaction.create({
+        data: {
+          bankAccountId,
+          transactionDate: date,
+          amount: row.amount,
+          label: row.label.trim(),
+          reference: row.reference?.trim() || null,
+          externalId: row.reference?.trim() || null,
+          category,
+          importBatch: batchId,
+        },
+      });
+
+      // Ajouter au set pour dédoublonner dans le fichier lui-même
+      existingFingerprints.add(fingerprint);
+      for (const offset of [-1, 0, 1]) {
+        const offsetDate = new Date(date);
+        offsetDate.setDate(offsetDate.getDate() + offset);
+        existingFingerprintsLoose.add(`${toDateKey(offsetDate)}|${amountKey}|${norm}`);
+      }
+      if (row.reference) existingExternalIds.add(row.reference);
+
+      balanceDelta += row.amount;
+      imported++;
+    }
+
+    // Mettre à jour le solde
+    if (imported > 0) {
+      await prisma.bankAccount.update({
+        where: { id: bankAccountId },
+        data: { currentBalance: { increment: balanceDelta } },
+      });
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "BankTransaction",
+      entityId: batchId,
+      details: { action: "csv_import", imported, skipped, duplicates, totalRows: rows.length },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${bankAccountId}`);
+    revalidatePath("/comptabilite/cashflow");
+
+    return { success: true, data: { imported, skipped, duplicates } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[importBankStatement]", error);
+    return { success: false, error: "Erreur lors de l'import du relevé" };
+  }
+}
+
+/** Parse une date flexible : dd/MM/yyyy, yyyy-MM-dd, dd-MM-yyyy, dd.MM.yyyy */
+function parseFlexDate(input: string): Date | null {
+  if (!input?.trim()) return null;
+  const s = input.trim();
+
+  // ISO : yyyy-MM-dd
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // FR : dd/MM/yyyy ou dd-MM-yyyy ou dd.MM.yyyy
+  const match = s.match(/^(\d{2})[/\-.](\d{2})[/\-.](\d{4})/);
+  if (match) {
+    const d = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  return null;
+}
+
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

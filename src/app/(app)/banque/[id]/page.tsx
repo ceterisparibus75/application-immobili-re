@@ -28,6 +28,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AddTransactionForm from "./_components/add-transaction-form";
+import ImportStatement from "./_components/import-statement";
 import SyncButton from "./_components/sync-button";
 import RecalculateButton from "./_components/recalculate-button";
 import { ExportTransactions } from "@/components/exports/export-transactions";
@@ -268,6 +269,8 @@ export default async function BankAccountDetailPage({
               />
             </CardContent>
           </Card>
+
+          <ImportStatement bankAccountId={account.id} societyId={societyId} />
 
           <Card className="border-0 shadow-brand bg-white rounded-xl">
             <CardHeader>
