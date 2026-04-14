@@ -37,8 +37,9 @@ export async function searchDvfTransactions(
     const allTransactions: DvfTransaction[] = [];
 
     // Les données DVF sont disponibles avec ~6 mois de retard
-    // On cherche les 3 dernières années de données disponibles
-    for (let year = Math.max(startYear, 2020); year <= currentYear; year++) {
+    // On se limite à currentYear - 1 pour éviter les années sans données
+    const maxYear = currentYear - 1;
+    for (let year = Math.max(startYear, 2020); year <= maxYear; year++) {
       try {
         const yearTransactions = await fetchDvfCsv(dept, year, commune.code, centerLat, centerLng);
         allTransactions.push(...yearTransactions);
@@ -109,9 +110,10 @@ async function fetchDvfCsv(
   centerLat: number | null,
   centerLng: number | null
 ): Promise<DvfTransaction[]> {
-  const url = `${DVF_CSV_BASE}/${year}/departements/${dept}.csv.gz`;
+  // CSV par commune (quelques Ko au lieu de 100+ Mo pour le département entier)
+  const url = `${DVF_CSV_BASE}/${year}/communes/${dept}/${codeCommune}.csv.gz`;
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
   if (!response.ok) {
     throw new Error(`data.gouv.fr ${response.status} pour ${url}`);
   }
@@ -120,15 +122,14 @@ async function fetchDvfCsv(
   const csvBuffer = gunzipSync(gzBuffer);
   const csvText = csvBuffer.toString("utf-8");
 
-  // Parser le CSV
   const parsed = Papa.parse<DvfCsvRow>(csvText, {
     header: true,
     skipEmptyLines: true,
   });
 
-  // Filtrer par code commune et type de mutation "Vente"
+  // Filtrer uniquement par type de mutation "Vente" (commune déjà ciblée par l'URL)
   return parsed.data
-    .filter((row) => row.code_commune === codeCommune && row.nature_mutation === "Vente")
+    .filter((row) => row.nature_mutation === "Vente")
     .map((row) => mapCsvRow(row, centerLat, centerLng));
 }
 
