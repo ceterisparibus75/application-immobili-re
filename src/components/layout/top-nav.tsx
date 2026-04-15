@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
   Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
-  HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart, Package,
+  HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart, Package, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -73,9 +73,10 @@ const GESTION_LOCATIVE_ITEMS = [
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
   { name: "Candidatures", href: "/candidatures", icon: UserSearch },
+  { name: "Tickets", href: "/tickets", icon: MessageSquare },
 ];
 
-const GESTION_LOCATIVE_PATHS = [...GESTION_LOCATIVE_ITEMS.map((i) => i.href), "/parametres/facturation"];
+const GESTION_LOCATIVE_PATHS = [...GESTION_LOCATIVE_ITEMS.map((i) => i.href), "/parametres/facturation", "/tickets"];
 
 // ── Sous-items du menu "Modules" ────────────────────────────────
 

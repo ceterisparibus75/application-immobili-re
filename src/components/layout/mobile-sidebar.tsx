@@ -8,7 +8,7 @@ import {
   ScrollText, Layers, X, FolderOpen,
   Upload, Banknote, BarChart3, FileBarChart, Mail, Bell, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
-  Plus, BookTemplate, BarChart, Package,
+  Plus, BookTemplate, BarChart, Package, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ const navigation = [
   { title: "Communication", items: [
     { name: "Contacts", href: "/contacts", icon: Contact },
     { name: "Candidatures", href: "/candidatures", icon: UserSearch },
+    { name: "Tickets", href: "/tickets", icon: MessageSquare },
   ]},
   { title: "Outils IA", items: [
     { name: "Assistant IA", href: "/assistant", icon: Sparkles },
