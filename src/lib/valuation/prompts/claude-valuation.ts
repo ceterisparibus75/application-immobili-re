@@ -127,26 +127,34 @@ Le raisonnement principal pour la méthode revenus est le suivant :
 
 ## RÈGLE DE COHÉRENCE MATHÉMATIQUE OBLIGATOIRE
 
-Les valeurs suivantes DOIVENT être cohérentes entre elles :
-1. estimatedValueMid ≈ rentalValue / (capitalizationRate / 100) — tolérance ±15%
-2. summary.rentalValue / (summary.capitalizationRate / 100) doit être dans [estimatedValueLow, estimatedValueHigh]
-3. Si la surface est connue : pricePerSqm = estimatedValueMid / surface
-   - Si pricePerSqm > 30 000 €/m² pour de l'habitation ou > 25 000 €/m² pour du bureaux/commerce,
-     c'est probablement une erreur de surface. Mets pricePerSqm = null et signale-le dans les caveats.
-4. methodology.incomeMethod.capRate = summary.capitalizationRate
-5. Le taux de capitalisation doit appartenir à la fourchette correspondant au type et à la localisation
-   identifiés en ÉTAPE 0.
+### Taux de capitalisation — TOUJOURS BACK-CALCULÉ depuis la valeur finale
+
+Le champ summary.capitalizationRate DOIT être calculé ainsi :
+  capitalizationRate = round(rentalValue / estimatedValueMid × 100, 2)
+
+C'est le taux **implicite** que reflète la valeur finale retenue. Il doit correspondre à la fourchette
+attendue pour le type de bien et la localisation. Si ce taux back-calculé sort de la fourchette,
+c'est que la valeur estimatedValueMid est incohérente — corrige estimatedValueMid.
+
+**Exemple :** loyer = 76 552 €, valeur = 580 000 € → taux implicite = 76 552 / 580 000 × 100 = 13,2%
+Ce taux est hors fourchette pour du résidentiel → la valeur doit être relevée à ~76 552 / 0,04 ≈ 1 914 000 €
+ou le taux réel du marché local doit être justifié.
+
+### Autres contraintes
+- summary.rentalValue / (summary.capitalizationRate / 100) doit être dans [estimatedValueLow, estimatedValueHigh]
+- methodology.incomeMethod.capRate = summary.capitalizationRate
+- Si la surface est connue : pricePerSqm = estimatedValueMid / surface
+  - Si pricePerSqm > 30 000 €/m² habitation ou > 25 000 €/m² bureaux/commerce → pricePerSqm = null + caveat
 
 ## CHECKLIST DE VALIDATION AVANT RÉPONSE
 
 Réponds OUI/NON mentalement à chaque point, corrige si NON :
-- [ ] Le type d'usage est-il correct (résidentiel/commercial/bureaux) ?
-- [ ] Le taux de capitalisation est-il dans la fourchette de sa catégorie/localisation ?
-- [ ] Le taux n'est-il PAS supérieur à 5% pour du résidentiel Paris intramuros ?
-- [ ] La surface utilisée est-elle cohérente avec les baux fournis ?
-- [ ] pricePerSqm est-il dans les limites réalistes du marché local (Paris : 8 000–25 000 €/m²) ?
-- [ ] 1 740 000 / 64 000 = ~27m² → si ce calcul donne un résultat absurde, corriger la surface ou mettre pricePerSqm à null
-- [ ] Les trois valeurs (rentalValue, capitalizationRate, estimatedValueMid) sont-elles cohérentes entre elles ?
+- [ ] Type d'usage identifié correctement (résidentiel/commercial/bureaux) ?
+- [ ] Taux back-calculé = rentalValue / estimatedValueMid × 100 ?
+- [ ] Ce taux est-il dans la fourchette attendue pour ce type/localisation ?
+- [ ] Le taux N'EST PAS supérieur à 5% pour du résidentiel Paris intramuros ?
+- [ ] La surface est-elle cohérente avec les baux fournis ?
+- [ ] pricePerSqm est-il réaliste (pas de valeur aberrante type 60 000 €/m²) ?
 
 ### 3. Méthode par le coût de remplacement (si pertinent)
 - Estimer la valeur du foncier nu
