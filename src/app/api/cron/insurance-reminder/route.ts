@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendInsuranceReminderEmail } from "@/lib/email";
+import { env } from "@/lib/env";
 
 export async function GET(req: NextRequest) {
   // Vérifier le secret cron
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     });
 
     let sent = 0;
-    const portalUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const portalUrl = env.AUTH_URL;
 
     for (const tenant of tenants) {
       const tenantName =

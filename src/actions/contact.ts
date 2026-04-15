@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { hash } from "bcryptjs";
 import { sendNewUserEmail } from "@/lib/email";
+import { env } from "@/lib/env";
 
 export async function createContact(
   societyId: string,
@@ -212,7 +213,7 @@ export async function inviteContactAsUser(
       name: contact.name,
       email,
       password: tempPassword,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      appUrl: env.AUTH_URL,
     }).catch((err) => console.error("[inviteContactAsUser] email error", err));
 
     await createAuditLog({
