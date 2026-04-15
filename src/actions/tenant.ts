@@ -527,6 +527,13 @@ export async function getTenantById(societyId: string, tenantId: string) {
       guarantees: true,
       documentChecklist: true,
       secondaryContacts: { orderBy: { name: "asc" } },
+      portalAccess: {
+        select: {
+          isActive: true,
+          lastLoginAt: true,
+          invitedAt: true,
+        },
+      },
       _count: { select: { leases: true } },
     },
   });

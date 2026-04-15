@@ -21,6 +21,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  LogIn,
+  ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 import { TenantContactsSection } from "./contacts-section";
 import { TenantAccount } from "./tenant-account";
@@ -547,6 +550,71 @@ export default async function LocataireDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {/* Portail locataire */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LogIn className="h-4 w-4 text-muted-foreground" />
+                Portail locataire
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {tenant.portalAccess ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    {tenant.portalAccess.isActive ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                        <ShieldCheck className="h-3 w-3" />
+                        Accès actif
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
+                        <ShieldOff className="h-3 w-3" />
+                        Accès désactivé
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-3">
+                      <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Invitation envoyée le</p>
+                        <p className="font-medium">{fmtDate(tenant.portalAccess.invitedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <LogIn className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Dernière connexion</p>
+                        {tenant.portalAccess.lastLoginAt ? (
+                          <p className="font-medium">
+                            {new Date(tenant.portalAccess.lastLoginAt).toLocaleString("fr-FR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        ) : (
+                          <p className="text-muted-foreground italic">Jamais connecté</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border">
+                    <ShieldOff className="h-3 w-3" />
+                    Non invité
+                  </span>
+                  <p className="text-xs text-muted-foreground">Le locataire n&apos;a pas encore accès au portail.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Notes */}
           {tenant.notes && (
