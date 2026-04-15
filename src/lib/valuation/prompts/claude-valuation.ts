@@ -92,40 +92,61 @@ Avant de calculer quoi que ce soit, identifie précisément :
 
 ## RÈGLES DE COHÉRENCE MATHÉMATIQUE ABSOLUES
 
+**ATTENTION — ERREUR FRÉQUENTE** : Le taux de capitalisation est exprimé en pourcentage (ex : 9,1).
+Le diviseur dans toutes les formules est TOUJOURS (capitalizationRate / 100) (ex : 9,1 / 100 = 0,091).
+Ne jamais diviser par capitalizationRate directement, ne jamais multiplier.
+
 ### Règle 1 — Cohérence capitalisation / loyer
 incomeMethod.resultValue = round(rentalValue / (capitalizationRate / 100), 0)
-→ Si cap rate = 4,5% et loyer = 85 000 €, alors incomeMethod.resultValue = 85 000 / 0,045 = **1 888 889 €**
+EXEMPLE : cap rate = 9,1%, loyer = 76 552 € → 76 552 / (9,1/100) = 76 552 / 0,091 = **841 231 €**
+ERREUR à ne pas commettre : 76 552 / 0,01 = 7 655 200 € ← résultat ABERRANT (cap rate 1% au lieu de 9,1%)
 
-### Règle 2 — exploitationValue
-exploitationValue = Σ (loyer net loué) / (capitalizationRate / 100)
-→ Inclut uniquement les lots loués
+### Règle 2 — exploitationValue (FORMULE STRICTE)
+exploitationValue = loyer_annuel_lots_loués / (capitalizationRate / 100)
+→ Seuls les lots avec un bail actif sont inclus.
+→ Si tous les lots sont loués : exploitationValue ≈ incomeMethod.resultValue
+→ VÉRIFICATION OBLIGATOIRE : exploitationValue ne peut PAS être supérieur à 5× estimatedValueMid.
+   Si c'est le cas, tu as fait une erreur de calcul. Divise par (capitalizationRate / 100), PAS par capitalizationRate seul.
 
 ### Règle 3 — realisationValue
-realisationValue = [Σ (loyer de marché tous lots) / (capitalizationRate / 100)] − renovationCosts − abattement
-→ abattement = realisationValue_brute × (abatementPercent / 100)
+realisationValue = [loyer_marché_tous_lots / (capitalizationRate / 100)] − renovationCosts − abattement
+→ abattement = valeur_brute_réalisation × (abatementPercent / 100)
+→ Si taux d'occupation = 100% et pas de vacance : realisationValue ≈ exploitationValue (avant abattement)
 
-### Règle 4 — estimatedValueMid
-estimatedValueMid = α × exploitationValue + (1-α) × realisationValue (pondération explicite)
-→ OU peut valoir directement incomeMethod.resultValue si les deux valeurs sont très proches
+### Règle 4 — Cohérence globale des trois valeurs
+CONTRAINTE ABSOLUE : exploitationValue ≤ realisationValue (avant abattement)
+(La réalisation = tous lots y compris vacants → toujours ≥ exploitation = lots loués seulement)
 
-### Règle 5 — pricePerSqm
+estimatedValueMid doit être COMPRIS entre min(exploitationValue, realisationValue) et max(exploitationValue, realisationValue).
+Si comparisonMethod est appliquée, estimatedValueMid DOIT intégrer la méthode par comparaison.
+
+### Règle 5 — Pondération OBLIGATOIRE avec la méthode par comparaison
+Si comparisonMethod.applied = true ET comparisonMethod.resultValue ≠ null :
+  - La pondération de la méthode par comparaison est OBLIGATOIREMENT entre 20% et 50%
+  - estimatedValueMid = β × comparisonMethod.resultValue + (1-β) × incomeMethod.resultValue
+    avec β compris entre 0,20 et 0,50
+  - Il est INTERDIT de poser β = 0 quand des comparables DVF ont été fournis.
+  - Exemple : comparaison = 608 400 €, capitalisation = 860 000 €, β=0,30
+    → estimatedValueMid = 0,30 × 608 400 + 0,70 × 860 000 = 182 520 + 602 000 = **784 520 €**
+    et NON pas 860 000 € (qui revient à ignorer totalement les comparables)
+
+### Règle 6 — pricePerSqm
 pricePerSqm = estimatedValueMid / surface_totale
 → Si résultat > 30 000 €/m² pour résidentiel, ou > 15 000 €/m² pour commercial → mettre null + caveat
 
-### Règle 6 — Fourchette
+### Règle 7 — Fourchette
 estimatedValueLow ≈ estimatedValueMid × 0,90
 estimatedValueHigh ≈ estimatedValueMid × 1,10
 
 ---
 
 ## CHECKLIST AVANT RÉPONSE
-- [ ] Type d'usage identifié ?
 - [ ] capitalizationRate dans la fourchette du type et de la localisation ?
-- [ ] incomeMethod.resultValue = rentalValue / (capitalizationRate / 100) ?
-- [ ] exploitationValue calculé sur lots loués uniquement ?
-- [ ] realisationValue calculé sur tous les lots avec abattement si bloc ?
-- [ ] estimatedValueMid = pondération explicite entre les deux valeurs ?
-- [ ] comparisonMethod.resultValue basé sur DVF fournis ?
+- [ ] incomeMethod.resultValue = rentalValue / (capitalizationRate / 100) ? (diviseur = taux/100, PAS le taux seul)
+- [ ] exploitationValue = loyer_loués / (capitalizationRate / 100) ? exploitationValue < 5× estimatedValueMid ?
+- [ ] realisationValue ≥ exploitationValue (avant abattement) ?
+- [ ] Si comparables DVF fournis : β ≥ 0,20 dans la pondération, estimatedValueMid ≠ incomeMethod.resultValue seul ?
+- [ ] estimatedValueMid compris entre exploitationValue et realisationValue (ou entre comparaison et capitalisation) ?
 - [ ] pricePerSqm réaliste ou null ?
 
 ---
