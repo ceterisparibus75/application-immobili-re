@@ -111,6 +111,7 @@ export default function NouveauDecompteGestionPage() {
 
       const data = json.data as {
         thirdPartyName: string | null;
+        tenantName: string | null;
         reference: string | null;
         periodStart: string | null;
         periodEnd: string | null;
@@ -128,6 +129,20 @@ export default function NouveauDecompteGestionPage() {
       if (data.periodEnd) setPeriodEnd(data.periodEnd);
       if (data.periodLabel) setPeriodLabel(data.periodLabel);
       if (data.netAmount) setNetAmount(data.netAmount);
+
+      // Auto-détection du locataire concerné
+      if (data.tenantName && leases.length > 0) {
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const target = normalize(data.tenantName);
+        const match = leases.find((l) => {
+          const name = normalize(l.tenant?.companyName || `${l.tenant?.firstName ?? ""} ${l.tenant?.lastName ?? ""}`.trim());
+          return name && (name.includes(target) || target.includes(name));
+        });
+        if (match && !selectedLeaseIds.includes(match.id)) {
+          setSelectedLeaseIds([match.id]);
+          toast.success(`Locataire détecté : ${data.tenantName}`);
+        }
+      }
 
       // Remplir les lignes
       if (data.lines.length > 0) {
@@ -352,6 +367,7 @@ export default function NouveauDecompteGestionPage() {
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleLease(lease.id)}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">

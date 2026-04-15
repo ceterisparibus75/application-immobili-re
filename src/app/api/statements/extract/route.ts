@@ -18,6 +18,7 @@ interface ExtractedLine {
 
 interface ExtractionResult {
   thirdPartyName: string | null;
+  tenantName: string | null;
   reference: string | null;
   periodStart: string | null;
   periodEnd: string | null;
@@ -89,6 +90,7 @@ Extrais les informations suivantes en JSON :
 
 Extrais les informations suivantes en JSON :
 - thirdPartyName : nom de l'agence de gestion
+- tenantName : nom du locataire (prénom + nom ou raison sociale) tel qu'indiqué dans le document — null si non trouvé
 - reference : numéro de référence du document
 - periodStart : date de début de période (format YYYY-MM-DD)
 - periodEnd : date de fin de période (format YYYY-MM-DD)
@@ -158,6 +160,7 @@ export async function POST(request: NextRequest) {
 Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
 {
   "thirdPartyName": "...",
+  "tenantName": "...",
   "reference": "...",
   "periodStart": "YYYY-MM-DD",
   "periodEnd": "YYYY-MM-DD",
@@ -194,6 +197,7 @@ Si une information n'est pas trouvée, mets null pour les textes et 0 pour les n
 
     const result: ExtractionResult = {
       thirdPartyName: parsed.thirdPartyName ?? null,
+      tenantName: parsed.tenantName ?? null,
       reference: parsed.reference ?? null,
       periodStart: parsed.periodStart ?? null,
       periodEnd: parsed.periodEnd ?? null,
