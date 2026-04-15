@@ -6,6 +6,7 @@ import {
   ChevronDown, Receipt, ScrollText, Mail, Bell, TrendingUp, FileText,
   Building2, Layers, Bot, Upload, Building, UmbrellaOff, UserSearch, Sparkles, Workflow,
   HelpCircle, BookOpen, Wallet, BarChart3, Plus, BookTemplate, BarChart, Package, MessageSquare,
+  FolderLock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocietySwitcher } from "./society-switcher";
@@ -85,6 +86,8 @@ const MODULES_ITEMS = [
   { name: "Saisonnier", href: "/saisonnier", icon: UmbrellaOff },
   { name: "Assistant IA", href: "/assistant", icon: Sparkles },
   { name: "Workflows", href: "/workflows", icon: Workflow },
+  { name: "Import données", href: "/import", icon: Upload },
+  { name: "Dataroom", href: "/dataroom", icon: FolderLock },
 ];
 
 const MODULES_PATHS = MODULES_ITEMS.map((i) => i.href);

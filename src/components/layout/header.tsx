@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle, Settings, ScrollText, Merge, Shield } from "lucide-react";
+import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle, Settings, ScrollText, Merge, Shield, Upload } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { MobileSidebar } from "./mobile-sidebar";
 import { useSociety } from "@/providers/society-provider";
@@ -143,6 +143,22 @@ export function Header() {
                     >
                       <Merge className="h-4 w-4 text-muted-foreground" />
                       Fusions
+                    </Link>
+                    <Link
+                      href="/rgpd"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      RGPD
+                    </Link>
+                    <Link
+                      href="/import"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                      Import données
                     </Link>
                   </div>
                   <div className="p-1.5 border-t">

@@ -8,7 +8,7 @@ import {
   ScrollText, Layers, X, FolderOpen,
   Upload, Banknote, BarChart3, FileBarChart, Mail, Bell, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Sparkles, Code,
-  Plus, BookTemplate, BarChart, Package, MessageSquare,
+  Plus, BookTemplate, BarChart, Package, MessageSquare, FolderLock, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,10 +56,13 @@ const navigation = [
   { title: "Outils IA", items: [
     { name: "Assistant IA", href: "/assistant", icon: Sparkles },
     { name: "Workflows", href: "/workflows", icon: Workflow },
+    { name: "Import données", href: "/import", icon: Upload },
+    { name: "Dataroom", href: "/dataroom", icon: FolderLock },
   ]},
-  { title: "Aide", items: [
-    { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
+  { title: "Administration", items: [
+    { name: "RGPD", href: "/rgpd", icon: Shield },
     { name: "API / Développeurs", href: "/api-docs", icon: Code },
+    { name: "Centre d'aide", href: "/aide", icon: HelpCircle },
   ]},
 ];
 
