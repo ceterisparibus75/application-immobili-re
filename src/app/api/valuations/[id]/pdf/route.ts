@@ -140,6 +140,16 @@ async function generatePropertyReport(
         opportunities: (a.opportunities as string[]) ?? [],
         threats: (a.threats as string[]) ?? [],
         narrative: structured?.detailedNarrative ?? null,
+        exploitationValue: structured?.summary?.exploitationValue ?? null,
+        realisationValue: structured?.summary?.realisationValue ?? null,
+        renovationCosts: structured?.summary?.renovationCosts ?? null,
+        abatementPercent: structured?.summary?.abatementPercent ?? null,
+        comparisonValue: structured?.methodology?.comparisonMethod?.resultValue ?? null,
+        incomeValue: structured?.methodology?.incomeMethod?.resultValue ?? null,
+        weightingRationale: structured?.methodology?.weightingRationale ?? null,
+        marketContext: structured?.marketContext ?? null,
+        recommendations: structured?.recommendations ?? [],
+        caveats: structured?.caveats ?? [],
       };
     }),
     expertReports: valuation.expertReports.map((r) => ({

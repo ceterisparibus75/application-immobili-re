@@ -105,8 +105,16 @@ export interface AiValuationResult {
     estimatedValueLow: number;
     estimatedValueMid: number;
     estimatedValueHigh: number;
+    /** Valeur d'Exploitation : lots loués uniquement / taux de capitalisation */
+    exploitationValue?: number | null;
+    /** Valeur de Réalisation : tous lots (loués+vacants) / taux − rénovation − abattement bloc */
+    realisationValue?: number | null;
+    /** Coûts de remise en état des lots vacants */
+    renovationCosts?: number | null;
+    /** Abattement appliqué (5% si bloc non-copropriété, 0 sinon) */
+    abatementPercent?: number | null;
     rentalValue: number;
-    pricePerSqm: number;
+    pricePerSqm: number | null;
     capitalizationRate: number;
     confidence: number;
   };
@@ -134,6 +142,7 @@ export interface AiValuationResult {
       resultValue: number | null;
       reasoning: string;
     };
+    weightingRationale?: string;
   };
   swot: {
     strengths: string[];

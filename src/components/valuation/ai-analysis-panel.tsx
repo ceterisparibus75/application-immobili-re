@@ -17,6 +17,13 @@ interface MethodologyData {
   weightingRationale?: string;
 }
 
+interface SummaryData {
+  exploitationValue?: number | null;
+  realisationValue?: number | null;
+  renovationCosts?: number | null;
+  abatementPercent?: number | null;
+}
+
 interface AiAnalysis {
   id: string;
   provider: string;
@@ -41,6 +48,13 @@ function getMethodology(a: AiAnalysis): MethodologyData {
   try {
     const r = a.structuredResult as Record<string, unknown>;
     return (r?.methodology as MethodologyData) ?? {};
+  } catch { return {}; }
+}
+
+function getSummaryExtra(a: AiAnalysis): SummaryData {
+  try {
+    const r = a.structuredResult as Record<string, unknown>;
+    return (r?.summary as SummaryData) ?? {};
   } catch { return {}; }
 }
 
@@ -121,6 +135,14 @@ export function AiAnalysisPanel({
                     { label: "Valeur retenue", render: (a: AiAnalysis) => a.estimatedValue ? <span className="font-bold text-[var(--color-brand-deep)]">{formatCurrency(a.estimatedValue)}</span> : "—" },
                     { label: "↳ par comparables", render: (a: AiAnalysis) => { const v = getMethodology(a).comparisonMethod?.resultValue; return v ? <span className="text-[var(--color-brand-blue)]">{formatCurrency(v)}</span> : "—"; } },
                     { label: "↳ par capitalisation", render: (a: AiAnalysis) => { const v = getMethodology(a).incomeMethod?.resultValue; return v ? <span className="text-purple-600">{formatCurrency(v)}</span> : "—"; } },
+                    { label: "Valeur d'Exploitation", render: (a: AiAnalysis) => { const v = getSummaryExtra(a).exploitationValue; return v ? <span className="text-emerald-700 font-medium">{formatCurrency(v)}</span> : "—"; } },
+                    { label: "Valeur de Réalisation", render: (a: AiAnalysis) => {
+                      const s = getSummaryExtra(a);
+                      const v = s.realisationValue;
+                      if (!v) return "—";
+                      const abatt = s.abatementPercent && s.abatementPercent > 0 ? ` (−${s.abatementPercent}%)` : "";
+                      return <span className="text-orange-600 font-medium">{formatCurrency(v)}{abatt}</span>;
+                    }},
                     { label: "Valeur locative", render: (a: AiAnalysis) => a.rentalValue ? formatCurrency(a.rentalValue) : "—" },
                     { label: "Taux capitalisation", render: (a: AiAnalysis) => a.capRate ? `${a.capRate.toFixed(1)}%` : "—" },
                     { label: "Prix/m²", render: (a: AiAnalysis) => a.pricePerSqm ? `${Math.round(a.pricePerSqm)} €` : "—" },
@@ -194,6 +216,39 @@ export function AiAnalysisPanel({
                   </p>
                 </div>
               </div>
+
+              {/* Valeur d'Exploitation + Valeur de Réalisation */}
+              {(() => {
+                const s = getSummaryExtra(analysis);
+                const hasExpl = s.exploitationValue != null;
+                const hasReal = s.realisationValue != null;
+                if (!hasExpl && !hasReal) return null;
+                return (
+                  <div className="rounded-lg border p-3 space-y-2 bg-gradient-to-r from-emerald-50 to-orange-50">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Valeurs expertales</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {hasExpl && (
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-md p-2">
+                          <p className="text-[10px] text-emerald-700 font-semibold">Valeur d&apos;Exploitation</p>
+                          <p className="text-sm font-semibold text-[var(--color-brand-deep)] tabular-nums">{formatCurrency(s.exploitationValue!)}</p>
+                          <p className="text-[10px] text-[#94A3B8]">Lots loués uniquement</p>
+                        </div>
+                      )}
+                      {hasReal && (
+                        <div className="bg-orange-50 border border-orange-100 rounded-md p-2">
+                          <p className="text-[10px] text-orange-600 font-semibold">Valeur de Réalisation</p>
+                          <p className="text-sm font-semibold text-[var(--color-brand-deep)] tabular-nums">{formatCurrency(s.realisationValue!)}</p>
+                          <p className="text-[10px] text-[#94A3B8]">
+                            Tous lots
+                            {s.abatementPercent && s.abatementPercent > 0 ? ` · abatt. ${s.abatementPercent}%` : ""}
+                            {s.renovationCosts && s.renovationCosts > 0 ? ` · réno déduite` : ""}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Décomposition par méthode */}
               {(() => {
