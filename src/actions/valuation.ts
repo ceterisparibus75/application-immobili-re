@@ -128,9 +128,8 @@ export async function runAiAnalysis(
       select: { postalCode: true, city: true, latitude: true, longitude: true },
     });
 
-    // 1. Rechercher automatiquement les comparables DVF si aucun n'existe
-    const existingComparables = await prisma.comparableSale.count({ where: { valuationId } });
-    if (existingComparables === 0 && building) {
+    // 1. Rafraîchir systématiquement les comparables DVF avant chaque analyse
+    if (building) {
       try {
         const transactions = await searchDvfTransactions({
           postalCode: building.postalCode,
@@ -140,6 +139,8 @@ export async function runAiAnalysis(
           radiusKm: 5,
           periodYears: 3,
         });
+        // Supprimer les anciens DVF puis insérer les frais
+        await prisma.comparableSale.deleteMany({ where: { valuationId, source: "DVF" } });
         const toInsert = transactions.slice(0, 50);
         if (toInsert.length > 0) {
           await prisma.comparableSale.createMany({
@@ -161,7 +162,7 @@ export async function runAiAnalysis(
           });
         }
       } catch (error) {
-        console.error("[runAiAnalysis] DVF search failed (non-blocking):", error);
+        console.error("[runAiAnalysis] DVF refresh failed (non-blocking):", error);
       }
     }
 
