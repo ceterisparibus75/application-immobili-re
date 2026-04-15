@@ -11,6 +11,12 @@ import { toast } from "sonner";
 import { SwotChart } from "./swot-chart";
 import { ConfidenceGauge } from "./confidence-gauge";
 
+interface MethodologyData {
+  comparisonMethod?: { applied?: boolean; resultValue?: number | null; pricePerSqm?: number | null; reasoning?: string };
+  incomeMethod?: { applied?: boolean; resultValue?: number | null; capRate?: number | null; reasoning?: string };
+  weightingRationale?: string;
+}
+
 interface AiAnalysis {
   id: string;
   provider: string;
@@ -21,6 +27,7 @@ interface AiAnalysis {
   capRate: number | null;
   confidence: number | null;
   methodology: string | null;
+  structuredResult: unknown;
   strengths: unknown;
   weaknesses: unknown;
   opportunities: unknown;
@@ -28,6 +35,13 @@ interface AiAnalysis {
   durationMs: number | null;
   tokenCount: number | null;
   executedAt: Date;
+}
+
+function getMethodology(a: AiAnalysis): MethodologyData {
+  try {
+    const r = a.structuredResult as Record<string, unknown>;
+    return (r?.methodology as MethodologyData) ?? {};
+  } catch { return {}; }
 }
 
 export function AiAnalysisPanel({
@@ -104,10 +118,12 @@ export function AiAnalysisPanel({
                 </thead>
                 <tbody>
                   {[
-                    { label: "Valeur vénale", render: (a: AiAnalysis) => a.estimatedValue ? formatCurrency(a.estimatedValue) : "—" },
+                    { label: "Valeur retenue", render: (a: AiAnalysis) => a.estimatedValue ? <span className="font-bold text-[var(--color-brand-deep)]">{formatCurrency(a.estimatedValue)}</span> : "—" },
+                    { label: "↳ par comparables", render: (a: AiAnalysis) => { const v = getMethodology(a).comparisonMethod?.resultValue; return v ? <span className="text-[var(--color-brand-blue)]">{formatCurrency(v)}</span> : "—"; } },
+                    { label: "↳ par capitalisation", render: (a: AiAnalysis) => { const v = getMethodology(a).incomeMethod?.resultValue; return v ? <span className="text-purple-600">{formatCurrency(v)}</span> : "—"; } },
                     { label: "Valeur locative", render: (a: AiAnalysis) => a.rentalValue ? formatCurrency(a.rentalValue) : "—" },
+                    { label: "Taux capitalisation", render: (a: AiAnalysis) => a.capRate ? `${a.capRate.toFixed(1)}%` : "—" },
                     { label: "Prix/m²", render: (a: AiAnalysis) => a.pricePerSqm ? `${Math.round(a.pricePerSqm)} €` : "—" },
-                    { label: "Taux cap.", render: (a: AiAnalysis) => a.capRate ? `${a.capRate.toFixed(1)}%` : "—" },
                     { label: "Confiance", render: (a: AiAnalysis) => {
                       if (!a.confidence) return "—";
                       const pct = a.confidence > 1 ? a.confidence : Math.round(a.confidence * 100);
@@ -178,6 +194,42 @@ export function AiAnalysisPanel({
                   </p>
                 </div>
               </div>
+
+              {/* Décomposition par méthode */}
+              {(() => {
+                const m = getMethodology(analysis);
+                const hasComp = m.comparisonMethod?.resultValue != null;
+                const hasIncome = m.incomeMethod?.resultValue != null;
+                if (!hasComp && !hasIncome) return null;
+                return (
+                  <div className="rounded-lg border border-dashed p-3 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Détail des méthodes</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {hasComp && (
+                        <div className="bg-blue-50 rounded-md p-2">
+                          <p className="text-[10px] text-[var(--color-brand-blue)] font-semibold">Comparaison</p>
+                          <p className="text-sm font-semibold text-[var(--color-brand-deep)] tabular-nums">{formatCurrency(m.comparisonMethod!.resultValue!)}</p>
+                          {m.comparisonMethod?.pricePerSqm && (
+                            <p className="text-[10px] text-[#94A3B8]">{Math.round(m.comparisonMethod.pricePerSqm)} €/m²</p>
+                          )}
+                        </div>
+                      )}
+                      {hasIncome && (
+                        <div className="bg-purple-50 rounded-md p-2">
+                          <p className="text-[10px] text-purple-600 font-semibold">Capitalisation</p>
+                          <p className="text-sm font-semibold text-[var(--color-brand-deep)] tabular-nums">{formatCurrency(m.incomeMethod!.resultValue!)}</p>
+                          {m.incomeMethod?.capRate && (
+                            <p className="text-[10px] text-[#94A3B8]">Taux : {m.incomeMethod.capRate.toFixed(1)}%</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {m.weightingRationale && (
+                      <p className="text-[10px] text-[#94A3B8] italic">{m.weightingRationale}</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {analysis.confidence != null && (
                 <ConfidenceGauge value={analysis.confidence} />

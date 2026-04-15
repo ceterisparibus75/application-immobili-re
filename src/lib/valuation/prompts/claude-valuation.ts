@@ -127,34 +127,37 @@ Le raisonnement principal pour la méthode revenus est le suivant :
 
 ## RÈGLE DE COHÉRENCE MATHÉMATIQUE OBLIGATOIRE
 
-### Taux de capitalisation — TOUJOURS BACK-CALCULÉ depuis la valeur finale
+### Règle 1 — Cohérence interne de la méthode par capitalisation
+Le taux de capitalisation (summary.capitalizationRate) est ton estimation experte du marché.
+MAIS il doit être STRICTEMENT cohérent avec la valeur que tu lui associes :
+  methodology.incomeMethod.resultValue = round(rentalValue / (capitalizationRate / 100), 0)
 
-Le champ summary.capitalizationRate DOIT être calculé ainsi :
-  capitalizationRate = round(rentalValue / estimatedValueMid × 100, 2)
+Si tu retiens capitalizationRate = 6,5% et rentalValue = 76 552 €, alors
+incomeMethod.resultValue DOIT être 76 552 / 0,065 = **1 177 723 €** — pas 580 000 €.
 
-C'est le taux **implicite** que reflète la valeur finale retenue. Il doit correspondre à la fourchette
-attendue pour le type de bien et la localisation. Si ce taux back-calculé sort de la fourchette,
-c'est que la valeur estimatedValueMid est incohérente — corrige estimatedValueMid.
+### Règle 2 — Cohérence interne de la méthode par comparaison
+comparisonMethod.resultValue doit refléter directement les comparables DVF fournis
+(prix moyen au m² × surface du bien). Cite le prix retenu par m² et le raisonnement.
 
-**Exemple :** loyer = 76 552 €, valeur = 580 000 € → taux implicite = 76 552 / 580 000 × 100 = 13,2%
-Ce taux est hors fourchette pour du résidentiel → la valeur doit être relevée à ~76 552 / 0,04 ≈ 1 914 000 €
-ou le taux réel du marché local doit être justifié.
+### Règle 3 — Valeur finale = pondération explicite des deux méthodes
+estimatedValueMid = α × comparisonMethod.resultValue + (1-α) × incomeMethod.resultValue
+Précise α (ex: 60% comparaison, 40% capitalisation) dans methodology.weightingRationale.
 
-### Autres contraintes
-- summary.rentalValue / (summary.capitalizationRate / 100) doit être dans [estimatedValueLow, estimatedValueHigh]
-- methodology.incomeMethod.capRate = summary.capitalizationRate
-- Si la surface est connue : pricePerSqm = estimatedValueMid / surface
-  - Si pricePerSqm > 30 000 €/m² habitation ou > 25 000 €/m² bureaux/commerce → pricePerSqm = null + caveat
+### Règle 4 — Prix au m²
+summary.pricePerSqm = estimatedValueMid / surface_totale_du_bien
+Si la surface est inconnue ou si le résultat est aberrant (> 30 000 €/m² habitation) → null + caveat.
+
+### Règle 5 — Le taux de capitalisation doit rester dans la fourchette expertale
+summary.capitalizationRate doit correspondre à la fourchette du type de bien et de la localisation.
+Un taux > 5% pour du résidentiel Paris intramuros est INTERDIT.
 
 ## CHECKLIST DE VALIDATION AVANT RÉPONSE
-
-Réponds OUI/NON mentalement à chaque point, corrige si NON :
-- [ ] Type d'usage identifié correctement (résidentiel/commercial/bureaux) ?
-- [ ] Taux back-calculé = rentalValue / estimatedValueMid × 100 ?
-- [ ] Ce taux est-il dans la fourchette attendue pour ce type/localisation ?
-- [ ] Le taux N'EST PAS supérieur à 5% pour du résidentiel Paris intramuros ?
-- [ ] La surface est-elle cohérente avec les baux fournis ?
-- [ ] pricePerSqm est-il réaliste (pas de valeur aberrante type 60 000 €/m²) ?
+- [ ] Type d'usage identifié (résidentiel/commercial/bureaux) ?
+- [ ] capitalizationRate dans la fourchette attendue ?
+- [ ] incomeMethod.resultValue = rentalValue / (capitalizationRate / 100) ?
+- [ ] comparisonMethod.resultValue basé sur les comparables DVF fournis ?
+- [ ] estimatedValueMid = pondération explicite des deux méthodes ?
+- [ ] pricePerSqm réaliste ou null si aberrant ?
 
 ### 3. Méthode par le coût de remplacement (si pertinent)
 - Estimer la valeur du foncier nu
@@ -198,7 +201,8 @@ Réponds OUI/NON mentalement à chaque point, corrige si NON :
       "depreciationRate": number | null,
       "resultValue": number | null,
       "reasoning": string
-    }
+    },
+    "weightingRationale": string
   },
   "priceReference": {
     "communeAvgPricePerSqm": number,
