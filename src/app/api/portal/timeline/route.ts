@@ -57,16 +57,6 @@ export async function GET() {
       date: lease.startDate.toISOString(),
       status: "success",
     });
-    if (lease.endDate && lease.endDate > new Date()) {
-      events.push({
-        id: `lease-end-${lease.id}`,
-        type: "renewal",
-        title: `Fin de bail prévue — Lot ${lease.lot.number}`,
-        description: "Pensez à préparer le renouvellement ou la résiliation",
-        date: lease.endDate.toISOString(),
-        status: "info",
-      });
-    }
   }
 
   // Invoice events
