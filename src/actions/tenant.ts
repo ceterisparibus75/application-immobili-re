@@ -17,6 +17,7 @@ import { z } from "zod";
 import { hash, compare } from "bcryptjs";
 import { randomInt } from "crypto";
 import { sendPortalActivationEmail } from "@/lib/email";
+import { env } from "@/lib/env";
 
 // ============================================================
 // CALCUL DU SOLDE LOCATAIRE
@@ -223,7 +224,7 @@ export async function createTenant(
       to: tenant.email,
       tenantName,
       activationCode,
-      portalUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      portalUrl: env.AUTH_URL,
     }).catch((err) => console.error("[createTenant] portal email error", err));
 
     return { success: true, data: { id: tenant.id } };
@@ -802,7 +803,7 @@ export async function inviteOrReinviteTenant(
       to: tenant.email,
       tenantName,
       activationCode,
-      portalUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      portalUrl: env.AUTH_URL,
     });
 
     await createAuditLog({
