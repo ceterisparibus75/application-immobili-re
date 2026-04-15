@@ -41,7 +41,7 @@ export async function searchDvfTransactions(
     for (let y = Math.max(startYear, 2020); y <= maxYear; y++) years.push(y);
 
     const results = await Promise.allSettled(
-      years.map((year) => fetchDvfCsv(dept, year, commune.code, centerLat, centerLng))
+      years.map((year) => fetchDvfCsv(dept, year, commune.code, postalCode, centerLat, centerLng))
     );
 
     const allTransactions: DvfTransaction[] = [];
@@ -108,6 +108,7 @@ async function fetchDvfCsv(
   dept: string,
   year: number,
   codeCommune: string,
+  postalCode: string,
   centerLat: number | null,
   centerLng: number | null
 ): Promise<DvfTransaction[]> {
@@ -127,7 +128,7 @@ async function fetchDvfCsv(
     skipEmptyLines: true,
   });
 
-  const codesToMatch = new Set(getCodeCommunes(codeCommune));
+  const codesToMatch = new Set(getCodeCommunes(codeCommune, postalCode));
   return parsed.data
     .filter((row) => codesToMatch.has(row.code_commune ?? "") && row.nature_mutation === "Vente")
     .map((row) => mapCsvRow(row, centerLat, centerLng));
@@ -188,20 +189,31 @@ function mapCsvRow(row: DvfCsvRow, centerLat: number | null, centerLng: number |
 
 /**
  * Paris, Lyon, Marseille ont des arrondissements avec leurs propres codes INSEE dans le DVF.
- * Le code renvoyé par geo.api.gouv.fr est le code ville (ex: 75056) mais le DVF stocke
- * le code arrondissement (ex: 75101–75120). On traduit ici.
+ * Le code renvoyé par geo.api.gouv.fr est le code ville (75056/69123/13055) mais le DVF
+ * stocke le code arrondissement (75101–75120 / 69381–69389 / 13201–13216).
+ * On utilise le code postal de l'immeuble pour cibler le bon arrondissement.
  */
-function getCodeCommunes(codeCommune: string): string[] {
+function getCodeCommunes(codeCommune: string, postalCode?: string): string[] {
   if (codeCommune === "75056") {
-    // Paris : arrondissements 75101–75120
+    // Paris : 75001→75101, 75008→75108, 75020→75120
+    if (postalCode && /^750\d{2}$/.test(postalCode)) {
+      return [`751${postalCode.slice(3)}`];
+    }
     return Array.from({ length: 20 }, (_, i) => `751${String(i + 1).padStart(2, "0")}`);
   }
   if (codeCommune === "69123") {
-    // Lyon : arrondissements 69381–69389
+    // Lyon : 69001→69381, 69002→69382, …, 69009→69389
+    if (postalCode && /^690\d{2}$/.test(postalCode)) {
+      const n = parseInt(postalCode.slice(3), 10);
+      if (n >= 1 && n <= 9) return [String(69380 + n)];
+    }
     return Array.from({ length: 9 }, (_, i) => String(69381 + i));
   }
   if (codeCommune === "13055") {
-    // Marseille : arrondissements 13201–13216
+    // Marseille : 13001→13201, 13016→13216
+    if (postalCode && /^130\d{2}$/.test(postalCode)) {
+      return [`132${postalCode.slice(3)}`];
+    }
     return Array.from({ length: 16 }, (_, i) => `132${String(i + 1).padStart(2, "0")}`);
   }
   return [codeCommune];
