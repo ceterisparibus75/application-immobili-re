@@ -42,6 +42,11 @@ interface Building {
   name: string;
 }
 
+interface Tenant {
+  id: string;
+  label: string;
+}
+
 interface Category {
   id: string;
   name: string;
@@ -87,6 +92,7 @@ interface InvoiceData {
   aiStatus: string | null;
   buildingId: string | null;
   leaseId: string | null;
+  tenantId: string | null;
   categoryId: string | null;
   chargeId: string | null;
   paymentMethod: string | null;
@@ -109,6 +115,7 @@ interface Props {
   buildings: Building[];
   categories: Category[];
   bankAccounts: BankAccount[];
+  tenants: Tenant[];
 }
 
 function toDateInput(iso: string | null): string {
@@ -116,7 +123,7 @@ function toDateInput(iso: string | null): string {
   return iso.substring(0, 10);
 }
 
-export function SupplierInvoiceForm({ invoice, societyId, buildings, categories, bankAccounts }: Props) {
+export function SupplierInvoiceForm({ invoice, societyId, buildings, categories, bankAccounts, tenants }: Props) {
   const router = useRouter();
   const [saving, startSave] = useTransition();
   const [validating, startValidate] = useTransition();
@@ -144,6 +151,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
   const [periodEnd, setPeriodEnd] = useState(toDateInput(invoice.periodEnd));
   const [buildingId, setBuildingId] = useState(invoice.buildingId ?? "");
   const [categoryId, setCategoryId] = useState(invoice.categoryId ?? "");
+  const [tenantId, setTenantId] = useState(invoice.tenantId ?? "");
   const [leaseId] = useState(invoice.leaseId ?? "");
 
   // Reject modal
@@ -180,6 +188,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
         periodEnd: periodEnd || null,
         buildingId: buildingId || null,
         categoryId: categoryId || null,
+        tenantId: tenantId || null,
         leaseId: leaseId || null,
       });
       if (result.success) {
@@ -494,6 +503,19 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
                 disabled={isReadonly}
                 options={buildings.map((b) => ({ value: b.id, label: b.name }))}
                 placeholder="Sélectionner un immeuble"
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="tenantId" className="text-xs">Locataire</Label>
+              <NativeSelect
+                id="tenantId"
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                disabled={isReadonly}
+                options={tenants.map((t) => ({ value: t.id, label: t.label }))}
+                placeholder="Sélectionner un locataire (optionnel)"
                 className="mt-1 h-8 text-sm"
               />
             </div>

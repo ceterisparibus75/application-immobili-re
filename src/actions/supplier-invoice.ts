@@ -180,6 +180,7 @@ export async function getSupplierInvoiceById(
       aiStatus: true,
       buildingId: true,
       leaseId: true,
+      tenantId: true,
       categoryId: true,
       chargeId: true,
       journalEntryId: true,

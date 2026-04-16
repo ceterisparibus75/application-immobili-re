@@ -37,7 +37,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
   const societyId = h.get("x-society-id");
   if (!societyId) redirect("/societes");
 
-  const [invoice, buildings, bankAccounts, categories] = await Promise.all([
+  const [invoice, buildings, bankAccounts, categories, tenants] = await Promise.all([
     getSupplierInvoiceById(societyId, id),
     prisma.building.findMany({
       where: { societyId },
@@ -53,6 +53,11 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
       where: { societyId },
       select: { id: true, name: true, nature: true, buildingId: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.tenant.findMany({
+      where: { societyId, isActive: true },
+      select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
   ]);
 
@@ -96,6 +101,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
     aiStatus: invoice.aiStatus,
     buildingId: invoice.buildingId,
     leaseId: invoice.leaseId,
+    tenantId: invoice.tenantId,
     categoryId: invoice.categoryId,
     chargeId: invoice.chargeId,
     paymentMethod: invoice.paymentMethod,
@@ -195,6 +201,12 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
               bankName: ba.bankName,
               accountName: ba.accountName,
               qontoAccountId: ba.qontoAccountId,
+            }))}
+            tenants={tenants.map((t) => ({
+              id: t.id,
+              label: t.entityType === "PERSONNE_MORALE"
+                ? (t.companyName ?? "")
+                : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim(),
             }))}
           />
         </div>

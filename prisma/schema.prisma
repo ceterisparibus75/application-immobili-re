@@ -1234,6 +1234,7 @@ model Tenant {
   sepaMandates      SepaMandate[]
   contact           Contact?
   tickets           Ticket[]
+  supplierInvoices  SupplierInvoice[]
 
   @@index([societyId])
   @@index([societyId, isActive])
@@ -3788,9 +3789,10 @@ model SupplierInvoice {
   aiRawMetadata Json?     // Réponse brute Claude
   aiStatus      String    @default("pending") // pending | done | error | skipped
 
-  // ── Tagging immeuble / bail / catégorie (renseigné à la validation) ───────
+  // ── Tagging immeuble / bail / locataire / catégorie (renseigné à la validation) ───────
   buildingId String?
   leaseId    String?
+  tenantId   String?
   categoryId String?
 
   // ── Objets créés à la validation ─────────────────────────────────────────
@@ -3822,6 +3824,7 @@ model SupplierInvoice {
   society     Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
   building    Building?       @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   lease       Lease?          @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant      Tenant?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   category    ChargeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   charge      Charge?         @relation("ChargeSupplierInvoice", fields: [chargeId], references: [id], onDelete: SetNull)
   bankAccount BankAccount?    @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
@@ -3831,6 +3834,7 @@ model SupplierInvoice {
   @@index([societyId, createdAt])
   @@index([buildingId])
   @@index([leaseId])
+  @@index([tenantId])
   @@index([supplierName])
   @@index([invoiceDate])
 }
