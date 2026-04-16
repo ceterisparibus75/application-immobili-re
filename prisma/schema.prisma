@@ -1837,9 +1837,10 @@ model AccountingAccount {
   refContrat  String? // Référence emprunt ou contrat lié
   isActive    Boolean      @default(true)
 
-  society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lines       JournalEntryLine[]
-  budgetLines BudgetLine[]
+  society          Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lines            JournalEntryLine[]
+  budgetLines      BudgetLine[]
+  supplierInvoices SupplierInvoice[]  @relation("SupplierInvoiceAccount")
 
   @@unique([societyId, code])
   @@index([societyId])
@@ -3789,11 +3790,12 @@ model SupplierInvoice {
   aiRawMetadata Json?     // Réponse brute Claude
   aiStatus      String    @default("pending") // pending | done | error | skipped
 
-  // ── Tagging immeuble / bail / locataire / catégorie (renseigné à la validation) ───────
-  buildingId String?
-  leaseId    String?
-  tenantId   String?
-  categoryId String?
+  // ── Tagging immeuble / bail / locataire / catégorie / compte comptable ───────
+  buildingId           String?
+  leaseId              String?
+  tenantId             String?
+  categoryId           String?
+  accountingAccountId  String?  // Compte de charge (classe 6) pour l'écriture comptable
 
   // ── Objets créés à la validation ─────────────────────────────────────────
   chargeId       String? @unique // Charge créée automatiquement
@@ -3821,13 +3823,14 @@ model SupplierInvoice {
   validatedBy String?
 
   // ── Relations ─────────────────────────────────────────────────────────────
-  society     Society         @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  building    Building?       @relation(fields: [buildingId], references: [id], onDelete: SetNull)
-  lease       Lease?          @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant      Tenant?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  category    ChargeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  charge      Charge?         @relation("ChargeSupplierInvoice", fields: [chargeId], references: [id], onDelete: SetNull)
-  bankAccount BankAccount?    @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  society            Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building           Building?          @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  lease              Lease?             @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant             Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  category           ChargeCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  accountingAccount  AccountingAccount? @relation("SupplierInvoiceAccount", fields: [accountingAccountId], references: [id], onDelete: SetNull)
+  charge             Charge?            @relation("ChargeSupplierInvoice", fields: [chargeId], references: [id], onDelete: SetNull)
+  bankAccount        BankAccount?       @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
   @@index([societyId])
   @@index([societyId, status])
@@ -3835,6 +3838,7 @@ model SupplierInvoice {
   @@index([buildingId])
   @@index([leaseId])
   @@index([tenantId])
+  @@index([accountingAccountId])
   @@index([supplierName])
   @@index([invoiceDate])
 }

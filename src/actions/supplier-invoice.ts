@@ -182,6 +182,7 @@ export async function getSupplierInvoiceById(
       leaseId: true,
       tenantId: true,
       categoryId: true,
+      accountingAccountId: true,
       chargeId: true,
       journalEntryId: true,
       paymentMethod: true,
@@ -297,7 +298,7 @@ export async function updateSupplierInvoiceData(
 export async function validateSupplierInvoice(
   societyId: string,
   invoiceId: string
-): Promise<ActionResult<{ chargeId: string; journalEntryId: string | null }>> {
+): Promise<ActionResult<{ chargeId: string | null; journalEntryId: string | null }>> {
   try {
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
@@ -322,35 +323,42 @@ export async function validateSupplierInvoice(
 
     // Vérification des champs obligatoires
     if (!invoice.buildingId) return { success: false, error: "Veuillez associer un immeuble avant de valider" };
-    if (!invoice.categoryId) return { success: false, error: "Veuillez sélectionner une catégorie avant de valider" };
+    if (!invoice.accountingAccountId && !invoice.categoryId) {
+      return { success: false, error: "Veuillez sélectionner un compte comptable (ou une catégorie) avant de valider" };
+    }
     if (invoice.amountTTC == null) return { success: false, error: "Le montant TTC est requis" };
     if (!invoice.supplierName) return { success: false, error: "Le nom du fournisseur est requis" };
     if (!invoice.invoiceDate) return { success: false, error: "La date de facture est requise" };
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Créer la Charge
-      const charge = await tx.charge.create({
-        data: {
-          societyId,
-          buildingId: invoice.buildingId!,
-          categoryId: invoice.categoryId!,
-          description: `Facture ${invoice.supplierName}${invoice.invoiceNumber ? " n°" + invoice.invoiceNumber : ""}`,
-          amount: invoice.amountTTC!,
-          date: new Date(invoice.invoiceDate!),
-          periodStart: invoice.periodStart ?? new Date(invoice.invoiceDate!),
-          periodEnd: invoice.periodEnd ?? new Date(invoice.invoiceDate!),
-          supplierName: invoice.supplierName,
-          invoiceUrl: invoice.fileUrl,
-          isPaid: false,
-        },
-      });
+      // 1. Créer la Charge (si une catégorie est renseignée)
+      let charge: { id: string } | null = null;
+      if (invoice.categoryId) {
+        charge = await tx.charge.create({
+          data: {
+            societyId,
+            buildingId: invoice.buildingId!,
+            categoryId: invoice.categoryId,
+            description: `Facture ${invoice.supplierName}${invoice.invoiceNumber ? " n°" + invoice.invoiceNumber : ""}`,
+            amount: invoice.amountTTC!,
+            date: new Date(invoice.invoiceDate!),
+            periodStart: invoice.periodStart ?? new Date(invoice.invoiceDate!),
+            periodEnd: invoice.periodEnd ?? new Date(invoice.invoiceDate!),
+            supplierName: invoice.supplierName,
+            invoiceUrl: invoice.fileUrl,
+            isPaid: false,
+          },
+        });
+      }
 
-      // 2. Chercher les comptes comptables (best effort)
-      const [compte60, compte401] = await Promise.all([
-        tx.accountingAccount.findFirst({
-          where: { societyId, code: { startsWith: "60" }, isActive: true },
-          orderBy: { code: "asc" },
-        }),
+      // 2. Résoudre le compte de charge : compte sélectionné en priorité, sinon premier 60x
+      const [compteCharge, compte401] = await Promise.all([
+        invoice.accountingAccountId
+          ? tx.accountingAccount.findUnique({ where: { id: invoice.accountingAccountId } })
+          : tx.accountingAccount.findFirst({
+              where: { societyId, code: { startsWith: "60" }, isActive: true },
+              orderBy: { code: "asc" },
+            }),
         tx.accountingAccount.findFirst({
           where: { societyId, code: { startsWith: "401" }, isActive: true },
           orderBy: { code: "asc" },
@@ -360,7 +368,7 @@ export async function validateSupplierInvoice(
       // 3. Créer l'écriture comptable AC si les comptes existent
       let journalEntryId: string | null = null;
 
-      if (compte60 && compte401) {
+      if (compteCharge && compte401) {
         const lines: Array<{
           accountId: string;
           debit: number;
@@ -368,7 +376,7 @@ export async function validateSupplierInvoice(
           label: string;
         }> = [
           {
-            accountId: compte60.id,
+            accountId: compteCharge.id,
             debit: invoice.amountHT ?? invoice.amountTTC!,
             credit: 0,
             label: invoice.description ?? invoice.supplierName!,
@@ -415,14 +423,14 @@ export async function validateSupplierInvoice(
         where: { id: invoiceId },
         data: {
           status: "VALIDATED",
-          chargeId: charge.id,
+          chargeId: charge?.id ?? null,
           journalEntryId,
           validatedAt: new Date(),
           validatedBy: session.user.id,
         },
       });
 
-      return { chargeId: charge.id, journalEntryId };
+      return { chargeId: charge?.id ?? null, journalEntryId };
     });
 
     await createAuditLog({

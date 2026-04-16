@@ -37,7 +37,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
   const societyId = h.get("x-society-id");
   if (!societyId) redirect("/societes");
 
-  const [invoice, buildings, bankAccounts, categories, tenants] = await Promise.all([
+  const [invoice, buildings, bankAccounts, categories, tenants, accountingAccounts] = await Promise.all([
     getSupplierInvoiceById(societyId, id),
     prisma.building.findMany({
       where: { societyId },
@@ -58,6 +58,11 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
       where: { societyId, isActive: true },
       select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    prisma.accountingAccount.findMany({
+      where: { societyId, isActive: true, type: "6" },
+      select: { id: true, code: true, label: true },
+      orderBy: { code: "asc" },
     }),
   ]);
 
@@ -103,6 +108,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
     leaseId: invoice.leaseId,
     tenantId: invoice.tenantId,
     categoryId: invoice.categoryId,
+    accountingAccountId: invoice.accountingAccountId,
     chargeId: invoice.chargeId,
     paymentMethod: invoice.paymentMethod,
     paymentStatus: invoice.paymentStatus,
@@ -210,6 +216,11 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
               label: t.entityType === "PERSONNE_MORALE"
                 ? (t.companyName ?? "")
                 : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim(),
+            }))}
+            accountingAccounts={accountingAccounts.map((a) => ({
+              id: a.id,
+              code: a.code,
+              label: a.label,
             }))}
           />
         </div>

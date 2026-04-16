@@ -43,6 +43,7 @@ export const updateSupplierInvoiceDataSchema = z.object({
   leaseId: z.string().cuid().optional().nullable(),
   tenantId: z.string().cuid().optional().nullable(),
   categoryId: z.string().cuid().optional().nullable(),
+  accountingAccountId: z.string().cuid().optional().nullable(),
 });
 export type UpdateSupplierInvoiceDataInput = z.infer<typeof updateSupplierInvoiceDataSchema>;
 

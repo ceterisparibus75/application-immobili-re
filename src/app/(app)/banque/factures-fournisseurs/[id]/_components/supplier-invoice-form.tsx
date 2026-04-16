@@ -47,6 +47,12 @@ interface Tenant {
   label: string;
 }
 
+interface AccountingAccount {
+  id: string;
+  code: string;
+  label: string;
+}
+
 interface Category {
   id: string;
   name: string;
@@ -94,6 +100,7 @@ interface InvoiceData {
   leaseId: string | null;
   tenantId: string | null;
   categoryId: string | null;
+  accountingAccountId: string | null;
   chargeId: string | null;
   paymentMethod: string | null;
   paymentStatus: string | null;
@@ -116,6 +123,7 @@ interface Props {
   categories: Category[];
   bankAccounts: BankAccount[];
   tenants: Tenant[];
+  accountingAccounts: AccountingAccount[];
 }
 
 function toDateInput(iso: string | null): string {
@@ -123,7 +131,7 @@ function toDateInput(iso: string | null): string {
   return iso.substring(0, 10);
 }
 
-export function SupplierInvoiceForm({ invoice, societyId, buildings, categories, bankAccounts, tenants }: Props) {
+export function SupplierInvoiceForm({ invoice, societyId, buildings, categories, bankAccounts, tenants, accountingAccounts }: Props) {
   const router = useRouter();
   const [saving, startSave] = useTransition();
   const [validating, startValidate] = useTransition();
@@ -152,6 +160,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
   const [buildingId, setBuildingId] = useState(invoice.buildingId ?? "");
   const [categoryId, setCategoryId] = useState(invoice.categoryId ?? "");
   const [tenantId, setTenantId] = useState(invoice.tenantId ?? "");
+  const [accountingAccountId, setAccountingAccountId] = useState(invoice.accountingAccountId ?? "");
   const [leaseId] = useState(invoice.leaseId ?? "");
 
   // Reject modal
@@ -187,6 +196,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
         buildingId: buildingId || null,
         categoryId: categoryId || null,
         tenantId: tenantId || null,
+        accountingAccountId: accountingAccountId || null,
         leaseId: leaseId || null,
       });
       if (result.success) {
@@ -519,17 +529,38 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
             </div>
 
             <div>
-              <Label htmlFor="categoryId" className="text-xs">Catégorie *</Label>
+              <Label htmlFor="accountingAccountId" className="text-xs">Compte comptable *</Label>
+              <NativeSelect
+                id="accountingAccountId"
+                value={accountingAccountId}
+                onChange={(e) => setAccountingAccountId(e.target.value)}
+                disabled={isReadonly}
+                options={accountingAccounts.map((a) => ({
+                  value: a.id,
+                  label: `${a.code} — ${a.label}`,
+                }))}
+                placeholder="Sélectionner un compte (classe 6)"
+                className="mt-1 h-8 text-sm"
+              />
+              {accountingAccounts.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Aucun compte de classe 6 — créez-les dans Comptabilité → Comptes
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="categoryId" className="text-xs">Catégorie (optionnel)</Label>
               <NativeSelect
                 id="categoryId"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                disabled={isReadonly || !buildingId}
+                disabled={isReadonly}
                 options={filteredCategories.map((c) => ({
                   value: c.id,
                   label: `${c.name} (${c.nature})`,
                 }))}
-                placeholder={buildingId ? "Sélectionner une catégorie" : "Choisissez d'abord un immeuble"}
+                placeholder="Sélectionner une catégorie"
                 className="mt-1 h-8 text-sm"
               />
             </div>
