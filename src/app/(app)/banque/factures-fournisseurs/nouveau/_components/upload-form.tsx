@@ -82,19 +82,21 @@ export function UploadForm({ societyId }: Props) {
           throw new Error(msg);
         }
 
-        const { signedUrl, storagePath } = await signedRes.json();
+        const { token, storagePath, bucket, supabaseUrl, anonKey } = await signedRes.json();
         const fileUrl = storagePath;
         setUploadProgress(30);
 
-        // 2. Uploader le fichier vers Supabase
-        const uploadRes = await fetch(signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": selectedFile.type || "application/pdf" },
-          body: selectedFile,
-        });
+        // 2. Uploader via le client Supabase (évite les problèmes CORS)
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(supabaseUrl, anonKey);
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .uploadToSignedUrl(storagePath, token, selectedFile, {
+            contentType: selectedFile.type || "application/pdf",
+          });
 
-        if (!uploadRes.ok) {
-          throw new Error("Échec de l'upload du fichier");
+        if (uploadError) {
+          throw new Error(`Échec de l'upload : ${uploadError.message}`);
         }
         setUploadProgress(70);
 

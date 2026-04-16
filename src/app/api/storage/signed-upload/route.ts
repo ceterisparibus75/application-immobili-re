@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       bucket,
       contentType: contentType ?? null,
       anonKey,
+      supabaseUrl,
     });
   } catch (error) {
     console.error("[signed-upload]", error);
