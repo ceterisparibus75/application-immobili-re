@@ -32,8 +32,16 @@ export async function createUser(
       return { success: false, error: "Non authentifié" };
     }
 
-    // Only SUPER_ADMIN can create new users
-    await requireSuperAdmin(session.user.id);
+    // SUPER_ADMIN ou ADMIN_SOCIETE d'au moins une société peuvent créer des utilisateurs
+    const isAllowed = await prisma.userSociety.findFirst({
+      where: {
+        userId: session.user.id,
+        role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+      },
+    });
+    if (!isAllowed) {
+      return { success: false, error: "Droits insuffisants pour créer un utilisateur" };
+    }
 
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
