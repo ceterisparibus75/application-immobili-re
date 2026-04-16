@@ -164,10 +164,8 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
   const [payBankAccountId, setPayBankAccountId] = useState(invoice.bankAccountId ?? "");
   const [payReference, setPayReference] = useState("");
 
-  // Filtered categories by building
-  const filteredCategories = buildingId
-    ? categories.filter((c) => !c.buildingId || c.buildingId === buildingId)
-    : categories;
+  // Pour les factures fournisseurs, toutes les catégories de la société sont disponibles
+  const filteredCategories = categories;
 
   function handleSave() {
     startSave(async () => {
