@@ -93,11 +93,13 @@ export function UploadForm({ societyId }: Props) {
           throw new Error(result.error ?? "Erreur lors de la création de la facture");
         }
 
-        setUploadProgress(100);
-        toast.success("Facture uploadée avec succès — analyse IA en cours…");
+        setUploadProgress(80);
 
-        // 4. Déclencher l'analyse IA en arrière-plan (fire-and-forget)
-        fetch(`/api/supplier-invoices/${result.data!.id}/analyze`, { method: "POST" }).catch(() => {});
+        // 4. Analyse IA (on attend la fin pour que le formulaire soit pré-rempli)
+        await fetch(`/api/supplier-invoices/${result.data!.id}/analyze`, { method: "POST" }).catch(() => {});
+
+        setUploadProgress(100);
+        toast.success("Facture analysée avec succès !");
 
         // 5. Rediriger vers le détail
         router.push(`/banque/factures-fournisseurs/${result.data!.id}`);
@@ -190,7 +192,7 @@ export function UploadForm({ societyId }: Props) {
       {uploading && uploadProgress > 0 && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Upload en cours…</span>
+            <span>{uploadProgress >= 80 ? "Analyse IA en cours…" : "Upload en cours…"}</span>
             <span>{uploadProgress} %</span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -234,7 +236,11 @@ export function UploadForm({ societyId }: Props) {
         ) : (
           <Upload className="h-5 w-5" />
         )}
-        {uploading ? "Upload en cours…" : "Uploader la facture"}
+        {uploading
+          ? uploadProgress >= 80
+            ? "Analyse IA en cours…"
+            : "Upload en cours…"
+          : "Uploader la facture"}
       </Button>
     </div>
   );
