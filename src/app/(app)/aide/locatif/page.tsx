@@ -22,6 +22,12 @@ export default function LocatifPage() {
         <p>
           Le tableau récapitulatif présente pour chaque bail : le nom du locataire, le loyer mensuel HT, la fréquence de paiement, le type de bail et son statut. Le total des loyers mensuels est calculé en bas du tableau.
         </p>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous avez 5 baux actifs totalisant 4 250 &euro;/mois de loyers : un bail habitation (950 &euro;), un meublé (780 &euro;), un commercial 3/6/9 (1 500 &euro;), un professionnel (620 &euro;) et un bail mixte (400 &euro;). Le tableau affiche chaque bail avec un badge de couleur pour le type et le statut.
+          </p>
+        </div>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Types de baux disponibles :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -119,8 +125,14 @@ export default function LocatifPage() {
         <HelpStep number={2} title="Validez ou rejetez">
           <p>Pour chaque révision, vous pouvez <strong>Valider</strong> (le loyer est mis à jour automatiquement) ou <strong>Rejeter</strong> (le loyer reste inchangé). Un historique complet est conservé.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret — Calcul d'une révision IRL :</p>
+          <p className="text-sm">
+            Bail habitation, loyer de base 850 &euro;, indexé IRL T2. IRL T2 2025 = 142,25 (ancien indice), IRL T2 2026 = 144,60 (nouvel indice). Nouveau loyer = 850 &times; (144,60 / 142,25) = <strong>864,05 &euro;</strong> (+1,65%). L'application affiche cette révision dans la page Révisions. Vous validez d'un clic, et le nouveau loyer s'applique sur la prochaine facture.
+          </p>
+        </div>
         <InfoBox type="tip">
-          Les indices sont mis à jour automatiquement le 1er de chaque mois via un processus planifié. Vous pouvez consulter les derniers indices dans le module Indices.
+          Les indices sont mis à jour automatiquement le 1er de chaque mois via l'API INSEE. Consultez-les dans le module <strong>Indices</strong>. Si vous avez oublié une révision, utilisez le bouton &laquo; Rattraper &raquo; pour recalculer les années manquées.
         </InfoBox>
       </HelpSection>
 

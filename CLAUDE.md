@@ -12,17 +12,27 @@ Utiliser **systématiquement** le MCP context7 pour toute recherche de documenta
 ## Commandes
 
 ```bash
+# Installation (--legacy-peer-deps requis, configuré dans .npmrc)
+npm ci                     # Install deps (CI)
+npm install                # Install deps (dev)
+
 # Développement
 npm run dev                # Serveur dev (Turbopack)
-npm run build              # Build production
+npm run build              # Build production (inclut prisma generate)
 npm run start              # Serveur production
 npm run lint               # ESLint
+npx tsc --noEmit           # Type-check sans build
 
-# Tests (Vitest)
+# Tests unitaires (Vitest)
 npm test                   # Lancer tous les tests
 npm test -- src/actions/invoice.test.ts  # Lancer un seul fichier de test
 npm run test:watch         # Mode watch
 npm run test:coverage      # Avec rapport de couverture
+
+# Tests E2E (Playwright)
+npm run test:e2e           # Lancer les tests E2E (build + start automatiques)
+npm run test:e2e:ui        # Mode UI Playwright
+# Tests dans e2e/, uniquement Chromium, base URL http://localhost:3000
 
 # Base de données
 npm run db:generate        # Régénérer le client Prisma après modif du schéma
@@ -32,7 +42,9 @@ npm run db:seed            # Seeder la base (tsx prisma/seed.ts)
 npm run db:studio          # Ouvrir Prisma Studio
 ```
 
-**Note :** Le client Prisma est généré dans `src/generated/prisma/client` (pas le chemin par défaut). Toujours lancer `npm run db:generate` après modification du schéma.
+**Node.js :** Version 20 (utilisée en CI).
+
+**Prisma :** Le client est généré dans `src/generated/prisma/client` (pas le chemin par défaut). Toujours lancer `npm run db:generate` après modification du schéma.
 
 ## Architecture
 
@@ -385,6 +397,34 @@ Configuré dans `sentry.*.config.ts` et `instrumentation.ts`. Actif uniquement e
 ## Tests (Vitest)
 
 Configuration dans `vitest.config.ts`. Setup file : `src/test/setup.ts`. Couverture sur `src/lib/**`, `src/actions/**`, `src/validations/**`.
+
+### Infrastructure de test
+
+Le setup global (`src/test/setup.ts`) mock automatiquement :
+- `@/lib/auth` → `auth()` retourne `null` (non authentifié par défaut)
+- `@/lib/prisma` → `prismaMock` (deep mock via `vitest-mock-extended`)
+- `@/lib/prisma-tenant` → `createTenantPrisma()` retourne `prismaMock`
+- `@/lib/plan-limits` → toutes les vérifications passent par défaut
+
+**Helpers** (`src/test/helpers.ts`) :
+- `mockAuthSession(role?, societyId?)` — simule un utilisateur authentifié avec rôle et membership
+- `mockUnauthenticated()` — reset l'auth à `null`
+
+**Factories** (`src/test/factories.ts`) :
+- `buildUser(overrides?)`, `buildSociety(overrides?)`, `buildMembership(role?, overrides?)`
+- `buildTenantPhysique(overrides?)`, `buildInvoice(overrides?)`
+
+**Mock Prisma** (`src/test/mocks/prisma.ts`) :
+- `prismaMock` — deep mock de `PrismaClient`, reset avant chaque test via `beforeEach`
+
+## CI (GitHub Actions)
+
+Pipeline `.github/workflows/ci.yml` sur push/PR vers `main` :
+
+1. **Lint & Type Check** : `npm run lint` + `npx tsc --noEmit`
+2. **Unit Tests** : `npm run test:coverage` (upload artifact `coverage-report`)
+3. **E2E Tests** : `npx playwright test` (upload artifact `playwright-report`)
+4. **Build** : `npm run build` (après quality + tests)
 
 ## Tailwind CSS v4
 

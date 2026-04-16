@@ -105,6 +105,12 @@ export default function UtilisateursPage() {
         <p className="text-xs text-muted-foreground/70 mt-2">
           L = Lecture, E = Écriture, S = Suppression. Exemple : &laquo; LE &raquo; signifie Lecture + Écriture.
         </p>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Votre comptable externe, Sophie Martin, a le rôle Comptable. Elle peut consulter tous les modules (Lecture) mais ne peut créer ou modifier que dans Facturation, Comptabilité, Banque et Relances (Écriture). Si vous souhaitez qu'elle puisse aussi gérer les charges, personnalisez ses permissions module par module depuis sa fiche utilisateur.
+          </p>
+        </div>
         <InfoBox type="info">
           Un administrateur peut personnaliser les droits module par module pour chaque utilisateur. Par exemple, donner l'accès écriture en facturation à un utilisateur en lecture seule.
         </InfoBox>

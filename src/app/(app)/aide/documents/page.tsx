@@ -47,8 +47,14 @@ export default function DocumentsPage() {
         <HelpStep number={3} title="Renseignez les métadonnées">
           <p>Donnez un nom au document, sélectionnez la catégorie et, si applicable, la date d'expiration. Les documents avec date d'expiration déclenchent des alertes automatiques.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous recevez le DPE de l'immeuble &laquo; Résidence les Acacias &raquo; au format PDF. Depuis la fiche immeuble &gt; Documents, cliquez sur Ajouter, uploadez le fichier &laquo; DPE_Acacias_2026.pdf &raquo;, catégorie &laquo; Diagnostic &raquo;, date d'expiration 15/04/2036. Le document est stocké, un badge vert &laquo; Valide &raquo; s'affiche. Dans 9 ans et 9 mois, un badge orange &laquo; Expire bientôt &raquo; vous alertera.
+          </p>
+        </div>
         <InfoBox type="tip">
-          Les documents sont uploadés via des URLs signées (upload direct vers le stockage), ce qui garantit que le fichier ne transite jamais par nos serveurs applicatifs.
+          Les documents sont uploadés via des URLs signées (upload direct vers le stockage sécurisé), ce qui garantit que le fichier ne transite jamais par nos serveurs applicatifs.
         </InfoBox>
       </HelpSection>
 

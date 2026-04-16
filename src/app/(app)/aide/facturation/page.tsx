@@ -37,8 +37,14 @@ export default function FacturationPage() {
         <HelpStep number={3} title="Envoyez par email">
           <p>Envoyez la facture au locataire en un clic. Un PDF est généré automatiquement avec votre logo, les coordonnées bancaires et le détail des lignes.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Le 1er avril à 7h, {APP_NAME} crée un brouillon &laquo; FAC-2026-0042 &raquo; pour le bail de Jean Dupont : loyer 950 &euro; + charges 80 &euro; = 1 030 &euro; TTC. Vous le vérifiez dans Brouillons, cliquez sur Valider, puis sur Envoyer par email. Jean reçoit un PDF professionnel avec votre logo, l'IBAN pour le virement et le QR code de paiement.
+          </p>
+        </div>
         <InfoBox type="tip">
-          Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer des appels</strong>. Cela crée des brouillons pour les baux sélectionnés.
+          Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer des appels</strong>. Cela crée des brouillons pour les baux sélectionnés. Utile si vous devez facturer une période spécifique.
         </InfoBox>
       </HelpSection>
 

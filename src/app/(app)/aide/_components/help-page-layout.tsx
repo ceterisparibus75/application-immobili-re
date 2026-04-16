@@ -18,6 +18,11 @@ const ALL_GUIDES: NavItem[] = [
   { slug: "documents", title: "Documents, Dataroom et signatures" },
   { slug: "dashboard", title: "Tableau de bord et rapports" },
   { slug: "securite", title: "Sécurité et confidentialité" },
+  { slug: "candidatures", title: "Candidatures locataires" },
+  { slug: "saisonnier", title: "Location saisonnière" },
+  { slug: "copropriete", title: "Copropriété" },
+  { slug: "courriers-relances", title: "Courriers et relances" },
+  { slug: "automatisation", title: "Automatisation et IA" },
 ];
 
 type Props = {

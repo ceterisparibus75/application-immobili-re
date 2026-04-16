@@ -58,6 +58,12 @@ export default function ProprietairePage() {
         <p>
           Sous les KPI, un tableau compare les performances de chaque société : revenus mensuels, trésorerie, taux d'occupation. Cela permet d'identifier rapidement les sociétés qui performent et celles qui nécessitent une attention particulière.
         </p>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Le propriétaire Jean Dupont détient 2 sociétés. Le tableau de bord consolidé affiche : revenus mensuels 8 500 &euro; (SCI Soleil : 5 200 &euro;, SARL Horizon : 3 300 &euro;), taux d'occupation global 88% (SCI : 92%, SARL : 83%), impayés totaux 1 030 &euro;, trésorerie 24 800 &euro;. D'un coup d'œil, il voit que la SARL Horizon sous-performe et a un lot vacant à pourvoir.
+          </p>
+        </div>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Graphiques interactifs :</p>
         <ul className="list-disc pl-5 space-y-1">
