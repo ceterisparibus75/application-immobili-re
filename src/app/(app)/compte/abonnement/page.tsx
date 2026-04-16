@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
-import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription } from "@/actions/subscription";
+import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck } from "lucide-react";
@@ -91,12 +92,37 @@ export default function AbonnementPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
     if (!activeSociety?.id) return;
-    loadSubscription();
+    const isSuccess = searchParams.get("success") === "true";
+    if (isSuccess) {
+      // Synchroniser automatiquement depuis Stripe après retour du checkout
+      syncAfterCheckout();
+    } else {
+      loadSubscription();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSociety?.id]);
+
+  async function syncAfterCheckout() {
+    if (!activeSociety?.id) return;
+    setLoading(true);
+    // Stripe webhook peut être légèrement en retard — on tente la sync directe
+    const syncResult = await forceSyncSubscription(activeSociety.id);
+    if (syncResult.success) {
+      toast.success("Abonnement activé avec succès !");
+    }
+    const result = await getSubscription(activeSociety.id);
+    if (result.success && result.data) {
+      setSubscription(result.data);
+    }
+    setLoading(false);
+    // Nettoyer l'URL
+    router.replace("/compte/abonnement");
+  }
 
   async function loadSubscription() {
     if (!activeSociety?.id) return;
@@ -146,7 +172,7 @@ export default function AbonnementPage() {
     setActionLoading(false);
   }
 
-  if (loading) {
+if (loading) {
     return <div className="animate-pulse space-y-4"><div className="h-32 bg-muted rounded-lg" /><div className="h-48 bg-muted rounded-lg" /></div>;
   }
 
@@ -252,7 +278,7 @@ export default function AbonnementPage() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2 flex-wrap">
             {subscription?.hasStripeCustomer && (
               <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={actionLoading}>
                 <CreditCard className="h-4 w-4 mr-2" />

@@ -204,6 +204,57 @@ export async function createCheckout(
   }
 }
 
+// ─── Forcer la synchronisation depuis Stripe ──────────────────────────────
+
+export async function forceSyncSubscription(
+  societyId: string
+): Promise<ActionResult<{ status: string; planId: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const subscription = await prisma.subscription.findUnique({ where: { societyId } });
+    if (!subscription) return { success: false, error: "Aucun abonnement trouvé" };
+    if (!subscription.stripeSubscriptionId) {
+      return { success: false, error: "Pas d'abonnement Stripe à synchroniser" };
+    }
+
+    const stripeSub = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
+    const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+    const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null) ?? subscription.planId;
+    const statusMap: Record<string, string> = {
+      trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+      canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+      incomplete_expired: "CANCELED", paused: "CANCELED",
+    };
+    const newStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+    const item = stripeSub.items?.data?.[0];
+    const rawItem = item as unknown as Record<string, unknown>;
+    const periodEnd = typeof rawItem?.current_period_end === "number"
+      ? new Date(rawItem.current_period_end * 1000) : null;
+
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        planId: resolvedPlanId as "STARTER" | "PRO" | "ENTERPRISE",
+        status: newStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+        stripePriceId: priceId,
+        stripeCustomerId: typeof stripeSub.customer === "string" ? stripeSub.customer : subscription.stripeCustomerId,
+        currentPeriodEnd: periodEnd,
+        trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null,
+        cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+        ...(stripeSub.trial_end ? { trialUsed: true } : {}),
+      },
+    });
+
+    return { success: true, data: { status: newStatus, planId: resolvedPlanId } };
+  } catch (error) {
+    console.error("[forceSyncSubscription]", error);
+    return { success: false, error: "Erreur lors de la synchronisation Stripe" };
+  }
+}
+
 // ─── Ouvrir le portail client Stripe ───────────────────────────────────────
 
 export async function openBillingPortal(
