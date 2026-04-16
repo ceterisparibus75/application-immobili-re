@@ -5,6 +5,7 @@ import { verifyTOTP, decryptRecoveryCodes } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/actions/society";
 import { createAuditLog } from "@/lib/audit";
+import { timingSafeEqual } from "crypto";
 
 export async function completeTwoFactorLogin(code: string): Promise<ActionResult<{ redirectTo: string }>> {
   try {
@@ -27,9 +28,17 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
     const isValidTOTP = verifyTOTP(user.twoFactorSecret, code.replace(/\s/g, ""));
 
     if (!isValidTOTP) {
-      // Verifier si c'est un code de recuperation
+      // Verify recovery code using constant-time comparison to prevent timing attacks
       const decryptedCodes = decryptRecoveryCodes(user.twoFactorRecoveryCodes);
-      const codeIndex = decryptedCodes.findIndex((c) => c === code.trim().toUpperCase());
+      const inputCode = code.trim().toUpperCase();
+      const codeIndex = decryptedCodes.findIndex((c) => {
+        if (c.length !== inputCode.length) return false;
+        try {
+          return timingSafeEqual(Buffer.from(c), Buffer.from(inputCode));
+        } catch {
+          return false;
+        }
+      });
 
       if (codeIndex === -1) {
         return { success: false, error: "Code invalide ou expire" };

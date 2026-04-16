@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     // URL signée 365 jours pour la consultation
     let fileUrl = storagePath;
-    const { data: urlData } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 365 * 24 * 3600);
+    const { data: urlData } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 24 * 3600); // 24h
     if (urlData?.signedUrl) fileUrl = urlData.signedUrl;
 
     const doc = await prisma.document.create({

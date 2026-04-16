@@ -6,12 +6,15 @@ export async function GET() {
   try {
     const session = await requirePortalAuth();
 
-    // Trouver TOUS les locataires avec cet email (multi-société)
-    const tenants = await prisma.tenant.findMany({
-      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+    // Use the specific tenantId from the JWT session — never search across all societies
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
       select: { id: true },
     });
-    const tenantIds = tenants.map((t) => t.id);
+    if (!tenant) {
+      return NextResponse.json({ error: "Locataire introuvable" }, { status: 404 });
+    }
+    const tenantIds = [tenant.id];
 
     // Baux avec PDF
     const leases = await prisma.lease.findMany({

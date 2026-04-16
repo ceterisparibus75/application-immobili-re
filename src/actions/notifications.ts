@@ -6,8 +6,55 @@ import { revalidatePath } from "next/cache";
 import type { NotificationType } from "@/generated/prisma/client";
 
 // ── Créer une notification (interne / depuis webhook) ──────
+// This function requires authentication and verifies the caller
+// has access to the target society before creating a notification.
 
 export async function createNotification(input: {
+  userId: string;
+  societyId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Non authentifié");
+  }
+
+  // Verify the caller has access to the target society
+  const membership = await prisma.userSociety.findFirst({
+    where: { userId: session.user.id, societyId: input.societyId },
+  });
+  if (!membership) {
+    throw new Error("Accès non autorisé à cette société");
+  }
+
+  // Verify the target user also belongs to this society
+  const targetMembership = await prisma.userSociety.findFirst({
+    where: { userId: input.userId, societyId: input.societyId },
+  });
+  if (!targetMembership) {
+    throw new Error("Utilisateur cible non membre de cette société");
+  }
+
+  return prisma.notification.create({
+    data: {
+      userId: input.userId,
+      societyId: input.societyId,
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      link: input.link,
+    },
+  });
+}
+
+/**
+ * Internal-only notification creation (for server-side use by cron jobs, webhooks, etc.)
+ * This should NEVER be exported as a Server Action or called from client code.
+ */
+export async function createInternalNotification(input: {
   userId: string;
   societyId: string;
   type: NotificationType;

@@ -71,7 +71,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     console.log("[pdf] logoUrl brut:", soc?.logoUrl, "| supabase configuré:", !!supabase, "| bucket:", bucket);
     if (soc?.logoUrl) {
-      const cleanPath = soc.logoUrl.replace(/\.\.\//g, "").replace(/^\//, "");
+      // Sanitize path: decode URL-encoded chars, normalize, and strip traversals
+      let decoded = soc.logoUrl;
+      try { decoded = decodeURIComponent(decoded); decoded = decodeURIComponent(decoded); } catch { /* ignore */ }
+      const cleanPath = decoded.replace(/\0/g, "").replace(/\.\.\//g, "").replace(/\.\.\\/g, "").replace(/^\//, "");
       console.log("[pdf] cleanPath logo:", cleanPath);
       try {
         // Résoudre le chemin de stockage : chemin relatif ou URL Supabase complète

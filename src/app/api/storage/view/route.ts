@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { requireSocietyAccess } from "@/lib/permissions";
+import { cookies } from "next/headers";
+import * as nodePath from "path";
+
+/**
+ * Sanitize a storage path to prevent path traversal attacks.
+ * Decodes URL-encoded characters, resolves traversals, and validates the result.
+ */
+function sanitizePath(raw: string): string | null {
+  // Decode any URL-encoded sequences (handles %2f, %2e, double-encoding, etc.)
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(decoded);
+    // Double-decode to catch %252f → %2f → /
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // If decoding fails, use the raw value
+  }
+
+  // Remove null bytes
+  decoded = decoded.replace(/\0/g, "");
+
+  // Resolve to prevent directory traversal
+  const resolved = nodePath.posix.normalize(decoded).replace(/^\/+/, "");
+
+  // Reject if still contains traversal patterns or absolute paths
+  if (resolved.startsWith("..") || resolved.includes("/../") || resolved.startsWith("/")) {
+    return null;
+  }
+
+  return resolved;
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -17,8 +49,41 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 503 });
   }
 
+  const cleanPath = sanitizePath(path);
+  if (!cleanPath) {
+    return new NextResponse(null, { status: 400 });
+  }
+
+  // Verify the user has access to the society owning this file.
+  // Storage paths follow the pattern: <folder>/<societyId>/...
+  // Extract societyId from the path and validate access.
+  const cookieStore = await cookies();
+  const activeSocietyId = cookieStore.get("active-society-id")?.value;
+  const pathSegments = cleanPath.split("/");
+
+  // Paths like "documents/<societyId>/...", "logos/<societyId>/...", "invoices/<societyId>/..."
+  if (pathSegments.length >= 2) {
+    const pathSocietyId = pathSegments[1];
+    // If the path contains a societyId segment, verify access
+    if (pathSocietyId && pathSocietyId.length > 10) {
+      try {
+        await requireSocietyAccess(session.user.id, pathSocietyId);
+      } catch {
+        return new NextResponse(null, { status: 403 });
+      }
+    }
+  }
+
+  // Also verify the active society matches if available
+  if (activeSocietyId) {
+    try {
+      await requireSocietyAccess(session.user.id, activeSocietyId);
+    } catch {
+      return new NextResponse(null, { status: 403 });
+    }
+  }
+
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const cleanPath = path.replace(/\.\.\//g, "").replace(/^\//, "");
   const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
   // Téléchargement direct — contourne les problèmes de CORS et de policies sur les URLs signées

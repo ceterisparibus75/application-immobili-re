@@ -18,8 +18,9 @@ import {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(request: NextRequest) {
+  const { verifyCronSecret } = await import("@/lib/cron-auth");
   const { secret } = await request.json();
-  if (secret !== process.env.CRON_SECRET) {
+  if (!verifyCronSecret(secret)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

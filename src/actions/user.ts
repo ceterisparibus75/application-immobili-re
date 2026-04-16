@@ -32,6 +32,9 @@ export async function createUser(
       return { success: false, error: "Non authentifié" };
     }
 
+    // Only SUPER_ADMIN can create new users
+    await requireSuperAdmin(session.user.id);
+
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
       return {
