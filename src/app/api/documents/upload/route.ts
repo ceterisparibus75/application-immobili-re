@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     const { data: urlData } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .createSignedUrl(storagePath, 365 * 24 * 3600);
+      .createSignedUrl(storagePath, 24 * 3600); // 24h — re-generated on each access via /api/storage/view
 
     const fileUrl = urlData?.signedUrl ?? storagePath;
 

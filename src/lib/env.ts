@@ -3,9 +3,9 @@ import { z } from "zod";
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url(),
-  AUTH_SECRET: z.string().min(1),
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET doit contenir au moins 32 caractères"),
   AUTH_URL: z.string().url(),
-  ENCRYPTION_KEY: z.string().min(1),
+  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY doit contenir au moins 32 caractères (base64 de 256 bits)"),
   RESEND_API_KEY: z.string().min(1),
   EMAIL_FROM: z.string().email(),
   CRON_SECRET: z.string().min(1).optional(),

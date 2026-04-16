@@ -23,12 +23,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)" }, { status: 400 });
     }
 
-    // Trouver TOUS les locataires avec cet email pour uploader sur chacun
-    const tenants = await prisma.tenant.findMany({
-      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+    // Use the specific tenantId from the JWT session — never update across all societies
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
       select: { id: true },
     });
-    const tenantIds = tenants.map((t) => t.id);
+    if (!tenant) {
+      return NextResponse.json({ error: "Locataire introuvable" }, { status: 404 });
+    }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const timestamp = Date.now();
@@ -46,13 +48,13 @@ export async function POST(req: NextRequest) {
 
     const { data: urlData } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .createSignedUrl(storagePath, 365 * 24 * 3600);
+      .createSignedUrl(storagePath, 24 * 3600); // 24h
 
     const fileUrl = urlData?.signedUrl ?? null;
 
-    // Mettre à jour l'assurance sur TOUS les tenants liés à cet email
+    // Only update the specific tenant from the JWT session
     await prisma.tenant.updateMany({
-      where: { id: { in: tenantIds } },
+      where: { id: tenant.id },
       data: {
         insuranceFileUrl: fileUrl,
         insuranceStoragePath: storagePath,

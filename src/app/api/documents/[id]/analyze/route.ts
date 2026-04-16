@@ -22,8 +22,8 @@ export async function POST(
   try {
     // Appel interne depuis upload via x-cron-secret, ou appel utilisateur authentifié
     const cronHeader = req.headers.get("x-cron-secret");
-    const isInternal =
-      !!cronHeader && !!process.env.CRON_SECRET && cronHeader === process.env.CRON_SECRET;
+    const { verifyCronSecret } = await import("@/lib/cron-auth");
+    const isInternal = verifyCronSecret(cronHeader);
 
     let societyFilter: { societyId: string } | Record<string, never> = {};
     if (!isInternal) {

@@ -8,15 +8,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const session = await requirePortalAuth();
     const { id } = await params;
 
-    // Trouver TOUS les locataires avec cet email (multi-société)
-    const tenants = await prisma.tenant.findMany({
-      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+    // Use the specific tenantId from the JWT session — never search across all societies
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
       select: { id: true },
     });
-    const tenantIds = tenants.map((t) => t.id);
+    if (!tenant) return new NextResponse(null, { status: 404 });
 
     const invoice = await prisma.invoice.findFirst({
-      where: { id, tenantId: { in: tenantIds } },
+      where: { id, tenantId: tenant.id },
       select: { fileUrl: true, invoiceNumber: true },
     });
 

@@ -21,7 +21,7 @@ export function SocietySwitchLink({ href, societyId, className, children }: Soci
     if (target) {
       setActiveSociety(target);
     } else {
-      document.cookie = `active-society-id=${societyId};path=/;max-age=${60 * 60 * 24 * 365}`;
+      document.cookie = `active-society-id=${societyId};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax;Secure`;
     }
     router.push(href);
   }

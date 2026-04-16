@@ -62,7 +62,7 @@ export function SocietyProvider({
 
     if (found) {
       setActiveSocietyState(found);
-      document.cookie = `active-society-id=${found.id};path=/;max-age=${60 * 60 * 24 * 365}`;
+      document.cookie = `active-society-id=${found.id};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax;Secure`;
     }
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,7 +70,7 @@ export function SocietyProvider({
 
   const setActiveSociety = useCallback((society: Society) => {
     setActiveSocietyState(society);
-    document.cookie = `active-society-id=${society.id};path=/;max-age=${60 * 60 * 24 * 365}`;
+    document.cookie = `active-society-id=${society.id};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax;Secure`;
   }, []);
 
   return (

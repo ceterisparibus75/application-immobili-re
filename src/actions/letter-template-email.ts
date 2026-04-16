@@ -40,7 +40,7 @@ async function saveLetterDocument(
 
   const { data: signedData } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(storagePath, 365 * 24 * 3600);
+    .createSignedUrl(storagePath, 24 * 3600); // 24h
 
   await prisma.document.create({
     data: {

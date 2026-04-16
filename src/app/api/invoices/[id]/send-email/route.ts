@@ -9,6 +9,7 @@ import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
 import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
+import * as nodePath from "path";
 import { getAllEmailCopyBcc } from "@/lib/email-copy";
 import React from "react";
 
@@ -83,7 +84,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     if (soc?.logoUrl) {
       try {
-        const cleanPath = soc.logoUrl.replace(/\.\.\//g, "").replace(/^\//, "");
+        // Sanitize path: decode URL-encoded chars, normalize with posix to collapse all traversals
+        let decoded = soc.logoUrl;
+        try { decoded = decodeURIComponent(decoded); decoded = decodeURIComponent(decoded); } catch { /* ignore */ }
+        const normalized = nodePath.posix.normalize(decoded.replace(/\0/g, "")).replace(/^\/+/, "");
+        if (normalized.startsWith("..")) { throw new Error("Path traversal detected"); }
+        const cleanPath = normalized;
         let storagePath = cleanPath;
         if (cleanPath.startsWith("http")) {
           const m = cleanPath.match(/\/storage\/v1\/object\/(?:upload\/sign\/|sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/);

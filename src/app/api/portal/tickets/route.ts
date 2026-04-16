@@ -9,16 +9,17 @@ export async function GET() {
   try {
     const session = await requirePortalAuth();
 
-    // Recuperer tous les tenants associes a cet email
-    const tenants = await prisma.tenant.findMany({
-      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+    // Use the specific tenantId from the JWT session — never search across all societies
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
       select: { id: true },
     });
-
-    const tenantIds = tenants.map((t) => t.id);
+    if (!tenant) {
+      return NextResponse.json({ error: "Locataire introuvable" }, { status: 404 });
+    }
 
     const tickets = await prisma.ticket.findMany({
-      where: { tenantId: { in: tenantIds } },
+      where: { tenantId: tenant.id },
       include: {
         _count: { select: { messages: true } },
       },
@@ -45,9 +46,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Trouver le locataire et sa societe
+    // Use the specific tenantId from the JWT session
     const tenant = await prisma.tenant.findFirst({
-      where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+      where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
       select: { id: true, societyId: true },
     });
 

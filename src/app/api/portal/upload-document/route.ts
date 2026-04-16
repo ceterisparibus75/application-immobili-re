@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Find tenant
+  // Use the specific tenantId from the JWT session — never search across all societies
   const tenant = await prisma.tenant.findFirst({
-    where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
+    where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: { id: true, societyId: true },
   });
 

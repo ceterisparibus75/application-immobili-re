@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     // URL publique signée (1 an)
     const { data: urlData } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .createSignedUrl(storagePath, 365 * 24 * 3600);
+      .createSignedUrl(storagePath, 24 * 3600); // 24h
 
     const fileUrl = urlData?.signedUrl ?? null;
 
