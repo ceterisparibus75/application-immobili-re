@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
-import { createInternalNotification as createNotification } from "@/actions/notifications";
+import { createInternalNotification as createNotification } from "@/lib/notifications-internal";
 import {
   createTicketSchema,
   createTicketMessageSchema,

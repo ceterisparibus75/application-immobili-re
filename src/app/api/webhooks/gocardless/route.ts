@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateGocardlessWebhook } from "@/lib/gocardless-sepa";
-import { createInternalNotification as createNotification } from "@/actions/notifications";
+import { createInternalNotification as createNotification } from "@/lib/notifications-internal";
 
 export async function POST(req: NextRequest) {
   const rawBody = Buffer.from(await req.arrayBuffer());

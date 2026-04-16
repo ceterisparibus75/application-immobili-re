@@ -50,30 +50,6 @@ export async function createNotification(input: {
   });
 }
 
-/**
- * Internal-only notification creation (for server-side use by cron jobs, webhooks, etc.)
- * This should NEVER be exported as a Server Action or called from client code.
- */
-export async function createInternalNotification(input: {
-  userId: string;
-  societyId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  link?: string;
-}) {
-  return prisma.notification.create({
-    data: {
-      userId: input.userId,
-      societyId: input.societyId,
-      type: input.type,
-      title: input.title,
-      message: input.message,
-      link: input.link,
-    },
-  });
-}
-
 // ── Récupérer les notifications de l'utilisateur ──────────
 
 export async function getNotifications(societyId: string, limit = 20) {

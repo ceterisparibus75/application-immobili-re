@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 import { requireSocietyAccess } from "@/lib/permissions";
-import { cookies } from "next/headers";
 import * as nodePath from "path";
 
 /**
@@ -55,29 +54,14 @@ export async function GET(req: NextRequest) {
   }
 
   // Verify the user has access to the society owning this file.
-  // Storage paths follow the pattern: <folder>/<societyId>/...
-  // Extract societyId from the path and validate access.
-  const cookieStore = await cookies();
-  const activeSocietyId = cookieStore.get("active-society-id")?.value;
+  // Only folders that store files under <folder>/<societyId>/... are checked.
+  const SOCIETY_ID_FOLDERS = new Set(["documents", "logos", "invoices", "leases", "diagnostics", "portal"]);
   const pathSegments = cleanPath.split("/");
 
-  // Paths like "documents/<societyId>/...", "logos/<societyId>/...", "invoices/<societyId>/..."
-  if (pathSegments.length >= 2) {
+  if (pathSegments.length >= 2 && SOCIETY_ID_FOLDERS.has(pathSegments[0])) {
     const pathSocietyId = pathSegments[1];
-    // If the path contains a societyId segment, verify access
-    if (pathSocietyId && pathSocietyId.length > 10) {
-      try {
-        await requireSocietyAccess(session.user.id, pathSocietyId);
-      } catch {
-        return new NextResponse(null, { status: 403 });
-      }
-    }
-  }
-
-  // Also verify the active society matches if available
-  if (activeSocietyId) {
     try {
-      await requireSocietyAccess(session.user.id, activeSocietyId);
+      await requireSocietyAccess(session.user.id, pathSocietyId);
     } catch {
       return new NextResponse(null, { status: 403 });
     }

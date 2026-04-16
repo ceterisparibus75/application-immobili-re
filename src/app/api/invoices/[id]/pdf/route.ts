@@ -8,6 +8,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
+import * as nodePath from "path";
 import { env } from "@/lib/env";
 import React from "react";
 
@@ -71,10 +72,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     console.log("[pdf] logoUrl brut:", soc?.logoUrl, "| supabase configuré:", !!supabase, "| bucket:", bucket);
     if (soc?.logoUrl) {
-      // Sanitize path: decode URL-encoded chars, normalize, and strip traversals
+      // Sanitize path: decode URL-encoded chars, normalize with posix to collapse all traversals
       let decoded = soc.logoUrl;
       try { decoded = decodeURIComponent(decoded); decoded = decodeURIComponent(decoded); } catch { /* ignore */ }
-      const cleanPath = decoded.replace(/\0/g, "").replace(/\.\.\//g, "").replace(/\.\.\\/g, "").replace(/^\//, "");
+      const normalized = nodePath.posix.normalize(decoded.replace(/\0/g, "")).replace(/^\/+/, "");
+      if (normalized.startsWith("..")) { throw new Error("Path traversal detected"); }
+      const cleanPath = normalized;
       console.log("[pdf] cleanPath logo:", cleanPath);
       try {
         // Résoudre le chemin de stockage : chemin relatif ou URL Supabase complète

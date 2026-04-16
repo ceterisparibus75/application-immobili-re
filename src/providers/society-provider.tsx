@@ -70,7 +70,7 @@ export function SocietyProvider({
 
   const setActiveSociety = useCallback((society: Society) => {
     setActiveSocietyState(society);
-    document.cookie = `active-society-id=${society.id};path=/;max-age=${60 * 60 * 24 * 365}`;
+    document.cookie = `active-society-id=${society.id};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax;Secure`;
   }, []);
 
   return (
