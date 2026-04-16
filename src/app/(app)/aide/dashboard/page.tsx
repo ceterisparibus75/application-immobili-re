@@ -17,7 +17,7 @@ export default function DashboardPage() {
     >
       <HelpSection id="kpi" title="Indicateurs clés (KPI)">
         <p>
-          Le tableau de bord affiche 4 indicateurs principaux en haut de page, mis à jour en temps réel :
+          Le tableau de bord affiche 4 indicateurs principaux en haut de page, recalculés à chaque chargement avec les données les plus récentes :
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-lg border p-4">
@@ -108,6 +108,12 @@ export default function DashboardPage() {
         <p>
           Chaque tâche est cliquable et vous redirige vers l'écran correspondant pour agir immédiatement.
         </p>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            En arrivant le matin, votre tableau de bord affiche : &laquo; 3 brouillons de factures à valider &raquo; (clic → page Facturation), &laquo; 1 diagnostic DPE expire dans 45 jours &raquo; (clic → fiche immeuble), &laquo; 2 factures impayées de plus de 30 jours &raquo; (clic → page Relances). Vous traitez chaque tâche en quelques clics sans chercher dans les menus.
+          </p>
+        </div>
       </HelpSection>
 
       <HelpSection id="rapports" title="Rapports et exports">

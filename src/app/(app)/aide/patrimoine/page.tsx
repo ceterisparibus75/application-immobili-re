@@ -22,8 +22,14 @@ export default function PatrimoinePage() {
         <p>
           Chaque immeuble est présenté sous forme de carte avec un badge de type (habitation, bureau, commerce, mixte), le nombre de lots occupés sur le total, le revenu locatif annuel et le rendement brut (en vert si &ge; 5%, orange si 3-5%, rouge si &lt; 3%).
         </p>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous avez 3 immeubles. La carte de la &laquo; Résidence les Acacias &raquo; affiche : 8 lots (6 occupés / 2 vacants), 75% d'occupation, 58 200 &euro;/an de revenus, rendement brut 5.8% (badge vert). Un badge orange alerte : &laquo; 1 bail expire dans 60 jours &raquo;.
+          </p>
+        </div>
         <InfoBox type="tip">
-          Un indicateur d'alerte s'affiche si un bail expire dans les 90 prochains jours sur l'un de vos immeubles.
+          Un indicateur d'alerte s'affiche si un bail expire dans les 90 prochains jours sur l'un de vos immeubles. Les rendements sont colorés : vert &ge; 5%, orange 3-5%, rouge &lt; 3%.
         </InfoBox>
       </HelpSection>
 
@@ -72,8 +78,14 @@ export default function PatrimoinePage() {
         <HelpStep number={3} title="Statuts d'un lot">
           <p>Un lot peut être <strong>Vacant</strong> (disponible à la location), <strong>Occupé</strong> (bail actif), <strong>En travaux</strong> (indisponible temporairement) ou <strong>Réservé</strong> (bail en préparation).</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous créez le lot &laquo; Apt 3B &raquo; (type Habitation, 2e étage, 65 m², loyer de référence 850 &euro;/mois). Son statut initial est &laquo; Vacant &raquo;. Quand vous créez un bail pour ce lot, il passe automatiquement à &laquo; Occupé &raquo;. Si le locataire part et que vous prévoyez des travaux de rafraîchissement, passez-le manuellement en &laquo; En travaux &raquo;.
+          </p>
+        </div>
         <InfoBox type="info">
-          Un lot ne peut avoir qu'un seul bail actif à la fois. Pour changer de locataire, il faut d'abord résilier le bail en cours, puis en créer un nouveau.
+          Un lot ne peut avoir qu'un seul bail actif à la fois. Pour changer de locataire, il faut d'abord résilier le bail en cours, puis en créer un nouveau. L'historique de tous les baux passés reste consultable.
         </InfoBox>
       </HelpSection>
 

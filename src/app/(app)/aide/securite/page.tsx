@@ -124,8 +124,14 @@ export default function SecuritePage() {
           <li>Consulter son attestation d'assurance</li>
           <li>Effectuer des paiements en ligne</li>
         </ul>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Jean Dupont, locataire de l'Apt 2B, reçoit un email avec un lien sécurisé vers son portail. Il clique, saisit son email, reçoit un code de connexion valable 24h. Sur son portail, il voit : ses 3 dernières factures (dont une en retard), sa quittance de mars, son bail PDF, et un bouton &laquo; Signaler un problème &raquo; qui crée un ticket de maintenance. Il ne peut voir aucune donnée des autres locataires.
+          </p>
+        </div>
         <InfoBox type="info">
-          Le portail locataire utilise une authentification JWT séparée, distincte de l'authentification des utilisateurs de l'application. Le locataire accède uniquement à ses propres données.
+          Le portail locataire utilise une authentification JWT séparée de l'application principale. Le locataire n'a pas besoin de créer de compte {APP_NAME} et accède uniquement à ses propres données.
         </InfoBox>
       </HelpSection>
 

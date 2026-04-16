@@ -28,8 +28,14 @@ export default function EmpruntsPage() {
         <HelpStep number={3} title="Consultez le rapport">
           <p>Un rapport détaillé est généré avec la valeur estimée, la méthode de calcul, les comparables utilisés et un indice de confiance. Vous pouvez l'enregistrer comme valeur de référence de l'immeuble.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous lancez une évaluation IA sur la &laquo; Résidence les Acacias &raquo; (8 lots, 450 m², Lyon 6e). L'IA analyse les transactions DVF récentes dans le quartier, les loyers comparables et le taux d'occupation. Résultat : valeur estimée 780 000 &euro; (fourchette 720 000 - 840 000 &euro;), indice de confiance 72%, rendement brut estimé 5.6%. Le rapport détaille 5 biens comparables vendus récemment et une analyse SWOT.
+          </p>
+        </div>
         <InfoBox type="info">
-          L'évaluation IA est une estimation indicative. Elle ne remplace pas une expertise immobilière professionnelle mais constitue un excellent outil de pilotage.
+          L'évaluation IA est une estimation indicative basée sur les données publiques DVF et les comparables du marché. Elle ne remplace pas une expertise immobilière professionnelle mais constitue un excellent outil de pilotage.
         </InfoBox>
       </HelpSection>
 

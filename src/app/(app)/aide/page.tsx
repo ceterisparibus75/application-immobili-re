@@ -1,4 +1,4 @@
-import { Building2, BookOpen, Mail, Shield, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock, UserCog, ChevronRight, CreditCard, Phone, RefreshCw, Contact } from "lucide-react";
+import { Building2, BookOpen, Mail, Shield, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock, UserCog, ChevronRight, CreditCard, Phone, RefreshCw, Contact, CalendarCheck, Umbrella, Building, TicketCheck, Zap, Bot, Send, Upload, LineChart, BellRing } from "lucide-react";
 import Link from "next/link";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
@@ -85,6 +85,41 @@ const guides = [
     title: "Sécurité et confidentialité",
     description: "Protection des données, RGPD, 2FA et portail locataire.",
     color: "bg-slate-500/10 text-slate-600",
+  },
+  {
+    slug: "candidatures",
+    icon: <CalendarCheck className="h-6 w-6" />,
+    title: "Candidatures locataires",
+    description: "Pipeline de sélection, scoring des dossiers et suivi des visites étape par étape.",
+    color: "bg-lime-500/10 text-lime-600",
+  },
+  {
+    slug: "saisonnier",
+    icon: <Umbrella className="h-6 w-6" />,
+    title: "Location saisonnière",
+    description: "Gestion des biens saisonniers, réservations, tarification et revenus par nuitée.",
+    color: "bg-sky-500/10 text-sky-600",
+  },
+  {
+    slug: "copropriete",
+    icon: <Building className="h-6 w-6" />,
+    title: "Copropriété",
+    description: "Tantièmes, assemblées générales, budgets prévisionnels et gestion des lots en copropriété.",
+    color: "bg-fuchsia-500/10 text-fuchsia-600",
+  },
+  {
+    slug: "courriers-relances",
+    icon: <Send className="h-6 w-6" />,
+    title: "Courriers et relances",
+    description: "Modèles de lettres conformes, relances automatiques à 3 niveaux et génération de courriers IA.",
+    color: "bg-red-500/10 text-red-600",
+  },
+  {
+    slug: "automatisation",
+    icon: <Zap className="h-6 w-6" />,
+    title: "Automatisation et IA",
+    description: "Workflows automatisés, assistant IA, prédiction d'impayés, import intelligent et tickets.",
+    color: "bg-yellow-500/10 text-yellow-600",
   },
 ];
 
@@ -302,10 +337,75 @@ const faqs = [
     q: "Comment exporter toutes mes données ?",
     a: "Chaque module dispose d'un bouton d'export CSV. Pour un export complet, vous pouvez également utiliser la section RGPD > Export des données qui génère une archive contenant l'ensemble de vos informations dans un format structuré et lisible.",
   },
+  // ── Candidatures ──
+  {
+    q: "Comment fonctionne le pipeline de candidatures ?",
+    a: "Le module Candidatures gère vos candidats locataires en 7 étapes : Nouveau → Contacté → Visite planifiée → Visite effectuée → Dossier reçu → Dossier validé → Accepté. Exemple : vous recevez un dossier pour un T3 à Lyon, vous le passez en « Visite planifiée », puis après la visite vous le faites avancer jusqu'à « Accepté ». Un score moyen est calculé pour prioriser les meilleurs profils.",
+  },
+  {
+    q: "Comment noter et comparer les candidatures ?",
+    a: "Chaque candidature peut recevoir un score (sur 10 ou 100 selon votre configuration). Le tableau de bord Candidatures affiche le score moyen de tous les candidats actifs et les trie du meilleur au moins bon. Exemple : Jean Dupont obtient 85/100 (CDI, revenus 3× le loyer), Marie Martin 72/100 (CDD, garant solide).",
+  },
+  // ── Location saisonnière ──
+  {
+    q: "Comment gérer une location saisonnière (Airbnb, gîte) ?",
+    a: "Allez dans Saisonnier > Nouveau bien. Renseignez le type (appartement, maison, villa, studio, gîte, chalet), le tarif par nuitée et les disponibilités. L'application calcule automatiquement le revenu total, le revenu net par réservation et le nombre de nuitées réservées sur l'année.",
+  },
+  {
+    q: "Comment suivre les revenus de mes locations saisonnières ?",
+    a: "La page Saisonnier affiche pour chaque bien : le tarif/nuit, le nombre de réservations actives, les nuitées totales et le revenu cumulé depuis le 1er janvier. Les réservations annulées ou no-show sont automatiquement exclues du calcul.",
+  },
+  // ── Copropriété ──
+  {
+    q: "Comment gérer une copropriété dans MyGestia ?",
+    a: "Allez dans Copropriété > Nouvelle copropriété. Renseignez l'immeuble, les tantièmes de chaque lot et le budget prévisionnel annuel. Vous pourrez ensuite planifier les assemblées générales (AG) et suivre les appels de fonds par copropriétaire.",
+  },
+  {
+    q: "Comment préparer une assemblée générale de copropriété ?",
+    a: "Depuis la fiche copropriété, créez une nouvelle AG avec l'ordre du jour, la date et le lieu. Chaque résolution peut être votée et le procès-verbal est généré automatiquement avec les résultats par tantièmes.",
+  },
+  // ── Courriers et relances ──
+  {
+    q: "Comment créer un courrier à partir d'un modèle ?",
+    a: "Allez dans Courriers, choisissez un modèle par catégorie (loyer, bail, charges, travaux, assurance, administratif). Les variables dynamiques ({nom_locataire}, {adresse_lot}, {montant_loyer}) sont remplacées automatiquement. Exemple : le modèle « Relance loyer impayé » insère le nom du locataire, le montant dû et la date d'échéance.",
+  },
+  {
+    q: "Puis-je générer un courrier avec l'IA ?",
+    a: "Oui (plan Enterprise). L'assistant IA rédige des courriers immobiliers sur mesure : relances, mises en demeure, résiliations, demandes d'attestation. Indiquez le sujet et le ton souhaité, l'IA génère un courrier conforme avec les références légales appropriées.",
+  },
+  // ── Workflows et automatisation ──
+  {
+    q: "Comment créer un workflow automatisé ?",
+    a: "Allez dans Workflows > Nouveau workflow. Choisissez un déclencheur (événement, planification ou manuel), puis ajoutez des étapes : envoi d'email, notification, génération de PDF, délai d'attente, changement de statut, condition, webhook. Exemple : « Quand une facture passe en retard → attendre 3 jours → envoyer email de relance niveau 1 → attendre 14 jours → envoyer relance niveau 2 ».",
+  },
+  {
+    q: "Comment suivre l'exécution de mes workflows ?",
+    a: "Chaque workflow affiche son historique d'exécution (les 3 dernières exécutions avec leur statut : succès, échec, en cours). Vous pouvez activer/désactiver un workflow à tout moment et voir le nombre total d'exécutions.",
+  },
+  // ── Assistant IA ──
+  {
+    q: "Que peut faire l'assistant IA ?",
+    a: "L'assistant IA (plan Enterprise, menu Assistant) offre 3 fonctionnalités : (1) Chatbot contextuel — posez des questions en langage naturel sur vos locataires, impayés ou revenus. Exemple : « Quels sont mes locataires en retard de plus de 30 jours ? ». (2) Générateur de courriers — rédaction automatique de lettres conformes. (3) Prédiction d'impayés — analyse du comportement de paiement sur 12 mois avec score de risque, probabilité de défaut et recommandations.",
+  },
+  // ── Import de données ──
+  {
+    q: "Comment importer mes données depuis un fichier Excel ou un autre logiciel ?",
+    a: "Allez dans Import (ou Administration > Import). L'assistant d'import en plusieurs étapes vous guide : (1) uploadez votre fichier CSV/Excel ou PDF, (2) l'application détecte et mappe les colonnes automatiquement, (3) vérifiez et corrigez les correspondances, (4) validez l'import. Vous pouvez importer des immeubles, lots, locataires et baux en une seule opération. L'import IA (Enterprise) peut aussi extraire les données directement depuis un PDF de bail.",
+  },
+  // ── Indices INSEE ──
+  {
+    q: "Comment fonctionnent les indices INSEE (IRL, ILC, ILAT, ICC) ?",
+    a: "Le module Indices suit 4 indices : IRL (habitation, publié ~45 jours après le trimestre), ILC (commercial), ILAT (tertiaire) et ICC (construction, publiés ~90 jours après). Les indices sont synchronisés automatiquement le 1er de chaque mois. Exemple : l'IRL du T4 2025 est publié vers mi-janvier 2026 par l'INSEE. L'application calcule automatiquement les révisions de loyer dues à partir de ces indices.",
+  },
+  // ── Tickets ──
+  {
+    q: "Comment fonctionnent les tickets de maintenance ?",
+    a: "Le module Tickets permet de suivre les demandes d'intervention. Chaque ticket a un statut (Ouvert, En cours, En attente, Résolu, Fermé), une priorité (Basse, Normale, Haute, Urgente) et une catégorie (Plomberie, Électricité, Chauffage, Parties communes, etc.). Les locataires peuvent aussi créer des tickets depuis leur portail. Exemple : un locataire signale une fuite → ticket « Urgente / Plomberie » → vous assignez un prestataire → statut « En cours » → intervention terminée → « Résolu ».",
+  },
   // ── Support ──
   {
     q: "Comment contacter le support ?",
-    a: "Envoyez-nous un email à contact@mygestia.immo. Les clients Enterprise bénéficient d'un support prioritaire avec un temps de réponse garanti.",
+    a: "Envoyez-nous un email à contact@mygestia.immo ou utilisez le formulaire de contact accessible depuis le menu. Les clients Enterprise bénéficient d'un support prioritaire avec un temps de réponse garanti sous 4 heures ouvrées.",
   },
 ];
 

@@ -25,8 +25,14 @@ export default function BanquePage() {
         <HelpStep number={2} title="Connexion Open Banking (optionnel)">
           <p>Pour synchroniser automatiquement vos transactions, connectez votre compte via <strong>Connexion bancaire</strong>. L'application utilise un service sécurisé (Powens) pour récupérer vos mouvements quotidiennement.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Vous créez le compte &laquo; BNP Paribas — SCI Soleil &raquo; avec l'IBAN FR76 3000 6000 0112 3456 7890 189. La carte affiche le solde de 12 450,80 &euro; (en vert) et 47 transactions. Vous activez la connexion Open Banking — désormais, chaque matin à 6h, les nouvelles transactions sont importées automatiquement.
+          </p>
+        </div>
         <InfoBox type="info">
-          La synchronisation automatique s'exécute chaque jour à 6h du matin. Vous pouvez aussi déclencher une synchronisation manuelle à tout moment.
+          La synchronisation automatique s'exécute chaque jour à 6h du matin. Vous pouvez aussi déclencher une synchronisation manuelle à tout moment. Trois fournisseurs sont supportés : Powens, GoCardless et Qonto.
         </InfoBox>
       </HelpSection>
 
@@ -52,6 +58,12 @@ export default function BanquePage() {
         <HelpStep number={3} title="Vérifiez les écarts">
           <p>Si un écart existe entre le montant de la transaction et celui de la facture, un avertissement s'affiche. Vous pouvez créer une écriture d'ajustement.</p>
         </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            Transaction bancaire : virement entrant de 1 030 &euro; avec le libellé &laquo; DUPONT J LOYER AVRIL &raquo;. À droite, la facture FAC-2026-0042 de 1 030 &euro; pour Jean Dupont. L'application les met en correspondance automatiquement (montant identique). Cliquez sur <strong>Rapprocher</strong> — le paiement est enregistré et la facture passe à &laquo; Payée &raquo;.
+          </p>
+        </div>
       </HelpSection>
 
       <HelpSection id="comptabilite" title="Module comptabilité">
