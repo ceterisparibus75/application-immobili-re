@@ -407,6 +407,46 @@ export async function markAmortizationLinePaid(
 }
 
 
+export async function updateAmortizationLine(
+  societyId: string,
+  lineId: string,
+  data: {
+    principalPayment: number;
+    interestPayment: number;
+    insurancePayment: number;
+    totalPayment: number;
+    remainingBalance: number;
+  }
+) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Non authentifié" };
+
+  try {
+    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+  } catch {
+    return { error: "Accès refusé" };
+  }
+
+  const line = await prisma.loanAmortizationLine.findFirst({
+    where: { id: lineId, loan: { societyId } },
+  });
+  if (!line) return { error: "Ligne introuvable" };
+
+  await prisma.loanAmortizationLine.update({
+    where: { id: lineId },
+    data: {
+      principalPayment: data.principalPayment,
+      interestPayment: data.interestPayment,
+      insurancePayment: data.insurancePayment,
+      totalPayment: data.totalPayment,
+      remainingBalance: data.remainingBalance,
+    },
+  });
+
+  revalidatePath(`/emprunts/${line.loanId}`);
+  return { success: true };
+}
+
 export async function deleteLoan(societyId: string, loanId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Non authentifié" };
