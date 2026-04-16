@@ -6,7 +6,7 @@ import { useSociety } from "@/providers/society-provider";
 import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck } from "lucide-react";
+import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -142,6 +142,19 @@ export default function AbonnementPage() {
       window.location.href = result.data.url;
     } else {
       toast.error(result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.");
+    }
+    setActionLoading(false);
+  }
+
+  async function handleForceSync() {
+    if (!activeSociety?.id) return;
+    setActionLoading(true);
+    const result = await forceSyncSubscription(activeSociety.id);
+    if (result.success) {
+      toast.success(`Synchronisé — plan : ${result.data?.planId}, statut : ${result.data?.status}`);
+      await loadSubscription();
+    } else {
+      toast.error(result.error ?? "Erreur lors de la synchronisation");
     }
     setActionLoading(false);
   }
@@ -284,6 +297,12 @@ if (loading) {
                 <CreditCard className="h-4 w-4 mr-2" />
                 Gérer la facturation
                 <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            )}
+            {subscription?.hasStripeCustomer && (
+              <Button variant="outline" size="sm" onClick={handleForceSync} disabled={actionLoading}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Synchroniser avec Stripe
               </Button>
             )}
             {isActive && !subscription?.cancelAt && (

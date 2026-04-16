@@ -53,12 +53,31 @@ export async function createUser(
 
     const data = parsed.data;
 
-    // Vérifier que l'email n'est pas déjà utilisé
+    // Si l'email existe déjà mais que le compte n'est pas activé, réutiliser le compte
     const existing = await prisma.user.findUnique({
       where: { email: data.email.toLowerCase() },
     });
     if (existing) {
-      return { success: false, error: "Cet email est déjà utilisé" };
+      if (existing.lastLoginAt) {
+        return { success: false, error: "Cet email est déjà utilisé par un compte actif" };
+      }
+      // Compte non activé : renvoyer l'invitation et retourner l'id existant
+      const resetToken = randomBytes(32).toString("hex");
+      const resetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { resetToken, resetTokenExpiresAt },
+      });
+      const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+      await sendNewUserInviteEmail({
+        to: existing.email,
+        name: `${data.name}${data.firstName ? " " + data.firstName : ""}`,
+        email: existing.email,
+        resetUrl,
+        appUrl: baseUrl,
+      }).catch((err) => console.error("[createUser] resend invite error", err));
+      return { success: true, data: { id: existing.id } };
     }
 
     // Générer un mot de passe aléatoire (l'utilisateur le changera via le lien email)
