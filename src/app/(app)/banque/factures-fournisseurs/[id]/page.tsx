@@ -161,12 +161,15 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Grille 2 colonnes */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Visionneuse PDF (60%) */}
-        <div className="lg:col-span-3">
+      {/* Grille 2 colonnes — PDF sticky + formulaire défilant */}
+      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+        {/* Visionneuse PDF (60%) — reste visible pendant le défilement du formulaire */}
+        <div className="lg:col-span-3 lg:sticky lg:top-4">
           {invoice.fileUrl ? (
-            <div className="rounded-xl border border-border/60 overflow-hidden bg-muted/30" style={{ height: "80vh" }}>
+            <div
+              className="rounded-xl border border-border/60 overflow-hidden bg-muted/30"
+              style={{ height: "calc(100vh - 120px)" }}
+            >
               <iframe
                 src={`/api/storage/view?path=${encodeURIComponent(invoice.fileUrl)}`}
                 className="w-full h-full"
@@ -184,8 +187,8 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Formulaire (40%) */}
-        <div className="lg:col-span-2">
+        {/* Formulaire (40%) — défile indépendamment */}
+        <div className="lg:col-span-2 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pb-4">
           <SupplierInvoiceForm
             invoice={safeInvoice}
             societyId={societyId}
