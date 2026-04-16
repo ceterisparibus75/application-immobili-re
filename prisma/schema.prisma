@@ -2624,6 +2624,9 @@ model Subscription {
   planId PlanId             @default(STARTER)
   status SubscriptionStatus @default(TRIALING)
 
+  // Protection anti-réutilisation de la période d'essai
+  trialUsed Boolean @default(false) // true dès qu'un trial a été activé (implicite ou Stripe)
+
   // Periodes
   trialStart       DateTime?
   trialEnd         DateTime?

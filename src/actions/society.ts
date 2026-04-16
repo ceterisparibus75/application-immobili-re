@@ -106,6 +106,7 @@ export async function createSociety(
         status: "TRIALING",
         trialStart: new Date(),
         trialEnd,
+        trialUsed: true, // Marquer immédiatement pour bloquer un 2ème trial
       },
     });
 

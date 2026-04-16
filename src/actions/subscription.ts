@@ -182,6 +182,10 @@ export async function createCheckout(
       return { success: false, error: `L'offre ${planId} (${billingPeriod}) n'est pas encore configurée. Contactez le support.` };
     }
 
+    // Vérifier si cette société a déjà bénéficié d'un trial — si oui, pas de nouveau trial
+    const existingSub = await prisma.subscription.findUnique({ where: { societyId } });
+    const trialDays = existingSub?.trialUsed ? 0 : 14;
+
     const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
     const url = await createCheckoutSession({
       societyId,
@@ -190,6 +194,7 @@ export async function createCheckout(
       planId,
       successUrl: `${baseUrl}/compte/abonnement?success=true`,
       cancelUrl: `${baseUrl}/compte/abonnement?canceled=true`,
+      trialDays,
     });
 
     return { success: true, data: { url } };

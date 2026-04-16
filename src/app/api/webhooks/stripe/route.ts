@@ -95,6 +95,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     ?? null;
   const period = getItemPeriod(subscription);
 
+  const hasTrialFromStripe = subscription.trial_end !== null;
+
   await prisma.subscription.upsert({
     where: { societyId },
     create: {
@@ -104,6 +106,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       stripePriceId: priceId,
       planId: planId ?? "STARTER",
       status: mapStripeStatus(subscription.status),
+      trialUsed: hasTrialFromStripe,
       trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
       currentPeriodStart: period.currentPeriodStart,
@@ -115,6 +118,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       stripePriceId: priceId,
       planId: planId ?? "STARTER",
       status: mapStripeStatus(subscription.status),
+      // trialUsed ne peut que passer à true, jamais revenir à false
+      ...(hasTrialFromStripe ? { trialUsed: true } : {}),
       trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
       currentPeriodStart: period.currentPeriodStart,
@@ -183,6 +188,8 @@ async function updateSubscriptionFromStripe(
     ?? null;
   const period = getItemPeriod(subscription);
 
+  const hasTrialFromStripe = subscription.trial_end !== null;
+
   await prisma.subscription.upsert({
     where: { societyId },
     create: {
@@ -192,6 +199,7 @@ async function updateSubscriptionFromStripe(
       stripePriceId: priceId,
       planId: planId ?? "STARTER",
       status: mapStripeStatus(subscription.status),
+      trialUsed: hasTrialFromStripe,
       trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
       currentPeriodStart: period.currentPeriodStart,
@@ -204,6 +212,8 @@ async function updateSubscriptionFromStripe(
       stripePriceId: priceId,
       planId: planId ?? "STARTER",
       status: mapStripeStatus(subscription.status),
+      // trialUsed ne peut que passer à true, jamais revenir à false
+      ...(hasTrialFromStripe ? { trialUsed: true } : {}),
       trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
       currentPeriodStart: period.currentPeriodStart,
