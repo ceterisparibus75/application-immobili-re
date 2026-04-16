@@ -69,19 +69,21 @@ export function UploadForm({ societyId }: Props) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileName: selectedFile.name,
+            filename: selectedFile.name,
             contentType: selectedFile.type || "application/pdf",
-            bucket: "supplier-invoices",
-            folder: `society/${societyId}`,
+            societyId,
+            entityFolder: "supplier-invoices",
           }),
         });
 
         if (!signedRes.ok) {
           const body = await signedRes.json().catch(() => ({}));
-          throw new Error(body?.error?.message ?? "Impossible d'obtenir l'URL d'upload");
+          const msg = typeof body?.error === "string" ? body.error : (body?.error?.message ?? "Impossible d'obtenir l'URL d'upload");
+          throw new Error(msg);
         }
 
-        const { signedUrl, path: storagePath, publicUrl: fileUrl } = await signedRes.json();
+        const { signedUrl, storagePath } = await signedRes.json();
+        const fileUrl = storagePath;
         setUploadProgress(30);
 
         // 2. Uploader le fichier vers Supabase
