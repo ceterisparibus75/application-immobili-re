@@ -63,41 +63,22 @@ export function UploadForm({ societyId }: Props) {
 
     startUpload(async () => {
       try {
-        // 1. Obtenir une URL d'upload signée
-        setUploadProgress(10);
-        const signedRes = await fetch("/api/storage/signed-upload", {
+        // 1. Uploader le fichier via le serveur (évite CORS)
+        setUploadProgress(20);
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const uploadRes = await fetch("/api/supplier-invoices/upload", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: selectedFile.name,
-            contentType: selectedFile.type || "application/pdf",
-            societyId,
-            entityFolder: "supplier-invoices",
-          }),
+          body: formData,
         });
 
-        if (!signedRes.ok) {
-          const body = await signedRes.json().catch(() => ({}));
-          const msg = typeof body?.error === "string" ? body.error : (body?.error?.message ?? "Impossible d'obtenir l'URL d'upload");
-          throw new Error(msg);
+        if (!uploadRes.ok) {
+          const body = await uploadRes.json().catch(() => ({}));
+          throw new Error(typeof body?.error === "string" ? body.error : "Échec de l'upload");
         }
 
-        const { token, storagePath, bucket, supabaseUrl, anonKey } = await signedRes.json();
-        const fileUrl = storagePath;
-        setUploadProgress(30);
-
-        // 2. Uploader via le client Supabase (évite les problèmes CORS)
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(supabaseUrl, anonKey);
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .uploadToSignedUrl(storagePath, token, selectedFile, {
-            contentType: selectedFile.type || "application/pdf",
-          });
-
-        if (uploadError) {
-          throw new Error(`Échec de l'upload : ${uploadError.message}`);
-        }
+        const { storagePath, fileUrl } = await uploadRes.json();
         setUploadProgress(70);
 
         // 3. Créer la facture en base
