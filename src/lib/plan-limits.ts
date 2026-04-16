@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PLANS } from "@/lib/stripe";
+import { PLANS, getStripe, planIdFromPriceId } from "@/lib/stripe";
 import type { PlanId } from "@/lib/stripe";
 
 /**
@@ -74,6 +74,8 @@ export async function checkUserLimit(societyId: string): Promise<{ allowed: bool
 /**
  * Verifie si l'abonnement d'une societe est actif (non expire, non annule).
  * Gère aussi l'expiration de l'essai implicite (trialEnd dépassé).
+ * Si un abonnement Stripe existe et que le statut DB n'est pas ACTIVE,
+ * effectue une synchronisation Stripe silencieuse avant de décider.
  */
 export async function checkSubscriptionActive(societyId: string): Promise<{
   active: boolean;
@@ -82,7 +84,7 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
   trialEnd?: Date | null;
   daysLeft?: number;
 }> {
-  const subscription = await prisma.subscription.findUnique({
+  let subscription = await prisma.subscription.findUnique({
     where: { societyId },
   });
 
@@ -93,6 +95,43 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
       status: "NONE",
       message: "Aucun abonnement trouvé. Veuillez souscrire un plan.",
     };
+  }
+
+  // Si le statut n'est pas ACTIVE et qu'un abonnement Stripe existe,
+  // tenter une synchronisation silencieuse depuis Stripe
+  if (subscription.status !== "ACTIVE" && subscription.stripeSubscriptionId) {
+    try {
+      const stripeSub = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
+      const statusMap: Record<string, string> = {
+        trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+        canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+        incomplete_expired: "CANCELED", paused: "CANCELED",
+      };
+      const newStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+      const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+      const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
+        ?? (stripeSub.metadata?.planId as PlanId | undefined)
+        ?? subscription.planId;
+      const item = stripeSub.items?.data?.[0];
+      const rawItem = item as unknown as Record<string, unknown>;
+      const periodEnd = typeof rawItem?.current_period_end === "number"
+        ? new Date(rawItem.current_period_end * 1000) : null;
+
+      subscription = await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: newStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+          planId: resolvedPlanId as "STARTER" | "PRO" | "ENTERPRISE",
+          stripePriceId: priceId,
+          currentPeriodEnd: periodEnd,
+          trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : subscription.trialEnd,
+          cancelAt: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+          ...(stripeSub.trial_end ? { trialUsed: true } : {}),
+        },
+      });
+    } catch {
+      // En cas d'erreur Stripe, continuer avec les données locales
+    }
   }
 
   // Statuts actifs
@@ -174,14 +213,47 @@ export async function checkSignatureFeature(societyId: string): Promise<{ allowe
   return { allowed: true };
 }
 
-/** Retrouve le planId d'une societe (STARTER par defaut) */
+/** Retrouve le planId d'une societe (STARTER par defaut).
+ *  Si le statut n'est pas ACTIVE et qu'un abonnement Stripe existe,
+ *  synchronise silencieusement depuis Stripe pour avoir le bon plan. */
 async function getSocietyPlan(societyId: string): Promise<PlanId> {
   const subscription = await prisma.subscription.findUnique({
     where: { societyId },
-    select: { planId: true, status: true },
+    select: { planId: true, status: true, stripeSubscriptionId: true, id: true, stripePriceId: true },
   });
 
   if (!subscription) return "STARTER";
+
+  // Sync silencieuse si statut pas ACTIVE et Stripe configuré
+  if (subscription.status !== "ACTIVE" && subscription.stripeSubscriptionId) {
+    try {
+      const stripeSub = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
+      const statusMap: Record<string, string> = {
+        trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+        canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+        incomplete_expired: "CANCELED", paused: "CANCELED",
+      };
+      const newStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+      const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+      const resolvedPlanId = (priceId ? planIdFromPriceId(priceId) : null)
+        ?? (stripeSub.metadata?.planId as PlanId | undefined)
+        ?? subscription.planId;
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: newStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+          planId: resolvedPlanId as "STARTER" | "PRO" | "ENTERPRISE",
+          stripePriceId: priceId,
+          ...(stripeSub.trial_end ? { trialUsed: true } : {}),
+        },
+      });
+      if (newStatus === "CANCELED" || newStatus === "UNPAID") return "STARTER";
+      return resolvedPlanId as PlanId;
+    } catch {
+      // En cas d'erreur Stripe, utiliser les données locales
+    }
+  }
+
   if (subscription.status === "CANCELED" || subscription.status === "UNPAID") return "STARTER";
   return subscription.planId as PlanId;
 }
