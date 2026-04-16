@@ -167,15 +167,15 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Grille 2 colonnes — PDF sticky + formulaire défilant */}
-      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
-        {/* Visionneuse PDF (60%) — reste visible pendant le défilement du formulaire */}
-        <div className="lg:col-span-3 lg:sticky lg:top-4">
+      {/* Grille 2 colonnes — hauteur fixe, formulaire défilant à droite */}
+      <div
+        className="grid gap-6 lg:grid-cols-5"
+        style={{ height: "calc(100vh - 140px)" }}
+      >
+        {/* Visionneuse PDF (60%) — hauteur 100% de la grille */}
+        <div className="lg:col-span-3 h-full">
           {invoice.fileUrl ? (
-            <div
-              className="rounded-xl border border-border/60 overflow-hidden bg-muted/30"
-              style={{ height: "calc(100vh - 120px)" }}
-            >
+            <div className="rounded-xl border border-border/60 overflow-hidden bg-muted/30 h-full">
               <iframe
                 src={`/api/storage/view?path=${encodeURIComponent(invoice.fileUrl)}`}
                 className="w-full h-full"
@@ -183,18 +183,15 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
               />
             </div>
           ) : (
-            <div
-              className="rounded-xl border border-border/60 bg-muted/20 flex flex-col items-center justify-center text-center p-12"
-              style={{ height: "400px" }}
-            >
+            <div className="rounded-xl border border-border/60 bg-muted/20 flex flex-col items-center justify-center text-center p-12 h-full">
               <p className="text-muted-foreground text-sm">Aucun fichier PDF disponible</p>
               <p className="text-xs text-muted-foreground mt-1">{invoice.fileName}</p>
             </div>
           )}
         </div>
 
-        {/* Formulaire (40%) — défile indépendamment */}
-        <div className="lg:col-span-2 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pb-4">
+        {/* Formulaire (40%) — défile dans sa colonne */}
+        <div className="lg:col-span-2 h-full overflow-y-auto pb-4">
           <SupplierInvoiceForm
             invoice={safeInvoice}
             societyId={societyId}
