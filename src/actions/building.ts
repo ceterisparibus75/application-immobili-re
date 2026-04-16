@@ -327,11 +327,14 @@ export async function getBuildingById(societyId: string, buildingId: string) {
         select: {
           id: true,
           label: true,
+          acquisitionDate: true,
           acquisitionPrice: true,
           acquisitionFees: true,
           acquisitionTaxes: true,
           otherCosts: true,
+          description: true,
         },
+        orderBy: { acquisitionDate: "asc" },
       },
       propertyValuations: {
         where: { status: "COMPLETED" },

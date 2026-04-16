@@ -25,6 +25,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { BuildingDocumentUpload } from "./_components/building-document-upload";
+import { AdditionalAcquisitionsClient } from "./_components/additional-acquisitions-client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -290,6 +291,11 @@ export default async function ImmeubleDetailPage({
                   ? `${building.netBookValue.toLocaleString("fr-FR")} €`
                   : null
               }
+            />
+            <AdditionalAcquisitionsClient
+              societyId={building.society.id}
+              buildingId={building.id}
+              initialAcquisitions={building.additionalAcquisitions ?? []}
             />
             {building.description && (
               <>
