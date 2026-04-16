@@ -96,7 +96,10 @@ export function UploadForm({ societyId }: Props) {
         setUploadProgress(100);
         toast.success("Facture uploadée avec succès — analyse IA en cours…");
 
-        // 4. Rediriger vers le détail
+        // 4. Déclencher l'analyse IA en arrière-plan (fire-and-forget)
+        fetch(`/api/supplier-invoices/${result.data!.id}/analyze`, { method: "POST" }).catch(() => {});
+
+        // 5. Rediriger vers le détail
         router.push(`/banque/factures-fournisseurs/${result.data!.id}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Erreur lors de l'upload";

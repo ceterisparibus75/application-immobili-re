@@ -142,7 +142,11 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
           </div>
         </div>
         {invoice.fileUrl && (
-          <a href={invoice.fileUrl} target="_blank" rel="noopener noreferrer">
+          <a
+            href={`/api/storage/view?path=${encodeURIComponent(invoice.fileUrl)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <Button variant="outline" size="sm" className="gap-1.5">
               <ExternalLink className="h-4 w-4" />
               Ouvrir dans un onglet
@@ -158,7 +162,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
           {invoice.fileUrl ? (
             <div className="rounded-xl border border-border/60 overflow-hidden bg-muted/30" style={{ height: "80vh" }}>
               <iframe
-                src={invoice.fileUrl}
+                src={`/api/storage/view?path=${encodeURIComponent(invoice.fileUrl)}`}
                 className="w-full h-full"
                 title="Aperçu de la facture"
               />
