@@ -73,16 +73,16 @@ export function getPlanLimits(planId: PlanId) {
 
 export const PRICE_IDS = {
   STARTER: {
-    monthly: process.env.STRIPE_PRICE_ID_STARTER_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_ID_STARTER_YEARLY ?? "",
+    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY ?? "",
+    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY ?? "",
   },
   PRO: {
-    monthly: process.env.STRIPE_PRICE_ID_PRO_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_ID_PRO_YEARLY ?? "",
+    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? "",
+    yearly: process.env.STRIPE_PRICE_PRO_YEARLY ?? "",
   },
   ENTERPRISE: {
-    monthly: process.env.STRIPE_PRICE_ID_ENTERPRISE_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_ID_ENTERPRISE_YEARLY ?? "",
+    monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY ?? "",
+    yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY ?? "",
   },
 } as const;
 
