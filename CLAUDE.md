@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Nom du projet :** `mygestia` — application SaaS de gestion locative multi-tenant.
+
+## Environnement de développement
+
+⚠️ **Ne pas lancer le dev server depuis un dossier Google Drive File Stream** (ex. `G:\Mon Drive\…`). Next.js 16 + Turbopack crée des junction points Windows dans `.next/dev/node_modules/` qui échouent sur Google Drive (`os error 1`). Cloner le repo sur disque local (ex. `C:\dev\mygestia`) et y travailler.
+
 ## MCP Context7
 
 Utiliser **systématiquement** le MCP context7 pour toute recherche de documentation de bibliothèques, frameworks ou APIs.
@@ -17,7 +23,7 @@ npm ci                     # Install deps (CI)
 npm install                # Install deps (dev)
 
 # Développement
-npm run dev                # Serveur dev (Turbopack)
+npm run dev                # Serveur dev (next dev)
 npm run build              # Build production (inclut prisma generate)
 npm run start              # Serveur production
 npm run lint               # ESLint
@@ -338,7 +344,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Baux | `/baux` | `lease.ts`, `lease-amendment.ts`, `lease-template.ts` |
 | Détail bail (onglets) | `/baux/[id]/` | sous-pages : `inspections/`, `gestion-tiers/`, `releves-gestion/`, `modifier/` |
 | Modèles de bail | `/baux/modeles` | `lease-template.ts` |
-| Révisions de loyer | `/revisions` | `rent-revision.ts`, `revision-prorata.ts` |
+| Révisions de loyer | `/baux/revisions` | `rent-revision.ts`, `revision-prorata.ts` |
 | Locataires | `/locataires` | `tenant.ts` |
 | Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
 | Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |

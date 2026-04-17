@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -34,15 +34,16 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "MyGestia",
   },
-  themeColor: "#1B4F8A",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
   icons: {
     apple: "/icons/icon-apple.png",
     icon: "/icons/icon-192.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#1B4F8A",
 };
 
 export default function RootLayout({

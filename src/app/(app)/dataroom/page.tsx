@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDatarooms } from "@/actions/dataroom";
+
+export const metadata: Metadata = { title: "Dataroom" };
+
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, FolderLock, Landmark, SearchCheck } from "lucide-react";
 import Link from "next/link";

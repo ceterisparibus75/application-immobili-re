@@ -55,3 +55,11 @@ src/generated/
 # Migration SQL files (use Prisma migrations instead)
 supabase-migration*.sql
 supabase-migration*.txt
+
+# Codex dev logs
+.codex-dev*.log
+.codex-dev*.err
+
+# Claude Code runtime
+.claude/scheduled_tasks.lock
+next-panic-*.log

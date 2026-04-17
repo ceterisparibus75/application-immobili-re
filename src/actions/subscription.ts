@@ -286,6 +286,58 @@ export async function openBillingPortal(
   }
 }
 
+// ─── Synchroniser tous les abonnements admin ──────────────────────────────
+
+export async function syncAllAdminSubscriptions(): Promise<ActionResult<{ synced: number }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+
+    // Trouver toutes les sociétés où l'utilisateur est admin
+    const memberships = await prisma.userSociety.findMany({
+      where: {
+        userId: session.user.id,
+        role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+      },
+      select: { societyId: true },
+    });
+
+    const societyIds = memberships.map((m) => m.societyId);
+    if (societyIds.length === 0) return { success: true, data: { synced: 0 } };
+
+    // Récupérer les abonnements ayant un ID Stripe
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        societyId: { in: societyIds },
+        stripeSubscriptionId: { not: null },
+      },
+    });
+
+    let synced = 0;
+    for (const subscription of subscriptions) {
+      if (!subscription.stripeSubscriptionId) continue;
+      try {
+        await syncFromStripeIfNeeded({
+          id: subscription.id,
+          societyId: subscription.societyId,
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          planId: subscription.planId,
+          status: subscription.status,
+          stripePriceId: subscription.stripePriceId,
+        });
+        synced++;
+      } catch {
+        // Continuer même si une société échoue
+      }
+    }
+
+    return { success: true, data: { synced } };
+  } catch (error) {
+    console.error("[syncAllAdminSubscriptions]", error);
+    return { success: false, error: "Erreur lors de la synchronisation" };
+  }
+}
+
 // ─── Annuler l'abonnement ──────────────────────────────────────────────────
 
 export async function cancelCurrentSubscription(

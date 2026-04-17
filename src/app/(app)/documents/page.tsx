@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -7,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, FileStack, FileUp, FolderLock, Plus } from "lucide-react";
 import Link from "next/link";
 import { DocumentsClient } from "./_components/documents-client";
+
+export const metadata: Metadata = { title: "Documents" };
 
 type DocumentsPageProps = {
   searchParams?: Promise<{ uploaded?: string }>;

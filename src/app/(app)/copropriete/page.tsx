@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Copropriété" };
 import { Building2, Plus, Users, Calendar, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

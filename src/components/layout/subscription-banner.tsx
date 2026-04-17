@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSociety } from "@/providers/society-provider";
 import { AlertTriangle, Clock, CreditCard, X } from "lucide-react";
 import Link from "next/link";
+import { syncAllAdminSubscriptions } from "@/actions/subscription";
+
+const SESSION_SYNC_KEY = "sub-sync-done";
 
 type BannerState = {
   type: "trial_warning" | "trial_expired" | "past_due" | "canceled" | null;
@@ -15,8 +18,23 @@ export function SubscriptionBanner() {
   const { activeSociety } = useSociety();
   const [banner, setBanner] = useState<BannerState>({ type: null, message: "" });
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const syncedRef = useRef(false);
 
   const societyId = activeSociety?.id;
+
+  // Synchroniser tous les abonnements admin une fois par session navigateur
+  useEffect(() => {
+    if (syncedRef.current) return;
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(SESSION_SYNC_KEY)) {
+      syncedRef.current = true;
+      return;
+    }
+    syncedRef.current = true;
+    syncAllAdminSubscriptions()
+      .then(() => sessionStorage.setItem(SESSION_SYNC_KEY, "1"))
+      .catch(() => {/* silencieux */});
+  }, []);
 
   useEffect(() => {
     if (!societyId) return;

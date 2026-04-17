@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { Users, Plus, UserPlus } from "lucide-react";
+
+export const metadata: Metadata = { title: "Candidatures" };
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

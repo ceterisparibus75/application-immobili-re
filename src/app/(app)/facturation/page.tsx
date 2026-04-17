@@ -131,7 +131,7 @@ export default async function FacturationPage() {
             };
           })} />
           <Link href="/facturation/generer">
-            <Button variant="outline"><Zap className="h-4 w-4" />Generer les appels</Button>
+            <Button variant="outline"><Zap className="h-4 w-4" />Générer les appels</Button>
           </Link>
           <Link href="/facturation/nouvelle">
             <Button><Plus className="h-4 w-4" />Nouvelle facture</Button>
@@ -159,7 +159,7 @@ export default async function FacturationPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
-              <p className="text-xs text-muted-foreground">Impayes ({enAttente.length + enRetard.length})</p>
+              <p className="text-xs text-muted-foreground">Impayés ({enAttente.length + enRetard.length})</p>
             </div>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default async function FacturationPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{remindersCount}</p>
-              <p className="text-xs text-muted-foreground">Relances envoyees</p>
+              <p className="text-xs text-muted-foreground">Relances envoyées</p>
             </div>
           </div>
         </div>

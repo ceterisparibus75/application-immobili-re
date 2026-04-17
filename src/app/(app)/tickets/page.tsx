@@ -1,4 +1,8 @@
+import type { Metadata } from "next";
 import { getTickets } from "@/actions/ticket";
+
+export const metadata: Metadata = { title: "Tickets" };
+
 import { Badge } from "@/components/ui/badge";
 import {
   Card,

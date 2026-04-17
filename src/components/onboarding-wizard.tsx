@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import { Button } from "@/components/ui/button";
@@ -123,16 +123,22 @@ export function OnboardingWizard() {
   const router = useRouter();
   const { activeSociety } = useSociety();
   const [currentStep, setCurrentStep] = useState(0);
-  const [visible, setVisible] = useState(() => {
+  const [dismissedTick, setDismissedTick] = useState(0);
+
+  const visible = useMemo(() => {
     if (typeof window === "undefined") return false;
-    const key = `onboarding-wizard-seen-${activeSociety?.id ?? "global"}`;
+    if (!activeSociety?.id) return false;
+    const key = `onboarding-wizard-seen-${activeSociety.id}`;
     return !localStorage.getItem(key);
-  });
+    // dismissedTick is included so that dismiss() triggers a re-evaluation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSociety?.id, dismissedTick]);
 
   const dismiss = useCallback(() => {
-    const key = `onboarding-wizard-seen-${activeSociety?.id ?? "global"}`;
+    if (!activeSociety?.id) return;
+    const key = `onboarding-wizard-seen-${activeSociety.id}`;
     localStorage.setItem(key, "true");
-    setVisible(false);
+    setDismissedTick((t) => t + 1);
   }, [activeSociety?.id]);
 
   const goToStep = useCallback((href: string) => {

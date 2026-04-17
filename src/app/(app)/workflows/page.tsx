@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -30,6 +31,8 @@ const STEP_ICONS: Record<string, typeof Mail> = {
   condition: ArrowRight,
   webhook: Zap,
 };
+
+export const metadata: Metadata = { title: "Workflows" };
 
 export default async function WorkflowsPage() {
   const session = await auth();
