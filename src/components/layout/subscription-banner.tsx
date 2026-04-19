@@ -9,7 +9,7 @@ import { syncAllAdminSubscriptions } from "@/actions/subscription";
 const SESSION_SYNC_KEY = "sub-sync-done";
 
 type BannerState = {
-  type: "trial_warning" | "trial_expired" | "past_due" | "canceled" | null;
+  type: "trial_warning" | "trial_expired" | "past_due" | "canceled" | "over_limit" | null;
   message: string;
   daysLeft?: number;
 };
@@ -59,6 +59,7 @@ export function SubscriptionBanner() {
     trial_expired: "bg-[var(--color-status-negative-bg)] border-[var(--color-status-negative)]/30 text-[var(--color-status-negative)]",
     past_due: "bg-[var(--color-status-caution-bg)] border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]",
     canceled: "bg-[var(--color-status-negative-bg)] border-[var(--color-status-negative)]/30 text-[var(--color-status-negative)]",
+    over_limit: "bg-[var(--color-status-caution-bg)] border-[var(--color-status-caution)]/30 text-[var(--color-status-caution)]",
   };
 
   const icons = {
@@ -66,6 +67,7 @@ export function SubscriptionBanner() {
     trial_expired: <AlertTriangle className="h-4 w-4 shrink-0" />,
     past_due: <CreditCard className="h-4 w-4 shrink-0" />,
     canceled: <AlertTriangle className="h-4 w-4 shrink-0" />,
+    over_limit: <CreditCard className="h-4 w-4 shrink-0" />,
   };
 
   return (
@@ -76,7 +78,7 @@ export function SubscriptionBanner() {
         href="/compte/abonnement"
         className="shrink-0 px-3 py-1 text-xs font-medium rounded-md bg-primary text-white hover:bg-primary/90 transition-colors"
       >
-        {banner.type === "trial_warning" ? "Souscrire" : "Gérer l'abonnement"}
+        {banner.type === "trial_warning" ? "Souscrire" : banner.type === "over_limit" ? "Passer au plan supérieur" : "Gérer l'abonnement"}
       </Link>
       {banner.type === "trial_warning" && (
         <button onClick={() => setDismissed(societyId ?? null)} className="shrink-0 p-0.5 rounded hover:bg-[var(--color-status-caution)]/10" aria-label="Fermer la bannière">

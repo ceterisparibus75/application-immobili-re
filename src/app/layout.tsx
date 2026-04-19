@@ -9,6 +9,7 @@ import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ZendeskWidget } from "@/components/zendesk-widget";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,10 +34,22 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "MyGestia",
+    startupImage: [
+      { url: "/icons/icon-512.png", media: "(device-width: 320px)" },
+    ],
   },
   icons: {
-    apple: "/icons/icon-apple.png",
-    icon: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/icon-apple.png", sizes: "180x180" },
+      { url: "/icons/icon-152.png", sizes: "152x152" },
+      { url: "/icons/icon-144.png", sizes: "144x144" },
+      { url: "/icons/icon-128.png", sizes: "128x128" },
+    ],
+    icon: [
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   },
 };
 
@@ -67,6 +80,7 @@ export default function RootLayout({
             </Sentry.ErrorBoundary>
             <Toaster richColors closeButton />
             <ZendeskWidget />
+            <PwaInstallPrompt />
             <Analytics />
             <SpeedInsights />
           </ThemeProvider>

@@ -6,6 +6,7 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
 import type { ActionResult } from "@/actions/society";
 import type { PlanId } from "@/lib/stripe";
+import { env } from "@/lib/env";
 
 // ─── Synchroniser depuis Stripe si desync detectee ────────────────────────
 
@@ -186,7 +187,7 @@ export async function createCheckout(
     const existingSub = await prisma.subscription.findUnique({ where: { societyId } });
     const trialDays = existingSub?.trialUsed ? 0 : 14;
 
-    const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+    const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const url = await createCheckoutSession({
       societyId,
       userId: session.user.id,
@@ -273,7 +274,7 @@ export async function openBillingPortal(
       return { success: false, error: "Aucun abonnement actif" };
     }
 
-    const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+    const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const url = await createCustomerPortalSession({
       customerId: subscription.stripeCustomerId,
       returnUrl: `${baseUrl}/compte/abonnement`,

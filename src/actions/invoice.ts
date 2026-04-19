@@ -570,6 +570,7 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           name: true,
           legalForm: true,
           siret: true,
+          email: true,
           vatNumber: true,
           vatRegime: true,
           logoUrl: true,

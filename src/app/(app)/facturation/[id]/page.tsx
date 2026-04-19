@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download, FileCode2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -21,6 +21,9 @@ import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
 import { SepaButton } from "./_components/sepa-button";
+import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
+import { PaStatusCard } from "./_components/pa-status-card";
+import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
@@ -117,6 +120,28 @@ export default async function FactureDetailPage({
               PDF
             </Button>
           </a>
+          <a href={`/api/invoices/${invoice.id}/facturx`} download>
+            <Button variant="outline" size="sm" title="Télécharger au format Factur-X (PDF/A-3b + XML CII, conforme facturation électronique B2B)">
+              <FileCode2 className="h-4 w-4" />
+              Factur-X
+            </Button>
+          </a>
+          {isEInvoicingConfigured() && invoice.status !== "BROUILLON" && (
+            <SubmitEInvoiceButton
+              invoiceId={invoice.id}
+              societyId={societyId}
+              alreadySubmitted={
+                !!invoice.einvoiceXmlUrl && !invoice.einvoiceXmlUrl.startsWith("invoices/")
+              }
+              flowId={
+                invoice.einvoiceXmlUrl && !invoice.einvoiceXmlUrl.startsWith("invoices/")
+                  ? invoice.einvoiceXmlUrl
+                  : null
+              }
+              missingSiret={!invoice.society?.siret}
+              missingEmail={!invoice.society?.email}
+            />
+          )}
           {invoice.status !== "BROUILLON" && (
             <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           )}
@@ -408,6 +433,18 @@ export default async function FactureDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {/* Statut PA B2B */}
+          {isEInvoicingConfigured() &&
+            invoice.einvoiceXmlUrl &&
+            !invoice.einvoiceXmlUrl.startsWith("invoices/") && (
+              <PaStatusCard
+                invoiceId={invoice.id}
+                societyId={societyId}
+                flowId={invoice.einvoiceXmlUrl}
+                submittedAt={invoice.einvoiceGeneratedAt}
+              />
+            )}
         </div>
       </div>
     </div>

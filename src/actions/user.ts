@@ -21,6 +21,7 @@ import {
 import type { ModulePermissions } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { sendNewUserInviteEmail } from "@/lib/email";
+import { env } from "@/lib/env";
 import type { ActionResult } from "./society";
 
 export async function createUser(
@@ -68,7 +69,7 @@ export async function createUser(
         where: { id: existing.id },
         data: { resetToken, resetTokenExpiresAt },
       });
-      const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
       const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
       await sendNewUserInviteEmail({
         to: existing.email,
@@ -99,10 +100,19 @@ export async function createUser(
       },
     });
 
+    await createAuditLog({
+      societyId: "system",
+      userId: user.id,
+      action: "CREATE",
+      entity: "User",
+      entityId: user.id,
+      details: { email: user.email, createdBy: session.user.id },
+    });
+
     revalidatePath("/administration/utilisateurs");
 
     // Envoi de l'email d'invitation avec lien de création de mot de passe
-    const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
     await sendNewUserInviteEmail({
@@ -162,7 +172,7 @@ export async function resendInvitation(
       data: { resetToken, resetTokenExpiresAt },
     });
 
-    const baseUrl = process.env.AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
     await sendNewUserInviteEmail({

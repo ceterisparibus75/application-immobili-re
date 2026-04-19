@@ -112,6 +112,19 @@ DOCUSIGN_API_KEY, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_USER_ID
 DOCUSIGN_PRIVATE_KEY                               # RSA en base64
 DOCUSIGN_BASE_URL, DOCUSIGN_AUTH_URL, DOCUSIGN_WEBHOOK_SECRET
 
+# Facturation électronique B2B (tous optionnels — réforme sept. 2026)
+PISTE_CLIENT_ID, PISTE_CLIENT_SECRET               # OAuth2 PISTE (B2G — Chorus Pro uniquement)
+PISTE_ENV                                          # "sandbox" | "production" (défaut sandbox)
+CHORUS_PRO_ENV                                     # "sandbox" | "production" (défaut sandbox)
+CHORUS_PRO_TECH_ACCOUNT                            # Compte technique Chorus Pro (ex. TECH_1_xxx@cpro.fr)
+CHORUS_PRO_TECH_PASSWORD                           # Mot de passe compte technique
+CHORUS_PRO_TECH_USER_ID                            # ID numérique interne Chorus Pro
+PA_API_BASE_URL                                    # URL de base de la Plateforme Agréée B2B
+PA_API_KEY                                         # Clé API PA (Bearer token)
+PA_AUTH_TOKEN_URL                                  # URL token OAuth2 PA (si la PA utilise OAuth2)
+PA_AUTH_CLIENT_ID, PA_AUTH_CLIENT_SECRET           # Credentials OAuth2 PA
+PA_MANDATAIRE_SIRET                                # ★ SIRET MTG Holding — active le Mode B (SC mandataire)
+
 # Infrastructure (tous optionnels)
 UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN  # Cache + rate-limiting
 NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  # Stockage fichiers
@@ -169,8 +182,19 @@ Chaque société dispose d'un abonnement (`Subscription`) géré par `src/lib/pl
 - **Plans** : STARTER (20 lots, 1 société, 2 users) / PRO (50 lots, 3 sociétés, 5 users) / ENTERPRISE (illimité). Seul ENTERPRISE a : signature électronique, import IA, accès API.
 - **Enforcement** : `checkSubscriptionActive()` vérifié avant toute mutation critique (lot, building, lease, tenant, invoice, user, society)
 - **Limites par plan** : `checkLotLimit()`, `checkUserLimit()`, `checkSocietyLimit()` dans `src/lib/plan-limits.ts`
-- **Bannière** : `SubscriptionBanner` (`src/components/layout/subscription-banner.tsx`) affiche les alertes (trial ≤5j, expiration, impayé)
+- **Bannière** : `SubscriptionBanner` (`src/components/layout/subscription-banner.tsx`) affiche les alertes (trial ≤5j, expiration, impayé, dépassement quota)
 - **Cron** : `/api/cron/sync-subscriptions` (quotidien 6h30) expire les trials et resynchronise les statuts Stripe
+
+#### Multi-société et quota de plan
+
+`checkSubscriptionActive()` gère le cas où un utilisateur a souscrit UN abonnement couvrant plusieurs sociétés :
+
+1. Si la société cible a un abonnement ACTIVE → OK
+2. Sinon, `checkCoveredByOwnerSubscription(societyId)` cherche parmi les autres sociétés administrées par le même utilisateur la meilleure subscription ACTIVE (ENTERPRISE > PRO > STARTER)
+3. Si trouvée et quota non dépassé (`maxSocieties`) → retourne `{ active: true, status: "ACTIVE" }`
+4. Si quota dépassé → retourne `{ active: false, status: "OVER_LIMIT", message: "Plan X limité à N sociétés…" }` → bannière amber "Passer au plan supérieur"
+
+Le statut `OVER_LIMIT` (non stocké en BDD, calculé dynamiquement) est géré par `/api/subscription/status` et `SubscriptionBanner`.
 
 ### RBAC
 
@@ -285,6 +309,66 @@ Les factures PDF utilisent `@react-pdf/renderer`. Le composant `InvoicePdf` reç
 6. Crée un audit log `GENERATE_PDF`
 7. Répond avec `Content-Type: application/pdf` (inline, cache 300s)
 
+### Factur-X / CII XML (`src/lib/einvoice-generator.ts`)
+
+Génère des factures électroniques conformes EN 16931 (norme européenne) via **node-zugferd** (profil BASIC) :
+
+- `generateFacturX(pdfBuffer, data)` — embeds le XML CII dans un PDF/A-3b (format Factur-X)
+- `generateFacturXml(data)` — génère uniquement le XML CII (pour soumission PA B2B)
+
+Champs obligatoires EN 16931 implémentés :
+- **BT-34** (`electronicAddress`) : email vendeur avec scheme `"EM"`, ou SIRET avec scheme `"0009"` en fallback
+- **BT-30** (`organization.registrationIdentifier`) : SIRET vendeur, scheme `"0009"` (France)
+
+⚠️ `society.email` est requis pour BT-34. Le formulaire société affiche un avertissement amber si email ou SIRET est absent.
+
+La route `/api/invoices/[id]/facturx` génère le PDF/A-3b (Factur-X) pour téléchargement.
+La soumission PA B2B utilise `generateFacturXml()` directement (CII XML, format attendu par Peppol).
+
+### Facturation électronique B2B — Architecture complète
+
+Deux canaux de facturation électronique, indépendants :
+
+#### ① Chorus Pro (B2G — Business to Government)
+
+Pour les entités publiques (État, collectivités, hôpitaux…). Via PISTE OAuth2 + compte technique.
+
+- Client : `src/lib/chorus-pro-client.ts` (`ChorusProClient`)
+- Action : `submitInvoiceToChorusPro(societyId, invoiceId)` dans `src/actions/einvoicing.ts`
+- Génère un PDF Factur-X puis dépose via `deposerFluxFacture()` (IN_DP_E1_FACTURX)
+- Numéro de flux stocké dans `invoice.einvoiceXmlUrl` sous forme `cpro:NUMERO_FLUX`
+- Config : `PISTE_CLIENT_ID`, `PISTE_CLIENT_SECRET`, `CHORUS_PRO_TECH_ACCOUNT`, `CHORUS_PRO_TECH_PASSWORD`
+
+#### ② Plateforme Agréée B2B (réforme sept. 2026)
+
+Pour les entreprises privées. Via contrat direct avec une PA certifiée DGFiP (ex. SUPER PDP).
+
+- Client : `src/lib/pa-client.ts` (`PAClient`) — conforme norme AFNOR XP Z12-013, PA-agnostique
+- Actions : `submitInvoice()`, `getEInvoiceStatus()`, `syncReceivedInvoices()`, `registerSocietyInPPF()` dans `src/actions/einvoicing.ts`
+- Format soumis : **CII XML** (pas PDF) — `format: "CII"`, profil BASIC, norme EN 16931
+- flowId stocké dans `invoice.einvoiceXmlUrl` (valeur brute, pas un chemin Storage)
+- Bouton "Envoyer PA B2B" sur la page `/facturation/[id]` (composant `SubmitEInvoiceButton`)
+- Carte de statut PA (`PaStatusCard`) affichée après soumission avec refresh du statut
+
+**Mode mandataire (Model B — Solution Compatible SC) :**
+
+MyGestia est une **Solution Compatible (SC) certifiée DGFiP** — elle détient UN contrat PA couvrant toutes ses sociétés clientes.
+
+- Activé par `PA_MANDATAIRE_SIRET` = SIRET MTG Holding enregistré auprès de la PA
+- À chaque soumission, le client PA envoie :
+  - `X-Mandataire-Siret` : SIRET MyGestia (identifiant du SC)
+  - `X-Seller-Siret` + `X-Emitter-Siret` : SIRET de la société cliente (vendeur réel)
+- `registerSocietyInPPF()` : en mode SC, marque la société comme déclarée sans vérification annuaire PPF individuelle (déclaration gérée par la PA sous le contrat MyGestia)
+- UI : `PPFActivationCard` affiche un bandeau bleu "Mode Solution Compatible (SC)" et le bouton "Déclarer à la PA"
+
+**Prérequis contractuel** : MyGestia doit signer un "Contrat Partenaire SC" avec la PA choisie. Sans ce contrat, la PA rejette les soumissions ("L'entreprise liée à la session ne correspond pas au vendeur").
+
+**Authentification PA :**
+1. OAuth2 : `PA_AUTH_TOKEN_URL` + `PA_AUTH_CLIENT_ID` + `PA_AUTH_CLIENT_SECRET` (priorité)
+2. API Key : `PA_API_KEY` comme Bearer token (fallback)
+
+**Condition d'activation du module PA B2B** : `isEInvoicingConfigured()` = `PA_API_BASE_URL` + au moins un credential (PISTE ou PA propre).
+
 ### Stockage fichiers (Supabase Storage)
 
 Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storage/signed-upload/route.ts` et `src/app/api/storage/view/route.ts` gèrent respectivement l'upload signé et la consultation sécurisée des fichiers.
@@ -348,6 +432,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Locataires | `/locataires` | `tenant.ts` |
 | Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
 | Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |
+| Facturation électronique B2B | `/facturation/[id]` | `einvoicing.ts` (bouton "Envoyer PA B2B") |
 | Banque + Rapprochement + Cashflow | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts`, `cashflow.ts` |
 | Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
 | Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
@@ -376,6 +461,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Évaluations patrimoine | `/patrimoine/evaluations` | `valuation.ts`, `rent-valuation.ts` |
 | Rapports | `/rapports`, `/rapports/planification` | `report-generator.ts`, `report-schedule.ts` |
 | Assistant IA | `/assistant` | `ai-chatbot.ts` |
+| Paramètres facturation | `/parametres/facturation` | `einvoicing.ts` (PPFActivationCard, ChorusProCard) |
 
 ## Cron Jobs (Vercel)
 
@@ -386,6 +472,7 @@ Définis dans `vercel.json`, protégés par `CRON_SECRET` :
 | `/api/cron/generate-drafts` | Quotidien 7h | Génération auto brouillons factures |
 | `/api/cron/sync-bank` | Quotidien 6h | Synchronisation transactions bancaires |
 | `/api/cron/sync-subscriptions` | Quotidien 6h30 | Expiration trials + sync statuts Stripe |
+| `/api/cron/sync-einvoices` | Toutes les heures | Sync factures électroniques reçues (PA B2B) |
 | `/api/cron/invoice-reminder` | Lundi 8h | Relances factures impayées |
 | `/api/cron/insurance-reminder` | Lundi 9h | Rappels assurances |
 | `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
@@ -508,6 +595,7 @@ AppLayout (src/app/(app)/layout.tsx)
 - Les avenants de bail sont dans `lease-amendment.ts` (séparé de `lease.ts`)
 - Les paliers de loyer (`RentStep`) sont dans `lease.ts` : `createRentSteps()`, `updateRentStep()`, `deleteRentStep()`
 - La gestion des tiers (sous-baux, mandats) est dans la sous-page `/baux/[id]/gestion-tiers`
+- La société doit avoir un **SIRET** et un **email** pour émettre des factures électroniques (BT-30 + BT-34 EN 16931)
 
 ## Durées de conservation RGPD
 

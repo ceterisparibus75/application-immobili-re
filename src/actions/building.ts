@@ -8,6 +8,7 @@ import { createAuditLog } from "@/lib/audit";
 import {
   createBuildingSchema,
   updateBuildingSchema,
+  additionalAcquisitionSchema,
   type CreateBuildingInput,
   type UpdateBuildingInput,
 } from "@/validations/building";
@@ -378,11 +379,19 @@ export async function createAdditionalAcquisition(
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
     await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-    await checkSubscriptionActive(societyId);
 
-    if (!input.label?.trim()) return { success: false, error: "Le libellé est obligatoire" };
-    if (!input.acquisitionPrice || input.acquisitionPrice <= 0) return { success: false, error: "Le prix d'acquisition doit être positif" };
-    if (!input.acquisitionDate) return { success: false, error: "La date d'acquisition est obligatoire" };
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    const parsed = additionalAcquisitionSchema.safeParse({ ...input, buildingId });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const acquisitionDate = new Date(parsed.data.acquisitionDate);
+    if (isNaN(acquisitionDate.getTime())) {
+      return { success: false, error: "La date d'acquisition est invalide" };
+    }
 
     // Vérifier que l'immeuble appartient à la société
     const building = await prisma.building.findFirst({ where: { id: buildingId, societyId } });
@@ -392,13 +401,13 @@ export async function createAdditionalAcquisition(
       data: {
         buildingId,
         societyId,
-        label: input.label.trim(),
-        acquisitionDate: new Date(input.acquisitionDate),
-        acquisitionPrice: input.acquisitionPrice,
-        acquisitionFees: input.acquisitionFees ?? null,
-        acquisitionTaxes: input.acquisitionTaxes ?? null,
-        otherCosts: input.otherCosts ?? null,
-        description: input.description?.trim() || null,
+        label: parsed.data.label.trim(),
+        acquisitionDate,
+        acquisitionPrice: parsed.data.acquisitionPrice,
+        acquisitionFees: parsed.data.acquisitionFees ?? null,
+        acquisitionTaxes: parsed.data.acquisitionTaxes ?? null,
+        otherCosts: parsed.data.otherCosts ?? null,
+        description: parsed.data.description?.trim() || null,
       },
     });
 

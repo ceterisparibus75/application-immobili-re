@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Loader2, Save, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Upload, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getLogoProxyUrl } from "@/lib/utils";
@@ -166,6 +166,15 @@ export default function ModifierSocietePage() {
             <CardTitle>Informations légales</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Avertissement facturation électronique B2B */}
+            <div className="flex gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">Facturation électronique B2B obligatoire dès 2026</p>
+                <p className="text-xs opacity-90">Le <strong>SIRET</strong> et l&apos;<strong>email de contact</strong> sont obligatoires pour émettre des factures électroniques vers vos clients professionnels (réforme DGFiP, norme EN 16931).</p>
+              </div>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Raison sociale *</Label>
@@ -178,7 +187,12 @@ export default function ModifierSocietePage() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="siret">SIRET *</Label>
+                <Label htmlFor="siret">
+                  SIRET *
+                  {!form.siret && (
+                    <span className="ml-2 text-xs font-normal text-amber-600">— requis pour la facturation électronique</span>
+                  )}
+                </Label>
                 <Input id="siret" value={form.siret} onChange={(e) => set("siret", e.target.value)} maxLength={14} required />
               </div>
               <div className="space-y-2">
@@ -208,13 +222,21 @@ export default function ModifierSocietePage() {
                 <Label htmlFor="country">Pays</Label>
                 <Input id="country" value={form.country} onChange={(e) => set("country", e.target.value)} />
               </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="phone">Téléphone</Label>
                 <Input id="phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+33 1 23 45 67 89" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email de contact</Label>
+                <Label htmlFor="email">
+                  Email de contact
+                  {!form.email && (
+                    <span className="ml-2 text-xs font-normal text-amber-600">— requis pour la facturation électronique</span>
+                  )}
+                </Label>
                 <Input id="email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contact@societe.fr" />
+                <p className="text-xs text-muted-foreground">Adresse électronique utilisée comme identifiant Peppol pour les échanges B2B.</p>
               </div>
             </div>
           </CardContent>

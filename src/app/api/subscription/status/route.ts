@@ -33,6 +33,12 @@ export async function GET(request: NextRequest) {
         message: "Votre période d'essai est terminée. Souscrivez un abonnement pour continuer à utiliser l'application.",
       });
     }
+    if (result.status === "OVER_LIMIT") {
+      return NextResponse.json({
+        type: "over_limit",
+        message: result.message ?? "Cette société dépasse le quota de votre plan. Passez au plan supérieur pour l'activer.",
+      });
+    }
     if (result.status === "PAST_DUE") {
       return NextResponse.json({
         type: "past_due",

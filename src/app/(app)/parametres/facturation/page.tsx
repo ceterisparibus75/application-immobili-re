@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, ArrowRight, Inbox, Sparkles, CheckCircle2 } from "lucide-react";
 import { getSupplierInboxConfig } from "@/actions/supplier-inbox";
+import { prisma } from "@/lib/prisma";
+import { isEInvoicingConfigured } from "@/lib/pa-client";
+import { env } from "@/lib/env";
+import { isChorusProConfigured } from "@/lib/chorus-pro-client";
 import { InboxConfigForm } from "./_components/inbox-config-form";
+import { PPFActivationCard } from "./_components/ppf-activation-card";
+import { ChorusProCard } from "./_components/chorus-pro-card";
 
 export const metadata = { title: "Paramètres de facturation" };
 
@@ -12,7 +18,13 @@ export default async function ParametresFacturationPage() {
   const societyId = h.get("x-society-id");
   if (!societyId) redirect("/societes");
 
-  const config = await getSupplierInboxConfig(societyId);
+  const [config, society] = await Promise.all([
+    getSupplierInboxConfig(societyId),
+    prisma.society.findFirst({
+      where: { id: societyId },
+      select: { ppfRegisteredAt: true, siret: true },
+    }),
+  ]);
 
   const steps = [
     {
@@ -48,6 +60,18 @@ export default async function ParametresFacturationPage() {
           Configurez la réception automatique des factures fournisseurs par email.
         </p>
       </div>
+
+      {/* Chorus Pro — Facturation B2G (secteur public) */}
+      <ChorusProCard isConfigured={isChorusProConfigured()} />
+
+      {/* PA B2B — Réforme facturation électronique sept. 2026 */}
+      <PPFActivationCard
+        societyId={societyId}
+        ppfRegisteredAt={society?.ppfRegisteredAt ?? null}
+        hasSiret={!!society?.siret}
+        isConfigured={isEInvoicingConfigured()}
+        isMandataireMode={!!env.PA_MANDATAIRE_SIRET}
+      />
 
       {/* Formulaire de configuration inbox */}
       <InboxConfigForm societyId={societyId} initialConfig={config} />

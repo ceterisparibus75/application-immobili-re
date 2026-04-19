@@ -32,6 +32,29 @@ const envSchema = z.object({
   MISTRAL_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   NEXT_PUBLIC_ZENDESK_KEY: z.string().optional(),
+  // Facturation électronique — PISTE OAuth2 (commun B2G et B2B)
+  PISTE_CLIENT_ID: z.string().optional(),
+  PISTE_CLIENT_SECRET: z.string().optional(),
+  PISTE_ENV: z.enum(["sandbox", "production"]).optional(), // contrôle le endpoint OAuth uniquement
+  CHORUS_PRO_ENV: z.enum(["sandbox", "production"]).optional(), // contrôle le endpoint API Chorus Pro (défaut: sandbox)
+
+  // Chorus Pro — Facturation B2G (entreprise → secteur public via PISTE)
+  // Créer un compte technique sur portail.chorus-pro.gouv.fr → Espace EDI & API
+  CHORUS_PRO_TECH_ACCOUNT: z.string().optional(), // ex. "TECH_1_xxxxx@cpro.fr"
+  CHORUS_PRO_TECH_PASSWORD: z.string().optional(),
+  CHORUS_PRO_TECH_USER_ID: z.string().optional(), // ID numérique interne Chorus Pro
+
+  // Plateforme Agréée (PA) — Facturation B2B (norme AFNOR XP Z12-013, réforme sept. 2026)
+  // L'accès à une PA se fait par contrat direct (sans PISTE) — auth propre à la PA
+  PA_API_BASE_URL: z.preprocess(val => (val === "" ? undefined : val), z.string().url().optional()),
+  PA_API_KEY: z.string().optional(),            // Clé API ou Bearer token fourni par la PA
+  PA_AUTH_TOKEN_URL: z.preprocess(val => (val === "" ? undefined : val), z.string().url().optional()), // URL token OAuth2 PA (si la PA utilise OAuth2)
+  PA_AUTH_CLIENT_ID: z.string().optional(),     // Client ID OAuth2 PA
+  PA_AUTH_CLIENT_SECRET: z.string().optional(), // Client Secret OAuth2 PA
+  // Model B — MyGestia en tant que Solution Compatible (SC) / mandataire de transmission
+  // MyGestia signe UN contrat avec la PA qui couvre toutes les sociétés clientes.
+  // PA_MANDATAIRE_SIRET = SIRET de MTG Holding (l'entité légale MyGestia enregistrée auprès de la PA)
+  PA_MANDATAIRE_SIRET: z.string().optional(),   // SIRET MyGestia enregistré comme SC auprès de la PA
 });
 
 const isBuildPhase =

@@ -482,6 +482,9 @@ model Society {
   // Configuration
   isActive Boolean @default(true)
 
+  // Facturation électronique — Solution Compatible PPF (DGFiP)
+  ppfRegisteredAt  DateTime? // Date d'inscription au Répertoire PPF (annuaire)
+
   // Proprietaire (legacy — migration progressive)
   ownerId String?
   owner   User?   @relation("SocietyOwner", fields: [ownerId], references: [id])
@@ -1596,6 +1599,10 @@ model Invoice {
   validatedAt         DateTime?
   cancelledAt         DateTime?
   cancelReason        String?
+
+  // Facturation électronique (Factur-X / ZUGFeRD)
+  einvoiceXmlUrl      String?   // Chemin Supabase vers le XML CII embarqué
+  einvoiceGeneratedAt DateTime? // Horodatage de la dernière génération Factur-X
 
   // Avoir — référence à la facture d'origine
   creditNoteForId String?
@@ -3815,6 +3822,12 @@ model SupplierInvoice {
   sepaXmlStoragePath  String?
   qontoTransferId     String?  // ID transfert Qonto
   bankJournalEntryId  String?         // Écriture BQUE — référence ID uniquement
+
+  // ── Facturation électronique — Solution Compatible PPF ───────────────────
+  ppfInvoiceId   String?   @unique  // ID de la facture dans le PPF (Chorus Pro)
+  ppfStatus      String?            // Statut PPF : RECEIVED | ACCEPTED | REFUSED | IN_PAYMENT
+  ppfSyncedAt    DateTime?          // Dernière synchronisation avec le PPF
+  xmlStoragePath String?            // Chemin Supabase : XML CII / UBL embarqué
 
   // ── Rejet ────────────────────────────────────────────────────────────────
   rejectedAt      DateTime?

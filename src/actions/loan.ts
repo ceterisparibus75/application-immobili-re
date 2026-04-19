@@ -123,6 +123,14 @@ function generateAmortizationTable(input: AmortizationInput): AmortizationLine[]
 // SCHÉMAS DE VALIDATION
 // ============================================================
 
+const updateAmortizationLineSchema = z.object({
+  principalPayment: z.number().min(0),
+  interestPayment: z.number().min(0),
+  insurancePayment: z.number().min(0),
+  totalPayment: z.number().min(0),
+  remainingBalance: z.number().min(0),
+});
+
 const createLoanSchema = z.object({
   label: z.string().min(1),
   lender: z.string().min(1),
@@ -132,7 +140,7 @@ const createLoanSchema = z.object({
   insuranceRate: z.number().min(0).default(0),
   durationMonths: z.number().int().positive(),
   startDate: z.string().min(1),
-  buildingId: z.string().optional().nullable(),
+  buildingId: z.string().min(1).optional().nullable(),
   purchaseValue: z.number().positive().optional().nullable(),
   notes: z.string().optional().nullable(),
   // Champs spécifiques Émission obligataire
@@ -402,6 +410,15 @@ export async function markAmortizationLinePaid(
     data: { isPaid: paid, paidAt: paid ? new Date() : null },
   });
 
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "UPDATE",
+    entity: "LoanAmortizationLine",
+    entityId: lineId,
+    details: { loanId: line.loanId, isPaid: paid },
+  });
+
   revalidatePath(`/emprunts/${line.loanId}`);
   return { success: true };
 }
@@ -410,13 +427,7 @@ export async function markAmortizationLinePaid(
 export async function updateAmortizationLine(
   societyId: string,
   lineId: string,
-  data: {
-    principalPayment: number;
-    interestPayment: number;
-    insurancePayment: number;
-    totalPayment: number;
-    remainingBalance: number;
-  }
+  data: unknown
 ) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Non authentifié" };
@@ -427,6 +438,11 @@ export async function updateAmortizationLine(
     return { error: "Accès refusé" };
   }
 
+  const parsed = updateAmortizationLineSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+  }
+
   const line = await prisma.loanAmortizationLine.findFirst({
     where: { id: lineId, loan: { societyId } },
   });
@@ -434,13 +450,16 @@ export async function updateAmortizationLine(
 
   await prisma.loanAmortizationLine.update({
     where: { id: lineId },
-    data: {
-      principalPayment: data.principalPayment,
-      interestPayment: data.interestPayment,
-      insurancePayment: data.insurancePayment,
-      totalPayment: data.totalPayment,
-      remainingBalance: data.remainingBalance,
-    },
+    data: parsed.data,
+  });
+
+  await createAuditLog({
+    societyId,
+    userId: session.user.id,
+    action: "UPDATE",
+    entity: "LoanAmortizationLine",
+    entityId: lineId,
+    details: { loanId: line.loanId, ...parsed.data },
   });
 
   revalidatePath(`/emprunts/${line.loanId}`);

@@ -45,6 +45,7 @@ export default auth(async (req) => {
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/debug") ||
     pathname.startsWith("/dataroom/share") ||
     pathname.startsWith("/api/admin/migrate") ||
     pathname.startsWith("/api/dataroom") ||

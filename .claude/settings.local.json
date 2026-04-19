@@ -23,7 +23,12 @@
       "Bash(grep '\"\"resend\"\"' package.json)",
       "Bash(vercel logs:*)",
       "Bash(vercel env:*)",
-      "Bash(vercel ls:*)"
+      "Bash(vercel ls:*)",
+      "Bash(findstr /i \"error fail success compil\")",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\\\\\Users\\\\\\\\MAXIME~1\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\c--Users-Maxime-Langet-Mon-Drive-Application-gestion-immobiliere\\\\\\\\a15c7ca3-6e0b-4197-a2d0-f6e982679f47\\\\\\\\tasks\\\\\\\\bbn7mwk0a.output' -ErrorAction SilentlyContinue | Select-Object -Last 40\")",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "mcp__Claude_Preview__preview_start"
     ],
     "defaultMode": "bypassPermissions",
     "additionalDirectories": [

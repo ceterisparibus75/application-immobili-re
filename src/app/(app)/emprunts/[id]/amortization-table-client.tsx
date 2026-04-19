@@ -62,6 +62,8 @@ export function AmortizationTableClient({
               : l
           )
         );
+      } else {
+        toast.error((result as { error?: string }).error ?? "Erreur lors du marquage");
       }
       setLoadingId(null);
     });

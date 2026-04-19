@@ -167,12 +167,119 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
   }
 
   // Tous les autres statuts (CANCELED, PAST_DUE, UNPAID, INCOMPLETE)
+  // Vérifier si l'utilisateur admin a un abonnement ACTIVE sur une autre société
+  // et si ce plan couvre suffisamment de sociétés pour inclure celle-ci.
+  const ownerCoverage = await checkCoveredByOwnerSubscription(societyId);
+  if (ownerCoverage.covered) {
+    return { active: true, status: "ACTIVE" };
+  }
+  if (ownerCoverage.overLimit) {
+    return {
+      active: false,
+      status: "OVER_LIMIT",
+      message: `Votre plan ${ownerCoverage.planName ?? ""} est limité à ${ownerCoverage.maxSocieties} société${ownerCoverage.maxSocieties && ownerCoverage.maxSocieties > 1 ? "s" : ""}. Passez au plan supérieur pour activer cette société.`,
+    };
+  }
+
   return {
     active: false,
     status: subscription.status,
     message: subscription.status === "PAST_DUE"
       ? "Votre paiement a échoué. Veuillez mettre à jour votre moyen de paiement."
       : "Votre abonnement n'est plus actif. Souscrivez un plan pour continuer.",
+  };
+}
+
+/**
+ * Vérifie si une société est couverte par l'abonnement ACTIVE de l'utilisateur admin,
+ * en tenant compte de la limite de sociétés autorisées par le plan.
+ *
+ * Les sociétés sont priorisées par date de création (la plus ancienne = priorité 1).
+ * La société sur laquelle l'abonnement est souscrit est toujours prioritaire (slot 0).
+ *
+ * Retourne :
+ *   - covered: true  → société dans le quota du plan
+ *   - overLimit: true → l'utilisateur a un plan actif mais cette société dépasse le quota
+ *   - (les deux false) → pas de plan actif trouvé
+ */
+async function checkCoveredByOwnerSubscription(societyId: string): Promise<{
+  covered: boolean;
+  overLimit: boolean;
+  planName?: string;
+  maxSocieties?: number;
+}> {
+  // 1. Trouver les admins de cette société
+  const admins = await prisma.userSociety.findMany({
+    where: {
+      societyId,
+      role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+    },
+    select: { userId: true },
+  });
+  if (admins.length === 0) return { covered: false, overLimit: false };
+
+  const adminUserIds = admins.map((a) => a.userId);
+
+  // 2. Toutes les sociétés gérées par ces admins (y compris la courante)
+  const allMemberships = await prisma.userSociety.findMany({
+    where: {
+      userId: { in: adminUserIds },
+      role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+    },
+    select: { societyId: true },
+  });
+  const allSocietyIds = [...new Set(allMemberships.map((m) => m.societyId))];
+
+  // 3. Chercher le meilleur abonnement ACTIVE parmi toutes ces sociétés
+  const activeSubscriptions = await prisma.subscription.findMany({
+    where: {
+      societyId: { in: allSocietyIds },
+      status: "ACTIVE",
+    },
+    select: { societyId: true, planId: true },
+  });
+  if (activeSubscriptions.length === 0) return { covered: false, overLimit: false };
+
+  // Prendre le plan le plus généreux (ENTERPRISE > PRO > STARTER)
+  const planRank: Record<string, number> = { ENTERPRISE: 3, PRO: 2, STARTER: 1 };
+  const bestSub = activeSubscriptions.sort(
+    (a, b) => (planRank[b.planId] ?? 0) - (planRank[a.planId] ?? 0)
+  )[0];
+
+  const planId = bestSub.planId as PlanId;
+  const limits = PLANS[planId];
+  const maxSocieties = limits?.maxSocieties ?? 1;
+
+  // Plan illimité → toujours couvert
+  if (maxSocieties === -1) return { covered: true, overLimit: false };
+
+  // 4. Ordonner les sociétés par date de création (la plus ancienne en premier)
+  //    La société sur laquelle l'abonnement est souscrit est toujours en tête.
+  const societies = await prisma.society.findMany({
+    where: { id: { in: allSocietyIds } },
+    select: { id: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // La société "payante" remonte en premier
+  const payingSocietyId = bestSub.societyId;
+  const sorted = [
+    ...societies.filter((s) => s.id === payingSocietyId),
+    ...societies.filter((s) => s.id !== payingSocietyId),
+  ];
+
+  const coveredIds = new Set(sorted.slice(0, maxSocieties).map((s) => s.id));
+
+  if (coveredIds.has(societyId)) {
+    return { covered: true, overLimit: false };
+  }
+
+  // Cette société existe mais dépasse le quota du plan
+  return {
+    covered: false,
+    overLimit: true,
+    planName: limits?.name,
+    maxSocieties,
   };
 }
 

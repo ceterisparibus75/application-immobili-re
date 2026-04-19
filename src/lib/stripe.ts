@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { env } from "@/lib/env";
 
 function getStripeClient(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -73,16 +74,16 @@ export function getPlanLimits(planId: PlanId) {
 
 export const PRICE_IDS = {
   STARTER: {
-    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY ?? "",
+    monthly: env.STRIPE_PRICE_STARTER_MONTHLY ?? "",
+    yearly: env.STRIPE_PRICE_STARTER_YEARLY ?? "",
   },
   PRO: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_PRO_YEARLY ?? "",
+    monthly: env.STRIPE_PRICE_PRO_MONTHLY ?? "",
+    yearly: env.STRIPE_PRICE_PRO_YEARLY ?? "",
   },
   ENTERPRISE: {
-    monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY ?? "",
-    yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY ?? "",
+    monthly: env.STRIPE_PRICE_ENTERPRISE_MONTHLY ?? "",
+    yearly: env.STRIPE_PRICE_ENTERPRISE_YEARLY ?? "",
   },
 } as const;
 
