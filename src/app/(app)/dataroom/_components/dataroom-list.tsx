@@ -9,10 +9,24 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { ArrowRight, Calendar, Eye, FileText, Lock, Plus, Share2, Trash2 } from "lucide-react";
 import { createDataroom, deleteDataroom } from "@/actions/dataroom";
+
+const PURPOSE_OPTIONS = [
+  { value: "VENTE", label: "Vente" },
+  { value: "AUDIT", label: "Audit" },
+  { value: "FINANCEMENT", label: "Financement" },
+  { value: "DUE_DILIGENCE", label: "Due diligence" },
+  { value: "AUTRE", label: "Autre" },
+];
+
+function getPurposeLabel(value: string | null): string {
+  if (!value) return "";
+  return PURPOSE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
 
 type DataroomItem = {
   id: string;
@@ -34,49 +48,58 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     BROUILLON: { label: "Brouillon", variant: "secondary" },
     ACTIF: { label: "Actif", variant: "default" },
-    ARCHIVE: { label: "Archive", variant: "outline" },
+    ARCHIVE: { label: "Archivé", variant: "outline" },
   };
   const c = config[status] ?? { label: status, variant: "outline" };
   return <Badge variant={c.variant}>{c.label}</Badge>;
 }
 
 export function DataroomList({ societyId, datarooms }: { societyId: string; datarooms: DataroomItem[] }) {
-  
   const [creating, startCreating] = useTransition();
   const [deleting, startDeleting] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+
+  function resetForm() {
+    setName("");
+    setDescription("");
+    setPurpose("");
+    setRecipientEmail("");
+    setRecipientName("");
+  }
 
   function handleCreate() {
     if (!name.trim()) return;
     startCreating(async () => {
       const result = await createDataroom(societyId, {
         name: name.trim(),
-        description: description.trim() || undefined,
-        purpose: (purpose.trim() || undefined) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | undefined,
+        description: description.trim() || null,
+        purpose: (purpose || null) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | null,
+        recipientEmail: recipientEmail.trim() || null,
+        recipientName: recipientName.trim() || null,
       });
       if (result.success) {
-        toast.success("Dataroom creee: La dataroom a ete creee avec succes.");
+        toast.success("Dataroom créée");
         setDialogOpen(false);
-        setName("");
-        setDescription("");
-        setPurpose("");
+        resetForm();
       } else {
-        toast.error("Erreur: " + result.error);
+        toast.error(result.error ?? "Erreur");
       }
     });
   }
 
   function handleDelete(dataroomId: string, dataroomName: string) {
-    if (!confirm("Supprimer la dataroom " + dataroomName + " ?")) return;
+    if (!confirm("Supprimer la dataroom « " + dataroomName + " » ?")) return;
     startDeleting(async () => {
       const result = await deleteDataroom(societyId, dataroomId);
       if (result.success) {
-        toast.success("Supprimee: La dataroom a ete supprimee.");
+        toast.success("Dataroom supprimée");
       } else {
-        toast.error("Erreur: " + result.error);
+        toast.error(result.error ?? "Erreur");
       }
     });
   }
@@ -84,33 +107,78 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-1" />Nouvelle dataroom</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Nouvelle dataroom</DialogTitle>
-              <DialogDescription>Creez un espace de partage de documents securise.</DialogDescription>
+              <DialogDescription>Créez un espace de partage de documents sécurisé.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div>
                 <Label htmlFor="dr-name">Nom *</Label>
-                <Input id="dr-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Due diligence Immeuble Lyon" />
+                <Input
+                  id="dr-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex : Due diligence Immeuble Lyon"
+                />
               </div>
               <div>
                 <Label htmlFor="dr-desc">Description</Label>
-                <Textarea id="dr-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description optionnelle..." rows={2} />
+                <Textarea
+                  id="dr-desc"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Description optionnelle..."
+                  rows={2}
+                />
               </div>
               <div>
                 <Label htmlFor="dr-purpose">Objectif</Label>
-                <Input id="dr-purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Ex: Vente, Audit, Financement" />
+                <Select value={purpose} onValueChange={setPurpose}>
+                  <SelectTrigger id="dr-purpose">
+                    <SelectValue placeholder="Sélectionner un objectif..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucun</SelectItem>
+                    {PURPOSE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="dr-email">Email destinataire</Label>
+                  <Input
+                    id="dr-email"
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="contact@exemple.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dr-rname">Nom destinataire</Label>
+                  <Input
+                    id="dr-rname"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    placeholder="Jean Dupont"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Optionnel — le destinataire sera notifié par email à chaque ajout de document.
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
               <Button onClick={handleCreate} disabled={creating || !name.trim()}>
-                {creating ? "Creation..." : "Creer"}
+                {creating ? "Création..." : "Créer"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -150,16 +218,32 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
                   </Link>
                   <StatusBadge status={dr.status} />
                 </div>
-                {dr.description && <CardDescription className="line-clamp-2 text-xs">{dr.description}</CardDescription>}
+                {dr.description && (
+                  <CardDescription className="line-clamp-2 text-xs">{dr.description}</CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{dr._count.documents} doc{dr._count.documents !== 1 ? "s" : ""}</span>
-                  <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{dr.accessCount} acces</span>
-                  {dr.password && <span className="flex items-center gap-1"><Lock className="h-3.5 w-3.5" />Protege</span>}
-                  {dr.expiresAt && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(dr.expiresAt)}</span>}
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3.5 w-3.5" />
+                    {dr._count.documents} doc{dr._count.documents !== 1 ? "s" : ""}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    {dr.accessCount} accès
+                  </span>
+                  {dr.password && (
+                    <span className="flex items-center gap-1"><Lock className="h-3.5 w-3.5" />Protégé</span>
+                  )}
+                  {dr.expiresAt && (
+                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(dr.expiresAt)}</span>
+                  )}
                 </div>
-                {dr.purpose && <p className="text-xs text-muted-foreground"><span className="font-medium">Objectif :</span> {dr.purpose}</p>}
+                {dr.purpose && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Objectif :</span> {getPurposeLabel(dr.purpose)}
+                  </p>
+                )}
                 <div className="flex items-center justify-between pt-1 border-t">
                   <span className="text-xs text-muted-foreground">{formatDate(dr.createdAt)}</span>
                   <div className="flex gap-1">
@@ -167,7 +251,11 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
                       <Button variant="ghost" size="sm" className="h-7 text-xs">Ouvrir</Button>
                     </Link>
                     {(dr.status === "BROUILLON" || dr.status === "ARCHIVE") && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(dr.id, dr.name)} disabled={deleting}>
+                      <Button
+                        variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                        onClick={() => handleDelete(dr.id, dr.name)}
+                        disabled={deleting}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}

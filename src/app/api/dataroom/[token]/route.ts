@@ -108,14 +108,24 @@ export async function GET(
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("x-real-ip") ??
     null;
+  const viewerName = req.headers.get("x-viewer-name") ?? null;
+  const viewerEmail = req.headers.get("x-viewer-email") ?? null;
 
   await Promise.all([
     prisma.dataroomAccess.create({
-      data: { dataroomId: dataroom.id, ipAddress: clientIp },
+      data: {
+        dataroomId: dataroom.id,
+        ipAddress: clientIp,
+        viewerName,
+        viewerEmail,
+      },
     }),
     prisma.dataroom.update({
       where: { id: dataroom.id },
-      data: { accessCount: { increment: 1 } },
+      data: {
+        accessCount: { increment: 1 },
+        lastAccessedAt: new Date(),
+      },
     }),
   ]);
 
@@ -126,7 +136,7 @@ export async function GET(
       to: dataroom.creator.email,
       dataroomName: dataroom.name,
       viewerIp: ip,
-      viewerEmail: null,
+      viewerEmail: viewerEmail ?? null,
       accessedAt: new Date().toLocaleString("fr-FR"),
       dataroomUrl: `${appUrl}/dataroom/${dataroom.id}`,
     }).catch((err) => console.error("[dataroom] email notification failed:", err));

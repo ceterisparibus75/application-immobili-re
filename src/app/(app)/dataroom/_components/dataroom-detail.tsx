@@ -16,12 +16,25 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft, Share2, FileText, Eye, Trash2, Lock, Calendar,
-  Plus, Copy, Check, Archive, Send, ExternalLink,
+  Plus, Copy, Check, Archive, Send, ExternalLink, ChevronUp, ChevronDown, Mail, User,
 } from "lucide-react";
 import {
   updateDataroom, deleteDataroom, activateDataroom, archiveDataroom,
-  addDocumentToDataroom, removeDocumentFromDataroom,
+  addDocumentToDataroom, removeDocumentFromDataroom, reorderDocument,
 } from "@/actions/dataroom";
+
+const PURPOSE_OPTIONS = [
+  { value: "VENTE", label: "Vente" },
+  { value: "AUDIT", label: "Audit" },
+  { value: "FINANCEMENT", label: "Financement" },
+  { value: "DUE_DILIGENCE", label: "Due diligence" },
+  { value: "AUTRE", label: "Autre" },
+];
+
+function getPurposeLabel(value: string | null): string {
+  if (!value) return "";
+  return PURPOSE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
 
 type DataroomFull = {
   id: string;
@@ -36,6 +49,8 @@ type DataroomFull = {
   lastAccessedAt: Date | null;
   createdAt: Date;
   createdBy: string | null;
+  recipientEmail: string | null;
+  recipientName: string | null;
   creator: { name: string | null; email: string | null } | null;
   documents: {
     id: string;
@@ -76,7 +91,7 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     BROUILLON: { label: "Brouillon", variant: "secondary" },
     ACTIF: { label: "Actif", variant: "default" },
-    ARCHIVE: { label: "Archive", variant: "outline" },
+    ARCHIVE: { label: "Archivé", variant: "outline" },
   };
   const c = config[status] ?? { label: status, variant: "outline" };
   return <Badge variant={c.variant}>{c.label}</Badge>;
@@ -90,16 +105,20 @@ function formatFileSize(bytes: number): string {
 
 export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyId: string; dataroom: DataroomFull; allDocuments: AllDoc[] }) {
   const router = useRouter();
-  
+
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addDocOpen, setAddDocOpen] = useState(false);
+
   const [editName, setEditName] = useState(dataroom.name);
   const [editDesc, setEditDesc] = useState(dataroom.description ?? "");
   const [editPurpose, setEditPurpose] = useState(dataroom.purpose ?? "");
-  const [editPassword, setEditPassword] = useState(dataroom.password ?? "");
+  const [editPassword, setEditPassword] = useState("");
   const [editExpires, setEditExpires] = useState(dataroom.expiresAt ? new Date(dataroom.expiresAt).toISOString().split("T")[0] : "");
+  const [editRecipientEmail, setEditRecipientEmail] = useState(dataroom.recipientEmail ?? "");
+  const [editRecipientName, setEditRecipientName] = useState(dataroom.recipientName ?? "");
+
   const [selectedDocId, setSelectedDocId] = useState("");
 
   const existingDocIds = new Set(dataroom.documents.map((d) => d.document.id));
@@ -112,21 +131,24 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success("Lien de partage copie");
+    toast.success("Lien copié");
   }
 
   function handleUpdate() {
     startTransition(async () => {
       const result = await updateDataroom(societyId, dataroom.id, {
         name: editName.trim(),
-        description: editDesc.trim() || undefined,
-        purpose: (editPurpose.trim() || undefined) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | undefined,
-        password: editPassword.trim() || undefined,
-        expiresAt: editExpires || undefined,
+        description: editDesc.trim() || null,
+        purpose: (editPurpose || null) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | null,
+        password: editPassword || null,
+        expiresAt: editExpires || null,
+        recipientEmail: editRecipientEmail.trim() || null,
+        recipientName: editRecipientName.trim() || null,
       });
       if (result.success) {
-        toast.success("Dataroom mise a jour");
+        toast.success("Dataroom mise à jour");
         setEditOpen(false);
+        setEditPassword("");
       } else {
         toast.error(result.error ?? "Erreur");
       }
@@ -137,7 +159,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
     startTransition(async () => {
       const result = await activateDataroom(societyId, dataroom.id);
       if (result.success) {
-        toast.success("Dataroom activee");
+        toast.success("Dataroom activée — le lien de partage est maintenant disponible");
       } else {
         toast.error(result.error ?? "Erreur");
       }
@@ -145,11 +167,11 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
   }
 
   function handleArchive() {
-    if (!confirm("Archiver cette dataroom ? Le lien de partage sera desactive.")) return;
+    if (!confirm("Archiver cette dataroom ? Le lien de partage sera désactivé.")) return;
     startTransition(async () => {
       const result = await archiveDataroom(societyId, dataroom.id);
       if (result.success) {
-        toast.success("Dataroom archivee");
+        toast.success("Dataroom archivée");
       } else {
         toast.error(result.error ?? "Erreur");
       }
@@ -157,11 +179,11 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
   }
 
   function handleDelete() {
-    if (!confirm("Supprimer definitivement cette dataroom ?")) return;
+    if (!confirm("Supprimer définitivement cette dataroom ?")) return;
     startTransition(async () => {
       const result = await deleteDataroom(societyId, dataroom.id);
       if (result.success) {
-        toast.success("Dataroom supprimee");
+        toast.success("Dataroom supprimée");
         router.push("/dataroom");
       } else {
         toast.error(result.error ?? "Erreur");
@@ -174,7 +196,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
     startTransition(async () => {
       const result = await addDocumentToDataroom(societyId, dataroom.id, selectedDocId);
       if (result.success) {
-        toast.success("Document ajoute");
+        toast.success("Document ajouté");
         setAddDocOpen(false);
         setSelectedDocId("");
       } else {
@@ -188,15 +210,23 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
     startTransition(async () => {
       const result = await removeDocumentFromDataroom(societyId, dataroom.id, documentId);
       if (result.success) {
-        toast.success("Document retire");
+        toast.success("Document retiré");
       } else {
         toast.error(result.error ?? "Erreur");
       }
     });
   }
 
+  function handleReorder(documentId: string, direction: "up" | "down") {
+    startTransition(async () => {
+      const result = await reorderDocument(societyId, dataroom.id, documentId, direction);
+      if (!result.success) toast.error(result.error ?? "Erreur");
+    });
+  }
+
   return (
     <div className="space-y-6">
+      {/* En-tête */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Link href="/dataroom">
           <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Retour</Button>
@@ -213,17 +243,69 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">Modifier</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Modifier la dataroom</DialogTitle>
-                <DialogDescription>Mettez a jour les informations de la dataroom.</DialogDescription>
+                <DialogDescription>Mettez à jour les informations de la dataroom.</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
-                <div><Label>Nom *</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
-                <div><Label>Description</Label><Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2} /></div>
-                <div><Label>Objectif</Label><Input value={editPurpose} onChange={(e) => setEditPurpose(e.target.value)} /></div>
-                <div><Label>Mot de passe</Label><Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Laisser vide pour aucun" /></div>
-                <div><Label>Date expiration</Label><Input type="date" value={editExpires} onChange={(e) => setEditExpires(e.target.value)} /></div>
+                <div>
+                  <Label>Nom *</Label>
+                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2} />
+                </div>
+                <div>
+                  <Label>Objectif</Label>
+                  <Select value={editPurpose} onValueChange={setEditPurpose}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un objectif..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Aucun</SelectItem>
+                      {PURPOSE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Email destinataire</Label>
+                    <Input
+                      type="email"
+                      value={editRecipientEmail}
+                      onChange={(e) => setEditRecipientEmail(e.target.value)}
+                      placeholder="contact@exemple.com"
+                    />
+                  </div>
+                  <div>
+                    <Label>Nom destinataire</Label>
+                    <Input
+                      value={editRecipientName}
+                      onChange={(e) => setEditRecipientName(e.target.value)}
+                      placeholder="Jean Dupont"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Le destinataire reçoit un email à chaque ajout de document.
+                </p>
+                <div>
+                  <Label>Mot de passe</Label>
+                  <Input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder={dataroom.password ? "Laisser vide pour conserver" : "Laisser vide pour aucun"}
+                  />
+                </div>
+                <div>
+                  <Label>Date d'expiration</Label>
+                  <Input type="date" value={editExpires} onChange={(e) => setEditExpires(e.target.value)} />
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>
@@ -231,6 +313,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
           {dataroom.status === "BROUILLON" && (
             <Button size="sm" onClick={handleActivate} disabled={pending}>
               <Send className="h-4 w-4 mr-1" />Activer
@@ -249,7 +332,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
         </div>
       </div>
 
-      {/* Stats + Share */}
+      {/* Stats + Lien de partage */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="pt-4">
@@ -268,7 +351,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
               <Eye className="h-8 w-8 text-muted-foreground" />
               <div>
                 <p className="text-2xl font-bold">{dataroom.accessCount}</p>
-                <p className="text-xs text-muted-foreground">Acces total</p>
+                <p className="text-xs text-muted-foreground">Accès total</p>
               </div>
             </div>
           </CardContent>
@@ -283,20 +366,44 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                   <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={copyLink}>
                     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
+                  <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="h-8 shrink-0">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </a>
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <Share2 className="h-8 w-8 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">Pas encore active</p>
-                  <p className="text-xs text-muted-foreground">Activez pour generer le lien</p>
+                  <p className="text-sm font-medium">Pas encore activée</p>
+                  <p className="text-xs text-muted-foreground">Activez pour générer le lien</p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Destinataire externe */}
+      {(dataroom.recipientEmail || dataroom.recipientName) && (
+        <Card>
+          <CardContent className="pt-4 flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <User className="h-4 w-4 shrink-0" />
+              <span>{dataroom.recipientName ?? "Destinataire"}</span>
+            </div>
+            {dataroom.recipientEmail && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="h-4 w-4 shrink-0" />
+                <span>{dataroom.recipientEmail}</span>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground ml-auto">Notifié à chaque ajout de document</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Documents */}
       <Card>
@@ -309,7 +416,7 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Ajouter un document</DialogTitle>
-                <DialogDescription>Selectionnez un document de la GED a ajouter.</DialogDescription>
+                <DialogDescription>Sélectionnez un document de la GED à ajouter à cette dataroom.</DialogDescription>
               </DialogHeader>
               <div>
                 <Label>Document</Label>
@@ -321,7 +428,9 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                     ))}
                   </SelectContent>
                 </Select>
-                {availableDocs.length === 0 && <p className="text-xs text-muted-foreground mt-2">Tous les documents sont deja dans cette dataroom.</p>}
+                {availableDocs.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">Tous les documents sont déjà dans cette dataroom.</p>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAddDocOpen(false)}>Annuler</Button>
@@ -342,9 +451,9 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>Nom</TableHead>
-                  <TableHead className="hidden sm:table-cell">Categorie</TableHead>
+                  <TableHead className="hidden sm:table-cell">Catégorie</TableHead>
                   <TableHead className="hidden md:table-cell">Taille</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead className="w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -355,11 +464,34 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{dd.document.category ?? "Autre"}</TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{formatFileSize(dd.document.fileSize ?? 0)}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-0.5">
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => handleReorder(dd.document.id, "up")}
+                          disabled={pending || i === 0}
+                          title="Monter"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => handleReorder(dd.document.id, "down")}
+                          disabled={pending || i === dataroom.documents.length - 1}
+                          title="Descendre"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </Button>
                         <a href={dd.document.fileUrl} target="_blank" rel="noopener noreferrer">
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><ExternalLink className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Ouvrir">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
                         </a>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemoveDoc(dd.document.id)} disabled={pending}>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                          onClick={() => handleRemoveDoc(dd.document.id)}
+                          disabled={pending}
+                          title="Retirer"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -372,11 +504,11 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
         </CardContent>
       </Card>
 
-      {/* Access Log */}
+      {/* Historique des accès */}
       {dataroom.accesses.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Historique des acces</CardTitle>
+            <CardTitle className="text-lg">Historique des accès</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -393,8 +525,8 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                   <TableRow key={a.id}>
                     <TableCell className="text-xs">{formatDate(a.createdAt)}</TableCell>
                     <TableCell className="text-xs">{a.viewerName ?? "Anonyme"}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs">{a.viewerEmail ?? "-"}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs font-mono">{a.ipAddress ?? "-"}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs">{a.viewerEmail ?? "—"}</TableCell>
+                    <TableCell className="hidden md:table-cell text-xs font-mono">{a.ipAddress ?? "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -403,15 +535,21 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
         </Card>
       )}
 
-      {/* Info card */}
+      {/* Informations */}
       <Card>
         <CardContent className="pt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-          <span>Cree le {formatDate(dataroom.createdAt)}</span>
+          <span>Créée le {formatDate(dataroom.createdAt)}</span>
           {dataroom.creator && <span>Par {dataroom.creator.name ?? dataroom.creator.email}</span>}
-          {dataroom.purpose && <span>Objectif : {dataroom.purpose}</span>}
-          {dataroom.password && <span className="flex items-center gap-1"><Lock className="h-3 w-3" />Protege par mot de passe</span>}
-          {dataroom.expiresAt && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Expire le {formatDate(dataroom.expiresAt)}</span>}
-          {dataroom.lastAccessedAt && <span>Dernier acces : {formatDate(dataroom.lastAccessedAt)}</span>}
+          {dataroom.purpose && <span>Objectif : {getPurposeLabel(dataroom.purpose)}</span>}
+          {dataroom.password && (
+            <span className="flex items-center gap-1"><Lock className="h-3 w-3" />Protégée par mot de passe</span>
+          )}
+          {dataroom.expiresAt && (
+            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Expire le {formatDate(dataroom.expiresAt)}</span>
+          )}
+          {dataroom.lastAccessedAt && (
+            <span>Dernier accès : {formatDate(dataroom.lastAccessedAt)}</span>
+          )}
         </CardContent>
       </Card>
     </div>
