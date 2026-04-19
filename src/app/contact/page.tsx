@@ -11,7 +11,7 @@ import { sendContactEmail } from "./actions";
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
 
-const INITIAL_STATE = { success: false };
+const INITIAL_STATE: { success: boolean; error?: string } = { success: false };
 
 export default function ContactPage() {
   const [state, action, isPending] = useActionState(sendContactEmail, INITIAL_STATE);
