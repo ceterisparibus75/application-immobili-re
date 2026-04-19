@@ -12,3 +12,4 @@ export { FAQ } from "./faq";
 export { FinalCTA } from "./final-cta";
 export { Footer } from "./footer";
 export { Comparison } from "./comparison";
+export { CookieBanner } from "./cookie-banner";
