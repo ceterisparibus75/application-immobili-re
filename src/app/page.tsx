@@ -15,6 +15,7 @@ import {
   FAQ,
   FinalCTA,
   Footer,
+  CookieBanner,
 } from "@/components/landing";
 import {
   APP_NAME,
@@ -27,11 +28,29 @@ export const metadata: Metadata = {
   title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
   description:
     "Pilotez votre patrimoine immobilier avec rigueur. Baux, facturation, comptabilité FEC, rapprochement bancaire, reporting consolidé. Conforme RGPD, hébergement européen, chiffrement AES-256.",
+  alternates: {
+    canonical: "https://mygestia.immo",
+  },
   openGraph: {
     title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
     description:
       "Plateforme sécurisée de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: `${APP_NAME} — Logiciel de gestion immobilière`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+    description:
+      "Plateforme sécurisée de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
+    images: ["/og-image.png"],
   },
 };
 
@@ -57,6 +76,7 @@ export default function HomePage() {
       <FAQ />
       <FinalCTA />
       <Footer />
+      <CookieBanner />
     </div>
   );
 }

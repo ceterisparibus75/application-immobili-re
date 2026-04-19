@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
-
 export const metadata: Metadata = {
-  title: `Contact | ${APP_NAME}`,
-  description: "Contactez notre equipe pour toute question sur la gestion de votre patrimoine immobilier.",
+  title: "Contactez MyGestia — Démonstration et questions",
+  description:
+    "Parlons de votre projet immobilier. Démonstration, devis, questions sur nos plans Essentiel, Professionnel et Institutionnel. Réponse sous 24h ouvrées.",
 };
 
 export default function ContactLayout({ children }: { children: React.ReactNode }) {

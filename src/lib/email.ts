@@ -792,3 +792,85 @@ export async function sendLetterEmail(params: SendLetterEmailParams): Promise<Em
     [params.attachment]
   );
 }
+
+// ============================================================
+// EMAIL DE BIENVENUE — ESSAI GRATUIT
+// ============================================================
+
+/**
+ * Envoyé à l'activation du compte lors de l'inscription publique.
+ * Présente les 3 premières étapes à effectuer pour bien démarrer.
+ */
+export async function sendWelcomeTrialEmail(
+  to: string,
+  firstName: string,
+  planName: string
+): Promise<EmailResult> {
+  const title = `Bienvenue sur ${APP_NAME} — votre essai commence maintenant`;
+
+  const steps = [
+    {
+      num: "1",
+      title: "Ajoutez votre premier immeuble",
+      desc: "Renseignez l'adresse, le type de bien et les caractéristiques. Vos lots se créent ensuite en quelques clics.",
+    },
+    {
+      num: "2",
+      title: "Créez un bail et invitez un locataire",
+      desc: "Définissez le loyer, les charges, la date d'entrée. Le locataire reçoit automatiquement ses accès au portail.",
+    },
+    {
+      num: "3",
+      title: "Connectez votre compte bancaire",
+      desc: "Synchronisation PSD2 sécurisée. Rapprochez vos loyers encaissés en un clic, sans ressaisie.",
+    },
+  ];
+
+  const stepsHtml = steps
+    .map(
+      (s) => `
+    <tr>
+      <td style="padding:16px 0;border-bottom:1px solid ${BRAND.border};vertical-align:top;">
+        <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+          <tr>
+            <td style="vertical-align:top;padding-right:16px;width:36px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:${BRAND.gradient};display:flex;align-items:center;justify-content:center;text-align:center;line-height:32px;">
+                <span style="color:#fff;font-size:13px;font-weight:700;">${s.num}</span>
+              </div>
+            </td>
+            <td style="vertical-align:top;">
+              <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:${BRAND.deep};">${s.title}</p>
+              <p style="margin:0;font-size:13px;color:${BRAND.muted};line-height:1.6;">${s.desc}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`
+    )
+    .join("");
+
+  const content = `
+    ${heading(`Bienvenue, ${firstName} !`)}
+    ${para(`Votre compte <strong>${APP_NAME}</strong> est activé sur le plan <strong>${planName}</strong>. Vous disposez de <strong>14 jours d'essai gratuit</strong> — sans carte bancaire.`)}
+
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:24px 0 8px;">
+      <tr>
+        <td style="font-size:13px;font-weight:700;color:${BRAND.deep};text-transform:uppercase;letter-spacing:0.06em;padding-bottom:8px;">
+          Vos 3 premières étapes
+        </td>
+      </tr>
+      ${stepsHtml}
+    </table>
+
+    ${ctaButton("Accéder à mon espace", `${SITE_URL}/proprietaire`)}
+
+    ${infoBox(
+      `Des questions ? Notre équipe est disponible à <a href="mailto:contact@mygestia.immo" style="color:${BRAND.blue};">contact@mygestia.immo</a> ou directement depuis l'assistant IA intégré à votre espace.`,
+      "info"
+    )}
+
+    ${signature(APP_NAME)}
+  `;
+
+  return sendMail(to, title, baseTemplate(title, content));
+}
