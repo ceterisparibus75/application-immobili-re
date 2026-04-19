@@ -10,6 +10,7 @@ import {
   HowItWorks,
   Pricing,
   Solutions,
+  Comparison,
   CaseStudies,
   FAQ,
   FinalCTA,
@@ -51,6 +52,7 @@ export default function HomePage() {
       <HowItWorks />
       <Pricing />
       <Solutions />
+      <Comparison />
       <CaseStudies />
       <FAQ />
       <FinalCTA />
