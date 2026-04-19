@@ -19,8 +19,8 @@ import type {
   ManagementFeeBasis,
 } from "@/generated/prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
-import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
 
 export type ImportBuildingInput = {
   existingId?: string;
@@ -402,15 +402,11 @@ export async function analyzePdfAction(formData: FormData): Promise<ActionResult
     const session = await auth();
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
 
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (societyId) {
-      try {
-        await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-      } catch {
-        return { success: false, error: "Accès non autorisé" };
-      }
-    }
+    const societyId = await getOptionalAccessibleActiveSocietyId(
+      session.user.id,
+      "GESTIONNAIRE"
+    );
+    if (!societyId) return { success: false, error: "Accès non autorisé" };
 
     if (!env.ANTHROPIC_API_KEY) {
       return { success: false, error: "La clé API Anthropic n'est pas configurée. Contactez l'administrateur." };

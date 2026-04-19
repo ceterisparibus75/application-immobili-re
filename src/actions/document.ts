@@ -1,13 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 const updateDocumentSchema = z.object({
   category: z.string().min(1, "Catégorie requise"),
@@ -26,9 +30,8 @@ export async function getDocuments(
     category?: string;
   }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.document.findMany({
     where: {
@@ -61,9 +64,7 @@ export async function updateDocument(
   input: { category: string; description?: string | null; expiresAt?: string | null }
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateDocumentSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -82,7 +83,7 @@ export async function updateDocument(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Document",
       entityId: documentId,
@@ -92,6 +93,7 @@ export async function updateDocument(
     revalidatePath("/documents");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateDocument]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -103,9 +105,7 @@ export async function deleteDocument(
   documentId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const doc = await prisma.document.findFirst({ where: { id: documentId, societyId } });
     if (!doc) return { success: false, error: "Document introuvable" };
@@ -126,7 +126,7 @@ export async function deleteDocument(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Document",
       entityId: documentId,
@@ -136,6 +136,7 @@ export async function deleteDocument(
     revalidatePath("/documents");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteDocument]", error);
     return { success: false, error: "Erreur lors de la suppression" };

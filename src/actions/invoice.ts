@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -23,6 +22,11 @@ import type { PaymentFrequency, BillingTerm, Prisma, InvoiceStatus } from "@/gen
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { sendInvoiceEmail } from "@/lib/email";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 function computeLines(
   lines: { label: string; quantity: number; unitPrice: number; vatRate: number }[]
@@ -76,10 +80,7 @@ export async function createInvoice(
   input: CreateInvoiceInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -126,7 +127,7 @@ export async function createInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Invoice",
       entityId: invoice.id,
@@ -138,6 +139,7 @@ export async function createInvoice(
 
     return { success: true, data: { id: invoice.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createInvoice]", error);
     return { success: false, error: "Erreur lors de la création de la facture" };
@@ -149,10 +151,7 @@ export async function recordPayment(
   input: RecordPaymentInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = recordPaymentSchema.safeParse(input);
     if (!parsed.success) {
@@ -198,7 +197,7 @@ export async function recordPayment(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: parsed.data.invoiceId,
@@ -221,6 +220,7 @@ export async function recordPayment(
 
     return { success: true, data: { id: payment.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[recordPayment]", error);
     return { success: false, error: "Erreur lors de l'enregistrement du paiement" };
@@ -317,7 +317,7 @@ export async function generateAndSendQuittance(
 
     // 4. Générer le PDF, envoyer par email et déposer dans l'espace locataire
     // Ceci est fait en arrière-plan pour ne pas bloquer le rapprochement
-    generateQuittancePdfAndSend(societyId, quittance.id, paidInvoice).catch((err) => {
+    generateQuittancePdfAndSend(societyId, quittance.id).catch((err) => {
       console.error("[generateAndSendQuittance] Envoi email/PDF échoué:", err);
     });
 
@@ -340,9 +340,7 @@ export async function generateAndSendQuittance(
  */
 async function generateQuittancePdfAndSend(
   societyId: string,
-  quittanceId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  originalInvoice: any
+  quittanceId: string
 ) {
   const { renderToBuffer } = await import("@react-pdf/renderer");
   const { InvoicePdf } = await import("@/lib/invoice-pdf");
@@ -511,10 +509,8 @@ async function generateQuittancePdfAndSend(
 }
 
 export async function getInvoices(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.invoice.findMany({
     where: { societyId },
@@ -548,10 +544,8 @@ export async function getInvoices(societyId: string) {
 }
 
 export async function getInvoiceById(societyId: string, invoiceId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.invoice.findFirst({
     where: { id: invoiceId, societyId },
@@ -816,9 +810,8 @@ async function buildRevisionProrataLines(
  * Retourne les baux actifs avec les infos nécessaires pour la facturation.
  */
 export async function getActiveLeasesForInvoicing(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.lease.findMany({
     where: { societyId, status: "EN_COURS" },
@@ -867,9 +860,8 @@ export async function getActiveLeasesForInvoicing(societyId: string) {
  * Récupère les données d'un bail pour pré-remplir le formulaire de facturation.
  */
 export async function getLeaseForInvoice(societyId: string, leaseId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.lease.findFirst({
     where: { id: leaseId, societyId, status: "EN_COURS" },
@@ -1255,9 +1247,7 @@ export async function previewInvoiceFromLease(
   input: GenerateInvoiceFromLeaseInput
 ): Promise<ActionResult<InvoicePreview>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = generateInvoiceFromLeaseSchema.safeParse(input);
     if (!parsed.success)
@@ -1268,6 +1258,7 @@ export async function previewInvoiceFromLease(
 
     return { success: true, data: preview };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[previewInvoiceFromLease]", error);
     return { success: false, error: "Erreur lors de la prévisualisation" };
@@ -1279,9 +1270,7 @@ export async function previewBatchInvoices(
   input: GenerateBatchInvoicesInput
 ): Promise<ActionResult<InvoicePreview[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = generateBatchInvoicesSchema.safeParse(input);
     if (!parsed.success)
@@ -1299,6 +1288,7 @@ export async function previewBatchInvoices(
 
     return { success: true, data: previews };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[previewBatchInvoices]", error);
     return { success: false, error: "Erreur lors de la prévisualisation" };
@@ -1314,9 +1304,7 @@ export async function generateInvoiceFromLease(
   input: GenerateInvoiceFromLeaseInput
 ): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = generateInvoiceFromLeaseSchema.safeParse(input);
     if (!parsed.success) {
@@ -1541,7 +1529,7 @@ export async function generateInvoiceFromLease(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Invoice",
       entityId: invoice.id,
@@ -1559,6 +1547,8 @@ export async function generateInvoiceFromLease(
 
     return { success: true, data: { id: invoice.id, invoiceNumber: invoice.invoiceNumber } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[generateInvoiceFromLease]", error);
@@ -1576,9 +1566,7 @@ export async function generateBatchInvoices(
   ActionResult<{ created: number; skipped: number; errors: string[] }>
 > {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = generateBatchInvoicesSchema.safeParse(input);
     if (!parsed.success) {
@@ -1757,7 +1745,7 @@ export async function generateBatchInvoices(
     if (created > 0) {
       await createAuditLog({
         societyId,
-        userId: session.user.id,
+        userId: context.userId,
         action: "CREATE",
         entity: "Invoice",
         entityId: societyId,
@@ -1773,6 +1761,8 @@ export async function generateBatchInvoices(
 
     return { success: true, data: { created, skipped, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[generateBatchInvoices]", error);
@@ -1792,9 +1782,7 @@ export async function createCreditNote(
   input: CreateCreditNoteInput
 ): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = createCreditNoteSchema.safeParse(input);
     if (!parsed.success) {
@@ -1857,7 +1845,7 @@ export async function createCreditNote(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Invoice",
       entityId: creditNote.id,
@@ -1873,6 +1861,8 @@ export async function createCreditNote(
 
     return { success: true, data: { id: creditNote.id, invoiceNumber: creditNote.invoiceNumber } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[createCreditNote]", error);
@@ -1886,9 +1876,7 @@ export async function sendInvoiceToTenant(
   invoiceId: string
 ): Promise<ActionResult<{ sent: true }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -1927,7 +1915,7 @@ export async function sendInvoiceToTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "SEND_EMAIL",
       entity: "Invoice",
       entityId: invoice.id,
@@ -1936,6 +1924,7 @@ export async function sendInvoiceToTenant(
 
     return { success: true, data: { sent: true } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[sendInvoiceToTenant] exception:", msg);
@@ -1956,10 +1945,7 @@ export async function validateInvoice(
   invoiceId: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId, status: "BROUILLON" },
@@ -1973,7 +1959,7 @@ export async function validateInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceId,
@@ -1984,6 +1970,7 @@ export async function validateInvoice(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { id: invoiceId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[validateInvoice]", error);
     return { success: false, error: "Erreur lors de la validation" };
@@ -1997,10 +1984,7 @@ export async function validateBatchInvoices(
   invoiceIds: string[]
 ): Promise<ActionResult<{ validated: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const result = await prisma.invoice.updateMany({
       where: { id: { in: invoiceIds }, societyId, status: "BROUILLON" },
@@ -2009,7 +1993,7 @@ export async function validateBatchInvoices(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceIds.join(","),
@@ -2019,6 +2003,7 @@ export async function validateBatchInvoices(
     revalidatePath("/facturation");
     return { success: true, data: { validated: result.count } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[validateBatchInvoices]", error);
     return { success: false, error: "Erreur lors de la validation en masse" };
@@ -2033,10 +2018,7 @@ export async function cancelInvoice(
   reason?: string
 ): Promise<ActionResult<{ id: string; creditNoteId?: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -2096,7 +2078,7 @@ export async function cancelInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceId,
@@ -2107,6 +2089,7 @@ export async function cancelInvoice(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { id: invoiceId, creditNoteId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[cancelInvoice]", error);
     return { success: false, error: "Erreur lors de l’annulation" };
@@ -2120,10 +2103,7 @@ export async function markAsLitigious(
   invoiceId: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const invoice = await prisma.invoice.findFirst({
       where: {
@@ -2141,7 +2121,7 @@ export async function markAsLitigious(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceId,
@@ -2152,6 +2132,7 @@ export async function markAsLitigious(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { id: invoiceId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[markAsLitigious]", error);
     return { success: false, error: "Erreur lors du passage en litigieux" };
@@ -2165,10 +2146,7 @@ export async function markAsIrrecoverable(
   invoiceId: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const invoice = await prisma.invoice.findFirst({
       where: {
@@ -2186,7 +2164,7 @@ export async function markAsIrrecoverable(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceId,
@@ -2197,6 +2175,7 @@ export async function markAsIrrecoverable(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { id: invoiceId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[markAsIrrecoverable]", error);
     return { success: false, error: "Erreur lors du passage en irrécouvrable" };

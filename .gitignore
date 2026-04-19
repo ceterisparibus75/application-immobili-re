@@ -62,4 +62,8 @@ supabase-migration*.txt
 
 # Claude Code runtime
 .claude/scheduled_tasks.lock
+.claude/launch.json
 next-panic-*.log
+
+# Debug API routes (dev uniquement, ne pas déployer)
+src/app/api/debug/

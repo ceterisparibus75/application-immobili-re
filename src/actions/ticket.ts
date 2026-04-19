@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { createInternalNotification as createNotification } from "@/lib/notifications-internal";
 import {
@@ -15,6 +14,11 @@ import {
 } from "@/validations/ticket";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Generation numero de ticket ─────────────────────────────────
 
@@ -178,10 +182,7 @@ export async function addTicketMessageFromManager(
   input: CreateTicketMessageInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createTicketMessageSchema.safeParse(input);
     if (!parsed.success) {
@@ -194,7 +195,7 @@ export async function addTicketMessageFromManager(
     if (!ticket) return { success: false, error: "Ticket introuvable" };
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: { name: true, email: true },
     });
 
@@ -202,7 +203,7 @@ export async function addTicketMessageFromManager(
       data: {
         ticketId: ticket.id,
         authorType: "MANAGER",
-        authorId: session.user.id,
+        authorId: context.userId,
         authorName: user?.name ?? user?.email ?? "Gestionnaire",
         content: parsed.data.content,
       },
@@ -212,7 +213,7 @@ export async function addTicketMessageFromManager(
     if (ticket.status === "OUVERT") {
       await prisma.ticket.update({
         where: { id: ticket.id },
-        data: { status: "EN_COURS", assignedToId: session.user.id },
+        data: { status: "EN_COURS", assignedToId: context.userId },
       });
     }
 
@@ -220,6 +221,7 @@ export async function addTicketMessageFromManager(
     revalidatePath("/tickets");
     return { success: true, data: { id: message.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[addTicketMessageFromManager]", error);
     return { success: false, error: "Erreur lors de l'ajout du message" };
@@ -231,10 +233,7 @@ export async function updateTicket(
   input: UpdateTicketInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateTicketSchema.safeParse(input);
     if (!parsed.success) {
@@ -253,11 +252,11 @@ export async function updateTicket(
       updateData.status = data.status;
       if (data.status === "RESOLU") {
         updateData.resolvedAt = new Date();
-        updateData.resolvedBy = session.user.id;
+        updateData.resolvedBy = context.userId;
       }
       if (data.status === "FERME") {
         updateData.closedAt = new Date();
-        updateData.closedBy = session.user.id;
+        updateData.closedBy = context.userId;
       }
     }
     if (data.priority !== undefined) updateData.priority = data.priority;
@@ -267,7 +266,7 @@ export async function updateTicket(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Ticket",
       entityId: id,
@@ -278,6 +277,7 @@ export async function updateTicket(
     revalidatePath("/tickets");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateTicket]", error);
     return { success: false, error: "Erreur lors de la mise a jour" };
@@ -285,10 +285,8 @@ export async function updateTicket(
 }
 
 export async function getTickets(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.ticket.findMany({
     where: { societyId },
@@ -310,10 +308,8 @@ export async function getTickets(societyId: string) {
 }
 
 export async function getTicketById(societyId: string, ticketId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.ticket.findFirst({
     where: { id: ticketId, societyId },

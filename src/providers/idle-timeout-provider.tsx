@@ -20,31 +20,33 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showWarning, setShowWarning] = useState(false);
 
+  const clearTimers = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+  }, []);
+
   const logout = useCallback(() => {
     setShowWarning(false);
     signOut({ callbackUrl: "/login?reason=idle" });
   }, []);
 
-  const resetTimers = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    setShowWarning(false);
-
+  const scheduleTimers = useCallback(() => {
+    clearTimers();
     warningTimerRef.current = setTimeout(() => {
       setShowWarning(true);
     }, IDLE_TIMEOUT_MS - WARNING_BEFORE_MS);
 
     timerRef.current = setTimeout(logout, IDLE_TIMEOUT_MS);
-  }, [logout]);
+  }, [clearTimers, logout]);
 
   const handleActivity = useCallback(() => {
     if (!showWarning) {
-      resetTimers();
+      scheduleTimers();
     }
-  }, [showWarning, resetTimers]);
+  }, [scheduleTimers, showWarning]);
 
   useEffect(() => {
-    resetTimers();
+    scheduleTimers();
 
     for (const event of ACTIVITY_EVENTS) {
       document.addEventListener(event, handleActivity, { passive: true });
@@ -54,14 +56,13 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
       for (const event of ACTIVITY_EVENTS) {
         document.removeEventListener(event, handleActivity);
       }
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      clearTimers();
     };
-  }, [handleActivity, resetTimers]);
+  }, [clearTimers, handleActivity, scheduleTimers]);
 
   function handleStayConnected() {
     setShowWarning(false);
-    resetTimers();
+    scheduleTimers();
   }
 
   return (

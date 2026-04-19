@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createChargeCategorySchema,
@@ -20,6 +19,11 @@ import {
 } from "@/validations/charge";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Catégories de charges ────────────────────────────────────────────────────
 
@@ -28,10 +32,7 @@ export async function createChargeCategory(
   input: CreateChargeCategoryInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createChargeCategorySchema.safeParse(input);
     if (!parsed.success) {
@@ -52,7 +53,7 @@ export async function createChargeCategory(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ChargeCategory",
       entityId: category.id,
@@ -64,6 +65,7 @@ export async function createChargeCategory(
 
     return { success: true, data: { id: category.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createChargeCategory]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -75,10 +77,7 @@ export async function updateChargeCategory(
   input: UpdateChargeCategoryInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateChargeCategorySchema.safeParse(input);
     if (!parsed.success) {
@@ -99,7 +98,7 @@ export async function updateChargeCategory(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ChargeCategory",
       entityId: id,
@@ -109,6 +108,7 @@ export async function updateChargeCategory(
     revalidatePath("/charges");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateChargeCategory]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -116,10 +116,8 @@ export async function updateChargeCategory(
 }
 
 export async function getChargeCategories(societyId: string, buildingId?: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.chargeCategory.findMany({
     where: {
@@ -141,10 +139,7 @@ export async function createCharge(
   input: CreateChargeInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createChargeSchema.safeParse(input);
     if (!parsed.success) {
@@ -182,7 +177,7 @@ export async function createCharge(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Charge",
       entityId: charge.id,
@@ -198,6 +193,7 @@ export async function createCharge(
 
     return { success: true, data: { id: charge.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCharge]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -209,10 +205,7 @@ export async function updateCharge(
   input: UpdateChargeInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateChargeSchema.safeParse(input);
     if (!parsed.success) {
@@ -236,7 +229,7 @@ export async function updateCharge(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Charge",
       entityId: id,
@@ -246,6 +239,7 @@ export async function updateCharge(
     revalidatePath("/charges");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateCharge]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -257,10 +251,7 @@ export async function deleteCharge(
   chargeId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.charge.findFirst({
       where: { id: chargeId, societyId },
@@ -271,7 +262,7 @@ export async function deleteCharge(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Charge",
       entityId: chargeId,
@@ -281,6 +272,7 @@ export async function deleteCharge(
     revalidatePath("/charges");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteCharge]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -298,10 +290,8 @@ export async function getChargesPaginated(
     filters?: Record<string, string>;
   } = {}
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return { data: [], total: 0 };
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return { data: [], total: 0 };
 
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 25;
@@ -347,10 +337,8 @@ export async function getChargesPaginated(
 }
 
 export async function getCharges(societyId: string, buildingId?: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.charge.findMany({
     where: {
@@ -366,10 +354,8 @@ export async function getCharges(societyId: string, buildingId?: string) {
 }
 
 export async function getChargeById(societyId: string, chargeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.charge.findFirst({
     where: { id: chargeId, societyId },
@@ -383,9 +369,8 @@ export async function getChargeById(societyId: string, chargeId: string) {
 // ============ BDD SOCIÉTÉ ============
 
 export async function getSocietyChargeCategories(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
   return prisma.societyChargeCategory.findMany({
     where: {
       OR: [
@@ -403,18 +388,17 @@ export async function createSocietyChargeCategory(
   input: CreateSocietyChargeCategoryInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
     const parsed = createSocietyChargeCategorySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
     const cat = await prisma.societyChargeCategory.create({
       data: { societyId, ...parsed.data },
     });
-    await createAuditLog({ societyId, userId: session.user.id, action: "CREATE", entity: "SocietyChargeCategory", entityId: cat.id, details: { name: cat.name } });
+    await createAuditLog({ societyId, userId: context.userId, action: "CREATE", entity: "SocietyChargeCategory", entityId: cat.id, details: { name: cat.name } });
     revalidatePath("/charges/bibliotheque");
     return { success: true, data: { id: cat.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createSocietyChargeCategory]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -426,9 +410,7 @@ export async function updateSocietyChargeCategory(
   input: UpdateSocietyChargeCategoryInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
     const parsed = updateSocietyChargeCategorySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
     const { id, ...data } = parsed.data;
@@ -438,6 +420,7 @@ export async function updateSocietyChargeCategory(
     revalidatePath("/charges/bibliotheque");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la mise à jour" };
   }
@@ -445,15 +428,14 @@ export async function updateSocietyChargeCategory(
 
 export async function deleteSocietyChargeCategory(societyId: string, id: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
     const existing = await prisma.societyChargeCategory.findUnique({ where: { id } });
     if (existing?.isGlobal) return { success: false, error: "Les catégories standards ne peuvent pas être supprimées" };
     await prisma.societyChargeCategory.delete({ where: { id } });
     revalidatePath("/charges/bibliotheque");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la suppression" };
   }
@@ -462,9 +444,8 @@ export async function deleteSocietyChargeCategory(societyId: string, id: string)
 // ============ COMPTES RENDUS ANNUELS (CRAC) ============
 
 export async function getChargeRegularizations(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
   return prisma.chargeRegularization.findMany({
     where: { societyId },
     include: {
@@ -485,9 +466,7 @@ export async function generateAnnualChargeReport(
   year: number
 ): Promise<ActionResult<{ created: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const periodStart = new Date(year, 0, 1);
     const periodEnd = new Date(year, 11, 31, 23, 59, 59);
@@ -670,7 +649,7 @@ export async function generateAnnualChargeReport(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ChargeRegularization",
       entityId: buildingId,
@@ -680,6 +659,7 @@ export async function generateAnnualChargeReport(
     revalidatePath("/charges/comptes-rendus");
     return { success: true, data: { created } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[generateAnnualChargeReport]", error);
     return { success: false, error: "Erreur lors de la génération : " + (error instanceof Error ? error.message : String(error)) };
@@ -688,9 +668,7 @@ export async function generateAnnualChargeReport(
 
 export async function finalizeChargeReport(societyId: string, regularizationId: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
     await prisma.chargeRegularization.update({
       where: { id: regularizationId },
       data: { isFinalized: true, finalizedAt: new Date() },
@@ -698,6 +676,7 @@ export async function finalizeChargeReport(societyId: string, regularizationId: 
     revalidatePath("/charges/comptes-rendus");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la finalisation" };
   }
@@ -719,10 +698,7 @@ export async function autoRegularizeCharges(
   }
 ): Promise<ActionResult<{ regularizations: number; totalBalance: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const { buildingId, fiscalYear, periodStart, periodEnd } = input;
     const start = new Date(periodStart);
@@ -855,7 +831,7 @@ export async function autoRegularizeCharges(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ChargeRegularization",
       entityId: buildingId,
@@ -871,6 +847,7 @@ export async function autoRegularizeCharges(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[autoRegularizeCharges]", error);
     return { success: false, error: "Erreur lors de la régularisation" };

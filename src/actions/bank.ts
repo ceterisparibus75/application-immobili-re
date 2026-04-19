@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { encrypt, decrypt } from "@/lib/encryption";
 import {
@@ -17,6 +16,11 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { applyAutoTag } from "@/actions/cashflow";
 import { normalizeLabel } from "@/lib/normalize-label";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Comptes bancaires ────────────────────────────────────────────────────────
 
@@ -25,10 +29,7 @@ export async function createBankAccount(
   input: CreateBankAccountInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = createBankAccountSchema.safeParse(input);
     if (!parsed.success) {
@@ -53,7 +54,7 @@ export async function createBankAccount(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankAccount",
       entityId: account.id,
@@ -63,6 +64,7 @@ export async function createBankAccount(
     revalidatePath("/banque");
     return { success: true, data: { id: account.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createBankAccount]", error);
     return { success: false, error: "Erreur lors de la création du compte" };
@@ -74,10 +76,7 @@ export async function updateBankAccount(
   input: UpdateBankAccountInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = updateBankAccountSchema.safeParse(input);
     if (!parsed.success) {
@@ -98,7 +97,7 @@ export async function updateBankAccount(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "BankAccount",
       entityId: id,
@@ -108,6 +107,7 @@ export async function updateBankAccount(
     revalidatePath("/banque");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateBankAccount]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -115,10 +115,8 @@ export async function updateBankAccount(
 }
 
 export async function getBankAccounts(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   const accounts = await prisma.bankAccount.findMany({
     where: { societyId },
@@ -142,10 +140,8 @@ export async function getBankAccounts(societyId: string) {
 }
 
 export async function getBankAccountById(societyId: string, accountId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   const [account, unreconciledCount] = await Promise.all([
     prisma.bankAccount.findFirst({
@@ -186,10 +182,7 @@ export async function createBankTransaction(
   input: CreateBankTransactionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = createBankTransactionSchema.safeParse(input);
     if (!parsed.success) {
@@ -226,7 +219,7 @@ export async function createBankTransaction(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankTransaction",
       entityId: transaction.id,
@@ -239,6 +232,7 @@ export async function createBankTransaction(
 
     return { success: true, data: { id: transaction.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createBankTransaction]", error);
     return { success: false, error: "Erreur lors de la création de la transaction" };
@@ -252,10 +246,7 @@ export async function recalculateBankBalance(
   bankAccountId: string
 ): Promise<ActionResult<{ newBalance: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
@@ -277,7 +268,7 @@ export async function recalculateBankBalance(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "BankAccount",
       entityId: bankAccountId,
@@ -289,6 +280,7 @@ export async function recalculateBankBalance(
 
     return { success: true, data: { newBalance } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[recalculateBankBalance]", error);
     return { success: false, error: "Erreur lors du recalcul du solde" };
@@ -303,10 +295,7 @@ export async function correctBankBalance(
   correctBalance: number
 ): Promise<ActionResult<{ newBalance: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
@@ -329,7 +318,7 @@ export async function correctBankBalance(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "BankAccount",
       entityId: bankAccountId,
@@ -347,6 +336,7 @@ export async function correctBankBalance(
 
     return { success: true, data: { newBalance: correctBalance } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[correctBankBalance]", error);
     return { success: false, error: "Erreur lors de la correction du solde" };
@@ -384,9 +374,7 @@ export async function importBankStatement(
   rows: ImportRow[]
 ): Promise<ActionResult<ImportBankStatementResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     if (rows.length === 0) return { success: false, error: "Aucune ligne à importer" };
     if (rows.length > 2000) return { success: false, error: "Maximum 2000 lignes par import" };
@@ -521,7 +509,7 @@ export async function importBankStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankTransaction",
       entityId: batchId,
@@ -534,6 +522,7 @@ export async function importBankStatement(
 
     return { success: true, data: { imported, skipped, duplicates } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[importBankStatement]", error);
     return { success: false, error: "Erreur lors de l'import du relevé" };

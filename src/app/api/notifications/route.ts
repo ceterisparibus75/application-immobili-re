@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json({ error: "Société non sélectionnée" }, { status: 400 });
+  const { societyId, userId } = context;
 
   const url = new URL(req.url);
   const limit = parseInt(url.searchParams.get("limit") ?? "20");
@@ -17,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const notifications = await prisma.notification.findMany({
     where: {
-      userId: session.user.id,
+      userId,
       societyId,
       ...(unreadOnly ? { isRead: false } : {}),
     },
@@ -26,30 +23,28 @@ export async function GET(req: NextRequest) {
   });
 
   const unreadCount = await prisma.notification.count({
-    where: { userId: session.user.id, societyId, isRead: false },
+    where: { userId, societyId, isRead: false },
   });
 
   return NextResponse.json({ data: notifications, meta: { unreadCount } });
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json({ error: "Société non sélectionnée" }, { status: 400 });
+  const { societyId, userId } = context;
 
   const { action, ids } = await req.json() as { action: "mark_read" | "mark_all_read"; ids?: string[] };
 
   if (action === "mark_all_read") {
     await prisma.notification.updateMany({
-      where: { userId: session.user.id, societyId, isRead: false },
+      where: { userId, societyId, isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
   } else if (action === "mark_read" && ids?.length) {
     await prisma.notification.updateMany({
-      where: { id: { in: ids }, userId: session.user.id, societyId },
+      where: { id: { in: ids }, userId, societyId },
       data: { isRead: true, readAt: new Date() },
     });
   }

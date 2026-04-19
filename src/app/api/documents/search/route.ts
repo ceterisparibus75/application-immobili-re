@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId)
-    return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const { societyId } = context;
 
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ documents: [] });

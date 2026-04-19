@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -14,10 +14,16 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { z } from "zod";
-import { hash, compare } from "bcryptjs";
+import { hash } from "bcryptjs";
 import { randomInt } from "crypto";
 import { sendPortalActivationEmail } from "@/lib/email";
 import { env } from "@/lib/env";
+import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ============================================================
 // CALCUL DU SOLDE LOCATAIRE
@@ -109,12 +115,7 @@ export async function createTenant(
   input: CreateTenantInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -167,7 +168,7 @@ export async function createTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Tenant",
       entityId: tenant.id,
@@ -229,6 +230,9 @@ export async function createTenant(
 
     return { success: true, data: { id: tenant.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -242,12 +246,7 @@ export async function updateTenant(
   input: UpdateTenantInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateTenantSchema.safeParse(input);
     if (!parsed.success) {
@@ -278,7 +277,7 @@ export async function updateTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Tenant",
       entityId: id,
@@ -309,6 +308,9 @@ export async function updateTenant(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -322,12 +324,7 @@ export async function deactivateTenant(
   tenantId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const activeLeases = await prisma.lease.count({
       where: { societyId, tenantId, status: "EN_COURS" },
@@ -352,7 +349,7 @@ export async function deactivateTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Tenant",
       entityId: tenantId,
@@ -363,6 +360,9 @@ export async function deactivateTenant(
     revalidatePath("/contacts");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -382,10 +382,8 @@ export async function getTenantsPaginated(
     filters?: Record<string, string>;
   } = {}
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return { data: [], total: 0 };
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return { data: [], total: 0 };
 
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 25;
@@ -457,10 +455,8 @@ export async function getTenantsPaginated(
 }
 
 export async function getTenants(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.tenant.findMany({
     where: { societyId },
@@ -488,10 +484,8 @@ export async function getTenants(societyId: string) {
 }
 
 export async function getActiveTenants(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.tenant.findMany({
     where: { societyId, isActive: true },
@@ -508,10 +502,8 @@ export async function getActiveTenants(societyId: string) {
 }
 
 export async function getTenantById(societyId: string, tenantId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.tenant.findFirst({
     where: { id: tenantId, societyId },
@@ -547,10 +539,8 @@ export async function getTenantAccountStatement(
   societyId: string,
   tenantId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   const invoices = await prisma.invoice.findMany({
     where: { societyId, tenantId },
@@ -604,10 +594,7 @@ export async function createTenantContact(
   input: TenantContactInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = tenantContactSchema.safeParse(input);
     if (!parsed.success) {
@@ -623,7 +610,7 @@ export async function createTenantContact(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "TenantContact",
       entityId: contact.id,
@@ -633,6 +620,7 @@ export async function createTenantContact(
     revalidatePath(`/locataires/${tenantId}`);
     return { success: true, data: { id: contact.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createTenantContact]", error);
     return { success: false, error: "Erreur lors de la création du contact" };
@@ -645,10 +633,7 @@ export async function updateTenantContact(
   input: TenantContactInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = tenantContactSchema.safeParse(input);
     if (!parsed.success) {
@@ -664,7 +649,7 @@ export async function updateTenantContact(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "TenantContact",
       entityId: contactId,
@@ -674,6 +659,7 @@ export async function updateTenantContact(
     revalidatePath(`/locataires/${existing.tenantId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateTenantContact]", error);
     return { success: false, error: "Erreur lors de la mise à jour du contact" };
@@ -685,10 +671,7 @@ export async function deleteTenant(
   tenantId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, societyId },
@@ -713,7 +696,7 @@ export async function deleteTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Tenant",
       entityId: tenantId,
@@ -725,6 +708,7 @@ export async function deleteTenant(
     revalidatePath("/locataires");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteTenant]", error);
     return { success: false, error: "Erreur lors de la suppression du locataire" };
@@ -736,10 +720,7 @@ export async function deleteTenantContact(
   contactId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.tenantContact.findFirst({
       where: { id: contactId, tenant: { societyId } },
@@ -750,7 +731,7 @@ export async function deleteTenantContact(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "TenantContact",
       entityId: contactId,
@@ -760,6 +741,7 @@ export async function deleteTenantContact(
     revalidatePath(`/locataires/${existing.tenantId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteTenantContact]", error);
     return { success: false, error: "Erreur lors de la suppression du contact" };
@@ -771,10 +753,7 @@ export async function inviteOrReinviteTenant(
   tenantId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, societyId },
@@ -815,7 +794,7 @@ export async function inviteOrReinviteTenant(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "SEND_EMAIL",
       entity: "Tenant",
       entityId: tenantId,
@@ -825,6 +804,7 @@ export async function inviteOrReinviteTenant(
     revalidatePath(`/locataires/${tenantId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[inviteOrReinviteTenant]", error);
     return { success: false, error: "Erreur lors de l'envoi de l'invitation" };
@@ -839,10 +819,7 @@ export async function syncTenantsToContacts(
   societyId: string
 ): Promise<ActionResult<{ created: number; updated: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Récupérer tous les locataires de la société
     const tenants = await prisma.tenant.findMany({
@@ -894,6 +871,7 @@ export async function syncTenantsToContacts(
 
     return { success: true, data: { created, updated } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncTenantsToContacts]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };
@@ -908,16 +886,8 @@ export async function getTenantsForSelect(): Promise<{ id: string; name: string 
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
+  const societyId = await getOptionalAccessibleActiveSocietyId(session.user.id);
   if (!societyId) return [];
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId);
-  } catch {
-    return [];
-  }
 
   const tenants = await prisma.tenant.findMany({
     where: { societyId, isActive: true },
@@ -955,10 +925,7 @@ export async function createManualDebit(
   input: unknown
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -1035,7 +1002,7 @@ export async function createManualDebit(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Invoice",
       entityId: invoice.id,
@@ -1052,6 +1019,7 @@ export async function createManualDebit(
 
     return { success: true, data: { id: invoice.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createManualDebit]", error);
     return { success: false, error: "Erreur lors de la création de la somme due" };

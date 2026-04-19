@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 const STATUS_LABELS: Record<string, string> = {
   delivered: "Livré",
@@ -16,13 +15,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
     const { id } = await params;
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
+    const context = await requireActiveSocietyRouteContext();
+    if (context instanceof NextResponse) return context;
+
+    const { societyId } = context;
 
     const invoice = await prisma.invoice.findFirst({
       where: { id, societyId },

@@ -1,11 +1,15 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 /**
  * Crée un avenant pour un bail existant.
@@ -23,10 +27,7 @@ export async function createLeaseAmendment(
   }
 ): Promise<ActionResult<{ id: string; amendmentNumber: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const lease = await prisma.lease.findFirst({
       where: { id: input.leaseId, societyId },
@@ -69,7 +70,7 @@ export async function createLeaseAmendment(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "LeaseAmendment",
       entityId: amendment.id,
@@ -83,6 +84,7 @@ export async function createLeaseAmendment(
       data: { id: amendment.id, amendmentNumber: amendment.amendmentNumber },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createLeaseAmendment]", error);
     return { success: false, error: "Erreur lors de la création de l'avenant" };
@@ -103,10 +105,7 @@ export async function renewLease(
   }
 ): Promise<ActionResult<{ id: string; amendmentId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const lease = await prisma.lease.findFirst({
       where: { id: input.leaseId, societyId, status: "EN_COURS" },
@@ -130,6 +129,7 @@ export async function renewLease(
     if (!result.success) return { success: false as const, error: result.error };
     return { success: true, data: { id: input.leaseId, amendmentId: result.data!.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[renewLease]", error);
     return { success: false, error: "Erreur lors du renouvellement" };
@@ -140,10 +140,8 @@ export async function renewLease(
  * Récupère l'historique des avenants d'un bail.
  */
 export async function getLeaseAmendments(societyId: string, leaseId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.leaseAmendment.findMany({
     where: { leaseId, lease: { societyId } },

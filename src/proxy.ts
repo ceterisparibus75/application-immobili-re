@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
+  const isDebugRoute = pathname.startsWith("/api/debug");
+  const allowDebugRoute = process.env.NODE_ENV === "development";
 
   // Pages auth (signup, login, forgot-password, reset-password)
   // Si l'utilisateur est déjà connecté → rediriger vers /dashboard
@@ -45,7 +47,7 @@ export default auth(async (req) => {
     pathname.startsWith("/api/public") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/debug") ||
+      (isDebugRoute && allowDebugRoute) ||
     pathname.startsWith("/dataroom/share") ||
     pathname.startsWith("/api/admin/migrate") ||
     pathname.startsWith("/api/dataroom") ||

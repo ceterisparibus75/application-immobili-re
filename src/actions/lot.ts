@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -13,18 +12,18 @@ import {
 } from "@/validations/lot";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createLot(
   societyId: string,
   input: CreateLotInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Vérifier abonnement actif et limite de lots
     const subCheck = await checkSubscriptionActive(societyId);
@@ -80,7 +79,7 @@ export async function createLot(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Lot",
       entityId: lot.id,
@@ -92,6 +91,9 @@ export async function createLot(
 
     return { success: true, data: { id: lot.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -105,12 +107,7 @@ export async function updateLot(
   input: UpdateLotInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateLotSchema.safeParse(input);
     if (!parsed.success) {
@@ -120,7 +117,7 @@ export async function updateLot(
       };
     }
 
-    const { id, buildingId, ...data } = parsed.data;
+    const { id, ...data } = parsed.data;
 
     // Vérifier que le lot appartient à la société
     const lot = await prisma.lot.findFirst({
@@ -139,7 +136,7 @@ export async function updateLot(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Lot",
       entityId: id!,
@@ -152,6 +149,9 @@ export async function updateLot(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -165,10 +165,7 @@ export async function deleteLot(
   lotId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const lot = await prisma.lot.findFirst({
       where: { id: lotId, building: { societyId } },
@@ -187,7 +184,7 @@ export async function deleteLot(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Lot",
       entityId: lotId,
@@ -198,6 +195,7 @@ export async function deleteLot(
     revalidatePath("/patrimoine/immeubles");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteLot]", error);
     return { success: false, error: "Erreur lors de la suppression du lot" };
@@ -205,10 +203,8 @@ export async function deleteLot(
 }
 
 export async function getLots(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.lot.findMany({
     where: { building: { societyId } },
@@ -226,10 +222,8 @@ export async function getLots(societyId: string) {
 }
 
 export async function getLotById(societyId: string, lotId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.lot.findFirst({
     where: { id: lotId, building: { societyId } },

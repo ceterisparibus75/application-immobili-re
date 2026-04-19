@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { getChargeById } from "@/actions/charge";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 export async function GET(
   _req: Request,
@@ -9,13 +8,10 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json(null, { status: 401 });
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json(null, { status: 401 });
-
+  const { societyId } = context;
   const charge = await getChargeById(societyId, id);
   if (!charge) return NextResponse.json(null, { status: 404 });
 

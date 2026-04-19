@@ -1,47 +1,4 @@
-import { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prisma } from "./prisma";
-
-/**
- * Liste des modèles Prisma scopés par societyId.
- * Chaque requête sur ces modèles sera automatiquement filtrée.
- */
-const TENANT_SCOPED_MODELS: Prisma.ModelName[] = [
-  "Society",
-  "Building",
-  "Lot",
-  "Lease",
-  "Tenant",
-  "TenantContact",
-  "TenantDocument",
-  "Guarantee",
-  "TenantPortalAccess",
-  "Invoice",
-  "InvoiceLine",
-  "Payment",
-  "Charge",
-  "ChargeCategory",
-  "ChargeProvision",
-  "ChargeRegularization",
-  "BankAccount",
-  "BankTransaction",
-  "AccountingAccount",
-  "JournalEntry",
-  "ReminderScenario",
-  "ReminderStep",
-  "Reminder",
-  "Contact",
-  "ContactNote",
-  "Message",
-  "Announcement",
-  "AnnouncementPhoto",
-  "AnnouncementPublication",
-  "Document",
-  "AuditLog",
-  "LetterTemplate",
-  "DepositMovement",
-  "PropertyValuation",
-  "RentValuation",
-];
 
 // Modèles qui ont un societyId direct (pas via une relation)
 const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
@@ -67,8 +24,11 @@ const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
 
 /**
  * Crée un client Prisma étendu qui filtre automatiquement par societyId.
- * Utilisé dans toutes les Server Actions et API Routes pour garantir
- * l'isolation des données entre sociétés.
+ *
+ * Attention:
+ * - ce helper n'est sûr que pour les modèles avec `societyId` direct
+ * - il ne couvre pas les modèles scopés via relation (`Lot`, `Payment`, etc.)
+ * - il ne doit pas être branché globalement sans revue fine des opérations Prisma
  */
 export function createTenantPrisma(societyId: string) {
   return prisma.$extends({

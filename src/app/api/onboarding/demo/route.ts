@@ -1,32 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 /**
  * POST /api/onboarding/demo
  * Crée des données de démonstration pour le wizard d'onboarding.
  */
 export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+  if (context instanceof NextResponse) return context;
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-
-  if (!societyId) {
-    return NextResponse.json({ error: "Aucune société active" }, { status: 400 });
-  }
-
-  // Vérifier que la société appartient bien à l'utilisateur
-  const userSociety = await prisma.userSociety.findUnique({
-    where: { userId_societyId: { userId: session.user.id, societyId } },
-  });
-  if (!userSociety) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  const { societyId } = context;
 
   // Vérifier qu'il n'y a pas déjà des données
   const existingBuildings = await prisma.building.count({ where: { societyId } });

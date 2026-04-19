@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -16,6 +15,10 @@ import {
   type CreatePipelineInput,
   type AddActivityInput,
 } from "@/validations/candidate";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 /* ─── Pipeline ──────────────────────────────────────────────────────── */
 
@@ -24,9 +27,7 @@ export async function createPipeline(
   input: CreatePipelineInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createPipelineSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -38,6 +39,7 @@ export async function createPipeline(
     revalidatePath("/candidatures");
     return { success: true, data: { id: pipeline.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createPipeline]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -51,9 +53,7 @@ export async function createCandidate(
   input: CreateCandidateInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createCandidateSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -73,13 +73,13 @@ export async function createCandidate(
         candidateId: candidate.id,
         type: "STATUS_CHANGE",
         content: "Candidature créée",
-        userId: session.user.id,
+        userId: context.userId,
       },
     });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Candidate",
       entityId: candidate.id,
@@ -88,6 +88,7 @@ export async function createCandidate(
     revalidatePath("/candidatures");
     return { success: true, data: { id: candidate.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCandidate]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -99,9 +100,7 @@ export async function updateCandidate(
   input: UpdateCandidateInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateCandidateSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -124,7 +123,7 @@ export async function updateCandidate(
             candidateId: id,
             type: "STATUS_CHANGE",
             content: `Statut changé : ${current.status} → ${data.status}`,
-            userId: session.user.id,
+            userId: context.userId,
           },
         });
       }
@@ -134,7 +133,7 @@ export async function updateCandidate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Candidate",
       entityId: id,
@@ -143,6 +142,7 @@ export async function updateCandidate(
     revalidatePath("/candidatures");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateCandidate]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -154,15 +154,13 @@ export async function deleteCandidate(
   candidateId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.candidate.delete({ where: { id: candidateId, societyId } });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Candidate",
       entityId: candidateId,
@@ -171,6 +169,7 @@ export async function deleteCandidate(
     revalidatePath("/candidatures");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteCandidate]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -184,20 +183,19 @@ export async function addActivity(
   input: AddActivityInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = addActivitySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
 
     const activity = await prisma.candidateActivity.create({
-      data: { ...parsed.data, userId: session.user.id },
+      data: { ...parsed.data, userId: context.userId },
     });
 
     revalidatePath("/candidatures");
     return { success: true, data: { id: activity.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[addActivity]", error);
     return { success: false, error: "Erreur lors de l'ajout" };

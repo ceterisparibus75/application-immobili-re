@@ -1,21 +1,24 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createDataroomSchema, updateDataroomSchema } from "@/validations/dataroom";
 import bcrypt from "bcryptjs";
 import { sendDataroomDocumentAddedEmail } from "@/lib/email";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Requêtes ─────────────────────────────────────────────────────────────────
 
 export async function getDatarooms(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.dataroom.findMany({
     where: { societyId },
@@ -28,9 +31,8 @@ export async function getDatarooms(societyId: string) {
 }
 
 export async function getDataroom(societyId: string, dataroomId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.dataroom.findFirst({
     where: { id: dataroomId, societyId },
@@ -71,9 +73,7 @@ export async function createDataroom(
   input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null; recipientEmail?: string | null; recipientName?: string | null; purpose?: string | null }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createDataroomSchema.safeParse(input);
     if (!parsed.success)
@@ -84,7 +84,7 @@ export async function createDataroom(
     const dataroom = await prisma.dataroom.create({
       data: {
         societyId,
-        createdBy: session.user.id,
+        createdBy: context.userId,
         name: parsed.data.name,
         description: parsed.data.description ?? null,
         expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
@@ -97,7 +97,7 @@ export async function createDataroom(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Dataroom",
       entityId: dataroom.id,
@@ -107,6 +107,7 @@ export async function createDataroom(
     revalidatePath("/dataroom");
     return { success: true, data: { id: dataroom.id, token: dataroom.shareToken || dataroom.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createDataroom]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -119,9 +120,7 @@ export async function updateDataroom(
   input: { name?: string; description?: string | null; expiresAt?: string | null; password?: string | null; purpose?: string | null; recipientEmail?: string | null; recipientName?: string | null }
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateDataroomSchema.safeParse(input);
     if (!parsed.success)
@@ -159,7 +158,7 @@ export async function updateDataroom(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Dataroom",
       entityId: dataroomId,
@@ -170,6 +169,7 @@ export async function updateDataroom(
     revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateDataroom]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -178,9 +178,7 @@ export async function updateDataroom(
 
 export async function deleteDataroom(societyId: string, dataroomId: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -189,7 +187,7 @@ export async function deleteDataroom(societyId: string, dataroomId: string): Pro
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Dataroom",
       entityId: dataroomId,
@@ -199,6 +197,7 @@ export async function deleteDataroom(societyId: string, dataroomId: string): Pro
     revalidatePath("/dataroom");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteDataroom]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -211,9 +210,7 @@ export async function addDocumentToDataroom(
   documentId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const [dr, doc] = await Promise.all([
       prisma.dataroom.findFirst({
@@ -260,6 +257,7 @@ export async function addDocumentToDataroom(
     revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[addDocumentToDataroom]", error);
     return { success: false, error: "Erreur lors de l'ajout" };
@@ -298,9 +296,7 @@ export async function removeDocumentFromDataroom(
   documentId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -310,6 +306,7 @@ export async function removeDocumentFromDataroom(
     revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[removeDocumentFromDataroom]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -362,9 +359,8 @@ export async function getDataroomByToken(token: string) {
 }
 
 export async function getDataroomsForDocument(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.dataroom.findMany({
     where: { societyId, status: "ACTIF" },
@@ -378,9 +374,7 @@ export async function activateDataroom(
   dataroomId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -392,7 +386,7 @@ export async function activateDataroom(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Dataroom",
       entityId: dataroomId,
@@ -403,6 +397,7 @@ export async function activateDataroom(
     revalidatePath("/dataroom/" + dataroomId);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[activateDataroom]", error);
     return { success: false, error: "Erreur lors de l'activation" };
@@ -414,9 +409,7 @@ export async function archiveDataroom(
   dataroomId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -428,7 +421,7 @@ export async function archiveDataroom(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Dataroom",
       entityId: dataroomId,
@@ -439,6 +432,7 @@ export async function archiveDataroom(
     revalidatePath("/dataroom/" + dataroomId);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[archiveDataroom]", error);
     return { success: false, error: "Erreur lors de l'archivage" };
@@ -452,9 +446,7 @@ export async function reorderDocument(
   direction: "up" | "down"
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
     if (!dr) return { success: false, error: "Dataroom introuvable" };
@@ -484,6 +476,7 @@ export async function reorderDocument(
     revalidatePath(`/dataroom/${dataroomId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[reorderDocument]", error);
     return { success: false, error: "Erreur lors de la réorganisation" };

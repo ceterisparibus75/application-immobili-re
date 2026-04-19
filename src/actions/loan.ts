@@ -3,9 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ============================================================
 // CALCUL D'AMORTISSEMENT
@@ -185,89 +189,82 @@ const createLoanFromPdfSchema = z.object({
 // ============================================================
 
 export async function createLoanFromPdf(societyId: string, data: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-  const parsed = createLoanFromPdfSchema.safeParse(data);
-  if (!parsed.success) {
-    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
-  }
+    const parsed = createLoanFromPdfSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
 
-  const d = parsed.data;
-  const startDate = new Date(d.startDate);
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + d.durationMonths);
+    const d = parsed.data;
+    const startDate = new Date(d.startDate);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + d.durationMonths);
 
-  // Convertir le tableau extrait du PDF en lignes d'amortissement
-  const amortLines = d.schedule.map((line) => ({
-    period: line.period,
-    dueDate: new Date(line.dueDate),
-    principalPayment: line.principal,
-    interestPayment: line.interest,
-    insurancePayment: line.insurance,
-    totalPayment: line.total,
-    remainingBalance: line.balance,
-  }));
+    // Convertir le tableau extrait du PDF en lignes d'amortissement
+    const amortLines = d.schedule.map((line) => ({
+      period: line.period,
+      dueDate: new Date(line.dueDate),
+      principalPayment: line.principal,
+      interestPayment: line.interest,
+      insurancePayment: line.insurance,
+      totalPayment: line.total,
+      remainingBalance: line.balance,
+    }));
 
-  const loan = await prisma.loan.create({
-    data: {
-      societyId,
-      label: d.label,
-      lender: d.lender,
-      loanType: d.loanType,
-      amount: d.amount,
-      interestRate: d.interestRate,
-      insuranceRate: d.insuranceRate,
-      durationMonths: d.durationMonths,
-      startDate,
-      endDate,
-      buildingId: d.buildingId,
-      purchaseValue: d.purchaseValue ?? null,
-      notes: d.notes ?? null,
-      amortizationLines: {
-        create: amortLines,
+    const loan = await prisma.loan.create({
+      data: {
+        societyId,
+        label: d.label,
+        lender: d.lender,
+        loanType: d.loanType,
+        amount: d.amount,
+        interestRate: d.interestRate,
+        insuranceRate: d.insuranceRate,
+        durationMonths: d.durationMonths,
+        startDate,
+        endDate,
+        buildingId: d.buildingId,
+        purchaseValue: d.purchaseValue ?? null,
+        notes: d.notes ?? null,
+        amortizationLines: {
+          create: amortLines,
+        },
       },
-    },
-  });
+    });
 
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "CREATE",
-    entity: "Loan",
-    entityId: loan.id,
-    details: { label: d.label, amount: d.amount, lender: d.lender, source: "PDF" },
-  });
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Loan",
+      entityId: loan.id,
+      details: { label: d.label, amount: d.amount, lender: d.lender, source: "PDF" },
+    });
 
-  revalidatePath("/emprunts");
-  return { data: loan };
+    revalidatePath("/emprunts");
+    return { data: loan };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 export async function createLoan(societyId: string, data: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-  const parsed = createLoanSchema.safeParse(data);
-  if (!parsed.success) {
-    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
-  }
+    const parsed = createLoanSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
 
-  const d = parsed.data;
-  const startDate = new Date(d.startDate);
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + d.durationMonths);
+    const d = parsed.data;
+    const startDate = new Date(d.startDate);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + d.durationMonths);
 
   // Générer le tableau d'amortissement (vide pour COMPTE_COURANT)
   const amortLines = generateAmortizationTable({
@@ -331,28 +328,31 @@ export async function createLoan(societyId: string, data: unknown) {
     };
   }
 
-  const loan = await prisma.loan.create({
-    data: loanData as Parameters<typeof prisma.loan.create>[0]["data"],
-  });
+    const loan = await prisma.loan.create({
+      data: loanData as Parameters<typeof prisma.loan.create>[0]["data"],
+    });
 
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "CREATE",
-    entity: "Loan",
-    entityId: loan.id,
-    details: { label: d.label, amount: d.amount, lender: d.lender },
-  });
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Loan",
+      entityId: loan.id,
+      details: { label: d.label, amount: d.amount, lender: d.lender },
+    });
 
-  revalidatePath("/emprunts");
-  return { data: loan };
+    revalidatePath("/emprunts");
+    return { data: loan };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 export async function getLoans(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.loan.findMany({
     where: { societyId },
@@ -371,10 +371,8 @@ export async function getLoans(societyId: string) {
 }
 
 export async function getLoanById(societyId: string, loanId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.loan.findFirst({
     where: { id: loanId, societyId },
@@ -391,36 +389,35 @@ export async function markAmortizationLinePaid(
   lineId: string,
   paid: boolean
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const line = await prisma.loanAmortizationLine.findFirst({
+      where: { id: lineId, loan: { societyId } },
+    });
+    if (!line) return { error: "Ligne introuvable" };
+
+    await prisma.loanAmortizationLine.update({
+      where: { id: lineId },
+      data: { isPaid: paid, paidAt: paid ? new Date() : null },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "LoanAmortizationLine",
+      entityId: lineId,
+      details: { loanId: line.loanId, isPaid: paid },
+    });
+
+    revalidatePath(`/emprunts/${line.loanId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
   }
-
-  const line = await prisma.loanAmortizationLine.findFirst({
-    where: { id: lineId, loan: { societyId } },
-  });
-  if (!line) return { error: "Ligne introuvable" };
-
-  await prisma.loanAmortizationLine.update({
-    where: { id: lineId },
-    data: { isPaid: paid, paidAt: paid ? new Date() : null },
-  });
-
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "UPDATE",
-    entity: "LoanAmortizationLine",
-    entityId: lineId,
-    details: { loanId: line.loanId, isPaid: paid },
-  });
-
-  revalidatePath(`/emprunts/${line.loanId}`);
-  return { success: true };
 }
 
 
@@ -429,84 +426,76 @@ export async function updateAmortizationLine(
   lineId: string,
   data: unknown
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const parsed = updateAmortizationLineSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const line = await prisma.loanAmortizationLine.findFirst({
+      where: { id: lineId, loan: { societyId } },
+    });
+    if (!line) return { error: "Ligne introuvable" };
+
+    await prisma.loanAmortizationLine.update({
+      where: { id: lineId },
+      data: parsed.data,
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "LoanAmortizationLine",
+      entityId: lineId,
+      details: { loanId: line.loanId, ...parsed.data },
+    });
+
+    revalidatePath(`/emprunts/${line.loanId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
   }
-
-  const parsed = updateAmortizationLineSchema.safeParse(data);
-  if (!parsed.success) {
-    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
-  }
-
-  const line = await prisma.loanAmortizationLine.findFirst({
-    where: { id: lineId, loan: { societyId } },
-  });
-  if (!line) return { error: "Ligne introuvable" };
-
-  await prisma.loanAmortizationLine.update({
-    where: { id: lineId },
-    data: parsed.data,
-  });
-
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "UPDATE",
-    entity: "LoanAmortizationLine",
-    entityId: lineId,
-    details: { loanId: line.loanId, ...parsed.data },
-  });
-
-  revalidatePath(`/emprunts/${line.loanId}`);
-  return { success: true };
 }
 
 export async function deleteLoan(societyId: string, loanId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const loan = await prisma.loan.findFirst({
+      where: { id: loanId, societyId },
+      select: { id: true, label: true },
+    });
+    if (!loan) return { error: "Emprunt introuvable" };
+
+    // Suppression en cascade (les lignes d'amortissement sont supprimées automatiquement via onDelete: Cascade)
+    await prisma.loan.delete({ where: { id: loanId } });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "Loan",
+      entityId: loanId,
+      details: { label: loan.label },
+    });
+
+    revalidatePath("/emprunts");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
   }
-
-  const loan = await prisma.loan.findFirst({
-    where: { id: loanId, societyId },
-    select: { id: true, label: true },
-  });
-  if (!loan) return { error: "Emprunt introuvable" };
-
-  // Suppression en cascade (les lignes d'amortissement sont supprimées automatiquement via onDelete: Cascade)
-  await prisma.loan.delete({ where: { id: loanId } });
-
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "DELETE",
-    entity: "Loan",
-    entityId: loanId,
-    details: { label: loan.label },
-  });
-
-  revalidatePath("/emprunts");
-  return { success: true };
 }
 
 export async function regenerateAmortizationTable(societyId: string, loanId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
   const loan = await prisma.loan.findFirst({
     where: { id: loanId, societyId },
@@ -561,17 +550,22 @@ export async function regenerateAmortizationTable(societyId: string, loanId: str
     }),
   });
 
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "UPDATE",
-    entity: "Loan",
-    entityId: loanId,
-    details: { action: "regenerate_amortization", linesCount: newLines.length },
-  });
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Loan",
+      entityId: loanId,
+      details: { action: "regenerate_amortization", linesCount: newLines.length },
+    });
 
-  revalidatePath(`/emprunts/${loanId}`);
-  return { success: true, data: { linesCount: newLines.length } };
+    revalidatePath(`/emprunts/${loanId}`);
+    return { success: true, data: { linesCount: newLines.length } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 // ============================================================
@@ -587,19 +581,13 @@ const budgetLineSchema = z.object({
 });
 
 export async function upsertBudgetLine(societyId: string, data: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
-  const parsed = budgetLineSchema.safeParse(data);
-  if (!parsed.success) {
-    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
-  }
+    const parsed = budgetLineSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
 
   const d = parsed.data;
   const month = d.month ?? null;
@@ -628,8 +616,13 @@ export async function upsertBudgetLine(societyId: string, data: unknown) {
     });
   }
 
-  revalidatePath("/comptabilite/previsionnel");
-  return { data: result };
+    revalidatePath("/comptabilite/previsionnel");
+    return { data: result };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 // ============================================================
@@ -645,19 +638,13 @@ const addMovementSchema = z.object({
 });
 
 export async function addLoanMovement(societyId: string, data: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-  const parsed = addMovementSchema.safeParse(data);
-  if (!parsed.success) {
-    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
-  }
+    const parsed = addMovementSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
 
   const d = parsed.data;
 
@@ -706,24 +693,27 @@ export async function addLoanMovement(societyId: string, data: unknown) {
     data: { currentBalance: newBalance },
   });
 
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "CREATE",
-    entity: "LoanMovement",
-    entityId: movement.id,
-    details: { loanId: d.loanId, type: d.type, amount: d.amount, newBalance },
-  });
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "LoanMovement",
+      entityId: movement.id,
+      details: { loanId: d.loanId, type: d.type, amount: d.amount, newBalance },
+    });
 
-  revalidatePath(`/emprunts/${d.loanId}`);
-  return { data: movement };
+    revalidatePath(`/emprunts/${d.loanId}`);
+    return { data: movement };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 export async function getLoanMovements(societyId: string, loanId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.loanMovement.findMany({
     where: { loanId, loan: { societyId } },
@@ -732,14 +722,8 @@ export async function getLoanMovements(societyId: string, loanId: string) {
 }
 
 export async function deleteLoanMovement(societyId: string, movementId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Non authentifié" };
-
   try {
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-  } catch {
-    return { error: "Accès refusé" };
-  }
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
   const movement = await prisma.loanMovement.findFirst({
     where: { id: movementId, loan: { societyId } },
@@ -777,24 +761,27 @@ export async function deleteLoanMovement(societyId: string, movementId: string) 
     data: { currentBalance: balance },
   });
 
-  await createAuditLog({
-    societyId,
-    userId: session.user.id,
-    action: "DELETE",
-    entity: "LoanMovement",
-    entityId: movementId,
-    details: { loanId: movement.loanId, type: movement.type, amount: movement.amount },
-  });
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "LoanMovement",
+      entityId: movementId,
+      details: { loanId: movement.loanId, type: movement.type, amount: movement.amount },
+    });
 
-  revalidatePath(`/emprunts/${movement.loanId}`);
-  return { success: true };
+    revalidatePath(`/emprunts/${movement.loanId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    throw error;
+  }
 }
 
 export async function getBudgetLines(societyId: string, year: number) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.budgetLine.findMany({
     where: { societyId, year },

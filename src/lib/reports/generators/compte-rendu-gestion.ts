@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW } from "../constants";
 import { initPdf, drawCoverPage, pdfCur, contentStartY, minY } from "../pdf-core";
@@ -11,6 +12,14 @@ import {
   drawEmptyMessage,
 } from "../pdf-helpers";
 import { CORAL, GREEN } from "../constants";
+
+type InvoiceWithPayments = Prisma.InvoiceGetPayload<{
+  include: {
+    tenant: true;
+    lease: { include: { lot: { select: { buildingId: true; number: true } } } };
+    payments: true;
+  };
+}>;
 
 export async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportResult> {
   const { societyId } = opts;
@@ -85,7 +94,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facturé", "Encaissé", "Charges", "En attente"], BW, BA);
     }
     const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
-    const bc = charges.filter((c) => (c as any).buildingId === b.id);
+    const bc = charges.filter((c) => c.buildingId === b.id);
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
     const bP = bi.filter((i) => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
@@ -127,8 +136,8 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       const lotNum = tInvoices[0].lease?.lot?.number ?? "-";
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
       const regle = tInvoices
-        .flatMap((i) => (i as any).payments ?? [])
-        .reduce((s: number, pay: any) => s + (pay.amount ?? 0), 0);
+        .flatMap((i: InvoiceWithPayments) => i.payments)
+        .reduce((s, pay) => s + pay.amount, 0);
       const solde = quittance - regle;
       bTotal += quittance;
       bPaid += regle;

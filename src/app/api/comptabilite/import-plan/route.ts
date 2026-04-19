@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
-
-import { cookies } from "next/headers";
-
 import Anthropic from "@anthropic-ai/sdk";
 
 import { env } from "@/lib/env";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 // Map common column names to fields
 
@@ -55,24 +52,8 @@ function inferClass(code: string): string {
 }
 
 export async function POST(req: NextRequest) {
-
-  const session = await auth();
-
-  if (!session?.user?.id) {
-
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  }
-
-  const cookieStore = await cookies();
-
-  const societyId = cookieStore.get("active-society-id")?.value;
-
-  if (!societyId) {
-
-    return NextResponse.json({ error: "Société non sélectionnée" }, { status: 400 });
-
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+  if (context instanceof NextResponse) return context;
 
   let formData: FormData;
 
@@ -128,7 +109,7 @@ export async function POST(req: NextRequest) {
 
       const rows: string[][] = [];
 
-      worksheet.eachRow((row, _rowNumber) => {
+      worksheet.eachRow((row) => {
 
         const cells = (row.values as (string | number | null | undefined)[])
 

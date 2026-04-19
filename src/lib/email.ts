@@ -210,7 +210,7 @@ interface EmailResult {
   emailId?: string;
 }
 
-async function sendMail(
+export async function sendMail(
   to: string,
   subject: string,
   html: string,

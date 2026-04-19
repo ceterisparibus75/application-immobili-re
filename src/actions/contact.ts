@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createContactSchema,
@@ -15,16 +14,18 @@ import type { ActionResult } from "@/actions/society";
 import { hash } from "bcryptjs";
 import { sendNewUserEmail } from "@/lib/email";
 import { env } from "@/lib/env";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createContact(
   societyId: string,
   input: CreateContactInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createContactSchema.safeParse(input);
     if (!parsed.success) {
@@ -53,7 +54,7 @@ export async function createContact(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Contact",
       entityId: contact.id,
@@ -63,6 +64,7 @@ export async function createContact(
     revalidatePath("/contacts");
     return { success: true, data: { id: contact.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createContact]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -74,10 +76,7 @@ export async function updateContact(
   input: UpdateContactInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateContactSchema.safeParse(input);
     if (!parsed.success) {
@@ -101,7 +100,7 @@ export async function updateContact(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Contact",
       entityId: id,
@@ -112,6 +111,7 @@ export async function updateContact(
     revalidatePath(`/contacts/${id}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateContact]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -119,10 +119,8 @@ export async function updateContact(
 }
 
 export async function getContacts(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.contact.findMany({
     where: { societyId, isActive: true },
@@ -131,10 +129,8 @@ export async function getContacts(societyId: string) {
 }
 
 export async function getContactById(societyId: string, contactId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.contact.findFirst({
     where: { id: contactId, societyId },
@@ -149,10 +145,7 @@ export async function inviteContactAsUser(
   role: string = "LECTURE"
 ): Promise<ActionResult<{ userId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     // Récupérer le contact
     const contact = await prisma.contact.findFirst({
@@ -179,7 +172,7 @@ export async function inviteContactAsUser(
       });
       await createAuditLog({
         societyId,
-        userId: session.user.id,
+        userId: context.userId,
         action: "CREATE",
         entity: "UserSociety",
         entityId: existing.id,
@@ -218,7 +211,7 @@ export async function inviteContactAsUser(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "User",
       entityId: user.id,
@@ -229,6 +222,7 @@ export async function inviteContactAsUser(
     revalidatePath("/administration/utilisateurs");
     return { success: true, data: { userId: user.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[inviteContactAsUser]", error);
     return { success: false, error: "Erreur lors de l'invitation" };

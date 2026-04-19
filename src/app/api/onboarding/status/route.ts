@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
+  const context = await requireActiveSocietyRouteContext();
 
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
+  if (context instanceof NextResponse) {
+    if (context.status !== 400) return context;
 
-  if (!societyId) {
     return NextResponse.json({
       data: {
         hasActiveSociety: false,
@@ -24,6 +19,8 @@ export async function GET() {
       },
     });
   }
+
+  const { societyId } = context;
 
   const [memberCount, buildingCount, tenantCount, leaseCount, bankAccountCount] =
     await Promise.all([

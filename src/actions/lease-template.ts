@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createLeaseTemplateSchema,
@@ -12,16 +11,18 @@ import {
 } from "@/validations/lease-template";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createLeaseTemplate(
   societyId: string,
   input: CreateLeaseTemplateInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createLeaseTemplateSchema.safeParse(input);
     if (!parsed.success) {
@@ -47,7 +48,7 @@ export async function createLeaseTemplate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "LeaseTemplate",
       entityId: template.id,
@@ -57,6 +58,7 @@ export async function createLeaseTemplate(
     revalidatePath("/baux/modeles");
     return { success: true, data: { id: template.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createLeaseTemplate]", error);
     return { success: false, error: "Erreur lors de la creation du modele" };
@@ -68,10 +70,7 @@ export async function updateLeaseTemplate(
   input: UpdateLeaseTemplateInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateLeaseTemplateSchema.safeParse(input);
     if (!parsed.success) {
@@ -102,7 +101,7 @@ export async function updateLeaseTemplate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "LeaseTemplate",
       entityId: id,
@@ -113,6 +112,7 @@ export async function updateLeaseTemplate(
     revalidatePath(`/baux/modeles/${id}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateLeaseTemplate]", error);
     return { success: false, error: "Erreur lors de la mise a jour" };
@@ -124,10 +124,7 @@ export async function deleteLeaseTemplate(
   templateId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const template = await prisma.leaseTemplate.findFirst({
       where: { id: templateId, societyId },
@@ -147,7 +144,7 @@ export async function deleteLeaseTemplate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "LeaseTemplate",
       entityId: templateId,
@@ -156,6 +153,7 @@ export async function deleteLeaseTemplate(
     revalidatePath("/baux/modeles");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteLeaseTemplate]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -163,10 +161,8 @@ export async function deleteLeaseTemplate(
 }
 
 export async function getLeaseTemplates(societyId: string, leaseType?: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.leaseTemplate.findMany({
     where: {
@@ -182,10 +178,8 @@ export async function getLeaseTemplates(societyId: string, leaseType?: string) {
 }
 
 export async function getLeaseTemplateById(societyId: string, templateId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.leaseTemplate.findFirst({
     where: { id: templateId, societyId },
