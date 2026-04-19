@@ -38,6 +38,10 @@
     {
       "path": "/api/cron/sync-einvoices",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/run-workflows",
+      "schedule": "0 * * * *"
     }
   ]
 }

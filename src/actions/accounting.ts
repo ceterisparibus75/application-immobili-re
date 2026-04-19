@@ -6,6 +6,12 @@ import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  createFiscalYearSchema,
+  createJournalEntrySchema,
+} from "@/validations/accounting";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type FiscalYearRow = {
   id: string;
@@ -16,31 +22,6 @@ export type FiscalYearRow = {
   closedBy: { firstName: string | null; name: string | null } | null;
   closedAt: Date | null;
 };
-
-export async function getFiscalYears(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string
-): Promise<ActionResult<FiscalYearRow[]>> {
-  return { success: true, data: [] };
-}
-
-export async function createFiscalYear(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _input: { year: number; startDate: string; endDate: string }
-): Promise<ActionResult<{ id: string }>> {
-  return { success: false, error: "Fonctionnalité en cours de développement" };
-}
-
-export async function closeFiscalYear(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _fiscalYearId: string
-): Promise<ActionResult> {
-  return { success: false, error: "Fonctionnalité en cours de développement" };
-}
 
 export type AccountRow = {
   id: string;
@@ -75,36 +56,293 @@ export type GrandLivreRow = {
   accountLabel: string;
 };
 
-export async function getAccounts(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string
-): Promise<ActionResult<AccountRow[]>> {
-  return { success: true, data: [] };
+// ─── Exercices fiscaux ────────────────────────────────────────────────────────
+
+export async function getFiscalYears(societyId: string): Promise<ActionResult<FiscalYearRow[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId);
+
+    const rows = await prisma.fiscalYear.findMany({
+      where: { societyId },
+      include: {
+        closedBy: { select: { firstName: true, name: true } },
+      },
+      orderBy: { year: "desc" },
+    });
+
+    return { success: true, data: rows };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getFiscalYears]", error);
+    return { success: false, error: "Erreur lors de la récupération des exercices" };
+  }
 }
+
+export async function createFiscalYear(
+  societyId: string,
+  input: { year: number; startDate: string; endDate: string }
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = createFiscalYearSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const existing = await prisma.fiscalYear.findUnique({
+      where: { societyId_year: { societyId, year: parsed.data.year } },
+    });
+    if (existing) return { success: false, error: `L'exercice ${parsed.data.year} existe déjà` };
+
+    const fiscalYear = await prisma.fiscalYear.create({
+      data: {
+        societyId,
+        year: parsed.data.year,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "FiscalYear",
+      entityId: fiscalYear.id,
+      details: { year: parsed.data.year },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true, data: { id: fiscalYear.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createFiscalYear]", error);
+    return { success: false, error: "Erreur lors de la création de l'exercice" };
+  }
+}
+
+export async function closeFiscalYear(societyId: string, fiscalYearId: string): Promise<ActionResult> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+
+    const fy = await prisma.fiscalYear.findFirst({ where: { id: fiscalYearId, societyId } });
+    if (!fy) return { success: false, error: "Exercice introuvable" };
+    if (fy.isClosed) return { success: false, error: "Cet exercice est déjà clôturé" };
+
+    // Vérifier qu'il n'y a pas d'écritures en brouillon
+    const drafts = await prisma.journalEntry.count({
+      where: { societyId, fiscalYearId, status: "BROUILLON" },
+    });
+    if (drafts > 0) {
+      return { success: false, error: `Il reste ${drafts} écriture(s) en brouillon à valider avant la clôture` };
+    }
+
+    // Vérifier l'équilibre débit/crédit
+    const lines = await prisma.journalEntryLine.findMany({
+      where: { journalEntry: { societyId, fiscalYearId } },
+      select: { debit: true, credit: true },
+    });
+    const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return {
+        success: false,
+        error: `La balance n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)`,
+      };
+    }
+
+    await prisma.fiscalYear.update({
+      where: { id: fiscalYearId },
+      data: { isClosed: true, closedAt: new Date(), closedById: session.user.id },
+    });
+
+    // Marquer toutes les écritures comme CLOTUREES
+    await prisma.journalEntry.updateMany({
+      where: { societyId, fiscalYearId },
+      data: { status: "CLOTUREE" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "FiscalYear",
+      entityId: fiscalYearId,
+      details: { action: "close", year: fy.year },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[closeFiscalYear]", error);
+    return { success: false, error: "Erreur lors de la clôture" };
+  }
+}
+
+// ─── Comptes ──────────────────────────────────────────────────────────────────
+
+export async function getAccounts(societyId: string): Promise<ActionResult<AccountRow[]>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId);
+
+    const accounts = await prisma.accountingAccount.findMany({
+      where: { societyId, isActive: true },
+      select: { id: true, code: true, label: true, type: true },
+      orderBy: { code: "asc" },
+    });
+
+    return { success: true, data: accounts };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getAccounts]", error);
+    return { success: false, error: "Erreur lors de la récupération des comptes" };
+  }
+}
+
+// ─── Balance ──────────────────────────────────────────────────────────────────
 
 export async function getBalance(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _filters: { fiscalYearId?: string; classe?: string; dateFrom?: string; dateTo?: string }
+  societyId: string,
+  filters: { fiscalYearId?: string; classe?: string; dateFrom?: string; dateTo?: string }
 ): Promise<ActionResult<BalanceRow[]>> {
-  return { success: true, data: [] };
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId);
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        account: {
+          societyId,
+          ...(filters.classe ? { type: filters.classe } : {}),
+        },
+        journalEntry: {
+          ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),
+          ...(filters.dateFrom ? { entryDate: { gte: new Date(filters.dateFrom) } } : {}),
+          ...(filters.dateTo
+            ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
+            : {}),
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        account: { select: { id: true, code: true, label: true, type: true } },
+      },
+    });
+
+    // Agréger par compte
+    const map = new Map<string, BalanceRow>();
+    for (const line of lines) {
+      const key = line.account.id;
+      if (!map.has(key)) {
+        map.set(key, {
+          accountId: line.account.id,
+          code: line.account.code,
+          label: line.account.label,
+          classe: line.account.type,
+          totalDebit: 0,
+          totalCredit: 0,
+          soldeDebiteur: 0,
+          soldeCrediteur: 0,
+        });
+      }
+      const b = map.get(key)!;
+      b.totalDebit += line.debit;
+      b.totalCredit += line.credit;
+    }
+
+    const data: BalanceRow[] = [...map.values()].map((b) => {
+      const diff = b.totalDebit - b.totalCredit;
+      return {
+        ...b,
+        soldeDebiteur: diff > 0 ? diff : 0,
+        soldeCrediteur: diff < 0 ? -diff : 0,
+      };
+    }).sort((a, b) => a.code.localeCompare(b.code));
+
+    return { success: true, data };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getBalance]", error);
+    return { success: false, error: "Erreur lors du calcul de la balance" };
+  }
 }
+
+// ─── Grand Livre ──────────────────────────────────────────────────────────────
 
 export async function getGrandLivre(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _filters: { accountId?: string; fiscalYearId?: string; journalType?: string; dateFrom?: string; dateTo?: string }
+  societyId: string,
+  filters: { accountId?: string; fiscalYearId?: string; journalType?: string; dateFrom?: string; dateTo?: string }
 ): Promise<ActionResult<GrandLivreRow[]>> {
-  return { success: true, data: [] };
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId);
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        ...(filters.accountId ? { accountId: filters.accountId } : {}),
+        account: { societyId },
+        journalEntry: {
+          ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),
+          ...(filters.journalType ? { journalType: filters.journalType as never } : {}),
+          ...(filters.dateFrom ? { entryDate: { gte: new Date(filters.dateFrom) } } : {}),
+          ...(filters.dateTo
+            ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
+            : {}),
+        },
+      },
+      include: {
+        account: { select: { code: true, label: true } },
+        journalEntry: {
+          select: { entryDate: true, piece: true, journalType: true, label: true, status: true },
+        },
+      },
+      orderBy: [{ journalEntry: { entryDate: "asc" } }, { id: "asc" }],
+    });
+
+    // Calcul du solde cumulé
+    let solde = 0;
+    const data: GrandLivreRow[] = lines.map((line) => {
+      solde += line.debit - line.credit;
+      return {
+        id: line.id,
+        date: line.journalEntry.entryDate,
+        piece: line.journalEntry.piece,
+        journalType: line.journalEntry.journalType,
+        label: line.label ?? line.journalEntry.label,
+        debit: line.debit,
+        credit: line.credit,
+        solde,
+        lettrage: line.lettrage,
+        status: line.journalEntry.status,
+        accountCode: line.account.code,
+        accountLabel: line.account.label,
+      };
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getGrandLivre]", error);
+    return { success: false, error: "Erreur lors de la récupération du grand livre" };
+  }
 }
 
+// ─── Écritures ────────────────────────────────────────────────────────────────
+
 export async function createJournalEntry(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _societyId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _input: {
+  societyId: string,
+  input: {
     journalType: string;
     entryDate: string;
     piece?: string;
@@ -113,8 +351,70 @@ export async function createJournalEntry(
     lines: Array<{ accountId: string; label?: string; debit: number; credit: number }>;
   }
 ): Promise<ActionResult<{ id: string }>> {
-  return { success: false, error: "Fonctionnalité en cours de développement" };
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+
+    const parsed = createJournalEntrySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    // Vérifier l'équilibre débit/crédit
+    const totalDebit = parsed.data.lines.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = parsed.data.lines.reduce((s, l) => s + l.credit, 0);
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return { success: false, error: `L'écriture n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)` };
+    }
+
+    // Vérifier que chaque compte appartient à la société
+    const accountIds = [...new Set(parsed.data.lines.map((l) => l.accountId))];
+    const accounts = await prisma.accountingAccount.findMany({
+      where: { id: { in: accountIds }, societyId },
+      select: { id: true },
+    });
+    if (accounts.length !== accountIds.length) {
+      return { success: false, error: "Un ou plusieurs comptes sont invalides" };
+    }
+
+    const entry = await prisma.journalEntry.create({
+      data: {
+        societyId,
+        journalType: parsed.data.journalType as never,
+        entryDate: new Date(parsed.data.entryDate),
+        piece: parsed.data.piece,
+        label: parsed.data.label,
+        fiscalYearId: parsed.data.fiscalYearId,
+        status: "BROUILLON",
+        lines: {
+          create: parsed.data.lines.map((l) => ({
+            accountId: l.accountId,
+            label: l.label,
+            debit: l.debit,
+            credit: l.credit,
+          })),
+        },
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "JournalEntry",
+      entityId: entry.id,
+      details: { journalType: input.journalType, piece: input.piece, label: input.label },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true, data: { id: entry.id } };
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[createJournalEntry]", error);
+    return { success: false, error: "Erreur lors de la création de l'écriture" };
+  }
 }
+
+// ─── Import (fonctions conservées) ───────────────────────────────────────────
 
 export async function bulkImportAccounts(
   societyId: string,
@@ -228,7 +528,6 @@ export async function bulkImportJournalEntries(
         const journalType = normalizeJournalType(entry.journalType) as never;
         const entryDate = new Date(entry.entryDate);
 
-        // Toujours vérifier les doublons (par pièce+journal+date ou libellé+journal+date)
         const existing = await prisma.journalEntry.findFirst({
           where: {
             societyId,

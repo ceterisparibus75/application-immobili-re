@@ -13,6 +13,7 @@ import {
   type CreateWorkflowInput,
   type UpdateWorkflowInput,
 } from "@/validations/workflow";
+import { executeWorkflowSteps } from "@/lib/workflow-engine";
 
 export async function createWorkflow(
   societyId: string,
@@ -149,6 +150,11 @@ export async function runWorkflow(
     if (!session?.user?.id) return { success: false, error: "Non authentifié" };
     await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
 
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, societyId },
+    });
+    if (!workflow) return { success: false, error: "Workflow introuvable" };
+
     const run = await prisma.workflowRun.create({
       data: {
         workflowId,
@@ -157,18 +163,32 @@ export async function runWorkflow(
       },
     });
 
-    // Update workflow stats
-    await prisma.workflow.update({
-      where: { id: workflowId },
-      data: { lastRunAt: new Date(), runCount: { increment: 1 } },
+    // Exécuter les étapes réellement
+    const steps = (workflow.steps as Array<{ id: string; type: string; config: Record<string, unknown> }>) ?? [];
+    const stepResults = await executeWorkflowSteps(steps, {
+      societyId,
+      triggeredBy: session.user.id,
     });
 
-    // In a real implementation, this would trigger async execution
-    // For now, mark as completed
-    await prisma.workflowRun.update({
-      where: { id: run.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
-    });
+    const hasFailed = stepResults.some((r) => r.status === "failed");
+
+    await Promise.all([
+      prisma.workflowRun.update({
+        where: { id: run.id },
+        data: {
+          status: hasFailed ? "FAILED" : "COMPLETED",
+          completedAt: new Date(),
+          stepResults: stepResults as never,
+          ...(hasFailed
+            ? { error: stepResults.find((r) => r.status === "failed")?.error }
+            : {}),
+        },
+      }),
+      prisma.workflow.update({
+        where: { id: workflowId },
+        data: { lastRunAt: new Date(), runCount: { increment: 1 } },
+      }),
+    ]);
 
     await createAuditLog({
       societyId,
