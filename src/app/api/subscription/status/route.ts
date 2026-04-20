@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getOptionalAuthenticatedRouteContext } from "@/lib/api-auth";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const context = await getOptionalAuthenticatedRouteContext();
+  if (!context) {
     return NextResponse.json({ type: null, message: "" });
   }
 

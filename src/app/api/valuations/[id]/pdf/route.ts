@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
-import { cookies } from "next/headers";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { PropertyValuationReport, RentValuationReport } from "@/lib/valuation/report-pdf";
@@ -15,28 +13,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Société non sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
+    const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+    if (context instanceof NextResponse) return context;
 
     const { id } = await params;
     const { searchParams } = new URL(_request.url);
     const type = searchParams.get("type") ?? "property";
 
     if (type === "rent") {
-      return generateRentReport(id, societyId, session.user.id);
+      return generateRentReport(id, context.societyId, context.userId);
     }
 
-    return generatePropertyReport(id, societyId, session.user.id);
+    return generatePropertyReport(id, context.societyId, context.userId);
   } catch (error) {
     console.error("[ValuationPDF]", error);
     return NextResponse.json({ error: "Erreur lors de la génération du PDF" }, { status: 500 });

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { decrypt } from "@/lib/encryption";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
@@ -23,25 +21,21 @@ function getSupabaseClient() {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // 1. Authentification
-    const session = await auth();
-    if (!session?.user?.id)
+    const routeContext = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+    if (routeContext instanceof NextResponse) {
+      if (routeContext.status === 400)
+        return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Société non sélectionnée" } }, { status: 400 });
+      if (routeContext.status === 403)
+        return NextResponse.json({ error: { code: "FORBIDDEN", message: "Accès refusé" } }, { status: 403 });
       return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non authentifié" } }, { status: 401 });
+    }
+    const context = routeContext;
 
     const { id } = await params;
 
-    // 2. Société active (via cookies() au lieu du parsing manuel)
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId)
-      return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Société non sélectionnée" } }, { status: 400 });
-
-    // 3. Permissions
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
     // 4. Récupération de la facture
     const invoice = await prisma.invoice.findFirst({
-      where: { id, societyId },
+      where: { id, societyId: context.societyId },
       include: {
         society: true,
         tenant: true,
@@ -114,7 +108,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (invoice.lease?.id) {
       const unpaid = await prisma.invoice.findMany({
         where: {
-          societyId,
+          societyId: context.societyId,
           leaseId: invoice.lease.id,
           id: { not: invoice.id },
           status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
@@ -208,8 +202,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       pdfData.issueDate = newIssueDate.toISOString();
       console.warn("[pdf] issueDate corrigé de", invoice.issueDate.toISOString(), "à", newIssueDate.toISOString());
       await createAuditLog({
-        societyId,
-        userId: session.user.id,
+        societyId: context.societyId,
+        userId: context.userId,
         action: "UPDATE",
         entity: "Invoice",
         entityId: id,
@@ -226,7 +220,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const lotAddr = lot?.building?.addressLine1 ?? "";
     const pdfFileName = [invoice.invoiceNumber, sanitize(lotAddr), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
     const year = new Date(invoice.issueDate).getFullYear();
-    const pdfPath = `invoices/${societyId}/${year}/${pdfFileName}`;
+    const pdfPath = `invoices/${context.societyId}/${year}/${pdfFileName}`;
     if (supabase) {
       try {
         await supabase.storage.from(STORAGE_BUCKET).upload(pdfPath, pdfBuffer, {
@@ -242,8 +236,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     // 11. Audit log
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "GENERATE_PDF",
       entity: "Invoice",
       entityId: id,
@@ -261,8 +255,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
   } catch (error) {
-    if (error instanceof ForbiddenError)
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: error.message } }, { status: 403 });
     console.error("[pdf]", error);
     return NextResponse.json(
       { error: { code: "PDF_ERROR", message: "Erreur lors de la génération du PDF" } },

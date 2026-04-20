@@ -1,11 +1,14 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   createFiscalYearSchema,
   createJournalEntrySchema,
@@ -60,9 +63,7 @@ export type GrandLivreRow = {
 
 export async function getFiscalYears(societyId: string): Promise<ActionResult<FiscalYearRow[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const rows = await prisma.fiscalYear.findMany({
       where: { societyId },
@@ -74,6 +75,7 @@ export async function getFiscalYears(societyId: string): Promise<ActionResult<Fi
 
     return { success: true, data: rows };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getFiscalYears]", error);
     return { success: false, error: "Erreur lors de la récupération des exercices" };
@@ -85,9 +87,7 @@ export async function createFiscalYear(
   input: { year: number; startDate: string; endDate: string }
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = createFiscalYearSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -108,7 +108,7 @@ export async function createFiscalYear(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "FiscalYear",
       entityId: fiscalYear.id,
@@ -118,6 +118,7 @@ export async function createFiscalYear(
     revalidatePath("/comptabilite");
     return { success: true, data: { id: fiscalYear.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createFiscalYear]", error);
     return { success: false, error: "Erreur lors de la création de l'exercice" };
@@ -126,9 +127,7 @@ export async function createFiscalYear(
 
 export async function closeFiscalYear(societyId: string, fiscalYearId: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const fy = await prisma.fiscalYear.findFirst({ where: { id: fiscalYearId, societyId } });
     if (!fy) return { success: false, error: "Exercice introuvable" };
@@ -158,7 +157,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
 
     await prisma.fiscalYear.update({
       where: { id: fiscalYearId },
-      data: { isClosed: true, closedAt: new Date(), closedById: session.user.id },
+      data: { isClosed: true, closedAt: new Date(), closedById: context.userId },
     });
 
     // Marquer toutes les écritures comme CLOTUREES
@@ -169,7 +168,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "FiscalYear",
       entityId: fiscalYearId,
@@ -179,6 +178,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
     revalidatePath("/comptabilite");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[closeFiscalYear]", error);
     return { success: false, error: "Erreur lors de la clôture" };
@@ -189,9 +189,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
 
 export async function getAccounts(societyId: string): Promise<ActionResult<AccountRow[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const accounts = await prisma.accountingAccount.findMany({
       where: { societyId, isActive: true },
@@ -201,6 +199,7 @@ export async function getAccounts(societyId: string): Promise<ActionResult<Accou
 
     return { success: true, data: accounts };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getAccounts]", error);
     return { success: false, error: "Erreur lors de la récupération des comptes" };
@@ -214,9 +213,7 @@ export async function getBalance(
   filters: { fiscalYearId?: string; classe?: string; dateFrom?: string; dateTo?: string }
 ): Promise<ActionResult<BalanceRow[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const lines = await prisma.journalEntryLine.findMany({
       where: {
@@ -271,6 +268,7 @@ export async function getBalance(
 
     return { success: true, data };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getBalance]", error);
     return { success: false, error: "Erreur lors du calcul de la balance" };
@@ -284,9 +282,7 @@ export async function getGrandLivre(
   filters: { accountId?: string; fiscalYearId?: string; journalType?: string; dateFrom?: string; dateTo?: string }
 ): Promise<ActionResult<GrandLivreRow[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const lines = await prisma.journalEntryLine.findMany({
       where: {
@@ -332,6 +328,7 @@ export async function getGrandLivre(
 
     return { success: true, data };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getGrandLivre]", error);
     return { success: false, error: "Erreur lors de la récupération du grand livre" };
@@ -352,9 +349,7 @@ export async function createJournalEntry(
   }
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = createJournalEntrySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -398,7 +393,7 @@ export async function createJournalEntry(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "JournalEntry",
       entityId: entry.id,
@@ -408,6 +403,7 @@ export async function createJournalEntry(
     revalidatePath("/comptabilite");
     return { success: true, data: { id: entry.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createJournalEntry]", error);
     return { success: false, error: "Erreur lors de la création de l'écriture" };
@@ -421,9 +417,7 @@ export async function bulkImportAccounts(
   accounts: Array<{ code: string; label: string; type: string; accountType?: string; sensNormal?: string }>,
 ): Promise<ActionResult<{ imported: number; skipped: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     if (!accounts.length) return { success: false, error: "Aucun compte à importer" };
     if (accounts.length > 500) return { success: false, error: "Maximum 500 comptes par import" };
@@ -461,7 +455,7 @@ export async function bulkImportAccounts(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "AccountingAccount",
       entityId: societyId,
@@ -471,6 +465,7 @@ export async function bulkImportAccounts(
     revalidatePath("/comptabilite");
     return { success: true, data: { imported, skipped } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[bulkImportAccounts]", error);
     return { success: false, error: "Erreur lors de l'import" };
@@ -506,9 +501,7 @@ export async function bulkImportJournalEntries(
   entries: ImportJournalEntryInput[],
 ): Promise<ActionResult<{ imported: number; skipped: number; errors: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     if (!entries.length) return { success: false, error: "Aucune écriture à importer" };
     if (entries.length > 2000) return { success: false, error: "Maximum 2000 écritures par import" };
@@ -577,7 +570,7 @@ export async function bulkImportJournalEntries(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "JournalEntry",
       entityId: societyId,
@@ -587,6 +580,7 @@ export async function bulkImportJournalEntries(
     revalidatePath("/comptabilite");
     return { success: true, data: { imported, skipped, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[bulkImportJournalEntries]", error);
     return { success: false, error: "Erreur lors de l'import" };

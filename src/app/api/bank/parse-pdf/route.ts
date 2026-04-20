@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { parsePdfBankStatement } from "@/lib/pdf-bank-parser";
 
 // Limite à 20 Mo pour les PDF de relevés bancaires
@@ -9,21 +7,8 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json(
-        { error: "Aucune société sélectionnée" },
-        { status: 400 }
-      );
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -46,18 +44,8 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     let pdfBuffer: Buffer;
     let tempStoragePath: string | null = null;
@@ -152,7 +140,7 @@ export async function POST(req: NextRequest) {
     if (parsed.addressLine1 || parsed.name) {
       const existingBuildings = await prisma.building.findMany({
         where: {
-          societyId,
+          societyId: context.societyId,
           OR: [
             ...(parsed.addressLine1 ? [{
               addressLine1: { contains: String(parsed.addressLine1).split(" ").slice(-2).join(" "), mode: "insensitive" as const },
@@ -192,7 +180,7 @@ export async function POST(req: NextRequest) {
       if (lotNumbers.length > 0) {
         const existingLots = await prisma.lot.findMany({
           where: {
-            building: { societyId },
+            building: { societyId: context.societyId },
             number: { in: lotNumbers },
           },
           select: {

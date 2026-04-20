@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 
 /**
  * Callback Powens Open Banking (PSD2).
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Vérifier l'authentification
-  const session = await auth();
-  if (!session?.user?.id) {
+  const context = await requireAuthenticatedRouteContext();
+  if (context instanceof Response) {
     redirect("/login?callbackUrl=" + encodeURIComponent(request.url));
   }
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const userSociety = await prisma.userSociety.findUnique({
       where: {
         userId_societyId: {
-          userId: session.user.id,
+          userId: context.userId,
           societyId: bankConnection.societyId,
         },
       },

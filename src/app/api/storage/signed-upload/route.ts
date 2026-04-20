@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-    }
+    const context = await requireAuthenticatedRouteContext();
+    if (context instanceof NextResponse) return context;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,12 +39,12 @@ export async function POST(req: NextRequest) {
       if (!activeSocietyId || activeSocietyId !== societyId) {
         return NextResponse.json({ error: "Societe non autorisee" }, { status: 403 });
       }
-      await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+      await requireSocietyAccess(context.userId, societyId, "GESTIONNAIRE");
       storagePath = `documents/${societyId}/${entityFolder}/${timestamp}_${safeName}`;
     } else if (societyId) {
       storagePath = `logos/${societyId}/${timestamp}_${safeName}`;
     } else {
-      storagePath = `temp/${session.user.id}/${timestamp}_${safeName}`;
+      storagePath = `temp/${context.userId}/${timestamp}_${safeName}`;
     }
 
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";

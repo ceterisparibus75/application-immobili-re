@@ -1,27 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { collectTenantPaymentData, predictWithAI, calculateRiskScore, type PredictionSummary } from "@/lib/ai-prediction";
 import { env } from "@/lib/env";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     // Collect payment data
-    const profiles = await collectTenantPaymentData(societyId);
+    const profiles = await collectTenantPaymentData(context.societyId);
 
     // Use AI if available, otherwise rule-based
     const predictions = env.ANTHROPIC_API_KEY

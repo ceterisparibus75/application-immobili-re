@@ -1,14 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { sendReminderEmail } from "@/lib/email";
 import { getAllEmailCopyBcc } from "@/lib/email-copy";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "./society";
 import type { ReminderLevel } from "@/generated/prisma/client";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 const LEVEL_MAP: Record<ReminderLevel, 1 | 2 | 3> = {
   RELANCE_1: 1,
@@ -34,10 +37,7 @@ export async function sendManualReminder(
   level: ReminderLevel
 ): Promise<ActionResult<{ reminderId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Récupérer la facture avec toutes les infos nécessaires
     const invoice = await prisma.invoice.findFirst({
@@ -127,7 +127,7 @@ export async function sendManualReminder(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Reminder",
       entityId: reminder.id,
@@ -146,6 +146,7 @@ export async function sendManualReminder(
 
     return { success: true, data: { reminderId: reminder.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[sendManualReminder]", error);
     return { success: false, error: "Erreur lors de l'envoi de la relance" };
@@ -162,9 +163,7 @@ export async function sendBulkReminders(
   level: ReminderLevel
 ): Promise<ActionResult<{ sent: number; failed: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     let sent = 0;
     let failed = 0;
@@ -177,6 +176,7 @@ export async function sendBulkReminders(
 
     return { success: true, data: { sent, failed } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[sendBulkReminders]", error);
     return { success: false, error: "Erreur lors de l'envoi des relances" };

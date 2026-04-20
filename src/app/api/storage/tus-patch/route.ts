@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    const context = await requireAuthenticatedRouteContext();
+    if (context instanceof NextResponse) return context;
 
     const tusUrl = req.headers.get("x-tus-url");
     const uploadOffset = req.headers.get("x-upload-offset") ?? "0";

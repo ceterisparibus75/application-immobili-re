@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { ForbiddenError } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     const { filename, mimeType, fileSize, entityFolder } = await req.json() as {
       filename: string; mimeType: string; fileSize: number; entityFolder: string;
@@ -29,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const timestamp = Date.now();
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `documents/${societyId}/${entityFolder}/${timestamp}_${safeName}`;
+    const storagePath = `documents/${context.societyId}/${entityFolder}/${timestamp}_${safeName}`;
 
     const metadata = [
       `bucketName ${Buffer.from(bucket).toString("base64")}`,

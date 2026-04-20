@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -13,19 +11,8 @@ const createSchema = z.object({
 });
 
 async function getSocietyContext() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return null;
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId);
-    return { userId: session.user.id, societyId };
-  } catch {
-    return null;
-  }
+  const context = await requireActiveSocietyRouteContext();
+  return context instanceof NextResponse ? null : context;
 }
 
 export async function GET() {

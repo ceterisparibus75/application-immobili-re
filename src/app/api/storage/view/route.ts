@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { createClient } from "@supabase/supabase-js";
 import { requireSocietyAccess } from "@/lib/permissions";
 import * as nodePath from "path";
@@ -34,8 +34,8 @@ function sanitizePath(raw: string): string | null {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return new NextResponse(null, { status: 401 });
+  const context = await requireAuthenticatedRouteContext();
+  if (context instanceof NextResponse) return context;
 
   const path = req.nextUrl.searchParams.get("path");
   if (!path || path.trim() === "") return new NextResponse(null, { status: 400 });
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   if (pathSegments.length >= 2 && SOCIETY_ID_FOLDERS.has(pathSegments[0])) {
     const pathSocietyId = pathSegments[1];
     try {
-      await requireSocietyAccess(session.user.id, pathSocietyId);
+      await requireSocietyAccess(context.userId, pathSocietyId);
     } catch {
       return new NextResponse(null, { status: 403 });
     }

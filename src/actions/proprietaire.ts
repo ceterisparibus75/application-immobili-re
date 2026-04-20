@@ -1,6 +1,8 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import {
+  getOptionalAuthenticatedActionContext,
+} from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -113,18 +115,18 @@ export type UpdateProprietaireInput = CreateProprietaireInput & { id: string };
 // ── Actions ──
 
 export async function getProprietaires(): Promise<ActionResult<ProprietaireListItem[]>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   const proprietaires = await prisma.proprietaire.findMany({
     where: {
       OR: [
-        { userId: session.user.id },
+        { userId: context.userId },
         {
           societies: {
             some: {
               userSocieties: {
-                some: { userId: session.user.id },
+                some: { userId: context.userId },
               },
             },
           },
@@ -164,20 +166,20 @@ export async function getProprietaires(): Promise<ActionResult<ProprietaireListI
 }
 
 export async function getProprietaire(proprietaireId: string): Promise<ActionResult<ProprietaireDetail>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   const proprietaire = await prisma.proprietaire.findFirst({
     where: {
       id: proprietaireId,
       OR: [
-        { userId: session.user.id },
+        { userId: context.userId },
         {
           societies: {
             some: {
               userSocieties: {
                 some: {
-                  userId: session.user.id,
+                  userId: context.userId,
                   role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
                 },
               },
@@ -234,8 +236,8 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
 }
 
 export async function createProprietaire(input: CreateProprietaireInput): Promise<ActionResult<{ id: string }>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   if (!input.label?.trim()) {
     return { success: false, error: "Le libellé est obligatoire" };
@@ -243,7 +245,7 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
 
   const proprietaire = await prisma.proprietaire.create({
     data: {
-      userId: session.user.id,
+      userId: context.userId,
       label: input.label.trim(),
       entityType: input.entityType ?? "PERSONNE_PHYSIQUE",
       email: input.email?.trim() || null,
@@ -295,8 +297,8 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
 }
 
 export async function updateProprietaire(input: UpdateProprietaireInput): Promise<ActionResult<void>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   if (!input.label?.trim()) {
     return { success: false, error: "Le libellé est obligatoire" };
@@ -307,13 +309,13 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
     where: {
       id: input.id,
       OR: [
-        { userId: session.user.id },
+        { userId: context.userId },
         {
           societies: {
             some: {
               userSocieties: {
                 some: {
-                  userId: session.user.id,
+                  userId: context.userId,
                   role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
                 },
               },
@@ -420,11 +422,11 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
 }
 
 export async function deleteProprietaire(proprietaireId: string): Promise<ActionResult<void>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   const proprietaire = await prisma.proprietaire.findFirst({
-    where: { id: proprietaireId, userId: session.user.id },
+    where: { id: proprietaireId, userId: context.userId },
     select: { id: true, _count: { select: { societies: true } } },
   });
 
@@ -444,19 +446,19 @@ export async function deleteProprietaire(proprietaireId: string): Promise<Action
  * Crée un Proprietaire par défaut si l'utilisateur n'en a pas encore.
  */
 export async function migrateOwnerToProprietaire(): Promise<ActionResult<{ proprietaireId: string }>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   // Vérifier s'il existe déjà un propriétaire pour cet utilisateur
   let proprietaire = await prisma.proprietaire.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: context.userId },
     select: { id: true },
   });
 
   if (!proprietaire) {
     // Récupérer le profil utilisateur pour pré-remplir
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: {
         firstName: true, lastName: true, phone: true,
         birthDate: true, birthPlace: true, address: true,
@@ -466,7 +468,7 @@ export async function migrateOwnerToProprietaire(): Promise<ActionResult<{ propr
 
     proprietaire = await prisma.proprietaire.create({
       data: {
-        userId: session.user.id,
+        userId: context.userId,
         label: user?.firstName && user?.lastName
           ? `${user.firstName} ${user.lastName}`
           : "Mon patrimoine",
@@ -487,7 +489,7 @@ export async function migrateOwnerToProprietaire(): Promise<ActionResult<{ propr
   // Migrer les sociétés qui ont ownerId mais pas proprietaireId
   await prisma.society.updateMany({
     where: {
-      ownerId: session.user.id,
+      ownerId: context.userId,
       proprietaireId: null,
     },
     data: {
@@ -510,18 +512,18 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   legalForm: string | null;
   societies: { id: string; name: string; legalForm: string; city: string; isActive: boolean; logoUrl: string | null }[];
 }[]>> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return { success: false, error: "Non authentifié" };
 
   // Auto-migration : créer le propriétaire et rattacher les sociétés si nécessaire
   const existingProprietaire = await prisma.proprietaire.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: context.userId },
     select: { id: true },
   });
   if (!existingProprietaire) {
     // Vérifier si l'utilisateur a des sociétés sans propriétaire
     const orphanSocieties = await prisma.society.findMany({
-      where: { ownerId: session.user.id, proprietaireId: null },
+      where: { ownerId: context.userId, proprietaireId: null },
       select: { id: true },
     });
     if (orphanSocieties.length > 0) {
@@ -530,12 +532,12 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   } else {
     // Si le propriétaire existe mais des sociétés ne sont pas rattachées
     const orphans = await prisma.society.findMany({
-      where: { ownerId: session.user.id, proprietaireId: null },
+      where: { ownerId: context.userId, proprietaireId: null },
       select: { id: true },
     });
     if (orphans.length > 0) {
       await prisma.society.updateMany({
-        where: { ownerId: session.user.id, proprietaireId: null },
+        where: { ownerId: context.userId, proprietaireId: null },
         data: { proprietaireId: existingProprietaire.id },
       });
     }
@@ -545,12 +547,12 @@ export async function getProprietairesWithSocieties(): Promise<ActionResult<{
   const proprietaires = await prisma.proprietaire.findMany({
     where: {
       OR: [
-        { userId: session.user.id },
+        { userId: context.userId },
         {
           societies: {
             some: {
               userSocieties: {
-                some: { userId: session.user.id },
+                some: { userId: context.userId },
               },
             },
           },

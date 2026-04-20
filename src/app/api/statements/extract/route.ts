@@ -1,9 +1,7 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 
@@ -111,18 +109,8 @@ IMPORTANT : les honoraires et déductions doivent avoir un montant NÉGATIF car 
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+    if (context instanceof NextResponse) return context;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -218,9 +206,6 @@ Si une information n'est pas trouvée, mets null pour les textes et 0 pour les n
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     console.error("[POST /api/statements/extract]", error);
     return NextResponse.json({ error: "Erreur lors de l'extraction IA" }, { status: 500 });
   }

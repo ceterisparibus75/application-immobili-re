@@ -1,9 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import {
+  getOptionalAuthenticatedActionContext,
+  requireAuthenticatedActionContext,
+} from "@/lib/action-auth";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSocietyLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -24,10 +32,7 @@ export async function createSociety(
   input: CreateSocietyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     const parsed = createSocietySchema.safeParse(input);
     if (!parsed.success) {
@@ -40,7 +45,7 @@ export async function createSociety(
     const data = parsed.data;
 
     // Vérifier la limite de sociétés du plan
-    const socLimit = await checkSocietyLimit(session.user.id);
+    const socLimit = await checkSocietyLimit(context.userId);
     if (!socLimit.allowed) return { success: false, error: socLimit.message };
 
     // Vérifier que le SIRET n'existe pas déjà (si fourni)
@@ -82,7 +87,7 @@ export async function createSociety(
         phone: data.phone || null,
         shareCapital: data.shareCapital ?? null,
         signatoryName: data.signatoryName || null,
-        ownerId: session.user.id,
+        ownerId: context.userId,
         proprietaireId: data.proprietaireId || null,
       },
     });
@@ -90,7 +95,7 @@ export async function createSociety(
     // Assigner le créateur comme ADMIN_SOCIETE
     await prisma.userSociety.create({
       data: {
-        userId: session.user.id,
+        userId: context.userId,
         societyId: society.id,
         role: "ADMIN_SOCIETE",
       },
@@ -112,7 +117,7 @@ export async function createSociety(
 
     await createAuditLog({
       societyId: society.id,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Society",
       entityId: society.id,
@@ -125,6 +130,9 @@ export async function createSociety(
 
     return { success: true, data: { id: society.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[createSociety]", error);
     return { success: false, error: "Erreur lors de la création de la société" };
   }
@@ -134,11 +142,6 @@ export async function updateSociety(
   input: UpdateSocietyInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
     const parsed = updateSocietySchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -149,7 +152,7 @@ export async function updateSociety(
 
     const { id, iban, bic, ...data } = parsed.data;
 
-    await requireSocietyAccess(session.user.id, id, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(id, "ADMIN_SOCIETE");
 
     const updateData: Record<string, unknown> = { ...data };
 
@@ -178,7 +181,7 @@ export async function updateSociety(
 
     await createAuditLog({
       societyId: id,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Society",
       entityId: id,
@@ -190,6 +193,9 @@ export async function updateSociety(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -199,11 +205,11 @@ export async function updateSociety(
 }
 
 export async function getSocieties() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return [];
 
   const memberships = await prisma.userSociety.findMany({
-    where: { userId: session.user.id },
+    where: { userId: context.userId },
     include: {
       society: {
         select: {
@@ -225,7 +231,7 @@ export async function getSocieties() {
 
   // Include societies owned by user but without explicit membership
   const ownedWithoutMembership = await prisma.society.findMany({
-    where: { ownerId: session.user.id, id: { notIn: Array.from(membershipIds) } },
+    where: { ownerId: context.userId, id: { notIn: Array.from(membershipIds) } },
     select: { id: true, name: true, legalForm: true, siret: true, city: true, isActive: true, logoUrl: true, ownerId: true },
     orderBy: { name: "asc" },
   });
@@ -244,10 +250,7 @@ export async function getSocieties() {
 }
 
 export async function getSocietyById(id: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, id);
+  if (!(await getOptionalSocietyActionContext(id))) return null;
 
   return prisma.society.findUnique({
     where: { id },
@@ -277,12 +280,7 @@ export async function getSocietyById(id: string) {
 
 export async function deleteSociety(id: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, id, "SUPER_ADMIN");
+    const context = await requireSocietyActionContext(id, "SUPER_ADMIN");
 
     // Vérifier qu'il n'y a pas de baux actifs
     const activeLeases = await prisma.lease.count({
@@ -303,7 +301,7 @@ export async function deleteSociety(id: string): Promise<ActionResult> {
 
     await createAuditLog({
       societyId: id,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Society",
       entityId: id,
@@ -312,6 +310,9 @@ export async function deleteSociety(id: string): Promise<ActionResult> {
     revalidatePath("/societes");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }

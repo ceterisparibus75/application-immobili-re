@@ -15,9 +15,12 @@
  *       markInvoiceInPayment, lookupDirectory, registerSocietyInPPF
  */
 
-import { auth } from "@/lib/auth";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { getPAClient, PAClientError, isEInvoicingConfigured, type StatusUpdate } from "@/lib/pa-client";
 import { generateFacturXml } from "@/lib/einvoice-generator";
@@ -79,13 +82,10 @@ export async function syncReceivedInvoices(
   societyId: string
 ): Promise<ActionResult<{ created: number; updated: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<{ created: number; updated: number }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
     const society = await prisma.society.findFirst({
       where: { id: societyId },
@@ -96,8 +96,9 @@ export async function syncReceivedInvoices(
     if (!society.ppfRegisteredAt)
       return { success: false, error: "La société n'est pas encore inscrite à l'Annuaire PPF." };
 
-    return await _syncForSociety(societyId, society.siret, session.user.id);
+    return await _syncForSociety(societyId, society.siret, context.userId);
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncReceivedInvoices]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };
@@ -256,13 +257,10 @@ export async function submitInvoice(
   invoiceId: string
 ): Promise<ActionResult<{ flowId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<{ flowId: string }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -358,7 +356,7 @@ export async function submitInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "GENERATE_PDF",
       entity: "Invoice",
       entityId: invoiceId,
@@ -368,6 +366,7 @@ export async function submitInvoice(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { flowId: result.flowId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof PAClientError)
       return { success: false, error: `Erreur PA (${error.status}): ${error.body}` };
@@ -389,13 +388,10 @@ export async function getEInvoiceStatus(
   invoiceId: string
 ): Promise<ActionResult<{ currentStatus: string; flowId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<{ currentStatus: string; flowId: string }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -416,6 +412,7 @@ export async function getEInvoiceStatus(
       data: { currentStatus: statusHistory.currentStatus, flowId },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof PAClientError)
       return { success: false, error: `Erreur PA (${error.status}): ${error.body}` };
@@ -483,13 +480,10 @@ async function _updateFlowStatus(
   update: StatusUpdate
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<void>;
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
     const inv = await prisma.supplierInvoice.findFirst({
       where: { id: supplierInvoiceId, societyId },
@@ -520,7 +514,7 @@ async function _updateFlowStatus(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: supplierInvoiceId,
@@ -530,6 +524,7 @@ async function _updateFlowStatus(
     revalidatePath("/banque/factures-fournisseurs");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof PAClientError)
       return { success: false, error: `Erreur PA (${error.status}): ${error.body}` };
@@ -551,13 +546,10 @@ export async function lookupDirectory(
   siret: string
 ): Promise<ActionResult<{ inscrit: boolean; denomination?: string; plateforme?: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<{ inscrit: boolean }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
 
     const pa = getPAClient()!;
     const entry = await pa.lookupBySiret(siret);
@@ -576,6 +568,7 @@ export async function lookupDirectory(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof PAClientError)
       return { success: false, error: `Erreur PA (${error.status}): ${error.body}` };
@@ -596,10 +589,7 @@ export async function registerSocietyInPPF(
   societyId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const guard = requireEInvoicing();
     if (guard) return guard as ActionResult<void>;
@@ -643,7 +633,7 @@ export async function registerSocietyInPPF(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Society",
       entityId: societyId,
@@ -653,6 +643,7 @@ export async function registerSocietyInPPF(
     revalidatePath("/parametres/facturation");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof PAClientError)
       return { success: false, error: `Erreur PA (${error.status}): ${error.body}` };
@@ -677,13 +668,10 @@ export async function submitInvoiceToChorusPro(
   invoiceId: string
 ): Promise<ActionResult<{ numeroFluxDepot: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const guard = requireChorusPro();
     if (guard) return guard as ActionResult<{ numeroFluxDepot: string }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -717,7 +705,7 @@ export async function submitInvoiceToChorusPro(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "GENERATE_PDF",
       entity: "Invoice",
       entityId: invoiceId,
@@ -731,6 +719,7 @@ export async function submitInvoiceToChorusPro(
     revalidatePath(`/facturation/${invoiceId}`);
     return { success: true, data: { numeroFluxDepot: result.numeroFluxDepot } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof ChorusProError)
       return { success: false, error: `Chorus Pro [${error.codeRetour}]: ${error.libelle}` };
@@ -748,13 +737,10 @@ export async function checkChorusProStatus(
   invoiceId: string
 ): Promise<ActionResult<{ statut: string; libelle: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const guard = requireChorusPro();
     if (guard) return guard as ActionResult<{ statut: string; libelle: string }>;
-
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -778,6 +764,7 @@ export async function checkChorusProStatus(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof ChorusProError)
       return { success: false, error: `Chorus Pro [${error.codeRetour}]: ${error.libelle}` };

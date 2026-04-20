@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 import { analyzeDocument } from "@/lib/document-ai";
 
@@ -27,17 +26,9 @@ export async function POST(
 
     let societyFilter: { societyId: string } | Record<string, never> = {};
     if (!isInternal) {
-      const session = await auth();
-      if (!session?.user?.id)
-        return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
-      const cookieStore = await cookies();
-      const societyId = cookieStore.get("active-society-id")?.value;
-      if (!societyId)
-        return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
-
-      await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-      societyFilter = { societyId };
+      const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+      if (context instanceof NextResponse) return context;
+      societyFilter = { societyId: context.societyId };
     }
 
     const { id } = await params;

@@ -1,12 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { createQontoTransfer } from "@/lib/qonto";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import type { ActionResult } from "@/actions/society";
 import {
   uploadSupplierInvoiceSchema,
@@ -28,10 +32,7 @@ export async function uploadSupplierInvoice(
   input: UploadSupplierInvoiceInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = uploadSupplierInvoiceSchema.safeParse(input);
     if (!parsed.success) {
@@ -57,7 +58,7 @@ export async function uploadSupplierInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SupplierInvoice",
       entityId: invoice.id,
@@ -67,6 +68,7 @@ export async function uploadSupplierInvoice(
     revalidatePath(REVALIDATE_PATH);
     return { success: true, data: { id: invoice.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[uploadSupplierInvoice]", error);
     return { success: false, error: "Erreur lors de l'upload" };
@@ -89,10 +91,7 @@ export async function getSupplierInvoicesPaginated(
   data: Awaited<ReturnType<typeof prisma.supplierInvoice.findMany>>;
   total: number;
 }> {
-  const session = await auth();
-  if (!session?.user?.id) return { data: [], total: 0 };
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return { data: [], total: 0 };
 
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 20;
@@ -135,10 +134,7 @@ export async function getSupplierInvoiceById(
   societyId: string,
   invoiceId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
 
   return prisma.supplierInvoice.findFirst({
     where: { id: invoiceId, societyId },
@@ -227,10 +223,7 @@ export async function updateSupplierInvoiceData(
   input: UpdateSupplierInvoiceDataInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateSupplierInvoiceDataSchema.safeParse(input);
     if (!parsed.success) {
@@ -277,7 +270,7 @@ export async function updateSupplierInvoiceData(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: id,
@@ -287,6 +280,7 @@ export async function updateSupplierInvoiceData(
     revalidatePath(REVALIDATE_PATH);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateSupplierInvoiceData]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -300,10 +294,7 @@ export async function validateSupplierInvoice(
   invoiceId: string
 ): Promise<ActionResult<{ chargeId: string | null; journalEntryId: string | null }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = validateSupplierInvoiceSchema.safeParse({ invoiceId });
     if (!parsed.success) {
@@ -426,7 +417,7 @@ export async function validateSupplierInvoice(
           chargeId: charge?.id ?? null,
           journalEntryId,
           validatedAt: new Date(),
-          validatedBy: session.user.id,
+          validatedBy: context.userId,
         },
       });
 
@@ -435,7 +426,7 @@ export async function validateSupplierInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: invoiceId,
@@ -449,6 +440,7 @@ export async function validateSupplierInvoice(
     revalidatePath(REVALIDATE_PATH);
     return { success: true, data: result };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[validateSupplierInvoice]", error);
     return { success: false, error: "Erreur lors de la validation" };
@@ -463,10 +455,7 @@ export async function rejectSupplierInvoice(
   reason: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = rejectSupplierInvoiceSchema.safeParse({ invoiceId, reason });
     if (!parsed.success) {
@@ -486,14 +475,14 @@ export async function rejectSupplierInvoice(
       data: {
         status: "REJECTED",
         rejectedAt: new Date(),
-        rejectedBy: session.user.id,
+        rejectedBy: context.userId,
         rejectionReason: reason,
       },
     });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: invoiceId,
@@ -503,6 +492,7 @@ export async function rejectSupplierInvoice(
     revalidatePath(REVALIDATE_PATH);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[rejectSupplierInvoice]", error);
     return { success: false, error: "Erreur lors du rejet" };
@@ -516,10 +506,7 @@ export async function markSupplierInvoicePaid(
   input: MarkSupplierInvoicePaidInput
 ): Promise<ActionResult<{ bankJournalEntryId: string | null }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = markSupplierInvoicePaidSchema.safeParse(input);
     if (!parsed.success) {
@@ -610,7 +597,7 @@ export async function markSupplierInvoicePaid(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: parsed.data.invoiceId,
@@ -624,6 +611,7 @@ export async function markSupplierInvoicePaid(
     revalidatePath(REVALIDATE_PATH);
     return { success: true, data: result };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[markSupplierInvoicePaid]", error);
     return { success: false, error: "Erreur lors du marquage comme payé" };
@@ -638,10 +626,7 @@ export async function initiateQontoPayment(
   bankAccountId: string
 ): Promise<ActionResult<{ qontoTransferId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const invoice = await prisma.supplierInvoice.findFirst({
       where: { id: invoiceId, societyId },
@@ -718,7 +703,7 @@ export async function initiateQontoPayment(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SupplierInvoice",
       entityId: invoiceId,
@@ -732,6 +717,7 @@ export async function initiateQontoPayment(
     revalidatePath(REVALIDATE_PATH);
     return { success: true, data: { qontoTransferId: transfer.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[initiateQontoPayment]", error);
     return { success: false, error: "Erreur lors de l'initiation du virement Qonto" };

@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getOptionalSocietyActionContext } from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 
 export type DashboardAlert = {
   id: string;
@@ -16,10 +15,7 @@ export type DashboardAlert = {
 };
 
 export async function getDashboardStats(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -141,10 +137,7 @@ export async function getDashboardStats(societyId: string) {
  * Indicateurs de performance par immeuble.
  */
 export async function getBuildingPerformance(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   const buildings = await prisma.building.findMany({
     where: { societyId },
@@ -229,10 +222,7 @@ function displayTenantName(t: { entityType: string; companyName: string | null; 
  * Chaque alerte a un id, type, title, message, link, date, category, count.
  */
 export async function getDashboardAlerts(societyId: string): Promise<DashboardAlert[]> {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   const now = new Date();
   const in90Days = new Date(now);

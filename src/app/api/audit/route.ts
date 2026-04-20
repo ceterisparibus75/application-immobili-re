@@ -1,17 +1,11 @@
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { getAuditLogs } from "@/lib/audit";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import type { AuditAction } from "@/generated/prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
     const { searchParams } = req.nextUrl;
     const societyId = searchParams.get("societyId");
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -31,7 +25,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "societyId invalide" }, { status: 400 });
     }
 
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireActiveSocietyRouteContext({
+      societyId,
+      minRole: "ADMIN_SOCIETE",
+    });
+    if (context instanceof NextResponse) return context;
 
     const result = await getAuditLogs(societyId, {
       page,

@@ -1,26 +1,14 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { z } from "zod";
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId);
-  } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
   const yearParam = req.nextUrl.searchParams.get("year");
-  const where: Record<string, unknown> = { societyId };
+  const where: Record<string, unknown> = { societyId: context.societyId };
   if (yearParam) {
     const y = parseInt(yearParam, 10);
     if (isNaN(y) || y < 2000 || y > 2100) {
@@ -57,20 +45,8 @@ const createEntrySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId)
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-  } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+  if (context instanceof NextResponse) return context;
 
   const body = await req.json();
   const parsed = createEntrySchema.safeParse(body);
@@ -92,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   const entry = await prisma.journalEntry.create({
     data: {
-      societyId,
+      societyId: context.societyId,
       journalType: parsed.data.journalType,
       entryDate: new Date(parsed.data.entryDate),
       label: parsed.data.label,

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
@@ -33,18 +31,8 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     let pdfBuffer: Buffer;
     let tempStoragePath: string | null = null;

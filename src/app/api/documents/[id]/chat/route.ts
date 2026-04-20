@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 import { chatWithDocument } from "@/lib/document-ai";
 
@@ -20,20 +19,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id)
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
+    const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+    if (context instanceof NextResponse) return context;
     const { id } = await params;
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId)
-      return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
-
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
 
     const doc = await prisma.document.findFirst({
-      where: { id, societyId },
+      where: { id, societyId: context.societyId },
       select: { storagePath: true, mimeType: true },
     });
     if (!doc || !doc.storagePath)

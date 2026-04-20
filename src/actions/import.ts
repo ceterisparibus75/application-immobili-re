@@ -1,8 +1,12 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -108,10 +112,7 @@ export async function importFromPdf(
   input: ImportInput
 ): Promise<ActionResult<ImportResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Immeuble
@@ -301,7 +302,7 @@ export async function importFromPdf(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Import",
       entityId: result.leaseId,
@@ -321,6 +322,7 @@ export async function importFromPdf(
 
     return { success: true, data: result };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     if (error instanceof Error) return { success: false, error: error.message };
     console.error("[importFromPdf]", error);
@@ -399,11 +401,10 @@ Règles :
 /** Analyse un PDF de bail via l'IA et extrait les données structurées. */
 export async function analyzePdfAction(formData: FormData): Promise<ActionResult<Record<string, unknown>>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireAuthenticatedActionContext();
 
     const societyId = await getOptionalAccessibleActiveSocietyId(
-      session.user.id,
+      context.userId,
       "GESTIONNAIRE"
     );
     if (!societyId) return { success: false, error: "Accès non autorisé" };
@@ -444,6 +445,7 @@ export async function analyzePdfAction(formData: FormData): Promise<ActionResult
     const extracted = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
     return { success: true, data: extracted };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     console.error("[analyzePdfAction]", error);
     const msg = error instanceof Error ? error.message : "Erreur lors de l'analyse du document";
     return { success: false, error: msg };
@@ -473,8 +475,7 @@ export async function parseImportFileAction(
   formData: FormData
 ): Promise<ActionResult<ParsedFileResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    await requireAuthenticatedActionContext();
 
     const file = formData.get("file") as File | null;
     if (!file) return { success: false, error: "Aucun fichier fourni" };
@@ -503,6 +504,7 @@ export async function parseImportFileAction(
 
     return { success: true, data: parsed };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     console.error("[parseImportFileAction]", error);
     return { success: false, error: "Erreur lors de la lecture du fichier" };
   }
@@ -523,10 +525,7 @@ export async function importEntities(
   data: Record<string, string>[]
 ): Promise<ActionResult<BulkImportResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -639,7 +638,7 @@ export async function importEntities(
     // Audit log for the bulk import
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BulkImport",
       entityId: societyId,
@@ -658,6 +657,7 @@ export async function importEntities(
 
     return { success: true, data: { imported, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[importEntities]", error);
     return { success: false, error: "Erreur lors de l'import en masse" };

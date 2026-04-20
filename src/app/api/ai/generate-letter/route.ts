@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { generateLetter } from "@/lib/ai-letter-generator";
 import { createAuditLog } from "@/lib/audit";
 
@@ -45,18 +43,8 @@ const letterRequestSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     const body = await req.json();
     const parsed = letterRequestSchema.safeParse(body);
@@ -70,8 +58,8 @@ export async function POST(req: NextRequest) {
     const letter = await generateLetter(parsed.data);
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "CREATE",
       entity: "AILetter",
       entityId: "generated",

@@ -1,6 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getOptionalAuthenticatedActionContext } from "@/lib/action-auth";
+import { requireSocietyActionContext } from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { NotificationType } from "@/generated/prisma/client";
@@ -17,18 +18,7 @@ export async function createNotification(input: {
   message: string;
   link?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Non authentifié");
-  }
-
-  // Verify the caller has access to the target society
-  const membership = await prisma.userSociety.findFirst({
-    where: { userId: session.user.id, societyId: input.societyId },
-  });
-  if (!membership) {
-    throw new Error("Accès non autorisé à cette société");
-  }
+  await requireSocietyActionContext(input.societyId);
 
   // Verify the target user also belongs to this society
   const targetMembership = await prisma.userSociety.findFirst({
@@ -53,11 +43,11 @@ export async function createNotification(input: {
 // ── Récupérer les notifications de l'utilisateur ──────────
 
 export async function getNotifications(societyId: string, limit = 20) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return null;
 
   return prisma.notification.findMany({
-    where: { userId: session.user.id, societyId },
+    where: { userId: context.userId, societyId },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -66,11 +56,11 @@ export async function getNotifications(societyId: string, limit = 20) {
 // ── Nombre de notifications non lues ──────────────────────
 
 export async function getUnreadCount(societyId: string): Promise<number> {
-  const session = await auth();
-  if (!session?.user?.id) return 0;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return 0;
 
   return prisma.notification.count({
-    where: { userId: session.user.id, societyId, isRead: false },
+    where: { userId: context.userId, societyId, isRead: false },
   });
 }
 
@@ -80,11 +70,11 @@ export async function markAsRead(
   societyId: string,
   notificationId: string
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) return;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return;
 
   await prisma.notification.updateMany({
-    where: { id: notificationId, userId: session.user.id, societyId },
+    where: { id: notificationId, userId: context.userId, societyId },
     data: { isRead: true, readAt: new Date() },
   });
 
@@ -94,11 +84,11 @@ export async function markAsRead(
 // ── Tout marquer comme lu ─────────────────────────────────
 
 export async function markAllAsRead(societyId: string): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) return;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return;
 
   await prisma.notification.updateMany({
-    where: { userId: session.user.id, societyId, isRead: false },
+    where: { userId: context.userId, societyId, isRead: false },
     data: { isRead: true, readAt: new Date() },
   });
 
@@ -111,11 +101,11 @@ export async function deleteNotification(
   societyId: string,
   notificationId: string
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) return;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return;
 
   await prisma.notification.deleteMany({
-    where: { id: notificationId, userId: session.user.id, societyId },
+    where: { id: notificationId, userId: context.userId, societyId },
   });
 
   revalidatePath("/notifications");

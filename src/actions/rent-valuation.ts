@@ -1,12 +1,16 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   createRentValuationSchema,
   runRentAiAnalysisSchema,
@@ -29,10 +33,7 @@ export async function createRentValuation(
   input: CreateRentValuationInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -56,7 +57,7 @@ export async function createRentValuation(
       data: {
         leaseId: parsed.data.leaseId,
         societyId,
-        createdBy: session.user.id,
+        createdBy: context.userId,
         status: "DRAFT",
         currentRent: currentAnnualRent,
       },
@@ -64,7 +65,7 @@ export async function createRentValuation(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "RentValuation",
       entityId: valuation.id,
@@ -74,6 +75,7 @@ export async function createRentValuation(
     revalidatePath(`/baux/${lease.id}`);
     return { success: true, data: { id: valuation.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createRentValuation]", error);
     return { success: false, error: "Erreur lors de la création de l'évaluation de loyer" };
@@ -90,10 +92,7 @@ export async function runRentAiAnalysis(
   input: RunRentAiAnalysisInput
 ): Promise<ActionResult<{ analysisCount: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = runRentAiAnalysisSchema.safeParse(input);
     if (!parsed.success) {
@@ -192,7 +191,7 @@ export async function runRentAiAnalysis(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "RentAiAnalysis",
       entityId: rentValuationId,
@@ -202,6 +201,7 @@ export async function runRentAiAnalysis(
     revalidatePath(`/baux/${valuation.leaseId}`);
     return { success: true, data: { analysisCount } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[runRentAiAnalysis]", error);
     return { success: false, error: "Erreur lors de l'analyse IA des loyers" };
@@ -218,10 +218,7 @@ export async function searchComparableRents(
   input: SearchComparableRentsInput
 ): Promise<ActionResult<{ count: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = searchComparableRentsSchema.safeParse(input);
     if (!parsed.success) {
@@ -289,7 +286,7 @@ export async function searchComparableRents(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ComparableRent",
       entityId: rentValuationId,
@@ -299,6 +296,7 @@ export async function searchComparableRents(
     revalidatePath(`/baux/${valuation.leaseId}`);
     return { success: true, data: { count: toInsert.length } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[searchComparableRents]", error);
     return { success: false, error: "Erreur lors de la recherche de comparables" };
@@ -310,10 +308,7 @@ export async function searchComparableRents(
 // ============================================================
 
 export async function getRentValuation(societyId: string, rentValuationId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
 
   return prisma.rentValuation.findFirst({
     where: { id: rentValuationId, societyId },
@@ -336,10 +331,7 @@ export async function getRentValuation(societyId: string, rentValuationId: strin
 }
 
 export async function getRentValuations(societyId: string, leaseId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.rentValuation.findMany({
     where: { societyId, leaseId },
@@ -359,10 +351,7 @@ export async function deleteRentValuation(
   rentValuationId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const valuation = await prisma.rentValuation.findFirst({
       where: { id: rentValuationId, societyId },
@@ -373,7 +362,7 @@ export async function deleteRentValuation(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "RentValuation",
       entityId: rentValuationId,
@@ -382,6 +371,7 @@ export async function deleteRentValuation(
     revalidatePath(`/baux/${valuation.leaseId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteRentValuation]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -397,9 +387,7 @@ export async function batchCreateRentValuations(
   leaseIds: string[]
 ): Promise<ActionResult<{ created: number; errors: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -423,7 +411,7 @@ export async function batchCreateRentValuations(
           data: {
             leaseId,
             societyId,
-            createdBy: session.user.id,
+            createdBy: context.userId,
             status: "DRAFT",
             currentRent: currentAnnualRent,
           },
@@ -441,6 +429,7 @@ export async function batchCreateRentValuations(
     revalidatePath("/dashboard");
     return { success: true, data: { created, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[batchCreateRentValuations]", error);
     return { success: false, error: "Erreur lors de l'évaluation en lot" };

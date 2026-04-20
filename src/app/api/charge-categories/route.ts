@@ -1,25 +1,12 @@
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { type NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non authentifié" } }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-
-    if (!societyId) {
-      return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Aucune société sélectionnée" } }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
+    const context = await requireActiveSocietyRouteContext();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const buildingId = searchParams.get("buildingId");
@@ -34,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const categories = await prisma.chargeCategory.findMany({
       where: {
-        societyId,
+        societyId: context.societyId,
         ...(buildingId ? { buildingId } : {}),
       },
       select: { id: true, name: true, nature: true, allocationMethod: true },

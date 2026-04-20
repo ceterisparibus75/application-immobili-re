@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createStatementSchema,
@@ -14,6 +13,10 @@ import {
 } from "@/validations/third-party-statement";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Types utilitaires ───────────────────────────────────────────────
 
@@ -57,10 +60,7 @@ export async function getThirdPartyManagedLeases(
   societyId: string
 ): Promise<ActionResult<{ leases: unknown[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const leases = await prisma.lease.findMany({
       where: {
@@ -97,6 +97,7 @@ export async function getThirdPartyManagedLeases(
 
     return { success: true, data: { leases } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getThirdPartyManagedLeases]", error);
     return { success: false, error: "Erreur lors de la récupération des baux" };
@@ -110,10 +111,7 @@ export async function createStatement(
   input: CreateStatementInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createStatementSchema.safeParse(input);
     if (!parsed.success) {
@@ -244,7 +242,7 @@ export async function createStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ThirdPartyStatement",
       entityId: result.id,
@@ -269,6 +267,7 @@ export async function createStatement(
 
     return { success: true, data: { id: result.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createStatement]", error);
     return { success: false, error: "Erreur lors de la création du relevé" };
@@ -282,10 +281,7 @@ export async function getStatements(
   filters?: StatementFilters
 ): Promise<ActionResult<{ statements: unknown[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const where: Record<string, unknown> = { societyId };
 
@@ -333,6 +329,7 @@ export async function getStatements(
 
     return { success: true, data: { statements } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getStatements]", error);
     return { success: false, error: "Erreur lors de la récupération des relevés" };
@@ -346,10 +343,7 @@ export async function getStatementById(
   statementId: string
 ): Promise<ActionResult<{ statement: unknown }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const statement = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -428,6 +422,7 @@ export async function getStatementById(
 
     return { success: true, data: { statement } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getStatementById]", error);
     return { success: false, error: "Erreur lors de la récupération du relevé" };
@@ -441,10 +436,7 @@ export async function updateStatement(
   input: UpdateStatementInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateStatementSchema.safeParse(input);
     if (!parsed.success) {
@@ -560,7 +552,7 @@ export async function updateStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: id,
@@ -572,6 +564,7 @@ export async function updateStatement(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateStatement]", error);
     return { success: false, error: "Erreur lors de la mise à jour du relevé" };
@@ -585,10 +578,7 @@ export async function validateStatement(
   statementId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -606,7 +596,7 @@ export async function validateStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -618,6 +608,7 @@ export async function validateStatement(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[validateStatement]", error);
     return { success: false, error: "Erreur lors de la validation du relevé" };
@@ -631,10 +622,7 @@ export async function recordStatementPayment(
   input: RecordStatementPaymentInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = recordStatementPaymentSchema.safeParse(input);
     if (!parsed.success) {
@@ -681,7 +669,7 @@ export async function recordStatementPayment(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -698,6 +686,7 @@ export async function recordStatementPayment(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[recordStatementPayment]", error);
     return { success: false, error: "Erreur lors de l'enregistrement du paiement" };
@@ -779,10 +768,7 @@ export async function verifyManagementStatement(
   statementId: string
 ): Promise<ActionResult<{ verification: VerificationResult }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const statement = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -945,7 +931,7 @@ export async function verifyManagementStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -962,6 +948,7 @@ export async function verifyManagementStatement(
 
     return { success: true, data: { verification } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[verifyManagementStatement]", error);
     return { success: false, error: "Erreur lors de la vérification du décompte" };
@@ -1017,10 +1004,7 @@ export async function reconcileWithStatement(
   transactionId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Charger le décompte avec les baux et leurs factures
     const statement = await prisma.thirdPartyStatement.findFirst({
@@ -1136,7 +1120,7 @@ export async function reconcileWithStatement(
               statementId: statement.id,
               isValidated: true,
               validatedAt: new Date(),
-              validatedBy: session.user.id,
+              validatedBy: context.userId,
               notes: `Ventilation automatique — ${statement.thirdPartyName}`,
             },
           });
@@ -1161,7 +1145,7 @@ export async function reconcileWithStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankReconciliation",
       entityId: transactionId,
@@ -1180,6 +1164,7 @@ export async function reconcileWithStatement(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[reconcileWithStatement]", error);
     return { success: false, error: "Erreur lors du rapprochement bancaire" };
@@ -1193,10 +1178,7 @@ export async function markStatementConforme(
   statementId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -1214,7 +1196,7 @@ export async function markStatementConforme(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -1227,6 +1209,7 @@ export async function markStatementConforme(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[markStatementConforme]", error);
     return { success: false, error: "Erreur lors du marquage conforme" };
@@ -1240,10 +1223,7 @@ export async function markStatementLitige(
   statementId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -1261,7 +1241,7 @@ export async function markStatementLitige(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -1274,6 +1254,7 @@ export async function markStatementLitige(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[markStatementLitige]", error);
     return { success: false, error: "Erreur lors du signalement du litige" };
@@ -1287,10 +1268,7 @@ export async function deleteStatement(
   statementId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.thirdPartyStatement.findFirst({
       where: { id: statementId, societyId },
@@ -1310,7 +1288,7 @@ export async function deleteStatement(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "ThirdPartyStatement",
       entityId: statementId,
@@ -1327,6 +1305,7 @@ export async function deleteStatement(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteStatement]", error);
     return { success: false, error: "Erreur lors de la suppression du relevé" };

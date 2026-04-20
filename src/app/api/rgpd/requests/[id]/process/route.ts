@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createAuditLog } from "@/lib/audit";
 import { exportTenantData } from "@/lib/rgpd-export";
 
@@ -10,25 +8,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-  }
-
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) {
-    return NextResponse.json({ error: "Societe non selectionnee" }, { status: 400 });
-  }
-
-  await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+  const context = await requireActiveSocietyRouteContext({ minRole: "ADMIN_SOCIETE" });
+  if (context instanceof NextResponse) return context;
 
   const { id } = await params;
   const body = await request.json();
   const action = body.action as string; // "approve" | "refuse"
 
   const gdprRequest = await prisma.gdprRequest.findFirst({
-    where: { id, societyId, status: "pending" },
+    where: { id, societyId: context.societyId, status: "pending" },
   });
 
   if (!gdprRequest) {
@@ -41,7 +29,7 @@ export async function POST(
       data: {
         status: "refused",
         processedAt: new Date(),
-        processedBy: session.user.id,
+        processedBy: context.userId,
       },
     });
     return NextResponse.json({ message: "Demande refusee" });
@@ -51,19 +39,19 @@ export async function POST(
   try {
     switch (gdprRequest.requestType) {
       case "deletion":
-        await processDataDeletion(societyId, gdprRequest.requesterEmail);
+        await processDataDeletion(context.societyId, gdprRequest.requesterEmail);
         break;
       case "access":
       case "portability": {
         // Export automatique des donnees du locataire
         const exportData = await exportTenantData(
-          societyId,
+          context.societyId,
           gdprRequest.requesterEmail
         );
 
         await createAuditLog({
-          societyId,
-          userId: session.user.id,
+          societyId: context.societyId,
+          userId: context.userId,
           action: "EXPORT",
           entity: "GdprRequest",
           entityId: id,
@@ -80,7 +68,7 @@ export async function POST(
         break;
       case "opposition":
         // Opposition au traitement — desactiver le locataire
-        await processOpposition(societyId, gdprRequest.requesterEmail);
+        await processOpposition(context.societyId, gdprRequest.requesterEmail);
         break;
     }
 
@@ -89,13 +77,13 @@ export async function POST(
       data: {
         status: "completed",
         processedAt: new Date(),
-        processedBy: session.user.id,
+        processedBy: context.userId,
       },
     });
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "UPDATE",
       entity: "GdprRequest",
       entityId: id,

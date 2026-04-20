@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
@@ -46,18 +44,8 @@ function verifyMagicBytes(buffer: Buffer, declaredType: string): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -100,14 +88,14 @@ export async function POST(req: NextRequest) {
 
     const timestamp = Date.now();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `documents/${societyId}/${entityFolder}/${timestamp}_${safeName}`;
+    const resolvedStoragePath = `documents/${context.societyId}/${entityFolder}/${timestamp}_${safeName}`;
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const supabase = getSupabase();
     const { error: uploadError } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .upload(storagePath, fileBuffer, { contentType: file.type, upsert: false });
+      .upload(resolvedStoragePath, fileBuffer, { contentType: file.type, upsert: false });
 
     if (uploadError) {
       console.error("[documents/upload] upload error", uploadError);
@@ -116,13 +104,13 @@ export async function POST(req: NextRequest) {
 
     const { data: urlData } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .createSignedUrl(storagePath, 24 * 3600); // 24h — re-generated on each access via /api/storage/view
+      .createSignedUrl(resolvedStoragePath, 24 * 3600); // 24h — re-generated on each access via /api/storage/view
 
-    const fileUrl = urlData?.signedUrl ?? storagePath;
+    const fileUrl = urlData?.signedUrl ?? resolvedStoragePath;
 
     const doc = await prisma.document.create({
       data: {
-        societyId,
+        societyId: context.societyId,
         fileName: file.name,
         fileUrl,
         fileSize: file.size,
@@ -134,14 +122,14 @@ export async function POST(req: NextRequest) {
         lotId: lotId || null,
         leaseId: leaseId || null,
         tenantId: tenantId || null,
-        storagePath,
+        storagePath: resolvedStoragePath,
         aiStatus: AI_SUPPORTED_TYPES.includes(file.type) ? "pending" : null,
       },
     });
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "CREATE",
       entity: "Document",
       entityId: doc.id,

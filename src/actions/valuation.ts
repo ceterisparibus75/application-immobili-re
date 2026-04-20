@@ -1,12 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
+import { requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   createValuationSchema,
   runAiAnalysisSchema,
@@ -32,10 +37,7 @@ export async function createValuation(
   input: CreateValuationInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -68,14 +70,14 @@ export async function createValuation(
       data: {
         buildingId: parsed.data.buildingId,
         societyId,
-        createdBy: session.user.id,
+        createdBy: context.userId,
         status: "DRAFT",
       },
     });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "PropertyValuation",
       entityId: valuation.id,
@@ -85,6 +87,7 @@ export async function createValuation(
     revalidatePath(`/patrimoine/immeubles/${building.id}/valorisation`);
     return { success: true, data: { id: valuation.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createValuation]", error);
     return { success: false, error: "Erreur lors de la création de l'évaluation" };
@@ -101,10 +104,7 @@ export async function runAiAnalysis(
   input: RunAiAnalysisInput
 ): Promise<ActionResult<{ analysisCount: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = runAiAnalysisSchema.safeParse(input);
     if (!parsed.success) {
@@ -264,7 +264,7 @@ export async function runAiAnalysis(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "AiValuationAnalysis",
       entityId: valuationId,
@@ -277,6 +277,7 @@ export async function runAiAnalysis(
     revalidatePath("/proprietaire");
     return { success: true, data: { analysisCount } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[runAiAnalysis]", error);
     return { success: false, error: "Erreur lors de l'analyse IA" };
@@ -293,10 +294,7 @@ export async function uploadExpertReport(
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const file = formData.get("file") as File | null;
     if (!file) return { success: false, error: "Aucun fichier fourni" };
@@ -373,7 +371,7 @@ export async function uploadExpertReport(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ExpertReport",
       entityId: report.id,
@@ -383,6 +381,7 @@ export async function uploadExpertReport(
     revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}/valorisation`);
     return { success: true, data: { id: report.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[uploadExpertReport]", error);
     return { success: false, error: "Erreur lors de l'import du rapport" };
@@ -399,10 +398,7 @@ export async function searchComparables(
   input: SearchComparablesInput
 ): Promise<ActionResult<{ count: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = searchComparablesSchema.safeParse(input);
     if (!parsed.success) {
@@ -454,7 +450,7 @@ export async function searchComparables(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ComparableSale",
       entityId: valuationId,
@@ -464,6 +460,7 @@ export async function searchComparables(
     revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}/valorisation`);
     return { success: true, data: { count: toInsert.length } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[searchComparables]", error);
     return { success: false, error: "Erreur lors de la recherche de comparables" };
@@ -480,10 +477,7 @@ export async function updateValuationResults(
   input: UpdateValuationResultsInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateValuationResultsSchema.safeParse(input);
     if (!parsed.success) {
@@ -510,7 +504,7 @@ export async function updateValuationResults(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "PropertyValuation",
       entityId: valuationId,
@@ -522,6 +516,7 @@ export async function updateValuationResults(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateValuationResults]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -537,9 +532,7 @@ export async function batchCreatePropertyValuations(
   buildingIds: string[]
 ): Promise<ActionResult<{ created: number; skipped: number; errors: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
@@ -563,7 +556,7 @@ export async function batchCreatePropertyValuations(
         if (count >= 2) { skipped++; continue; }
 
         const valuation = await prisma.propertyValuation.create({
-          data: { buildingId, societyId, createdBy: session.user.id, status: "DRAFT" },
+          data: { buildingId, societyId, createdBy: context.userId, status: "DRAFT" },
         });
 
         // Lancer l'analyse IA automatiquement
@@ -579,6 +572,7 @@ export async function batchCreatePropertyValuations(
     revalidatePath("/dashboard");
     return { success: true, data: { created, skipped, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[batchCreatePropertyValuations]", error);
     return { success: false, error: "Erreur lors de l'évaluation en lot" };
@@ -590,10 +584,7 @@ export async function batchCreatePropertyValuations(
 // ============================================================
 
 export async function getValuation(societyId: string, valuationId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
 
   return prisma.propertyValuation.findFirst({
     where: { id: valuationId, societyId },
@@ -608,10 +599,7 @@ export async function getValuation(societyId: string, valuationId: string) {
 }
 
 export async function getValuations(societyId: string, buildingId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.propertyValuation.findMany({
     where: { societyId, buildingId },
@@ -631,10 +619,7 @@ export async function deleteValuation(
   valuationId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const valuation = await prisma.propertyValuation.findFirst({
       where: { id: valuationId, societyId },
@@ -645,7 +630,7 @@ export async function deleteValuation(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "PropertyValuation",
       entityId: valuationId,
@@ -654,6 +639,7 @@ export async function deleteValuation(
     revalidatePath(`/patrimoine/immeubles/${valuation.buildingId}/valorisation`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteValuation]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -676,14 +662,13 @@ function average(values: (number | null)[]): number | null {
 
 export async function rerunAllValuations(): Promise<ActionResult<{ created: number; errors: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireAuthenticatedActionContext();
 
-    await requireSuperAdmin(session.user.id);
+    await requireSuperAdmin(context.userId);
 
     // 1. Récupérer toutes les sociétés de l'utilisateur
     const userSocieties = await prisma.userSociety.findMany({
-      where: { userId: session.user.id },
+      where: { userId: context.userId },
       select: { societyId: true },
     });
     const societyIds = userSocieties.map((us) => us.societyId);
@@ -715,7 +700,7 @@ export async function rerunAllValuations(): Promise<ActionResult<{ created: numb
           data: {
             buildingId: building.id,
             societyId: building.societyId,
-            createdBy: session.user.id,
+            createdBy: context.userId,
             status: "IN_PROGRESS",
           },
         });

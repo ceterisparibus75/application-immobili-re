@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { getAuditLogsForExport, createAuditLog } from "@/lib/audit";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import type { AuditAction } from "@/generated/prisma/client";
@@ -19,11 +19,6 @@ function sha256(data: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
     const { searchParams } = req.nextUrl;
     const societyId = searchParams.get("societyId");
     const action = searchParams.get("action") as AuditAction | null;
@@ -42,7 +37,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "societyId invalide" }, { status: 400 });
     }
 
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireActiveSocietyRouteContext({
+      societyId,
+      minRole: "ADMIN_SOCIETE",
+    });
+    if (context instanceof NextResponse) return context;
 
     const logs = await getAuditLogsForExport(societyId, {
       ...(action ? { action } : {}),
@@ -79,7 +78,11 @@ export async function GET(req: NextRequest) {
     // Certification globale : hash SHA-256 de l'ensemble du contenu
     if (certified) {
       const exportDate = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
-      const exporterEmail = session.user.email ?? session.user.id;
+      const exporter = await prisma.user.findUnique({
+        where: { id: context.userId },
+        select: { email: true },
+      });
+      const exporterEmail = exporter?.email ?? context.userId;
       const globalHash = sha256(csv);
       csv += `\n\n# CERTIFICATION`;
       csv += `\n# Export certifié le ${exportDate}`;
@@ -92,7 +95,7 @@ export async function GET(req: NextRequest) {
     // Audit the export itself
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "EXPORT",
       entity: "AuditLog",
       entityId: societyId,

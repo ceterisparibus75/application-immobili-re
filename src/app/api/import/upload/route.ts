@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createClient } from "@supabase/supabase-js";
 
 export const maxDuration = 120;
@@ -19,18 +17,8 @@ function getSupabase() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
@@ -56,7 +44,7 @@ export async function POST(req: NextRequest) {
       // Fichier en un seul morceau (< 3 Mo)
       const buffer = Buffer.from(data, "base64");
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `temp/${societyId}/import/${uploadId}_${safeName}`;
+      const storagePath = `temp/${context.societyId}/import/${uploadId}_${safeName}`;
 
       const { error: upErr } = await supabase.storage
         .from(bucket)
@@ -71,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Multi-chunk : stocker chaque morceau séparément
-    const chunkPath = `temp/${societyId}/import/${uploadId}_chunk_${chunkIndex}`;
+    const chunkPath = `temp/${context.societyId}/import/${uploadId}_chunk_${chunkIndex}`;
     const buffer = Buffer.from(data, "base64");
 
     const { error: upErr } = await supabase.storage
@@ -87,7 +75,7 @@ export async function POST(req: NextRequest) {
     if (chunkIndex === totalChunks - 1) {
       const chunks: Buffer[] = [];
       for (let i = 0; i < totalChunks; i++) {
-        const cPath = `temp/${societyId}/import/${uploadId}_chunk_${i}`;
+        const cPath = `temp/${context.societyId}/import/${uploadId}_chunk_${i}`;
         const { data: cData, error: dlErr } = await supabase.storage.from(bucket).download(cPath);
         if (dlErr || !cData) {
           console.error("[import/upload] chunk download error", i, dlErr);
@@ -98,7 +86,7 @@ export async function POST(req: NextRequest) {
 
       const fullBuffer = Buffer.concat(chunks);
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `temp/${societyId}/import/${uploadId}_${safeName}`;
+      const storagePath = `temp/${context.societyId}/import/${uploadId}_${safeName}`;
 
       const { error: finalErr } = await supabase.storage
         .from(bucket)
@@ -111,7 +99,7 @@ export async function POST(req: NextRequest) {
 
       // Supprimer les chunks temporaires
       const chunkPaths = Array.from({ length: totalChunks }, (_, i) =>
-        `temp/${societyId}/import/${uploadId}_chunk_${i}`
+        `temp/${context.societyId}/import/${uploadId}_chunk_${i}`
       );
       void supabase.storage.from(bucket).remove(chunkPaths).catch(() => null);
 

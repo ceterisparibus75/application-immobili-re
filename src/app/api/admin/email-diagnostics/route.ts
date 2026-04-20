@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { Resend } from "resend";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non autorise" }, { status: 401 });
+  const context = await requireAuthenticatedRouteContext();
+  if (context instanceof NextResponse) return NextResponse.json({ error: "Non autorise" }, { status: 401 });
 
   try {
-    await requireSuperAdmin(session.user.id);
+    await requireSuperAdmin(context.userId);
   } catch {
     return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
   }
@@ -105,12 +104,11 @@ export async function GET() {
 // Body: { action: 'delete_domain', domainId: string }
 // Supprime un domaine Resend par son ID
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non autorise" }, { status: 401 });
+  const context = await requireAuthenticatedRouteContext();
+  if (context instanceof NextResponse) return NextResponse.json({ error: "Non autorise" }, { status: 401 });
 
   try {
-    await requireSuperAdmin(session.user.id);
+    await requireSuperAdmin(context.userId);
   } catch {
     return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
   }

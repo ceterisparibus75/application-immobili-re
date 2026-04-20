@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import type { ContactType } from "@/generated/prisma/client";
 
 const VALID_TYPES: Set<string> = new Set([
@@ -11,21 +9,11 @@ const VALID_TYPES: Set<string> = new Set([
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
+    const context = await requireActiveSocietyRouteContext();
+    if (context instanceof NextResponse) return context;
 
     const typeParam = req.nextUrl.searchParams.get("type");
-    const where: Record<string, unknown> = { societyId, isActive: true };
+    const where: Record<string, unknown> = { societyId: context.societyId, isActive: true };
 
     if (typeParam && VALID_TYPES.has(typeParam)) {
       where.contactType = typeParam as ContactType;

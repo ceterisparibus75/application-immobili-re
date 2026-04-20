@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { chatWithAssistant, type ChatContext } from "@/lib/ai-chatbot";
 
 const chatMessageSchema = z.object({
@@ -17,18 +15,8 @@ const chatRequestSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société sélectionnée" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    const routeContext = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+    if (routeContext instanceof NextResponse) return routeContext;
 
     const body = await req.json();
     const parsed = chatRequestSchema.safeParse(body);
@@ -41,19 +29,23 @@ export async function POST(req: NextRequest) {
 
     // Build context
     const society = await prisma.society.findUnique({
-      where: { id: societyId },
+      where: { id: routeContext.societyId },
+      select: { name: true },
+    });
+    const user = await prisma.user.findUnique({
+      where: { id: routeContext.userId },
       select: { name: true },
     });
 
     const buildings = await prisma.building.findMany({
-      where: { societyId },
+      where: { societyId: routeContext.societyId },
       select: { name: true, city: true, postalCode: true },
       take: 10,
     });
 
-    const context: ChatContext = {
+    const chatContext: ChatContext = {
       societyName: society?.name ?? "Société",
-      userName: session.user.name ?? "Utilisateur",
+      userName: user?.name ?? "Utilisateur",
       scope: {
         buildings: buildings.map((b) => ({
           name: b.name,
@@ -63,7 +55,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const reply = await chatWithAssistant(parsed.data.messages, context);
+    const reply = await chatWithAssistant(parsed.data.messages, chatContext);
 
     return NextResponse.json({ reply });
   } catch (error) {

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
@@ -89,18 +87,8 @@ function getSupabase() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     if (!env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
@@ -115,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Vérifier que le chemin appartient à cette société
-    if (!storagePath.startsWith(`temp/`) && !storagePath.includes(societyId)) {
+    if (!storagePath.startsWith(`temp/`) && !storagePath.includes(context.societyId)) {
       return NextResponse.json({ error: "Accès non autorisé au fichier" }, { status: 403 });
     }
 

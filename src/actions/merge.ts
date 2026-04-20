@@ -1,11 +1,15 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 /**
  * Fusionne un immeuble source dans un immeuble cible.
@@ -18,10 +22,7 @@ export async function mergeBuildings(
   targetId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     if (sourceId === targetId) return { success: false, error: "Impossible de fusionner un immeuble avec lui-même" };
 
@@ -54,7 +55,7 @@ export async function mergeBuildings(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Building",
       entityId: targetId,
@@ -70,6 +71,7 @@ export async function mergeBuildings(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[mergeBuildings]", error);
     return { success: false, error: "Erreur lors de la fusion des immeubles" };
@@ -87,10 +89,7 @@ export async function mergeLots(
   targetId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     if (sourceId === targetId) return { success: false, error: "Impossible de fusionner un lot avec lui-même" };
 
@@ -123,7 +122,7 @@ export async function mergeLots(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Lot",
       entityId: targetId,
@@ -139,6 +138,7 @@ export async function mergeLots(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[mergeLots]", error);
     return { success: false, error: "Erreur lors de la fusion des lots" };
@@ -156,10 +156,7 @@ export async function mergeTenants(
   targetId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     if (sourceId === targetId) return { success: false, error: "Impossible de fusionner un locataire avec lui-même" };
 
@@ -202,7 +199,7 @@ export async function mergeTenants(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Tenant",
       entityId: targetId,
@@ -218,6 +215,7 @@ export async function mergeTenants(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[mergeTenants]", error);
     return { success: false, error: "Erreur lors de la fusion des locataires" };
@@ -232,10 +230,7 @@ export async function searchDuplicates(
   entityType: "building" | "lot" | "tenant",
   query: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   if (!query || query.length < 2) return [];
 

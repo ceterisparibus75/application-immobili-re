@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { getAnalyticsData } from "@/actions/analytics";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { formatCurrency } from "@/lib/utils";
@@ -27,20 +25,12 @@ const CW = PW - 2 * MRG;
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
+    const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+    if (context instanceof NextResponse) {
+      return NextResponse.json({ error: context.status === 400 ? "Aucune societe selectionnee" : "Non authentifie" }, { status: context.status });
     }
 
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune societe selectionnee" }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
-
-    const data = await getAnalyticsData(societyId);
+    const data = await getAnalyticsData(context.societyId);
     if (!data) {
       return NextResponse.json({ error: "Impossible de charger les donnees" }, { status: 500 });
     }
@@ -48,7 +38,7 @@ export async function GET(): Promise<NextResponse> {
     // Fetch society name for branding
     const { prisma } = await import("@/lib/prisma");
     const society = await prisma.society.findUnique({
-      where: { id: societyId },
+      where: { id: context.societyId },
       select: { name: true, siret: true, addressLine1: true, city: true, postalCode: true },
     });
 

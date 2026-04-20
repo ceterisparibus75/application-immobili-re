@@ -1,6 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
+import { UnauthenticatedActionError } from "@/lib/action-society";
 import {
   generateTOTPSecret,
   generateTOTPUri,
@@ -19,11 +20,10 @@ import { requiresTwoFactor } from "@/lib/plan-limits";
 
 export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: string; secret: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    const context = await requireAuthenticatedActionContext();
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: { email: true, twoFactorEnabled: true },
     });
 
@@ -36,7 +36,7 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
 
     // Stocker le secret temporaire chiffre en DB (pas dans le JWT)
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       data: { pendingTwoFactorSecret: encryptTOTPSecret(secret) },
     });
 
@@ -44,6 +44,7 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
     // dans l'application d'authentification. Il n'est jamais stocke cote client.
     return { success: true, data: { qrCode, secret } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     console.error("[initSetupTwoFactor]", error);
     return { success: false, error: "Erreur lors de l'initialisation" };
   }
@@ -51,12 +52,11 @@ export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: strin
 
 export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    const context = await requireAuthenticatedActionContext();
 
     // Lire le secret temporaire depuis la DB (chiffre)
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: { pendingTwoFactorSecret: true },
     });
     if (!user?.pendingTwoFactorSecret) return { success: false, error: "Aucune configuration 2FA en attente" };
@@ -80,7 +80,7 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     const encryptedRecoveryCodes = encryptRecoveryCodes(recoveryCodes);
 
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       data: {
         twoFactorEnabled: true,
         twoFactorSecret: encryptedSecret,
@@ -92,14 +92,15 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     revalidatePath("/settings/security");
     await createAuditLog({
       societyId: "system",
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "User",
-      entityId: session.user.id,
+      entityId: context.userId,
       details: { event: "TWO_FACTOR_ENABLED" },
     });
     return { success: true, data: { recoveryCodes } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     console.error("[confirmSetupTwoFactor]", error);
     return { success: false, error: "Erreur lors de la confirmation" };
   }
@@ -107,11 +108,10 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
 
 export async function disableTwoFactor(password: string): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    const context = await requireAuthenticatedActionContext();
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: { passwordHash: true, twoFactorEnabled: true },
     });
 
@@ -119,7 +119,7 @@ export async function disableTwoFactor(password: string): Promise<ActionResult<v
     if (!user.twoFactorEnabled) return { success: false, error: "2FA non active" };
 
     // Empecher la desactivation si le plan exige le 2FA
-    const mandatory = await requiresTwoFactor(session.user.id);
+    const mandatory = await requiresTwoFactor(context.userId);
     if (mandatory) {
       return {
         success: false,
@@ -132,21 +132,22 @@ export async function disableTwoFactor(password: string): Promise<ActionResult<v
     }
 
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: [] },
     });
 
     revalidatePath("/settings/security");
     await createAuditLog({
       societyId: "system",
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "User",
-      entityId: session.user.id,
+      entityId: context.userId,
       details: { event: "TWO_FACTOR_DISABLED" },
     });
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     console.error("[disableTwoFactor]", error);
     return { success: false, error: "Erreur lors de la desactivation" };
   }

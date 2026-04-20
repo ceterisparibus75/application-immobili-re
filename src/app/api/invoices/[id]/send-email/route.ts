@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
 import { decrypt } from "@/lib/encryption";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
@@ -34,21 +32,22 @@ const TYPE_LABELS: Record<string, string> = {
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
-    if (!session?.user?.id)
+    const routeContext = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+    if (routeContext instanceof NextResponse) {
+      if (routeContext.status === 400) {
+        return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Societe non selectionnee" } }, { status: 400 });
+      }
+      if (routeContext.status === 403) {
+        return NextResponse.json({ error: { code: "FORBIDDEN", message: "Accès refusé" } }, { status: 403 });
+      }
       return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non authentifie" } }, { status: 401 });
+    }
+    const context = routeContext;
 
     const { id } = await params;
 
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId)
-      return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Societe non selectionnee" } }, { status: 400 });
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-
     const invoice = await prisma.invoice.findFirst({
-      where: { id, societyId },
+      where: { id, societyId: context.societyId },
       include: {
         society: true,
         tenant: true,
@@ -189,7 +188,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     ].filter(Boolean).join("_") + ".pdf";
 
     const isQuittance = invoice.invoiceType === "QUITTANCE";
-    const bcc = await getAllEmailCopyBcc(societyId);
+    const bcc = await getAllEmailCopyBcc(context.societyId);
 
     const emailResult = isQuittance
       ? await sendReceiptEmail({
@@ -228,7 +227,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
         const year = new Date(invoice.issueDate).getFullYear();
         const folder = isQuittance ? "quittances" : "invoices";
-        const docStoragePath = `${folder}/${societyId}/${year}/${pdfFileName}`;
+        const docStoragePath = `${folder}/${context.societyId}/${year}/${pdfFileName}`;
 
         await supabase.storage
           .from(bucketName)
@@ -241,7 +240,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
         await prisma.document.create({
           data: {
-            societyId,
+            societyId: context.societyId,
             tenantId: invoice.tenantId,
             ...(invoice.leaseId ? { leaseId: invoice.leaseId } : {}),
             fileName: pdfFileName,
@@ -261,8 +260,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "SEND_EMAIL",
       entity: "Invoice",
       entityId: id,
@@ -271,8 +270,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, emailId: emailResult.emailId });
   } catch (error) {
-    if (error instanceof ForbiddenError)
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: error.message } }, { status: 403 });
     console.error("[send-email]", error);
     return NextResponse.json({ error: { code: "SEND_ERROR", message: "Erreur lors de l'envoi" } }, { status: 500 });
   }

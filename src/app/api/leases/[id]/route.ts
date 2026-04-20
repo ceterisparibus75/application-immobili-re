@@ -1,31 +1,26 @@
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non authentifié" } }, { status: 401 });
+    const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+    if (context instanceof NextResponse) {
+      return NextResponse.json({
+        error: {
+          code: context.status === 400 ? "NO_SOCIETY" : context.status === 403 ? "FORBIDDEN" : "UNAUTHORIZED",
+          message: context.status === 400 ? "Aucune société sélectionnée" : context.status === 403 ? "Accès refusé" : "Non authentifié",
+        },
+      }, { status: context.status });
     }
 
     const { id } = await params;
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-
-    if (!societyId) {
-      return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Aucune société sélectionnée" } }, { status: 400 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
 
     const lease = await prisma.lease.findFirst({
-      where: { id, societyId },
+      where: { id, societyId: context.societyId },
     });
 
     if (!lease) {

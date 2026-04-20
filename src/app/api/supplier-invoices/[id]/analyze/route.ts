@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { analyzeSupplierInvoice } from "@/lib/supplier-invoice-ai";
@@ -24,13 +24,15 @@ export async function POST(
   let sessionSocietyId: string | undefined;
 
   if (!isCronCall) {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-    // Récupérer le societyId depuis le cookie injecté par le middleware
     const societyIdHeader = request.headers.get("x-society-id");
-    sessionSocietyId = societyIdHeader ?? undefined;
+    if (!societyIdHeader) {
+      return NextResponse.json({ error: "Société non identifiée" }, { status: 400 });
+    }
+    const context = await requireActiveSocietyRouteContext({ societyId: societyIdHeader });
+    if (context instanceof NextResponse) {
+      return context;
+    }
+    sessionSocietyId = context.societyId;
   }
 
   // ── Récupérer la facture ───────────────────────────────────────────────────

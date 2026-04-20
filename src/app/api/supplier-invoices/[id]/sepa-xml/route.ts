@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { buildPain001Xml, type SepaCreditTransferInput } from "@/lib/sepa-credit-transfer";
@@ -13,22 +13,21 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
 
-  // ── Authentification session NextAuth ────────────────────────────────────
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
-
   // ── Récupérer le societyId depuis le header injecté par le middleware ────
   const societyId = request.headers.get("x-society-id");
   if (!societyId) {
     return NextResponse.json({ error: "Société non identifiée" }, { status: 400 });
   }
 
+  const context = await requireActiveSocietyRouteContext({ societyId });
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
   // ── Récupérer la facture et la société ───────────────────────────────────
   const [invoice, society] = await Promise.all([
     prisma.supplierInvoice.findFirst({
-      where: { id, societyId },
+      where: { id, societyId: context.societyId },
       select: {
         id: true,
         societyId: true,
@@ -44,7 +43,7 @@ export async function GET(
       },
     }),
     prisma.society.findUnique({
-      where: { id: societyId },
+      where: { id: context.societyId },
       select: {
         id: true,
         name: true,
@@ -169,7 +168,7 @@ export async function GET(
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
       const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
-      const xmlStoragePath = `documents/${societyId}/supplier-invoices/sepa/${invoice.id}.xml`;
+      const xmlStoragePath = `documents/${context.societyId}/supplier-invoices/sepa/${invoice.id}.xml`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)

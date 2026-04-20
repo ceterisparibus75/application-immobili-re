@@ -1,30 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { requireSocietyAccess } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non authentifie" } }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: { code: "NO_SOCIETY", message: "Aucune societe selectionnee" } }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId);
+    const context = await requireActiveSocietyRouteContext();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(request.url);
     const leaseType = searchParams.get("leaseType");
 
     const templates = await prisma.leaseTemplate.findMany({
       where: {
-        societyId,
+        societyId: context.societyId,
         isActive: true,
         ...(leaseType ? { leaseType: leaseType as import("@/generated/prisma/client").LeaseType } : {}),
       },

@@ -3,9 +3,13 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import type { ActionResult } from "@/actions/society";
 import {
   upsertSupplierInboxConfigSchema,
@@ -19,10 +23,7 @@ export async function upsertSupplierInboxConfig(
   input: UpsertSupplierInboxConfigInput
 ): Promise<ActionResult<{ id: string; inboxEmail: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const parsed = upsertSupplierInboxConfigSchema.safeParse(input);
     if (!parsed.success) {
@@ -67,8 +68,9 @@ export async function upsertSupplierInboxConfig(
     });
 
     revalidatePath("/parametres/facturation");
-    return { success: true, data: { id: created.id, inboxEmail: created.inboxEmail } };
+      return { success: true, data: { id: created.id, inboxEmail: created.inboxEmail } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[upsertSupplierInboxConfig]", error);
     return { success: false, error: "Erreur lors de la mise à jour de la configuration" };
@@ -87,10 +89,7 @@ export async function getSupplierInboxConfig(
   notifyEmails: string[];
 } | null> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return null;
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    if (!(await getOptionalSocietyActionContext(societyId, "ADMIN_SOCIETE"))) return null;
 
     const config = await prisma.supplierInboxConfig.findUnique({
       where: { societyId },
@@ -117,10 +116,7 @@ export async function regenerateInboxSecret(
   societyId: string
 ): Promise<ActionResult<{ rawSecret: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const existing = await prisma.supplierInboxConfig.findUnique({
       where: { societyId },
@@ -140,6 +136,7 @@ export async function regenerateInboxSecret(
     // rawSecret est retourné une seule fois, jamais stocké en clair
     return { success: true, data: { rawSecret } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[regenerateInboxSecret]", error);
     return { success: false, error: "Erreur lors de la régénération du secret" };

@@ -1,11 +1,14 @@
 "use server";
 
 import type { ActionResult } from "@/actions/society";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   letterEntriesSchema,
   unletterEntriesSchema,
@@ -19,12 +22,7 @@ export async function getNextLetteringCode(
   societyId: string
 ): Promise<ActionResult<{ code: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifie" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Trouver le dernier code de lettrage utilise pour cette societe
     const lastLettered = await prisma.journalEntryLine.findFirst({
@@ -44,6 +42,9 @@ export async function getNextLetteringCode(
     const nextCode = incrementLetteringCode(code);
     return { success: true, data: { code: nextCode } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -81,12 +82,7 @@ export async function letterEntries(
   lineIds: string[]
 ): Promise<ActionResult<{ letteringCode: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifie" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Validation Zod
     const parsed = letterEntriesSchema.safeParse({ lineIds });
@@ -159,7 +155,7 @@ export async function letterEntries(
     // Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "JournalEntryLine",
       entityId: code,
@@ -175,6 +171,9 @@ export async function letterEntries(
     revalidatePath("/comptabilite");
     return { success: true, data: { letteringCode: code } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -190,12 +189,7 @@ export async function unletterEntries(
   letteringCode: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifie" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Validation Zod
     const parsed = unletterEntriesSchema.safeParse({ letteringCode });
@@ -237,7 +231,7 @@ export async function unletterEntries(
     // Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "JournalEntryLine",
       entityId: parsed.data.letteringCode,
@@ -251,6 +245,9 @@ export async function unletterEntries(
     revalidatePath("/comptabilite");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -278,12 +275,7 @@ export async function getUnletteredEntries(
   }>
 > {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifie" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Validation Zod
     const parsed = getUnletteredEntriesSchema.safeParse({ accountId });
@@ -330,6 +322,9 @@ export async function getUnletteredEntries(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }

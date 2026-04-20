@@ -1,8 +1,8 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getOptionalAuthenticatedActionContext } from "@/lib/action-auth";
+import { getOptionalSocietyActionContext } from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { unstable_cache } from "next/cache";
 import { buildLenderMapping } from "@/lib/utils";
 
@@ -420,9 +420,7 @@ async function fetchAnalytics(societyId: string): Promise<AnalyticsData> {
 }
 
 export async function getAnalyticsData(societyId: string): Promise<AnalyticsData | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
   return unstable_cache(
     () => fetchAnalytics(societyId),
     [`dashboard-analytics-${societyId}`],
@@ -805,13 +803,13 @@ async function fetchConsolidatedAnalytics(societyIds: string[]): Promise<Analyti
 }
 
 export async function getConsolidatedAnalyticsData(proprietaireId?: string): Promise<AnalyticsData | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return null;
 
   // Récupérer toutes les sociétés du propriétaire
   const where = proprietaireId
-    ? { proprietaireId, proprietaire: { userId: session.user.id } }
-    : { ownerId: session.user.id };
+    ? { proprietaireId, proprietaire: { userId: context.userId } }
+    : { ownerId: context.userId };
 
   const societies = await prisma.society.findMany({
     where,
@@ -823,7 +821,7 @@ export async function getConsolidatedAnalyticsData(proprietaireId?: string): Pro
   const societyIds = societies.map((s) => s.id);
   const cacheKey = proprietaireId
     ? `owner-consolidated-${proprietaireId}`
-    : `owner-consolidated-${session.user.id}`;
+    : `owner-consolidated-${context.userId}`;
 
   return unstable_cache(
     () => fetchConsolidatedAnalytics(societyIds),

@@ -1,29 +1,12 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { generateFec } from "@/lib/fec-export";
 import { createAuditLog } from "@/lib/audit";
-import { ForbiddenError } from "@/lib/permissions";
 
 // GET - Telechargement du fichier FEC
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId)
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-  } catch (e) {
-    if (e instanceof ForbiddenError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+  if (context instanceof NextResponse) return context;
 
   const p = req.nextUrl.searchParams;
   const fiscalYearId = p.get("fiscalYearId");
@@ -48,14 +31,14 @@ export async function GET(req: NextRequest) {
   }
   if (p.get("validatedOnly") === "true") options.validatedOnly = true;
 
-  const result = await generateFec(societyId, options);
+  const result = await generateFec(context.societyId, options);
 
   await createAuditLog({
-    societyId,
-    userId: session.user.id,
+    societyId: context.societyId,
+    userId: context.userId,
     action: "EXPORT",
     entity: "JournalEntry",
-    entityId: societyId,
+    entityId: context.societyId,
     details: { format: "FEC", fiscalYearId, year: yearStr, lineCount: result.lineCount },
   });
 
@@ -73,27 +56,13 @@ export async function GET(req: NextRequest) {
 
 // POST - Validation sans telechargement
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId)
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-  } catch (e) {
-    if (e instanceof ForbiddenError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    return NextResponse.json({ error: "Acces refuse" }, { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+  if (context instanceof NextResponse) return context;
 
   const body = await req.json().catch(() => ({}));
   const { year, journalType, validatedOnly, fiscalYearId } = body as Record<string, unknown>;
 
-  const result = await generateFec(societyId, {
+  const result = await generateFec(context.societyId, {
     fiscalYearId: typeof fiscalYearId === "string" ? fiscalYearId : undefined,
     year: typeof year === "string" ? parseInt(year, 10) : undefined,
     journalType: typeof journalType === "string"

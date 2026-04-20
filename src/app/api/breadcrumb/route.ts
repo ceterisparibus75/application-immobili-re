@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
-import { cookies } from "next/headers";
 
 /**
  * Résout les noms d'entités pour les segments d'ID dans un pathname.
@@ -10,21 +8,9 @@ import { cookies } from "next/headers";
  * → { "2": "12 rue de la Paix", "4": "Lot 3 - Bureau RDC" }
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({}, { status: 401 });
-  }
-
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) {
-    return NextResponse.json({}, { status: 400 });
-  }
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId);
-  } catch {
-    return NextResponse.json({}, { status: 403 });
+  const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+  if (context instanceof NextResponse) {
+    return NextResponse.json({}, { status: context.status });
   }
 
   const pathname = request.nextUrl.searchParams.get("path");
@@ -40,7 +26,7 @@ export async function GET(request: NextRequest) {
     const parentSegment = segments[i - 1];
     if (!parentSegment) continue;
 
-    const label = await resolveEntityName(parentSegment, segment, societyId);
+    const label = await resolveEntityName(parentSegment, segment, context.societyId);
     if (label) labels[String(i)] = label;
   }
 

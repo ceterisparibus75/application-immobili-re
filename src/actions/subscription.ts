@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
@@ -295,13 +295,12 @@ export async function openBillingPortal(
 
 export async function syncAllAdminSubscriptions(): Promise<ActionResult<{ synced: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireAuthenticatedActionContext();
 
     // Trouver toutes les sociétés où l'utilisateur est admin
     const memberships = await prisma.userSociety.findMany({
       where: {
-        userId: session.user.id,
+        userId: context.userId,
         role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
       },
       select: { societyId: true },
@@ -338,6 +337,7 @@ export async function syncAllAdminSubscriptions(): Promise<ActionResult<{ synced
 
     return { success: true, data: { synced } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     console.error("[syncAllAdminSubscriptions]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };
   }

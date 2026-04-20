@@ -1,16 +1,23 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import {
+  getOptionalAuthenticatedActionContext,
+  requireAuthenticatedActionContext,
+} from "@/lib/action-auth";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
+import { requireSuperAdmin, ForbiddenError } from "@/lib/permissions";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { checkSubscriptionActive, checkUserLimit } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import { hash, compare } from "bcryptjs";
 import { randomBytes } from "crypto";
 import {
   createUserSchema,
-  updateUserSchema,
   assignUserToSocietySchema,
   changePasswordSchema,
   updateModulePermissionsSchema,
@@ -28,15 +35,12 @@ export async function createUser(
   input: CreateUserInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     // SUPER_ADMIN ou ADMIN_SOCIETE d'au moins une société peuvent créer des utilisateurs
     const isAllowed = await prisma.userSociety.findFirst({
       where: {
-        userId: session.user.id,
+        userId: context.userId,
         role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
       },
     });
@@ -106,7 +110,7 @@ export async function createUser(
       action: "CREATE",
       entity: "User",
       entityId: user.id,
-      details: { email: user.email, createdBy: session.user.id },
+      details: { email: user.email, createdBy: context.userId },
     });
 
     revalidatePath("/administration/utilisateurs");
@@ -125,6 +129,9 @@ export async function createUser(
 
     return { success: true, data: { id: user.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[createUser]", error);
     return { success: false, error: "Erreur lors de la création de l'utilisateur" };
   }
@@ -136,15 +143,12 @@ export async function resendInvitation(
   userId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     // Seul un admin peut renvoyer une invitation
     const callerAccess = await prisma.userSociety.findFirst({
       where: {
-        userId: session.user.id,
+        userId: context.userId,
         role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
       },
     });
@@ -186,6 +190,9 @@ export async function resendInvitation(
     revalidatePath("/compte/utilisateurs");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[resendInvitation]", error);
     return { success: false, error: "Erreur lors du renvoi de l'invitation" };
   }
@@ -195,11 +202,6 @@ export async function assignUserToSociety(
   input: AssignUserToSocietyInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
     const parsed = assignUserToSocietySchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -211,7 +213,7 @@ export async function assignUserToSociety(
     const { userId, societyId, role } = parsed.data;
 
     // Seuls ADMIN_SOCIETE+ peuvent assigner des utilisateurs
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     // Vérifier abonnement actif et limite d'utilisateurs
     const subCheck = await checkSubscriptionActive(societyId);
@@ -221,7 +223,7 @@ export async function assignUserToSociety(
 
     // Un ADMIN_SOCIETE ne peut pas créer de SUPER_ADMIN
     if (role === "SUPER_ADMIN") {
-      await requireSuperAdmin(session.user.id);
+      await requireSuperAdmin(context.userId);
     }
 
     await prisma.userSociety.upsert({
@@ -234,7 +236,7 @@ export async function assignUserToSociety(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "UserSociety",
       entityId: `${userId}-${societyId}`,
@@ -245,6 +247,9 @@ export async function assignUserToSociety(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -258,15 +263,10 @@ export async function removeUserFromSociety(
   societyId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     // Empêcher de se retirer soi-même
-    if (userId === session.user.id) {
+    if (userId === context.userId) {
       return { success: false, error: "Vous ne pouvez pas vous retirer vous-même" };
     }
 
@@ -278,7 +278,7 @@ export async function removeUserFromSociety(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "UserSociety",
       entityId: `${userId}-${societyId}`,
@@ -289,6 +289,9 @@ export async function removeUserFromSociety(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -299,15 +302,12 @@ export async function removeUserFromSociety(
 
 export async function deleteUser(userId: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
-    await requireSuperAdmin(session.user.id);
+    await requireSuperAdmin(context.userId);
 
     // Empêcher de se supprimer soi-même
-    if (userId === session.user.id) {
+    if (userId === context.userId) {
       return { success: false, error: "Vous ne pouvez pas supprimer votre propre compte" };
     }
 
@@ -325,7 +325,7 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
 
     await createAuditLog({
       societyId: "system",
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "User",
       entityId: userId,
@@ -335,6 +335,9 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     revalidatePath("/administration/utilisateurs");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -351,10 +354,7 @@ export async function changePassword(
   }
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     const parsed = changePasswordSchema.safeParse(input);
     if (!parsed.success) {
@@ -365,7 +365,7 @@ export async function changePassword(
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
     });
     if (!user) {
       return { success: false, error: "Utilisateur introuvable" };
@@ -378,22 +378,22 @@ export async function changePassword(
 
     const newHash = await hash(parsed.data.newPassword, 12);
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       data: { passwordHash: newHash },
     });
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[changePassword]", error);
     return { success: false, error: "Erreur lors du changement de mot de passe" };
   }
 }
 
 export async function getUsersNotInSociety(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+  if (!(await getOptionalSocietyActionContext(societyId, "ADMIN_SOCIETE"))) return [];
 
   // Récupérer tous les userId déjà dans la société
   const existing = await prisma.userSociety.findMany({
@@ -418,11 +418,11 @@ export async function getUsersNotInSociety(societyId: string) {
 }
 
 export async function getUsers(societyId?: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return [];
 
   if (societyId) {
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    if (!(await getOptionalSocietyActionContext(societyId, "ADMIN_SOCIETE"))) return [];
 
     const memberships = await prisma.userSociety.findMany({
       where: { societyId },
@@ -450,7 +450,7 @@ export async function getUsers(societyId?: string) {
   }
 
   // SUPER_ADMIN : tous les utilisateurs
-  await requireSuperAdmin(session.user.id);
+  await requireSuperAdmin(context.userId);
 
   return prisma.user.findMany({
     select: {
@@ -480,12 +480,7 @@ export async function getModulePermissions(
   societyId: string
 ): Promise<ActionResult<{ role: string; modulePermissions: ModulePermissions; isCustom: boolean }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const membership = await prisma.userSociety.findUnique({
       where: { userId_societyId: { userId, societyId } },
@@ -507,6 +502,9 @@ export async function getModulePermissions(
       data: { role: membership.role, modulePermissions, isCustom },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -524,11 +522,6 @@ export async function updateModulePermissions(
   input: UpdateModulePermissionsInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
     const parsed = updateModulePermissionsSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -540,7 +533,7 @@ export async function updateModulePermissions(
     const { userId, societyId, modulePermissions } = parsed.data;
 
     // Only ADMIN_SOCIETE+ can change permissions
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     // Verify target user is a member
     const membership = await prisma.userSociety.findUnique({
@@ -552,11 +545,11 @@ export async function updateModulePermissions(
 
     // Cannot modify SUPER_ADMIN permissions unless you are one
     if (membership.role === "SUPER_ADMIN") {
-      await requireSuperAdmin(session.user.id);
+      await requireSuperAdmin(context.userId);
     }
 
     // Cannot modify your own permissions
-    if (userId === session.user.id) {
+    if (userId === context.userId) {
       return { success: false, error: "Vous ne pouvez pas modifier vos propres permissions" };
     }
 
@@ -567,7 +560,7 @@ export async function updateModulePermissions(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "UserSociety",
       entityId: `${userId}-${societyId}`,
@@ -583,6 +576,9 @@ export async function updateModulePermissions(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -599,12 +595,7 @@ export async function resetModulePermissions(
   societyId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const membership = await prisma.userSociety.findUnique({
       where: { userId_societyId: { userId, societyId } },
@@ -620,7 +611,7 @@ export async function resetModulePermissions(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "UserSociety",
       entityId: `${userId}-${societyId}`,
@@ -635,6 +626,9 @@ export async function resetModulePermissions(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -679,11 +673,10 @@ export async function getAllManagedUsers(): Promise<
   ActionResult<{ users: ManagedUser[]; societies: AvailableSociety[] }>
 > {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    const context = await requireAuthenticatedActionContext();
 
     const proprietaires = await prisma.proprietaire.findMany({
-      where: { userId: session.user.id },
+      where: { userId: context.userId },
       select: {
         id: true,
         label: true,
@@ -758,6 +751,9 @@ export async function getAllManagedUsers(): Promise<
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[getAllManagedUsers]", error);
     return { success: false, error: "Erreur lors de la récupération" };
   }
@@ -776,21 +772,18 @@ export async function toggleEmailCopy(
   enabled: boolean
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     // Vérifier l'accès à la société
     const membership = await prisma.userSociety.findUnique({
-      where: { userId_societyId: { userId: session.user.id, societyId } },
+      where: { userId_societyId: { userId: context.userId, societyId } },
     });
     if (!membership) {
       return { success: false, error: "Accès refusé" };
     }
 
     const isAdmin = ["SUPER_ADMIN", "ADMIN_SOCIETE"].includes(membership.role);
-    const isSelf = targetUserId === session.user.id;
+    const isSelf = targetUserId === context.userId;
 
     // Un non-admin ne peut modifier que sa propre copie cachée
     if (!isAdmin && !isSelf) {
@@ -804,7 +797,7 @@ export async function toggleEmailCopy(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "User",
       entityId: targetUserId,
@@ -814,6 +807,9 @@ export async function toggleEmailCopy(
     revalidatePath("/compte/utilisateurs");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     console.error("[toggleEmailCopy]", error);
     return { success: false, error: "Erreur lors de la modification" };
   }

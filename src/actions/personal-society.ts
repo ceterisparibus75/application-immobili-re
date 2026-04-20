@@ -1,6 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
+import { UnauthenticatedActionError } from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -33,10 +34,7 @@ export async function createPersonalSociety(
   input?: PersonalSocietyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifie" };
-    }
+    const context = await requireAuthenticatedActionContext();
 
     const parsed = personalSocietySchema.safeParse(input ?? {});
     if (!parsed.success) {
@@ -49,7 +47,7 @@ export async function createPersonalSociety(
 
     // Recuperer le profil utilisateur
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: {
         id: true,
         name: true,
@@ -96,14 +94,14 @@ export async function createPersonalSociety(
         fiscalRegime: data.fiscalRegime ?? null,
         phone: user.phone ?? null,
         signatoryName: ownerName,
-        ownerId: session.user.id,
+        ownerId: context.userId,
         proprietaireId: data.proprietaireId || null,
       },
     });
 
     await prisma.userSociety.create({
       data: {
-        userId: session.user.id,
+        userId: context.userId,
         societyId: society.id,
         role: "ADMIN_SOCIETE",
       },
@@ -125,7 +123,7 @@ export async function createPersonalSociety(
 
     await createAuditLog({
       societyId: society.id,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Society",
       entityId: society.id,
@@ -138,6 +136,9 @@ export async function createPersonalSociety(
 
     return { success: true, data: { id: society.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
     console.error("[createPersonalSociety]", error);
     return { success: false, error: "Erreur lors de la creation de l'espace proprietaire" };
   }

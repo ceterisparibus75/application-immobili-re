@@ -1,26 +1,14 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { z } from "zod";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json([], { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json([], { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId);
-  } catch {
-    return NextResponse.json([], { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext();
+  if (context instanceof NextResponse) return context;
 
   const accounts = await prisma.accountingAccount.findMany({
-    where: { societyId },
+    where: { societyId: context.societyId },
     orderBy: { code: "asc" },
   });
 
@@ -34,19 +22,8 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  const session = await auth();
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
-  try {
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
-  } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
-  }
+  const context = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
+  if (context instanceof NextResponse) return context;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -58,7 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await prisma.accountingAccount.findFirst({
-    where: { societyId, code: parsed.data.code },
+    where: { societyId: context.societyId, code: parsed.data.code },
   });
   if (existing) {
     return NextResponse.json(
@@ -68,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const account = await prisma.accountingAccount.create({
-    data: { societyId, ...parsed.data },
+    data: { societyId: context.societyId, ...parsed.data },
   });
 
   return NextResponse.json(account, { status: 201 });

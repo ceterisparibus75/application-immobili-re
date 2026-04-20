@@ -1,23 +1,24 @@
 "use server";
 
-import { auth, update } from "@/lib/auth";
+import { update } from "@/lib/auth";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { verifyTOTP, decryptRecoveryCodes } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/actions/society";
 import { createAuditLog } from "@/lib/audit";
 import { timingSafeEqual } from "crypto";
+import { UnauthenticatedActionError } from "@/lib/action-society";
 
 export async function completeTwoFactorLogin(code: string): Promise<ActionResult<{ redirectTo: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
+    const context = await requireAuthenticatedActionContext();
 
-    if (!session.requires2FA) {
+    if (!context.session.requires2FA) {
       return { success: false, error: "2FA non requis" };
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: context.userId },
       select: { twoFactorSecret: true, twoFactorRecoveryCodes: true },
     });
 
@@ -47,7 +48,7 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
       // Supprimer le code de recuperation utilise (usage unique)
       const newEncryptedCodes = user.twoFactorRecoveryCodes.filter((_, i) => i !== codeIndex);
       await prisma.user.update({
-        where: { id: session.user.id },
+        where: { id: context.userId },
         data: { twoFactorRecoveryCodes: newEncryptedCodes },
       });
     }
@@ -55,14 +56,15 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
     await update({ requires2FA: false, twoFactorVerified: true });
     await createAuditLog({
       societyId: "system",
-      userId: session.user.id,
+      userId: context.userId,
       action: "LOGIN",
       entity: "User",
-      entityId: session.user.id,
+      entityId: context.userId,
       details: { event: "TWO_FACTOR_LOGIN" },
     });
     return { success: true, data: { redirectTo: "/proprietaire" } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     console.error("[completeTwoFactorLogin]", error);
     return { success: false, error: "Erreur lors de la verification" };
   }

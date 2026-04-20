@@ -1,8 +1,11 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -55,10 +58,7 @@ export async function getManagementReports(
   leaseId?: string
 ): Promise<ActionResult<{ reports: unknown[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const where: Prisma.ManagementReportWhereInput = { societyId };
     if (leaseId) {
@@ -93,6 +93,7 @@ export async function getManagementReports(
 
     return { success: true, data: { reports } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getManagementReports]", error);
     return { success: false, error: "Erreur lors de la recuperation des comptes rendus de gestion" };
@@ -108,10 +109,7 @@ export async function getManagementReportById(
   reportId: string
 ): Promise<ActionResult<{ report: unknown }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const report = await prisma.managementReport.findFirst({
       where: { id: reportId, societyId },
@@ -142,6 +140,7 @@ export async function getManagementReportById(
 
     return { success: true, data: { report } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getManagementReportById]", error);
     return { success: false, error: "Erreur lors de la recuperation du compte rendu de gestion" };
@@ -159,10 +158,7 @@ export async function uploadAndAnalyzeReport(
   fileStoragePath: string
 ): Promise<ActionResult<{ id: string; report: unknown }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Fetch lease with context for AI
     const lease = await prisma.lease.findFirst({
@@ -237,7 +233,7 @@ export async function uploadAndAnalyzeReport(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ManagementReport",
       entityId: report.id,
@@ -248,6 +244,7 @@ export async function uploadAndAnalyzeReport(
 
     return { success: true, data: { id: report.id, report } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[uploadAndAnalyzeReport]", error);
     return { success: false, error: "Erreur lors de l'analyse du compte rendu de gestion" };
@@ -263,10 +260,7 @@ export async function confirmManagementReport(
   reportId: string
 ): Promise<ActionResult<{ invoiceId: string; paymentId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // 1. Fetch the report with lease context
     const report = await prisma.managementReport.findFirst({
@@ -407,7 +401,7 @@ export async function confirmManagementReport(
     // 6. Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ManagementReport",
       entityId: reportId,
@@ -424,6 +418,7 @@ export async function confirmManagementReport(
 
     return { success: true, data: result };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[confirmManagementReport]", error);
     return { success: false, error: "Erreur lors de la confirmation du compte rendu de gestion" };
@@ -439,10 +434,7 @@ export async function createManualReport(
   input: unknown
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createManagementReportSchema.safeParse(input);
     if (!parsed.success) {
@@ -479,7 +471,7 @@ export async function createManualReport(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ManagementReport",
       entityId: report.id,
@@ -490,6 +482,7 @@ export async function createManualReport(
 
     return { success: true, data: { id: report.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createManualReport]", error);
     return { success: false, error: "Erreur lors de la creation du compte rendu de gestion" };
@@ -505,10 +498,7 @@ export async function deleteManagementReport(
   reportId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const report = await prisma.managementReport.findFirst({
       where: { id: reportId, societyId },
@@ -526,7 +516,7 @@ export async function deleteManagementReport(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "ManagementReport",
       entityId: reportId,
@@ -537,6 +527,7 @@ export async function deleteManagementReport(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteManagementReport]", error);
     return { success: false, error: "Erreur lors de la suppression du compte rendu de gestion" };

@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getOptionalAuthenticatedActionContext } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
@@ -883,10 +883,10 @@ export async function syncTenantsToContacts(
  * Utilise le cookie active-society-id pour déterminer la société.
  */
 export async function getTenantsForSelect(): Promise<{ id: string; name: string }[]> {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const context = await getOptionalAuthenticatedActionContext();
+  if (!context) return [];
 
-  const societyId = await getOptionalAccessibleActiveSocietyId(session.user.id);
+  const societyId = await getOptionalAccessibleActiveSocietyId(context.userId);
   if (!societyId) return [];
 
   const tenants = await prisma.tenant.findMany({

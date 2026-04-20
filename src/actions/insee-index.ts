@@ -1,8 +1,11 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -77,11 +80,7 @@ export async function syncInseeIndices(
   ActionResult<{ synced: Record<string, number>; errors: string[] }>
 > {
   try {
-    const session = await auth();
-    if (!session?.user?.id)
-      return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const typesToSync = indexTypes?.length
       ? Object.entries(INSEE_SERIES).filter(([type]) =>
@@ -146,7 +145,7 @@ export async function syncInseeIndices(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "InseeIndex",
       entityId: "sync",
@@ -157,6 +156,8 @@ export async function syncInseeIndices(
 
     return { success: true, data: { synced, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[syncInseeIndices]", error);

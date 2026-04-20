@@ -1,12 +1,15 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import type { IndexType } from "@/generated/prisma/client";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   validateRevisionSchema,
   rejectRevisionSchema,
@@ -93,10 +96,7 @@ export async function getPendingRevisions(
   >
 > {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const revisions = await prisma.rentRevision.findMany({
       where: {
@@ -132,6 +132,8 @@ export async function getPendingRevisions(
 
     return { success: true, data: revisions };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[getPendingRevisions]", error);
@@ -147,10 +149,7 @@ export async function validateRevision(
   revisionId: string
 ): Promise<ActionResult<{ newRentHT: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = validateRevisionSchema.safeParse({ revisionId });
     if (!parsed.success)
@@ -186,7 +185,7 @@ export async function validateRevision(
         data: {
           isValidated: true,
           validatedAt: new Date(),
-          validatedBy: session.user.id,
+          validatedBy: context.userId,
         },
       }),
       prisma.lease.update({
@@ -201,7 +200,7 @@ export async function validateRevision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "RentRevision",
       entityId: revisionId,
@@ -223,6 +222,8 @@ export async function validateRevision(
 
     return { success: true, data: { newRentHT: revision.newRentHT } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[validateRevision]", error);
@@ -238,10 +239,7 @@ export async function rejectRevision(
   revisionId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = rejectRevisionSchema.safeParse({ revisionId });
     if (!parsed.success)
@@ -265,7 +263,7 @@ export async function rejectRevision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "RentRevision",
       entityId: revisionId,
@@ -282,6 +280,8 @@ export async function rejectRevision(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[rejectRevision]", error);
@@ -294,10 +294,7 @@ export async function createManualRevision(
   input: CreateManualRevisionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createManualRevisionSchema.safeParse(input);
     if (!parsed.success)
@@ -340,7 +337,7 @@ export async function createManualRevision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "RentRevision",
       entityId: revision.id,
@@ -359,6 +356,8 @@ export async function createManualRevision(
 
     return { success: true, data: { id: revision.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError)
       return { success: false, error: error.message };
     console.error("[createManualRevision]", error);
@@ -376,7 +375,6 @@ export async function detectPendingRevisions(): Promise<{
   const results = { created: 0, errors: [] as string[] };
 
   try {
-    const now = new Date();
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const in30Days = new Date();
@@ -661,9 +659,7 @@ export async function previewCatchUpRevisions(
   leaseId: string
 ): Promise<ActionResult<CatchUpResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const lease = await prisma.lease.findFirst({
       where: { id: leaseId, societyId, status: "EN_COURS" },
@@ -717,6 +713,8 @@ export async function previewCatchUpRevisions(
 
     return await buildCatchUpPreview(lease, fallbackQuarter, fallbackYear, leaseId);
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[previewCatchUpRevisions]", error);
     return { success: false, error: "Erreur lors du calcul de rattrapage" };
@@ -844,9 +842,7 @@ export async function applyCatchUpRevisions(
   leaseId: string
 ): Promise<ActionResult<{ finalRent: number; stepsCount: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Recalculer le preview pour s'assurer de la cohérence
     const preview = await previewCatchUpRevisions(societyId, leaseId);
@@ -883,7 +879,7 @@ export async function applyCatchUpRevisions(
             formula,
             isValidated: true,
             validatedAt: new Date(),
-            validatedBy: session.user!.id,
+            validatedBy: context.userId,
           },
         });
       }
@@ -902,7 +898,7 @@ export async function applyCatchUpRevisions(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "RentRevision",
       entityId: leaseId,
@@ -922,6 +918,8 @@ export async function applyCatchUpRevisions(
 
     return { success: true, data: { finalRent, stepsCount: steps.length } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[applyCatchUpRevisions]", error);
     return { success: false, error: "Erreur lors de l'application du rattrapage" };

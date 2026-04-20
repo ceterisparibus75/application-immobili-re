@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
@@ -10,18 +9,8 @@ const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const societyId = cookieStore.get("active-society-id")?.value;
-    if (!societyId) {
-      return NextResponse.json({ error: "Aucune société active" }, { status: 401 });
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
 
     const body = await req.json() as {
       fileName: string;
@@ -59,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     const doc = await prisma.document.create({
       data: {
-        societyId,
+        societyId: context.societyId,
         fileName,
         fileUrl,
         fileSize: fileSize ?? 0,
@@ -77,8 +66,8 @@ export async function POST(req: NextRequest) {
     });
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "CREATE",
       entity: "Document",
       entityId: doc.id,

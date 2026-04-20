@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createAuditLog } from "@/lib/audit";
 import { exportTenantData } from "@/lib/rgpd-export";
 
@@ -10,26 +8,13 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
-  }
-
-  const cookieStore = await cookies();
-  const societyId = cookieStore.get("active-society-id")?.value;
-  if (!societyId) {
-    return NextResponse.json(
-      { error: "Societe non selectionnee" },
-      { status: 400 }
-    );
-  }
-
-  await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+  const context = await requireActiveSocietyRouteContext({ minRole: "ADMIN_SOCIETE" });
+  if (context instanceof NextResponse) return context;
 
   const { id } = await params;
 
   const gdprRequest = await prisma.gdprRequest.findFirst({
-    where: { id, societyId },
+    where: { id, societyId: context.societyId },
   });
 
   if (!gdprRequest) {
@@ -51,13 +36,13 @@ export async function GET(
 
   try {
     const exportData = await exportTenantData(
-      societyId,
+      context.societyId,
       gdprRequest.requesterEmail
     );
 
     await createAuditLog({
-      societyId,
-      userId: session.user.id,
+      societyId: context.societyId,
+      userId: context.userId,
       action: "EXPORT",
       entity: "GdprRequest",
       entityId: id,
