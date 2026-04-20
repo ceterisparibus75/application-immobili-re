@@ -1,9 +1,12 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   createChargeProvisionSchema,
   updateChargeProvisionSchema,
@@ -18,9 +21,7 @@ export async function createChargeProvision(
   input: CreateChargeProvisionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createChargeProvisionSchema.safeParse(input);
     if (!parsed.success)
@@ -47,7 +48,7 @@ export async function createChargeProvision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ChargeProvision",
       entityId: provision.id,
@@ -57,6 +58,7 @@ export async function createChargeProvision(
     revalidatePath(`/baux/${parsed.data.leaseId}`);
     return { success: true, data: { id: provision.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createChargeProvision]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -68,9 +70,7 @@ export async function updateChargeProvision(
   input: UpdateChargeProvisionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateChargeProvisionSchema.safeParse(input);
     if (!parsed.success)
@@ -98,7 +98,7 @@ export async function updateChargeProvision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ChargeProvision",
       entityId: parsed.data.id,
@@ -108,6 +108,7 @@ export async function updateChargeProvision(
     revalidatePath(`/baux/${provision.lease.id}`);
     return { success: true, data: { id: parsed.data.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateChargeProvision]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -119,9 +120,7 @@ export async function deleteChargeProvision(
   provisionId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const provision = await prisma.chargeProvision.findFirst({
       where: { id: provisionId },
@@ -134,7 +133,7 @@ export async function deleteChargeProvision(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "ChargeProvision",
       entityId: provisionId,
@@ -144,6 +143,7 @@ export async function deleteChargeProvision(
     revalidatePath(`/baux/${provision.lease.id}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteChargeProvision]", error);
     return { success: false, error: "Erreur lors de la suppression" };

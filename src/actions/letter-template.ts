@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "./society";
@@ -10,6 +9,10 @@ import { generateLetterSchema, saveCustomTemplateSchema } from "@/validations/le
 import { BUILTIN_TEMPLATES, interpolateTemplate } from "@/lib/letter-templates";
 import { generateLetterPdf } from "@/lib/letter-pdf";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Locataires avec bail actif pour sélection courrier ──────────
 
@@ -24,9 +27,7 @@ export async function getTenantsWithLease(
   societyId: string
 ): Promise<ActionResult<TenantForLetter[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const tenants = await prisma.tenant.findMany({
       where: { societyId, isActive: true },
@@ -54,6 +55,7 @@ export async function getTenantsWithLease(
       })),
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors du chargement des locataires" };
   }
@@ -72,9 +74,7 @@ export async function getBuildingsWithTenants(
   societyId: string
 ): Promise<ActionResult<BuildingForLetter[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const buildings = await prisma.building.findMany({
       where: { societyId },
@@ -117,6 +117,7 @@ export async function getBuildingsWithTenants(
         .filter((b) => b.tenants.length > 0),
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors du chargement des immeubles" };
   }
@@ -136,9 +137,7 @@ export async function getLetterTemplates(
   societyId: string
 ): Promise<ActionResult<{ templates: TemplateListItem[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     // Modèles prédéfinis
     const builtins: TemplateListItem[] = BUILTIN_TEMPLATES.map((t) => ({
@@ -165,6 +164,7 @@ export async function getLetterTemplates(
 
     return { success: true, data: { templates: [...builtins, ...customItems] } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors du chargement des modèles" };
   }
@@ -191,9 +191,7 @@ export async function getAutoFillData(
   leaseId?: string
 ): Promise<ActionResult<AutoFillData>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const society = await prisma.society.findUnique({
       where: { id: societyId },
@@ -262,6 +260,7 @@ export async function getAutoFillData(
 
     return { success: true, data };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors du chargement des données" };
   }
@@ -274,9 +273,7 @@ export async function generateLetter(
   input: { templateId: string; values: Record<string, string>; tenantId?: string; leaseId?: string }
 ): Promise<ActionResult<{ buffer: string; filename: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = generateLetterSchema.safeParse(input);
     if (!parsed.success) {
@@ -327,7 +324,7 @@ export async function generateLetter(
     // Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Letter",
       entityId: templateId,
@@ -346,6 +343,7 @@ export async function generateLetter(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la génération du courrier" };
   }
@@ -358,9 +356,7 @@ export async function saveCustomTemplate(
   input: { name: string; subject: string; bodyHtml: string; variables: string[] }
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = saveCustomTemplateSchema.safeParse(input);
     if (!parsed.success) {
@@ -379,7 +375,7 @@ export async function saveCustomTemplate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "LetterTemplate",
       entityId: template.id,
@@ -388,6 +384,7 @@ export async function saveCustomTemplate(
     revalidatePath("/courriers");
     return { success: true, data: { id: template.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la sauvegarde du modèle" };
   }
@@ -400,9 +397,7 @@ export async function deleteCustomTemplate(
   templateId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     await prisma.letterTemplate.delete({
       where: { id: templateId, societyId },
@@ -410,7 +405,7 @@ export async function deleteCustomTemplate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "LetterTemplate",
       entityId: templateId,
@@ -419,6 +414,7 @@ export async function deleteCustomTemplate(
     revalidatePath("/courriers");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de la suppression" };
   }

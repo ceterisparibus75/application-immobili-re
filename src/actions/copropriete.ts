@@ -1,8 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -12,7 +10,6 @@ import {
   createCoproLotSchema,
   updateCoproLotSchema,
   createCoproBudgetSchema,
-  updateCoproBudgetSchema,
   createAssemblySchema,
   updateAssemblySchema,
   createResolutionSchema,
@@ -22,13 +19,16 @@ import {
   type CreateCoproLotInput,
   type UpdateCoproLotInput,
   type CreateCoproBudgetInput,
-  type UpdateCoproBudgetInput,
   type CreateAssemblyInput,
   type UpdateAssemblyInput,
   type CreateResolutionInput,
   type RecordVoteInput,
 } from "@/validations/copropriete";
 import { ForbiddenError } from "@/lib/permissions";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 /* ─── Copropriété CRUD ──────────────────────────────────────────────── */
 
@@ -37,9 +37,7 @@ export async function createCopropriete(
   input: CreateCoproprieteInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createCoproprieteSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -50,7 +48,7 @@ export async function createCopropriete(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Copropriete",
       entityId: copro.id,
@@ -59,6 +57,7 @@ export async function createCopropriete(
     revalidatePath("/copropriete");
     return { success: true, data: { id: copro.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCopropriete]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -70,9 +69,7 @@ export async function updateCopropriete(
   input: UpdateCoproprieteInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateCoproprieteSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -82,7 +79,7 @@ export async function updateCopropriete(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Copropriete",
       entityId: id,
@@ -91,6 +88,7 @@ export async function updateCopropriete(
     revalidatePath("/copropriete");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateCopropriete]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -102,15 +100,13 @@ export async function deleteCopropriete(
   coproprieteId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.copropriete.delete({ where: { id: coproprieteId, societyId } });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Copropriete",
       entityId: coproprieteId,
@@ -119,6 +115,7 @@ export async function deleteCopropriete(
     revalidatePath("/copropriete");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteCopropriete]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -132,9 +129,7 @@ export async function createCoproLot(
   input: CreateCoproLotInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createCoproLotSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -143,7 +138,7 @@ export async function createCoproLot(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "CoproLot",
       entityId: lot.id,
@@ -152,6 +147,7 @@ export async function createCoproLot(
     revalidatePath("/copropriete");
     return { success: true, data: { id: lot.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCoproLot]", error);
     return { success: false, error: "Erreur lors de la création du lot" };
@@ -163,9 +159,7 @@ export async function updateCoproLot(
   input: UpdateCoproLotInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateCoproLotSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -175,7 +169,7 @@ export async function updateCoproLot(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "CoproLot",
       entityId: id,
@@ -184,6 +178,7 @@ export async function updateCoproLot(
     revalidatePath("/copropriete");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateCoproLot]", error);
     return { success: false, error: "Erreur lors de la mise à jour du lot" };
@@ -195,15 +190,13 @@ export async function deleteCoproLot(
   lotId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     await prisma.coproLot.delete({ where: { id: lotId } });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "CoproLot",
       entityId: lotId,
@@ -212,6 +205,7 @@ export async function deleteCoproLot(
     revalidatePath("/copropriete");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteCoproLot]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -225,9 +219,7 @@ export async function createCoproBudget(
   input: CreateCoproBudgetInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createCoproBudgetSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -236,7 +228,7 @@ export async function createCoproBudget(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "CoproBudget",
       entityId: budget.id,
@@ -245,6 +237,7 @@ export async function createCoproBudget(
     revalidatePath("/copropriete");
     return { success: true, data: { id: budget.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCoproBudget]", error);
     return { success: false, error: "Erreur lors de la création du budget" };
@@ -257,9 +250,7 @@ export async function approveBudget(
   assemblyId?: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.coproBudget.update({
       where: { id: budgetId },
@@ -272,7 +263,7 @@ export async function approveBudget(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "CoproBudget",
       entityId: budgetId,
@@ -281,6 +272,7 @@ export async function approveBudget(
     revalidatePath("/copropriete");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[approveBudget]", error);
     return { success: false, error: "Erreur lors de l'approbation" };
@@ -294,9 +286,7 @@ export async function createAssembly(
   input: CreateAssemblyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createAssemblySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -307,7 +297,7 @@ export async function createAssembly(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "CoproAssembly",
       entityId: assembly.id,
@@ -316,6 +306,7 @@ export async function createAssembly(
     revalidatePath("/copropriete");
     return { success: true, data: { id: assembly.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createAssembly]", error);
     return { success: false, error: "Erreur lors de la création de l'AG" };
@@ -327,9 +318,7 @@ export async function updateAssembly(
   input: UpdateAssemblyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateAssemblySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -340,7 +329,7 @@ export async function updateAssembly(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "CoproAssembly",
       entityId: id,
@@ -349,6 +338,7 @@ export async function updateAssembly(
     revalidatePath("/copropriete");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateAssembly]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -362,9 +352,7 @@ export async function createResolution(
   input: CreateResolutionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createResolutionSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -373,7 +361,7 @@ export async function createResolution(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "CoproResolution",
       entityId: resolution.id,
@@ -382,6 +370,7 @@ export async function createResolution(
     revalidatePath("/copropriete");
     return { success: true, data: { id: resolution.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createResolution]", error);
     return { success: false, error: "Erreur lors de la création de la résolution" };
@@ -393,9 +382,7 @@ export async function recordVote(
   input: RecordVoteInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = recordVoteSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -439,6 +426,7 @@ export async function recordVote(
     revalidatePath("/copropriete");
     return { success: true, data: { id: vote.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[recordVote]", error);
     return { success: false, error: "Erreur lors de l'enregistrement du vote" };
@@ -450,9 +438,7 @@ export async function closeResolution(
   resolutionId: string
 ): Promise<ActionResult<{ status: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const resolution = await prisma.coproResolution.findUnique({
       where: { id: resolutionId },
@@ -468,7 +454,6 @@ export async function closeResolution(
     const total = resolution.assembly.copropriete.totalTantiemes;
     const votesFor = resolution.votesFor;
     const votesAgainst = resolution.votesAgainst;
-    const totalVoted = votesFor + votesAgainst + resolution.abstentions;
 
     let adopted = false;
     switch (resolution.majority) {
@@ -494,7 +479,7 @@ export async function closeResolution(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "CoproResolution",
       entityId: resolutionId,
@@ -503,6 +488,7 @@ export async function closeResolution(
     revalidatePath("/copropriete");
     return { success: true, data: { status } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[closeResolution]", error);
     return { success: false, error: "Erreur lors de la clôture" };

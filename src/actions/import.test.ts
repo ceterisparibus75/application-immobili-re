@@ -248,7 +248,7 @@ describe("importFromPdf", () => {
     );
     prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
     prismaMock.lot.findFirst.mockResolvedValue(null); // pas de lot existant avec ce numéro
-    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID, id: LOT_ID } as never);
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
     prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
     prismaMock.leaseLot.findFirst.mockResolvedValue(null); // pas de bail actif
     prismaMock.lease.create.mockResolvedValue({ id: LEASE_ID } as never);

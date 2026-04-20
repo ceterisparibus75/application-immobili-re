@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -14,6 +13,10 @@ import {
   isNeutralCategory,
 } from "@/lib/cashflow-categories";
 import { normalizeLabel } from "@/lib/normalize-label";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -78,9 +81,7 @@ export async function getCashflowDashboard(
   months: number = 12
 ): Promise<ActionResult<CashflowDashboard>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -362,6 +363,7 @@ export async function getCashflowDashboard(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getCashflowDashboard]", error);
     return { success: false, error: "Erreur lors du calcul du cash-flow" };
@@ -376,9 +378,7 @@ export async function getUncategorizedTransactions(
   societyId: string
 ): Promise<ActionResult<UncategorizedTransaction[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const transactions = await prisma.bankTransaction.findMany({
       where: {
@@ -409,6 +409,7 @@ export async function getUncategorizedTransactions(
       })),
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getUncategorizedTransactions]", error);
     return { success: false, error: "Erreur lors de la récupération des transactions" };
@@ -424,9 +425,7 @@ export async function categorizeTransactions(
   items: Array<{ transactionId: string; category: string }>
 ): Promise<ActionResult<{ updated: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Valider que les catégories existent
     const validIds = new Set<string>(ALL_CATEGORIES.map((c) => c.id));
@@ -480,7 +479,7 @@ export async function categorizeTransactions(
             });
           } catch (e) {
             // Table pas encore migrée — on continue sans bloquer la catégorisation
-            console.warn("[auto-tag] TransactionAutoTag upsert failed:", e);
+            console.error("[auto-tag] TransactionAutoTag upsert failed:", e);
           }
         }
       }
@@ -488,7 +487,7 @@ export async function categorizeTransactions(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "BankTransaction",
       entityId: "batch",
@@ -499,6 +498,7 @@ export async function categorizeTransactions(
     revalidatePath("/banque");
     return { success: true, data: { updated } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[categorizeTransactions]", error);
     return { success: false, error: "Erreur lors de la catégorisation" };
@@ -516,9 +516,7 @@ export async function aiSuggestCategories(
   transactionIds: string[]
 ): Promise<ActionResult<Array<{ transactionId: string; suggestedCategory: string; confidence: number }>>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // ── 1. Récupérer les transactions à catégoriser ─────────────────────
     const transactions = await prisma.bankTransaction.findMany({
@@ -719,6 +717,7 @@ Règles :
     // ── 6. Fusionner résultats locaux + IA ──────────────────────────────
     return { success: true, data: [...localResults, ...aiResults] };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[aiSuggestCategories]", error);
     return { success: false, error: "Erreur lors de la suggestion IA" };

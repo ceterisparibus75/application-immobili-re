@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createInspectionSchema,
@@ -12,16 +11,18 @@ import {
 } from "@/validations/inspection";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createInspection(
   societyId: string,
   input: CreateInspectionInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createInspectionSchema.safeParse(input);
     if (!parsed.success) {
@@ -55,7 +56,7 @@ export async function createInspection(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Inspection",
       entityId: inspection.id,
@@ -66,6 +67,7 @@ export async function createInspection(
 
     return { success: true, data: { id: inspection.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createInspection]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -77,10 +79,7 @@ export async function updateInspection(
   input: UpdateInspectionInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateInspectionSchema.safeParse(input);
     if (!parsed.success) {
@@ -101,7 +100,7 @@ export async function updateInspection(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Inspection",
       entityId: id,
@@ -113,6 +112,7 @@ export async function updateInspection(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateInspection]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -120,10 +120,8 @@ export async function updateInspection(
 }
 
 export async function getInspectionsByLease(societyId: string, leaseId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
 
   return prisma.inspection.findMany({
     where: { leaseId, lease: { societyId } },
@@ -135,10 +133,8 @@ export async function getInspectionsByLease(societyId: string, leaseId: string) 
 }
 
 export async function getInspectionById(societyId: string, inspectionId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.inspection.findFirst({
     where: { id: inspectionId, lease: { societyId } },

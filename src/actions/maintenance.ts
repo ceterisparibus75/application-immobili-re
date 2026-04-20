@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   createMaintenanceSchema,
@@ -12,18 +11,17 @@ import {
 } from "@/validations/maintenance";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createMaintenance(
   societyId: string,
   input: CreateMaintenanceInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createMaintenanceSchema.safeParse(input);
     if (!parsed.success) {
@@ -59,7 +57,7 @@ export async function createMaintenance(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Maintenance",
       entityId: maintenance.id,
@@ -70,6 +68,9 @@ export async function createMaintenance(
 
     return { success: true, data: { id: maintenance.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -83,12 +84,7 @@ export async function updateMaintenance(
   input: UpdateMaintenanceInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateMaintenanceSchema.safeParse(input);
     if (!parsed.success) {
@@ -98,7 +94,7 @@ export async function updateMaintenance(
       };
     }
 
-    const { id, buildingId, ...data } = parsed.data;
+    const { id, ...data } = parsed.data;
 
     const existing = await prisma.maintenance.findFirst({
       where: { id, building: { societyId } },
@@ -118,7 +114,7 @@ export async function updateMaintenance(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Maintenance",
       entityId: id!,
@@ -127,6 +123,9 @@ export async function updateMaintenance(
     revalidatePath(`/patrimoine/immeubles/${existing.buildingId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }
@@ -140,12 +139,7 @@ export async function deleteMaintenance(
   maintenanceId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Non authentifié" };
-    }
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const existing = await prisma.maintenance.findFirst({
       where: { id: maintenanceId, building: { societyId } },
@@ -158,7 +152,7 @@ export async function deleteMaintenance(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Maintenance",
       entityId: maintenanceId,
@@ -167,6 +161,9 @@ export async function deleteMaintenance(
     revalidatePath(`/patrimoine/immeubles/${existing.buildingId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: error.message };
+    }
     if (error instanceof ForbiddenError) {
       return { success: false, error: error.message };
     }

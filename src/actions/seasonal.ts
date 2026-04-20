@@ -1,11 +1,14 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   createSeasonalPropertySchema,
   updateSeasonalPropertySchema,
@@ -26,9 +29,7 @@ export async function createSeasonalProperty(
   input: CreateSeasonalPropertyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createSeasonalPropertySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -39,7 +40,7 @@ export async function createSeasonalProperty(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SeasonalProperty",
       entityId: property.id,
@@ -48,6 +49,7 @@ export async function createSeasonalProperty(
     revalidatePath("/saisonnier");
     return { success: true, data: { id: property.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createSeasonalProperty]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -59,9 +61,7 @@ export async function updateSeasonalProperty(
   input: UpdateSeasonalPropertyInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateSeasonalPropertySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -71,7 +71,7 @@ export async function updateSeasonalProperty(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SeasonalProperty",
       entityId: id,
@@ -80,6 +80,7 @@ export async function updateSeasonalProperty(
     revalidatePath("/saisonnier");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateSeasonalProperty]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -91,15 +92,13 @@ export async function deleteSeasonalProperty(
   propertyId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.seasonalProperty.delete({ where: { id: propertyId, societyId } });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "SeasonalProperty",
       entityId: propertyId,
@@ -108,6 +107,7 @@ export async function deleteSeasonalProperty(
     revalidatePath("/saisonnier");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteSeasonalProperty]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -121,9 +121,7 @@ export async function createBooking(
   input: CreateBookingInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createBookingSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -160,7 +158,7 @@ export async function createBooking(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SeasonalBooking",
       entityId: booking.id,
@@ -169,6 +167,7 @@ export async function createBooking(
     revalidatePath("/saisonnier");
     return { success: true, data: { id: booking.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createBooking]", error);
     return { success: false, error: "Erreur lors de la création de la réservation" };
@@ -180,9 +179,7 @@ export async function cancelBooking(
   bookingId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     await prisma.seasonalBooking.update({
       where: { id: bookingId },
@@ -191,7 +188,7 @@ export async function cancelBooking(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SeasonalBooking",
       entityId: bookingId,
@@ -200,6 +197,7 @@ export async function cancelBooking(
     revalidatePath("/saisonnier");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[cancelBooking]", error);
     return { success: false, error: "Erreur lors de l'annulation" };
@@ -213,9 +211,7 @@ export async function createPricing(
   input: CreatePricingInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createPricingSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -231,6 +227,7 @@ export async function createPricing(
     revalidatePath("/saisonnier");
     return { success: true, data: { id: pricing.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createPricing]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -242,15 +239,14 @@ export async function deletePricing(
   pricingId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     await prisma.seasonalPricing.delete({ where: { id: pricingId } });
 
     revalidatePath("/saisonnier");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deletePricing]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -264,9 +260,7 @@ export async function createBlockedDate(
   input: CreateBlockedDateInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createBlockedDateSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -282,6 +276,7 @@ export async function createBlockedDate(
     revalidatePath("/saisonnier");
     return { success: true, data: { id: blocked.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createBlockedDate]", error);
     return { success: false, error: "Erreur lors du blocage des dates" };

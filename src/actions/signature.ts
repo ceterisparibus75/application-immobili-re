@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { checkSignatureFeature } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
 import {
@@ -14,8 +13,12 @@ import {
 import { createSignatureRequestSchema } from "@/validations/signature";
 import type { ActionResult } from "@/actions/society";
 import { revalidatePath } from "next/cache";
-import { ForbiddenError } from "@/lib/permissions";
 import { randomUUID } from "crypto";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Creer une demande de signature ────────────────────────────────
 
@@ -24,10 +27,7 @@ export async function createSignatureRequest(
   input: unknown
 ): Promise<ActionResult<{ id: string; signingUrl?: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Verifier que le plan autorise la signature electronique
     const featureCheck = await checkSignatureFeature(societyId);
@@ -72,7 +72,7 @@ export async function createSignatureRequest(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SignatureRequest",
       entityId: record.id,
@@ -94,6 +94,7 @@ export async function createSignatureRequest(
 
     return { success: true, data: { id: record.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createSignatureRequest]", error);
     return { success: false, error: "Erreur lors de la creation de la demande de signature" };
@@ -118,10 +119,7 @@ export async function createSignatureRequestFromUrl(
   }
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Verifier que le plan autorise la signature electronique
     const featureCheck = await checkSignatureFeature(societyId);
@@ -159,7 +157,7 @@ export async function createSignatureRequestFromUrl(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SignatureRequest",
       entityId: record.id,
@@ -172,6 +170,7 @@ export async function createSignatureRequestFromUrl(
 
     return { success: true, data: { id: record.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createSignatureRequestFromUrl]", error);
     return { success: false, error: "Erreur lors de la creation de la demande de signature" };
@@ -184,9 +183,8 @@ export async function getSignatureRequests(
   societyId: string,
   filters?: { documentType?: string; status?: string }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.signatureRequest.findMany({
     where: {
@@ -206,9 +204,7 @@ export async function getEmbeddedSigningUrlForRequest(
   returnUrl: string
 ): Promise<ActionResult<{ signingUrl: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const record = await prisma.signatureRequest.findFirst({
       where: { id: signatureRequestId, societyId },
@@ -228,6 +224,7 @@ export async function getEmbeddedSigningUrlForRequest(
 
     return { success: true, data: { signingUrl } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getEmbeddedSigningUrl]", error);
     return { success: false, error: "Impossible d'obtenir l'URL de signature" };
@@ -242,9 +239,7 @@ export async function cancelSignatureRequest(
   reason: string = "Annulee par le gestionnaire"
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const record = await prisma.signatureRequest.findFirst({
       where: { id: signatureRequestId, societyId },
@@ -263,7 +258,7 @@ export async function cancelSignatureRequest(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SignatureRequest",
       entityId: record.id,
@@ -275,6 +270,7 @@ export async function cancelSignatureRequest(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[cancelSignatureRequest]", error);
     return { success: false, error: "Erreur lors de l'annulation" };
@@ -288,9 +284,7 @@ export async function syncSignatureStatus(
   signatureRequestId: string
 ): Promise<ActionResult<{ status: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId);
+    await requireSocietyActionContext(societyId);
 
     const record = await prisma.signatureRequest.findFirst({
       where: { id: signatureRequestId, societyId },
@@ -316,6 +310,7 @@ export async function syncSignatureStatus(
 
     return { success: true, data: { status: newStatus } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncSignatureStatus]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };

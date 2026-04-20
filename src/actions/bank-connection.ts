@@ -1,10 +1,13 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { encrypt, decrypt } from "@/lib/encryption";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 import {
   initPowensUser,
   getPowensWebviewCode,
@@ -28,12 +31,11 @@ export async function getGocardlessInstitutions(
   societyId: string
 ): Promise<ActionResult<PowensConnector[]>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
     const connectors = await getPowensConnectors();
     return { success: true, data: connectors };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getConnectors]", error);
     return { success: false, error: "Impossible de récupérer la liste des banques" };
@@ -48,9 +50,7 @@ export async function initiateOpenBanking(
   connectorName: string
 ): Promise<ActionResult<{ authLink: string; connectionId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const appUrl = process.env.AUTH_URL ?? "http://localhost:3000";
     const redirectUrl = appUrl + "/api/banque/callback";
@@ -82,7 +82,7 @@ export async function initiateOpenBanking(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankConnection",
       entityId: connection.id,
@@ -93,6 +93,7 @@ export async function initiateOpenBanking(
     console.log("[initiateOpenBanking] webviewUrl:", webviewUrl);
     return { success: true, data: { authLink: webviewUrl, connectionId: connection.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[initiateOpenBanking]", error);
     return { success: false, error: "Erreur lors de la connexion bancaire" };
@@ -106,9 +107,7 @@ export async function syncOpenBankingAccounts(
   connectionId: string
 ): Promise<ActionResult<{ synced: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
     const connection = await prisma.bankConnection.findFirst({ where: { id: connectionId, societyId } });
     if (!connection) return { success: false, error: "Connexion introuvable" };
     if (connection.status !== "active")
@@ -133,7 +132,7 @@ export async function syncOpenBankingAccounts(
           powensAccountId: String(account.id), connectionId,
         } });
         bankAccountId = created.id;
-        await createAuditLog({ societyId, userId: session.user.id, action: "CREATE",
+        await createAuditLog({ societyId, userId: context.userId, action: "CREATE",
           entity: "BankAccount", entityId: bankAccountId,
           details: { bankName: connection.institutionName, powensAccountId: account.id } });
       }
@@ -144,6 +143,7 @@ export async function syncOpenBankingAccounts(
     revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { synced } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[syncOpenBankingAccounts]", msg);
@@ -175,9 +175,7 @@ export async function syncAllAccounts(
   societyId: string
 ): Promise<ActionResult<SyncAllResult>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const accounts = await prisma.bankAccount.findMany({
       where: { societyId },
@@ -311,6 +309,7 @@ export async function syncAllAccounts(
       data: { totalImported, accountsSynced, accountsFailed, details, dateWarning },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncAllAccounts]", error);
     return { success: false, error: "Erreur lors de la synchronisation" };
@@ -327,9 +326,7 @@ export async function syncAccountTransactions(
   bankAccountId: string
 ): Promise<ActionResult<{ imported: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
@@ -380,6 +377,7 @@ export async function syncAccountTransactions(
     revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     const errMsg = error instanceof Error ? error.message : "Erreur inconnue";
     console.error("[syncAccountTransactions]", errMsg);
@@ -474,9 +472,7 @@ export async function connectQonto(
   qontoSecretKey: string
 ): Promise<ActionResult<{ connectionId: string; accountsCreated: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     if (!qontoSlug.trim() || !qontoSecretKey.trim()) {
       return { success: false, error: "Le slug et la clé secrète Qonto sont requis" };
@@ -522,7 +518,7 @@ export async function connectQonto(
 
       await createAuditLog({
         societyId,
-        userId: session.user.id,
+        userId: context.userId,
         action: "CREATE",
         entity: "BankAccount",
         entityId: bankAccount.id,
@@ -533,7 +529,7 @@ export async function connectQonto(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankConnection",
       entityId: connection.id,
@@ -543,6 +539,7 @@ export async function connectQonto(
     revalidatePath("/banque");
     return { success: true, data: { connectionId: connection.id, accountsCreated } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[connectQonto]", msg);
@@ -559,9 +556,7 @@ export async function syncQontoAccountTransactions(
   bankAccountId: string
 ): Promise<ActionResult<{ imported: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const account = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, societyId },
@@ -597,6 +592,7 @@ export async function syncQontoAccountTransactions(
     revalidatePath("/comptabilite/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[syncQontoAccountTransactions]", error);
     return { success: false, error: "Erreur sync transactions Qonto" };
@@ -694,19 +690,18 @@ export async function syncQontoTransactionsInternal(
 // deleteBankConnection
 export async function deleteBankConnection(societyId: string, connectionId: string): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
     const connection = await prisma.bankConnection.findFirst({ where: { id: connectionId, societyId } });
     if (!connection) return { success: false, error: "Connexion introuvable" };
     await prisma.bankConnection.update({ where: { id: connectionId }, data: { status: "expired" } });
     await prisma.bankAccount.updateMany({ where: { connectionId }, data: { connectionId: null, powensAccountId: null } });
-    await createAuditLog({ societyId, userId: session.user.id, action: "DELETE",
+    await createAuditLog({ societyId, userId: context.userId, action: "DELETE",
       entity: "BankConnection", entityId: connectionId,
       details: { institutionName: connection.institutionName } });
     revalidatePath("/banque");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteBankConnection]", error);
     return { success: false, error: "Erreur lors de la suppression" };

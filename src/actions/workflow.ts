@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import type { Prisma } from "@/generated/prisma/client";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -14,15 +13,17 @@ import {
   type UpdateWorkflowInput,
 } from "@/validations/workflow";
 import { executeWorkflowSteps } from "@/lib/workflow-engine";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 export async function createWorkflow(
   societyId: string,
   input: CreateWorkflowInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const parsed = createWorkflowSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -39,7 +40,7 @@ export async function createWorkflow(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Workflow",
       entityId: workflow.id,
@@ -48,6 +49,7 @@ export async function createWorkflow(
     revalidatePath("/workflows");
     return { success: true, data: { id: workflow.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createWorkflow]", error);
     return { success: false, error: "Erreur lors de la création" };
@@ -59,9 +61,7 @@ export async function updateWorkflow(
   input: UpdateWorkflowInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const parsed = updateWorkflowSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -74,7 +74,7 @@ export async function updateWorkflow(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Workflow",
       entityId: id,
@@ -83,6 +83,7 @@ export async function updateWorkflow(
     revalidatePath("/workflows");
     return { success: true, data: { id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateWorkflow]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -94,15 +95,13 @@ export async function deleteWorkflow(
   workflowId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.workflow.delete({ where: { id: workflowId, societyId } });
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "Workflow",
       entityId: workflowId,
@@ -111,6 +110,7 @@ export async function deleteWorkflow(
     revalidatePath("/workflows");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteWorkflow]", error);
     return { success: false, error: "Erreur lors de la suppression" };
@@ -123,9 +123,7 @@ export async function toggleWorkflow(
   isActive: boolean
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     await prisma.workflow.update({
       where: { id: workflowId, societyId },
@@ -135,6 +133,7 @@ export async function toggleWorkflow(
     revalidatePath("/workflows");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[toggleWorkflow]", error);
     return { success: false, error: "Erreur lors du changement d'état" };
@@ -146,9 +145,7 @@ export async function runWorkflow(
   workflowId: string
 ): Promise<ActionResult<{ runId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const workflow = await prisma.workflow.findFirst({
       where: { id: workflowId, societyId },
@@ -158,7 +155,7 @@ export async function runWorkflow(
     const run = await prisma.workflowRun.create({
       data: {
         workflowId,
-        triggeredBy: session.user.id,
+        triggeredBy: context.userId,
         status: "RUNNING",
       },
     });
@@ -167,7 +164,7 @@ export async function runWorkflow(
     const steps = (workflow.steps as Array<{ id: string; type: string; config: Record<string, unknown> }>) ?? [];
     const stepResults = await executeWorkflowSteps(steps, {
       societyId,
-      triggeredBy: session.user.id,
+      triggeredBy: context.userId,
     });
 
     const hasFailed = stepResults.some((r) => r.status === "failed");
@@ -192,7 +189,7 @@ export async function runWorkflow(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "WorkflowRun",
       entityId: run.id,
@@ -201,6 +198,7 @@ export async function runWorkflow(
     revalidatePath("/workflows");
     return { success: true, data: { runId: run.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[runWorkflow]", error);
     return { success: false, error: "Erreur lors de l'exécution" };

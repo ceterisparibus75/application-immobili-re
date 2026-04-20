@@ -1,13 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { bankReconciliationSchema, type BankReconciliationInput } from "@/validations/bank";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Données pour le rapprochement ────────────────────────────────────────────
 
@@ -15,10 +19,7 @@ export async function getUnreconciledTransactions(
   societyId: string,
   bankAccountId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.bankTransaction.findMany({
     where: {
@@ -31,10 +32,7 @@ export async function getUnreconciledTransactions(
 }
 
 export async function getUnreconciledPayments(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.payment.findMany({
     where: {
@@ -59,10 +57,7 @@ export async function getUnreconciledPayments(societyId: string) {
 }
 
 export async function getReconciledItems(societyId: string, bankAccountId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.bankReconciliation.findMany({
     where: {
@@ -90,10 +85,7 @@ export async function autoReconcile(
   bankAccountId: string
 ): Promise<ActionResult<{ matched: number }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     // Vérifier que le compte appartient à la société
     const account = await prisma.bankAccount.findFirst({
@@ -179,7 +171,7 @@ export async function autoReconcile(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "BankAccount",
       entityId: bankAccountId,
@@ -196,6 +188,7 @@ export async function autoReconcile(
 
     return { success: true, data: { matched } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[autoReconcile]", error);
     return { success: false, error: "Erreur lors du rapprochement automatique" };
@@ -209,10 +202,7 @@ export async function manualReconcile(
   input: BankReconciliationInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const parsed = bankReconciliationSchema.safeParse(input);
     if (!parsed.success) {
@@ -242,12 +232,12 @@ export async function manualReconcile(
       parsed.data.paymentId,
       true,
       parsed.data.notes,
-      session.user.id
+      context.userId
     );
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankReconciliation",
       entityId: parsed.data.transactionId,
@@ -271,6 +261,7 @@ export async function manualReconcile(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[manualReconcile]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
@@ -284,10 +275,7 @@ export async function unreconcile(
   reconciliationId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const reconciliation = await prisma.bankReconciliation.findFirst({
       where: {
@@ -312,7 +300,7 @@ export async function unreconcile(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "BankReconciliation",
       entityId: reconciliationId,
@@ -325,6 +313,7 @@ export async function unreconcile(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[unreconcile]", error);
     return { success: false, error: "Erreur lors de l'annulation" };
@@ -338,10 +327,7 @@ export async function generateJournalEntry(
   transactionId: string
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const transaction = await prisma.bankTransaction.findFirst({
       where: { id: transactionId, bankAccount: { societyId } },
@@ -433,7 +419,7 @@ export async function generateJournalEntry(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "JournalEntry",
       entityId: entry.id,
@@ -443,6 +429,7 @@ export async function generateJournalEntry(
     revalidatePath("/comptabilite");
     return { success: true, data: { id: entry.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[generateJournalEntry]", error);
     return { success: false, error: "Erreur lors de la génération de l'écriture" };
@@ -484,9 +471,7 @@ async function createReconciliationRecord(
 // ─── Factures en attente (loyers appelés) ─────────────────────────────────────
 
 export async function getPendingInvoices(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.invoice.findMany({
     where: {
@@ -505,9 +490,7 @@ export async function getPendingInvoices(societyId: string) {
 // ─── Échéances de prêts à rapprocher ─────────────────────────────────────────
 
 export async function getUpcomingLoanLines(societyId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  await requireSocietyAccess(session.user.id, societyId);
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
   return prisma.loanAmortizationLine.findMany({
     where: {
@@ -529,9 +512,7 @@ export async function reconcileWithInvoice(
   invoiceId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const [transaction, invoice, paidAgg] = await Promise.all([
       prisma.bankTransaction.findFirst({
@@ -569,7 +550,7 @@ export async function reconcileWithInvoice(
           paymentId: payment.id,
           isValidated: true,
           validatedAt: new Date(),
-          validatedBy: session.user.id,
+          validatedBy: context.userId,
         },
       });
       await tx.bankTransaction.update({
@@ -580,7 +561,7 @@ export async function reconcileWithInvoice(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "BankReconciliation",
       entityId: transactionId,
@@ -604,6 +585,7 @@ export async function reconcileWithInvoice(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[reconcileWithInvoice]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
@@ -618,9 +600,7 @@ export async function reconcileWithLoanLine(
   loanLineId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "COMPTABLE");
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
     const [transaction, loanLine] = await Promise.all([
       prisma.bankTransaction.findFirst({
@@ -643,7 +623,7 @@ export async function reconcileWithLoanLine(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "LoanAmortizationLine",
       entityId: loanLineId,
@@ -655,6 +635,7 @@ export async function reconcileWithLoanLine(
     revalidatePath("/emprunts");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[reconcileWithLoanLine]", error);
     return { success: false, error: "Erreur lors du rapprochement" };

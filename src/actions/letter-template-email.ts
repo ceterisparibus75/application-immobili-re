@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import type { ActionResult } from "./society";
 import { generateLetterSchema } from "@/validations/letter-template";
@@ -11,6 +10,10 @@ import { generateLetterPdf } from "@/lib/letter-pdf";
 import { sendLetterEmail } from "@/lib/email";
 import { getAutoFillData } from "./letter-template";
 import { createClient } from "@supabase/supabase-js";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Upload PDF courrier dans Supabase + création Document ───────
 
@@ -66,9 +69,7 @@ export async function sendLetterByEmail(
   input: { templateId: string; values: Record<string, string>; tenantId: string }
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = generateLetterSchema.safeParse(input);
     if (!parsed.success) {
@@ -140,7 +141,7 @@ export async function sendLetterByEmail(
     // Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Letter",
       entityId: parsed.data.templateId,
@@ -149,6 +150,7 @@ export async function sendLetterByEmail(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de l'envoi du courrier" };
   }
@@ -165,9 +167,7 @@ export async function sendLetterToBuilding(
   }
 ): Promise<ActionResult<{ sent: number; errors: string[] }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     // Trouver le modèle
     const builtin = BUILTIN_TEMPLATES.find((t) => t.id === input.templateId);
@@ -295,7 +295,7 @@ export async function sendLetterToBuilding(
     // Audit log
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "Letter",
       entityId: input.templateId,
@@ -310,6 +310,7 @@ export async function sendLetterToBuilding(
 
     return { success: true, data: { sent, errors } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de l'envoi groupé" };
   }

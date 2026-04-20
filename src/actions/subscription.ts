@@ -2,11 +2,15 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
 import type { ActionResult } from "@/actions/society";
 import type { PlanId } from "@/lib/stripe";
 import { env } from "@/lib/env";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ─── Synchroniser depuis Stripe si desync detectee ────────────────────────
 
@@ -110,9 +114,7 @@ export async function getSubscription(
   hasStripeCustomer: boolean;
 }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "LECTURE");
+    await requireSocietyActionContext(societyId, "LECTURE");
 
     const subscription = await prisma.subscription.findUnique({
       where: { societyId },
@@ -161,6 +163,8 @@ export async function getSubscription(
       },
     };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getSubscription]", error);
     return { success: false, error: "Erreur lors de la recuperation" };
   }
@@ -174,9 +178,7 @@ export async function createCheckout(
   billingPeriod: "monthly" | "yearly"
 ): Promise<ActionResult<{ url: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const priceId = PRICE_IDS[planId]?.[billingPeriod];
     if (!priceId || priceId.trim() === "") {
@@ -190,7 +192,7 @@ export async function createCheckout(
     const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const url = await createCheckoutSession({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       priceId,
       planId,
       successUrl: `${baseUrl}/compte/abonnement?success=true`,
@@ -200,6 +202,8 @@ export async function createCheckout(
 
     return { success: true, data: { url } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCheckout]", error);
     return { success: false, error: "Erreur lors de la creation du checkout" };
   }
@@ -211,9 +215,7 @@ export async function forceSyncSubscription(
   societyId: string
 ): Promise<ActionResult<{ status: string; planId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const subscription = await prisma.subscription.findUnique({ where: { societyId } });
     if (!subscription) return { success: false, error: "Aucun abonnement trouvé" };
@@ -251,6 +253,8 @@ export async function forceSyncSubscription(
 
     return { success: true, data: { status: newStatus, planId: resolvedPlanId } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[forceSyncSubscription]", error);
     return { success: false, error: "Erreur lors de la synchronisation Stripe" };
   }
@@ -262,9 +266,7 @@ export async function openBillingPortal(
   societyId: string
 ): Promise<ActionResult<{ url: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const subscription = await prisma.subscription.findUnique({
       where: { societyId },
@@ -282,6 +284,8 @@ export async function openBillingPortal(
 
     return { success: true, data: { url } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[openBillingPortal]", error);
     return { success: false, error: "Erreur lors de l'ouverture du portail" };
   }
@@ -345,9 +349,7 @@ export async function cancelCurrentSubscription(
   societyId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifie" };
-    await requireSocietyAccess(session.user.id, societyId, "ADMIN_SOCIETE");
+    await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const subscription = await prisma.subscription.findUnique({
       where: { societyId },
@@ -363,6 +365,8 @@ export async function cancelCurrentSubscription(
 
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[cancelSubscription]", error);
     return { success: false, error: "Erreur lors de l'annulation" };
   }

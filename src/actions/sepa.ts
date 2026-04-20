@@ -1,14 +1,17 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { createSepaMandateForTenant, createPayment, cancelMandate } from "@/lib/gocardless-sepa";
 import { createSepaMandateSchema, createSepaPaymentSchema } from "@/validations/sepa";
-import { ForbiddenError } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import {
+  getOptionalSocietyActionContext,
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Créer un mandat SEPA pour un locataire ──────────────────
 
@@ -18,9 +21,7 @@ export async function createSepaMandate(
   input: unknown
 ): Promise<ActionResult<{ id: string; mandateReference: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createSepaMandateSchema.safeParse(input);
     if (!parsed.success)
@@ -58,7 +59,7 @@ export async function createSepaMandate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "SepaMandate",
       entityId: mandate.id,
@@ -68,6 +69,7 @@ export async function createSepaMandate(
     revalidatePath(`/locataires/${tenantId}`);
     return { success: true, data: { id: mandate.id, mandateReference: result.mandateReference } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createSepaMandate]", error);
     return { success: false, error: "Erreur lors de la création du mandat SEPA" };
@@ -81,9 +83,7 @@ export async function triggerSepaPayment(
   input: unknown
 ): Promise<ActionResult<{ paymentId: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createSepaPaymentSchema.safeParse(input);
     if (!parsed.success)
@@ -117,7 +117,7 @@ export async function triggerSepaPayment(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoice.id,
@@ -127,6 +127,7 @@ export async function triggerSepaPayment(
     revalidatePath("/facturation");
     return { success: true, data: { paymentId: payment.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[triggerSepaPayment]", error);
     return { success: false, error: "Erreur lors du déclenchement du prélèvement" };
@@ -140,9 +141,7 @@ export async function cancelSepaMandate(
   mandateId: string
 ): Promise<ActionResult<void>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const mandate = await prisma.sepaMandate.findFirst({
       where: { id: mandateId, societyId },
@@ -158,7 +157,7 @@ export async function cancelSepaMandate(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "SepaMandate",
       entityId: mandate.id,
@@ -168,6 +167,7 @@ export async function cancelSepaMandate(
     revalidatePath(`/locataires`);
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[cancelSepaMandate]", error);
     return { success: false, error: "Erreur lors de l'annulation du mandat" };
@@ -180,9 +180,8 @@ export async function getSepaMandates(
   societyId: string,
   tenantId: string
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  await requireSocietyAccess(session.user.id, societyId);
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
 
   return prisma.sepaMandate.findMany({
     where: { societyId, tenantId },

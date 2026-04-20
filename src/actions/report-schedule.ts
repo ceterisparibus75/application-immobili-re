@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSocietyAccess, ForbiddenError } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -13,6 +12,10 @@ import {
   type UpdateReportScheduleInput,
 } from "@/validations/report";
 import { computeNextRunAt } from "@/lib/reports/consolidated";
+import {
+  requireSocietyActionContext,
+  UnauthenticatedActionError,
+} from "@/lib/action-society";
 
 // ── Liste des planifications ───────────────────────────────────
 
@@ -31,10 +34,7 @@ export async function getReportSchedules(
   createdAt: Date;
 }> }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const schedules = await prisma.reportSchedule.findMany({
       where: { societyId },
@@ -44,6 +44,7 @@ export async function getReportSchedules(
 
     return { success: true, data: { schedules } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[getReportSchedules]", error);
     return { success: false, error: "Erreur lors du chargement des planifications" };
@@ -57,10 +58,7 @@ export async function createReportSchedule(
   input: CreateReportScheduleInput
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = createReportScheduleSchema.safeParse(input);
     if (!parsed.success)
@@ -71,7 +69,7 @@ export async function createReportSchedule(
     const schedule = await prisma.reportSchedule.create({
       data: {
         societyId,
-        createdById: session.user.id,
+        createdById: context.userId,
         name: parsed.data.name,
         frequency: parsed.data.frequency,
         reportTypes: parsed.data.reportTypes,
@@ -82,7 +80,7 @@ export async function createReportSchedule(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "CREATE",
       entity: "ReportSchedule",
       entityId: schedule.id,
@@ -92,6 +90,7 @@ export async function createReportSchedule(
     revalidatePath("/rapports/planification");
     return { success: true, data: { id: schedule.id } };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createReportSchedule]", error);
     return { success: false, error: "Erreur lors de la création de la planification" };
@@ -105,10 +104,7 @@ export async function updateReportSchedule(
   input: UpdateReportScheduleInput
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const parsed = updateReportScheduleSchema.safeParse(input);
     if (!parsed.success)
@@ -129,7 +125,7 @@ export async function updateReportSchedule(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "UPDATE",
       entity: "ReportSchedule",
       entityId: id,
@@ -139,6 +135,7 @@ export async function updateReportSchedule(
     revalidatePath("/rapports/planification");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateReportSchedule]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
@@ -152,10 +149,7 @@ export async function deleteReportSchedule(
   scheduleId: string
 ): Promise<ActionResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
-
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     await prisma.reportSchedule.delete({
       where: { id: scheduleId, societyId },
@@ -163,7 +157,7 @@ export async function deleteReportSchedule(
 
     await createAuditLog({
       societyId,
-      userId: session.user.id,
+      userId: context.userId,
       action: "DELETE",
       entity: "ReportSchedule",
       entityId: scheduleId,
@@ -172,6 +166,7 @@ export async function deleteReportSchedule(
     revalidatePath("/rapports/planification");
     return { success: true };
   } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteReportSchedule]", error);
     return { success: false, error: "Erreur lors de la suppression" };
