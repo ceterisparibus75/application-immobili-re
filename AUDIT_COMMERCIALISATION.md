@@ -1,6 +1,6 @@
 # Audit de l'application - Évaluation de la maturité pour commercialisation
 
-**Date :** 20 avril 2026  
+**Date :** 4 avril 2026  
 **Application :** Plateforme de gestion immobilière SaaS (multi-société)  
 **Stack :** Next.js 16 / React 19 / TypeScript / Prisma 7 / PostgreSQL / Tailwind CSS v4
 
@@ -30,15 +30,6 @@
 L'application est une **plateforme SaaS de gestion immobilière locative** destinée aux SCI, gestionnaires de patrimoine et administrateurs de biens. Elle couvre l'intégralité du cycle de gestion locative : patrimoine, baux, locataires, facturation, comptabilité, banque, et conformité RGPD.
 
 **Architecture multi-tenant et multi-propriétaire** : chaque société (SCI) dispose d'un espace isolé. Les utilisateurs peuvent appartenir à plusieurs sociétés avec des rôles différents (RBAC à 5 niveaux). Le modèle **Propriétaire** permet à un utilisateur de regrouper ses sociétés par entité juridique (SCI, SARL, personne physique), avec sélecteur et vue dédiée.
-
-### Mise à jour du 20 avril 2026
-
-- La couche `src/actions` a été uniformisée autour de helpers partagés (`action-society.ts`, `active-society.ts`, `action-auth.ts`) pour supprimer le pattern ad hoc `auth() + requireSocietyAccess(...)`.
-- La couche `src/app/api` a été durcie de la même manière via `api-society.ts` et `api-auth.ts`.
-- Les anciens points faibles de cohérence multi-tenant sur les routes API et server actions ont été résorbés.
-- Les seules exceptions runtime restantes sont volontairement limitées à `api/storage/view` et `api/storage/signed-upload`, car elles valident un `societyId` porté par le chemin ou le payload, et non seulement la société active.
-
----
 
 ## 2. Modules fonctionnels — Inventaire complet
 
@@ -222,7 +213,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | Authentification | NextAuth v5 + JWT 24h | Solide |
 | 2FA | TOTP (authenticator) | Solide |
 | RBAC | 5 niveaux hiérarchiques, vérifiés sur chaque action | Solide |
-| Multi-tenancy | Scoping systématisé via helpers partagés `action-society.ts`, `active-society.ts`, `api-society.ts` | Solide |
+| Multi-tenancy | Scoping automatique par societyId (prisma-tenant) | Solide |
 | Chiffrement données sensibles | AES-256-GCM (IBAN/BIC) | Solide |
 | Headers de sécurité | CSP avec nonce, HSTS, X-Frame-Options DENY | Solide |
 | Rate limiting | Upstash Redis (login: 3/10s, API: 10/10s) | Solide |
@@ -265,6 +256,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **HAUTE** | Timing attack sur bcrypt.compare du portail | `src/app/api/portal/login/route.ts` | Énumération de comptes valides |
 | **HAUTE** | Requêtes raw SQL contournent le tenant filtering | `src/actions/analytics.ts` | Fuite potentielle de données cross-tenant |
 | **HAUTE** | Tokens bancaires stockés en clair | Schema Prisma | Exposition si BDD compromise |
+| **MOYENNE** | Endpoint admin non protégé par rôle | `src/app/api/admin/email-diagnostics/route.ts` | Tout utilisateur authentifié y accède |
 | **MOYENNE** | CSP autorise `unsafe-inline` pour les styles | `src/proxy.ts` | Attaques par injection CSS |
 | **MOYENNE** | Pas de rotation de clé de chiffrement | `src/lib/encryption.ts` | Compromission = toutes les données historiques |
 | **MOYENNE** | Tokens dataroom prédictibles (CUID) | `src/app/api/dataroom/[token]/route.ts` | Énumération de tokens |
@@ -277,7 +269,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 - Chiffrement AES-256-GCM pour IBAN/BIC avec IV aléatoire par opération
 - RBAC hiérarchique vérifié sur chaque Server Action
-- Multi-tenancy systématisé sur les Server Actions et les routes API via helpers partagés, avec validations de rôle et de société active homogènes
+- Multi-tenancy automatique via Prisma middleware (22 modèles scopés)
 - CSP avec nonce, HSTS, X-Frame-Options DENY, Permissions-Policy
 - 2FA TOTP avec codes de récupération chiffrés
 - Validation Zod systématique sur toutes les entrées
@@ -290,20 +282,20 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 **Actions immédiates (P0) :**
 1. Rendre le rate limiting obligatoire (pas optionnel selon Redis)
 2. Ajouter rate limiting sur : vérification 2FA, login portail, reset mot de passe
-3. Chiffrer les tokens bancaires (Powens, Qonto) avec `encryptBankData()`
-4. Finaliser l'audit dédié des deux routes `storage/*` restant volontairement hors pattern standard
+3. Protéger les endpoints admin avec `requireSuperAdmin()`
+4. Chiffrer les tokens bancaires (Powens, Qonto) avec `encryptBankData()`
 
 **Court terme (P1) :**
-5. Rotation de token JWT (refresh token)
-6. Historique de mots de passe (empêcher la réutilisation)
-7. Verrouillage de compte après 5 tentatives échouées
-8. Réduction des `console.*` de diagnostic encore présents sur certains endpoints PDF/IA
+5. Vérification MIME (magic numbers) pour les uploads de fichiers
+6. Rotation de token JWT (refresh token)
+7. Historique de mots de passe (empêcher la réutilisation)
+8. Verrouillage de compte après 5 tentatives échouées
 
 **Moyen terme (P2) :**
 9. Mécanisme de rotation de clé de chiffrement
 10. Jti (JWT ID) pour révocation de tokens
-11. Scan antimalware pour les documents uploadés
-12. Consolidation d'un contrôle d'accès dédié pour les téléchargements/consultations storage multi-sociétés
+11. Workflow de suppression RGPD effectif
+12. Scan antimalware pour les documents uploadés
 
 ---
 
@@ -454,9 +446,6 @@ L'application est **fonctionnellement très complète** et dispose de tous les �
 #### Chantier 6 : Corrections de sécurité supplémentaires — COMPLÉTÉ
 - ✅ Suppression de la fuite cross-tenant dans la gestion des utilisateurs (getUsersNotInSociety exposait tous les utilisateurs de la plateforme)
 - ✅ Page /compte/utilisateurs protégée avec gestion gracieuse des erreurs de permission (Gestionnaire ne peut pas gérer les utilisateurs, message explicite au lieu d'une erreur 500)
-- ✅ Uniformisation complète des Server Actions via helpers d'authentification et de contexte société
-- ✅ Uniformisation quasi complète des routes API via `api-society.ts` et `api-auth.ts`
-- ✅ Protection de l'endpoint admin `/api/admin/email-diagnostics` par authentification centralisée + `requireSuperAdmin()`
 
 #### Corrections supplémentaires
 - ✅ Flux mot de passe oublié complet (page + API + email + reset)

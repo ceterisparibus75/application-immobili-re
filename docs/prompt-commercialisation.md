@@ -2,10 +2,6 @@
 
 > Copier-coller ce prompt dans une nouvelle session Claude Code pour continuer le travail de commercialisation.
 
-> Mise à jour du 20 avril 2026 : la couche multi-tenant a été durcie et systématisée côté `src/actions` et `src/app/api`. Les helpers de référence sont désormais `src/lib/action-society.ts`, `src/lib/active-society.ts`, `src/lib/action-auth.ts`, `src/lib/api-society.ts` et `src/lib/api-auth.ts`.
-
-> Point d'attention : les deux seules exceptions runtime encore assumées sont `src/app/api/storage/view/route.ts` et `src/app/api/storage/signed-upload/route.ts`, car elles valident un `societyId` transmis par le chemin ou le payload. Ne pas les refactorer naïvement vers le pattern "société active" sans revue de sécurité dédiée.
-
 ---
 
 ## Contexte du projet
@@ -112,17 +108,10 @@ Dans `src/lib/email.ts`, ajouter un template `sendWelcomeTrialEmail(email, first
 
 ## Règles impératives à respecter
 
-- Toujours scoper les données par `societyId` via les helpers partagés du projet, pas via du boilerplate recopié
+- Toujours scoper les données par `societyId` (jamais de requête sans)
 - Valider avec Zod avant toute écriture en base
 - Env vars via `env.NOM_VAR` depuis `src/lib/env.ts`, pas `process.env` directement
 - Composants shadcn/ui en priorité (`src/components/ui/`)
 - Toasts pour feedback succès/erreur
 - Mobile-first, responsive obligatoire
 - Aucun tracking sans consentement RGPD explicite
-
-## État actuel utile
-
-- `src/actions` n'utilise plus le vieux pattern direct `auth() + session.user.id`.
-- Les routes API métier standard utilisent désormais `requireActiveSocietyRouteContext(...)`.
-- Les routes API simplement authentifiées utilisent `requireAuthenticatedRouteContext(...)` ou `getOptionalAuthenticatedRouteContext(...)`.
-- Le typecheck global passe avec `npx tsc --noEmit --incremental false`.

@@ -157,9 +157,16 @@ La logique middleware est dans `src/proxy.ts` (exportée depuis `middleware.ts`)
 Toute l'application est multi-société. Chaque entité Prisma est scopée par `societyId`.
 
 - **Côté client** : `SocietyProvider` (`src/providers/society-provider.tsx`) + hook `useSociety()` gère le cookie `active-society-id`
-- **Côté serveur** : `requireSocietyAccess(userId, societyId, minRole?)` dans `src/lib/permissions.ts`
-- **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` injecte automatiquement `societyId` dans toutes les requêtes (find, create, update, delete)
+- **Server Actions société explicite** : utiliser `requireSocietyActionContext(...)` / `getOptionalSocietyActionContext(...)` dans `src/lib/action-society.ts`
+- **Server Actions société active** : utiliser `requireActiveSociety(...)` / helpers associés dans `src/lib/active-society.ts`
+- **Server Actions auth simple** : utiliser `requireAuthenticatedActionContext()` dans `src/lib/action-auth.ts`
+- **Routes API société active** : utiliser `requireActiveSocietyRouteContext(...)` dans `src/lib/api-society.ts`
+- **Routes API auth simple** : utiliser `requireAuthenticatedRouteContext()` ou `getOptionalAuthenticatedRouteContext()` dans `src/lib/api-auth.ts`
+- **Permissions bas niveau** : `requireSocietyAccess(userId, societyId, minRole?)` dans `src/lib/permissions.ts` reste la primitive de contrôle, à appeler directement uniquement pour les cas spéciaux
+- **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` existe, mais ne doit pas être considéré comme la protection principale ni branché naïvement partout
 - **Propriétaires** : Un utilisateur peut avoir plusieurs entités `Proprietaire` (SCI, SARL, personne physique), chacune regroupant des sociétés. Actions CRUD dans `src/actions/proprietaire.ts`. Migration automatique des sociétés existantes via `migrateOwnerToProprietaire()`.
+
+**Exceptions runtime assumées** : `src/app/api/storage/view/route.ts` et `src/app/api/storage/signed-upload/route.ts` valident un `societyId` transmis par le chemin ou le payload. Ne pas les refactorer automatiquement vers le pattern "société active" sans revue de sécurité.
 
 ### Authentification avancée
 
@@ -214,31 +221,27 @@ Toutes les mutations passent par des Server Actions. Pattern systématique :
 ```typescript
 "use server";
 import type { ActionResult } from "@/actions/society"; // { success: boolean; data?: T; error?: string }
+import { requireSocietyActionContext } from "@/lib/action-society";
 
 export async function createEntity(societyId: string, input: Input): Promise<ActionResult<{ id: string }>> {
   try {
-    // 1. Session
-    const session = await auth();
-    if (!session?.user?.id) return { success: false, error: "Non authentifié" };
+    // 1. Contexte auth + société
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-    // 2. Permissions
-    await requireSocietyAccess(session.user.id, societyId, "GESTIONNAIRE");
-
-    // 3. Validation Zod
+    // 2. Validation Zod
     const parsed = createEntitySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map(e => e.message).join(", ") };
 
-    // 4. Opération Prisma
+    // 3. Opération Prisma
     const result = await prisma.entity.create({ data: { societyId, ...parsed.data } });
 
-    // 5. Audit log
-    await createAuditLog({ societyId, userId: session.user.id, action: "CREATE", entity: "Entity", entityId: result.id });
+    // 4. Audit log
+    await createAuditLog({ societyId, userId: context.userId, action: "CREATE", entity: "Entity", entityId: result.id });
 
-    // 6. Revalidation cache
+    // 5. Revalidation cache
     revalidatePath("/path");
     return { success: true, data: { id: result.id } };
   } catch (error) {
-    if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createEntity]", error);
     return { success: false, error: "Erreur lors de l'opération" };
   }
@@ -269,11 +272,16 @@ PUT    /api/[module]/[id]  → mise à jour
 DELETE /api/[module]/[id]  → suppression (soft delete si possible)
 ```
 
-**Récupération du societyId** dans les routes API :
+**Pattern standard pour les routes API société-scopées** :
 ```typescript
-const cookieStore = await cookies();
-const societyId = cookieStore.get("active-society-id")?.value;
+const context = await requireActiveSocietyRouteContext({ minRole: "LECTURE" });
+if (context instanceof NextResponse) return context;
+
+// context.societyId
+// context.userId
 ```
+
+Pour les routes API simplement authentifiées, utiliser `requireAuthenticatedRouteContext()` ou `getOptionalAuthenticatedRouteContext()` depuis `src/lib/api-auth.ts`.
 
 Réponse standard :
 ```typescript
