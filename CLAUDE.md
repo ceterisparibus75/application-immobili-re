@@ -431,7 +431,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Révisions de loyer | `/baux/revisions` | `rent-revision.ts`, `revision-prorata.ts` |
 | Locataires | `/locataires` | `tenant.ts` |
 | Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
-| Facturation + Paiements | `/facturation` | `invoice.ts`, `payment.ts` |
+| Facturation + Paiements | `/facturation` | `invoice.ts` (barrel → `invoice-shared.ts`, `invoice-queries.ts`, `invoice-generation.ts`, `invoice-lifecycle.ts`), `payment.ts` |
 | Facturation électronique B2B | `/facturation/[id]` | `einvoicing.ts` (bouton "Envoyer PA B2B") |
 | Banque + Rapprochement + Cashflow | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts`, `cashflow.ts` |
 | Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
