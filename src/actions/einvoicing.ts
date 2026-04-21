@@ -23,6 +23,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { getPAClient, PAClientError, isEInvoicingConfigured, type StatusUpdate } from "@/lib/pa-client";
+import { getSocietyAccessToken, disconnectSocietyFromSuperPDP } from "@/lib/pa-oauth";
 import { generateFacturXml } from "@/lib/einvoice-generator";
 import {
   getChorusProClient,
@@ -67,6 +68,36 @@ function requireChorusPro(): ActionResult<never> | null {
     };
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Connexion / déconnexion SUPER PDP (OAuth 2.1 par société)
+// ---------------------------------------------------------------------------
+
+/**
+ * Révoque les tokens OAuth 2.1 SUPER PDP d'une société et les supprime de la DB.
+ * L'utilisateur devra relancer le flow d'autorisation pour se reconnecter.
+ */
+export async function disconnectFromSuperPDP(societyId: string): Promise<ActionResult<void>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
+    await disconnectSocietyFromSuperPDP(societyId);
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Society",
+      entityId: societyId,
+      details: { event: "superpdp_disconnected" },
+    });
+    revalidatePath("/parametres/facturation");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[disconnectFromSuperPDP]", error);
+    return { success: false, error: "Erreur lors de la déconnexion" };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -323,27 +354,32 @@ export async function submitInvoice(
     });
     const xmlBuffer = Buffer.from(xmlString, "utf-8");
 
-    // Soumettre à la PA (format CII XML — standard Peppol B2B)
-    // Model B : si PA_MANDATAIRE_SIRET est configuré, MyGestia agit comme SC mandataire.
-    // mandantSiret = SIRET de la société cliente (vendeur réel sur la facture).
+    // Récupérer le token OAuth 2.1 par société (Authorization Code flow — SUPER PDP)
+    // Fallback transparent sur Client Credentials si la société n'a pas encore connecté son compte.
+    const societyToken = await getSocietyAccessToken(societyId);
+
     const pa = getPAClient()!;
-    const result = await pa.submitInvoice(xmlBuffer, {
-      invoiceNumber: invoice.invoiceNumber,
-      issueDate: invoice.issueDate.toISOString().split("T")[0],
-      seller: { siren: soc.siret.slice(0, 9), siret: soc.siret, name: soc.name },
-      buyer: {
-        siren: tenantSiret ? tenantSiret.slice(0, 9) : "000000000",
-        siret: tenantSiret,
-        name: tenantName,
+    const result = await pa.submitInvoice(
+      xmlBuffer,
+      {
+        invoiceNumber: invoice.invoiceNumber,
+        issueDate: invoice.issueDate.toISOString().split("T")[0],
+        seller: { siren: soc.siret.slice(0, 9), siret: soc.siret, name: soc.name },
+        buyer: {
+          siren: tenantSiret ? tenantSiret.slice(0, 9) : "000000000",
+          siret: tenantSiret,
+          name: tenantName,
+        },
+        format: "CII",
+        profile: "BASIC",
+        totalHT: invoice.totalHT,
+        totalTTC: invoice.totalTTC,
+        currency: "EUR",
+        dueDate: invoice.dueDate.toISOString().split("T")[0],
+        mandantSiret: soc.siret,
       },
-      format: "CII",
-      profile: "BASIC",
-      totalHT: invoice.totalHT,
-      totalTTC: invoice.totalTTC,
-      currency: "EUR",
-      dueDate: invoice.dueDate.toISOString().split("T")[0],
-      mandantSiret: soc.siret, // SIRET société cliente (vendeur réel) — pour mode SC mandataire
-    });
+      societyToken ?? undefined
+    );
 
     // Stocker le flowId dans la facture
     await prisma.invoice.update({

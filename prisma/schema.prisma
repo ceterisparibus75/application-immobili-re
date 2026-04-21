@@ -485,6 +485,11 @@ model Society {
   // Facturation électronique — Solution Compatible PPF (DGFiP)
   ppfRegisteredAt  DateTime? // Date d'inscription au Répertoire PPF (annuaire)
 
+  // SUPER PDP — OAuth 2.1 Authorization Code (un token par société)
+  paOAuthAccessToken    String?   // Access token (AES-256-GCM chiffré)
+  paOAuthRefreshToken   String?   // Refresh token (AES-256-GCM chiffré — rotation OAuth 2.1)
+  paOAuthTokenExpiresAt DateTime? // Expiration UTC du access token
+
   // Proprietaire (legacy — migration progressive)
   ownerId String?
   owner   User?   @relation("SocietyOwner", fields: [ownerId], references: [id])
@@ -3857,4 +3862,20 @@ model SupplierInvoice {
   @@index([accountingAccountId])
   @@index([supplierName])
   @@index([invoiceDate])
+}
+
+
+// ---------------------------------------------------------------------------
+// OAuth 2.1 — État temporaire PKCE (Authorization Code flow)
+// Durée de vie max 10 min — nettoyé après usage ou expiration
+// ---------------------------------------------------------------------------
+
+model PAOAuthState {
+  id           String   @id @default(cuid())
+  societyId    String
+  codeVerifier String   // PKCE code_verifier — usage unique
+  expiresAt    DateTime // 10 min max
+
+  @@index([societyId])
+  @@index([expiresAt])
 }

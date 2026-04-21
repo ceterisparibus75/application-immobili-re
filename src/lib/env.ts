@@ -55,6 +55,15 @@ const envSchema = z.object({
   // MyGestia signe UN contrat avec la PA qui couvre toutes les sociétés clientes.
   // PA_MANDATAIRE_SIRET = SIRET de MTG Holding (l'entité légale MyGestia enregistrée auprès de la PA)
   PA_MANDATAIRE_SIRET: z.string().optional(),   // SIRET MyGestia enregistré comme SC auprès de la PA
+
+  // OAuth 2.1 Authorization Code — SUPER PDP (un token par société cliente)
+  // Chaque société connecte son compte SUPER PDP à MyGestia via ce flow.
+  // Endpoint d'autorisation : https://api.superpdp.tech/oauth2/authorize
+  // Token endpoint réutilise PA_AUTH_TOKEN_URL : https://api.superpdp.tech/oauth2/token
+  PA_OAUTH_AUTHORIZE_URL: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().url().optional()
+  ), // ex: https://api.superpdp.tech/oauth2/authorize
 });
 
 const isBuildPhase =

@@ -22,7 +22,7 @@ export default async function ParametresFacturationPage() {
     getSupplierInboxConfig(societyId),
     prisma.society.findFirst({
       where: { id: societyId },
-      select: { ppfRegisteredAt: true, siret: true },
+      select: { ppfRegisteredAt: true, siret: true, paOAuthAccessToken: true },
     }),
   ]);
 
@@ -71,6 +71,8 @@ export default async function ParametresFacturationPage() {
         hasSiret={!!society?.siret}
         isConfigured={isEInvoicingConfigured()}
         isMandataireMode={!!env.PA_MANDATAIRE_SIRET}
+        paConnected={!!society?.paOAuthAccessToken}
+        oauthConfigured={!!env.PA_OAUTH_AUTHORIZE_URL}
       />
 
       {/* Formulaire de configuration inbox */}

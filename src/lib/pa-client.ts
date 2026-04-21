@@ -228,19 +228,22 @@ export class PAClient {
 
   // ── Helpers internes ─────────────────────────────────────────────────────
 
-  private async headers(): Promise<Record<string, string>> {
-    const h: Record<string, string> = {
-      Accept: "application/json",
-    };
+  private async headers(societyAccessToken?: string): Promise<Record<string, string>> {
+    const h: Record<string, string> = { Accept: "application/json" };
 
-    // Priorité 1 : OAuth2 propre à la PA
+    if (societyAccessToken) {
+      // Priorité 1 : token OAuth 2.1 par société (Authorization Code flow)
+      h["Authorization"] = `Bearer ${societyAccessToken}`;
+      return h;
+    }
+
+    // Priorité 2 : OAuth2 Client Credentials global (dev/sandbox)
     const paToken = await getPAOAuth2Token().catch(() => null);
     if (paToken) {
       h["Authorization"] = `Bearer ${paToken}`;
-      // Certaines PAs acceptent aussi X-API-Key en complément
       if (env.PA_API_KEY) h["X-API-Key"] = env.PA_API_KEY;
     } else if (env.PA_API_KEY) {
-      // Priorité 2 : API key simple
+      // Priorité 3 : API key simple
       h["Authorization"] = `Bearer ${env.PA_API_KEY}`;
     }
 
@@ -249,15 +252,17 @@ export class PAClient {
 
   private async fetch<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    societyAccessToken?: string
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    let headers = await this.headers();
+    let headers = await this.headers(societyAccessToken);
 
     const res = await fetch(url, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
 
-    // Token expiré → invalider le cache et réessayer une fois
-    if (res.status === 401) {
+    // Token expiré global (Client Credentials) → invalider le cache et réessayer une fois
+    // Pour les tokens par société, le rafraîchissement est géré dans pa-oauth.ts
+    if (res.status === 401 && !societyAccessToken) {
       invalidatePAToken();
       headers = await this.headers();
       const retry = await fetch(url, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
@@ -288,7 +293,8 @@ export class PAClient {
    */
   async submitInvoice(
     fileBuffer: Buffer,
-    metadata: SubmitInvoiceMetadata
+    metadata: SubmitInvoiceMetadata,
+    societyAccessToken?: string
   ): Promise<SubmitInvoiceResult> {
     const filename =
       metadata.format === "FACTURX"
@@ -301,7 +307,7 @@ export class PAClient {
     const formData = new FormData();
     formData.append("file", new Blob([new Uint8Array(fileBuffer)], { type: mimeType }), filename);
 
-    const headers = await this.headers();
+    const headers = await this.headers(societyAccessToken);
 
     // Model B — mandataire de transmission (Solution Compatible)
     // Si PA_MANDATAIRE_SIRET est configuré, MyGestia soumet en tant que SC mandataire.
@@ -342,7 +348,7 @@ export class PAClient {
    * Récupère les factures reçues ou émises (pagination par curseur).
    * SUPER PDP utilise GET /v1.beta/invoices?order=desc&starting_after_id=X
    */
-  async searchFlows(params: SearchFlowsParams): Promise<SearchFlowsResult> {
+  async searchFlows(params: SearchFlowsParams, societyAccessToken?: string): Promise<SearchFlowsResult> {
     const qs = new URLSearchParams({ order: "desc" });
     if (params.page && params.page > 0) {
       qs.set("starting_after_id", String(params.page));
@@ -350,7 +356,9 @@ export class PAClient {
 
     // SUPER PDP retourne { data: [...], count: N, has_before: bool, has_after: bool }
     const raw = await this.fetch<{ data?: unknown[]; count?: number } | unknown[]>(
-      `/v1.beta/invoices?${qs.toString()}`
+      `/v1.beta/invoices?${qs.toString()}`,
+      {},
+      societyAccessToken
     );
 
     const invoices = Array.isArray(raw)
@@ -394,7 +402,7 @@ export class PAClient {
    * Émet un événement de cycle de vie sur une facture.
    * SUPER PDP : POST /v1.beta/invoice_events
    */
-  async updateFlowStatus(flowId: string, update: StatusUpdate): Promise<void> {
+  async updateFlowStatus(flowId: string, update: StatusUpdate, societyAccessToken?: string): Promise<void> {
     return this.fetch<void>("/v1.beta/invoice_events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -403,7 +411,7 @@ export class PAClient {
         status_code: mapStatusToSuperPdp(update.status),
         ...(update.comment ? { details: [{ comment: update.comment }] } : {}),
       }),
-    });
+    }, societyAccessToken);
   }
 
   /**
@@ -508,5 +516,14 @@ export function getPAClient(): PAClient | null {
 // ---------------------------------------------------------------------------
 
 export function isEInvoicingConfigured(): boolean {
-  return !!(env.PISTE_CLIENT_ID && env.PISTE_CLIENT_SECRET && env.PA_API_BASE_URL);
+  if (!env.PA_API_BASE_URL) return false;
+  // Au moins un mécanisme d'auth configuré :
+  // - API key simple, ou
+  // - Client Credentials OAuth2 (dev/sandbox), ou
+  // - Authorization Code OAuth2 (flow par société, SUPER PDP)
+  return !!(
+    env.PA_API_KEY ||
+    (env.PA_AUTH_CLIENT_ID && env.PA_AUTH_CLIENT_SECRET) ||
+    env.PA_OAUTH_AUTHORIZE_URL
+  );
 }
