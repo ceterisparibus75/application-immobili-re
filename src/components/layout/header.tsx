@@ -123,6 +123,14 @@ export function Header() {
                       <Settings className="h-4 w-4 text-muted-foreground" />
                       Paramètres
                     </Link>
+                    <Link
+                      href="/parametres/facturation"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <ScrollText className="h-4 w-4 text-muted-foreground" />
+                      Facturation électronique
+                    </Link>
                   </div>
                   <div className="p-1.5 border-t">
                     <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
