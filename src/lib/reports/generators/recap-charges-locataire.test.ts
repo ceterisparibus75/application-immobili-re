@@ -1,0 +1,174 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prismaMock } from "@/test/mocks/prisma";
+
+const pdfCtx = vi.hoisted(() => ({
+  save: vi.fn().mockResolvedValue(Buffer.from("pdf-buffer")),
+  np: vi.fn(() => ({ id: "page-1" })),
+  reg: {},
+  bold: {},
+  serifBold: {},
+}));
+
+const helperMocks = vi.hoisted(() => ({
+  initPdf: vi.fn().mockResolvedValue(pdfCtx),
+  drawCoverPage: vi.fn(),
+  drawSectionHeader: vi.fn((_, __, y) => y - 20),
+  drawTableHeader: vi.fn((_, __, y) => y - 20),
+  drawTableRow: vi.fn((_, __, y) => y - 16),
+  drawTotalsRow: vi.fn((_, __, y) => y - 16),
+  drawKpiRow: vi.fn((_, __, ___, y) => y - 14),
+  drawEmptyMessage: vi.fn(),
+  pdfCur: vi.fn((amount: number) => `${amount.toFixed(2)} EUR`),
+  contentStartY: vi.fn(() => 700),
+  minY: vi.fn(() => 100),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: prismaMock,
+}));
+
+vi.mock("../pdf-core", () => ({
+  initPdf: helperMocks.initPdf,
+  drawCoverPage: helperMocks.drawCoverPage,
+  pdfCur: helperMocks.pdfCur,
+  contentStartY: helperMocks.contentStartY,
+  minY: helperMocks.minY,
+}));
+
+vi.mock("../pdf-helpers", () => ({
+  drawSectionHeader: helperMocks.drawSectionHeader,
+  drawTableHeader: helperMocks.drawTableHeader,
+  drawTableRow: helperMocks.drawTableRow,
+  drawTotalsRow: helperMocks.drawTotalsRow,
+  drawKpiRow: helperMocks.drawKpiRow,
+  drawEmptyMessage: helperMocks.drawEmptyMessage,
+}));
+
+vi.mock("@/lib/utils", () => ({
+  formatDate: vi.fn(() => "01/01/2026"),
+}));
+
+import { generateRecapChargesLocataire } from "./recap-charges-locataire";
+
+describe("generateRecapChargesLocataire", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    helperMocks.initPdf.mockResolvedValue(pdfCtx);
+    pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
+    pdfCtx.np.mockReturnValue({ id: "page-1" });
+  });
+
+  it("échoue si tenantId est absent", async () => {
+    await expect(
+      generateRecapChargesLocataire({
+        societyId: "society-1",
+        type: "RECAP_CHARGES_LOCATAIRE",
+        year: 2026,
+      })
+    ).rejects.toThrow("tenantId requis pour ce rapport");
+  });
+
+  it("échoue si le locataire est introuvable", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
+
+    await expect(
+      generateRecapChargesLocataire({
+        societyId: "society-1",
+        tenantId: "tenant-1",
+        type: "RECAP_CHARGES_LOCATAIRE",
+        year: 2026,
+      })
+    ).rejects.toThrow("Locataire introuvable");
+  });
+
+  it("génère un PDF avec message vide si aucun bail n'est trouvé", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      societyId: "society-1",
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: "Alice",
+      lastName: "Durand",
+      email: "alice@example.com",
+      phone: "0600000000",
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+      society: { name: "Ma Société" },
+    });
+
+    expect(result).toEqual({
+      buffer: Buffer.from("pdf-buffer"),
+      filename: "charges-locataire-tenant-1-2026.pdf",
+      contentType: "application/pdf",
+    });
+    expect(helperMocks.drawEmptyMessage).toHaveBeenCalled();
+    expect(helperMocks.drawCoverPage).toHaveBeenCalledWith(
+      pdfCtx,
+      "Récapitulatif des Charges",
+      "Locataire : Alice Durand",
+      expect.arrayContaining(["Société : Ma Société", "Exercice : 2026"])
+    );
+  });
+
+  it("génère un PDF détaillé pour un bail avec provisions et régularisation", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      societyId: "society-1",
+      entityType: "PERSONNE_MORALE",
+      companyName: "ACME SAS",
+      email: "contact@acme.fr",
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-1",
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        lot: {
+          number: "A1",
+          building: { name: "Immeuble Test" },
+        },
+        chargeProvisions: [
+          { label: "Provision eau", monthlyAmount: 50 },
+          { label: "Provision copro", monthlyAmount: 75 },
+        ],
+        chargeRegularizations: [
+          {
+            fiscalYear: 2026,
+            totalCharges: 1600,
+            totalProvisions: 1500,
+            balance: 100,
+          },
+        ],
+        invoices: [
+          { totalTTC: 1200 },
+          { totalTTC: 1300 },
+        ],
+      },
+    ] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+    });
+
+    expect(result.filename).toBe("charges-locataire-tenant-1-2026.pdf");
+    expect(helperMocks.drawTableHeader).toHaveBeenCalled();
+    expect(helperMocks.drawTableRow).toHaveBeenCalledTimes(2);
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalled();
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Loyers appelés",
+      "2500.00 EUR"
+    );
+  });
+});

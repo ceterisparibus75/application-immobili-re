@@ -1,0 +1,114 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
+import { prismaMock } from "@/test/mocks/prisma";
+import { UserRole } from "@/generated/prisma/client";
+import { createAuditLog } from "@/lib/audit";
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+
+import {
+  createInspection,
+  getInspectionById,
+  getInspectionsByLease,
+  updateInspection,
+} from "./inspection";
+
+const SOCIETY_ID = "society-1";
+const LEASE_ID = "cm8m6m6m6000008l2a1bcdefg";
+const INSPECTION_ID = "cm8m6m6m6000008l2a1bcdefh";
+
+describe("inspection actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne une erreur de validation si l'inspection à créer est invalide", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: "invalid",
+      type: "ENTREE",
+      performedAt: "",
+      rooms: [{ name: "", condition: "BON" }],
+    } as never);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Invalid cuid");
+    expect(result.error).toContain("La date est requise");
+    expect(result.error).toContain("Le nom de la pièce est requis");
+  });
+
+  it("crée une inspection avec ses pièces et écrit un audit", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.inspection.create.mockResolvedValue({ id: INSPECTION_ID } as never);
+
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "ENTREE",
+      performedAt: "2026-04-20",
+      performedBy: "Alice",
+      generalNotes: "RAS",
+      rooms: [{ name: "Salon", condition: "BON", notes: "Très propre" }],
+    });
+
+    expect(result).toEqual({ success: true, data: { id: INSPECTION_ID } });
+    expect(prismaMock.inspection.create).toHaveBeenCalledWith({
+      data: {
+        leaseId: LEASE_ID,
+        type: "ENTREE",
+        performedAt: new Date("2026-04-20"),
+        performedBy: "Alice",
+        generalNotes: "RAS",
+        rooms: {
+          create: [{ name: "Salon", condition: "BON", notes: "Très propre" }],
+        },
+      },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        societyId: SOCIETY_ID,
+        userId: "user-1",
+        action: "CREATE",
+        entity: "Inspection",
+        entityId: INSPECTION_ID,
+      })
+    );
+  });
+
+  it("met à jour une inspection existante", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.inspection.findFirst.mockResolvedValue({
+      id: INSPECTION_ID,
+      leaseId: LEASE_ID,
+    } as never);
+
+    const result = await updateInspection(SOCIETY_ID, {
+      id: INSPECTION_ID,
+      performedBy: "Bob",
+      generalNotes: "Signature reçue",
+      signedFileUrl: "https://files.test/signed.pdf",
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.inspection.update).toHaveBeenCalledWith({
+      where: { id: INSPECTION_ID },
+      data: {
+        performedBy: "Bob",
+        generalNotes: "Signature reçue",
+        signedFileUrl: "https://files.test/signed.pdf",
+      },
+    });
+  });
+
+  it("retourne des lectures silencieuses si non authentifié", async () => {
+    mockUnauthenticated();
+
+    const list = await getInspectionsByLease(SOCIETY_ID, LEASE_ID);
+    const item = await getInspectionById(SOCIETY_ID, INSPECTION_ID);
+
+    expect(list).toEqual([]);
+    expect(item).toBeNull();
+  });
+});

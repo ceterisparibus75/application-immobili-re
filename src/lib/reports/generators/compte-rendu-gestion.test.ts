@@ -1,0 +1,173 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prismaMock } from "@/test/mocks/prisma";
+
+const pdfCtx = vi.hoisted(() => ({
+  save: vi.fn().mockResolvedValue(Buffer.from("pdf-buffer")),
+  np: vi.fn(() => ({ id: "page-1" })),
+  reg: {},
+  bold: {},
+  serifBold: {},
+}));
+
+const helperMocks = vi.hoisted(() => ({
+  initPdf: vi.fn().mockResolvedValue(pdfCtx),
+  drawCoverPage: vi.fn(),
+  drawSectionHeader: vi.fn((_, __, y) => y - 20),
+  drawTableHeader: vi.fn((_, __, y) => y - 20),
+  drawTableRow: vi.fn((_, __, y) => y - 16),
+  drawTotalsRow: vi.fn((_, __, y) => y - 16),
+  drawKpiRow: vi.fn((_, __, ___, y) => y - 14),
+  drawEmptyMessage: vi.fn(),
+  pdfCur: vi.fn((amount: number) => `${amount.toFixed(2)} EUR`),
+  contentStartY: vi.fn(() => 700),
+  minY: vi.fn(() => 100),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: prismaMock,
+}));
+
+vi.mock("../pdf-core", () => ({
+  initPdf: helperMocks.initPdf,
+  drawCoverPage: helperMocks.drawCoverPage,
+  pdfCur: helperMocks.pdfCur,
+  contentStartY: helperMocks.contentStartY,
+  minY: helperMocks.minY,
+}));
+
+vi.mock("../pdf-helpers", () => ({
+  drawSectionHeader: helperMocks.drawSectionHeader,
+  drawTableHeader: helperMocks.drawTableHeader,
+  drawTableRow: helperMocks.drawTableRow,
+  drawTotalsRow: helperMocks.drawTotalsRow,
+  drawKpiRow: helperMocks.drawKpiRow,
+  drawEmptyMessage: helperMocks.drawEmptyMessage,
+}));
+
+import { generateCompteRenduGestion } from "./compte-rendu-gestion";
+
+describe("generateCompteRenduGestion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    helperMocks.initPdf.mockResolvedValue(pdfCtx);
+    pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
+    pdfCtx.np.mockReturnValue({ id: "page-1" });
+  });
+
+  it("rejette si la société est introuvable", async () => {
+    prismaMock.society.findUnique.mockResolvedValue(null);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.building.findMany.mockResolvedValue([] as never);
+
+    await expect(
+      generateCompteRenduGestion({
+        societyId: "society-1",
+        type: "COMPTE_RENDU_GESTION",
+        year: 2026,
+      })
+    ).rejects.toThrow("Société introuvable");
+  });
+
+  it("calcule la synthèse annuelle et les sous-totaux par immeuble et locataire", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({
+      id: "society-1",
+      name: "Ma Société",
+    } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        totalTTC: 1200,
+        status: "PAYE",
+        tenant: {
+          entityType: "PERSONNE_PHYSIQUE",
+          firstName: "Alice",
+          lastName: "Durand",
+          companyName: null,
+        },
+        lease: {
+          lot: {
+            buildingId: "building-1",
+            number: "A1",
+          },
+        },
+        payments: [{ amount: 1200 }],
+      },
+      {
+        tenantId: "tenant-2",
+        totalTTC: 800,
+        status: "VALIDE",
+        tenant: {
+          entityType: "PERSONNE_MORALE",
+          companyName: "ACME SAS",
+          firstName: null,
+          lastName: null,
+        },
+        lease: {
+          lot: {
+            buildingId: "building-1",
+            number: "A2",
+          },
+        },
+        payments: [{ amount: 300 }],
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([
+      {
+        buildingId: "building-1",
+        amount: 250,
+      },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [{ id: "lot-1" }, { id: "lot-2" }],
+      },
+    ] as never);
+
+    const result = await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+      society: { name: "Ma Société" },
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    expect(result.filename).toBe("compte-rendu-gestion-2026.pdf");
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Total facturé",
+      "2000.00 EUR"
+    );
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Loyers encaissés (payés)",
+      "1200.00 EUR",
+      expect.anything()
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      ["TOTAL", "", "2000.00 EUR", "1200.00 EUR", "250.00 EUR", "800.00 EUR"],
+      expect.any(Array),
+      expect.any(Array)
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["ACME SAS", "A2", "800.00 EUR", "300.00 EUR", "500.00 EUR", "Impayé"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 1 })
+    );
+  });
+});

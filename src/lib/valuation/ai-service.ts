@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { logAiCall } from "@/lib/ai-logger";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/lib/env";
 import { CLAUDE_VALUATION_SYSTEM_PROMPT } from "./prompts/claude-valuation";
@@ -41,6 +42,15 @@ export async function callClaude(
 
   const tokenCount = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
   const result = parseAiValuationResult(rawResponse);
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    operation: "callClaude/valuation",
+    durationMs,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
+  });
 
   return { result, rawResponse, durationMs, tokenCount };
 }
@@ -68,6 +78,15 @@ export async function callOpenAI(
   const rawResponse = response.choices[0]?.message?.content ?? "";
   const tokenCount = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
   const result = parseAiValuationResult(rawResponse);
+  logAiCall({
+    provider: "openai",
+    model: "gpt-4o-mini",
+    operation: "callOpenAI/valuation",
+    durationMs,
+    inputTokens: response.usage?.prompt_tokens,
+    outputTokens: response.usage?.completion_tokens,
+    success: true,
+  });
 
   return { result, rawResponse, durationMs, tokenCount };
 }
@@ -100,6 +119,15 @@ export async function callClaudeRentValuation(
 
   const tokenCount = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
   const result = parseRentValuationResult(rawResponse);
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    operation: "callClaude/rentValuation",
+    durationMs,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
+  });
 
   return { result, rawResponse, durationMs, tokenCount };
 }
@@ -127,6 +155,15 @@ export async function callOpenAIRentValuation(
   const rawResponse = response.choices[0]?.message?.content ?? "";
   const tokenCount = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
   const result = parseRentValuationResult(rawResponse);
+  logAiCall({
+    provider: "openai",
+    model: "gpt-4o-mini",
+    operation: "callOpenAI/rentValuation",
+    durationMs,
+    inputTokens: response.usage?.prompt_tokens,
+    outputTokens: response.usage?.completion_tokens,
+    success: true,
+  });
 
   return { result, rawResponse, durationMs, tokenCount };
 }
@@ -151,9 +188,10 @@ export async function extractReportData(
   }
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const start = Date.now();
 
   if (textContent.length < 100) {
-    return extractReportWithVision(client, pdfBuffer);
+    return extractReportWithVision(client, pdfBuffer, start);
   }
 
   const response = await client.messages.create({
@@ -167,6 +205,15 @@ export async function extractReportData(
       },
     ],
   });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    operation: "extractReportData/text",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
+  });
 
   const rawResponse = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -179,7 +226,8 @@ export async function extractReportData(
 
 async function extractReportWithVision(
   client: Anthropic,
-  pdfBuffer: Buffer
+  pdfBuffer: Buffer,
+  start: number
 ): Promise<{ result: ExtractedReportData; rawResponse: string }> {
   const base64Pdf = pdfBuffer.toString("base64");
 
@@ -206,6 +254,15 @@ async function extractReportWithVision(
         ],
       },
     ],
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    operation: "extractReportData/vision",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   const rawResponse = response.content

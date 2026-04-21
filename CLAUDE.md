@@ -518,6 +518,31 @@ Le setup global (`src/test/setup.ts`) mock automatiquement :
 **Mock Prisma** (`src/test/mocks/prisma.ts`) :
 - `prismaMock` — deep mock de `PrismaClient`, reset avant chaque test via `beforeEach`
 
+### Patterns de test
+
+**⚠️ Hoisting `vi.mock()`** : Vitest hisse les appels `vi.mock()` en tête de fichier à la compilation. Les placer **avant** les imports qui utilisent ces modules, sinon le mock n'est pas appliqué.
+
+Mocks quasi-universels à ajouter dans chaque fichier de test d'action :
+
+```typescript
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+
+// Puis les imports
+import { maFonction } from "./mon-action";
+```
+
+`mockAuthSession()` mock aussi `subscription.findUnique` avec un abonnement PRO ACTIVE, ce qui permet à `checkSubscriptionActive()` de passer sans configuration supplémentaire.
+
+Pour mocker une dépendance avec des classes ou des modules complexes (ex. ExcelJS), utiliser `vi.hoisted()` :
+
+```typescript
+const myMocks = vi.hoisted(() => ({
+  writeBuffer: vi.fn().mockResolvedValue(new Uint8Array()),
+}));
+vi.mock("exceljs", () => ({ default: { Workbook: vi.fn(() => myMocks) } }));
+```
+
 ## CI (GitHub Actions)
 
 Pipeline `.github/workflows/ci.yml` sur push/PR vers `main` :

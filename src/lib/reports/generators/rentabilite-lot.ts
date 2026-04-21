@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult } from "../types";
@@ -61,7 +60,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
       lease ? "Occupé" : "Vacant",
       lease?.currentRentHT ?? 0,
       rev,
-      (lot as any).marketRentValue ?? null,
+      lot.marketRentValue ?? null,
       lot.status.replace(/_/g, " "),
     ]);
     [5, 6, 7].forEach((ci) => { row.getCell(ci).numFmt = EUR; });

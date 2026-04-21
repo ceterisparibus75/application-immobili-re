@@ -1,0 +1,253 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
+import { prismaMock } from "@/test/mocks/prisma";
+import { UserRole } from "@/generated/prisma/client";
+import { createAuditLog } from "@/lib/audit";
+
+const { revalidatePath, checkSubscriptionActive, searchDvfTransactions } = vi.hoisted(() => ({
+  revalidatePath: vi.fn(),
+  checkSubscriptionActive: vi.fn(),
+  searchDvfTransactions: vi.fn(),
+}));
+
+vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/plan-limits", () => ({ checkSubscriptionActive }));
+vi.mock("@/lib/valuation/dvf-service", () => ({ searchDvfTransactions }));
+
+import {
+  createValuation,
+  deleteValuation,
+  getValuation,
+  getValuations,
+  searchComparables,
+  updateValuationResults,
+} from "./valuation";
+
+const SOCIETY_ID = "society-1";
+const BUILDING_ID = "clh3x2z4k0000qh8g7z1y2v3t";
+const VALUATION_ID = "clh3x2z4k0001qh8g7z1y2v3u";
+
+describe("valuation actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSubscriptionActive.mockResolvedValue({ active: true });
+  });
+
+  it("refuse la création si l'utilisateur n'est pas authentifié", async () => {
+    mockUnauthenticated();
+
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Non authentifié",
+    });
+  });
+
+  it("refuse la création si l'abonnement est inactif", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    checkSubscriptionActive.mockResolvedValue({
+      active: false,
+      message: "Abonnement inactif",
+    });
+
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Abonnement inactif",
+    });
+    expect(prismaMock.building.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si l'immeuble est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue(null);
+
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Immeuble introuvable",
+    });
+  });
+
+  it("crée une évaluation et journalise l'action quand toutes les conditions sont réunies", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({
+      id: BUILDING_ID,
+      name: "Immeuble Atlas",
+    } as never);
+    prismaMock.propertyValuation.count.mockResolvedValue(0);
+    prismaMock.propertyValuation.create.mockResolvedValue({
+      id: VALUATION_ID,
+    } as never);
+
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+
+    expect(result).toEqual({
+      success: true,
+      data: { id: VALUATION_ID },
+    });
+    expect(prismaMock.propertyValuation.create).toHaveBeenCalledWith({
+      data: {
+        buildingId: BUILDING_ID,
+        societyId: SOCIETY_ID,
+        createdBy: "user-1",
+        status: "DRAFT",
+      },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith({
+      societyId: SOCIETY_ID,
+      userId: "user-1",
+      action: "CREATE",
+      entity: "PropertyValuation",
+      entityId: VALUATION_ID,
+      details: { buildingId: BUILDING_ID, buildingName: "Immeuble Atlas" },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith(`/patrimoine/immeubles/${BUILDING_ID}/valorisation`);
+  });
+
+  it("retourne des lectures silencieuses si l'utilisateur n'a pas accès à la société", async () => {
+    mockUnauthenticated();
+
+    const valuation = await getValuation(SOCIETY_ID, VALUATION_ID);
+    const valuations = await getValuations(SOCIETY_ID, BUILDING_ID);
+
+    expect(valuation).toBeNull();
+    expect(valuations).toEqual([]);
+  });
+
+  it("met à jour les résultats d'évaluation et synchronise la valeur vénale", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+    } as never);
+
+    const result = await updateValuationResults(SOCIETY_ID, VALUATION_ID, {
+      estimatedValueMid: 450000,
+      estimatedValueLow: 420000,
+      capitalizationRate: 5.1,
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.propertyValuation.update).toHaveBeenCalledWith({
+      where: { id: VALUATION_ID },
+      data: {
+        estimatedValueMid: 450000,
+        estimatedValueLow: 420000,
+        capitalizationRate: 5.1,
+      },
+    });
+    expect(prismaMock.building.update).toHaveBeenCalledWith({
+      where: { id: BUILDING_ID },
+      data: { marketValue: 450000 },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith({
+      societyId: SOCIETY_ID,
+      userId: "user-1",
+      action: "UPDATE",
+      entity: "PropertyValuation",
+      entityId: VALUATION_ID,
+      details: { updatedFields: ["estimatedValueLow", "estimatedValueMid", "capitalizationRate"] },
+    });
+    expect(revalidatePath).toHaveBeenNthCalledWith(1, `/patrimoine/immeubles/${BUILDING_ID}/valorisation`);
+    expect(revalidatePath).toHaveBeenNthCalledWith(2, `/patrimoine/immeubles/${BUILDING_ID}`);
+    expect(revalidatePath).toHaveBeenNthCalledWith(3, "/dashboard");
+  });
+
+  it("recherche des comparables DVF, remplace les anciens et trace l'audit", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+      building: {
+        postalCode: "69001",
+        city: "Lyon",
+        latitude: 45.76,
+        longitude: 4.84,
+      },
+    } as never);
+    searchDvfTransactions.mockResolvedValue([
+      {
+        id: "dvf-1",
+        address: "1 rue de la Paix",
+        city: "Lyon",
+        postalCode: "69001",
+        saleDate: "2025-01-15",
+        salePrice: 320000,
+        builtArea: 80,
+        landArea: null,
+        pricePerSqm: 4000,
+        propertyType: "APPARTEMENT",
+        distanceKm: 0.8,
+      },
+    ]);
+
+    const result = await searchComparables(SOCIETY_ID, VALUATION_ID, {
+      radiusKm: 5,
+      periodYears: 3,
+      propertyTypes: ["APPARTEMENT"],
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: { count: 1 },
+    });
+    expect(prismaMock.comparableSale.deleteMany).toHaveBeenCalledWith({
+      where: { valuationId: VALUATION_ID, source: "DVF" },
+    });
+    expect(prismaMock.comparableSale.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          valuationId: VALUATION_ID,
+          source: "DVF",
+          sourceReference: "dvf-1",
+          address: "1 rue de la Paix",
+          city: "Lyon",
+          postalCode: "69001",
+          saleDate: new Date("2025-01-15"),
+          salePrice: 320000,
+          builtArea: 80,
+          landArea: null,
+          pricePerSqm: 4000,
+          propertyType: "APPARTEMENT",
+          distanceKm: 0.8,
+        },
+      ],
+    });
+    expect(createAuditLog).toHaveBeenCalledWith({
+      societyId: SOCIETY_ID,
+      userId: "user-1",
+      action: "CREATE",
+      entity: "ComparableSale",
+      entityId: VALUATION_ID,
+      details: { count: 1, radiusKm: 5 },
+    });
+  });
+
+  it("supprime une évaluation existante pour un admin de société", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+    } as never);
+
+    const result = await deleteValuation(SOCIETY_ID, VALUATION_ID);
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.propertyValuation.delete).toHaveBeenCalledWith({
+      where: { id: VALUATION_ID },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith({
+      societyId: SOCIETY_ID,
+      userId: "user-1",
+      action: "DELETE",
+      entity: "PropertyValuation",
+      entityId: VALUATION_ID,
+    });
+    expect(revalidatePath).toHaveBeenCalledWith(`/patrimoine/immeubles/${BUILDING_ID}/valorisation`);
+  });
+});

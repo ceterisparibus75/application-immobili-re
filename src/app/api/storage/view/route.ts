@@ -33,6 +33,42 @@ function sanitizePath(raw: string): string | null {
   return resolved;
 }
 
+async function hasAccessToStoragePath(userId: string, cleanPath: string): Promise<boolean> {
+  const pathSegments = cleanPath.split("/");
+  const rootFolder = pathSegments[0];
+  const secondSegment = pathSegments[1];
+
+  if (!secondSegment) {
+    return true;
+  }
+
+  const SOCIETY_ID_FOLDERS = new Set([
+    "documents",
+    "logos",
+    "invoices",
+    "leases",
+    "diagnostics",
+    "portal",
+  ]);
+
+  if (SOCIETY_ID_FOLDERS.has(rootFolder)) {
+    await requireSocietyAccess(userId, secondSegment);
+    return true;
+  }
+
+  // Temp files are stored either under temp/<userId>/... or temp/<societyId>/...
+  if (rootFolder === "temp") {
+    if (secondSegment === userId) {
+      return true;
+    }
+
+    await requireSocietyAccess(userId, secondSegment);
+    return true;
+  }
+
+  return true;
+}
+
 export async function GET(req: NextRequest) {
   const context = await requireAuthenticatedRouteContext();
   if (context instanceof NextResponse) return context;
@@ -53,18 +89,10 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // Verify the user has access to the society owning this file.
-  // Only folders that store files under <folder>/<societyId>/... are checked.
-  const SOCIETY_ID_FOLDERS = new Set(["documents", "logos", "invoices", "leases", "diagnostics", "portal"]);
-  const pathSegments = cleanPath.split("/");
-
-  if (pathSegments.length >= 2 && SOCIETY_ID_FOLDERS.has(pathSegments[0])) {
-    const pathSocietyId = pathSegments[1];
-    try {
-      await requireSocietyAccess(context.userId, pathSocietyId);
-    } catch {
-      return new NextResponse(null, { status: 403 });
-    }
+  try {
+    await hasAccessToStoragePath(context.userId, cleanPath);
+  } catch {
+    return new NextResponse(null, { status: 403 });
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);

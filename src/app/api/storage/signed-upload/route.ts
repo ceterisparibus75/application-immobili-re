@@ -3,6 +3,25 @@ import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
+import * as nodePath from "path";
+
+function sanitizeFolderPath(raw: string): string | null {
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(decoded);
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // Keep raw value if decoding fails
+  }
+
+  decoded = decoded.replace(/\0/g, "");
+  const normalized = nodePath.posix.normalize(decoded).replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!normalized || normalized === "." || normalized.startsWith("..") || normalized.includes("/../")) {
+    return null;
+  }
+
+  return normalized;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,14 +53,20 @@ export async function POST(req: NextRequest) {
     let storagePath: string;
 
     if (societyId && entityFolder !== undefined) {
+      const cleanEntityFolder = sanitizeFolderPath(entityFolder);
+      if (!cleanEntityFolder) {
+        return NextResponse.json({ error: "Dossier cible invalide" }, { status: 400 });
+      }
+
       const cookieStore = await cookies();
       const activeSocietyId = cookieStore.get("active-society-id")?.value;
       if (!activeSocietyId || activeSocietyId !== societyId) {
         return NextResponse.json({ error: "Societe non autorisee" }, { status: 403 });
       }
       await requireSocietyAccess(context.userId, societyId, "GESTIONNAIRE");
-      storagePath = `documents/${societyId}/${entityFolder}/${timestamp}_${safeName}`;
+      storagePath = `documents/${societyId}/${cleanEntityFolder}/${timestamp}_${safeName}`;
     } else if (societyId) {
+      await requireSocietyAccess(context.userId, societyId, "ADMIN_SOCIETE");
       storagePath = `logos/${societyId}/${timestamp}_${safeName}`;
     } else {
       storagePath = `temp/${context.userId}/${timestamp}_${safeName}`;

@@ -83,9 +83,7 @@ export async function GET(
     try {
       if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
       if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
-    } catch {
-      console.warn("[facturx] Échec du déchiffrement IBAN/BIC");
-    }
+    } catch {}
 
     // 6. Logo société (base64)
     let logoSignedUrl: string | null = null;

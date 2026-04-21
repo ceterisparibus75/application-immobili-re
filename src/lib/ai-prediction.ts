@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { jsonrepair } from "jsonrepair";
 import { prisma } from "@/lib/prisma";
+import { logAiCall } from "@/lib/ai-logger";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -312,12 +313,22 @@ Règles :
 - Les recommandations doivent être concrètes et adaptées au droit français.
 - Réponds UNIQUEMENT avec le tableau JSON.`;
 
+  const start = Date.now();
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: "Tu es un analyste financier spécialisé en gestion locative française. Tu analyses les historiques de paiement pour prédire les risques d'impayés. Réponds uniquement en JSON valide.",
       messages: [{ role: "user", content: prompt }],
+    });
+    logAiCall({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      operation: "predictWithAI",
+      durationMs: Date.now() - start,
+      inputTokens: response.usage?.input_tokens,
+      outputTokens: response.usage?.output_tokens,
+      success: true,
     });
 
     const raw = response.content.find((b) => b.type === "text")?.text ?? "[]";
@@ -349,6 +360,14 @@ Règles :
       };
     });
   } catch (error) {
+    logAiCall({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      operation: "predictWithAI",
+      durationMs: Date.now() - start,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.error("[AI Prediction] Falling back to rule-based scoring:", error);
     return profiles.map(calculateRiskScore);
   }

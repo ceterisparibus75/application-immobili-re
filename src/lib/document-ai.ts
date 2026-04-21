@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/lib/env";
+import { logAiCall } from "@/lib/ai-logger";
 
 const CATEGORY_HINTS: Record<string, string> = {
   bail: "Extrais : loyer mensuel (nombre), charges (nombre), date debut bail, date fin bail, type bail (meuble/non meuble), surface (m2), depot garantie, destination des locaux (HABITATION/BUREAU/COMMERCE/ACTIVITE/ENTREPOT/INDUSTRIEL/PROFESSIONNEL/MIXTE/PARKING/TERRAIN/AGRICOLE/HOTELLERIE/EQUIPEMENT/AUTRE).",
@@ -60,7 +62,8 @@ Pour les tags : utilise des mots cles courts et pertinents (categorie, type, ann
 Pour metadata : inclus uniquement les informations cles extraites du document (dates, montants, noms importants).
 Si une information n est pas dans le document, ne l inclus pas.`;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const start = Date.now();
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -73,6 +76,15 @@ Si une information n est pas dans le document, ne l inclus pas.`;
         ],
       },
     ],
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-6",
+    operation: "analyzeDocument",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   const raw = response.content.find((b) => b.type === "text")?.text ?? "{}";
@@ -106,12 +118,22 @@ export async function chatWithDocument(
       : m.content,
   }));
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const start = Date.now();
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: "Tu es un assistant specialise en gestion immobiliere francaise. Reponds en francais, de facon concise et precise, en te basant uniquement sur le contenu du document fourni.",
     messages: apiMessages,
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-6",
+    operation: "chatWithDocument",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   return response.content.find((b) => b.type === "text")?.text ?? "Je n'ai pas pu analyser ce document.";

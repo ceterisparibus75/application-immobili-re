@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/lib/env";
+import { logAiCall } from "@/lib/ai-logger";
 
 // Types pour les resultats d analyse IA
 
@@ -103,7 +105,8 @@ Pour confidence : score entre 0 et 1 indiquant la fiabilite de l extraction.
 Si une information n est pas trouvee, mets null pour les champs texte et 0 pour les nombres.
 Les alertes doivent etre en francais et precises (montant attendu vs montant trouve).`;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const start = Date.now();
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1500,
@@ -116,6 +119,15 @@ Les alertes doivent etre en francais et precises (montant attendu vs montant tro
         ],
       },
     ],
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-6",
+    operation: "analyzeManagementReport",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   const raw = response.content.find((b) => b.type === "text")?.text ?? "{}";
@@ -167,7 +179,8 @@ Reponds avec ce JSON (et rien d autre) :
 Pour confidence : score entre 0 et 1 indiquant la fiabilite de l extraction.
 Si une information n est pas trouvee, mets null pour les champs texte et 0 pour les nombres.`;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const start = Date.now();
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -180,6 +193,15 @@ Si une information n est pas trouvee, mets null pour les champs texte et 0 pour 
         ],
       },
     ],
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-6",
+    operation: "analyzeAgencyInvoice",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   const raw = response.content.find((b) => b.type === "text")?.text ?? "{}";

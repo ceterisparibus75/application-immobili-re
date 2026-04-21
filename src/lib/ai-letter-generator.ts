@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { jsonrepair } from "jsonrepair";
+import { logAiCall } from "@/lib/ai-logger";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -90,6 +91,7 @@ export async function generateLetter(input: LetterGenerationInput): Promise<Gene
 
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
+  const start = Date.now();
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 4096,
@@ -97,6 +99,15 @@ export async function generateLetter(input: LetterGenerationInput): Promise<Gene
     messages: [
       { role: "user", content: buildLetterPrompt(input) },
     ],
+  });
+  logAiCall({
+    provider: "anthropic",
+    model: "claude-sonnet-4-6",
+    operation: "generateLetter",
+    durationMs: Date.now() - start,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    success: true,
   });
 
   const raw = response.content.find((b) => b.type === "text")?.text ?? "{}";

@@ -56,15 +56,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     try {
       if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
       if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
-    } catch {
-      console.warn("[pdf] Échec du déchiffrement IBAN/BIC");
-    }
+    } catch {}
 
     // 6. Logo société (base64 pour intégration dans le PDF)
     let logoSignedUrl: string | null = null;
     const supabase = getSupabaseClient();
     const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
-    console.log("[pdf] logoUrl brut:", soc?.logoUrl, "| supabase configuré:", !!supabase, "| bucket:", bucket);
     if (soc?.logoUrl) {
       // Sanitize path: decode URL-encoded chars, normalize with posix to collapse all traversals
       let decoded = soc.logoUrl;
@@ -72,7 +69,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       const normalized = nodePath.posix.normalize(decoded.replace(/\0/g, "")).replace(/^\/+/, "");
       if (normalized.startsWith("..")) { throw new Error("Path traversal detected"); }
       const cleanPath = normalized;
-      console.log("[pdf] cleanPath logo:", cleanPath);
       try {
         // Résoudre le chemin de stockage : chemin relatif ou URL Supabase complète
         let storagePath = cleanPath;
@@ -80,7 +76,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           // Extraire le chemin depuis une URL Supabase (upload/sign, sign, ou public)
           const m = cleanPath.match(/\/storage\/v1\/object\/(?:upload\/sign\/|sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/);
           storagePath = m ? m[1] : "";
-          console.log("[pdf] URL Supabase détectée, chemin extrait:", storagePath);
         }
         if (storagePath && supabase) {
           const { data: blob, error: dlError } = await supabase.storage.from(bucket).download(storagePath);
@@ -91,12 +86,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             const b64 = Buffer.from(ab).toString("base64");
             const mime = /\.png$/i.test(storagePath) ? "image/png" : "image/jpeg";
             logoSignedUrl = `data:${mime};base64,${b64}`;
-            console.log("[pdf] Logo chargé (" + ab.byteLength + " bytes)");
-          } else {
-            console.warn("[pdf] Logo: blob null sans erreur pour", storagePath);
           }
-        } else if (!storagePath) {
-          console.warn("[pdf] Impossible d'extraire le chemin depuis:", cleanPath);
         }
       } catch (logoErr) {
         console.error("[pdf] Exception logo:", logoErr);
@@ -200,7 +190,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       newIssueDate.setHours(0, 0, 0, 0);
       await prisma.invoice.update({ where: { id }, data: { issueDate: newIssueDate } });
       pdfData.issueDate = newIssueDate.toISOString();
-      console.warn("[pdf] issueDate corrigé de", invoice.issueDate.toISOString(), "à", newIssueDate.toISOString());
       await createAuditLog({
         societyId: context.societyId,
         userId: context.userId,
