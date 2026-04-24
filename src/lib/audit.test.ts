@@ -1,0 +1,127 @@
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/audit", async (importOriginal) => {
+  return await importOriginal();
+});
+
+import { prismaMock } from "@/test/mocks/prisma";
+import { createAuditLog, getAuditLogs } from "./audit";
+
+const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
+const USER_ID = "clh3x2z4k0001qh8g7z1y2v3u";
+
+describe("createAuditLog", () => {
+  it("crée une entrée d'audit avec les paramètres fournis", async () => {
+    prismaMock.auditLog.create.mockResolvedValue({} as never);
+
+    await createAuditLog({
+      societyId: SOCIETY_ID,
+      userId: USER_ID,
+      action: "CREATE",
+      entity: "Lot",
+      entityId: "lot-001",
+    });
+
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        societyId: SOCIETY_ID,
+        userId: USER_ID,
+        action: "CREATE",
+        entity: "Lot",
+        entityId: "lot-001",
+      }),
+    });
+  });
+
+  it("inclut les details si fournis", async () => {
+    prismaMock.auditLog.create.mockResolvedValue({} as never);
+
+    await createAuditLog({
+      societyId: SOCIETY_ID,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: "inv-001",
+      details: { amount: 1200 },
+    });
+
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ details: { amount: 1200 } }),
+    });
+  });
+
+  it("ne lève pas d'exception si Prisma échoue (audit silencieux)", async () => {
+    prismaMock.auditLog.create.mockRejectedValue(new Error("DB error"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      createAuditLog({ societyId: SOCIETY_ID, action: "DELETE", entity: "Tenant", entityId: "t-001" })
+    ).resolves.not.toThrow();
+
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("getAuditLogs", () => {
+  const fakeLogs = [
+    { id: "log-1", entity: "Invoice", entityId: "inv-001", action: "CREATE", createdAt: new Date(), user: null },
+  ];
+
+  it("retourne les logs paginés avec total", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue(fakeLogs as never);
+    prismaMock.auditLog.count.mockResolvedValue(1);
+
+    const result = await getAuditLogs(SOCIETY_ID);
+
+    expect(result.logs).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(result.page).toBe(1);
+    expect(result.perPage).toBe(50);
+    expect(result.totalPages).toBe(1);
+  });
+
+  it("calcule totalPages correctement", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+    prismaMock.auditLog.count.mockResolvedValue(125);
+
+    const result = await getAuditLogs(SOCIETY_ID, { perPage: 50 });
+
+    expect(result.totalPages).toBe(3);
+  });
+
+  it("filtre par entity si fourni", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+    prismaMock.auditLog.count.mockResolvedValue(0);
+
+    await getAuditLogs(SOCIETY_ID, { entity: "Lot" });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ entity: "Lot" }),
+      })
+    );
+  });
+
+  it("filtre par userId si fourni", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+    prismaMock.auditLog.count.mockResolvedValue(0);
+
+    await getAuditLogs(SOCIETY_ID, { userId: USER_ID });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: USER_ID }),
+      })
+    );
+  });
+
+  it("applique la pagination via skip/take", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+    prismaMock.auditLog.count.mockResolvedValue(100);
+
+    await getAuditLogs(SOCIETY_ID, { page: 3, perPage: 10 });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 10 })
+    );
+  });
+});
