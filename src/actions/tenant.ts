@@ -40,6 +40,7 @@ export async function computeTenantBalance(societyId: string, tenantId: string):
       societyId,
       tenantId,
       status: { notIn: ["ANNULEE", "BROUILLON"] },
+      invoiceType: { not: "QUITTANCE" },
     },
     select: {
       totalTTC: true,
@@ -73,6 +74,7 @@ async function computeTenantBalances(societyId: string, tenantIds: string[]): Pr
       societyId,
       tenantId: { in: tenantIds },
       status: { notIn: ["ANNULEE", "BROUILLON"] },
+      invoiceType: { not: "QUITTANCE" },
     },
     select: {
       tenantId: true,
@@ -574,6 +576,7 @@ export async function getTenantAccountStatement(
   let balance = 0;
   for (const inv of invoices) {
     if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
+    if (inv.invoiceType === "QUITTANCE") continue;
     const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
       balance -= inv.totalTTC;
