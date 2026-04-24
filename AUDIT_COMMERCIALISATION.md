@@ -21,7 +21,7 @@
 | Composants UI | ~40 |
 | Templates email | 11 |
 | Cron jobs | 9 |
-| Tests unitaires | **81 suites (1 088+ cas)** |
+| Tests unitaires | **100 suites (1 381+ cas)** |
 | Tests E2E (Playwright) | 2 suites (auth + navigation, 16 routes) |
 | Lignes schema Prisma | 2 138 |
 
@@ -305,17 +305,17 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 | Constat | Détail |
 |---------|--------|
-| Couverture actuelle | 81 suites, 1 088+ cas (état au 24 avril 2026) |
+| Couverture actuelle | 100 suites, 1 381+ cas (état au 24 avril 2026) |
 | Actions couvertes | Toutes les mutations critiques (facturation, baux, banque, comptabilité, RGPD…) |
 | Tests de composants React | 9 fichiers : LeaseTimeline, SubscriptionBanner, ActivityFeed, DashboardNotifications, ExportPdfButton, WidgetConfigurator, Breadcrumb, EcheancesPanel, TodayTasks |
 | Tests d'intégration | Non couverts |
 | Tests end-to-end (E2E) | 2 suites Playwright (auth + navigation, 16 routes) |
 | Tests des API routes | Rapports, RGPD, Storage, Rapprochement |
 
-**Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier, avec en plus une couverture complète des composants React du dashboard et des utilitaires lib (normalize-label, pagination, rate-limit, two-factor).
+**Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier, avec en plus une couverture complète des composants React du dashboard, des utilitaires lib (normalize-label, pagination, rate-limit, two-factor, cron-auth, ai-logger, portal-auth, export-csv, sepa-credit-transfer) et des schémas de validation Zod (auth, sepa, maintenance, lot, diagnostic, contact, inspection, accounting, ticket, user, society, workflow, candidate).
 
 > **État initial (4 avril) :** 20 suites (382 cas), ~5% lignes. Point faible bloquant à l'époque — depuis résolu.  
-> **État au 24 avril :** 81 suites, 1 088 cas — progression de +700 cas depuis l'audit initial.
+> **État au 24 avril :** 100 suites, 1 381 cas — progression de +999 cas depuis l'audit initial.
 
 ### 5.2 Documentation utilisateur — ABSENTE
 
@@ -387,7 +387,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **Sécurité** | Excellente (toutes corrections appliquées) | OUI |
 | **Multi-tenancy** | Excellente | OUI |
 | **UI/UX** | Très bonne (onboarding + loading states) | OUI |
-| **Tests** | Excellente (1 088 tests + E2E Playwright) | OUI |
+| **Tests** | Excellente (1 381 tests + E2E Playwright) | OUI |
 | **Documentation utilisateur** | Complète (centre d'aide + FAQ) | OUI |
 | **Monétisation SaaS** | Complète (Stripe + plans + limites) | OUI |
 | **CI/CD** | Complète (GitHub Actions) | OUI |
