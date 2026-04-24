@@ -84,7 +84,7 @@ export default async function FactureDetailPage({
         societyId,
         leaseId: invoice.lease.id,
         id: { not: invoice.id },
-        status: { in: ["ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+        status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
       },
       select: { totalTTC: true, payments: { select: { amount: true } } },
     });
