@@ -476,7 +476,7 @@ export async function getPendingInvoices(societyId: string) {
   return prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { not: "AVOIR" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
     },
     include: {
