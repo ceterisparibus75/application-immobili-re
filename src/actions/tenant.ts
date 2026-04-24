@@ -39,7 +39,7 @@ export async function computeTenantBalance(societyId: string, tenantId: string):
     where: {
       societyId,
       tenantId,
-      status: { notIn: ["ANNULEE"] },
+      status: { notIn: ["ANNULEE", "BROUILLON"] },
     },
     select: {
       totalTTC: true,
@@ -72,7 +72,7 @@ async function computeTenantBalances(societyId: string, tenantIds: string[]): Pr
     where: {
       societyId,
       tenantId: { in: tenantIds },
-      status: { notIn: ["ANNULEE"] },
+      status: { notIn: ["ANNULEE", "BROUILLON"] },
     },
     select: {
       tenantId: true,
@@ -573,7 +573,7 @@ export async function getTenantAccountStatement(
   // Calculer le solde courant
   let balance = 0;
   for (const inv of invoices) {
-    if (inv.status === "ANNULEE") continue;
+    if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
     const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
       balance -= inv.totalTTC;
