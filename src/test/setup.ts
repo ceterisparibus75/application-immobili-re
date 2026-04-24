@@ -1,4 +1,5 @@
 import { vi } from "vitest"
+import "@testing-library/jest-dom/vitest"
 import { prismaMock } from "./mocks/prisma"
 
 process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64")
