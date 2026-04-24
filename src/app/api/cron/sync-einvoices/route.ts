@@ -14,7 +14,7 @@ import { _syncForSociety } from "@/actions/einvoicing";
  *
  * Protégée par Authorization: Bearer CRON_SECRET
  */
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = env.CRON_SECRET;
 

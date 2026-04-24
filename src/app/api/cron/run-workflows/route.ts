@@ -10,7 +10,7 @@ import { executeWorkflowSteps } from "@/lib/workflow-engine";
  *
  * Protégée par Authorization: Bearer CRON_SECRET.
  */
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 

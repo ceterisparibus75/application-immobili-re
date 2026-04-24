@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
  *
  * Schedule recommandé : quotidien à 6h30
  */
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 

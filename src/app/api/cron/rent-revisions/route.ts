@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { detectPendingRevisions } from "@/actions/rent-revision";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
