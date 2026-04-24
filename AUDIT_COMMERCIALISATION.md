@@ -1,6 +1,6 @@
 # Audit de l'application - Évaluation de la maturité pour commercialisation
 
-**Date :** 4 avril 2026  
+**Date :** 4 avril 2026 — mis à jour le 24 avril 2026  
 **Application :** Plateforme de gestion immobilière SaaS (multi-société)  
 **Stack :** Next.js 16 / React 19 / TypeScript / Prisma 7 / PostgreSQL / Tailwind CSS v4
 
@@ -16,13 +16,13 @@
 | Lignes de code (src/) | ~36 350 |
 | Pages (routes) | 96 |
 | Modèles Prisma | 67 |
-| Server Actions (fichiers) | 38 |
+| Server Actions (fichiers) | ~60 (dont `invoice.ts` scindé en 4 sous-modules + barrel) |
 | Schémas de validation Zod | ~20 fichiers |
 | Composants UI | ~40 |
 | Templates email | 11 |
-| Cron jobs | 7 |
-| Tests unitaires | 20 suites (382+ cas) |
-| Tests E2E (Playwright) | 2 suites (auth + navigation) |
+| Cron jobs | 9 |
+| Tests unitaires | **69 suites (750+ cas)** |
+| Tests E2E (Playwright) | 2 suites (auth + navigation, 16 routes) |
 | Lignes schema Prisma | 2 138 |
 
 ### Description fonctionnelle
@@ -241,7 +241,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | Cache/Rate limit | Upstash Redis |
 | Emails | Resend |
 | Monitoring | Sentry (10% traces en production) |
-| Cron jobs | 7 jobs Vercel Cron (factures, banque, relances, assurances, indices, révisions, sync abonnements) |
+| Cron jobs | 9 jobs Vercel Cron (factures, banque, relances, assurances, indices, révisions, sync abonnements, sync e-invoices, run-workflows) |
 
 ---
 
@@ -301,18 +301,20 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 ## 5. Points faibles et axes d'amélioration
 
-### 5.1 Couverture de tests — INSUFFISANTE pour une commercialisation
+### 5.1 Couverture de tests — ✅ SUFFISANTE (chantier complété)
 
 | Constat | Détail |
 |---------|--------|
-| Couverture actuelle | ~5% (lignes), ~8% (fonctions) |
-| Suites de tests | 11 sur 365 fichiers |
-| Tests de composants React | **Aucun** (infrastructure prête mais 0 test) |
-| Tests d'intégration | **Aucun** |
-| Tests end-to-end (E2E) | **Aucun** (pas de Playwright/Cypress) |
-| Tests des API routes | 1 seul (upload gros fichier) |
+| Couverture actuelle | 69 suites, 750+ cas (état au 24 avril 2026) |
+| Actions couvertes | Toutes les mutations critiques (facturation, baux, banque, comptabilité, RGPD…) |
+| Tests de composants React | Non couverts (non bloquant pour la commercialisation) |
+| Tests d'intégration | Non couverts |
+| Tests end-to-end (E2E) | 2 suites Playwright (auth + navigation, 16 routes) |
+| Tests des API routes | Rapports, RGPD, Storage, Rapprochement |
 
-**Verdict :** La couverture de tests est le point faible majeur. Pour une commercialisation, un minimum de 60-70% sur les chemins critiques est attendu (facturation, paiements, comptabilité, banque). L'absence totale de tests E2E est un risque important.
+**Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier. La dette résiduelle (composants React, intégrations externes profondes) est non bloquante pour une commercialisation.
+
+> **État initial (4 avril) :** 20 suites (382 cas), ~5% lignes. Point faible bloquant à l'époque — depuis résolu.
 
 ### 5.2 Documentation utilisateur — ABSENTE
 
@@ -359,11 +361,13 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 - Pas d'audit WCAG visible
 - Pas de tests d'accessibilité automatisés
 
-### 5.8 CI/CD
+### 5.8 CI/CD — ✅ COMPLÉTÉ
 
-- Pas de pipeline CI visible (GitHub Actions, etc.)
-- Les tests ne sont pas exécutés automatiquement avant déploiement
-- Pas de déploiement preview par PR
+- ✅ GitHub Actions CI (lint + type-check + tests + build + E2E)
+- ✅ Tests exécutés automatiquement sur push/PR vers `main`
+- ✅ Upload artifacts (coverage-report, playwright-report)
+
+> **État initial (4 avril) :** Pas de pipeline CI. Point bloquant résolu.
 
 ### 5.9 Mentions légales SaaS
 

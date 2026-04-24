@@ -39,6 +39,7 @@ npm run test:coverage      # Avec rapport de couverture
 npm run test:e2e           # Lancer les tests E2E (build + start automatiques)
 npm run test:e2e:ui        # Mode UI Playwright
 # Tests dans e2e/, uniquement Chromium, base URL http://localhost:3000
+# ⚠️ Couverture E2E minimale : seulement auth.spec.ts + navigation.spec.ts — ne pas s'y fier pour la non-régression
 
 # Base de données
 npm run db:generate        # Régénérer le client Prisma après modif du schéma
@@ -156,7 +157,7 @@ La logique middleware est dans `src/proxy.ts` (exportée depuis `middleware.ts`)
 
 Toute l'application est multi-société. Chaque entité Prisma est scopée par `societyId`.
 
-- **Côté client** : `SocietyProvider` (`src/providers/society-provider.tsx`) + hook `useSociety()` gère le cookie `active-society-id`
+- **Côté client** : `SocietyProvider` (`src/providers/society-provider.tsx`) + hook `useSociety()` gère le cookie `active-society-id`. Hook `useAutoSave` (`src/hooks/use-auto-save.ts`) disponible pour la sauvegarde automatique dans les formulaires complexes.
 - **Server Actions société explicite** : utiliser `requireSocietyActionContext(...)` / `getOptionalSocietyActionContext(...)` dans `src/lib/action-society.ts`
 - **Server Actions société active** : utiliser `requireActiveSociety(...)` / helpers associés dans `src/lib/active-society.ts`
 - **Server Actions auth simple** : utiliser `requireAuthenticatedActionContext()` dans `src/lib/action-auth.ts`
@@ -165,6 +166,7 @@ Toute l'application est multi-société. Chaque entité Prisma est scopée par `
 - **Permissions bas niveau** : `requireSocietyAccess(userId, societyId, minRole?)` dans `src/lib/permissions.ts` reste la primitive de contrôle, à appeler directement uniquement pour les cas spéciaux
 - **Auto-scoping Prisma** : `createTenantPrisma(societyId)` dans `src/lib/prisma-tenant.ts` existe, mais ne doit pas être considéré comme la protection principale ni branché naïvement partout
 - **Propriétaires** : Un utilisateur peut avoir plusieurs entités `Proprietaire` (SCI, SARL, personne physique), chacune regroupant des sociétés. Actions CRUD dans `src/actions/proprietaire.ts`. Migration automatique des sociétés existantes via `migrateOwnerToProprietaire()`.
+- **Dashboard multi-propriétaire** : `src/actions/owner.ts` est distinct de `proprietaire.ts` — il expose `OwnerSocietySummary` (agrégats financiers cross-société : lots, revenus, LTV, dette…) pour la vue consolidée du tableau de bord. Ne pas confondre les deux.
 
 **Exceptions runtime assumées** : `src/app/api/storage/view/route.ts` et `src/app/api/storage/signed-upload/route.ts` valident un `societyId` transmis par le chemin ou le payload. Ne pas les refactorer automatiquement vers le pattern "société active" sans revue de sécurité.
 
