@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn, type FilterOption } from "@/components/ui/data-table";
 import { Building2, User } from "lucide-react";
+import Link from "next/link";
 
 interface TenantRow {
   id: string;
@@ -40,7 +41,7 @@ const columns: DataTableColumn<TenantRow>[] = [
     label: "Locataire",
     sortable: true,
     render: (row) => (
-      <div className="flex items-center gap-2.5 min-w-0">
+      <Link href={`/locataires/${row.id}`} className="flex items-center gap-2.5 min-w-0 hover:opacity-80" onClick={(e) => e.stopPropagation()}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
           {row.entityType === "PERSONNE_MORALE" ? (
             <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -52,7 +53,7 @@ const columns: DataTableColumn<TenantRow>[] = [
           <p className="text-sm font-medium truncate">{row.name}</p>
           <p className="text-xs text-muted-foreground truncate">{row.email}</p>
         </div>
-      </div>
+      </Link>
     ),
   },
   {
