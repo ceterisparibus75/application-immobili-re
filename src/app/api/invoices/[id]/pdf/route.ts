@@ -101,7 +101,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           societyId: context.societyId,
           leaseId: invoice.lease.id,
           id: { not: invoice.id },
-          status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+          status: { in: ["ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
         },
         select: { totalTTC: true, payments: { select: { amount: true } } },
       });

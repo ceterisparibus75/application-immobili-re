@@ -411,7 +411,7 @@ export async function computeInvoicePreview(
       where: {
         societyId,
         leaseId: lease.id,
-        status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+        status: { in: ["ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
       },
       select: { totalTTC: true, payments: { select: { amount: true } } },
     });

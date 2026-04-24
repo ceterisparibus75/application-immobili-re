@@ -1,6 +1,7 @@
 export const maxDuration = 30;
 
 import { getInvoiceById } from "@/actions/invoice";
+import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,23 @@ export default async function FactureDetailPage({
   const totalPaid = invoice.payments.reduce((s, p) => s + p.amount, 0);
   const remaining = invoice.totalTTC - totalPaid;
   const isPaid = invoice.status === "PAYE";
+
+  let previousBalance = 0;
+  if (invoice.lease?.id) {
+    const unpaid = await prisma.invoice.findMany({
+      where: {
+        societyId,
+        leaseId: invoice.lease.id,
+        id: { not: invoice.id },
+        status: { in: ["ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+      },
+      select: { totalTTC: true, payments: { select: { amount: true } } },
+    });
+    previousBalance = unpaid.reduce((sum, inv) => {
+      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+      return sum + (inv.totalTTC - paid);
+    }, 0);
+  }
 
   return (
     <div className="space-y-6">
@@ -407,6 +425,43 @@ export default async function FactureDetailPage({
               </Link>
             </CardContent>
           </Card>
+
+          {/* Situation du compte */}
+          {(previousBalance > 0 || !isPaid) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  Situation du compte
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {previousBalance > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Solde précédent</span>
+                    <span className="text-destructive font-medium">
+                      {previousBalance.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Cette facture</span>
+                  <span>{invoice.totalTTC.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                </div>
+                {totalPaid > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Paiements reçus</span>
+                    <span className="text-green-600">− {totalPaid.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t pt-2 mt-1">
+                  <span>Total dû</span>
+                  <span className={Math.max(0, previousBalance + remaining) > 0 ? "text-destructive" : "text-green-600"}>
+                    {Math.max(0, previousBalance + remaining).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Bail associé */}
           {invoice.lease && (
