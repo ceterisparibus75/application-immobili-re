@@ -477,7 +477,7 @@ export async function getPendingInvoices(societyId: string) {
     where: {
       societyId,
       invoiceType: { not: "AVOIR" },
-      status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+      status: { in: ["ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
     },
     include: {
       tenant: { select: { companyName: true, firstName: true, lastName: true } },
