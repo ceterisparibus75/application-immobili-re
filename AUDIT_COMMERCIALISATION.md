@@ -21,7 +21,7 @@
 | Composants UI | ~40 |
 | Templates email | 11 |
 | Cron jobs | 9 |
-| Tests unitaires | **100 suites (1 381+ cas)** |
+| Tests unitaires | **123 suites (1 773+ cas)** |
 | Tests E2E (Playwright) | 2 suites (auth + navigation, 16 routes) |
 | Lignes schema Prisma | 2 138 |
 
