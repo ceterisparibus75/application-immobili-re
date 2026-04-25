@@ -334,4 +334,52 @@ describe("confirmManagementReport", () => {
     expect(result.data?.invoiceId).toBe(INVOICE_ID);
     expect(result.data?.paymentId).toBe(PAYMENT_ID);
   });
+
+  it("exécute le callback transactionnel et vérifie la création de la facture et du paiement", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockResolvedValue(makeReportWithLease() as never);
+
+    // Pour getNextInvoiceNumber
+    prismaMock.society.findUnique.mockResolvedValue({
+      invoiceNumberYear: new Date().getFullYear(),
+      nextInvoiceNumber: 5,
+      invoicePrefix: "FAC",
+    } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 6, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({ id: PAYMENT_ID } as never);
+    prismaMock.managementReport.update.mockResolvedValue({} as never);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.invoiceId).toBe(INVOICE_ID);
+    expect(result.data?.paymentId).toBe(PAYMENT_ID);
+    expect(prismaMock.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          invoiceType: "APPEL_LOYER",
+          status: "PAYE",
+          isThirdPartyManaged: true,
+          managementFeeHT: 120,
+          managementFeeTTC: 144,
+          expectedNetAmount: 1056,
+        }),
+      })
+    );
+    expect(prismaMock.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ invoiceId: INVOICE_ID, amount: 1056 }),
+      })
+    );
+    expect(prismaMock.managementReport.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: REPORT_ID },
+        data: expect.objectContaining({ isReconciled: true }),
+      })
+    );
+  });
 });
