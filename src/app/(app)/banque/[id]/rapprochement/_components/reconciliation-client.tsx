@@ -34,14 +34,6 @@ type Payment = {
       firstName: string | null;
       lastName: string | null;
     } | null;
-    lease: {
-      lot: { building: { name: string } };
-      tenant: {
-        companyName: string | null;
-        firstName: string | null;
-        lastName: string | null;
-      };
-    } | null;
   };
 };
 type PendingInvoice = {
@@ -56,7 +48,6 @@ type PendingInvoice = {
     firstName: string | null;
     lastName: string | null;
   } | null;
-  _count: { payments: number };
 };
 type LoanLine = {
   id: string;
@@ -66,9 +57,6 @@ type LoanLine = {
   interestPayment: number;
   insurancePayment: number;
   totalPayment: number;
-  remainingBalance: number;
-  isPaid: boolean;
-  paidAt: Date | null;
   loan: { id: string; label: string; lender: string };
 };
 
@@ -101,7 +89,6 @@ interface ReconciliationClientProps {
   payments: Payment[];
   pendingInvoices: PendingInvoice[];
   loanLines: LoanLine[];
-  reconciled: unknown[];
 }
 
 export default function ReconciliationClient({

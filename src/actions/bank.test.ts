@@ -24,6 +24,7 @@ import {
   updateBankAccount,
   getBankAccounts,
   getBankAccountById,
+  getBankAccountSummaryById,
   createBankTransaction,
   recalculateBankBalance,
   correctBankBalance,
@@ -325,6 +326,41 @@ describe("getBankAccountById", () => {
     expect(r).not.toBeNull()
     expect(r!.ibanMasked).toBe("FR76 **** **** 0189")
     expect(r!.unreconciledCount).toBe(3)
+  })
+})
+
+// ─── getBankAccountSummaryById ──────────────────────────────────────────────
+
+describe("getBankAccountSummaryById", () => {
+  it("retourne null si non authentifie", async () => {
+    mockUnauthenticated()
+    const r = await getBankAccountSummaryById(SOCIETY_ID, "ba-1")
+    expect(r).toBeNull()
+  })
+
+  it("charge uniquement les champs utiles au header de rapprochement", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-1",
+      bankName: "BNP Paribas",
+      accountName: "Compte principal",
+    } as never)
+
+    const r = await getBankAccountSummaryById(SOCIETY_ID, "ba-1")
+
+    expect(r).toEqual({
+      id: "ba-1",
+      bankName: "BNP Paribas",
+      accountName: "Compte principal",
+    })
+    expect(prismaMock.bankAccount.findFirst).toHaveBeenCalledWith({
+      where: { id: "ba-1", societyId: SOCIETY_ID },
+      select: {
+        id: true,
+        bankName: true,
+        accountName: true,
+      },
+    })
   })
 })
 

@@ -5,17 +5,19 @@ import {
   getPendingInvoices,
   getUpcomingLoanLines,
 } from "@/actions/bank-reconciliation";
-import { getBankAccountById } from "@/actions/bank";
+import { getBankAccountSummaryById } from "@/actions/bank";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import ReconciliationClient from "./_components/reconciliation-client";
+import { Suspense } from "react";
 
 export default async function RapprochementPage({
   params,
@@ -28,11 +30,11 @@ export default async function RapprochementPage({
 
   if (!societyId) redirect("/societes");
 
-  const accountPromise = getBankAccountById(societyId, id);
+  const accountPromise = getBankAccountSummaryById(societyId, id);
+  const reconciledPromise = getReconciledItems(societyId, id);
   const reconciliationDataPromise = Promise.all([
     getUnreconciledTransactions(societyId, id),
     getUnreconciledPayments(societyId),
-    getReconciledItems(societyId, id),
     getPendingInvoices(societyId),
     getUpcomingLoanLines(societyId),
   ]);
@@ -40,7 +42,7 @@ export default async function RapprochementPage({
   const account = await accountPromise;
   if (!account) notFound();
 
-  const [transactions, payments, reconciled, pendingInvoices, loanLines] = await reconciliationDataPromise;
+  const [transactions, payments, pendingInvoices, loanLines] = await reconciliationDataPromise;
 
   const totalRight = payments.length + pendingInvoices.length + loanLines.length;
 
@@ -106,40 +108,71 @@ export default async function RapprochementPage({
         payments={payments}
         pendingInvoices={pendingInvoices}
         loanLines={loanLines}
-        reconciled={reconciled}
       />
 
-      {reconciled.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Rapprochements effectués ({reconciled.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {reconciled.map((r) => (
-                <div key={r.id} className="flex items-center justify-between py-3 flex-wrap gap-2">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">{r.transaction.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(r.transaction.transactionDate)} ·{" "}
-                      {r.payment.invoice.tenant?.companyName ??
-                        `${r.payment.invoice.tenant?.firstName ?? ""} ${r.payment.invoice.tenant?.lastName ?? ""}`.trim()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium tabular-nums ${r.transaction.amount >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
-                      {r.transaction.amount >= 0 ? "+" : ""}{formatCurrency(r.transaction.amount)}
-                    </span>
-                    <Badge variant="success" className="text-xs">Rapproché</Badge>
-                    <UnreconcileButton societyId={societyId} reconciliationId={r.id} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Suspense fallback={<ReconciledItemsSkeleton />}>
+        <ReconciledItemsSection promise={reconciledPromise} societyId={societyId} />
+      </Suspense>
     </div>
+  );
+}
+
+type ReconciledItems = Awaited<ReturnType<typeof getReconciledItems>>;
+
+async function ReconciledItemsSection({
+  promise,
+  societyId,
+}: {
+  promise: Promise<ReconciledItems>;
+  societyId: string;
+}) {
+  const reconciled = await promise;
+
+  if (reconciled.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Rapprochements effectués ({reconciled.length})</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y">
+          {reconciled.map((r) => (
+            <div key={r.id} className="flex items-center justify-between py-3 flex-wrap gap-2">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">{r.transaction.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(r.transaction.transactionDate)} ·{" "}
+                  {r.payment.invoice.tenant?.companyName ??
+                    `${r.payment.invoice.tenant?.firstName ?? ""} ${r.payment.invoice.tenant?.lastName ?? ""}`.trim()}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`text-sm font-medium tabular-nums ${r.transaction.amount >= 0 ? "text-[var(--color-status-positive)]" : "text-destructive"}`}>
+                  {r.transaction.amount >= 0 ? "+" : ""}{formatCurrency(r.transaction.amount)}
+                </span>
+                <Badge variant="success" className="text-xs">Rapproché</Badge>
+                <UnreconcileButton societyId={societyId} reconciliationId={r.id} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReconciledItemsSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-56" />
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </CardContent>
+    </Card>
   );
 }
 

@@ -175,6 +175,20 @@ export async function getBankAccountById(societyId: string, accountId: string) {
   return { ...account, ibanMasked, unreconciledCount };
 }
 
+export async function getBankAccountSummaryById(societyId: string, accountId: string) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return null;
+
+  return prisma.bankAccount.findFirst({
+    where: { id: accountId, societyId },
+    select: {
+      id: true,
+      bankName: true,
+      accountName: true,
+    },
+  });
+}
+
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 export async function createBankTransaction(

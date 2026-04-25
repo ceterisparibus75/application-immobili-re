@@ -427,7 +427,18 @@ export async function getTenantsPaginated(
   const [data, total] = await Promise.all([
     prisma.tenant.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        entityType: true,
+        companyName: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        mobile: true,
+        insuranceExpiresAt: true,
+        riskIndicator: true,
+        isActive: true,
         _count: { select: { leases: true } },
         leases: {
           where: { status: "EN_COURS" },

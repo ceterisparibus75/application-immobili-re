@@ -9,7 +9,7 @@ interface TenantRow {
   id: string;
   entityType: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   insurance: { label: string; variant: "success" | "warning" | "destructive" | "secondary" };
   riskVariant: "success" | "warning" | "destructive";

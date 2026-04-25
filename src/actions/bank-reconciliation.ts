@@ -27,6 +27,13 @@ export async function getUnreconciledTransactions(
       isReconciled: false,
       bankAccount: { societyId },
     },
+    select: {
+      id: true,
+      transactionDate: true,
+      amount: true,
+      label: true,
+      reference: true,
+    },
     orderBy: { transactionDate: "desc" },
   });
 }
@@ -39,16 +46,15 @@ export async function getUnreconciledPayments(societyId: string) {
       isReconciled: false,
       invoice: { societyId },
     },
-    include: {
+    select: {
+      id: true,
+      amount: true,
+      paidAt: true,
+      method: true,
+      reference: true,
       invoice: {
-        include: {
-          lease: {
-            include: {
-              lot: { include: { building: true } },
-              tenant: true,
-            },
-          },
-          tenant: true,
+        select: {
+          tenant: { select: { companyName: true, firstName: true, lastName: true } },
         },
       },
     },
@@ -66,11 +72,22 @@ export async function getReconciledItems(societyId: string, bankAccountId: strin
         bankAccount: { societyId },
       },
     },
-    include: {
-      transaction: true,
+    select: {
+      id: true,
+      transaction: {
+        select: {
+          label: true,
+          transactionDate: true,
+          amount: true,
+        },
+      },
       payment: {
-        include: {
-          invoice: { include: { tenant: true } },
+        select: {
+          invoice: {
+            select: {
+              tenant: { select: { companyName: true, firstName: true, lastName: true } },
+            },
+          },
         },
       },
     },
@@ -479,9 +496,14 @@ export async function getPendingInvoices(societyId: string) {
       invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
     },
-    include: {
+    select: {
+      id: true,
+      invoiceNumber: true,
+      invoiceType: true,
+      totalTTC: true,
+      dueDate: true,
+      status: true,
       tenant: { select: { companyName: true, firstName: true, lastName: true } },
-      _count: { select: { payments: true } },
     },
     orderBy: { dueDate: "asc" },
   });
@@ -497,7 +519,14 @@ export async function getUpcomingLoanLines(societyId: string) {
       isPaid: false,
       loan: { societyId, status: "EN_COURS" },
     },
-    include: {
+    select: {
+      id: true,
+      period: true,
+      dueDate: true,
+      principalPayment: true,
+      interestPayment: true,
+      insurancePayment: true,
+      totalPayment: true,
       loan: { select: { id: true, label: true, lender: true } },
     },
     orderBy: { dueDate: "asc" },

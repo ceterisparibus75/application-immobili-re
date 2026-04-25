@@ -69,7 +69,13 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
   const serialized = tenants.map((t) => {
     const primaryLease = t.leases[0];
     return {
-      ...t,
+      id: t.id,
+      entityType: t.entityType,
+      email: t.email,
+      phone: t.phone,
+      mobile: t.mobile,
+      _count: t._count,
+      isActive: t.isActive,
       name: tenantName(t),
       insurance: insuranceStatus(t.insuranceExpiresAt),
       riskVariant: RISK_VARIANTS[t.riskIndicator],
