@@ -354,6 +354,19 @@ describe("updateRentStep", () => {
     const result = await updateRentStep(SOCIETY_ID, validInput);
     expect(result.success).toBe(true);
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateRentStep", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateRentStep", async () => {
+    prismaMock.leaseRentStep.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour du palier" });
+  });
 });
 
 // ── deleteRentStep ────────────────────────────────────────────────
@@ -383,6 +396,19 @@ describe("deleteRentStep", () => {
     const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
     expect(result.success).toBe(true);
     expect(prismaMock.leaseRentStep.delete).toHaveBeenCalledWith({ where: { id: STEP_ID } });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteRentStep", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteRentStep", async () => {
+    prismaMock.leaseRentStep.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression du palier" });
   });
 });
 

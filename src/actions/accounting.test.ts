@@ -349,6 +349,20 @@ describe("bulkImportAccounts", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/500/);
   });
+
+  it("retourne une erreur si rôle insuffisant pour bulkImportAccounts", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await bulkImportAccounts(SOCIETY_ID, [{ code: "411000", label: "Clients", type: "4" }]);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans bulkImportAccounts", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findUnique.mockRejectedValue(new Error("DB connection lost"));
+    const result = await bulkImportAccounts(SOCIETY_ID, [{ code: "411000", label: "Clients", type: "4" }]);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'import" });
+  });
 });
 
 describe("bulkImportJournalEntries", () => {
@@ -406,5 +420,86 @@ describe("bulkImportJournalEntries", () => {
     expect(result.success).toBe(true);
     expect(result.data?.skipped).toBe(1);
     expect(result.data?.errors.length).toBeGreaterThan(0);
+  });
+
+  it("saute une écriture si la création en BDD échoue (catch interne)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockRejectedValue(new Error("Insert failed"));
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        piece: "FAC-001",
+        label: "Facture loyer",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
+      },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors.length).toBeGreaterThan(0);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour bulkImportJournalEntries", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture loyer",
+        lines: [{ accountCode: "411000", debit: 1000, credit: 0 }],
+      },
+    ]);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans bulkImportJournalEntries", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture loyer",
+        lines: [{ accountCode: "411000", debit: 1000, credit: 0 }],
+      },
+    ]);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'import" });
+  });
+
+  it("normalise un type de journal inconnu en OD", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "MISC",
+        entryDate: "2025-01-15",
+        label: "Écriture diverse",
+        lines: [
+          { accountCode: "411000", debit: 500, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 500 },
+        ],
+      },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(1);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ journalType: "OD" }) })
+    );
   });
 });

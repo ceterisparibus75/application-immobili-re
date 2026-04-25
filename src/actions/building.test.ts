@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest"
+import { beforeEach, describe, it, expect, vi } from "vitest"
 import { prismaMock } from "@/test/mocks/prisma"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import {
@@ -177,6 +177,13 @@ describe("deleteBuilding", () => {
     expect(result.success).toBe(true)
     expect(prismaMock.building.delete).toHaveBeenCalledWith({ where: { id: VALID_CUID } })
   })
+
+  it("retourne une erreur générique si la BDD échoue dans deleteBuilding", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.lease.count.mockRejectedValue(new Error("DB connection lost"))
+    const result = await deleteBuilding("society-1", VALID_CUID)
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" })
+  })
 })
 
 describe("getBuildings", () => {
@@ -195,6 +202,25 @@ describe("getBuildings", () => {
     prismaMock.building.findMany.mockResolvedValue(buildings as never)
     const result = await getBuildings("society-1")
     expect(result).toHaveLength(2)
+  })
+
+  it("calcule additionalCost et yieldRate quand acquisitions complémentaires et coût > 0", async () => {
+    mockAuthSession()
+    const building = buildBuilding({
+      acquisitionPrice: 100000,
+      lots: [
+        { status: "OCCUPE", leases: [{ currentRentHT: 1000, paymentFrequency: "MENSUEL" }] },
+      ],
+      additionalAcquisitions: [
+        { acquisitionPrice: 10000, acquisitionFees: 500, acquisitionTaxes: 200, otherCosts: 100 },
+      ],
+    })
+    prismaMock.building.findMany.mockResolvedValue([building] as never)
+    const result = await getBuildings("society-1")
+    expect(result).toHaveLength(1)
+    // baseCost=100000, additionalCost=10000+500+200+100=10800 → totalCost=110800
+    expect(result[0].totalCost).toBe(110800)
+    expect(result[0].yieldRate).not.toBeNull()
   })
 })
 
@@ -280,6 +306,24 @@ describe("createAdditionalAcquisition", () => {
     prismaMock.building.findFirst.mockRejectedValue(new Error("DB error"))
     const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
     expect(r).toEqual({ success: false, error: "Erreur lors de l'ajout de l'acquisition" })
+  })
+
+  it("retourne une erreur Zod si le prix d'acquisition est négatif", async () => {
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, {
+      ...validAcqInput,
+      acquisitionPrice: -1,
+    })
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("positif")
+  })
+
+  it("retourne une erreur si la date d'acquisition est invalide", async () => {
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, {
+      ...validAcqInput,
+      acquisitionDate: "not-a-date",
+    })
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("invalide")
   })
 })
 
