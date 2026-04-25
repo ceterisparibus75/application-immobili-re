@@ -178,6 +178,51 @@ describe("user admin actions", () => {
       data: { emailCopyEnabled: true },
     });
   });
+
+  it("toggleEmailCopy retourne une erreur generique si la BDD echoue (lignes 813-814)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockRejectedValue(new Error("DB crash"));
+    const result = await toggleEmailCopy(USER_ID, SOCIETY_ID, true);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("modification");
+  });
+
+  it("assignUserToSociety retourne une erreur si abonnement inactif (ligne 220)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    checkSubscriptionActive.mockResolvedValueOnce({ active: false, message: "Abonnement expiré" });
+    const result = await assignUserToSociety({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Abonnement");
+  });
+
+  it("assignUserToSociety retourne une erreur si quota utilisateurs dépassé (ligne 222)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    checkUserLimit.mockResolvedValueOnce({ allowed: false, message: "Quota atteint" });
+    const result = await assignUserToSociety({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Quota");
+  });
+
+  it("assignUserToSociety retourne une erreur si input Zod invalide (lignes 207-209)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const result = await assignUserToSociety({ userId: "not-a-cuid", societyId: SOCIETY_ID, role: "GESTIONNAIRE" });
+    expect(result.success).toBe(false);
+  });
+
+  it("assignUserToSociety retourne une erreur ForbiddenError (ligne 253-254)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await assignUserToSociety({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE" });
+    expect(result.success).toBe(false);
+  });
+
+  it("assignUserToSociety retourne une erreur generique si la BDD echoue (lignes 256-257)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.upsert.mockRejectedValue(new Error("DB crash"));
+    const result = await assignUserToSociety({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("assignation");
+  });
 });
 
 // ── changePassword ────────────────────────────────────────────────
@@ -232,6 +277,20 @@ describe("changePassword", () => {
       expect.objectContaining({ data: { passwordHash: "new-hashed-password" } })
     );
   });
+
+  it("retourne une erreur si l'utilisateur est introuvable (ligne 371)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    const result = await changePassword(validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 390-391)", async () => {
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB crash"));
+    const result = await changePassword(validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("mot de passe");
+  });
 });
 
 // ── deleteUser ────────────────────────────────────────────────────
@@ -275,6 +334,22 @@ describe("deleteUser", () => {
     const result = await deleteUser(USER_ID);
     expect(result.success).toBe(true);
     expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it("retourne une erreur ForbiddenError si non SUPER_ADMIN (lignes 341-342)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "GESTIONNAIRE" },
+    ] as never);
+    const result = await deleteUser(USER_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 344-345)", async () => {
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB crash"));
+    const result = await deleteUser(USER_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("suppression");
   });
 });
 
@@ -328,6 +403,18 @@ describe("getUsers", () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: USER_ID, role: "GESTIONNAIRE" });
   });
+
+  it("retourne tous les utilisateurs en mode SUPER_ADMIN sans societyId (lignes 453-455)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "SUPER_ADMIN" },
+    ] as never);
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: USER_ID, email: "u@example.com", name: "U", firstName: null, isActive: true, lastLoginAt: null, createdAt: new Date() },
+    ] as never);
+    const result = await getUsers();
+    expect(Array.isArray(result)).toBe(true);
+  });
 });
 
 // ── getModulePermissions ──────────────────────────────────────────
@@ -358,6 +445,21 @@ describe("getModulePermissions", () => {
     expect(r.success).toBe(true);
     expect(r.data?.role).toBe("GESTIONNAIRE");
     expect(r.data?.isCustom).toBe(false);
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 508-509)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 511-512)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockRejectedValue(new Error("DB crash"));
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("permissions");
   });
 });
 
@@ -464,6 +566,14 @@ describe("resendInvitation", () => {
       expect.objectContaining({ where: { id: USER_ID } })
     );
   });
+
+  it("retourne une erreur generique si la BDD echoue dans resendInvitation (lignes 196-197)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockRejectedValue(new Error("DB crash"));
+    const r = await resendInvitation(USER_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("invitation");
+  });
 });
 
 // ── createUser ────────────────────────────────────────────────────
@@ -538,6 +648,14 @@ describe("createUser", () => {
       })
     );
   });
+
+  it("retourne une erreur generique si la BDD echoue dans createUser (lignes 135-136)", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB crash"));
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("utilisateur");
+  });
 });
 
 // ── removeUserFromSociety success ────────────────────────────────
@@ -552,6 +670,21 @@ describe("removeUserFromSociety", () => {
     expect(prismaMock.userSociety.delete).toHaveBeenCalledWith({
       where: { userId_societyId: { userId: USER_ID, societyId: SOCIETY_ID } },
     });
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 295-296)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await removeUserFromSociety(USER_ID, SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 298-299)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.delete.mockRejectedValue(new Error("DB crash"));
+    const result = await removeUserFromSociety(USER_ID, SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("retrait");
   });
 });
 
@@ -576,6 +709,37 @@ describe("updateModulePermissions success", () => {
       where: { userId_societyId: { userId: USER_ID, societyId: SOCIETY_ID } },
       data: { modulePermissions: { locataires: ["read", "write"] } },
     });
+  });
+
+  it("retourne une erreur Zod si input invalide (lignes 527-529)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const result = await updateModulePermissions({ userId: "not-a-cuid", societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si l'utilisateur n'est pas membre (ligne 543)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce(null as never);
+    const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("non membre");
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 582-583)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 585-586)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockRejectedValue(new Error("DB crash"));
+    const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("permissions");
   });
 });
 
@@ -619,4 +783,31 @@ describe("getAllManagedUsers with data", () => {
     expect(r.data?.societies).toHaveLength(1);
     expect(r.data?.users[0].accesses).toHaveLength(1);
   });
+  it("retourne une erreur generique si la BDD echoue (lignes 757-758)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockRejectedValue(new Error("DB crash"));
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("cupération");
+  });
+
+  it("trie les utilisateurs par nom avec 2 utilisateurs (ligne 747)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-1", label: "SCI Test",
+        societies: [{
+          id: SOCIETY_ID, name: "Ma Société",
+          userSocieties: [
+            { role: "GESTIONNAIRE", user: { id: "u2", email: "z@example.com", name: "Zara", firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } },
+            { role: "GESTIONNAIRE", user: { id: USER_ID, email: "a@example.com", name: "Alice", firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } },
+          ],
+        }],
+      },
+    ] as never);
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(true);
+    expect(r.data?.users[0].name).toBe("Alice");
+  });
+
 });
