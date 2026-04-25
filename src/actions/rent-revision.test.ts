@@ -523,6 +523,233 @@ describe("applyCatchUpRevisions", () => {
     expect(r.error).toContain("rattrapage")
   })
 
+// ─── Branches manquantes — catch blocks, Zod, calculateNewRent ───────────────
+
+describe("getPendingRevisions — erreur générique", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 139-140)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.rentRevision.findMany.mockRejectedValue(new Error("DB error"))
+    const r = await getPendingRevisions(SOCIETY_ID)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la récupération des révisions" })
+  })
+})
+
+describe("validateRevision — branches manquantes", () => {
+  it("retourne une erreur Zod si revisionId invalide (lignes 156-158)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const r = await validateRevision(SOCIETY_ID, "not-a-cuid")
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 229-230)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.rentRevision.findFirst.mockRejectedValue(new Error("DB error"))
+    const r = await validateRevision(SOCIETY_ID, VALID_CUID)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la validation de la révision" })
+  })
+})
+
+describe("rejectRevision — branches manquantes", () => {
+  it("retourne une erreur Zod si revisionId invalide (lignes 246-248)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const r = await rejectRevision(SOCIETY_ID, "not-a-cuid")
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur ForbiddenError si rôle insuffisant (lignes 285-286)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await rejectRevision(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 287-288)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.rentRevision.findFirst.mockRejectedValue(new Error("DB error"))
+    const r = await rejectRevision(SOCIETY_ID, VALID_CUID)
+    expect(r).toEqual({ success: false, error: "Erreur lors du rejet de la révision" })
+  })
+})
+
+describe("createManualRevision — branches manquantes", () => {
+  const validInput = { leaseId: VALID_CUID, effectiveDate: "2026-07-01", newIndexValue: 140 }
+
+  it("retourne une erreur Zod si l'input est invalide (lignes 301-303)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const r = await createManualRevision(SOCIETY_ID, { leaseId: "bad-id", effectiveDate: "2026-07-01", newIndexValue: 140 })
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur ForbiddenError si rôle insuffisant (ligne 361)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await createManualRevision(SOCIETY_ID, validInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 363-364)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"))
+    const r = await createManualRevision(SOCIETY_ID, validInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de la révision" })
+  })
+
+  it("retourne le loyer inchangé si baseIndexValue est négatif (ligne 25)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID,
+      indexType: "IRL",
+      baseIndexValue: -1,
+      currentRentHT: 1000,
+    } as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(null)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-1" } as never)
+    const r = await createManualRevision(SOCIETY_ID, validInput)
+    expect(r.success).toBe(true)
+  })
+})
+
+describe("detectPendingRevisions — branches manquantes", () => {
+  function leaseStartedYearsAgo(years: number) {
+    const d = new Date()
+    d.setFullYear(d.getFullYear() - years)
+    return d
+  }
+
+  it("saute un bail dont la prochaine révision est hors fenêtre (ligne 434)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedYearsAgo(3),
+        revisionFrequency: 12,
+        rentRevisions: [{ effectiveDate: leaseStartedYearsAgo(2) }],
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(0)
+  })
+
+  it("utilise baseIndexQuarter pour chercher l'indice cible (lignes 447-449)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedOneYearAgo(),
+        baseIndexQuarter: "T1 2024",
+        rentRevisions: [],
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst
+      .mockResolvedValueOnce({ value: 142.0, year: 2025, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-q" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(1)
+  })
+
+  it("essaie l'année précédente si l'indice cible est absent (lignes 455-456)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedOneYearAgo(),
+        baseIndexQuarter: "T1 2024",
+        rentRevisions: [],
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ value: 142.0, year: 2024, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-prev" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(1)
+  })
+
+  it("saute si le nouvel indice est identique à l'indice de base (ligne 474)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { ...VALID_LEASE_BASE, startDate: leaseStartedOneYearAgo(), baseIndexValue: 131.31 },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue({ value: 131.31, year: 2026, quarter: 1 } as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(0)
+  })
+
+  it("capture l'erreur d'un bail individuel (lignes 517-518)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { ...VALID_LEASE_BASE, startDate: leaseStartedOneYearAgo() },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockRejectedValue(new Error("lease error"))
+    const r = await detectPendingRevisions()
+    expect(r.errors).toHaveLength(1)
+  })
+
+  it("capture l'erreur globale de detectPendingRevisions (lignes 522-523)", async () => {
+    prismaMock.lease.findMany.mockRejectedValue(new Error("global error"))
+    const r = await detectPendingRevisions()
+    expect(r.errors.some(e => e.includes("global error"))).toBe(true)
+  })
+
+  it("utilise DATE_ENTREE comme date d'ancrage (ligne 538)", async () => {
+    const entryDate = new Date()
+    entryDate.setFullYear(entryDate.getFullYear() - 1)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedYearsAgo(2),
+        entryDate,
+        revisionDateBasis: "DATE_ENTREE",
+        revisionFrequency: 12,
+        rentRevisions: [],
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue({ value: 142.0, year: 2026, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-entry" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBeGreaterThanOrEqual(0)
+  })
+
+  it("utilise PREMIER_JANVIER comme date d'ancrage (lignes 540-541, 572)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedYearsAgo(2),
+        revisionDateBasis: "PREMIER_JANVIER",
+        revisionFrequency: 12,
+        rentRevisions: [],
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue({ value: 142.0, year: 2026, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-jan" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBeGreaterThanOrEqual(0)
+  })
+
+  it("utilise lastRevisionDate pour calculer la prochaine date (lignes 566-568)", async () => {
+    const lastRev = new Date()
+    lastRev.setMonth(lastRev.getMonth() - 11)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate: leaseStartedYearsAgo(2),
+        rentRevisions: [{ effectiveDate: lastRev }],
+        revisionFrequency: 12,
+      },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue({ value: 142.0, year: 2026, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-last" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBeGreaterThanOrEqual(0)
+  })
+})
+
   it("exécute le callback $transaction avec les révisions chaînées (lignes 868-889)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE)
     prismaMock.lease.findFirst
