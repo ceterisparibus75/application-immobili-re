@@ -71,7 +71,7 @@ describe("createLot", () => {
     expect(result.success).toBe(false)
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   it("retourne une erreur si lotType invalide", async () => {
     mockAuthSession()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,6 +133,20 @@ describe("updateLot", () => {
     expect(result.success).toBe(true)
     expect(prismaMock.lot.update).toHaveBeenCalledOnce()
   })
+
+  it("retourne une erreur si rôle insuffisant pour updateLot", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const result = await updateLot("society-1", { id: VALID_CUID, number: "B-202" })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans updateLot", async () => {
+    mockAuthSession()
+    prismaMock.lot.findFirst.mockRejectedValue(new Error("DB error"))
+    const result = await updateLot("society-1", { id: VALID_CUID, number: "B-202" })
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour du lot" })
+  })
 })
 
 describe("deleteLot", () => {
@@ -173,6 +187,13 @@ describe("deleteLot", () => {
     const result = await deleteLot("society-1", VALID_CUID)
     expect(result.success).toBe(true)
     expect(prismaMock.lot.delete).toHaveBeenCalledWith({ where: { id: VALID_CUID } })
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans deleteLot", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.lot.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const result = await deleteLot("society-1", VALID_CUID)
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression du lot" })
   })
 })
 

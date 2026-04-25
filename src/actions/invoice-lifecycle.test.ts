@@ -338,6 +338,20 @@ describe("markAsLitigious", () => {
       expect.objectContaining({ data: { status: "LITIGIEUX" } })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour markAsLitigious", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await markAsLitigious(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans markAsLitigious", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await markAsLitigious(SOCIETY_ID, INVOICE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du passage en litigieux" });
+  });
 });
 
 // ── markAsIrrecoverable ────────────────────────────────────────
@@ -368,6 +382,20 @@ describe("markAsIrrecoverable", () => {
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: "IRRECOUVRABLE" } })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour markAsIrrecoverable", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await markAsIrrecoverable(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans markAsIrrecoverable", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await markAsIrrecoverable(SOCIETY_ID, INVOICE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du passage en irrécouvrable" });
   });
 });
 

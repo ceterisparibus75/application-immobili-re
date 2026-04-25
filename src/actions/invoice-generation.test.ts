@@ -373,6 +373,33 @@ describe("createCreditNote", () => {
     expect(result.success).toBe(true);
     expect(result.data?.invoiceNumber).toBe("AV-2025-001");
   });
+
+  it("retourne une erreur si validation Zod échoue (originalInvoiceId invalide)", async () => {
+    const result = await createCreditNote(SOCIETY_ID, {
+      originalInvoiceId: "not-a-cuid",
+      dueDate: "2025-02-28",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour createCreditNote", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createCreditNote(SOCIETY_ID, {
+      originalInvoiceId: INVOICE_ID,
+      dueDate: "2025-02-28",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createCreditNote", async () => {
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await createCreditNote(SOCIETY_ID, {
+      originalInvoiceId: INVOICE_ID,
+      dueDate: "2025-02-28",
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'émission de l'avoir" });
+  });
 });
 
 // ── previewBatchInvoices ──────────────────────────────────────────

@@ -258,6 +258,20 @@ describe("createResolution", () => {
     expect(r.success).toBe(true);
     expect(r.data?.id).toBe(RESOLUTION_ID);
   });
+
+  it("retourne une erreur si rôle insuffisant pour createResolution", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createResolution(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createResolution", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproResolution.create.mockRejectedValue(new Error("DB error"));
+    const r = await createResolution(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de la résolution" });
+  });
 });
 
 // ─── recordVote ───────────────────────────────────────────────────────────────
@@ -471,6 +485,20 @@ describe("updateAssembly", () => {
     const r = await updateAssembly(SOCIETY_ID, validUpdate);
     expect(r.success).toBe(true);
     expect(r.data?.id).toBe(VALID_CUID_2);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour updateAssembly", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await updateAssembly(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateAssembly", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproAssembly.update.mockRejectedValue(new Error("DB error"));
+    const r = await updateAssembly(SOCIETY_ID, validUpdate);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
 });
 

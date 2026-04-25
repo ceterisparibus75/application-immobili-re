@@ -725,6 +725,20 @@ describe("finalizeChargeReport", () => {
       expect.objectContaining({ data: expect.objectContaining({ isFinalized: true }) })
     )
   })
+
+  it("retourne une erreur si rôle insuffisant pour finalizeChargeReport", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await finalizeChargeReport(SOCIETY_ID, "reg-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans finalizeChargeReport", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeRegularization.update.mockRejectedValue(new Error("DB error"))
+    const r = await finalizeChargeReport(SOCIETY_ID, "reg-1")
+    expect(r).toEqual({ success: false, error: "Erreur lors de la finalisation" })
+  })
 })
 
 // ─── getChargesPaginated ──────────────────────────────────────────────────────
@@ -875,5 +889,19 @@ describe("autoRegularizeCharges", () => {
     expect(r.success).toBe(true)
     expect(r.data?.regularizations).toBe(1)
     expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it("retourne une erreur si rôle insuffisant pour autoRegularizeCharges", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans autoRegularizeCharges", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockRejectedValue(new Error("DB connection lost"))
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la régularisation" })
   })
 })
