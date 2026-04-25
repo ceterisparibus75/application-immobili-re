@@ -20,6 +20,7 @@ import { prismaMock } from "@/test/mocks/prisma";
 import {
   checkLotLimit,
   checkUserLimit,
+  checkSocietyLimit,
   checkSubscriptionActive,
   checkSignatureFeature,
   requiresTwoFactor,
@@ -219,5 +220,53 @@ describe("requiresTwoFactor", () => {
     ] as never);
     const result = await requiresTwoFactor(USER_ID);
     expect(result).toBe(true);
+  });
+});
+
+// ── checkSocietyLimit ─────────────────────────────────────────────
+
+describe("checkSocietyLimit", () => {
+  it("autorise si l'utilisateur n'a aucune société", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
+    const result = await checkSocietyLimit(USER_ID);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("bloque si la limite STARTER (1 société) est atteinte", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { societyId: SOCIETY_ID },
+    ] as never);
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "STARTER" as PlanId, status: "ACTIVE" as SubscriptionStatus })
+    );
+    const result = await checkSocietyLimit(USER_ID);
+    expect(result.allowed).toBe(false);
+    expect(result.message).toContain("1 sociét");
+  });
+
+  it("autorise si la limite PRO (3 sociétés) n'est pas atteinte", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { societyId: "soc-1" },
+      { societyId: "soc-2" },
+    ] as never);
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "PRO" as PlanId, status: "ACTIVE" as SubscriptionStatus })
+    );
+    const result = await checkSocietyLimit(USER_ID);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("autorise toujours avec le plan ENTERPRISE (illimité)", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { societyId: "soc-1" },
+      { societyId: "soc-2" },
+      { societyId: "soc-3" },
+      { societyId: "soc-4" },
+    ] as never);
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE" as PlanId, status: "ACTIVE" as SubscriptionStatus })
+    );
+    const result = await checkSocietyLimit(USER_ID);
+    expect(result.allowed).toBe(true);
   });
 });
