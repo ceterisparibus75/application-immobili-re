@@ -141,6 +141,20 @@ describe("recordPayment", () => {
       expect.objectContaining({ data: { status: "PAYE" } })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour recordPayment (ligne 95)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await recordPayment(SOCIETY_ID, validPaymentInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans recordPayment (lignes 96-97)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await recordPayment(SOCIETY_ID, validPaymentInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'enregistrement du paiement" });
+  });
 });
 
 // ── sendInvoiceToTenant ────────────────────────────────────────
@@ -220,6 +234,16 @@ describe("sendInvoiceToTenant", () => {
     prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(false);
+  });
+
+  it("mappe les lignes de facture dans l'email (ligne 406)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({
+      lines: [{ label: "Loyer mars 2025", totalTTC: 800 }],
+    }) as never);
+
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
   });
 });
 
@@ -393,6 +417,27 @@ describe("cancelInvoice", () => {
     const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de l'annulation" });
   });
+
+  it("exécute le callback $transaction pour créer un avoir (lignes 530-531, 549)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(
+      makeInvoice({ status: "ENVOYEE", creditNotes: [], lines: [
+        { label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 },
+      ] }) as never
+    );
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: "avoir-id" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.creditNoteId).toBe("avoir-id");
+    expect(prismaMock.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ invoiceType: "AVOIR" }) })
+    );
+  });
 });
 
 // ── markAsLitigious ────────────────────────────────────────────
@@ -528,5 +573,36 @@ describe("generateAndSendQuittance", () => {
     expect(result.data?.quittanceId).toBe(QUITTANCE_ID);
     expect(prismaMock.$transaction).toHaveBeenCalledOnce();
     expect(prismaMock.payment.create).toHaveBeenCalledOnce();
+  });
+
+  it("exécute le callback $transaction pour créer une quittance (lignes 137-138, 154)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0003qh8g7z1y2v3t";
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({
+        lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+      }) as never)
+      .mockResolvedValueOnce(null as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 5, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+    expect(result.data?.quittanceId).toBe(QUITTANCE_ID);
+    expect(prismaMock.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ invoiceType: "QUITTANCE" }) })
+    );
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans generateAndSendQuittance (lignes 193-194)", async () => {
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice() as never)
+      .mockRejectedValueOnce(new Error("DB connection lost"));
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result).toEqual({ success: false, error: "Erreur lors de la génération de la quittance" });
   });
 });
