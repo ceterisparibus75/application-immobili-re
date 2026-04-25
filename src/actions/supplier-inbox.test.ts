@@ -105,4 +105,62 @@ describe("supplier-inbox actions", () => {
       data: { webhookSecretHash: "hashed-secret" },
     });
   });
+
+  it("met à jour la config inbox si elle existe déjà", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockResolvedValue({
+      id: "inbox-1",
+      inboxEmail: "factures-existing@inbox.mygestia.immo",
+    } as never);
+    prismaMock.supplierInboxConfig.update.mockResolvedValue({
+      id: "inbox-1",
+      inboxEmail: "factures-existing@inbox.mygestia.immo",
+    } as never);
+
+    const result = await upsertSupplierInboxConfig(SOCIETY_ID, {
+      notifyEmails: ["updated@example.com"],
+      isActive: false,
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: { id: "inbox-1", inboxEmail: "factures-existing@inbox.mygestia.immo" },
+    });
+    expect(prismaMock.supplierInboxConfig.update).toHaveBeenCalledWith({
+      where: { societyId: SOCIETY_ID },
+      data: { notifyEmails: ["updated@example.com"], isActive: false },
+    });
+    expect(prismaMock.supplierInboxConfig.create).not.toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si la config est introuvable lors de regenerateInboxSecret", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockResolvedValue(null);
+
+    const result = await regenerateInboxSecret(SOCIETY_ID);
+
+    expect(result).toEqual({ success: false, error: "Configuration inbox introuvable" });
+    expect(prismaMock.supplierInboxConfig.update).not.toHaveBeenCalled();
+  });
+
+  it("retourne la config inbox si authentifié", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockResolvedValue({
+      id: "inbox-1",
+      inboxEmail: "factures-abc@inbox.mygestia.immo",
+      inboxSlug: "abc",
+      isActive: true,
+      notifyEmails: ["admin@example.com"],
+    } as never);
+
+    const result = await getSupplierInboxConfig(SOCIETY_ID);
+
+    expect(result).toEqual({
+      id: "inbox-1",
+      inboxEmail: "factures-abc@inbox.mygestia.immo",
+      inboxSlug: "abc",
+      isActive: true,
+      notifyEmails: ["admin@example.com"],
+    });
+  });
 });

@@ -18,7 +18,7 @@ vi.mock("@/lib/plan-limits", () => ({
   checkUserLimit,
 }));
 vi.mock("@/lib/email", () => ({
-  sendNewUserInviteEmail: vi.fn(),
+  sendNewUserInviteEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/env", () => ({
   env: { AUTH_URL: "https://app.test" },
@@ -28,12 +28,16 @@ const mockBcryptCompare = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const mockBcryptHash = vi.hoisted(() => vi.fn().mockResolvedValue("hashed-password"));
 vi.mock("bcryptjs", () => ({ compare: mockBcryptCompare, hash: mockBcryptHash }));
 
+const mockRandomBytes = vi.hoisted(() => vi.fn().mockReturnValue({ toString: () => "random-token" }));
+vi.mock("crypto", () => ({ randomBytes: mockRandomBytes }));
+
 import {
   assignUserToSociety,
   removeUserFromSociety,
   toggleEmailCopy,
   updateModulePermissions,
   changePassword,
+  createUser,
   deleteUser,
   getUsersNotInSociety,
   getUsers,
@@ -443,5 +447,176 @@ describe("resendInvitation", () => {
     const r = await resendInvitation(USER_ID);
     expect(r.success).toBe(false);
     expect(r.error).toContain("activé son compte");
+  });
+
+  it("renvoie l'invitation avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "u@example.com", name: "U", firstName: null, lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+
+    const r = await resendInvitation(USER_ID);
+
+    expect(r).toEqual({ success: true });
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: USER_ID } })
+    );
+  });
+});
+
+// ── createUser ────────────────────────────────────────────────────
+
+describe("createUser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    mockBcryptHash.mockResolvedValue("hashed-pwd");
+    mockRandomBytes.mockReturnValue({ toString: () => "random-token" });
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si droits insuffisants", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue(null as never);
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("insuffisants");
+  });
+
+  it("retourne une erreur de validation si l'email est invalide", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    const r = await createUser({ name: "Alice", email: "not-an-email" });
+    expect(r.success).toBe(false);
+  });
+
+  it("renvoie l'invitation si l'email existe mais sans lastLoginAt", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+
+    expect(r).toEqual({ success: true, data: { id: USER_ID } });
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: USER_ID } })
+    );
+  });
+
+  it("retourne une erreur si l'email est déjà actif", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", lastLoginAt: new Date(),
+    } as never);
+
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("déjà utilisé");
+  });
+
+  it("crée un nouvel utilisateur et envoie l'email d'invitation", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    prismaMock.user.create.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", name: "Alice",
+    } as never);
+
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+
+    expect(r).toEqual({ success: true, data: { id: USER_ID } });
+    expect(prismaMock.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: "alice@example.com", name: "Alice" }),
+      })
+    );
+  });
+});
+
+// ── removeUserFromSociety success ────────────────────────────────
+
+describe("removeUserFromSociety", () => {
+  it("retire un autre utilisateur avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+
+    const result = await removeUserFromSociety(USER_ID, SOCIETY_ID);
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.userSociety.delete).toHaveBeenCalledWith({
+      where: { userId_societyId: { userId: USER_ID, societyId: SOCIETY_ID } },
+    });
+  });
+});
+
+// ── updateModulePermissions success ─────────────────────────────
+
+describe("updateModulePermissions success", () => {
+  it("met à jour les permissions avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE", modulePermissions: null } as never);
+    prismaMock.userSociety.update.mockResolvedValue({} as never);
+
+    const result = await updateModulePermissions({
+      userId: USER_ID,
+      societyId: SOCIETY_ID,
+      modulePermissions: { locataires: ["read", "write"] },
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.userSociety.update).toHaveBeenCalledWith({
+      where: { userId_societyId: { userId: USER_ID, societyId: SOCIETY_ID } },
+      data: { modulePermissions: { locataires: ["read", "write"] } },
+    });
+  });
+});
+
+// ── getAllManagedUsers with data ──────────────────────────────────
+
+describe("getAllManagedUsers with data", () => {
+  it("retourne les utilisateurs avec leurs accès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-1",
+        label: "SCI Test",
+        societies: [
+          {
+            id: SOCIETY_ID,
+            name: "Ma Société",
+            userSocieties: [
+              {
+                role: "GESTIONNAIRE",
+                user: {
+                  id: USER_ID,
+                  email: "u@example.com",
+                  name: "Bob",
+                  firstName: null,
+                  isActive: true,
+                  lastLoginAt: null,
+                  emailCopyEnabled: false,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ] as never);
+
+    const r = await getAllManagedUsers();
+
+    expect(r.success).toBe(true);
+    expect(r.data?.users).toHaveLength(1);
+    expect(r.data?.users[0]).toMatchObject({ id: USER_ID, email: "u@example.com" });
+    expect(r.data?.societies).toHaveLength(1);
+    expect(r.data?.users[0].accesses).toHaveLength(1);
   });
 });
