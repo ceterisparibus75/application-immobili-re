@@ -77,17 +77,25 @@ async function computeTenantBalances(societyId: string, tenantIds: string[]): Pr
       invoiceType: { not: "QUITTANCE" },
     },
     select: {
+      id: true,
       tenantId: true,
       totalTTC: true,
       invoiceType: true,
-      payments: { select: { amount: true } },
     },
   });
+  if (invoices.length === 0) return new Map();
+
+  const paymentTotals = await prisma.payment.groupBy({
+    by: ["invoiceId"],
+    where: { invoiceId: { in: invoices.map((inv) => inv.id) } },
+    _sum: { amount: true },
+  });
+  const paidByInvoice = new Map(paymentTotals.map((p) => [p.invoiceId, p._sum.amount ?? 0]));
 
   const balances = new Map<string, number>();
   for (const inv of invoices) {
     const current = balances.get(inv.tenantId) ?? 0;
-    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    const paid = paidByInvoice.get(inv.id) ?? 0;
     if (inv.invoiceType === "AVOIR") {
       balances.set(inv.tenantId, current - inv.totalTTC);
     } else {

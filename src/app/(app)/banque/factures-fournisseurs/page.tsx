@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SupplierInvoicesFilters } from "./_components/supplier-invoices-filters";
+import { SupplierInvoicesEmptyState } from "./_components/supplier-invoices-empty-state";
 
 export const metadata = { title: "Factures fournisseurs" };
 
@@ -177,32 +178,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
 
       {/* Contenu */}
       {isEmpty ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
-              <FileText className="h-7 w-7 text-[var(--color-brand-blue)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">
-              Aucune facture fournisseur
-            </h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              Uploadez vos factures manuellement ou configurez la réception automatique par email.
-            </p>
-            <div className="flex gap-3">
-              <Link href="/parametres/facturation">
-                <Button variant="outline" size="sm">
-                  Configurer l&apos;email de réception
-                </Button>
-              </Link>
-              <Link href="/banque/factures-fournisseurs/nouveau">
-                <Button size="sm" className="gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  Uploader une facture
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <SupplierInvoicesEmptyState />
       ) : (
         <>
           {/* Tableau */}

@@ -510,6 +510,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Automatisation clarifiée** : `Workflows` ne présente plus de bouton de création inactif ; l'écran vide et l'aide renvoient vers les parcours existants tant que la création visuelle n'est pas exposée.
 - **Aide alignée avec l'interface** : les guides ne promettent plus d'écrans de création absents pour les workflows et les courriers personnalisés.
 - **Socle patrimoine/financement guidé** : `Sociétés`, `Immeubles`, `Contacts`, `Emprunts` et `Lots` ne se limitent plus à un état vide minimal ; ils orientent vers les parcours liés déjà disponibles.
+- **Charges et factures fournisseurs guidées** : les états vides orientent maintenant vers la saisie, la bibliothèque, les comptes rendus, l'upload fournisseur, la configuration email et le rattachement aux immeubles.
 - **Service worker corrigé** : `/sw.js` et `/offline.html` ne sont plus protégés par l'auth.
 - **Onboarding hydratation-safe** : les écrans Welcome/Onboarding ne lisent plus `localStorage` pendant le rendu initial ; suppression du risque d'hydration mismatch.
 - **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux. Les parcours métier peuvent cibler une URL de staging via `E2E_BASE_URL` sans lancer le serveur local.
@@ -559,7 +560,7 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
 | P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | En cours : hubs et actions principales ajoutés avec filtrage par mots-clés naturels. |
 | P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | En cours : `Location` et `Finances` proposent désormais des prochaines actions contextualisées. |
-| P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | En cours : `Baux`, `Banque`, `Documents`, `Tickets`, `Locataires`, `Candidatures`, `Workflows`, `Sociétés`, `Immeubles`, `Contacts`, `Emprunts` et `Lots` guident maintenant vers des parcours existants. |
+| P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | En cours : `Baux`, `Banque`, `Documents`, `Tickets`, `Locataires`, `Candidatures`, `Workflows`, `Sociétés`, `Immeubles`, `Contacts`, `Emprunts`, `Lots`, `Charges` et `Factures fournisseurs` guident maintenant vers des parcours existants. |
 | P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
 | P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |
 | P2 | Ajouter une base de staging seedée réaliste pour les démonstrations commerciales. | Tester les vrais flux avec des données proches production. |

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { ChargesDataTable } from "./_components/charges-data-table";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { ExportCharges } from "@/components/exports/export-charges";
+import { ChargesEmptyState } from "./_components/charges-empty-state";
 
 export const metadata = { title: "Charges" };
 
@@ -105,30 +106,7 @@ export default async function ChargesPage({ searchParams }: PageProps) {
       </div>
 
       {total === 0 && !pagination.search && Object.keys(pagination.filters ?? {}).length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucune charge</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              {buildings.length === 0
-                ? "Créez d'abord un immeuble pour pouvoir rattacher les charges au bon patrimoine."
-                : "Enregistrez vos charges d'exploitation, puis rattachez-les aux immeubles et catégories pour préparer les régularisations."}
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/charges/bibliotheque/nouvelle">
-                <Button variant="outline"><BookOpen className="h-4 w-4" />Créer la bibliothèque</Button>
-              </Link>
-              {buildings.length === 0 && (
-                <Link href="/patrimoine/immeubles/nouveau">
-                  <Button variant="outline"><Plus className="h-4 w-4" />Créer un immeuble</Button>
-                </Link>
-              )}
-              <Link href="/charges/nouvelle">
-                <Button><Plus className="h-4 w-4" />Nouvelle charge</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <ChargesEmptyState hasBuildings={buildings.length > 0} />
       ) : (
         <ChargesDataTable
           charges={charges.map((c) => ({

@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileBarChart2, CheckCircle, Clock, ArrowLeft } from "lucide-react";
+import { CheckCircle, Clock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { GenerateReportButton } from "./_components/generate-button";
+import { ChargeReportsEmptyState } from "./_components/charge-reports-empty-state";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -48,17 +49,7 @@ export default async function ComptesRendusPage() {
       </div>
 
       {reports.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileBarChart2 className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun compte rendu</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Générez les comptes rendus annuels pour chaque immeuble. Ils seront automatiquement déposés dans
-              l&apos;espace de chaque locataire.
-            </p>
-            <GenerateReportButton societyId={societyId} />
-          </CardContent>
-        </Card>
+        <ChargeReportsEmptyState generateAction={<GenerateReportButton societyId={societyId} />} />
       ) : (
         <div className="space-y-6">
           {years.map((year) => {

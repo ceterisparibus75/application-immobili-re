@@ -47,8 +47,7 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  // 1. Revenus mensuels (SQL raw — ANY fonctionne aussi avec un seul élément)
-  const rawMonthly = await prisma.$queryRaw<Array<{ month: Date; revenue: number }>>`
+  const monthlyRevenuePromise = prisma.$queryRaw<Array<{ month: Date; revenue: number }>>`
     SELECT
       DATE_TRUNC('month', "issueDate") AS month,
       COALESCE(SUM("totalTTC"), 0)::float AS revenue
@@ -59,7 +58,179 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
     GROUP BY DATE_TRUNC('month', "issueDate")
     ORDER BY month ASC
   `;
+  const revenueAggPromise = Promise.all([
+    prisma.invoice.aggregate({
+      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: currentMonthStart } },
+      _sum: { totalTTC: true },
+    }),
+    prisma.invoice.aggregate({
+      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: prevMonthStart, lte: prevMonthEnd } },
+      _sum: { totalTTC: true },
+    }),
+  ]);
+  const buildingsRawPromise = prisma.building.findMany({
+    where: { societyId: { in: societyIds } },
+    select: { name: true, lots: { select: { status: true } } },
+  });
+  const overdueInvoicesPromise = prisma.invoice.findMany({
+    where: {
+      societyId: { in: societyIds },
+      invoiceType: { not: "AVOIR" },
+      OR: [
+        { status: "EN_RETARD" },
+        { status: "EN_ATTENTE", dueDate: { lt: now } },
+        { status: "PARTIELLEMENT_PAYE", dueDate: { lt: now } },
+      ],
+    },
+    select: { totalTTC: true, dueDate: true },
+  });
+  const buildingsForPatrimonyPromise = prisma.building.findMany({
+    where: { societyId: { in: societyIds } },
+    select: {
+      id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true,
+      acquisitionFees: true, acquisitionTaxes: true, acquisitionOtherCosts: true, worksCost: true,
+      additionalAcquisitions: { select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true } },
+    },
+    orderBy: { acquisitionDate: "asc" },
+  });
+  const latestValuationsPromise = prisma.propertyValuation.findMany({
+    where: { societyId: { in: societyIds }, status: "COMPLETED", estimatedValueMid: { not: null } },
+    orderBy: { valuationDate: "desc" },
+    select: { buildingId: true, estimatedValueMid: true },
+  });
+  const topTenantsPromise = prisma.$queryRaw<
+    Array<{ tenantId: string; total: number; companyName: string | null; firstName: string | null; lastName: string | null; entityType: string }>
+  >`
+    SELECT
+      i."tenantId",
+      SUM(i."totalTTC")::float AS total,
+      t."companyName", t."firstName", t."lastName", t."entityType"
+    FROM "Invoice" i
+    JOIN "Tenant" t ON t.id = i."tenantId"
+    WHERE i."societyId" = ANY(${societyIds})
+      AND i."invoiceType" != 'AVOIR'
+    GROUP BY i."tenantId", t."companyName", t."firstName", t."lastName", t."entityType"
+    ORDER BY total DESC
+    LIMIT 5
+  `;
+  const riskLeasesPromise = prisma.lease.findMany({
+    where: { societyId: { in: societyIds }, status: "EN_COURS" },
+    select: {
+      currentRentHT: true,
+      paymentFrequency: true,
+      tenant: { select: { entityType: true, companyName: true, firstName: true, lastName: true } },
+      lot: { select: { building: { select: { name: true } } } },
+    },
+  });
+  const activeLeasesPromise = prisma.lease.findMany({
+    where: { societyId: { in: societyIds }, status: "EN_COURS" },
+    select: {
+      id: true, startDate: true, endDate: true,
+      tenant: { select: { entityType: true, companyName: true, firstName: true, lastName: true } },
+      lot: { select: { number: true, building: { select: { name: true } } } },
+    },
+    orderBy: { endDate: "asc" },
+    take: 10,
+  });
+  const bankAggPromise = prisma.bankAccount.aggregate({
+    where: { societyId: { in: societyIds }, isActive: true },
+    _sum: { currentBalance: true },
+  });
+  const expiringLeaseCountPromise = prisma.lease.count({
+    where: { societyId: { in: societyIds }, status: "EN_COURS", endDate: { lte: in90Days } },
+  });
+  const activeLeasesForRentPromise = prisma.lease.findMany({
+    where: { societyId: { in: societyIds }, status: "EN_COURS" },
+    select: { currentRentHT: true },
+  });
+  const recoverableChargesAggPromise = prisma.charge.aggregate({
+    where: {
+      societyId: { in: societyIds },
+      date: { gte: twelveMonthsAgo },
+      category: { nature: { in: ["RECUPERABLE", "MIXTE"] } },
+    },
+    _sum: { amount: true },
+  });
+  const activeLoansForDebtPromise = prisma.loan.findMany({
+    where: { societyId: { in: societyIds }, status: "EN_COURS" },
+    select: {
+      id: true, amount: true, purchaseValue: true, lender: true,
+      amortizationLines: {
+        orderBy: { period: "desc" },
+        where: { dueDate: { lte: now } },
+        take: 1,
+        select: { remainingBalance: true, totalPayment: true },
+      },
+    },
+  });
+  const dashboardCountsPromise = Promise.all([
+    prisma.building.count({ where: { societyId: { in: societyIds } } }),
+    prisma.tenant.count({ where: { societyId: { in: societyIds }, isActive: true } }),
+    prisma.lease.count({ where: { societyId: { in: societyIds }, status: "EN_COURS" } }),
+    prisma.diagnostic.count({ where: { building: { societyId: { in: societyIds } }, expiresAt: { lte: in90Days, gte: now } } }),
+    prisma.maintenance.count({ where: { building: { societyId: { in: societyIds } }, completedAt: null } }),
+    prisma.invoice.count({ where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, status: { in: ["EN_RETARD", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] }, dueDate: { lt: now } } }),
+  ]);
+  const managementFeesAggPromise = prisma.invoice.aggregate({
+    where: {
+      societyId: { in: societyIds },
+      isThirdPartyManaged: true,
+      issueDate: { gte: twelveMonthsAgo },
+      invoiceType: { not: "AVOIR" },
+    },
+    _sum: { managementFeeTTC: true },
+  });
+  const pendingRevisionCountPromise = prisma.rentRevision.count({
+    where: { isValidated: false, lease: { societyId: { in: societyIds }, status: "EN_COURS" } },
+  });
+  const leasesWithCurrentInvoicePromise = prisma.invoice.findMany({
+    where: {
+      societyId: { in: societyIds },
+      issueDate: { gte: currentMonthStart },
+      invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
+    },
+    select: { leaseId: true },
+    distinct: ["leaseId"],
+  });
+  const [
+    rawMonthly,
+    [currentMonthAgg, prevMonthAgg],
+    buildingsRaw,
+    overdueInvoices,
+    [buildingsForPatrimony, latestValuations],
+    topTenantsRaw,
+    riskLeases,
+    activeLeases,
+    bankAgg,
+    expiringLeaseCount,
+    activeLeasesForRent,
+    recoverableChargesAgg,
+    activeLoansForDebt,
+    [totalBuildings, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount],
+    managementFeesAgg,
+    pendingRevisionCount,
+    leasesWithCurrentInvoice,
+  ] = await Promise.all([
+    monthlyRevenuePromise,
+    revenueAggPromise,
+    buildingsRawPromise,
+    overdueInvoicesPromise,
+    Promise.all([buildingsForPatrimonyPromise, latestValuationsPromise]),
+    topTenantsPromise,
+    riskLeasesPromise,
+    activeLeasesPromise,
+    bankAggPromise,
+    expiringLeaseCountPromise,
+    activeLeasesForRentPromise,
+    recoverableChargesAggPromise,
+    activeLoansForDebtPromise,
+    dashboardCountsPromise,
+    managementFeesAggPromise,
+    pendingRevisionCountPromise,
+    leasesWithCurrentInvoicePromise,
+  ]);
 
+  // 1. Revenus mensuels (SQL raw — ANY fonctionne aussi avec un seul élément)
   const monthlyMap = new Map<string, number>();
   for (const r of rawMonthly) {
     const d = new Date(r.month);
@@ -74,16 +245,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   });
 
   // 2. KPI revenus mois courant vs précédent
-  const [currentMonthAgg, prevMonthAgg] = await Promise.all([
-    prisma.invoice.aggregate({
-      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: currentMonthStart } },
-      _sum: { totalTTC: true },
-    }),
-    prisma.invoice.aggregate({
-      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: prevMonthStart, lte: prevMonthEnd } },
-      _sum: { totalTTC: true },
-    }),
-  ]);
   const currentMonthRevenue = currentMonthAgg._sum.totalTTC ?? 0;
   const prevMonthRevenue = prevMonthAgg._sum.totalTTC ?? 0;
   const revenueChange =
@@ -92,10 +253,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
       : currentMonthRevenue > 0 ? 100 : 0;
 
   // 3. Taux d'occupation par immeuble
-  const buildingsRaw = await prisma.building.findMany({
-    where: { societyId: { in: societyIds } },
-    select: { name: true, lots: { select: { status: true } } },
-  });
   const buildingOccupancy: BuildingOccupancy[] = buildingsRaw
     .filter((b) => b.lots.length > 0)
     .map((b) => {
@@ -113,18 +270,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const occupancyRate = totalLots > 0 ? Math.round((occupiedLots / totalLots) * 100) : 0;
 
   // 4. Impayés par ancienneté
-  const overdueInvoices = await prisma.invoice.findMany({
-    where: {
-      societyId: { in: societyIds },
-      invoiceType: { not: "AVOIR" },
-      OR: [
-        { status: "EN_RETARD" },
-        { status: "EN_ATTENTE", dueDate: { lt: now } },
-        { status: "PARTIELLEMENT_PAYE", dueDate: { lt: now } },
-      ],
-    },
-    select: { totalTTC: true, dueDate: true },
-  });
   const ageBuckets = [
     { label: "< 30 j", min: 0, max: 30 },
     { label: "30-60 j", min: 30, max: 60 },
@@ -141,21 +286,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const totalOverdueAmount = overdueInvoices.reduce((s, i) => s + i.totalTTC, 0);
 
   // 5. Évolution patrimoine (cumul par date d'acquisition)
-  const buildingsForPatrimony = await prisma.building.findMany({
-    where: { societyId: { in: societyIds } },
-    select: {
-      id: true, acquisitionDate: true, marketValue: true, acquisitionPrice: true,
-      acquisitionFees: true, acquisitionTaxes: true, acquisitionOtherCosts: true, worksCost: true,
-      additionalAcquisitions: { select: { acquisitionPrice: true, acquisitionFees: true, acquisitionTaxes: true, otherCosts: true } },
-    },
-    orderBy: { acquisitionDate: "asc" },
-  });
-
-  const latestValuations = await prisma.propertyValuation.findMany({
-    where: { societyId: { in: societyIds }, status: "COMPLETED", estimatedValueMid: { not: null } },
-    orderBy: { valuationDate: "desc" },
-    select: { buildingId: true, estimatedValueMid: true },
-  });
   const valuationMap = new Map<string, number>();
   for (const v of latestValuations) {
     if (!valuationMap.has(v.buildingId) && v.estimatedValueMid != null) {
@@ -181,36 +311,12 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   }
 
   // 6. Top 5 locataires (SQL raw)
-  const topTenantsRaw = await prisma.$queryRaw<
-    Array<{ tenantId: string; total: number; companyName: string | null; firstName: string | null; lastName: string | null; entityType: string }>
-  >`
-    SELECT
-      i."tenantId",
-      SUM(i."totalTTC")::float AS total,
-      t."companyName", t."firstName", t."lastName", t."entityType"
-    FROM "Invoice" i
-    JOIN "Tenant" t ON t.id = i."tenantId"
-    WHERE i."societyId" = ANY(${societyIds})
-      AND i."invoiceType" != 'AVOIR'
-    GROUP BY i."tenantId", t."companyName", t."firstName", t."lastName", t."entityType"
-    ORDER BY total DESC
-    LIMIT 5
-  `;
   const topTenants: TopTenant[] = topTenantsRaw.map((r) => ({
     name: displayTenantName({ entityType: r.entityType, companyName: r.companyName, firstName: r.firstName, lastName: r.lastName }),
     total: Number(r.total),
   }));
 
   // 6b. Concentration du risque (par immeuble et par locataire)
-  const riskLeases = await prisma.lease.findMany({
-    where: { societyId: { in: societyIds }, status: "EN_COURS" },
-    select: {
-      currentRentHT: true,
-      paymentFrequency: true,
-      tenant: { select: { entityType: true, companyName: true, firstName: true, lastName: true } },
-      lot: { select: { building: { select: { name: true } } } },
-    },
-  });
   const buildingRentMap = new Map<string, number>();
   const tenantRentMap = new Map<string, number>();
   const tenantDisplayNames = new Map<string, string>();
@@ -235,16 +341,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: hhi(byBuilding), hhiTenant: hhi(byTenant) };
 
   // 7. Échéancier baux (10 plus proches expirations)
-  const activeLeases = await prisma.lease.findMany({
-    where: { societyId: { in: societyIds }, status: "EN_COURS" },
-    select: {
-      id: true, startDate: true, endDate: true,
-      tenant: { select: { entityType: true, companyName: true, firstName: true, lastName: true } },
-      lot: { select: { number: true, building: { select: { name: true } } } },
-    },
-    orderBy: { endDate: "asc" },
-    take: 10,
-  });
   const leaseTimeline: LeaseTimelineItem[] = activeLeases.map((l) => {
     const start = new Date(l.startDate).getTime();
     const end = new Date(l.endDate).getTime();
@@ -269,48 +365,17 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const grossYield = totalPatrimony > 0 ? Math.round((annualRevenue / totalPatrimony) * 1000) / 10 : null;
 
   // 9. Trésorerie
-  const bankAgg = await prisma.bankAccount.aggregate({
-    where: { societyId: { in: societyIds }, isActive: true },
-    _sum: { currentBalance: true },
-  });
   const availableCash = bankAgg._sum.currentBalance ?? 0;
 
   // 10. Baux expirant dans 90j
-  const expiringLeaseCount = await prisma.lease.count({
-    where: { societyId: { in: societyIds }, status: "EN_COURS", endDate: { lte: in90Days } },
-  });
 
   // 11. Loyers mensuels HT (baux actifs)
-  const activeLeasesForRent = await prisma.lease.findMany({
-    where: { societyId: { in: societyIds }, status: "EN_COURS" },
-    select: { currentRentHT: true },
-  });
   const monthlyRentHT = activeLeasesForRent.reduce((s, l) => s + l.currentRentHT, 0);
 
   // 12. Charges récupérables (12 derniers mois)
-  const recoverableChargesAgg = await prisma.charge.aggregate({
-    where: {
-      societyId: { in: societyIds },
-      date: { gte: twelveMonthsAgo },
-      category: { nature: { in: ["RECUPERABLE", "MIXTE"] } },
-    },
-    _sum: { amount: true },
-  });
   const recoverableCharges = recoverableChargesAgg._sum.amount ?? 0;
 
   // 13. Dette (emprunts en cours)
-  const activeLoansForDebt = await prisma.loan.findMany({
-    where: { societyId: { in: societyIds }, status: "EN_COURS" },
-    select: {
-      id: true, amount: true, purchaseValue: true, lender: true,
-      amortizationLines: {
-        orderBy: { period: "desc" },
-        where: { dueDate: { lte: now } },
-        take: 1,
-        select: { remainingBalance: true, totalPayment: true },
-      },
-    },
-  });
   let totalDebt = 0;
   let monthlyLoanPayment = 0;
   for (const loan of activeLoansForDebt) {
@@ -335,14 +400,6 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   const ltv = totalCostForLtv > 0 ? Math.round((totalDebt / totalCostForLtv) * 1000) / 10 : null;
 
   // 14. Compteurs de patrimoine et alertes
-  const [totalBuildings, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount] = await Promise.all([
-    prisma.building.count({ where: { societyId: { in: societyIds } } }),
-    prisma.tenant.count({ where: { societyId: { in: societyIds }, isActive: true } }),
-    prisma.lease.count({ where: { societyId: { in: societyIds }, status: "EN_COURS" } }),
-    prisma.diagnostic.count({ where: { building: { societyId: { in: societyIds } }, expiresAt: { lte: in90Days, gte: now } } }),
-    prisma.maintenance.count({ where: { building: { societyId: { in: societyIds } }, completedAt: null } }),
-    prisma.invoice.count({ where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, status: { in: ["EN_RETARD", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] }, dueDate: { lt: now } } }),
-  ]);
   const vacantLots = totalLots - occupiedLots;
 
   // Encours par établissement prêteur
@@ -370,32 +427,11 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
     .sort((a, b) => b.remainingBalance - a.remainingBalance);
 
   // 15. Honoraires de gestion tiers (12 derniers mois)
-  const managementFeesAgg = await prisma.invoice.aggregate({
-    where: {
-      societyId: { in: societyIds },
-      isThirdPartyManaged: true,
-      issueDate: { gte: twelveMonthsAgo },
-      invoiceType: { not: "AVOIR" },
-    },
-    _sum: { managementFeeTTC: true },
-  });
   const totalManagementFees = managementFeesAgg._sum.managementFeeTTC ?? 0;
 
   // 16. Révisions de loyer en attente
-  const pendingRevisionCount = await prisma.rentRevision.count({
-    where: { isValidated: false, lease: { societyId: { in: societyIds }, status: "EN_COURS" } },
-  });
 
   // 17. Baux sans facture émise ce mois
-  const leasesWithCurrentInvoice = await prisma.invoice.findMany({
-    where: {
-      societyId: { in: societyIds },
-      issueDate: { gte: currentMonthStart },
-      invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
-    },
-    select: { leaseId: true },
-    distinct: ["leaseId"],
-  });
   const leaseIdsWithInvoice = new Set(leasesWithCurrentInvoice.map(i => i.leaseId).filter(Boolean));
   const invoicesToIssueCount = await prisma.lease.count({
     where: {

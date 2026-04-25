@@ -15,11 +15,27 @@ import { ExportPdfButton } from "@/components/dashboard/export-pdf-button";
 import { KpiCards } from "./_components/kpi-cards";
 import { ActionsBar } from "./_components/actions-bar";
 import { TrackingPanel } from "./_components/tracking-panel";
+import { Suspense } from "react";
 
 export const metadata = { title: "Tableau de bord" };
 
 function fmt(n: number) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+}
+
+function DashboardPanelSkeleton({ title }: { title: string }) {
+  return (
+    <Card className="border-0 shadow-brand bg-white rounded-xl">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="h-3 w-2/3 rounded bg-muted" />
+        <div className="h-3 w-1/2 rounded bg-muted" />
+        <div className="h-3 w-3/4 rounded bg-muted" />
+      </CardContent>
+    </Card>
+  );
 }
 
 export default async function DashboardPage() {
@@ -170,9 +186,13 @@ export default async function DashboardPage() {
 
         {/* Colonne droite : Panneau de suivi (1/3) */}
         <div className="space-y-5">
-          <TodayTasks societyId={societyId} />
+          <Suspense fallback={<DashboardPanelSkeleton title="Actions du jour" />}>
+            <TodayTasks societyId={societyId} />
+          </Suspense>
 
-          <EcheancesPanel societyId={societyId} />
+          <Suspense fallback={<DashboardPanelSkeleton title="Échéances" />}>
+            <EcheancesPanel societyId={societyId} />
+          </Suspense>
 
           <TrackingPanel kpis={kpis} />
         </div>

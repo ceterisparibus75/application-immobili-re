@@ -646,8 +646,11 @@ describe("getTenantsPaginated — computeTenantBalances avec AVOIR", () => {
     ] as never);
     prismaMock.tenant.count.mockResolvedValue(1 as never);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ amount: 100 }] },
-      { tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR", payments: [] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER" },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR" },
+    ] as never);
+    prismaMock.payment.groupBy.mockResolvedValue([
+      { invoiceId: "inv-1", _sum: { amount: 100 } },
     ] as never);
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });

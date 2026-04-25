@@ -28,16 +28,19 @@ export default async function RapprochementPage({
 
   if (!societyId) redirect("/societes");
 
-  const account = await getBankAccountById(societyId, id);
-  if (!account) notFound();
-
-  const [transactions, payments, reconciled, pendingInvoices, loanLines] = await Promise.all([
+  const accountPromise = getBankAccountById(societyId, id);
+  const reconciliationDataPromise = Promise.all([
     getUnreconciledTransactions(societyId, id),
     getUnreconciledPayments(societyId),
     getReconciledItems(societyId, id),
     getPendingInvoices(societyId),
     getUpcomingLoanLines(societyId),
   ]);
+
+  const account = await accountPromise;
+  if (!account) notFound();
+
+  const [transactions, payments, reconciled, pendingInvoices, loanLines] = await reconciliationDataPromise;
 
   const totalRight = payments.length + pendingInvoices.length + loanLines.length;
 
