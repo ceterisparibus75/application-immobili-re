@@ -367,6 +367,40 @@ describe("updateRentStep", () => {
     const result = await updateRentStep(SOCIETY_ID, validInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour du palier" });
   });
+
+  it("retourne une erreur si la date de début dépasse la fin du bail", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-03-31"),
+    } as never);
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", rentHT: 1500 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("postérieure à la fin du bail");
+  });
+
+  it("retourne une erreur si la date de fin du palier dépasse la fin du bail", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-12-31"),
+    } as never);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([]);
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-02-01", endDate: "2025-02-01", rentHT: 1500 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("dépasser la fin du bail");
+  });
+
+  it("retourne une erreur si le palier chevauche un palier existant", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-01-01"), endDate: null } as never);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([
+      { label: "Palier A", startDate: new Date("2024-05-01"), endDate: null },
+    ] as never);
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", rentHT: 1500 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Chevauchement");
+  });
 });
 
 // ── deleteRentStep ────────────────────────────────────────────────

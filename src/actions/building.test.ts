@@ -144,6 +144,36 @@ describe("updateBuilding", () => {
     expect(result.success).toBe(true)
     expect(prismaMock.building.update).toHaveBeenCalledOnce()
   })
+
+  it("convertit les champs vides en null et acquisitionDate en Date", async () => {
+    mockAuthSession()
+    const building = buildBuilding()
+    prismaMock.building.findFirst.mockResolvedValue(building as never)
+    prismaMock.building.update.mockResolvedValue(building as never)
+    const result = await updateBuilding("society-1", {
+      id: VALID_CUID,
+      description: "",
+      acquisitionDate: "2025-06-01",
+    })
+    expect(result.success).toBe(true)
+    const call = prismaMock.building.update.mock.calls[0][0]
+    expect(call.data.description).toBeNull()
+    expect(call.data.acquisitionDate).toBeInstanceOf(Date)
+  })
+
+  it("retourne une erreur si rôle insuffisant pour updateBuilding", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const result = await updateBuilding("society-1", { id: VALID_CUID, name: "Nom" })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans updateBuilding", async () => {
+    mockAuthSession()
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const result = await updateBuilding("society-1", { id: VALID_CUID, name: "Nom" })
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" })
+  })
 })
 
 describe("deleteBuilding", () => {

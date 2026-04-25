@@ -252,6 +252,13 @@ describe("getGrandLivre", () => {
     expect(rows[0].solde).toBe(1000);
     expect(rows[1].solde).toBe(600);
   });
+
+  it("retourne une erreur générique si la BDD échoue dans getGrandLivre", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await getGrandLivre(SOCIETY_ID, {});
+    expect(result).toEqual({ success: false, error: "Erreur lors de la récupération du grand livre" });
+  });
 });
 
 describe("createJournalEntry", () => {
@@ -309,6 +316,20 @@ describe("createJournalEntry", () => {
     expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "BROUILLON" }) })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour createJournalEntry", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createJournalEntry", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'écriture" });
   });
 });
 
