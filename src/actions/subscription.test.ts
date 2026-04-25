@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
-import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription } from "@/actions/subscription"
+import {
+  getSubscription,
+  createCheckout,
+  openBillingPortal,
+  cancelCurrentSubscription,
+  forceSyncSubscription,
+  syncAllAdminSubscriptions,
+} from "@/actions/subscription"
 import { UserRole } from "@/generated/prisma/client"
 import { prismaMock } from "@/test/mocks/prisma"
 
@@ -10,8 +17,13 @@ vi.mock("@/lib/stripe", () => ({
   getStripe: vi.fn(() => ({
     checkout: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://checkout.stripe.com/test" }) } },
     billingPortal: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/test" }) } },
-    subscriptions: { retrieve: vi.fn().mockResolvedValue({ status: "active", items: { data: [{ price: { id: "price_starter_m" } }] } }), update: vi.fn().mockResolvedValue({}) },
+    subscriptions: {
+      retrieve: vi.fn().mockResolvedValue({ status: "active", items: { data: [{ price: { id: "price_starter_m" } }] }, customer: "cus_test", cancel_at: null, trial_end: null }),
+      update: vi.fn().mockResolvedValue({}),
+    },
   })),
+  createCheckoutSession: vi.fn().mockResolvedValue("https://checkout.stripe.com/test"),
+  createCustomerPortalSession: vi.fn().mockResolvedValue("https://billing.stripe.com/portal"),
   PLANS: {
     STARTER: { name: "Starter", maxLots: 20, maxSocieties: 1, maxUsers: 2, features: ["Gestion de patrimoine"] },
     PRO: { name: "Pro", maxLots: 50, maxSocieties: 3, maxUsers: 5, features: ["Tout Starter +"] },
@@ -135,5 +147,83 @@ describe("cancelCurrentSubscription", () => {
     const r = await cancelCurrentSubscription("society-1")
     expect(r.success).toBe(false)
     expect(r.error).toContain("abonnement")
+  })
+
+  it("annule l'abonnement avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await cancelCurrentSubscription("society-1")
+    expect(r.success).toBe(true)
+  })
+})
+
+describe("openBillingPortal", () => {
+  it("ouvre le portail de facturation avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await openBillingPortal("society-1")
+    expect(r.success).toBe(true)
+    expect(r.data?.url).toContain("billing.stripe.com")
+  })
+})
+
+describe("forceSyncSubscription", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si aucun abonnement", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(null as never)
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Aucun abonnement")
+  })
+
+  it("erreur si pas de stripeSubscriptionId", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription({ stripeSubscriptionId: null }) as never)
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Stripe")
+  })
+
+  it("synchronise l'abonnement Stripe avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    prismaMock.subscription.update.mockResolvedValue(buildSubscription() as never)
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(true)
+    expect(r.data?.status).toBe("ACTIVE")
+    expect(r.data?.planId).toBe("STARTER")
+  })
+})
+
+describe("syncAllAdminSubscriptions", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await syncAllAdminSubscriptions()
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne 0 si aucune société admin", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never)
+    const r = await syncAllAdminSubscriptions()
+    expect(r.success).toBe(true)
+    expect(r.data?.synced).toBe(0)
+  })
+
+  it("synchronise les abonnements Stripe des sociétés admin", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.userSociety.findMany.mockResolvedValue([{ societyId: "society-1" }] as never)
+    prismaMock.subscription.findMany.mockResolvedValue([buildSubscription()] as never)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    prismaMock.subscription.update.mockResolvedValue(buildSubscription() as never)
+    const r = await syncAllAdminSubscriptions()
+    expect(r.success).toBe(true)
+    expect(r.data?.synced).toBe(1)
   })
 })
