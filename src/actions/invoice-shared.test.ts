@@ -1,4 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    storage: { from: vi.fn(() => ({ createSignedUrl: vi.fn().mockResolvedValue({ data: null }) })) },
+  })),
+}));
+vi.mock("@/lib/encryption", () => ({
+  encrypt: vi.fn((v: string) => `enc:${v}`),
+  decrypt: vi.fn((v: string) => v.replace(/^enc:/, "")),
+}));
+
 import { prismaMock } from "@/test/mocks/prisma";
 
 import {
@@ -9,6 +20,7 @@ import {
   computeManagementFee,
   getNextInvoiceNumber,
   buildRevisionProrataLines,
+  computeInvoicePreview,
 } from "./invoice-shared";
 
 // ── computeLines ───────────────────────────────────────────────
@@ -286,5 +298,132 @@ describe("buildRevisionProrataLines", () => {
     const line1 = r?.lines[0];
     expect(line1?.totalVAT).toBeGreaterThan(0);
     expect(line1?.totalTTC).toBeCloseTo((line1?.totalHT ?? 0) * 1.2, 2);
+  });
+});
+
+// ── computeInvoicePreview ──────────────────────────────────────────────────────
+
+const PREVIEW_LEASE_ID = "clh3x2z4k0000qh8g7z1y2v3t";
+const SOCIETY_ID = "clh3x2z4k0001qh8g7z1y2v3u";
+const TENANT_ID = "clh3x2z4k0002qh8g7z1y2v3v";
+
+function makeLease(overrides = {}) {
+  return {
+    id: PREVIEW_LEASE_ID,
+    tenantId: TENANT_ID,
+    startDate: new Date("2024-01-01"),
+    paymentFrequency: "MENSUEL",
+    billingTerm: "A_ECHOIR",
+    currentRentHT: 800,
+    vatApplicable: false,
+    vatRate: 0,
+    rentFreeMonths: 0,
+    progressiveRent: null,
+    rentSteps: [],
+    chargeProvisions: [],
+    tenant: {
+      entityType: "PERSONNE_PHYSIQUE",
+      companyName: null,
+      firstName: "Jean",
+      lastName: "Dupont",
+      personalAddress: "1 rue de la Paix, 75001 Paris",
+      companyAddress: null,
+      email: "jean@example.com",
+      billingEmail: null,
+      phone: null,
+    },
+    lot: {
+      number: "A101",
+      building: { name: "Immeuble Test", addressLine1: "1 rue Test", postalCode: "75001", city: "Paris", country: "France" },
+    },
+    ...overrides,
+  };
+}
+
+function makeSociety(overrides = {}) {
+  return {
+    name: "SCI Test",
+    logoUrl: null,
+    siret: "12345678901234",
+    vatNumber: null,
+    vatRegime: "FRANCHISE",
+    addressLine1: "1 rue Test",
+    addressLine2: null,
+    postalCode: "75001",
+    city: "Paris",
+    legalMentions: null,
+    bankName: null,
+    signatoryName: null,
+    ibanEncrypted: null,
+    bicEncrypted: null,
+    phone: null,
+    legalForm: "SCI",
+    shareCapital: null,
+    email: "contact@sci-test.fr",
+    ...overrides,
+  };
+}
+
+describe("computeInvoicePreview", () => {
+  it("retourne null si le bail est introuvable", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).toBeNull();
+  });
+
+  it("retourne un aperçu complet avec loyer simple", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never); // pas d'impayés
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null); // pas de révision
+    prismaMock.invoice.findFirst.mockResolvedValue(null); // pas de doublon
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lines).toHaveLength(1);
+    expect(result?.lines[0].label).toContain("Loyer");
+    expect(result?.lines[0].totalHT).toBe(800);
+    expect(result?.totalHT).toBe(800);
+    expect(result?.previousBalance).toBe(0);
+    expect(result?.alreadyExists).toBe(false);
+  });
+
+  it("calcule le solde précédent depuis les factures impayées", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { totalTTC: 1000, payments: [{ amount: 400 }] }, // solde = 600
+    ] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.previousBalance).toBe(600);
+  });
+
+  it("marque alreadyExists=true si une facture existe déjà pour la période", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue({ id: "existing-invoice" } as never);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.alreadyExists).toBe(true);
+  });
+
+  it("inclut les provisions de charges dans les lignes", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      chargeProvisions: [{ monthlyAmount: 100, vatRate: 0, label: "Charges locatives" }],
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.lines).toHaveLength(2);
+    expect(result?.lines[1].label).toBe("Charges locatives");
+    expect(result?.lines[1].totalHT).toBe(100);
   });
 });
