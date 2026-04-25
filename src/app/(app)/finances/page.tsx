@@ -14,6 +14,7 @@ import {
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
+import { getFinancesGuidance } from "@/lib/module-guidance";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,6 +75,12 @@ export default async function FinancesPage() {
     },
   ];
 
+  const guidanceSteps = getFinancesGuidance({
+    bankAccounts,
+    draftEntries,
+    unpaidInvoices,
+  });
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -115,6 +122,35 @@ export default async function FinancesPage() {
           </Card>
         ))}
       </div>
+
+      {guidanceSteps.length > 0 && (
+        <section className="rounded-lg border border-border bg-muted/20 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Prochaines actions</h2>
+              <p className="text-sm text-muted-foreground">
+                Les raccourcis les plus utiles selon l'état actuel de la trésorerie.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {guidanceSteps.map((step) => (
+              <Link
+                key={step.href}
+                href={step.href}
+                className="group rounded-md border border-border bg-background p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
+              >
+                <p className="font-medium">{step.title}</p>
+                <p className="mt-1 min-h-10 text-sm text-muted-foreground">{step.description}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                  {step.action}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {workflows.map((workflow) => (

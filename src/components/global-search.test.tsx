@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GlobalSearch } from "./global-search";
 
@@ -11,11 +11,49 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("GlobalSearch", () => {
+  beforeEach(() => {
+    push.mockClear();
+    localStorage.clear();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [] }),
+    } as Response);
+  });
+
   it("ouvre directement la modale quand initiallyOpen est vrai", () => {
     render(<GlobalSearch initiallyOpen />);
 
     expect(screen.getByPlaceholderText(/rechercher immeubles/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Document/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Importer un document" })).toBeInTheDocument();
+  });
+
+  it("expose les hubs et actions métier récents", () => {
+    render(<GlobalSearch initiallyOpen />);
+
+    expect(screen.getByRole("button", { name: /Ouvrir Location/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ouvrir Finances/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Importer un bail PDF/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ajouter un compte bancaire/i })).toBeInTheDocument();
+  });
+
+  it("filtre les actions rapides depuis la saisie", () => {
+    render(<GlobalSearch initiallyOpen />);
+
+    fireEvent.change(screen.getByPlaceholderText(/rechercher immeubles/i), { target: { value: "banque" } });
+
+    expect(screen.getByText("Actions correspondantes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ajouter un compte bancaire/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Créer un bail/i })).not.toBeInTheDocument();
+  });
+
+  it("navigue vers une action rapide", () => {
+    const onClose = vi.fn();
+    render(<GlobalSearch initiallyOpen onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Ouvrir Finances/i }));
+
+    expect(push).toHaveBeenCalledWith("/finances");
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("notifie la fermeture de la modale", () => {

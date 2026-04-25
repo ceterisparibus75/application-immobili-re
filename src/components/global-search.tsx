@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Building2, Home, Users, FileText, Receipt,
   UserCircle, Clock, X, Filter, FileIcon, Plus,
+  Landmark, Upload, BookOpen, BarChart3,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -36,34 +37,81 @@ const MAX_HISTORY = 8;
 
 const QUICK_ACTIONS = [
   {
+    label: "Ouvrir Location",
+    href: "/location",
+    icon: FileText,
+    color: TYPE_COLORS.lease,
+    keywords: ["baux", "bail", "locataire", "loyer"],
+  },
+  {
+    label: "Ouvrir Finances",
+    href: "/finances",
+    icon: BarChart3,
+    color: "bg-indigo-500/10 text-indigo-600",
+    keywords: ["finance", "facture", "charge", "banque"],
+  },
+  {
     label: "Créer un immeuble",
     href: "/patrimoine/immeubles/nouveau",
     icon: Building2,
     color: TYPE_COLORS.building,
+    keywords: ["patrimoine", "batiment", "bien"],
   },
   {
     label: "Créer un locataire",
     href: "/locataires/nouveau",
     icon: Users,
     color: TYPE_COLORS.tenant,
+    keywords: ["tenant", "occupant"],
   },
   {
     label: "Créer un bail",
     href: "/baux/nouveau",
     icon: FileText,
     color: TYPE_COLORS.lease,
+    keywords: ["location", "contrat"],
+  },
+  {
+    label: "Importer un bail PDF",
+    href: "/baux/import",
+    icon: Upload,
+    color: TYPE_COLORS.lease,
+    keywords: ["pdf", "upload", "location", "contrat"],
   },
   {
     label: "Créer une facture",
     href: "/facturation/nouvelle",
     icon: Receipt,
     color: TYPE_COLORS.invoice,
+    keywords: ["facturation", "invoice"],
+  },
+  {
+    label: "Générer les appels",
+    href: "/facturation/generer",
+    icon: Receipt,
+    color: TYPE_COLORS.invoice,
+    keywords: ["loyer", "appel", "facturation"],
+  },
+  {
+    label: "Nouvelle charge",
+    href: "/charges/nouvelle",
+    icon: BookOpen,
+    color: "bg-orange-500/10 text-orange-600",
+    keywords: ["depense", "finance", "compta"],
+  },
+  {
+    label: "Ajouter un compte bancaire",
+    href: "/banque/nouveau-compte",
+    icon: Landmark,
+    color: "bg-teal-500/10 text-teal-600",
+    keywords: ["banque", "bancaire", "iban", "finance"],
   },
   {
     label: "Importer un document",
     href: "/documents/nouveau",
     icon: FileIcon,
     color: TYPE_COLORS.document,
+    keywords: ["fichier", "pdf", "upload"],
   },
 ];
 
@@ -212,9 +260,15 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
   }, {});
 
   const showHistory = query.length < 2 && history.length > 0;
-  const showQuickActions = query.length < 2;
+  const quickActionQuery = query.trim().toLowerCase();
+  const visibleQuickActions = quickActionQuery.length < 2
+    ? QUICK_ACTIONS
+    : QUICK_ACTIONS.filter((action) => (
+      [action.label, ...action.keywords].some((value) => value.toLowerCase().includes(quickActionQuery))
+    ));
+  const showQuickActions = visibleQuickActions.length > 0;
   const showResults = query.length >= 2 && results.length > 0;
-  const showEmpty = query.length >= 2 && results.length === 0 && !loading;
+  const showEmpty = query.length >= 2 && results.length === 0 && !loading && visibleQuickActions.length === 0;
 
   // Filters chips
   const filterTypes = ["building", "lot", "tenant", "lease", "invoice", "contact", "document"];
@@ -329,10 +383,10 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
         {showQuickActions && (
           <div className="border-t border-border/40 px-2 py-2">
             <p className="px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
-              Actions rapides
+              {query.length < 2 ? "Actions rapides" : "Actions correspondantes"}
             </p>
             <div className="grid gap-1 sm:grid-cols-2">
-              {QUICK_ACTIONS.map((action) => {
+              {visibleQuickActions.map((action) => {
                 const Icon = action.icon;
                 return (
                   <button

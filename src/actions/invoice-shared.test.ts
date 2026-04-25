@@ -426,4 +426,53 @@ describe("computeInvoicePreview", () => {
     expect(result?.lines[1].label).toBe("Charges locatives");
     expect(result?.lines[1].totalHT).toBe(100);
   });
+
+  it("applique le prorata si le bail commence en milieu de mois (ligne 445)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      startDate: new Date("2025-03-15"),
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lines[0].label).toContain("prorata");
+    expect(result?.lines[0].totalHT).toBeLessThan(800);
+  });
+
+  it("applique la franchise partielle si rentFreeMonths est fractionnaire (lignes 451-461)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      startDate: new Date("2024-01-01"),
+      rentFreeMonths: 0.5,
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2024-01");
+    expect(result).not.toBeNull();
+    expect(result?.lines[0].label).toContain("franchise");
+    expect(result?.lines[0].totalHT).toBeLessThan(800);
+  });
+
+  it("utilise les lignes de révision proratisées si une révision est active (ligne 484)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue({
+      effectiveDate: new Date("2025-03-15"),
+      previousRentHT: 800,
+      newRentHT: 850,
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lines).toHaveLength(2);
+    expect(result?.lines[0].label).toContain("avant révision");
+    expect(result?.lines[1].label).toContain("révisé");
+  });
 });

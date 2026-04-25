@@ -504,6 +504,8 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Topnav simplifiée** : passage d'une barre trop dense à 6 entrées de premier niveau : `Dashboard`, `Patrimoine`, `Location`, `Finances`, `Documents`, `Automatisation`.
 - **Navigation mutualisée** : création d'une configuration partagée entre desktop et mobile pour éviter les divergences.
 - **Mobile corrigé** : la topnav desktop ne s'affiche plus sur mobile ; le drawer mobile conserve l'ensemble des accès secondaires.
+- **Recherche globale renforcée** : `Ctrl/Cmd K` expose maintenant les hubs `Location` et `Finances`, les actions métier récentes et un filtrage par mots-clés naturels (`banque`, `pdf`, `loyer`, etc.).
+- **Hubs Location/Finances guidés** : les pages index proposent des prochaines actions selon les compteurs réels (premier locataire, bail, appels de loyers, compte bancaire, rapprochement, écritures brouillon).
 - **Service worker corrigé** : `/sw.js` et `/offline.html` ne sont plus protégés par l'auth.
 - **Onboarding hydratation-safe** : les écrans Welcome/Onboarding ne lisent plus `localStorage` pendant le rendu initial ; suppression du risque d'hydration mismatch.
 - **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux. Les parcours métier peuvent cibler une URL de staging via `E2E_BASE_URL` sans lancer le serveur local.
@@ -551,8 +553,8 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 |----------|--------|----------------------|
 | P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
-| P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | Réduire encore la dépendance à la navigation profonde. |
-| P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | Faire de chaque module une zone de travail, pas seulement une liste. |
+| P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | En cours : hubs et actions principales ajoutés avec filtrage par mots-clés naturels. |
+| P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | En cours : `Location` et `Finances` proposent désormais des prochaines actions contextualisées. |
 | P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Aider les nouveaux utilisateurs à avancer sans lire de documentation. |
 | P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
 | P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |
