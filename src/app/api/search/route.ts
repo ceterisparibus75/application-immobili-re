@@ -4,7 +4,19 @@ import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 
 export interface SearchResult {
   id: string;
-  type: "building" | "lot" | "tenant" | "lease" | "invoice" | "contact" | "document";
+  type:
+    | "building"
+    | "lot"
+    | "tenant"
+    | "lease"
+    | "invoice"
+    | "contact"
+    | "document"
+    | "bankAccount"
+    | "charge"
+    | "supplierInvoice"
+    | "ticket"
+    | "reportSchedule";
   title: string;
   subtitle?: string;
   href: string;
@@ -200,6 +212,174 @@ export async function GET(req: NextRequest) {
         title: doc.fileName,
         subtitle: doc.category ?? doc.description ?? undefined,
         href: `/documents?documentId=${encodeURIComponent(doc.id)}`,
+      });
+    }
+  }
+
+  // Comptes bancaires
+  if (!typeFilter || typeFilter === "bankAccount") {
+    const bankAccounts = await prisma.bankAccount.findMany({
+      where: {
+        societyId,
+        OR: [
+          { accountName: { contains: q, mode: "insensitive" } },
+          { bankName: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 3,
+      select: {
+        id: true,
+        accountName: true,
+        bankName: true,
+        currentBalance: true,
+      },
+    });
+    for (const account of bankAccounts) {
+      results.push({
+        id: account.id,
+        type: "bankAccount",
+        title: account.accountName,
+        subtitle: account.bankName,
+        href: `/banque/${account.id}`,
+        meta: account.currentBalance.toLocaleString("fr-FR", { style: "currency", currency: "EUR" }),
+      });
+    }
+  }
+
+  // Charges
+  if (!typeFilter || typeFilter === "charge") {
+    const charges = await prisma.charge.findMany({
+      where: {
+        societyId,
+        OR: [
+          { description: { contains: q, mode: "insensitive" } },
+          { supplierName: { contains: q, mode: "insensitive" } },
+          { category: { name: { contains: q, mode: "insensitive" } } },
+          { building: { name: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      take: 3,
+      select: {
+        id: true,
+        description: true,
+        amount: true,
+        supplierName: true,
+        building: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+    });
+    for (const charge of charges) {
+      results.push({
+        id: charge.id,
+        type: "charge",
+        title: charge.description,
+        subtitle: [charge.supplierName, charge.building.name, charge.category.name].filter(Boolean).join(" - "),
+        href: `/charges/${charge.id}`,
+        meta: charge.amount.toLocaleString("fr-FR", { style: "currency", currency: "EUR" }),
+      });
+    }
+  }
+
+  // Factures fournisseurs
+  if (!typeFilter || typeFilter === "supplierInvoice") {
+    const supplierInvoices = await prisma.supplierInvoice.findMany({
+      where: {
+        societyId,
+        OR: [
+          { reference: { contains: q, mode: "insensitive" } },
+          { fileName: { contains: q, mode: "insensitive" } },
+          { supplierName: { contains: q, mode: "insensitive" } },
+          { invoiceNumber: { contains: q, mode: "insensitive" } },
+          { emailSubject: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 3,
+      select: {
+        id: true,
+        reference: true,
+        fileName: true,
+        supplierName: true,
+        invoiceNumber: true,
+        amountTTC: true,
+        status: true,
+      },
+    });
+    for (const invoice of supplierInvoices) {
+      results.push({
+        id: invoice.id,
+        type: "supplierInvoice",
+        title: invoice.reference ?? invoice.invoiceNumber ?? invoice.fileName,
+        subtitle: invoice.supplierName ?? invoice.fileName,
+        href: `/banque/factures-fournisseurs/${invoice.id}`,
+        meta: invoice.amountTTC != null
+          ? invoice.amountTTC.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })
+          : invoice.status,
+      });
+    }
+  }
+
+  // Tickets locataires
+  if (!typeFilter || typeFilter === "ticket") {
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        societyId,
+        OR: [
+          { ticketNumber: { contains: q, mode: "insensitive" } },
+          { subject: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { location: { contains: q, mode: "insensitive" } },
+          { tenant: { firstName: { contains: q, mode: "insensitive" } } },
+          { tenant: { lastName: { contains: q, mode: "insensitive" } } },
+          { tenant: { companyName: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      take: 3,
+      select: {
+        id: true,
+        ticketNumber: true,
+        subject: true,
+        status: true,
+        priority: true,
+        tenant: { select: { firstName: true, lastName: true, companyName: true } },
+      },
+    });
+    for (const ticket of tickets) {
+      const tenantName = ticket.tenant.companyName
+        ?? [ticket.tenant.firstName, ticket.tenant.lastName].filter(Boolean).join(" ");
+      results.push({
+        id: ticket.id,
+        type: "ticket",
+        title: `${ticket.ticketNumber} - ${ticket.subject}`,
+        subtitle: tenantName || undefined,
+        href: `/tickets/${ticket.id}`,
+        meta: ticket.status,
+      });
+    }
+  }
+
+  // Planifications de rapports
+  if (!typeFilter || typeFilter === "reportSchedule") {
+    const schedules = await prisma.reportSchedule.findMany({
+      where: {
+        societyId,
+        name: { contains: q, mode: "insensitive" },
+      },
+      take: 3,
+      select: {
+        id: true,
+        name: true,
+        frequency: true,
+        isActive: true,
+      },
+    });
+    for (const schedule of schedules) {
+      results.push({
+        id: schedule.id,
+        type: "reportSchedule",
+        title: schedule.name,
+        subtitle: `Rapport ${schedule.frequency.toLowerCase()}`,
+        href: "/rapports/planification",
+        meta: schedule.isActive ? "Actif" : "Inactif",
       });
     }
   }

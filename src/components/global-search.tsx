@@ -19,10 +19,15 @@ import type { SearchResult } from "@/app/api/search/route";
 const TYPE_ICONS: Record<string, React.ElementType> = {
   building: Building2, lot: Home, tenant: Users, lease: FileText,
   invoice: Receipt, contact: UserCircle, document: FileIcon,
+  bankAccount: Landmark, charge: BookOpen, supplierInvoice: Receipt,
+  ticket: MessageSquare, reportSchedule: ClipboardCheck,
 };
 const TYPE_LABELS: Record<string, string> = {
   building: "Immeuble", lot: "Lot", tenant: "Locataire", lease: "Bail",
   invoice: "Facture", contact: "Contact", document: "Document",
+  bankAccount: "Compte bancaire", charge: "Charge",
+  supplierInvoice: "Facture fournisseur", ticket: "Ticket",
+  reportSchedule: "Rapport planifié",
 };
 const TYPE_COLORS: Record<string, string> = {
   building: "bg-blue-500/10 text-blue-600",
@@ -32,6 +37,11 @@ const TYPE_COLORS: Record<string, string> = {
   invoice: "bg-rose-500/10 text-rose-600",
   contact: "bg-cyan-500/10 text-cyan-600",
   document: "bg-slate-500/10 text-slate-600",
+  bankAccount: "bg-teal-500/10 text-teal-600",
+  charge: "bg-orange-500/10 text-orange-600",
+  supplierInvoice: "bg-amber-500/10 text-amber-600",
+  ticket: "bg-purple-500/10 text-purple-600",
+  reportSchedule: "bg-indigo-500/10 text-indigo-600",
 };
 
 const HISTORY_KEY = "mygestia-search-history";
@@ -337,7 +347,20 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
   const showEmpty = query.length >= 2 && results.length === 0 && !loading && visibleQuickActions.length === 0;
 
   // Filters chips
-  const filterTypes = ["building", "lot", "tenant", "lease", "invoice", "contact", "document"];
+  const filterTypes = [
+    "building",
+    "lot",
+    "tenant",
+    "lease",
+    "invoice",
+    "contact",
+    "document",
+    "bankAccount",
+    "charge",
+    "supplierInvoice",
+    "ticket",
+    "reportSchedule",
+  ];
 
   if (!open) {
     return (

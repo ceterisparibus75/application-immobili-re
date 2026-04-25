@@ -36,6 +36,16 @@ describe("GlobalSearch", () => {
     expect(screen.getByRole("button", { name: /Ajouter un compte bancaire/i })).toBeInTheDocument();
   });
 
+  it("propose les filtres métier étendus", () => {
+    render(<GlobalSearch initiallyOpen />);
+
+    expect(screen.getByRole("button", { name: "Compte bancaire" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Charge" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Facture fournisseur" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ticket" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rapport planifié" })).toBeInTheDocument();
+  });
+
   it("filtre les actions rapides depuis la saisie", () => {
     render(<GlobalSearch initiallyOpen />);
 
