@@ -35,6 +35,7 @@ vi.mock("@/lib/docusign", () => ({
 import {
   cancelSignatureRequest,
   createSignatureRequest,
+  createSignatureRequestFromUrl,
   getEmbeddedSigningUrlForRequest,
   getSignatureRequests,
   syncSignatureStatus,
@@ -143,6 +144,54 @@ describe("signature actions", () => {
     });
   });
 
+  describe("createSignatureRequestFromUrl", () => {
+    it("crée une demande depuis une URL distante et persiste l'enveloppe", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      createEnvelope.mockResolvedValue("env-url-1");
+      prismaMock.signatureRequest.create.mockResolvedValue({ id: "sig-url-1" } as never);
+
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/bail.pdf",
+        documentName: "Bail.pdf",
+        documentType: "BAIL",
+        signerEmail: "bob@example.com",
+        signerName: "Bob Dupont",
+        leaseId: "lease-1",
+      });
+
+      expect(result).toEqual({ success: true, data: { id: "sig-url-1" } });
+      expect(fetchMock).toHaveBeenCalledWith("https://storage.test/bail.pdf");
+      expect(createEnvelope).toHaveBeenCalledWith(
+        expect.objectContaining({ signers: [{ email: "bob@example.com", name: "Bob Dupont" }] })
+      );
+      expect(revalidatePath).toHaveBeenCalledWith("/baux/lease-1");
+
+      vi.unstubAllGlobals();
+    });
+
+    it("retourne une erreur si le document est inaccessible", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/missing.pdf",
+        documentName: "Missing.pdf",
+        documentType: "BAIL",
+        signerEmail: "bob@example.com",
+        signerName: "Bob Dupont",
+      });
+
+      expect(result).toEqual({ success: false, error: "Impossible de recuperer le document" });
+      vi.unstubAllGlobals();
+    });
+  });
+
   describe("getSignatureRequests", () => {
     it("retourne null si l'utilisateur n'a pas accès à la société", async () => {
       mockUnauthenticated();
@@ -150,6 +199,20 @@ describe("signature actions", () => {
       const result = await getSignatureRequests("society-1");
 
       expect(result).toBeNull();
+    });
+
+    it("retourne les demandes filtrées par statut", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.signatureRequest.findMany.mockResolvedValue([
+        { id: "sig-1", status: "SENT" },
+      ] as never);
+
+      const result = await getSignatureRequests("society-1", { status: "SENT" });
+
+      expect(result).toHaveLength(1);
+      expect(prismaMock.signatureRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ status: "SENT" }) })
+      );
     });
   });
 
@@ -175,9 +238,71 @@ describe("signature actions", () => {
       });
       expect(getEmbeddedSigningUrl).not.toHaveBeenCalled();
     });
+
+    it("retourne une erreur si la demande est introuvable", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.signatureRequest.findFirst.mockResolvedValue(null);
+
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-404", "https://app.test/retour");
+      expect(result).toEqual({ success: false, error: "Demande introuvable" });
+    });
+
+    it("retourne une erreur si le document a déjà été signé", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.signatureRequest.findFirst.mockResolvedValue({
+        id: "sig-1",
+        societyId: "society-1",
+        signerClientId: "client-1",
+        status: "COMPLETED",
+        envelopeId: "env-1",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      } as never);
+
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-1", "https://app.test/retour");
+      expect(result).toEqual({ success: false, error: "Ce document a deja ete signe" });
+    });
+
+    it("retourne l'URL de signature si la demande est valide", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.signatureRequest.findFirst.mockResolvedValue({
+        id: "sig-1",
+        societyId: "society-1",
+        signerClientId: "client-1",
+        status: "SENT",
+        envelopeId: "env-1",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      } as never);
+      getEmbeddedSigningUrl.mockResolvedValue("https://sign.test/embedded");
+
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-1", "https://app.test/retour");
+      expect(result).toEqual({ success: true, data: { signingUrl: "https://sign.test/embedded" } });
+    });
   });
 
   describe("cancelSignatureRequest", () => {
+    it("retourne une erreur si la demande est introuvable", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.signatureRequest.findFirst.mockResolvedValue(null);
+
+      const result = await cancelSignatureRequest("society-1", "sig-404");
+      expect(result).toEqual({ success: false, error: "Demande introuvable" });
+    });
+
+    it("retourne une erreur si la demande est déjà finalisée", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.signatureRequest.findFirst.mockResolvedValue({
+        id: "sig-1",
+        societyId: "society-1",
+        envelopeId: "env-1",
+        status: "COMPLETED",
+      } as never);
+
+      const result = await cancelSignatureRequest("society-1", "sig-1");
+      expect(result).toEqual({ success: false, error: "Cette demande ne peut plus etre annulee" });
+    });
+
     it("annule une demande active et la marque VOIDED", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
       prismaMock.signatureRequest.findFirst.mockResolvedValue({
