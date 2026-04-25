@@ -281,6 +281,65 @@ describe("generateEtatImpayes", () => {
     expect(pdfCtx.np).toHaveBeenCalledTimes(2); // initial + page break at lines 145-147
   });
 
+  it("affiche '-' pour PERSONNE_MORALE sans companyName et PERSONNE_PHYSIQUE sans nom (lignes 130-131)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "t1",
+        invoiceNumber: "INV-A",
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        totalTTC: 600,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble A" } } },
+      },
+      {
+        tenantId: "t2",
+        invoiceNumber: "INV-B",
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        totalTTC: 400,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
+        lease: { lot: { number: "B1", building: { name: "Immeuble A" } } },
+      },
+    ] as never);
+
+    const result = await generateEtatImpayes({ societyId: "society-1", type: "ETAT_IMPAYES" });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      pageMock, pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["-"]),
+      expect.any(Array), expect.any(Array), expect.objectContaining({ rowIndex: 0 })
+    );
+  });
+
+  it("affiche '-' pour loc si lot est null (ligne 136) et cellColor null si rowTotal = 0 (ligne 154)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "t1",
+        invoiceNumber: "INV-C",
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        totalTTC: 0,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Marc", lastName: "Alain", companyName: null },
+        lease: { lot: null },
+      },
+    ] as never);
+
+    const result = await generateEtatImpayes({ societyId: "society-1", type: "ETAT_IMPAYES" });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      pageMock, pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["Marc Alain", "-"]),
+      expect.any(Array), expect.any(Array),
+      expect.objectContaining({
+        rowIndex: 0,
+        cellColors: expect.arrayContaining([null]),
+      })
+    );
+  });
+
   it("colore en rouge les retards > 30 jours dans le xlsx (ligne 72)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([
