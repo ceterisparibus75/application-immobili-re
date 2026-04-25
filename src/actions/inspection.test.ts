@@ -200,4 +200,34 @@ describe("inspection actions", () => {
     const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID, notes: "test" });
     expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
+
+  it("retourne une erreur si rôle insuffisant pour createInspection", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "ENTREE",
+      performedAt: "2026-04-20",
+      rooms: [{ name: "Salon", condition: "BON" }],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createInspection", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "ENTREE",
+      performedAt: "2026-04-20",
+      rooms: [{ name: "Salon", condition: "BON" }],
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+
+  it("retourne une erreur Zod si l'id est invalide dans updateInspection", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const result = await updateInspection(SOCIETY_ID, { id: "not-a-cuid" });
+    expect(result.success).toBe(false);
+  });
 });

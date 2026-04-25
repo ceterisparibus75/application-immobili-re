@@ -127,6 +127,34 @@ describe("diagnostic actions", () => {
     expect(result).toEqual({ success: false, error: "Immeuble introuvable" });
   });
 
+  it("retourne une erreur si rôle insuffisant pour createDiagnostic", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await createDiagnostic(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      type: "DPE",
+      performedAt: "2026-04-20",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createDiagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await createDiagnostic(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      type: "DPE",
+      performedAt: "2026-04-20",
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création du diagnostic" });
+  });
+
+  it("retourne une erreur Zod si l'id est invalide dans updateDiagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const result = await updateDiagnostic(SOCIETY_ID, { id: "not-a-cuid", result: "OK" });
+    expect(result.success).toBe(false);
+  });
+
   it("retourne une erreur si updateDiagnostic ne trouve pas le diagnostic", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.diagnostic.findFirst.mockResolvedValue(null);
