@@ -115,4 +115,14 @@ describe("analyzeAgencyInvoice", () => {
     expect(result.montantHT).toBeNull();
     expect(result.confidence).toBe(0);
   });
+
+  it("gère les types MIME image/png et image/webp (lignes 43-44)", async () => {
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ montantHT: 50, confidence: 0.8 })));
+    const png = await analyzeAgencyInvoice(PDF_BUFFER, "image/png");
+    expect(png.montantHT).toBe(50);
+
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ montantHT: 60, confidence: 0.9 })));
+    const webp = await analyzeAgencyInvoice(PDF_BUFFER, "image/webp");
+    expect(webp.montantHT).toBe(60);
+  });
 });

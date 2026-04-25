@@ -151,6 +151,13 @@ describe("sendManualReminder", () => {
     );
   });
 
+  it("retourne ForbiddenError si rôle insuffisant pour sendManualReminder (ligne 150)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await sendManualReminder(SOCIETY_ID, INVOICE_ID, "RELANCE_1");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
   it("retourne une erreur générique si la BDD échoue dans sendManualReminder (lignes 150-152)", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB error"));
@@ -188,6 +195,13 @@ describe("sendBulkReminders", () => {
     expect(result.success).toBe(true);
     expect(result.data?.sent).toBe(0);
     expect(result.data?.failed).toBe(0);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant pour sendBulkReminders (ligne 180)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await sendBulkReminders(SOCIETY_ID, [INVOICE_ID], "RELANCE_1");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
   });
 
   it("retourne une erreur générique si requireSocietyActionContext échoue (lignes 180-182)", async () => {

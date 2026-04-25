@@ -216,6 +216,12 @@ describe("letter-template actions", () => {
     expect(result.data?.leaseEnd).toBe("");
   });
 
+  it("retourne non authentifié pour getAutoFillData (ligne 263)", async () => {
+    mockUnauthenticated();
+    const result = await getAutoFillData(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
+  });
+
   it("retourne une erreur ForbiddenError dans getAutoFillData (ligne 264)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
@@ -244,6 +250,12 @@ describe("letter-template actions", () => {
     expect(result).toEqual({ success: false, error: "Erreur lors du chargement des locataires" });
   });
 
+  it("retourne non authentifié pour getBuildingsWithTenants (ligne 120)", async () => {
+    mockUnauthenticated();
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
+  });
+
   it("retourne une erreur ForbiddenError dans getBuildingsWithTenants (ligne 121)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
@@ -256,6 +268,12 @@ describe("letter-template actions", () => {
     prismaMock.building.findMany.mockRejectedValue(new Error("DB error"));
     const result = await getBuildingsWithTenants(SOCIETY_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors du chargement des immeubles" });
+  });
+
+  it("retourne non authentifié pour getLetterTemplates (ligne 167)", async () => {
+    mockUnauthenticated();
+    const result = await getLetterTemplates(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
   });
 
   it("retourne une erreur ForbiddenError dans getLetterTemplates (ligne 168)", async () => {
@@ -276,6 +294,12 @@ describe("letter-template actions", () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     const result = await generateLetter(SOCIETY_ID, { templateId: "", values: {} });
     expect(result.success).toBe(false);
+  });
+
+  it("retourne non authentifié pour generateLetter (ligne 346)", async () => {
+    mockUnauthenticated();
+    const result = await generateLetter(SOCIETY_ID, { templateId: "courrier_libre", values: {} });
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
   });
 
   it("retourne une erreur ForbiddenError dans generateLetter (ligne 347)", async () => {

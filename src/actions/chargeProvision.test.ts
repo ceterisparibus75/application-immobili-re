@@ -235,6 +235,20 @@ describe("chargeProvision actions", () => {
     expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
 
+  it("retourne une erreur générique si la BDD échoue dans createChargeProvision (lignes 63-64)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await createChargeProvision(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      lotId: LOT_ID,
+      label: "Taxe foncière",
+      monthlyAmount: 85,
+      vatRate: 10,
+      startDate: "2026-01-01",
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+
   it("retourne une erreur si rôle insuffisant pour createChargeProvision (ForbiddenError lignes 62-64)", async () => {
     mockAuthSession(UserRole.LECTURE);
     const result = await createChargeProvision(SOCIETY_ID, {

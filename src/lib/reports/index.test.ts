@@ -114,6 +114,23 @@ describe("generateReport", () => {
     );
   });
 
+  it("dispatch vers chaque générateur selon le type (lignes 31-38)", async () => {
+    const types = [
+      ["RENTABILITE_LOT", generatorMocks.generateRentabiliteLot],
+      ["ETAT_IMPAYES", generatorMocks.generateEtatImpayes],
+      ["RECAP_CHARGES_LOCATAIRE", generatorMocks.generateRecapChargesLocataire],
+      ["SUIVI_TRAVAUX", generatorMocks.generateSuiviTravaux],
+      ["SUIVI_MENSUEL", generatorMocks.generateSuiviMensuel],
+      ["VACANCE_LOCATIVE", generatorMocks.generateVacanceLocative],
+    ] as const;
+
+    for (const [type, mock] of types) {
+      mock.mockClear();
+      await generateReport({ societyId: "society-1", type: type as never, format: "pdf" });
+      expect(mock).toHaveBeenCalledOnce();
+    }
+  });
+
   it("masque les erreurs internes du générateur par un message stable", async () => {
     generatorMocks.generateCompteRenduGestion.mockRejectedValue(new Error("boom"));
 

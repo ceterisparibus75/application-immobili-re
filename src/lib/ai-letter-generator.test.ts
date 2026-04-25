@@ -234,6 +234,21 @@ describe("generateLetter", () => {
     ;(envModule.env as any).ANTHROPIC_API_KEY = original
   })
 
+  it("inclut dateDebutBail dans le prompt quand fourni (ligne 56)", async () => {
+    mockCreate.mockResolvedValue(makeAnthropicResponse(validLetterResponse))
+
+    await generateLetter({
+      ...baseInput,
+      context: {
+        ...baseInput.context,
+        dateDebutBail: "2024-01-01",
+      },
+    })
+
+    const userMessage: string = mockCreate.mock.calls[0][0].messages[0].content
+    expect(userMessage).toContain("2024-01-01")
+  })
+
   it("includes extra context in prompt when provided", async () => {
     mockCreate.mockResolvedValue(makeAnthropicResponse(validLetterResponse))
 
