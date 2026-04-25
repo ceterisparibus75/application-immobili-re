@@ -18,6 +18,7 @@ import {
   validateSupplierInvoice,
   rejectSupplierInvoice,
   markSupplierInvoicePaid,
+  initiateQontoPayment,
 } from "./supplier-invoice";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
@@ -241,6 +242,108 @@ describe("rejectSupplierInvoice", () => {
     expect(result.success).toBe(true);
     expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "REJECTED", rejectionReason: "Doublon" }) })
+    );
+  });
+});
+
+// ── initiateQontoPayment ───────────────────────────────────────────────────────
+
+function makeQontoBankAccount(overrides = {}) {
+  return {
+    id: BANK_ACCOUNT_ID,
+    societyId: SOCIETY_ID,
+    qontoAccountId: "qonto-account-abc",
+    connection: {
+      id: "conn-1",
+      provider: "QONTO",
+      qontoSlugEncrypted: "encrypted-slug",
+      qontoSecretKeyEncrypted: "encrypted-secret",
+    },
+    ...overrides,
+  };
+}
+
+function makeValidatedInvoice(overrides = {}) {
+  return {
+    ...makeInvoice({ status: "VALIDATED" }),
+    supplierIbanEncrypted: "encrypted-iban",
+    supplierBic: "QNTOFRP1XXX",
+    description: "Travaux plomberie",
+    ...overrides,
+  };
+}
+
+describe("initiateQontoPayment", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si la facture est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/introuvable/);
+  });
+
+  it("retourne une erreur si la facture n'est pas validée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({ status: "PENDING_REVIEW" }) as never);
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/valid/);
+  });
+
+  it("retourne une erreur si l'IBAN du fournisseur est absent", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeValidatedInvoice({ supplierIbanEncrypted: null }) as never
+    );
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/IBAN/);
+  });
+
+  it("retourne une erreur si le compte bancaire est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(null);
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Compte bancaire introuvable/);
+  });
+
+  it("retourne une erreur si le compte n'est pas de type Qonto", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(
+      makeQontoBankAccount({ connection: { id: "conn-1", provider: "GOCARDLESS", qontoSlugEncrypted: null, qontoSecretKeyEncrypted: null } }) as never
+    );
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Qonto/);
+  });
+
+  it("initie le virement Qonto avec succès", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(makeQontoBankAccount() as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue(makeValidatedInvoice({ qontoTransferId: "qonto-1" }) as never);
+
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.qontoTransferId).toBe("qonto-1");
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ paymentMethod: "QONTO", paymentStatus: "SUBMITTED", qontoTransferId: "qonto-1" }),
+      })
     );
   });
 });
