@@ -97,6 +97,19 @@ describe("updateContact", () => {
     expect(result.success).toBe(true);
     expect(prismaMock.contact.update).toHaveBeenCalled();
   });
+
+  it("retourne une erreur Zod si id invalide (lignes 83-85)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await updateContact(SOCIETY_ID, { id: "not-a-cuid", name: "Test" });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour updateContact (ForbiddenError lignes 115-117)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await updateContact(SOCIETY_ID, { id: CONTACT_ID, name: "Test" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
 });
 
 describe("getContacts", () => {

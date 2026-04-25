@@ -234,4 +234,24 @@ describe("chargeProvision actions", () => {
     const result = await deleteChargeProvision(SOCIETY_ID, PROVISION_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
+
+  it("retourne une erreur si rôle insuffisant pour createChargeProvision (ForbiddenError lignes 62-64)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await createChargeProvision(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      lotId: LOT_ID,
+      label: "Taxe foncière",
+      monthlyAmount: 85,
+      vatRate: 10,
+      startDate: "2026-01-01",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur Zod si id invalide dans updateChargeProvision (ligne 77)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const result = await updateChargeProvision(SOCIETY_ID, { id: "not-a-cuid", label: "Test", monthlyAmount: 50, vatRate: 0, startDate: "2026-01-01" });
+    expect(result.success).toBe(false);
+  });
 });
