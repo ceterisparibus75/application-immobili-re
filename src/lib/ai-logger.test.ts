@@ -11,32 +11,36 @@ const BASE_METRICS: AiCallMetrics = {
   success: true,
 };
 
+function getLastEntry(): Record<string, unknown> {
+  const writeSpy = vi.mocked(process.stdout.write);
+  const lastCall = writeSpy.mock.calls[writeSpy.mock.calls.length - 1];
+  return JSON.parse((lastCall[0] as string).trimEnd());
+}
+
 describe("logAiCall", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
-  it("appelle console.log une fois", () => {
+  it("appelle process.stdout.write une fois", () => {
     logAiCall(BASE_METRICS);
-    expect(console.log).toHaveBeenCalledOnce();
+    expect(process.stdout.write).toHaveBeenCalledOnce();
   });
 
   it("émet du JSON valide", () => {
     logAiCall(BASE_METRICS);
-    const raw = vi.mocked(console.log).mock.calls[0][0] as string;
-    expect(() => JSON.parse(raw)).not.toThrow();
+    expect(() => getLastEntry()).not.toThrow();
   });
 
   it("inclut le champ service='ai'", () => {
     logAiCall(BASE_METRICS);
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.service).toBe("ai");
+    expect(getLastEntry().service).toBe("ai");
   });
 
   it("inclut les champs provider, model, operation", () => {
     logAiCall(BASE_METRICS);
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
+    const entry = getLastEntry();
     expect(entry.provider).toBe("anthropic");
     expect(entry.model).toBe("claude-opus-4-7");
     expect(entry.operation).toBe("analyze_document");
@@ -44,44 +48,38 @@ describe("logAiCall", () => {
 
   it("calcule totalTokens = inputTokens + outputTokens", () => {
     logAiCall(BASE_METRICS);
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.totalTokens).toBe(650);
+    expect(getLastEntry().totalTokens).toBe(650);
   });
 
   it("totalTokens vaut 0 si inputTokens et outputTokens sont absents", () => {
     logAiCall({ ...BASE_METRICS, inputTokens: undefined, outputTokens: undefined });
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.totalTokens).toBe(0);
+    expect(getLastEntry().totalTokens).toBe(0);
   });
 
   it("inclut le champ error si fourni", () => {
     logAiCall({ ...BASE_METRICS, success: false, error: "API timeout" });
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
+    const entry = getLastEntry();
     expect(entry.error).toBe("API timeout");
     expect(entry.success).toBe(false);
   });
 
   it("n'inclut pas le champ error si absent", () => {
     logAiCall(BASE_METRICS);
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect("error" in entry).toBe(false);
+    expect("error" in getLastEntry()).toBe(false);
   });
 
   it("inclut un timestamp ISO 8601", () => {
     logAiCall(BASE_METRICS);
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(String(getLastEntry().timestamp)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 
   it("fonctionne avec le provider openai", () => {
     logAiCall({ ...BASE_METRICS, provider: "openai", model: "gpt-4o" });
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.provider).toBe("openai");
+    expect(getLastEntry().provider).toBe("openai");
   });
 
   it("inclut durationMs dans la sortie", () => {
     logAiCall({ ...BASE_METRICS, durationMs: 9999 });
-    const entry = JSON.parse(vi.mocked(console.log).mock.calls[0][0] as string);
-    expect(entry.durationMs).toBe(9999);
+    expect(getLastEntry().durationMs).toBe(9999);
   });
 });

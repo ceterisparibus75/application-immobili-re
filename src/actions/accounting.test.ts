@@ -753,3 +753,69 @@ describe("bulkImportJournalEntries — normalizeJournalType branches", () => {
   });
 });
 
+describe("getGrandLivre — line.label null (ligne 318)", () => {
+  it("utilise journalEntry.label si line.label est null", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: "l1",
+        debit: 500,
+        credit: 0,
+        label: null,
+        lettrage: null,
+        account: { code: "411000", label: "Clients" },
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", journalType: "VT", label: "Libellé journal", status: "VALIDE" },
+      },
+    ] as never);
+
+    const result = await getGrandLivre(SOCIETY_ID, {});
+    expect(result.success).toBe(true);
+    const rows = result.data as Array<{ label: string }>;
+    expect(rows[0].label).toBe("Libellé journal");
+  });
+});
+
+describe("bulkImportJournalEntries — erreur non-Error dans catch (ligne 566)", () => {
+  it("affiche 'Erreur' si l'exception n'est pas une instance de Error", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockRejectedValue("string-error");
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture loyer",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
+      },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toContain("Erreur");
+  });
+
+  it("ne dépasse pas 20 erreurs dans le tableau (lignes 539, 566)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+
+    const entries = Array.from({ length: 25 }, (_, i) => ({
+      journalType: "VT",
+      entryDate: "2025-01-15",
+      label: `Facture ${i}`,
+      lines: [{ accountCode: `999${i.toString().padStart(3, "0")}`, debit: 100, credit: 0 }],
+    }));
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, entries);
+    expect(result.success).toBe(true);
+    expect(result.data?.errors.length).toBeLessThanOrEqual(20);
+  });
+});
+
