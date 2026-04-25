@@ -201,6 +201,13 @@ describe("approveBudget", () => {
       })
     );
   });
+
+  it("retourne une erreur générique si la BDD échoue dans approveBudget", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.coproBudget.update.mockRejectedValue(new Error("DB error"));
+    const r = await approveBudget(SOCIETY_ID, BUDGET_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'approbation" });
+  });
 });
 
 // ─── createAssembly / createResolution ───────────────────────────────────────
@@ -233,6 +240,20 @@ describe("createAssembly", () => {
         data: expect.objectContaining({ date: expect.any(Date) }),
       })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour createAssembly", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createAssembly(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createAssembly", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproAssembly.create.mockRejectedValue(new Error("DB error"));
+    const r = await createAssembly(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de l'AG" });
   });
 });
 

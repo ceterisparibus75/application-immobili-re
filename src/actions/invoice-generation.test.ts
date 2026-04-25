@@ -279,6 +279,45 @@ describe("generateBatchInvoices", () => {
     expect(result.data?.skipped).toBe(1);
     expect(result.data?.created).toBe(0);
   });
+
+  it("crée une facture et déclenche l'audit log si created > 0", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: LEASE_ID,
+        tenantId: TENANT_ID,
+        startDate: new Date("2024-01-01"),
+        paymentFrequency: "MENSUEL",
+        billingTerm: "ECHU",
+        currentRentHT: 800,
+        vatApplicable: false,
+        vatRate: 0,
+        rentFreeMonths: 0,
+        progressiveRent: false,
+        rentSteps: [],
+        chargeProvisions: [],
+        lot: { number: "1", building: { name: "Immeuble A" } },
+      },
+    ] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockResolvedValue({} as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+    expect(result.data?.skipped).toBe(0);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour generateBatchInvoices", async () => {
+    mockUnauthenticated();
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans generateBatchInvoices", async () => {
+    prismaMock.lease.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la génération en masse" });
+  });
 });
 
 // ── createCreditNote ──────────────────────────────────────────────

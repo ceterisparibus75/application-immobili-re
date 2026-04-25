@@ -307,6 +307,20 @@ describe("cancelInvoice", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "ANNULEE" }) })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour cancelInvoice", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans cancelInvoice", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'annulation" });
+  });
 });
 
 // ── markAsLitigious ────────────────────────────────────────────

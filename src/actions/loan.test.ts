@@ -631,6 +631,19 @@ describe("addLoanMovement", () => {
     prismaMock.loanMovement.create.mockRejectedValue(new Error("DB unexpected"))
     await expect(addLoanMovement(SOCIETY_ID, validMovement)).rejects.toThrow("DB unexpected")
   })
+
+  it("retourne une erreur si les données sont invalides (Zod)", async () => {
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, amount: -5 })
+    expect(r.error).toBeTruthy()
+  })
+
+  it("additionne les intérêts au solde courant (type INTERETS)", async () => {
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, type: "INTERETS", amount: 200 })
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: 10200 } })
+    )
+  })
 })
 
 // ─── getLoanMovements ─────────────────────────────────────────────────────────
@@ -772,5 +785,17 @@ describe("upsertBudgetLine", () => {
     expect(r.data).toBeTruthy()
     expect(prismaMock.budgetLine.update).toHaveBeenCalledOnce()
     expect(prismaMock.budgetLine.create).not.toHaveBeenCalled()
+  })
+
+  it("retourne une erreur si rôle insuffisant pour upsertBudgetLine", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID)
+    const r = await upsertBudgetLine(SOCIETY_ID, validInput)
+    expect(r.error).toBeTruthy()
+  })
+
+  it("relance l'erreur si la BDD échoue dans upsertBudgetLine", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID)
+    prismaMock.budgetLine.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    await expect(upsertBudgetLine(SOCIETY_ID, validInput)).rejects.toThrow("DB connection lost")
   })
 })
