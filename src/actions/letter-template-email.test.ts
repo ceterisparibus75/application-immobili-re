@@ -357,6 +357,19 @@ describe("letter-template-email actions", () => {
     expect(result).toEqual({ success: false, error: "Modèle introuvable" });
   });
 
+  it("retourne erreur modèle introuvable dans sendLetterToBuilding (ligne 186)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.findFirst.mockResolvedValue(null);
+
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "modele_inexistant",
+      buildingId: BUILDING_ID,
+      commonValues: {},
+    });
+
+    expect(result).toEqual({ success: false, error: "Modèle introuvable" });
+  });
+
   it("retourne erreur non authentifié pour sendLetterByEmail (ligne 153)", async () => {
     mockUnauthenticated();
     const result = await sendLetterByEmail(SOCIETY_ID, {

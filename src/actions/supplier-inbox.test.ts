@@ -143,6 +143,53 @@ describe("supplier-inbox actions", () => {
     expect(prismaMock.supplierInboxConfig.update).not.toHaveBeenCalled();
   });
 
+  it("retourne non authentifié pour upsertSupplierInboxConfig (ligne 73)", async () => {
+    mockUnauthenticated();
+    const result = await upsertSupplierInboxConfig(SOCIETY_ID, { notifyEmails: [], isActive: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne ForbiddenError pour upsertSupplierInboxConfig (ligne 74)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await upsertSupplierInboxConfig(SOCIETY_ID, { notifyEmails: [], isActive: true });
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans upsertSupplierInboxConfig (lignes 75-76)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await upsertSupplierInboxConfig(SOCIETY_ID, { notifyEmails: [], isActive: true });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour de la configuration" });
+  });
+
+  it("retourne null si la BDD échoue dans getSupplierInboxConfig (lignes 108-109)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await getSupplierInboxConfig(SOCIETY_ID);
+    expect(result).toBeNull();
+  });
+
+  it("retourne non authentifié pour regenerateInboxSecret (ligne 139)", async () => {
+    mockUnauthenticated();
+    const result = await regenerateInboxSecret(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne ForbiddenError pour regenerateInboxSecret (ligne 140)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await regenerateInboxSecret(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans regenerateInboxSecret (lignes 141-142)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.supplierInboxConfig.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await regenerateInboxSecret(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la régénération du secret" });
+  });
+
   it("retourne la config inbox si authentifié", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
     prismaMock.supplierInboxConfig.findUnique.mockResolvedValue({
