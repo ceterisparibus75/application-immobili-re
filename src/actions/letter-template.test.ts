@@ -15,6 +15,7 @@ import {
   deleteCustomTemplate,
   generateLetter,
   getAutoFillData,
+  getBuildingsWithTenants,
   getLetterTemplates,
   getTenantsWithLease,
   saveCustomTemplate,
@@ -143,6 +144,129 @@ describe("letter-template actions", () => {
         entityId: "courrier_libre",
       })
     );
+  });
+
+  it("auto-remplit uniquement les données locataire si tenantId fourni sans leaseId", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société",
+      addressLine1: "1 rue de Paris",
+      addressLine2: null,
+      city: "Paris",
+      postalCode: "75001",
+      siret: null,
+    } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      firstName: "Bob",
+      lastName: "Martin",
+      personalAddress: "5 rue de Lyon",
+    } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+
+    const result = await getAutoFillData(SOCIETY_ID, "tenant-1");
+
+    expect(result.success).toBe(true);
+    expect(result.data?.tenantName).toBe("Bob Martin");
+    expect(result.data?.tenantAddress).toBe("5 rue de Lyon");
+    expect(result.data?.rentAmount).toBeUndefined();
+  });
+
+  it("retourne une erreur si la société est introuvable dans getAutoFillData", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue(null);
+
+    const result = await getAutoFillData(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Société introuvable" });
+  });
+
+  it("retourne les immeubles avec leurs locataires actifs", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "bld-1",
+        name: "Résidence Atlas",
+        city: "Lyon",
+        lots: [
+          {
+            leases: [
+              {
+                id: LEASE_ID,
+                tenant: {
+                  id: "tenant-1",
+                  firstName: "Alice",
+                  lastName: "Durand",
+                  companyName: null,
+                  entityType: "PERSONNE_PHYSIQUE",
+                },
+              },
+            ],
+          },
+          { leases: [] },
+        ],
+      },
+      {
+        id: "bld-2",
+        name: "Immeuble Vide",
+        city: "Paris",
+        lots: [{ leases: [] }],
+      },
+    ] as never);
+
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(1); // bld-2 exclu (aucun locataire)
+    expect(result.data![0].name).toBe("Résidence Atlas");
+    expect(result.data![0].tenants).toHaveLength(1);
+    expect(result.data![0].tenants[0].name).toBe("Alice Durand");
+    expect(result.data![0].tenants[0].leaseId).toBe(LEASE_ID);
+  });
+
+  it("génère un PDF à partir d'un modèle personnalisé", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.findFirst.mockResolvedValue({
+      id: "tpl-custom",
+      subject: "Sujet personnalisé",
+      bodyHtml: "<p>Bonjour {{LOCATAIRE_NOM}}</p>",
+    } as never);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société",
+      siret: null,
+    } as never);
+
+    const result = await generateLetter(SOCIETY_ID, {
+      templateId: "tpl-custom",
+      values: {
+        BAILLEUR_NOM: "Ma Société",
+        BAILLEUR_ADRESSE: "1 rue de Paris",
+        LOCATAIRE_NOM: "Bob Martin",
+        LOCATAIRE_ADRESSE: "5 rue de Lyon",
+        DATE: "25/04/2026",
+        LIEU: "Lyon",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.filename).toContain("tpl-custom");
+    expect(prismaMock.letterTemplate.findFirst).toHaveBeenCalledWith({
+      where: { id: "tpl-custom", societyId: SOCIETY_ID },
+    });
+  });
+
+  it("retourne une erreur si le modèle custom est introuvable dans generateLetter", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.findFirst.mockResolvedValue(null);
+
+    const result = await generateLetter(SOCIETY_ID, {
+      templateId: "tpl-inexistant",
+      values: {
+        BAILLEUR_NOM: "X", BAILLEUR_ADRESSE: "Y",
+        LOCATAIRE_NOM: "Z", LOCATAIRE_ADRESSE: "W",
+        DATE: "25/04/2026", LIEU: "Lyon",
+      },
+    });
+
+    expect(result).toEqual({ success: false, error: "Modèle introuvable" });
   });
 
   it("sauvegarde puis supprime un modèle personnalisé", async () => {
