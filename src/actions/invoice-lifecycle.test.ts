@@ -736,4 +736,76 @@ describe("generateAndSendQuittance", () => {
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     }
   });
+
+  it("convertit le logo en base64 si download retourne un blob (lignes 253-257)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k0009qh8g7z1y2v3y";
+      const fakeBlob = { arrayBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-png-data").buffer) };
+      supabaseStorageMock.download.mockResolvedValueOnce({ data: fakeBlob });
+
+      const quittanceWithLogo = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        society: { ...makeFullQuittance(QUITTANCE_ID).society, logoUrl: "logos/society-1/logo.png" },
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({
+          lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+        }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittanceWithLogo as never);
+      prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+      await vi.waitFor(() => expect(renderToBufferMock).toHaveBeenCalled(), { timeout: 5000 });
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("parse le storagePath depuis une URL http complète (lignes 247-249)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k000aqh8g7z1y2v3z";
+      const httpLogoUrl =
+        "https://supabase.example.com/storage/v1/object/public/documents/logos/logo.jpeg";
+      const fakeBlob = { arrayBuffer: vi.fn().mockResolvedValue(Buffer.from("jpeg-data").buffer) };
+      supabaseStorageMock.download.mockResolvedValueOnce({ data: fakeBlob });
+
+      const quittanceWithLogo = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        society: { ...makeFullQuittance(QUITTANCE_ID).society, logoUrl: httpLogoUrl },
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({
+          lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+        }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittanceWithLogo as never);
+      prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+      await vi.waitFor(() => expect(supabaseStorageMock.download).toHaveBeenCalledWith("logos/logo.jpeg"), { timeout: 5000 });
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
 });

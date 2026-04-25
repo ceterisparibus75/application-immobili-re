@@ -224,4 +224,123 @@ describe("generateSuiviMensuel", () => {
       841.89
     );
   });
+
+  it("utilise l'année courante si opts.year est absent (ligne 17)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const result = await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+    });
+
+    const currentYear = new Date().getFullYear();
+    expect(result.filename).toBe(`suivi-mensuel-${currentYear}.pdf`);
+  });
+
+  it("gère payments null pour une facture non payée (ligne 68) et annFact=0 (lignes 106, 110)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble Vide" },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        issueDate: new Date("2026-01-15T00:00:00.000Z"),
+        totalTTC: 500,
+        status: "EN_ATTENTE",
+        payments: null,  // covers payments ?? [] branch
+        lease: { lot: { buildingId: "building-1" } },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const result = await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+      year: 2026,
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    // annEnc = 0 (payments null → paidAmt = 0), annFact = 500 > 0 → covers annFact > 0 branch
+    // annRec = 0/500 * 100 = 0 → annRec > 0 is false → "-" branch at line 110
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      4,
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Taux recouvrement", ...Array(12).fill("-"), "-"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 3 }),
+      841.89
+    );
+  });
+
+  it("immeuble sans factures : annFact=0 → annRec=0, taux annuel '-' (lignes 106, 110)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble Vide" },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const result = await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+      year: 2026,
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    // annFact = 0 → annRec = 0 → taux annuel = "-"
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      4,
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Taux recouvrement", ...Array(12).fill("-"), "-"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 3 }),
+      841.89
+    );
+  });
+
+  it("taux recouvrement >= 95% → couleur GREEN (lignes 111-113)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble Vert" },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        issueDate: new Date("2026-01-15T00:00:00.000Z"),
+        totalTTC: 1000,
+        status: "PAYE",
+        payments: [],
+        lease: { lot: { buildingId: "building-1" } },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const result = await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+      year: 2026,
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    // Janvier : facturé 1000, encaissé 1000 → 100% >= 95 → GREEN
+    // annRec = 100% >= 95 → GREEN
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      4,
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Taux recouvrement"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({
+        rowIndex: 3,
+        cellColors: expect.any(Array),
+      }),
+      841.89
+    );
+  });
 });
