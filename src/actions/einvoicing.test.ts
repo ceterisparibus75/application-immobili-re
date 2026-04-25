@@ -390,4 +390,164 @@ describe("einvoicing actions", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Chorus Pro");
   });
+
+  it("checkChorusProStatus retourne le statut d'une facture Chorus Pro valide", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const cproClient = {
+      deposerFluxFacture: vi.fn(),
+      consulterCR: vi.fn().mockResolvedValue({ statutCR: "INTEGREE", libelle: "Facture intégrée avec succès" }),
+    };
+    getChorusProClient.mockReturnValue(cproClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      einvoiceXmlUrl: "cpro:CPP-FLUX-001",
+      invoiceNumber: "F-2026-042",
+    } as never);
+
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+
+    expect(result).toEqual({
+      success: true,
+      data: { statut: "INTEGREE", libelle: "Facture intégrée avec succès" },
+    });
+    expect(cproClient.consulterCR).toHaveBeenCalledWith("CPP-FLUX-001");
+  });
+
+  it("submitInvoiceToChorusPro soumet la facture et stocke le numéro de flux", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const cproClient = {
+      deposerFluxFacture: vi.fn().mockResolvedValue({ numeroFluxDepot: "CPP-2026-00042" }),
+      consulterCR: vi.fn(),
+    };
+    getChorusProClient.mockReturnValue(cproClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-042",
+      society: { name: "SCI Test" },
+      tenant: { companyName: "Client Public" },
+    } as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(1024)),
+    }));
+
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+
+    expect(result).toEqual({
+      success: true,
+      data: { numeroFluxDepot: "CPP-2026-00042" },
+    });
+    expect(cproClient.deposerFluxFacture).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "F-2026-042.pdf",
+      "IN_DP_E1_FACTURX"
+    );
+    expect(prismaMock.invoice.update).toHaveBeenCalledWith({
+      where: { id: INVOICE_ID },
+      data: {
+        einvoiceXmlUrl: "cpro:CPP-2026-00042",
+        einvoiceGeneratedAt: expect.any(Date),
+      },
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("refuseInvoice refuse la facture et met à jour le statut avec le motif", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      updateFlowStatus: vi.fn().mockResolvedValue(undefined),
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      ppfInvoiceId: "flow-ref-1",
+      invoiceNumber: "F-2026-005",
+    } as never);
+
+    const result = await refuseInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID, "Erreur de montant");
+
+    expect(result).toEqual({ success: true });
+    expect(paClient.updateFlowStatus).toHaveBeenCalledWith(
+      "flow-ref-1",
+      expect.objectContaining({ status: "REFUSEE", comment: "Erreur de montant" })
+    );
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith({
+      where: { id: SUPPLIER_INVOICE_ID },
+      data: expect.objectContaining({
+        ppfStatus: "REFUSEE",
+        status: "REJECTED",
+        rejectionReason: "Erreur de montant",
+      }),
+    });
+  });
+
+  it("syncReceivedInvoices réussit avec zéro flux retournés (aucune facture créée)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({
+      siret: "12345678901234",
+      ppfRegisteredAt: new Date(),
+    } as never);
+    const paClient = {
+      updateFlowStatus: vi.fn().mockResolvedValue(undefined),
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+      searchFlows: vi.fn().mockResolvedValue({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+
+    expect(result).toEqual({ success: true, data: { created: 0, updated: 0 } });
+    expect(paClient.searchFlows).toHaveBeenCalledWith(
+      expect.objectContaining({ siret: "12345678901234", page: 0, pageSize: 50 })
+    );
+  });
+
+  it("syncReceivedInvoices crée une nouvelle facture fournisseur depuis un flux PPF", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({
+      siret: "12345678901234",
+      ppfRegisteredAt: new Date(),
+    } as never);
+    const paClient = {
+      updateFlowStatus: vi.fn().mockResolvedValue(undefined),
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-flow-99",
+            status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01",
+            dueDate: "2026-04-30",
+            invoiceNumber: "FA-EXT-001",
+            format: "FACTURX",
+            totalTTC: 2400,
+            currency: "EUR",
+            seller: { name: "Fournisseur Externe SA", siret: "55566677700001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    // lastSync (supplierInvoice.findFirst) → null, then existing check → null
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+
+    expect(result).toEqual({ success: true, data: { created: 1, updated: 0 } });
+    expect(prismaMock.supplierInvoice.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        societyId: SOCIETY_ID,
+        ppfInvoiceId: "ppf-flow-99",
+        ppfStatus: "MISE_A_DISPOSITION",
+        invoiceNumber: "FA-EXT-001",
+        amountTTC: 2400,
+        supplierName: "Fournisseur Externe SA",
+        status: "PENDING_REVIEW",
+      }),
+    });
+  });
 });
