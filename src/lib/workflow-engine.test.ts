@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/email", () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/workflow-engine", async (importOriginal) => {
@@ -6,6 +6,7 @@ vi.mock("@/lib/workflow-engine", async (importOriginal) => {
 });
 
 import { prismaMock } from "@/test/mocks/prisma";
+import { sendMail } from "@/lib/email";
 import { executeWorkflowSteps, triggerEventWorkflows } from "./workflow-engine";
 import type { WorkflowContext } from "./workflow-engine";
 
@@ -62,6 +63,30 @@ describe("executeWorkflowSteps", () => {
       );
       expect(results[0].output).toMatch(/vraie/);
     });
+
+    it("évalue neq correctement (ligne 138)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "condition", config: { field: "status", operator: "neq", value: "PAID" } }],
+        { ...baseCtx, entityData: { status: "PENDING" } }
+      );
+      expect(results[0].output).toMatch(/vraie/);
+    });
+
+    it("évalue lt correctement (ligne 140)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "condition", config: { field: "amount", operator: "lt", value: 1000 } }],
+        { ...baseCtx, entityData: { amount: 500 } }
+      );
+      expect(results[0].output).toMatch(/vraie/);
+    });
+
+    it("retourne faux pour un opérateur inconnu (ligne 143)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "condition", config: { field: "status", operator: "unknown_op", value: "PAID" } }],
+        { ...baseCtx, entityData: { status: "PAID" } }
+      );
+      expect(results[0].output).toMatch(/fausse/);
+    });
   });
 
   describe("delay — skipped (exécution synchrone)", () => {
@@ -91,6 +116,17 @@ describe("executeWorkflowSteps", () => {
         baseCtx
       );
       expect(results[0].status).toBe("skipped");
+    });
+  });
+
+  describe("create_task — skipped", () => {
+    it("retourne statut skipped (lignes 196-198)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "create_task", config: {} }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("skipped");
+      expect(results[0].output).toContain("create_task");
     });
   });
 
@@ -143,6 +179,8 @@ describe("executeWorkflowSteps", () => {
   });
 
   describe("send_email", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
     it("retourne failed si email invalide", async () => {
       const results = await executeWorkflowSteps(
         [{ id: "s1", type: "send_email", config: { to: "not-an-email", subject: "Test", body: "Corps" } }],
@@ -151,9 +189,21 @@ describe("executeWorkflowSteps", () => {
       expect(results[0].status).toBe("failed");
       expect(results[0].error).toMatch(/invalide/);
     });
+
+    it("envoie l'email et retourne success si email valide (lignes 102, 106, 169, 170)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "send_email", config: { to: "tenant@example.com", subject: "Bonjour", body: "Corps du message" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("success");
+      expect(results[0].output).toMatch(/Email envoyé à tenant@example\.com/);
+      expect(vi.mocked(sendMail)).toHaveBeenCalledWith("tenant@example.com", "Bonjour", "Corps du message");
+    });
   });
 
   describe("webhook", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
     it("retourne failed si URL sans HTTPS", async () => {
       const results = await executeWorkflowSteps(
         [{ id: "s1", type: "webhook", config: { url: "http://example.com", method: "POST" } }],
@@ -161,6 +211,28 @@ describe("executeWorkflowSteps", () => {
       );
       expect(results[0].status).toBe("failed");
       expect(results[0].error).toMatch(/HTTPS/);
+    });
+
+    it("appelle le webhook et retourne success si HTTPS (lignes 116, 127, 174, 175)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "webhook", config: { url: "https://hook.example.com/notify", method: "GET" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("success");
+      expect(results[0].output).toMatch(/Webhook GET.*200/);
+    });
+
+    it("retourne failed si le webhook répond avec erreur HTTP (ligne 126)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "webhook", config: { url: "https://hook.example.com/notify" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("failed");
+      expect(results[0].error).toMatch(/503/);
     });
   });
 
@@ -213,5 +285,27 @@ describe("triggerEventWorkflows", () => {
     prismaMock.workflow.findMany.mockRejectedValue(new Error("DB down"));
 
     await expect(triggerEventWorkflows("invoice.paid", { societyId: SOCIETY_ID })).resolves.not.toThrow();
+  });
+
+  it("marque le run FAILED si une étape échoue (lignes 263, 273)", async () => {
+    prismaMock.workflow.findMany.mockResolvedValue([
+      {
+        id: "wf-fail",
+        trigger: { type: "event", config: { event: "invoice.paid" } },
+        steps: [{ id: "s1", type: "send_email", config: { to: "bad-email", subject: "X", body: "Y" } }],
+        isActive: true,
+      },
+    ] as never);
+    prismaMock.workflowRun.create.mockResolvedValue({ id: "run-fail" } as never);
+    prismaMock.workflowRun.update.mockResolvedValue({} as never);
+    prismaMock.workflow.update.mockResolvedValue({} as never);
+
+    await triggerEventWorkflows("invoice.paid", { societyId: SOCIETY_ID });
+
+    expect(prismaMock.workflowRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", error: expect.stringContaining("invalide") }),
+      })
+    );
   });
 });
