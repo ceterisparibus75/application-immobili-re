@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
         type: "document",
         title: doc.fileName,
         subtitle: doc.category ?? doc.description ?? undefined,
-        href: "/documents",
+        href: `/documents?documentId=${encodeURIComponent(doc.id)}`,
       });
     }
   }

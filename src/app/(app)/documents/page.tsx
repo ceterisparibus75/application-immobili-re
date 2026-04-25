@@ -12,7 +12,7 @@ import { DocumentsClient } from "./_components/documents-client";
 export const metadata: Metadata = { title: "Documents" };
 
 type DocumentsPageProps = {
-  searchParams?: Promise<{ uploaded?: string }>;
+  searchParams?: Promise<{ uploaded?: string; documentId?: string }>;
 };
 
 export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
@@ -26,6 +26,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const documents = await getDocuments(societyId);
   const params = (await searchParams) ?? {};
   const showUploadSuccess = params.uploaded === "1";
+  const initialDocumentId = params.documentId;
 
   return (
     <div className="space-y-4">
@@ -112,7 +113,12 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
           </CardContent>
         </Card>
       </div>
-      <DocumentsClient societyId={societyId} documents={documents} />
+      <DocumentsClient
+        key={initialDocumentId ?? "documents"}
+        societyId={societyId}
+        documents={documents}
+        initialDocumentId={initialDocumentId}
+      />
     </div>
   );
 }

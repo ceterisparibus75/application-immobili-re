@@ -100,6 +100,11 @@ function FileTypeIcon({ mimeType, className }: { mimeType: string | null; classN
   if (mimeType?.startsWith("image/")) return <FileImage className={cn("text-[var(--color-brand-cyan)]", className)} />;
   return <File className={cn("text-[#94A3B8]", className)} />;
 }
+
+function findDocumentById(documents: DocumentItem[], documentId?: string): DocumentItem | null {
+  if (!documentId) return null;
+  return documents.find((doc) => doc.id === documentId) ?? null;
+}
 // ─── Tree Sidebar ─────────────────────────────────────────────────────────────
 type TreeData = {
   total: number;
@@ -793,9 +798,17 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
   );
 }
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function DocumentsClient({ societyId, documents }: { societyId: string; documents: DocumentItem[]; }) {
+export function DocumentsClient({
+  societyId,
+  documents,
+  initialDocumentId,
+}: {
+  societyId: string;
+  documents: DocumentItem[];
+  initialDocumentId?: string;
+}) {
   const [selectedFolder, setSelectedFolder] = useState<string>("all");
-  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(() => findDocumentById(documents, initialDocumentId));
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -805,6 +818,14 @@ export function DocumentsClient({ societyId, documents }: { societyId: string; d
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDataroomOpen, setBulkDataroomOpen] = useState(false);
+
+  useEffect(() => {
+    if (!initialDocumentId || selectedDoc?.id !== initialDocumentId) return;
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      const timeoutId = window.setTimeout(() => setMobileDetailsOpen(true), 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [initialDocumentId, selectedDoc?.id]);
 
   const usedCategories = useMemo(() => {
     const set = new Set<string>();
