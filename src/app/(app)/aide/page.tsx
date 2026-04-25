@@ -1,4 +1,4 @@
-import { Building2, BookOpen, Mail, Shield, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock, UserCog, ChevronRight, CreditCard, Phone, RefreshCw, Contact, CalendarCheck, Umbrella, Building, TicketCheck, Zap, Bot, Send, Upload, LineChart, BellRing } from "lucide-react";
+import { Building2, BookOpen, Mail, Shield, FileText, Users, BarChart3, Banknote, HelpCircle, Layers, TrendingUp, FolderLock, UserCog, ChevronRight, CalendarCheck, Umbrella, Building, Zap, Send } from "lucide-react";
 import Link from "next/link";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
@@ -295,11 +295,11 @@ const faqs = [
   },
   {
     q: "Comment envoyer un courrier personnalisé ?",
-    a: "Allez dans Courriers > Nouveau courrier. Sélectionnez un modèle ou rédigez votre texte librement, puis choisissez le ou les destinataires. Les variables dynamiques (nom, adresse, loyer) sont remplacées automatiquement. Le courrier peut être envoyé par email ou généré en PDF.",
+    a: "Allez dans Courriers, puis choisissez un modèle de la bibliothèque. Les variables dynamiques (nom, adresse, loyer) sont remplacées automatiquement selon le contexte du courrier. Pour un texte totalement sur mesure, utilisez l'assistant IA depuis le module Assistant.",
   },
   {
     q: "Puis-je créer mes propres modèles de courrier ?",
-    a: "Oui, allez dans Courriers > Modèles > Créer un modèle. Utilisez les variables disponibles (nom du locataire, adresse du lot, montant du loyer, etc.) pour créer des courriers types réutilisables. Vos modèles sont propres à votre société.",
+    a: "La bibliothèque intégrée couvre les modèles principaux. La création de modèles personnalisés n'est pas encore exposée comme écran dédié ; pour un besoin ponctuel, utilisez l'assistant IA ou partez d'un modèle existant dans Courriers.",
   },
   // ── Import et export ──
   {
@@ -376,7 +376,7 @@ const faqs = [
   // ── Workflows et automatisation ──
   {
     q: "Comment créer un workflow automatisé ?",
-    a: "Allez dans Workflows > Nouveau workflow. Choisissez un déclencheur (événement, planification ou manuel), puis ajoutez des étapes : envoi d'email, notification, génération de PDF, délai d'attente, changement de statut, condition, webhook. Exemple : « Quand une facture passe en retard → attendre 3 jours → envoyer email de relance niveau 1 → attendre 14 jours → envoyer relance niveau 2 ».",
+    a: "La page Workflows sert aujourd'hui à suivre les automatisations configurées et leur historique d'exécution. La création visuelle de workflows sur mesure n'est pas encore exposée dans l'interface. Pour les cas opérationnels déjà disponibles, utilisez Relances, Facturation, Indices, Tickets et Courriers.",
   },
   {
     q: "Comment suivre l'exécution de mes workflows ?",

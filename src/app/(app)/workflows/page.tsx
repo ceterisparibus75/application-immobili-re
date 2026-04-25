@@ -3,9 +3,11 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   Workflow, Plus, Play, Clock, Zap, Mail, Bell,
   FileText, ArrowRight, CheckCircle2, XCircle, Timer,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { WorkflowStep, WorkflowTrigger } from "@/validations/workflow";
+import { WorkflowsEmptyState } from "./_components/workflows-empty-state";
 
 const TRIGGER_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
   event: { label: "Événement", icon: Zap },
@@ -71,26 +74,16 @@ export default async function WorkflowsPage() {
             {totalRuns > 0 && ` · ${totalRuns} exécution${totalRuns > 1 ? "s" : ""}`}
           </p>
         </div>
-        <Button className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white">
-          <Plus className="h-4 w-4" />
-          Nouveau workflow
+        <Button asChild className="gap-1.5 bg-brand-gradient-soft text-white hover:opacity-90">
+          <Link href="/aide/automatisation">
+            <BookOpen className="h-4 w-4" />
+            Guide workflows
+          </Link>
         </Button>
       </div>
 
       {workflows.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Workflow className="h-12 w-12 text-muted-foreground/30 mb-4" />
-            <p className="text-lg font-medium mb-1">Aucun workflow</p>
-            <p className="text-sm text-muted-foreground mb-6 max-w-md text-center">
-              Automatisez vos processus : relances, notifications, mises à jour de statut, génération de documents...
-            </p>
-            <Button className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Créer un workflow
-            </Button>
-          </CardContent>
-        </Card>
+        <WorkflowsEmptyState />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {workflows.map((wf) => {

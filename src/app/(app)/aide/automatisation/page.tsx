@@ -1,5 +1,5 @@
 import { Zap } from "lucide-react";
-import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/help-page-layout";
+import { HelpPageLayout, HelpSection, InfoBox } from "../_components/help-page-layout";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
@@ -17,7 +17,7 @@ export default function AutomatisationPage() {
     >
       <HelpSection id="workflows" title="Workflows automatisés">
         <p>
-          Le module <strong>Workflows</strong> vous permet de créer des automatisations sur mesure pour votre gestion locative. Chaque workflow se compose d'un <strong>déclencheur</strong> et d'une série d'<strong>étapes</strong>.
+          Le module <strong>Workflows</strong> permet de suivre les automatisations configurées pour votre gestion locative. Le moteur technique est disponible, mais l'écran de création sur mesure n'est pas encore exposé dans l'interface. Utilisez cette page pour contrôler les workflows existants et préparer vos scénarios avant leur activation.
         </p>
         <p className="font-semibold text-foreground mt-4 mb-2">Types de déclencheurs :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -59,7 +59,7 @@ export default function AutomatisationPage() {
           </p>
         </div>
         <InfoBox type="info">
-          Chaque workflow affiche son historique d'exécution : les 3 dernières exécutions avec leur statut (succès/échec/en cours). Vous pouvez activer ou désactiver un workflow à tout moment.
+          Chaque workflow configuré affiche son historique d'exécution : les 3 dernières exécutions avec leur statut (succès/échec/en cours). Pour les automatisations déjà disponibles sans configuration manuelle, utilisez les modules Relances, Indices, Facturation et Tickets.
         </InfoBox>
       </HelpSection>
 
@@ -174,7 +174,7 @@ export default function AutomatisationPage() {
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Les workflows sont-ils disponibles sur tous les plans ?</p>
-            <p>Les workflows de base sont disponibles dès le plan Pro. Les workflows avancés avec conditions et webhooks sont réservés au plan Enterprise.</p>
+            <p>Le suivi des workflows et les automatisations opérationnelles sont disponibles selon le plan. La création visuelle de workflows sur mesure n'est pas encore exposée dans l'interface ; les scénarios avancés avec conditions et webhooks restent réservés aux plans supérieurs.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">L'assistant IA peut-il accéder à toutes mes données ?</p>
