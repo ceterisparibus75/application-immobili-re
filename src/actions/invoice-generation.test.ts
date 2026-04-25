@@ -48,6 +48,7 @@ import { prismaMock } from "@/test/mocks/prisma";
 import {
   createInvoice,
   previewInvoiceFromLease,
+  previewBatchInvoices,
   generateInvoiceFromLease,
   generateBatchInvoices,
   createCreditNote,
@@ -371,5 +372,50 @@ describe("createCreditNote", () => {
     });
     expect(result.success).toBe(true);
     expect(result.data?.invoiceNumber).toBe("AV-2025-001");
+  });
+});
+
+// ── previewBatchInvoices ──────────────────────────────────────────
+
+describe("previewBatchInvoices", () => {
+  const validInput = { periodMonth: "2025-01", leaseIds: [LEASE_ID] };
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await previewBatchInvoices(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si le format de mois est invalide", async () => {
+    const r = await previewBatchInvoices(SOCIETY_ID, { periodMonth: "2025-13" });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("AAAA-MM");
+  });
+
+  it("retourne les prévisualisations pour les baux spécifiés", async () => {
+    const r = await previewBatchInvoices(SOCIETY_ID, validInput);
+    expect(r.success).toBe(true);
+    expect(r.data).toHaveLength(1);
+    expect(mockComputeInvoicePreview).toHaveBeenCalledWith(SOCIETY_ID, LEASE_ID, "2025-01");
+  });
+
+  it("récupère tous les baux actifs si aucun leaseId spécifié", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { id: LEASE_ID },
+      { id: "clh3x2z4k0005qh8g7z1y2v3t" },
+    ] as never);
+    const r = await previewBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(r.success).toBe(true);
+    expect(r.data).toHaveLength(2);
+    expect(prismaMock.lease.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { societyId: SOCIETY_ID, status: "EN_COURS" } })
+    );
+  });
+
+  it("ignore les baux sans prévisualisation (computeInvoicePreview retourne null)", async () => {
+    mockComputeInvoicePreview.mockResolvedValueOnce(null);
+    const r = await previewBatchInvoices(SOCIETY_ID, validInput);
+    expect(r.success).toBe(true);
+    expect(r.data).toHaveLength(0);
   });
 });
