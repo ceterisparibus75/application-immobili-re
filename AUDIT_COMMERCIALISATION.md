@@ -22,7 +22,7 @@
 | Templates email | 11 |
 | Cron jobs | 9 |
 | Tests unitaires | **123 suites (1 773+ cas)** |
-| Tests E2E (Playwright) | 2 suites (auth + navigation, 16 routes) |
+| Tests E2E (Playwright) | 3 suites : auth + navigation locales, parcours métier staging opt-in |
 | Lignes schema Prisma | 2 138 |
 
 ### Description fonctionnelle
@@ -495,7 +495,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Tests unitaires | OK | `npm test` : 153 fichiers passés, 1 ignoré, 2 158 tests passés, 16 ignorés. |
 | Lint | OK avec avertissements | `npm run lint` : 0 erreur, 183 avertissements historiques (imports inutilisés, `console` dans scripts/tests, quelques hooks à nettoyer). |
 | Build production | OK | `npm run build` : compilation Next.js 16 réussie, 225 routes générées. |
-| E2E Playwright | OK | `npm run test:e2e` : 25/25 tests passés, auth, pages publiques, portail login, gardes de routes et API auth. |
+| E2E Playwright | OK + chantier P0 lancé | `npm run test:e2e` : 25/25 tests passés, auth, pages publiques, portail login, gardes de routes et API auth. `npm run test:e2e:business` ajoute le parcours staging opt-in immeuble → lot → locataire → bail → facture, lançable aussi via le workflow manuel `Business E2E`. |
 | Service worker/offline | OK | `/sw.js` et `/offline.html` sont maintenant publics, sans redirection login. |
 | Navigation desktop/mobile | OK | Topnav desktop simplifiée, topnav masquée sur mobile, menu mobile complet et structuré. |
 
@@ -506,7 +506,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Mobile corrigé** : la topnav desktop ne s'affiche plus sur mobile ; le drawer mobile conserve l'ensemble des accès secondaires.
 - **Service worker corrigé** : `/sw.js` et `/offline.html` ne sont plus protégés par l'auth.
 - **Onboarding hydratation-safe** : les écrans Welcome/Onboarding ne lisent plus `localStorage` pendant le rendu initial ; suppression du risque d'hydration mismatch.
-- **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux.
+- **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux. Les parcours métier peuvent cibler une URL de staging via `E2E_BASE_URL` sans lancer le serveur local.
 - **Tests alignés avec les contrats actuels** : corrections de tests sur dashboard, échéances, tâches du jour, FEC, notifications, limites de plan, inscription, email, société active et facturation.
 - **Uploads GED renforcés** : les flux classique, streaming et TUS partagent désormais des règles serveur communes (MIME autorisé, extension cohérente, taille maximale, dossier normalisé, chemin limité à la société active).
 - **Endpoint admin vérifié** : `email-diagnostics` est couvert par test pour refuser les utilisateurs non authentifiés et les utilisateurs non super-admin.
@@ -549,7 +549,7 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 
 | Priorité | Action | Bénéfice utilisateur |
 |----------|--------|----------------------|
-| P0 | Ajouter des E2E authentifiés sur données de staging : créer immeuble → lot → locataire → bail → facture. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
+| P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
 | P1 | Ajouter une recherche globale visible (`Ctrl/Cmd K`) : baux, locataires, lots, factures, documents. | Réduire la dépendance à la navigation profonde. |
 | P1 | Créer des pages index de module plus actionnables : raccourcis, derniers éléments, alertes, état vide guidé. | Faire de chaque module une zone de travail, pas seulement une liste. |
