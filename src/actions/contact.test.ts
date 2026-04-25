@@ -9,6 +9,7 @@ vi.mock("@/lib/env", () => ({ env: { AUTH_URL: "https://app.example.com" } }));
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
 import { createContact, updateContact, getContacts, getContactById, inviteContactAsUser } from "./contact";
+import { sendNewUserEmail } from "@/lib/email";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const CONTACT_ID = "clh3x2z4k0001qh8g7z1y2v3u";
@@ -195,5 +196,32 @@ describe("inviteContactAsUser", () => {
     expect(result.success).toBe(true);
     expect(result.data?.userId).toBe("new-user-id");
     expect(prismaMock.user.create).toHaveBeenCalled();
+  });
+
+  it("reste en succès si l'email d'invitation échoue (best-effort)", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "user-1", proprietaire: null } as never);
+    prismaMock.contact.findFirst.mockResolvedValue(buildContact() as never);
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({ id: "new-user-id" } as never);
+    prismaMock.userSociety.create.mockResolvedValue({} as never);
+    vi.mocked(sendNewUserEmail).mockRejectedValueOnce(new Error("SMTP error"));
+
+    const result = await inviteContactAsUser(SOCIETY_ID, CONTACT_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour inviteContactAsUser", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await inviteContactAsUser(SOCIETY_ID, CONTACT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans inviteContactAsUser", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.contact.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await inviteContactAsUser(SOCIETY_ID, CONTACT_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'invitation" });
   });
 });

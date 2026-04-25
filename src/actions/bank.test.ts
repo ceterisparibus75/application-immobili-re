@@ -723,4 +723,17 @@ describe("importBankStatement", () => {
     expect(r.data?.duplicates).toBe(1)
     expect(r.data?.imported).toBe(0)
   })
+
+  it("retourne une erreur si rôle insuffisant pour importBankStatement", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans importBankStatement", async () => {
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'import du relevé" })
+  })
 })
