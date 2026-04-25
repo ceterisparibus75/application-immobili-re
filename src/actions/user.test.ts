@@ -24,11 +24,19 @@ vi.mock("@/lib/env", () => ({
   env: { AUTH_URL: "https://app.test" },
 }));
 
+const mockBcryptCompare = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const mockBcryptHash = vi.hoisted(() => vi.fn().mockResolvedValue("hashed-password"));
+vi.mock("bcryptjs", () => ({ compare: mockBcryptCompare, hash: mockBcryptHash }));
+
 import {
   assignUserToSociety,
   removeUserFromSociety,
   toggleEmailCopy,
   updateModulePermissions,
+  changePassword,
+  deleteUser,
+  getUsersNotInSociety,
+  getUsers,
 } from "./user";
 
 const SOCIETY_ID = "cm8m6m6m6000008l2a1bcdefg";
@@ -153,5 +161,155 @@ describe("user admin actions", () => {
       where: { id: USER_ID },
       data: { emailCopyEnabled: true },
     });
+  });
+});
+
+// ── changePassword ────────────────────────────────────────────────
+
+describe("changePassword", () => {
+  const validInput = {
+    currentPassword: "OldPassword123!",
+    newPassword: "NewPassword456!",
+    confirmPassword: "NewPassword456!",
+  };
+
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    mockBcryptCompare.mockResolvedValue(true);
+    mockBcryptHash.mockResolvedValue("new-hashed-password");
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await changePassword(validInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si les mots de passe ne correspondent pas", async () => {
+    const result = await changePassword({ ...validInput, confirmPassword: "DifferentPassword999!" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("correspondent pas");
+  });
+
+  it("retourne une erreur si le mot de passe actuel est incorrect", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      passwordHash: "old-hash",
+    } as never);
+    mockBcryptCompare.mockResolvedValue(false);
+
+    const result = await changePassword(validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("incorrect");
+  });
+
+  it("change le mot de passe avec succès", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      passwordHash: "old-hash",
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: "user-1" } as never);
+
+    const result = await changePassword(validInput);
+    expect(result.success).toBe(true);
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { passwordHash: "new-hashed-password" } })
+    );
+  });
+});
+
+// ── deleteUser ────────────────────────────────────────────────────
+
+describe("deleteUser", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    // Simuler un accès SUPER_ADMIN via userSociety
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "SUPER_ADMIN" },
+    ] as never);
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await deleteUser(USER_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("bloque la suppression de son propre compte (user-1 = session courante)", async () => {
+    // "user-1" est l'ID de la session active dans mockAuthSession
+    const result = await deleteUser("user-1");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("propre compte");
+  });
+
+  it("retourne une erreur si l'utilisateur est introuvable", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    const result = await deleteUser(USER_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("supprime l'utilisateur avec succès", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID,
+      email: "target@example.com",
+    } as never);
+    prismaMock.$transaction.mockResolvedValue([]);
+
+    const result = await deleteUser(USER_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+  });
+});
+
+// ── getUsersNotInSociety ──────────────────────────────────────────
+
+describe("getUsersNotInSociety", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getUsersNotInSociety(SOCIETY_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne les utilisateurs non membres de la société", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1" },
+    ] as never);
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: USER_ID, email: "other@example.com", name: "Other User" },
+    ] as never);
+
+    const result = await getUsersNotInSociety(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { notIn: ["user-1"] } }),
+      })
+    );
+  });
+});
+
+// ── getUsers ──────────────────────────────────────────────────────
+
+describe("getUsers", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getUsers(SOCIETY_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne les membres d'une société donnée", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      {
+        role: "GESTIONNAIRE",
+        user: { id: USER_ID, email: "u@example.com", name: "U", firstName: null, isActive: true, lastLoginAt: null, createdAt: new Date(), emailCopyEnabled: false },
+      },
+    ] as never);
+
+    const result = await getUsers(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: USER_ID, role: "GESTIONNAIRE" });
   });
 });
