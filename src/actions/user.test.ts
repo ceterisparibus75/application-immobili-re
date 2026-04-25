@@ -37,6 +37,10 @@ import {
   deleteUser,
   getUsersNotInSociety,
   getUsers,
+  getModulePermissions,
+  resetModulePermissions,
+  getAllManagedUsers,
+  resendInvitation,
 } from "./user";
 
 const SOCIETY_ID = "cm8m6m6m6000008l2a1bcdefg";
@@ -311,5 +315,125 @@ describe("getUsers", () => {
     const result = await getUsers(SOCIETY_ID);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: USER_ID, role: "GESTIONNAIRE" });
+  });
+});
+
+// ── getModulePermissions ──────────────────────────────────────────
+
+describe("getModulePermissions", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si l'utilisateur n'est pas membre", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce(null as never);
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("non membre");
+  });
+
+  it("retourne les permissions par défaut si aucune personnalisation", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE", modulePermissions: null } as never);
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.role).toBe("GESTIONNAIRE");
+    expect(r.data?.isCustom).toBe(false);
+  });
+});
+
+// ── resetModulePermissions ────────────────────────────────────────
+
+describe("resetModulePermissions", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await resetModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si l'utilisateur n'est pas membre", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce(null as never);
+    const r = await resetModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("non membre");
+  });
+
+  it("réinitialise les permissions avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE", modulePermissions: { locataires: ["read"] } } as never);
+    prismaMock.userSociety.update.mockResolvedValue({} as never);
+    const r = await resetModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.userSociety.update).toHaveBeenCalledOnce();
+  });
+});
+
+// ── getAllManagedUsers ─────────────────────────────────────────────
+
+describe("getAllManagedUsers", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une liste vide si aucun propriétaire", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockResolvedValue([] as never);
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(true);
+    expect(r.data?.users).toHaveLength(0);
+    expect(r.data?.societies).toHaveLength(0);
+  });
+});
+
+// ── resendInvitation ──────────────────────────────────────────────
+
+describe("resendInvitation", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await resendInvitation(USER_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si pas de droits admin", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue(null as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("insuffisants");
+  });
+
+  it("erreur si utilisateur introuvable", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvable");
+  });
+
+  it("erreur si l'utilisateur a déjà activé son compte", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "u@example.com", name: "U", firstName: null,
+      lastLoginAt: new Date(),
+    } as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("activé son compte");
   });
 });
