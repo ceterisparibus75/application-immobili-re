@@ -76,6 +76,12 @@ describe("createLease", () => {
     await createLease("society-1", validLeaseInput)
     expect(prismaMock.lot.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: [VALID_CUID] } }, data: expect.objectContaining({ status: "OCCUPE" }) }))
   })
+  it("retourne une erreur générique si la BDD échoue dans createLease", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lot.findMany.mockRejectedValue(new Error("DB connection lost"))
+    const r = await createLease("society-1", validLeaseInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création du bail" })
+  })
 })
 
 describe("updateLease", () => {
@@ -123,6 +129,11 @@ describe("updateLease", () => {
       where: { id: VALID_CUID },
       data: expect.objectContaining({ currentRentHT: 2000 })
     }))
+  })
+  it("erreur Zod si id n'est pas un CUID valide pour updateLease", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const r = await updateLease("society-1", { id: "not-a-cuid" })
+    expect(r.success).toBe(false)
   })
   it("erreur si role LECTURE pour updateLease (min GESTIONNAIRE requis)", async () => {
     mockAuthSession(UserRole.LECTURE)

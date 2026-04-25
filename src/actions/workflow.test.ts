@@ -93,6 +93,20 @@ describe("updateWorkflow", () => {
     expect(result.success).toBe(true);
     expect(result.data?.id).toBe(WORKFLOW_ID);
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateWorkflow (min ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await updateWorkflow(SOCIETY_ID, { id: WORKFLOW_ID, name: "Test" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateWorkflow", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.update.mockRejectedValue(new Error("DB connection lost"));
+    const result = await updateWorkflow(SOCIETY_ID, { id: WORKFLOW_ID, name: "Test" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
 });
 
 describe("deleteWorkflow", () => {
@@ -111,6 +125,20 @@ describe("deleteWorkflow", () => {
     expect(prismaMock.workflow.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: WORKFLOW_ID, societyId: SOCIETY_ID } })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteWorkflow (min ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await deleteWorkflow(SOCIETY_ID, WORKFLOW_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteWorkflow", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.delete.mockRejectedValue(new Error("DB connection lost"));
+    const result = await deleteWorkflow(SOCIETY_ID, WORKFLOW_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
 });
 
