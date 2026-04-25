@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
-import { createLease, updateLease, deleteLease } from "@/actions/lease"
+import {
+  createLease,
+  updateLease,
+  deleteLease,
+  getLeases,
+  getLeaseById,
+  getLeaseFinancialSummary,
+  getLeaseDocuments,
+  createRentSteps,
+  updateRentStep,
+  deleteRentStep,
+  getRentSteps,
+} from "@/actions/lease"
 import type { CreateLeaseInput } from "@/validations/lease"
 import { UserRole } from "@/generated/prisma/client"
 import { prismaMock } from "@/test/mocks/prisma"
@@ -172,3 +184,223 @@ describe("deleteLease", () => {
     expect(prismaMock.lot.update).not.toHaveBeenCalled()
   })
 })
+
+const SOCIETY_ID = "society-1";
+const LEASE_ID = VALID_CUID;
+const STEP_ID = "clh3x2z4k0002qh8g7z1y2v3v";
+
+// ── getLeases ─────────────────────────────────────────────────────
+
+describe("getLeases", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getLeases(SOCIETY_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne la liste des baux", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findMany.mockResolvedValue([{ id: LEASE_ID }] as never);
+    const result = await getLeases(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+  });
+});
+
+// ── getLeaseById ──────────────────────────────────────────────────
+
+describe("getLeaseById", () => {
+  it("retourne null si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getLeaseById(SOCIETY_ID, LEASE_ID);
+    expect(result).toBeNull();
+  });
+
+  it("retourne le bail si trouvé", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: LEASE_ID } as never);
+    const result = await getLeaseById(SOCIETY_ID, LEASE_ID);
+    expect(result?.id).toBe(LEASE_ID);
+  });
+});
+
+// ── getLeaseFinancialSummary ──────────────────────────────────────
+
+describe("getLeaseFinancialSummary", () => {
+  it("retourne null si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
+    expect(result).toBeNull();
+  });
+
+  it("calcule les totaux correctement", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "inv-1", totalHT: 800, totalTTC: 800, status: "EN_RETARD", payments: [] },
+      { id: "inv-2", totalHT: 800, totalTTC: 800, status: "PAYE", payments: [{ amount: 800 }] },
+    ] as never);
+
+    const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
+    expect(result?.nbFactures).toBe(2);
+    expect(result?.totalFactureTTC).toBe(1600);
+    expect(result?.totalEncaisse).toBe(800);
+    expect(result?.totalImpaye).toBe(800);
+    expect(result?.nbImpayees).toBe(1);
+  });
+});
+
+// ── getLeaseDocuments ─────────────────────────────────────────────
+
+describe("getLeaseDocuments", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getLeaseDocuments(SOCIETY_ID, LEASE_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne les documents du bail", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.document.findMany.mockResolvedValue([{ id: "doc-1" }] as never);
+    const result = await getLeaseDocuments(SOCIETY_ID, LEASE_ID);
+    expect(result).toHaveLength(1);
+  });
+});
+
+// ── createRentSteps ───────────────────────────────────────────────
+
+describe("createRentSteps", () => {
+  const validInput = {
+    leaseId: LEASE_ID,
+    steps: [{ label: "Palier 1", startDate: "2024-06-01", endDate: null, rentHT: 1500, chargesHT: null }],
+  };
+
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le bail est introuvable", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("retourne une erreur si un palier commence avant le bail", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID,
+      startDate: new Date("2024-07-01"),
+      endDate: null,
+    } as never);
+
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("avant le début du bail");
+  });
+
+  it("crée les paliers avec succès", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID,
+      startDate: new Date("2024-01-01"),
+      endDate: null,
+    } as never);
+    prismaMock.leaseRentStep.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.leaseRentStep.createMany.mockResolvedValue({ count: 1 });
+
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(true);
+    expect(result.data?.count).toBe(1);
+  });
+});
+
+// ── updateRentStep ────────────────────────────────────────────────
+
+describe("updateRentStep", () => {
+  const validInput = { id: STEP_ID, label: "Palier modifié", startDate: "2024-06-01", rentHT: 1600 };
+
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le palier est introuvable", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue(null);
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("met à jour le palier avec succès", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({
+      id: STEP_ID,
+      leaseId: LEASE_ID,
+    } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2024-01-01"),
+      endDate: null,
+    } as never);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([]);
+    prismaMock.leaseRentStep.update.mockResolvedValue({ id: STEP_ID } as never);
+
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── deleteRentStep ────────────────────────────────────────────────
+
+describe("deleteRentStep", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+  });
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le palier est introuvable", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue(null);
+    const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("supprime le palier avec succès", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.leaseRentStep.delete.mockResolvedValue({ id: STEP_ID } as never);
+
+    const result = await deleteRentStep(SOCIETY_ID, STEP_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.leaseRentStep.delete).toHaveBeenCalledWith({ where: { id: STEP_ID } });
+  });
+});
+
+// ── getRentSteps ──────────────────────────────────────────────────
+
+describe("getRentSteps", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getRentSteps(SOCIETY_ID, LEASE_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne les paliers du bail", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([
+      { id: STEP_ID, rentHT: 1500 },
+    ] as never);
+    const result = await getRentSteps(SOCIETY_ID, LEASE_ID);
+    expect(result).toHaveLength(1);
+  });
+});
