@@ -100,6 +100,61 @@ describe("autoReconcile", () => {
       expect.objectContaining({ action: "UPDATE", entity: "BankAccount" })
     );
   });
+
+  it("rapproche avec un match exact (référence + montant) — lignes 121-135", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: -500, reference: "REF-001" }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({ amount: 500, reference: "REF-001" }),
+    ] as never);
+    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(1);
+  });
+
+  it("rapproche avec un match approximatif (montant ±0.01 + date ±3j) — lignes 139-155", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: -500, reference: "TX-REF", transactionDate: new Date("2026-03-01") }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({ amount: 500.005, reference: "PAY-REF", paidAt: new Date("2026-03-02") }),
+    ] as never);
+    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(1);
+  });
+
+  it("rapproche avec le montant net pour gestion tiers — lignes 158-169", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: -460, reference: null }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({ amount: 500, reference: null, invoice: { isThirdPartyManaged: true, expectedNetAmount: 460 } }),
+    ] as never);
+    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(1);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans autoReconcile (lignes 193-194)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement automatique" });
+  });
 });
 
 // ─── manualReconcile ──────────────────────────────────────────────────────────
@@ -160,6 +215,20 @@ describe("manualReconcile", () => {
       expect.objectContaining({ action: "CREATE", entity: "BankReconciliation" })
     );
   });
+
+  it("revalide le chemin locataire si invoice.tenantId trouvé (ligne 258)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.invoice.findUnique.mockResolvedValue({ tenantId: "ctenant001" } as never);
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r.success).toBe(true);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans manualReconcile (lignes 266-267)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
+  });
 });
 
 // ─── unreconcile ──────────────────────────────────────────────────────────────
@@ -206,6 +275,13 @@ describe("unreconcile", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "DELETE", entity: "BankReconciliation" })
     );
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans unreconcile (lignes 318-319)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankReconciliation.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await unreconcile(SOCIETY_ID, RECONCIL_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'annulation" });
   });
 });
 
@@ -369,6 +445,33 @@ describe("reconcileWithInvoice", () => {
     const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
   });
+
+  it("exécute le callback $transaction dans reconcileWithInvoice (lignes 536, 546-547, 556)", async () => {
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.payment.create.mockResolvedValue({ id: "cpayment02" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+    prismaMock.bankReconciliation.create.mockResolvedValue({} as never);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.payment.create).toHaveBeenCalled();
+    expect(prismaMock.invoice.update).toHaveBeenCalled();
+  });
+
+  it("utilise le montant net attendu pour gestion tiers (targetAmount = expectedNetAmount)", async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, totalTTC: 800, invoiceType: "APPEL_LOYER",
+      isThirdPartyManaged: true, expectedNetAmount: 460, tenantId: "ctenant001",
+    } as never);
+    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
+    prismaMock.$transaction.mockResolvedValue(undefined as never);
+
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+  });
 });
 
 // ─── reconcileWithLoanLine ────────────────────────────────────────────────────
@@ -482,5 +585,41 @@ describe("generateJournalEntry", () => {
 
     const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
     expect(r.success).toBe(true);
+  });
+
+  it("génère une écriture à 3 lignes pour gestion tiers (lignes 375, 388-390)", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: 460,
+      label: "Virement net",
+      reconciliations: [{
+        payment: {
+          invoice: { isThirdPartyManaged: true, managementFeeTTC: 40 },
+        },
+      }],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ journalType: "BANQUE" }),
+      })
+    );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour generateJournalEntry (ligne 433)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans generateJournalEntry (lignes 434-435)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la génération de l'écriture" });
   });
 });
