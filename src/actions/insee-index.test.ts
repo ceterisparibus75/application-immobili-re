@@ -5,6 +5,7 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
+import { createAuditLog } from "@/lib/audit";
 import { syncInseeIndices } from "./insee-index";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
@@ -133,6 +134,57 @@ describe("syncInseeIndices", () => {
     const result = await syncInseeIndices(SOCIETY_ID, ["ILC"]);
     expect(result.success).toBe(true);
     expect(result.data?.synced["ILC"]).toBe(0);
+  });
+
+  it("parse le format Generic XML si aucun résultat StructureSpecific (lignes 45-51)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(
+        `<generic:Obs>
+          <generic:ObsKey>
+            <generic:Value id="TIME_PERIOD" value="2025-T1" />
+          </generic:ObsKey>
+          <generic:ObsValue value="145.78" />
+        </generic:Obs>`
+      ),
+    }));
+    prismaMock.inseeIndex.upsert.mockResolvedValue({} as never);
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(true);
+    expect(result.data?.synced["IRL"]).toBe(1);
+  });
+
+  it("enregistre une erreur si l'upsert BDD échoue pour un index (lignes 141-142)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    mockFetch(true);
+    prismaMock.inseeIndex.upsert.mockRejectedValue(new Error("DB upsert error"));
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(true);
+    expect(result.data?.errors).toHaveLength(1);
+    expect(result.data?.errors[0]).toMatch(/IRL/);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant (lignes 161-162)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si createAuditLog échoue (lignes 163-164)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    mockFetch(true);
+    prismaMock.inseeIndex.upsert.mockResolvedValue({} as never);
+    vi.mocked(createAuditLog).mockRejectedValueOnce(new Error("audit KO"));
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("synchronisation");
   });
 
   it("upserte avec les bons paramètres (indexType, year, quarter, value)", async () => {

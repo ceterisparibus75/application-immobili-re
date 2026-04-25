@@ -108,6 +108,14 @@ describe("createSociety", () => {
     const { encrypt } = await import("@/lib/encryption");
     expect(vi.mocked(encrypt)).toHaveBeenCalledWith("FR7630006000011234567890189");
   });
+
+  it("retourne une erreur générique si la BDD échoue dans createSociety (lignes 136-137)", async () => {
+    mockAuthUser();
+    prismaMock.society.findUnique.mockResolvedValue(null);
+    prismaMock.society.create.mockRejectedValue(new Error("DB error"));
+    const result = await createSociety(validCreateInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de la société" });
+  });
 });
 
 describe("updateSociety", () => {
@@ -130,6 +138,32 @@ describe("updateSociety", () => {
     const result = await updateSociety({ id: SOCIETY_ID, name: "Nouveau nom" });
     expect(result.success).toBe(true);
     expect(prismaMock.society.update).toHaveBeenCalled();
+  });
+
+  it("convertit IBAN et BIC vides en null (lignes 161, 164)", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.society.update.mockResolvedValue(makeSociety() as never);
+
+    await updateSociety({ id: SOCIETY_ID, iban: "", bic: "" });
+    expect(prismaMock.society.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ibanEncrypted: null, bicEncrypted: null }),
+      })
+    );
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant pour updateSociety (lignes 199-200)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await updateSociety({ id: SOCIETY_ID, name: "Test" });
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateSociety (lignes 202-203)", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.society.update.mockRejectedValue(new Error("DB error"));
+    const result = await updateSociety({ id: SOCIETY_ID, name: "Test" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
 
   it("convertit les chaînes vides en null", async () => {
@@ -200,6 +234,15 @@ describe("getSocietyById", () => {
 
     const result = await getSocietyById(SOCIETY_ID);
     expect(result?.id).toBe(SOCIETY_ID);
+  });
+});
+
+describe("deleteSociety – erreurs supplémentaires", () => {
+  it("retourne une erreur générique si la BDD échoue dans deleteSociety (lignes 319-320)", async () => {
+    mockAuthSession("SUPER_ADMIN", SOCIETY_ID);
+    prismaMock.lease.count.mockRejectedValue(new Error("DB error"));
+    const result = await deleteSociety(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
 });
 

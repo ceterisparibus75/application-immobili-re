@@ -213,6 +213,57 @@ describe("cancelSepaMandate", () => {
   });
 });
 
+describe("createSepaMandate – ForbiddenError et catch générique", () => {
+  it("retourne ForbiddenError si rôle insuffisant (ligne 73)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await createSepaMandate(SOCIETY_ID, TENANT_ID, validMandateInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (ligne 75)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await createSepaMandate(SOCIETY_ID, TENANT_ID, validMandateInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création du mandat SEPA" });
+  });
+});
+
+describe("triggerSepaPayment – ForbiddenError et catch générique", () => {
+  it("retourne ForbiddenError si rôle insuffisant (ligne 131)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await triggerSepaPayment(SOCIETY_ID, validPaymentInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (ligne 133)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.sepaMandate.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await triggerSepaPayment(SOCIETY_ID, validPaymentInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors du déclenchement du prélèvement" });
+  });
+});
+
+describe("cancelSepaMandate – ForbiddenError et catch générique", () => {
+  it("retourne ForbiddenError si rôle insuffisant (ligne 171)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await cancelSepaMandate(SOCIETY_ID, MANDATE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (ligne 173)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.sepaMandate.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await cancelSepaMandate(SOCIETY_ID, MANDATE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'annulation du mandat" });
+  });
+});
+
 describe("getSepaMandates", () => {
   it("retourne null si non authentifié", async () => {
     mockUnauthenticated();

@@ -245,6 +245,56 @@ describe("merge actions", () => {
     expect(result).toEqual([]);
   });
 
+  it("retourne UnauthenticatedActionError si non authentifié pour mergeBuildings (ligne 74)", async () => {
+    mockUnauthenticated();
+    const result = await mergeBuildings(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant pour mergeBuildings (ligne 75)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await mergeBuildings(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si le lot cible est introuvable (ligne 102)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.lot.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, number: "A01", buildingId: "bld-1", building: { societyId: SOCIETY_ID } } as never)
+      .mockResolvedValueOnce(null);
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Lot cible introuvable" });
+  });
+
+  it("retourne UnauthenticatedActionError si non authentifié pour mergeLots (ligne 141)", async () => {
+    mockUnauthenticated();
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant pour mergeLots (ligne 142)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si le locataire cible est introuvable (ligne 169)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand" } as never)
+      .mockResolvedValueOnce(null);
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Locataire cible introuvable" });
+  });
+
+  it("retourne UnauthenticatedActionError si non authentifié pour mergeTenants (ligne 218)", async () => {
+    mockUnauthenticated();
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+  });
+
   it("retourne une erreur générique si la BDD échoue dans mergeBuildings (lignes 74-77)", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
     prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"));

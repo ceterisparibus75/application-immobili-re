@@ -141,6 +141,80 @@ describe("generateFec", () => {
     expect(result.content).toContain("\r\n");
   });
 
+  it("filtre par exercice fiscal si fiscalYearId est fourni (lignes 92-96, 105-108, 242)", async () => {
+    prismaMock.fiscalYear.findUnique.mockResolvedValue({
+      year: 2025,
+      startDate: new Date("2025-01-01"),
+      endDate: new Date("2025-12-31"),
+    } as never);
+    prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
+
+    const result = await generateFec(SOCIETY_ID, { fiscalYearId: "fiscal-1" });
+
+    expect(prismaMock.fiscalYear.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "fiscal-1" } })
+    );
+    expect(result.filename).toContain("20251231");
+  });
+
+  it("filtre validatedOnly si l'option est activée (ligne 101)", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
+
+    await generateFec(SOCIETY_ID, { validatedOnly: true });
+
+    expect(prismaMock.journalEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ isValidated: true }),
+      })
+    );
+  });
+
+  it("filtre par dateFrom/dateTo si fournis (ligne 115)", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([] as never);
+
+    await generateFec(SOCIETY_ID, {
+      dateFrom: new Date("2025-01-01"),
+      dateTo: new Date("2025-06-30"),
+    });
+
+    expect(prismaMock.journalEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          entryDate: expect.objectContaining({
+            gte: expect.any(Date),
+            lte: expect.any(Date),
+          }),
+        }),
+      })
+    );
+  });
+
+  it("filtre par journalType si fourni (ligne 122)", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([] as never);
+
+    await generateFec(SOCIETY_ID, { journalType: "VENTES" });
+
+    expect(prismaMock.journalEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ journalType: "VENTES" }),
+      })
+    );
+  });
+
+  it("détecte une anomalie si l'écriture contient des montants négatifs (ligne 178)", async () => {
+    const negativeEntry = makeEntry({
+      lines: [
+        { id: "l1", debit: -100, credit: 0, label: "A", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "411", label: "Clients" } },
+        { id: "l2", debit: 0, credit: -100, label: "B", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "706", label: "Produit" } },
+      ],
+    });
+    prismaMock.journalEntry.findMany.mockResolvedValue([negativeEntry] as never);
+
+    const result = await generateFec(SOCIETY_ID);
+
+    expect(result.anomalies.some((a) => a.message.includes("negatif"))).toBe(true);
+  });
+
   it("utilise letteringCode si présent sur la ligne", async () => {
     const entryWithLettrage = makeEntry({
       lines: [

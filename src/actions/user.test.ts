@@ -31,6 +31,8 @@ vi.mock("bcryptjs", () => ({ compare: mockBcryptCompare, hash: mockBcryptHash })
 const mockRandomBytes = vi.hoisted(() => vi.fn().mockReturnValue({ toString: () => "random-token" }));
 vi.mock("crypto", () => ({ randomBytes: mockRandomBytes }));
 
+import { sendNewUserInviteEmail } from "@/lib/email";
+
 import {
   assignUserToSociety,
   removeUserFromSociety,
@@ -138,6 +140,12 @@ describe("user admin actions", () => {
     });
   });
 
+  it("retourne UnauthenticatedActionError si non authentifié pour toggleEmailCopy (ligne 811)", async () => {
+    mockUnauthenticated();
+    const result = await toggleEmailCopy(USER_ID, SOCIETY_ID, true);
+    expect(result.success).toBe(false);
+  });
+
   it("retourne Accès refusé si l'utilisateur n'est pas membre de la société", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValue(null);
@@ -185,6 +193,20 @@ describe("user admin actions", () => {
     const result = await toggleEmailCopy(USER_ID, SOCIETY_ID, true);
     expect(result.success).toBe(false);
     expect(result.error).toContain("modification");
+  });
+
+  it("assignUserToSociety passe par requireSuperAdmin si role=SUPER_ADMIN (ligne 226)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "SUPER_ADMIN" },
+    ] as never);
+
+    const result = await assignUserToSociety({
+      userId: USER_ID,
+      societyId: SOCIETY_ID,
+      role: "SUPER_ADMIN",
+    });
+    expect(result.success).toBe(true);
   });
 
   it("assignUserToSociety retourne une erreur si abonnement inactif (ligne 220)", async () => {
@@ -384,6 +406,13 @@ describe("getUsersNotInSociety", () => {
 // ── getUsers ──────────────────────────────────────────────────────
 
 describe("getUsers", () => {
+  it("retourne [] si societyId fourni mais accès refusé (ligne 425)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await getUsers(SOCIETY_ID);
+    expect(result).toEqual([]);
+  });
+
   it("retourne [] si non authentifié", async () => {
     mockUnauthenticated();
     const result = await getUsers(SOCIETY_ID);
@@ -464,6 +493,23 @@ describe("getModulePermissions", () => {
 });
 
 // ── resetModulePermissions ────────────────────────────────────────
+
+describe("resetModulePermissions – erreurs supplémentaires", () => {
+  it("retourne ForbiddenError si rôle insuffisant (ligne 632)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const r = await resetModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 635-636)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockRejectedValue(new Error("DB crash"));
+    const r = await resetModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("permissions");
+  });
+});
 
 describe("resetModulePermissions", () => {
   it("erreur si non authentifié", async () => {
@@ -605,6 +651,18 @@ describe("createUser", () => {
     expect(r.success).toBe(false);
   });
 
+  it("déclenche .catch() sur sendNewUserInviteEmail si existant et email échoue (ligne 84)", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    vi.mocked(sendNewUserInviteEmail).mockRejectedValueOnce(new Error("SMTP KO"));
+
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(true);
+  });
+
   it("renvoie l'invitation si l'email existe mais sans lastLoginAt", async () => {
     prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
     prismaMock.user.findUnique.mockResolvedValue({
@@ -649,6 +707,16 @@ describe("createUser", () => {
     );
   });
 
+  it("déclenche .catch() sur sendNewUserInviteEmail si nouvel utilisateur et email échoue (ligne 128)", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    prismaMock.user.create.mockResolvedValue({ id: USER_ID, email: "alice@example.com", name: "Alice" } as never);
+    vi.mocked(sendNewUserInviteEmail).mockRejectedValueOnce(new Error("SMTP KO"));
+
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(true);
+  });
+
   it("retourne une erreur generique si la BDD echoue dans createUser (lignes 135-136)", async () => {
     prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
     prismaMock.user.findUnique.mockRejectedValue(new Error("DB crash"));
@@ -661,6 +729,12 @@ describe("createUser", () => {
 // ── removeUserFromSociety success ────────────────────────────────
 
 describe("removeUserFromSociety", () => {
+  it("retourne UnauthenticatedActionError si non authentifié (ligne 293)", async () => {
+    mockUnauthenticated();
+    const result = await removeUserFromSociety(USER_ID, SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
   it("retire un autre utilisateur avec succès", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
 
@@ -725,6 +799,25 @@ describe("updateModulePermissions success", () => {
     const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
     expect(result.success).toBe(false);
     expect(result.error).toContain("non membre");
+  });
+
+  it("passe par requireSuperAdmin si membership cible est SUPER_ADMIN (ligne 548)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "SUPER_ADMIN" },
+    ] as never);
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce({ userId: USER_ID, societyId: SOCIETY_ID, role: "SUPER_ADMIN", modulePermissions: null } as never);
+    prismaMock.userSociety.update.mockResolvedValue({} as never);
+    const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(true);
+  });
+
+  it("retourne UnauthenticatedActionError si non authentifié pour updateModulePermissions (ligne 580)", async () => {
+    mockUnauthenticated();
+    const result = await updateModulePermissions({ userId: USER_ID, societyId: SOCIETY_ID, modulePermissions: {} });
+    expect(result.success).toBe(false);
   });
 
   it("retourne une erreur ForbiddenError (lignes 582-583)", async () => {
