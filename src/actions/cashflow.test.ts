@@ -292,6 +292,35 @@ describe("aiSuggestCategories", () => {
       process.env.ANTHROPIC_API_KEY = originalKey;
     }
   });
+
+  it("retourne la catégorie de l'historique par correspondance exacte (lignes 574-580)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "EDF ELECTRICITE", amount: -80, reference: null }] as never)
+      .mockResolvedValueOnce([{ label: "EDF ELECTRICITE", category: "energie" }] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("energie");
+    expect(r.data?.[0].confidence).toBe(0.95);
+  });
+
+  it("retourne la catégorie de l'historique par correspondance partielle (lignes 589-603)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    // Labels courts (< 10 chars chacun) pour que normalizeLabel ne les supprime pas
+    // "LOYER ASSURANCE IMMEUBLE NORD" ≠ "LOYER ASSURANCE IMMEUBLE CENTRE" (pas d'exact match)
+    // mais 3 mots communs ≥4 chars → score 0.75 ≥ 0.6 → partial match
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "LOYER ASSURANCE IMMEUBLE NORD", amount: -150, reference: null }] as never)
+      .mockResolvedValueOnce([{ label: "LOYER ASSURANCE IMMEUBLE CENTRE", category: "assurance" }] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("assurance");
+    expect(r.data?.[0].confidence).toBe(0.95);
+  });
 });
 
 // ─── getCashflowDashboard ─────────────────────────────────────────────────────

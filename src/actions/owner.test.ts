@@ -5,6 +5,10 @@ import { UserRole } from "@/generated/prisma/client";
 
 const revalidatePath = vi.hoisted(() => vi.fn());
 
+type GroupByMock = {
+  mockResolvedValueOnce: (value: unknown) => GroupByMock;
+};
+
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 import {
@@ -501,10 +505,10 @@ describe("getOwnerAnalytics", () => {
       { status: "OCCUPE", building: { societyId: "soc-1" } },
       { status: "VACANT", building: { societyId: "soc-1" } },
     ] as never);
-    prismaMock.lease.groupBy
+    (prismaMock.lease.groupBy as unknown as GroupByMock)
       .mockResolvedValueOnce([{ societyId: "soc-1", _count: { id: 1 } }] as never)  // activeLeases
       .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { currentRentHT: 800 } }] as never); // rentAgg
-    prismaMock.invoice.groupBy
+    (prismaMock.invoice.groupBy as unknown as GroupByMock)
       .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { totalTTC: 900 } }] as never)  // monthRevAgg
       .mockResolvedValueOnce([] as never); // overdueInvoices
     prismaMock.bankAccount.findMany.mockResolvedValue([

@@ -189,7 +189,7 @@ describe("inspection actions", () => {
 
   it("retourne une erreur si rôle insuffisant pour updateInspection", async () => {
     mockAuthSession(UserRole.LECTURE);
-    const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID, notes: "test" });
+    const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID, generalNotes: "test" });
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/insuffisantes|refus/i);
   });
@@ -197,7 +197,7 @@ describe("inspection actions", () => {
   it("retourne une erreur générique si la BDD échoue dans updateInspection", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.inspection.findFirst.mockRejectedValue(new Error("DB error"));
-    const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID, notes: "test" });
+    const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID, generalNotes: "test" });
     expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
 

@@ -522,4 +522,45 @@ describe("applyCatchUpRevisions", () => {
     expect(r.success).toBe(false)
     expect(r.error).toContain("rattrapage")
   })
+
+  it("exécute le callback $transaction avec les révisions chaînées (lignes 868-889)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst
+      .mockResolvedValueOnce(BASE_LEASE as never) // preview
+      .mockResolvedValueOnce(BASE_LEASE as never) // applyCatch fetch
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst
+      .mockResolvedValueOnce(null as never) // lastRevision (buildCatchUpPreview)
+      .mockResolvedValueOnce(null as never) // existing pending (applyCatch)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock))
+    prismaMock.rentRevision.create.mockResolvedValue({} as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
+
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.stepsCount).toBe(2)
+    expect(prismaMock.rentRevision.create).toHaveBeenCalledTimes(2)
+    expect(prismaMock.lease.update).toHaveBeenCalledOnce()
+  })
+
+  it("retourne une erreur générique si $transaction échoue après preview réussi (lignes 924-925)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst
+      .mockResolvedValueOnce(BASE_LEASE as never) // preview
+      .mockResolvedValueOnce(BASE_LEASE as never) // applyCatch fetch
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst
+      .mockResolvedValueOnce(null as never) // lastRevision (buildCatchUpPreview)
+      .mockResolvedValueOnce(null as never) // existing pending (applyCatch)
+    prismaMock.$transaction.mockRejectedValue(new Error("DB error"))
+
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("rattrapage")
+  })
 })
