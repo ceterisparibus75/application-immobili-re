@@ -88,6 +88,19 @@ describe("updateLeaseTemplate", () => {
     const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, name: "Nouveau nom" });
     expect(result.success).toBe(true);
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateLeaseTemplate", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, name: "Nouveau nom" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateLeaseTemplate", async () => {
+    prismaMock.leaseTemplate.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, name: "Nouveau nom" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise a jour" });
+  });
 });
 
 // ── deleteLeaseTemplate ───────────────────────────────────────────
@@ -135,6 +148,20 @@ describe("deleteLeaseTemplate", () => {
     const result = await deleteLeaseTemplate(SOCIETY_ID, TEMPLATE_ID);
     expect(result.success).toBe(true);
     expect(prismaMock.leaseTemplate.delete).toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteLeaseTemplate (GESTIONNAIRE < ADMIN_SOCIETE)", async () => {
+    // La beforeEach globale met GESTIONNAIRE — insuffisant pour deleteLeaseTemplate
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await deleteLeaseTemplate(SOCIETY_ID, TEMPLATE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteLeaseTemplate", async () => {
+    prismaMock.leaseTemplate.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await deleteLeaseTemplate(SOCIETY_ID, TEMPLATE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
 });
 

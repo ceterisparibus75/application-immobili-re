@@ -203,6 +203,13 @@ describe("deleteCandidate", () => {
       expect.objectContaining({ action: "DELETE", entity: "Candidate", entityId: CANDIDATE_ID })
     );
   });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteCandidate", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.candidate.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deleteCandidate(SOCIETY_ID, CANDIDATE_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
 });
 
 // ─── addActivity ──────────────────────────────────────────────────────────────
@@ -238,5 +245,12 @@ describe("addActivity", () => {
         data: expect.objectContaining({ userId: "user-1", type: "NOTE" }),
       })
     );
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans addActivity", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidateActivity.create.mockRejectedValue(new Error("DB error"));
+    const r = await addActivity(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'ajout" });
   });
 });
