@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,30 @@ const WIZARD_STEPS: WizardStep[] = [
 
 const PROGRESS_LABELS = WIZARD_STEPS.map((s) => ({ label: s.title.split(" ").slice(0, 2).join(" ") }));
 
+const ONBOARDING_STORAGE_EVENT = "mygestia-onboarding-change";
+
+function subscribeToOnboardingVisibility(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(ONBOARDING_STORAGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(ONBOARDING_STORAGE_EVENT, onStoreChange);
+  };
+}
+
+function getOnboardingVisibilitySnapshot(activeSocietyId: string | null) {
+  if (!activeSocietyId) return false;
+  return !localStorage.getItem(`onboarding-wizard-seen-${activeSocietyId}`);
+}
+
+function getServerOnboardingVisibilitySnapshot() {
+  return false;
+}
+
+function notifyOnboardingVisibilityChange() {
+  window.dispatchEvent(new Event(ONBOARDING_STORAGE_EVENT));
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -123,23 +147,23 @@ export function OnboardingWizard() {
   const router = useRouter();
   const { activeSociety } = useSociety();
   const [currentStep, setCurrentStep] = useState(0);
-  const [dismissedTick, setDismissedTick] = useState(0);
-
-  const visible = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    if (!activeSociety?.id) return false;
-    const key = `onboarding-wizard-seen-${activeSociety.id}`;
-    return !localStorage.getItem(key);
-    // dismissedTick is included so that dismiss() triggers a re-evaluation
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSociety?.id, dismissedTick]);
+  const activeSocietyId = activeSociety?.id ?? null;
+  const getVisibilitySnapshot = useCallback(
+    () => getOnboardingVisibilitySnapshot(activeSocietyId),
+    [activeSocietyId]
+  );
+  const visible = useSyncExternalStore(
+    subscribeToOnboardingVisibility,
+    getVisibilitySnapshot,
+    getServerOnboardingVisibilitySnapshot
+  );
 
   const dismiss = useCallback(() => {
-    if (!activeSociety?.id) return;
-    const key = `onboarding-wizard-seen-${activeSociety.id}`;
+    if (!activeSocietyId) return;
+    const key = `onboarding-wizard-seen-${activeSocietyId}`;
     localStorage.setItem(key, "true");
-    setDismissedTick((t) => t + 1);
-  }, [activeSociety?.id]);
+    notifyOnboardingVisibilityChange();
+  }, [activeSocietyId]);
 
   const goToStep = useCallback((href: string) => {
     router.push(href);

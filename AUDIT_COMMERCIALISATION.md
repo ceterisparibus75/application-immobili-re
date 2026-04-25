@@ -480,3 +480,82 @@ L'application est un **produit complet et commercialisable**. Le coeur métier e
 2. Appliquer la migration Prisma (`npm run db:push`)
 3. Configurer le webhook Stripe pointant vers `/api/webhooks/stripe`
 4. Vérifier/adapter les coordonnées dans les pages légales (CGU, CGV, DPA, mentions légales)
+
+---
+
+## 9. Audit fonctionnel vérifié — 25 avril 2026
+
+Cette passe complète remplace les constats purement déclaratifs par des vérifications exécutées sur l'application.
+
+### 9.1 Vérifications réellement effectuées
+
+| Axe vérifié | Résultat | Commentaire |
+|-------------|----------|-------------|
+| TypeScript strict | OK | `npx tsc --noEmit --incremental false` passe. |
+| Tests unitaires | OK | `npm test` : 153 fichiers passés, 1 ignoré, 2 158 tests passés, 16 ignorés. |
+| Lint | OK avec avertissements | `npm run lint` : 0 erreur, 183 avertissements historiques (imports inutilisés, `console` dans scripts/tests, quelques hooks à nettoyer). |
+| Build production | OK | `npm run build` : compilation Next.js 16 réussie, 225 routes générées. |
+| E2E Playwright | OK | `npm run test:e2e` : 25/25 tests passés, auth, pages publiques, portail login, gardes de routes et API auth. |
+| Service worker/offline | OK | `/sw.js` et `/offline.html` sont maintenant publics, sans redirection login. |
+| Navigation desktop/mobile | OK | Topnav desktop simplifiée, topnav masquée sur mobile, menu mobile complet et structuré. |
+
+### 9.2 Corrections appliquées pendant l'audit
+
+- **Topnav simplifiée** : passage d'une barre trop dense à 6 entrées de premier niveau : `Dashboard`, `Patrimoine`, `Location`, `Finances`, `Documents`, `Automatisation`.
+- **Navigation mutualisée** : création d'une configuration partagée entre desktop et mobile pour éviter les divergences.
+- **Mobile corrigé** : la topnav desktop ne s'affiche plus sur mobile ; le drawer mobile conserve l'ensemble des accès secondaires.
+- **Service worker corrigé** : `/sw.js` et `/offline.html` ne sont plus protégés par l'auth.
+- **Onboarding hydratation-safe** : les écrans Welcome/Onboarding ne lisent plus `localStorage` pendant le rendu initial ; suppression du risque d'hydration mismatch.
+- **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux.
+- **Tests alignés avec les contrats actuels** : corrections de tests sur dashboard, échéances, tâches du jour, FEC, notifications, limites de plan, inscription, email, société active et facturation.
+
+### 9.3 Constat fonctionnel par parcours utilisateur
+
+| Parcours | État vérifié | Risque restant |
+|----------|--------------|----------------|
+| Visiteur public | Fonctionnel | Landing, contact, mentions légales, confidentialité et portail login chargent correctement. |
+| Authentification | Fonctionnel | Redirection vers `/login`, formulaire visible, erreur affichée sur identifiants invalides. Les E2E utilisent une DB factice ; un test avec vraie base de staging reste recommandé. |
+| Protection des routes app | Fonctionnel | Les routes critiques non authentifiées redirigent vers `/login`. |
+| Dashboard/composants | Fonctionnel en unitaire | `EcheancesPanel` et `TodayTasks` testés ; les chiffres métier doivent être validés sur données de staging. |
+| Navigation | Améliorée | Architecture lisible, mais le drawer mobile reste très complet ; à surveiller après usage réel. |
+| Build et qualité technique | Fonctionnel | Build OK ; dette lint non bloquante mais visible. |
+
+### 9.4 Proposition de topnav cible
+
+La topnav doit rester une **orientation globale**, pas l'inventaire complet de l'application. La navigation complète doit vivre dans le menu mobile, les pages index de module et la recherche.
+
+**Topnav desktop recommandée :**
+
+1. `Dashboard`
+2. `Patrimoine`
+3. `Location`
+4. `Finances`
+5. `Documents`
+6. `Automatisation`
+
+**Règles UX proposées :**
+
+- Maximum 6 entrées visibles hors sélecteurs de propriétaire/société.
+- Pas de liens utilitaires dans la topnav (`Aide`, `Contacts`, `Paramètres`) : les placer dans le menu compte ou le drawer.
+- Les sous-menus doivent être orientés tâches : créer, suivre, contrôler, exporter.
+- Les modules avancés (`API`, `Workflows`, `Assistant IA`) doivent rester groupés sous `Automatisation`.
+- `Banque`, `Emprunts`, `Comptabilité`, `Cash-flow`, `Prévisionnel`, `Rapports` doivent rester sous `Finances`.
+
+### 9.5 Plan d'amélioration centré utilisateur
+
+| Priorité | Action | Bénéfice utilisateur |
+|----------|--------|----------------------|
+| P0 | Ajouter des E2E authentifiés sur données de staging : créer immeuble → lot → locataire → bail → facture. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
+| P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
+| P1 | Ajouter une recherche globale visible (`Ctrl/Cmd K`) : baux, locataires, lots, factures, documents. | Réduire la dépendance à la navigation profonde. |
+| P1 | Créer des pages index de module plus actionnables : raccourcis, derniers éléments, alertes, état vide guidé. | Faire de chaque module une zone de travail, pas seulement une liste. |
+| P1 | Ajouter des états vides métier avec CTA précis : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Aider les nouveaux utilisateurs à avancer sans lire de documentation. |
+| P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
+| P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |
+| P2 | Ajouter une base de staging seedée réaliste pour les démonstrations commerciales. | Tester les vrais flux avec des données proches production. |
+
+### 9.6 Verdict ajusté
+
+L'application reste **très avancée et commercialisable en pilote**, avec un socle technique vérifié : unitaires, type-check, lint sans erreur, build et E2E publics/protection de routes au vert.
+
+Le point de vigilance principal n'est plus la quantité de fonctionnalités, mais la **preuve fonctionnelle des parcours métier authentifiés** sur une base de staging réaliste. C'est le prochain chantier le plus utile pour transformer un produit riche en produit vraiment rassurant pour un utilisateur payant.

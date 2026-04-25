@@ -9,7 +9,7 @@ const USER_ID = "clh3x2z4k0001qh8g7z1y2v3u";
 const validInput = {
   userId: USER_ID,
   societyId: SOCIETY_ID,
-  type: "INVOICE_PAYMENT" as const,
+  type: "PAYMENT_RECEIVED" as const,
   title: "Paiement reçu",
   message: "Le locataire a payé la facture #INV-001",
 };
@@ -25,7 +25,7 @@ describe("createInternalNotification", () => {
       data: {
         userId: USER_ID,
         societyId: SOCIETY_ID,
-        type: "INVOICE_PAYMENT",
+        type: "PAYMENT_RECEIVED",
         title: "Paiement reçu",
         message: "Le locataire a payé la facture #INV-001",
         link: undefined,

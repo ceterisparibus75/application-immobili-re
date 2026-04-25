@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
@@ -135,7 +135,7 @@ describe("getDashboardAlerts", () => {
     prismaMock.invoice.findMany.mockResolvedValue([] as never);
     prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
     prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
-    prismaMock.invoice.groupBy.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
     prismaMock.invoice.count.mockResolvedValue(0 as never);
     prismaMock.lot.count.mockResolvedValue(0 as never);
 

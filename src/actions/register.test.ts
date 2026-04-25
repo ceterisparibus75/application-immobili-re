@@ -12,6 +12,7 @@ const validInput = {
   email: "jean@example.com",
   name: "Dupont",
   firstName: "Jean",
+  plan: "STARTER" as const,
 };
 
 describe("registerUser", () => {

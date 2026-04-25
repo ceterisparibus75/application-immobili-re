@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { PlanId, Subscription, SubscriptionStatus } from "@/generated/prisma/client";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/stripe", () => ({
@@ -27,18 +28,22 @@ import {
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const USER_ID = "clh3x2z4k0001qh8g7z1y2v3u";
 
-function makeSubscription(overrides = {}) {
+function makeSubscription(overrides: Partial<Subscription> = {}): Subscription {
   return {
     id: "sub-1",
     societyId: SOCIETY_ID,
-    planId: "STARTER",
-    status: "ACTIVE",
+    planId: "STARTER" as PlanId,
+    status: "ACTIVE" as SubscriptionStatus,
+    stripeCustomerId: null,
     stripeSubscriptionId: null,
     stripePriceId: null,
+    trialStart: null,
     trialEnd: null,
     trialUsed: false,
-    cancelAt: null,
+    currentPeriodStart: null,
     currentPeriodEnd: null,
+    cancelAt: null,
+    canceledAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

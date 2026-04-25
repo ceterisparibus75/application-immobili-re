@@ -53,6 +53,8 @@ export default auth(async (req) => {
     pathname.startsWith("/api/dataroom") ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/dataroom") ||
+    pathname === "/sw.js" ||
+    pathname === "/offline.html" ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname === "/"

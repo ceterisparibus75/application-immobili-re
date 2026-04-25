@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +51,30 @@ const PROFILES: ProfileOption[] = [
   },
 ];
 
+const WELCOME_STORAGE_KEY = "mygestia-welcome-seen";
+const WELCOME_STORAGE_EVENT = "mygestia-welcome-change";
+
+function subscribeToWelcomeVisibility(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(WELCOME_STORAGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(WELCOME_STORAGE_EVENT, onStoreChange);
+  };
+}
+
+function getWelcomeVisibilitySnapshot() {
+  return !localStorage.getItem(WELCOME_STORAGE_KEY);
+}
+
+function getServerWelcomeVisibilitySnapshot() {
+  return false;
+}
+
+function notifyWelcomeVisibilityChange() {
+  window.dispatchEvent(new Event(WELCOME_STORAGE_EVENT));
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -58,23 +82,24 @@ const PROFILES: ProfileOption[] = [
 export function WelcomeScreen({ userName }: { userName?: string }) {
   const router = useRouter();
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
-  const [visible, setVisible] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !localStorage.getItem("mygestia-welcome-seen");
-  });
+  const visible = useSyncExternalStore(
+    subscribeToWelcomeVisibility,
+    getWelcomeVisibilitySnapshot,
+    getServerWelcomeVisibilitySnapshot
+  );
 
   const handleContinue = useCallback(() => {
     if (selectedProfile) {
-      localStorage.setItem("mygestia-welcome-seen", "true");
+      localStorage.setItem(WELCOME_STORAGE_KEY, "true");
       localStorage.setItem("mygestia-user-profile", selectedProfile);
     }
-    setVisible(false);
+    notifyWelcomeVisibilityChange();
     router.push("/dashboard");
   }, [selectedProfile, router]);
 
   const handleSkip = useCallback(() => {
-    localStorage.setItem("mygestia-welcome-seen", "true");
-    setVisible(false);
+    localStorage.setItem(WELCOME_STORAGE_KEY, "true");
+    notifyWelcomeVisibilityChange();
   }, []);
 
   if (!visible) return null;

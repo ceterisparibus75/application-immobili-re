@@ -161,8 +161,7 @@ describe("sendSignupCodeEmail", () => {
   it("envoie le code d'inscription avec succès", async () => {
     const result = await sendSignupCodeEmail({
       to: "nouveau@example.com",
-      name: "Dupont",
-      firstName: "Jean",
+      name: "Jean Dupont",
       code: "123456",
     });
     expect(result.success).toBe(true);
@@ -178,8 +177,8 @@ describe("sendPasswordResetEmail", () => {
   it("envoie l'email de réinitialisation avec succès", async () => {
     const result = await sendPasswordResetEmail({
       to: "user@example.com",
-      token: "reset-token-abc",
       name: "Dupont",
+      resetUrl: "https://app.example.com/reset-password?token=reset-token-abc",
     });
     expect(result.success).toBe(true);
   });

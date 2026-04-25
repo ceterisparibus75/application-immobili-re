@@ -79,10 +79,10 @@ describe("computeIssueDueDate", () => {
     expect(dueDate).toEqual(periodStart);
   });
 
-  it("pour A_TERME_ECHU : l'échéance est le lendemain de la fin de période", () => {
+  it("pour ECHU : l'échéance est le lendemain de la fin de période", () => {
     const periodStart = new Date(2025, 0, 1);
     const periodEnd = new Date(2025, 0, 31);
-    const { dueDate } = computeIssueDueDate(periodStart, periodEnd, "A_TERME_ECHU");
+    const { dueDate } = computeIssueDueDate(periodStart, periodEnd, "ECHU");
     expect(dueDate.getDate()).toBe(1); // 1er février
     expect(dueDate.getMonth()).toBe(1);
   });
