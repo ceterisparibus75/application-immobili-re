@@ -359,5 +359,28 @@ describe("signature actions", () => {
         },
       });
     });
+
+    it("retourne une erreur générique si la BDD échoue", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.signatureRequest.findFirst.mockRejectedValue(new Error("DB error"));
+      const result = await syncSignatureStatus("society-1", "sig-1");
+      expect(result).toEqual({ success: false, error: "Erreur lors de la synchronisation" });
+    });
+  });
+
+  describe("cancelSignatureRequest — erreurs", () => {
+    it("retourne une erreur si rôle insuffisant", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await cancelSignatureRequest("society-1", "sig-1");
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/insuffisantes|refus/i);
+    });
+
+    it("retourne une erreur générique si la BDD échoue", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.signatureRequest.findFirst.mockRejectedValue(new Error("DB connection lost"));
+      const result = await cancelSignatureRequest("society-1", "sig-1");
+      expect(result).toEqual({ success: false, error: "Erreur lors de l'annulation" });
+    });
   });
 });

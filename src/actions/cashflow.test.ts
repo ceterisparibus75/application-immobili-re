@@ -238,6 +238,13 @@ describe("aiSuggestCategories", () => {
     expect(r.data?.[0].suggestedCategory).toBe("divers_depense");
     expect(r.data?.[0].confidence).toBe(0.1);
   });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suggestion IA" });
+  });
 });
 
 // ─── getCashflowDashboard ─────────────────────────────────────────────────────
