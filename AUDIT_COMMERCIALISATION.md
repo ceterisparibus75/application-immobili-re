@@ -519,7 +519,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Authentification | Fonctionnel | Redirection vers `/login`, formulaire visible, erreur affichée sur identifiants invalides. Les E2E utilisent une DB factice ; un test avec vraie base de staging reste recommandé. |
 | Protection des routes app | Fonctionnel | Les routes critiques non authentifiées redirigent vers `/login`. |
 | Dashboard/composants | Fonctionnel en unitaire | `EcheancesPanel` et `TodayTasks` testés ; les chiffres métier doivent être validés sur données de staging. |
-| Navigation | Améliorée | Architecture lisible, mais le drawer mobile reste très complet ; à surveiller après usage réel. |
+| Navigation | Améliorée | Topnav desktop recentrée sur les accès principaux ; le drawer mobile conserve l'inventaire complet pour les usages moins fréquents. |
 | GED / uploads | Renforcé | Le flux TUS utilisé par `Documents > Nouveau` refuse les extensions incohérentes, les dossiers traversants et les chemins hors société active. |
 | Administration | Renforcé | `email-diagnostics` exige un super-admin ; `fix-subscription` reste déclenchable uniquement avec le secret cron. |
 | Build et qualité technique | Fonctionnel | Build OK ; dette lint non bloquante mais visible. |
@@ -552,7 +552,7 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 | P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
 | P1 | Ajouter une recherche globale visible (`Ctrl/Cmd K`) : baux, locataires, lots, factures, documents. | Réduire la dépendance à la navigation profonde. |
-| P1 | Créer des pages index de module plus actionnables : raccourcis, derniers éléments, alertes, état vide guidé. | Faire de chaque module une zone de travail, pas seulement une liste. |
+| P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | Faire de chaque module une zone de travail, pas seulement une liste. |
 | P1 | Ajouter des états vides métier avec CTA précis : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Aider les nouveaux utilisateurs à avancer sans lire de documentation. |
 | P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
 | P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |

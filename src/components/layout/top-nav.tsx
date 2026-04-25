@@ -6,7 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DASHBOARD_ITEM,
-  PRIMARY_NAV_GROUPS,
+  TOP_NAV_GROUPS,
   type NavGroup,
   type NavItem,
 } from "./navigation-config";
@@ -47,7 +47,7 @@ export function TopNav() {
           <div className="flex items-center gap-0.5">
             <NavLink item={DASHBOARD_ITEM} pathname={pathname} />
 
-            {PRIMARY_NAV_GROUPS.map((group) => (
+            {TOP_NAV_GROUPS.map((group) => (
               <NavDropdown key={group.title} group={group} pathname={pathname} />
             ))}
           </div>

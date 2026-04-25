@@ -13,6 +13,7 @@ import {
   FolderLock,
   FolderOpen,
   HelpCircle,
+  Home,
   Landmark,
   Layers,
   Mail,
@@ -54,6 +55,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
   {
     title: "Patrimoine",
     items: [
+      { name: "Vue d'ensemble", href: "/patrimoine", icon: Home },
       { name: "Propriétaires", href: "/proprietaire", icon: BriefcaseBusiness },
       { name: "Sociétés", href: "/societes", icon: Building },
       { name: "Immeubles", href: "/patrimoine/immeubles", icon: Building2 },
@@ -110,6 +112,59 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
       { name: "API / Développeurs", href: "/api-docs", icon: Code },
     ],
   },
+];
+
+function pickTopNavGroup(title: string, itemNames: string[]): NavGroup {
+  const group = PRIMARY_NAV_GROUPS.find((navGroup) => navGroup.title === title);
+  if (!group) throw new Error(`Navigation group not found: ${title}`);
+
+  const itemsByName = new Map(group.items.map((item) => [item.name, item]));
+  return {
+    title,
+    items: itemNames.map((name) => {
+      const item = itemsByName.get(name);
+      if (!item) throw new Error(`Navigation item not found: ${title} / ${name}`);
+      return item;
+    }),
+  };
+}
+
+export const TOP_NAV_GROUPS: NavGroup[] = [
+  pickTopNavGroup("Patrimoine", [
+    "Vue d'ensemble",
+    "Immeubles",
+    "Lots",
+    "Sociétés",
+    "Propriétaires",
+    "Évaluations IA",
+  ]),
+  pickTopNavGroup("Location", [
+    "Baux",
+    "Nouveau bail",
+    "Locataires",
+    "Facturation",
+    "Charges",
+    "Tickets",
+  ]),
+  pickTopNavGroup("Finances", [
+    "Banque",
+    "Factures fournisseurs",
+    "Emprunts",
+    "Comptabilité",
+    "Cash-flow",
+    "Rapports",
+  ]),
+  pickTopNavGroup("Documents", [
+    "Documents",
+    "Dataroom",
+    "Courriers",
+    "Décomptes gestion",
+  ]),
+  pickTopNavGroup("Automatisation", [
+    "Assistant IA",
+    "Workflows",
+    "API / Développeurs",
+  ]),
 ];
 
 export const SECONDARY_NAV_GROUPS: NavGroup[] = [
