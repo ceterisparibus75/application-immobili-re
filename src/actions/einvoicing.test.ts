@@ -3,6 +3,11 @@ import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
 import { prismaMock } from "@/test/mocks/prisma";
 import { UserRole } from "@/generated/prisma/client";
 import { createAuditLog } from "@/lib/audit";
+import { PAClientError } from "@/lib/pa-client";
+import { ChorusProError } from "@/lib/chorus-pro-client";
+import { disconnectSocietyFromSuperPDP } from "@/lib/pa-oauth";
+import { env } from "@/lib/env";
+import { createClient } from "@supabase/supabase-js";
 
 const {
   revalidatePath,
@@ -701,4 +706,438 @@ describe("einvoicing actions", () => {
       }),
     });
   });
+  // --- disconnectFromSuperPDP ---
+
+  it("disconnectFromSuperPDP retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await disconnectFromSuperPDP(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("disconnectFromSuperPDP retourne une erreur generique si la deconnexion echoue", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    vi.mocked(disconnectSocietyFromSuperPDP).mockRejectedValueOnce(new Error("Connection error"));
+    const result = await disconnectFromSuperPDP(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("connexion");
+  });
+
+  // --- syncReceivedInvoices ---
+
+  it("syncReceivedInvoices retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("syncReceivedInvoices retourne une erreur generique si la BDD echoue", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("synchronisation");
+  });
+
+  it("syncReceivedInvoices cree une facture fournisseur en passant par supabase (format CII)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn().mockResolvedValue({ error: null });
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-cii-1", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-CII-001", format: "CII",
+            totalTTC: 500, currency: "EUR",
+            seller: { name: "Fournisseur CII", siret: "11122233300001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(Buffer.from("xml-data")),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+    expect(paClient.downloadFlowDocument).toHaveBeenCalled();
+    expect(mockUpload).toHaveBeenCalled();
+  });
+
+  it("syncReceivedInvoices cree une facture fournisseur format FACTURX (non-XML avec supabase)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn().mockResolvedValue({ error: null });
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-fx-1", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-FX-001", format: "FACTURX",
+            totalTTC: 300, currency: "EUR",
+            seller: { name: "Fournisseur FX", siret: "22233344400001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(Buffer.from("pdf-data")),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+  });
+
+  // --- submitInvoice ---
+
+  it("submitInvoice retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("submitInvoice retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("submitInvoice retourne une erreur si PA non configuree (ligne 294)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    isEInvoicingConfigured.mockReturnValue(false);
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("n'est pas");
+  });
+
+  it("submitInvoice retourne une erreur si facture introuvable (ligne 305)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("submitInvoice retourne une erreur si SIRET manquant (ligne 308)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, society: { siret: null },
+      tenant: { entityType: "PERSONNE_MORALE", siret: null, companyName: "Test" },
+    } as never);
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("SIRET");
+  });
+
+  it("submitInvoice retourne une erreur PAClientError", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, invoiceNumber: "F-001", invoiceType: "LOYER",
+      issueDate: new Date("2026-04-01"), dueDate: new Date("2026-04-30"),
+      periodStart: null, periodEnd: null, totalHT: 1000, totalVAT: 0, totalTTC: 1000,
+      society: {
+        name: "SCI", addressLine1: "1 rue", postalCode: "75001", city: "Paris",
+        country: "FR", vatNumber: null, email: "a@a.fr", siret: "12345678901234",
+      },
+      tenant: {
+        entityType: "PERSONNE_MORALE", siret: "98765432100011",
+        companyName: "Buyer Corp", firstName: null, lastName: null,
+        companyAddress: "10 av", personalAddress: null,
+      },
+      lines: [{ label: "Loyer", totalHT: 1000, vatRate: 0, totalTTC: 1000 }],
+      lease: null,
+    } as never);
+    getPAClient.mockReturnValue({
+      submitInvoice: vi.fn().mockRejectedValue(new PAClientError()),
+    });
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Erreur PA");
+  });
+
+  it("submitInvoice retourne une erreur generique", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  // --- getEInvoiceStatus ---
+
+  it("getEInvoiceStatus retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("getEInvoiceStatus retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("getEInvoiceStatus retourne une erreur PAClientError", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({ einvoiceXmlUrl: "flow-abc" } as never);
+    getPAClient.mockReturnValue({
+      getFlowStatuses: vi.fn().mockRejectedValue(new PAClientError()),
+    });
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Erreur PA");
+  });
+
+  it("getEInvoiceStatus retourne une erreur generique", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  // --- _updateFlowStatus (via acknowledgeInvoice) ---
+
+  it("acknowledgeInvoice retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("acknowledgeInvoice retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("acknowledgeInvoice retourne une erreur PAClientError", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID, ppfInvoiceId: "flow-123", invoiceNumber: "F-001",
+    } as never);
+    getPAClient.mockReturnValue({
+      updateFlowStatus: vi.fn().mockRejectedValue(new PAClientError()),
+    });
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Erreur PA");
+  });
+
+  it("acknowledgeInvoice retourne une erreur generique", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  // --- lookupDirectory ---
+
+  it("lookupDirectory retourne une erreur si PA non configuree (ligne 588)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    isEInvoicingConfigured.mockReturnValue(false);
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(false);
+  });
+
+  it("lookupDirectory retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(false);
+  });
+
+  it("lookupDirectory retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(false);
+  });
+
+  it("lookupDirectory retourne une erreur PAClientError", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    getPAClient.mockReturnValue({
+      lookupBySiret: vi.fn().mockRejectedValue(new PAClientError()),
+    });
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Erreur PA");
+  });
+
+  it("lookupDirectory retourne une erreur generique", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    getPAClient.mockReturnValue({
+      lookupBySiret: vi.fn().mockRejectedValue(new Error("Network error")),
+    });
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(false);
+  });
+
+  // --- registerSocietyInPPF ---
+
+  it("registerSocietyInPPF retourne une erreur si PA non configuree (ligne 631)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    isEInvoicingConfigured.mockReturnValue(false);
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("registerSocietyInPPF retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("registerSocietyInPPF retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("registerSocietyInPPF mode A inscrit si l'entreprise est dans l'annuaire (lignes 654-664)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const saved = (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"];
+    (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = undefined;
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: null } as never);
+    getPAClient.mockReturnValue({ lookupBySiret: vi.fn().mockResolvedValue({ inscritAnnuaire: true }) });
+    prismaMock.society.update.mockResolvedValue({} as never);
+    try {
+      const result = await registerSocietyInPPF(SOCIETY_ID);
+      expect(result.success).toBe(true);
+    } finally {
+      (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = saved;
+    }
+  });
+
+  it("registerSocietyInPPF mode A retourne une erreur si non inscrit dans l'annuaire (ligne 657-661)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const saved = (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"];
+    (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = undefined;
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: null } as never);
+    getPAClient.mockReturnValue({ lookupBySiret: vi.fn().mockResolvedValue({ inscritAnnuaire: false }) });
+    try {
+      const result = await registerSocietyInPPF(SOCIETY_ID);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("visible");
+    } finally {
+      (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = saved;
+    }
+  });
+
+  it("registerSocietyInPPF mode A retourne une erreur PAClientError (lignes 684-685)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const saved = (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"];
+    (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = undefined;
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: null } as never);
+    getPAClient.mockReturnValue({ lookupBySiret: vi.fn().mockRejectedValue(new PAClientError()) });
+    try {
+      const result = await registerSocietyInPPF(SOCIETY_ID);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Erreur PA");
+    } finally {
+      (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = saved;
+    }
+  });
+
+  it("registerSocietyInPPF retourne une erreur generique si la BDD echoue (lignes 686-687)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  // --- submitInvoiceToChorusPro ---
+
+  it("submitInvoiceToChorusPro retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("submitInvoiceToChorusPro retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("submitInvoiceToChorusPro retourne une erreur ChorusProError (lignes 760-761)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, invoiceNumber: "F-001",
+      society: { name: "SCI" }, tenant: { companyName: "Client" },
+    } as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(1024)),
+    }));
+    getChorusProClient.mockReturnValue({
+      deposerFluxFacture: vi.fn().mockRejectedValue(new ChorusProError()),
+      consulterCR: vi.fn(),
+    });
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Chorus Pro");
+    vi.unstubAllGlobals();
+  });
+
+  it("submitInvoiceToChorusPro retourne une erreur generique (lignes 762-763)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  // --- checkChorusProStatus ---
+
+  it("checkChorusProStatus retourne une erreur si facture introuvable (ligne 785)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("checkChorusProStatus retourne une erreur si non authentifie", async () => {
+    mockUnauthenticated();
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("checkChorusProStatus retourne une erreur si role insuffisant (ForbiddenError)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("checkChorusProStatus retourne une erreur ChorusProError (lignes 805-806)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      einvoiceXmlUrl: "cpro:CPP-001", invoiceNumber: "F-001",
+    } as never);
+    getChorusProClient.mockReturnValue({
+      deposerFluxFacture: vi.fn(),
+      consulterCR: vi.fn().mockRejectedValue(new ChorusProError()),
+    });
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Chorus Pro");
+  });
+
+  it("checkChorusProStatus retourne une erreur generique (lignes 807-808)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
 });

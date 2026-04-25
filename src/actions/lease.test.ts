@@ -17,6 +17,7 @@ import type { CreateLeaseInput } from "@/validations/lease"
 import { UserRole } from "@/generated/prisma/client"
 import { prismaMock } from "@/test/mocks/prisma"
 import { buildTenantPhysique } from "@/test/factories"
+import { checkSubscriptionActive } from "@/lib/plan-limits"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }))
@@ -76,6 +77,14 @@ describe("createLease", () => {
     await createLease("society-1", validLeaseInput)
     expect(prismaMock.lot.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: [VALID_CUID] } }, data: expect.objectContaining({ status: "OCCUPE" }) }))
   })
+  it("retourne une erreur si l'abonnement est inactif (ligne 32)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement expiré" } as never)
+    const r = await createLease("society-1", validLeaseInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Abonnement")
+  })
+
   it("retourne une erreur générique si la BDD échoue dans createLease", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE)
     prismaMock.lot.findMany.mockRejectedValue(new Error("DB connection lost"))
@@ -316,6 +325,15 @@ describe("getLeaseFinancialSummary", () => {
     expect(result).toBeNull();
   });
 
+  it("calcule les totaux avec paiement partiel sur une facture impayée (ligne 538)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "inv-1", totalHT: 800, totalTTC: 800, status: "EN_RETARD", payments: [{ amount: 300 }] },
+    ] as never);
+    const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
+    expect(result?.totalImpaye).toBe(500);
+  });
+
   it("calcule les totaux correctement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.invoice.findMany.mockResolvedValue([
@@ -429,6 +447,21 @@ describe("createRentSteps", () => {
     const result = await createRentSteps(SOCIETY_ID, validInput);
     expect(result.success).toBe(true);
     expect(result.data?.count).toBe(1);
+  });
+
+  it("trie les paliers avant validation avec 2 paliers (ligne 597)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({ id: LEASE_ID, startDate: new Date("2024-01-01"), endDate: null } as never);
+    prismaMock.leaseRentStep.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.leaseRentStep.createMany.mockResolvedValue({ count: 2 });
+    const result = await createRentSteps(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      steps: [
+        { label: "Palier B", startDate: "2024-06-01", endDate: null, rentHT: 1600, chargesHT: null },
+        { label: "Palier A", startDate: "2024-03-01", endDate: "2024-05-31", rentHT: 1500, chargesHT: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.count).toBe(2);
   });
 
   it("retourne une erreur générique si la BDD échoue dans createRentSteps", async () => {

@@ -90,6 +90,21 @@ describe("uploadSupplierInvoice", () => {
       })
     );
   });
+
+  it("retourne une erreur ForbiddenError (lignes 72-73)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await uploadSupplierInvoice(SOCIETY_ID, validUploadInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (ligne 74)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.create.mockRejectedValue(new Error("DB crash"));
+    const result = await uploadSupplierInvoice(SOCIETY_ID, validUploadInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("upload");
+  });
 });
 
 describe("getSupplierInvoicesPaginated", () => {
@@ -108,6 +123,30 @@ describe("getSupplierInvoicesPaginated", () => {
     const result = await getSupplierInvoicesPaginated(SOCIETY_ID, { page: 1, pageSize: 20 });
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(1);
+  });
+
+  it("filtre par status (ligne 103)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([] as never);
+    prismaMock.supplierInvoice.count.mockResolvedValue(0 as never);
+    await getSupplierInvoicesPaginated(SOCIETY_ID, { status: "VALIDATED" });
+    expect(prismaMock.supplierInvoice.findMany).toHaveBeenCalled();
+  });
+
+  it("filtre par buildingId (ligne 104)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([] as never);
+    prismaMock.supplierInvoice.count.mockResolvedValue(0 as never);
+    await getSupplierInvoicesPaginated(SOCIETY_ID, { buildingId: "bld-1" });
+    expect(prismaMock.supplierInvoice.findMany).toHaveBeenCalled();
+  });
+
+  it("filtre par recherche texte (lignes 107-108)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([] as never);
+    prismaMock.supplierInvoice.count.mockResolvedValue(0 as never);
+    await getSupplierInvoicesPaginated(SOCIETY_ID, { search: "fournisseur" });
+    expect(prismaMock.supplierInvoice.findMany).toHaveBeenCalled();
   });
 });
 
@@ -164,6 +203,44 @@ describe("updateSupplierInvoiceData", () => {
         data: expect.objectContaining({ supplierIbanEncrypted: "encrypted" }),
       })
     );
+  });
+
+  it("retourne une erreur Zod si id invalide (lignes 230-232)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, { id: "not-a-cuid", supplierName: "Test" });
+    expect(result.success).toBe(false);
+  });
+
+  it("met a jour les champs de date (lignes 254-263)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice() as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue(makeInvoice() as never);
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, {
+      id: INVOICE_ID,
+      invoiceDate: "2026-01-15",
+      dueDate: "2026-02-15",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+    });
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ invoiceDate: expect.any(Date) }) })
+    );
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 284-285)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, { id: INVOICE_ID, supplierName: "Test" });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (ligne 286)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, { id: INVOICE_ID, supplierName: "Test" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("jour");
   });
 });
 
@@ -240,6 +317,86 @@ describe("validateSupplierInvoice", () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ chargeId: null, journalEntryId: "journal-1" });
   });
+
+  it("retourne une erreur Zod si invoiceId invalide (lignes 301-303)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await validateSupplierInvoice(SOCIETY_ID, "not-a-cuid");
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si supplierName manquant (ligne 321)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ supplierName: null, invoiceDate: new Date("2026-04-01") }) as never
+    );
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("fournisseur");
+  });
+
+  it("retourne une erreur si invoiceDate manquante (ligne precedant 321)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ supplierName: "Fournisseur SA", invoiceDate: null }) as never
+    );
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("date");
+  });
+
+  it("valide avec categoryId et cree une charge via transaction (lignes 326-328, 346+)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "PENDING_REVIEW",
+        buildingId: "bld-1",
+        categoryId: "cat-1",
+        accountingAccountId: null,
+        amountTTC: 1200,
+        amountHT: 1000,
+        amountVAT: 200,
+        supplierName: "Fournisseur SA",
+        invoiceDate: new Date("2026-04-01"),
+        description: "Desc",
+      }) as never
+    );
+    const mockAccount60 = { id: "acc-60" };
+    const mockAccount401 = { id: "acc-401" };
+    const mockAccount445 = { id: "acc-445" };
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        charge: { create: vi.fn().mockResolvedValue({ id: "charge-1" }) },
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          findFirst: vi.fn()
+            .mockResolvedValueOnce(mockAccount60)
+            .mockResolvedValueOnce(mockAccount401)
+            .mockResolvedValueOnce(mockAccount445),
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "journal-1" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.chargeId).toBe("charge-1");
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 444-445)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (ligne 446)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("validation");
+  });
 });
 
 describe("rejectSupplierInvoice", () => {
@@ -274,6 +431,21 @@ describe("rejectSupplierInvoice", () => {
     expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "REJECTED", rejectionReason: "Doublon" }) })
     );
+  });
+
+  it("retourne une erreur ForbiddenError (lignes 496-497)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await rejectSupplierInvoice(SOCIETY_ID, INVOICE_ID, "Doublon");
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (ligne 498)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await rejectSupplierInvoice(SOCIETY_ID, INVOICE_ID, "Doublon");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("rejet");
   });
 });
 
@@ -362,6 +534,28 @@ describe("initiateQontoPayment", () => {
     expect(result.error).toMatch(/Qonto/);
   });
 
+  it("retourne une erreur si identifiants Qonto manquants (ligne 665)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(
+      makeQontoBankAccount({ connection: { id: "conn-1", provider: "QONTO", qontoSlugEncrypted: null, qontoSecretKeyEncrypted: null } }) as never
+    );
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("manquants");
+  });
+
+  it("retourne une erreur si qontoAccountId manquant (ligne 668)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(
+      makeQontoBankAccount({ qontoAccountId: null }) as never
+    );
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Identifiant de compte");
+  });
+
   it("initie le virement Qonto avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
@@ -414,4 +608,95 @@ describe("markSupplierInvoicePaid", () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ bankJournalEntryId: null });
   });
+
+  it("retourne une erreur Zod si invoiceId invalide (lignes 513-515)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, { ...validPaidInput, invoiceId: "not-a-cuid" });
+    expect(result.success).toBe(false);
+  });
+
+  it("execute la transaction avec comptes et cree l'ecriture BQUE (lignes 529-595)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ status: "VALIDATED", amountTTC: 1200, chargeId: "charge-1" }) as never
+    );
+    const mockAccount401 = { id: "acc-401" };
+    const mockAccount512 = { id: "acc-512" };
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        accountingAccount: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce(mockAccount401)
+            .mockResolvedValueOnce(mockAccount512),
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "bque-1" }) },
+        charge: { update: vi.fn().mockResolvedValue({}) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
+    expect(result.success).toBe(true);
+    expect(result.data?.bankJournalEntryId).toBe("bque-1");
+  });
+
+  it("retourne une erreur ForbiddenError dans markSupplierInvoicePaid (lignes 615-616)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue dans markSupplierInvoicePaid (ligne 617)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("pay");
+  });
+  it("retourne une erreur si amountTTC est null dans initiateQontoPayment (ligne 642)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "VALIDATED",
+        supplierIbanEncrypted: "encrypted",
+        amountTTC: null,
+        supplierName: "Fournisseur SA",
+      }) as never
+    );
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("TTC");
+  });
+
+  it("retourne une erreur si supplierName est null dans initiateQontoPayment (ligne 645)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "VALIDATED",
+        supplierIbanEncrypted: "encrypted",
+        amountTTC: 1200,
+        supplierName: null,
+      }) as never
+    );
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("fournisseur");
+  });
+
+  it("retourne une erreur ForbiddenError dans initiateQontoPayment (lignes 721-722)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue dans initiateQontoPayment (ligne 723)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Qonto");
+  });
+
 });
