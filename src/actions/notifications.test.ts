@@ -87,6 +87,17 @@ describe("notifications actions", () => {
     expect(count).toBe(3);
   });
 
+  it("retourne silencieusement si non authentifié pour markAsRead/markAllAsRead/deleteNotification (lignes 74, 88, 105)", async () => {
+    mockUnauthenticated();
+
+    await markAsRead("society-1", "notif-1");
+    await markAllAsRead("society-1");
+    await deleteNotification("society-1", "notif-1");
+
+    expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.notification.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("marque comme lu, tout lit et supprime dans le scope de l'utilisateur courant", async () => {
     mockAuthSession(UserRole.LECTURE);
 

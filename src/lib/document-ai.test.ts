@@ -60,6 +60,16 @@ describe("analyzeDocument", () => {
     expect(result.tags).toHaveLength(10);
   });
 
+  it("utilise image/png et image/webp comme type de média (lignes 26-27)", async () => {
+    mockMessagesCreate.mockResolvedValue(makeAnthropicResponse(JSON.stringify({ summary: "PNG doc", tags: [], metadata: {} })));
+    const png = await analyzeDocument(Buffer.from("img"), "image/png", null);
+    expect(png.summary).toBe("PNG doc");
+
+    mockMessagesCreate.mockResolvedValue(makeAnthropicResponse(JSON.stringify({ summary: "WebP doc", tags: [], metadata: {} })));
+    const webp = await analyzeDocument(Buffer.from("img"), "image/webp", null);
+    expect(webp.summary).toBe("WebP doc");
+  });
+
   it("utilise le hint de catégorie pour les documents connus", async () => {
     mockMessagesCreate.mockResolvedValue(makeAnthropicResponse("{}"));
 

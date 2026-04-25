@@ -78,6 +78,24 @@ describe("generateFacturXml", () => {
   });
 });
 
+  it("regroupe les lignes avec le même taux de TVA (lignes 210-211)", async () => {
+    mockCreate.mockClear();
+    const xml = await generateFacturXml({
+      ...MINIMAL_DATA,
+      lines: [
+        { label: "Loyer jan", totalHT: 800, vatRate: 20, totalTTC: 960 },
+        { label: "Charges jan", totalHT: 200, vatRate: 20, totalTTC: 240 },
+      ],
+    });
+    // Two lines with the same VAT rate → merged into one vatBreakdown entry
+    expect(xml).toBeTruthy();
+    const schema = mockCreate.mock.calls[0][0] as {
+      transaction: { tradeSettlement: { vatBreakdown: Array<{ rateApplicablePercent: number; basisAmount: number }> } };
+    };
+    const vat20 = schema.transaction.tradeSettlement.vatBreakdown.find((v) => v.rateApplicablePercent === 20);
+    expect(vat20?.basisAmount).toBe(1000);
+  });
+
 describe("generateFacturX", () => {
   const PDF_BUFFER = Buffer.from("fake-pdf-bytes");
 

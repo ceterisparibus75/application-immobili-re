@@ -3,6 +3,7 @@ import * as OTPAuth from "otpauth";
 import {
   generateTOTPSecret,
   generateTOTPUri,
+  generateQRCode,
   generateRecoveryCodes,
   encryptTOTPSecret,
   decryptTOTPSecret,
@@ -41,6 +42,15 @@ describe("generateTOTPUri", () => {
     const secret = generateTOTPSecret();
     const uri = generateTOTPUri(secret, "alice@example.com");
     expect(uri).toContain("alice");
+  });
+});
+
+describe("generateQRCode", () => {
+  it("retourne une data URL base64 PNG (ligne 41)", async () => {
+    const secret = generateTOTPSecret();
+    const uri = generateTOTPUri(secret, "test@example.com");
+    const dataUrl = await generateQRCode(uri);
+    expect(dataUrl).toMatch(/^data:image\/png;base64,/);
   });
 });
 

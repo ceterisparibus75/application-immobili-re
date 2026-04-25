@@ -54,4 +54,10 @@ describe("verifyCronSecret", () => {
     expect(verifyCronSecret(`Bearer ${VALID_SECRET}`)).toBe(true);
     expect(verifyCronSecret(`bearer ${VALID_SECRET}`)).toBe(false); // sensible à la casse du préfixe
   });
+
+  it("retourne false si le token contient des caractères multi-octets causant une erreur timingSafeEqual (ligne 19)", () => {
+    // "test-14" et "test-1à" ont la même longueur de caractères (7) mais pas la même longueur en octets
+    process.env.CRON_SECRET = "test-14";
+    expect(verifyCronSecret("test-1à")).toBe(false);
+  });
 });

@@ -116,6 +116,20 @@ describe("analyzeSupplierInvoice", () => {
     expect(result.currency).toBe("EUR");
   });
 
+  it("gère les types MIME image (PNG, WebP, JPEG) — ligne 55", async () => {
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ supplierName: "Test PNG" })));
+    const png = await analyzeSupplierInvoice(Buffer.from("img"), "image/png");
+    expect(png.supplierName).toBe("Test PNG");
+
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ supplierName: "Test WebP" })));
+    const webp = await analyzeSupplierInvoice(Buffer.from("img"), "image/webp");
+    expect(webp.supplierName).toBe("Test WebP");
+
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ supplierName: "Test JPEG" })));
+    const jpeg = await analyzeSupplierInvoice(Buffer.from("img"), "image/jpeg");
+    expect(jpeg.supplierName).toBe("Test JPEG");
+  });
+
   it("retourne un résultat vide en cas d'exception Anthropic", async () => {
     mockMessagesCreate.mockRejectedValue(new Error("API unavailable"));
 

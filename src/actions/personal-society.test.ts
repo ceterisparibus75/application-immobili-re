@@ -68,6 +68,31 @@ describe("personal-society actions", () => {
     expect(prismaMock.society.create).not.toHaveBeenCalled();
   });
 
+  it("retourne une erreur si l'utilisateur est introuvable en BDD (ligne 65)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.user.findUnique.mockResolvedValue(null);
+
+    const result = await createPersonalSociety({
+      siret: "12345678901234",
+      taxRegime: "IR",
+      vatRegime: "FRANCHISE",
+    });
+
+    expect(result).toEqual({ success: false, error: "Utilisateur introuvable" });
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 142-143)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+
+    const result = await createPersonalSociety();
+
+    expect(result).toEqual({
+      success: false,
+      error: "Erreur lors de la creation de l'espace proprietaire",
+    });
+  });
+
   it("crée l'espace propriétaire, l'adhésion, l'abonnement d'essai et l'audit", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE);
     prismaMock.user.findUnique.mockResolvedValue({

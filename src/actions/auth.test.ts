@@ -109,4 +109,28 @@ describe("completeTwoFactorLogin", () => {
       expect.objectContaining({ data: { twoFactorRecoveryCodes: [] } })
     );
   });
+
+  it("retourne false dans findIndex si timingSafeEqual lève une erreur (ligne 40)", async () => {
+    mockAuthWith2FA(true);
+    prismaMock.user.findUnique.mockResolvedValue({
+      twoFactorSecret: "encrypted-secret",
+      twoFactorRecoveryCodes: ["encrypted"],
+    } as never);
+
+    vi.mocked(verifyTOTP).mockReturnValueOnce(false);
+    // "AAÀ" a la même longueur de caractères que "AAB" (3) mais une longueur d'octets différente
+    vi.mocked(decryptRecoveryCodes).mockReturnValueOnce(["AAÀ"]);
+
+    const result = await completeTwoFactorLogin("AAB");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/invalide/);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans completeTwoFactorLogin (lignes 68-69)", async () => {
+    mockAuthWith2FA(true);
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+
+    const result = await completeTwoFactorLogin("123456");
+    expect(result).toEqual({ success: false, error: "Erreur lors de la verification" });
+  });
 });
