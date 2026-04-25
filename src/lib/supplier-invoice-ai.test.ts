@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockMessagesCreate = vi.hoisted(() => vi.fn());
+const mockJsonrepair = vi.hoisted(() => vi.fn());
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
     messages = { create: mockMessagesCreate };
   },
 }));
+
+vi.mock("jsonrepair", async () => {
+  const actual = await vi.importActual<{ jsonrepair: (s: string) => string }>("jsonrepair");
+  mockJsonrepair.mockImplementation(actual.jsonrepair);
+  return { jsonrepair: mockJsonrepair };
+});
 
 import { analyzeSupplierInvoice } from "./supplier-invoice-ai";
 
@@ -128,6 +135,15 @@ describe("analyzeSupplierInvoice", () => {
     mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ supplierName: "Test JPEG" })));
     const jpeg = await analyzeSupplierInvoice(Buffer.from("img"), "image/jpeg");
     expect(jpeg.supplierName).toBe("Test JPEG");
+  });
+
+  it("retourne un résultat vide si jsonrepair lève une erreur (ligne 132)", async () => {
+    mockMessagesCreate.mockResolvedValue(makeResponse("{ broken json }"));
+    mockJsonrepair.mockImplementationOnce(() => { throw new Error("jsonrepair failed"); });
+
+    const result = await analyzeSupplierInvoice(PDF_BUFFER, "application/pdf");
+    expect(result.supplierName).toBeNull();
+    expect(result.confidence).toBe(0);
   });
 
   it("retourne un résultat vide en cas d'exception Anthropic", async () => {

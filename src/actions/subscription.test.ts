@@ -71,6 +71,15 @@ describe("getSubscription", () => {
     expect(r.data?.planId).toBe("STARTER")
     expect(r.data?.status).toBe("ACTIVE")
   })
+
+  it("retourne ForbiddenError si l'utilisateur n'a pas accès à la société (ligne 167)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.society.findUnique.mockResolvedValue(null as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never)
+    const r = await getSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toBeTruthy()
+  })
 })
 
 describe("createCheckout", () => {

@@ -79,6 +79,17 @@ describe("report schedule actions", () => {
   });
 
   describe("createReportSchedule", () => {
+    it("retourne une erreur si non authentifié (ligne 93)", async () => {
+      mockUnauthenticated();
+      const result = await createReportSchedule("society-1", {
+        name: "Reporting mensuel",
+        frequency: "MENSUEL",
+        reportTypes: ["SITUATION_LOCATIVE"],
+        recipients: ["alice@example.com"],
+      });
+      expect(result).toEqual({ success: false, error: "Non authentifié" });
+    });
+
     it("retourne une erreur ForbiddenError si rôle insuffisant (lignes 93-94)", async () => {
       mockAuthSession(UserRole.LECTURE);
       const result = await createReportSchedule("society-1", {

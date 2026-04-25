@@ -3,6 +3,7 @@ import { prismaMock } from "@/test/mocks/prisma"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import { createLot, updateLot, deleteLot, getLots, getLotById } from "@/actions/lot"
 import { UserRole } from "@/generated/prisma/client"
+import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }))
@@ -77,6 +78,22 @@ describe("createLot", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await createLot("society-1", { ...validInput, lotType: "INVALIDE" as any })
     expect(result.success).toBe(false)
+  })
+
+  it("retourne une erreur si abonnement inactif (ligne 30)", async () => {
+    mockAuthSession()
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement inactif" } as never)
+    const result = await createLot("society-1", validInput)
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("Abonnement inactif")
+  })
+
+  it("retourne une erreur si limite de lots atteinte (ligne 32)", async () => {
+    mockAuthSession()
+    vi.mocked(checkLotLimit).mockResolvedValueOnce({ allowed: false, message: "Limite de lots atteinte" } as never)
+    const result = await createLot("society-1", validInput)
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("Limite de lots atteinte")
   })
 
   it("retourne une erreur si immeuble introuvable", async () => {

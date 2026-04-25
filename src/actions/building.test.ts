@@ -11,6 +11,7 @@ import {
   deleteAdditionalAcquisition,
 } from "@/actions/building"
 import { UserRole } from "@/generated/prisma/client"
+import { checkSubscriptionActive } from "@/lib/plan-limits"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }))
@@ -106,6 +107,14 @@ describe("createBuilding", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await createBuilding("society-1", { ...validInput, buildingType: "INVALIDE" as any })
     expect(result.success).toBe(false)
+  })
+
+  it("retourne une erreur si abonnement inactif (ligne 30)", async () => {
+    mockAuthSession()
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement inactif" } as never)
+    const result = await createBuilding("society-1", validInput)
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("Abonnement inactif")
   })
 
   it("crée l'immeuble et retourne son id", async () => {
@@ -332,6 +341,13 @@ describe("createAdditionalAcquisition", () => {
     mockUnauthenticated()
     const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
     expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur si abonnement inactif (ligne 375)", async () => {
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement expiré" } as never)
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Abonnement expiré")
   })
 
   it("erreur si l'immeuble est introuvable", async () => {

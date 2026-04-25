@@ -30,6 +30,15 @@ describe("portal-auth", () => {
     process.env.AUTH_SECRET = AUTH_SECRET;
   });
 
+  // ── getPortalSecret (ligne 7) ────────────────────────────────────────────
+  it("lève une erreur si AUTH_SECRET est absent (ligne 7)", async () => {
+    delete process.env.AUTH_SECRET;
+    await expect(createPortalSession("tenant-1", "alice@example.com")).rejects.toThrow(
+      "AUTH_SECRET est requis pour l'authentification du portail"
+    );
+    process.env.AUTH_SECRET = AUTH_SECRET;
+  });
+
   // ── createPortalSession ──────────────────────────────────────────────────
   describe("createPortalSession", () => {
     it("appelle cookieStore.set avec portal-token", async () => {

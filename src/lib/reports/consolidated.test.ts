@@ -99,4 +99,11 @@ describe("computeReportYear", () => {
     const expected = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
     expect(result).toBe(expected);
   });
+
+  it("retourne l'année précédente pour ANNUEL en janvier (ligne 121)", () => {
+    vi.setSystemTime(new Date("2026-01-15"));
+    const result = computeReportYear("ANNUEL");
+    vi.useRealTimers();
+    expect(result).toBe(2025);
+  });
 });
