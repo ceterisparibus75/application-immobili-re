@@ -172,4 +172,34 @@ describe("getDashboardAlerts", () => {
     const warningIndex = result.findIndex((a) => a.type === "warning");
     expect(dangerIndex).toBeLessThan(warningIndex);
   });
+
+  it("retourne alerte loyers en retard par locataire et brouillons à valider", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([
+      { tenantId: "tenant-1", _sum: { totalTTC: 1500 }, _count: 2 },
+    ] as never);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: "tenant-1", entityType: "PHYSIQUE", firstName: "Jean", lastName: "Dupont", companyName: null },
+    ] as never);
+    prismaMock.invoice.count
+      .mockResolvedValueOnce(3 as never)  // draftCount
+      .mockResolvedValueOnce(0 as never); // litigiousCount
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    const lateAlert = result.find((a) => a.id === "tenant-late-tenant-1");
+    expect(lateAlert).toBeDefined();
+    expect(lateAlert?.type).toBe("danger");
+    expect(lateAlert?.count).toBe(2);
+
+    const draftAlert = result.find((a) => a.id === "invoices-draft");
+    expect(draftAlert).toBeDefined();
+    expect(draftAlert?.type).toBe("info");
+    expect(draftAlert?.count).toBe(3);
+  });
 });

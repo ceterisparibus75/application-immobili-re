@@ -312,4 +312,42 @@ describe("letter-template actions", () => {
     });
     expect(revalidatePath).toHaveBeenCalledWith("/courriers");
   });
+
+  it("retourne une erreur si rôle insuffisant pour saveCustomTemplate", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await saveCustomTemplate(SOCIETY_ID, {
+      name: "Test",
+      subject: "Test",
+      bodyHtml: "<p>Test</p>",
+      variables: [],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans saveCustomTemplate", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.create.mockRejectedValue(new Error("DB error"));
+    const result = await saveCustomTemplate(SOCIETY_ID, {
+      name: "Test",
+      subject: "Test",
+      bodyHtml: "<p>Test</p>",
+      variables: [],
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la sauvegarde du modèle" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteCustomTemplate", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await deleteCustomTemplate(SOCIETY_ID, "tpl-1");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteCustomTemplate", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.delete.mockRejectedValue(new Error("DB error"));
+    const result = await deleteCustomTemplate(SOCIETY_ID, "tpl-1");
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
 });
