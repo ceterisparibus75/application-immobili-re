@@ -503,6 +503,157 @@ describe("einvoicing actions", () => {
     );
   });
 
+  it("getEInvoiceStatus retourne une erreur si la PA n'est pas configurée", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    isEInvoicingConfigured.mockReturnValue(false);
+
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("n'est pas configurée");
+  });
+
+  it("getEInvoiceStatus retourne une erreur si la facture est introuvable", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("acknowledgeInvoice retourne une erreur si la PA n'est pas configurée", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    isEInvoicingConfigured.mockReturnValue(false);
+
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("n'est pas configurée");
+  });
+
+  it("acknowledgeInvoice retourne une erreur si la facture fournisseur est introuvable", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("acknowledgeInvoice retourne une erreur si la facture n'est pas liée au PPF", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      ppfInvoiceId: null,
+      invoiceNumber: "F-2026-001",
+    } as never);
+
+    const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("PPF");
+  });
+
+  it("lookupDirectory retourne inscrit=true avec la dénomination si l'entreprise est dans l'annuaire", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const paClient = {
+      lookupBySiret: vi.fn().mockResolvedValue({
+        inscritAnnuaire: true,
+        denomination: "Société Test SA",
+        adressesFacturation: [{ actif: true, plateforme: "CHORUS_PRO" }],
+      }),
+    };
+    getPAClient.mockReturnValue(paClient);
+
+    const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
+    expect(result.success).toBe(true);
+    expect(result.data?.inscrit).toBe(true);
+    expect(result.data?.denomination).toBe("Société Test SA");
+    expect(result.data?.plateforme).toBe("CHORUS_PRO");
+  });
+
+  it("registerSocietyInPPF retourne une erreur si le SIRET est absent", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: null, ppfRegisteredAt: null } as never);
+
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("SIRET");
+  });
+
+  it("registerSocietyInPPF retourne succès immédiatement si déjà inscrite", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({
+      siret: "12345678901234",
+      ppfRegisteredAt: new Date(),
+    } as never);
+
+    const result = await registerSocietyInPPF(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.update).not.toHaveBeenCalled();
+  });
+
+  it("submitInvoiceToChorusPro retourne une erreur si la facture est introuvable", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("submitInvoiceToChorusPro retourne une erreur si la génération Factur-X échoue", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-001",
+      society: { name: "SCI Test" },
+      tenant: { companyName: "Client Public" },
+    } as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+    const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Factur-X");
+    vi.unstubAllGlobals();
+  });
+
+  it("syncReceivedInvoices met à jour une facture existante dont le statut a changé", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({
+      siret: "12345678901234",
+      ppfRegisteredAt: new Date(),
+    } as never);
+    const paClient = {
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-flow-update",
+            status: "RECUE",
+            issueDate: "2026-04-01",
+            dueDate: "2026-04-30",
+            invoiceNumber: "FA-EXT-002",
+            format: "FACTURX",
+            totalTTC: 500,
+            currency: "EUR",
+            seller: { name: "Fournisseur", siret: "55566677700001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null) // lastSync
+      .mockResolvedValueOnce({ id: "existing-1", ppfStatus: "MISE_A_DISPOSITION" } as never); // existing with different status
+    prismaMock.supplierInvoice.update.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.updated).toBe(1);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ppfStatus: "RECUE" }) })
+    );
+  });
+
   it("syncReceivedInvoices crée une nouvelle facture fournisseur depuis un flux PPF", async () => {
     mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
     prismaMock.society.findFirst.mockResolvedValue({
