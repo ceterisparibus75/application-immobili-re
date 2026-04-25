@@ -481,6 +481,19 @@ describe("bulkImportJournalEntries", () => {
     expect(result.error).toMatch(/Aucune/);
   });
 
+  it("retourne une erreur si plus de 2000 écritures (ligne 507)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const entries = Array.from({ length: 2001 }, () => ({
+      journalType: "VT" as const,
+      entryDate: "2025-01-15",
+      label: "Test",
+      lines: [{ accountCode: "411000", debit: 1000, credit: 0 }],
+    }));
+    const result = await bulkImportJournalEntries(SOCIETY_ID, entries);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/2000/);
+  });
+
   it("importe les écritures avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([

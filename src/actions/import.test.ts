@@ -135,6 +135,16 @@ describe("importEntities — locataires", () => {
     expect(r.data?.errors).toHaveLength(1);
     expect(r.data?.errors[0].row).toBe(3); // ligne 2 du fichier = index 1 + 2
   });
+
+  it("collecte l'erreur DB si tenant.create échoue (catch inner ligne 561)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.tenant.create.mockRejectedValue(new Error("DB insert failed"));
+    const r = await importEntities(SOCIETY_ID, "tenants", [{ nom: "Dupont", prenom: "Marie", email: "marie.dupont@example.com" }]);
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors).toHaveLength(1);
+    expect(r.data?.errors[0].message).toContain("DB insert failed");
+  });
 });
 
 describe("importEntities — immeubles", () => {
@@ -172,6 +182,16 @@ describe("importEntities — immeubles", () => {
     expect(r.success).toBe(true);
     expect(r.data?.imported).toBe(0);
     expect(r.data?.errors).toHaveLength(1);
+  });
+
+  it("collecte l'erreur DB si building.create échoue (catch inner ligne 590)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockRejectedValue(new Error("DB insert failed"));
+    const r = await importEntities(SOCIETY_ID, "buildings", [validRow]);
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors).toHaveLength(1);
+    expect(r.data?.errors[0].message).toContain("DB insert failed");
   });
 });
 
