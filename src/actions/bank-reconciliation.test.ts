@@ -14,6 +14,14 @@ import {
   autoReconcile,
   manualReconcile,
   unreconcile,
+  getUnreconciledTransactions,
+  getUnreconciledPayments,
+  getReconciledItems,
+  getPendingInvoices,
+  getUpcomingLoanLines,
+  reconcileWithInvoice,
+  reconcileWithLoanLine,
+  generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
 
@@ -198,5 +206,255 @@ describe("unreconcile", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "DELETE", entity: "BankReconciliation" })
     );
+  });
+});
+
+// ─── getUnreconciledTransactions ──────────────────────────────────────────────
+
+describe("getUnreconciledTransactions", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getUnreconciledTransactions(SOCIETY_ID, ACCOUNT_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les transactions non rapprochées", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID, isReconciled: false, amount: -500 },
+    ] as never);
+    const r = await getUnreconciledTransactions(SOCIETY_ID, ACCOUNT_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── getUnreconciledPayments ──────────────────────────────────────────────────
+
+describe("getUnreconciledPayments", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getUnreconciledPayments(SOCIETY_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les paiements non rapprochés", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.payment.findMany.mockResolvedValue([
+      { id: PAYMENT_ID, isReconciled: false, amount: 500 },
+    ] as never);
+    const r = await getUnreconciledPayments(SOCIETY_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── getReconciledItems ───────────────────────────────────────────────────────
+
+describe("getReconciledItems", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getReconciledItems(SOCIETY_ID, ACCOUNT_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les rapprochements", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.bankReconciliation.findMany.mockResolvedValue([
+      { id: RECONCIL_ID, isValidated: true },
+    ] as never);
+    const r = await getReconciledItems(SOCIETY_ID, ACCOUNT_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── getPendingInvoices ───────────────────────────────────────────────────────
+
+describe("getPendingInvoices", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getPendingInvoices(SOCIETY_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les factures en attente", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "cinvoice01", status: "VALIDEE", invoiceType: "APPEL_LOYER" },
+    ] as never);
+    const r = await getPendingInvoices(SOCIETY_ID);
+    expect(r).toHaveLength(1);
+    expect(prismaMock.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: expect.arrayContaining(["VALIDEE", "ENVOYEE"]) },
+        }),
+      })
+    );
+  });
+});
+
+// ─── getUpcomingLoanLines ─────────────────────────────────────────────────────
+
+describe("getUpcomingLoanLines", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getUpcomingLoanLines(SOCIETY_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les échéances de prêt non payées", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([
+      { id: "cloanline01", isPaid: false, dueDate: new Date() },
+    ] as never);
+    const r = await getUpcomingLoanLines(SOCIETY_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── reconcileWithInvoice ─────────────────────────────────────────────────────
+
+const LOAN_LINE_ID = "cloanline01";
+const INVOICE_ID = "cinvoice01";
+
+describe("reconcileWithInvoice", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction() as never);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, totalTTC: 500, invoiceType: "APPEL_LOYER",
+      isThirdPartyManaged: false, expectedNetAmount: null, tenantId: "ctenant001",
+    } as never);
+    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
+    prismaMock.$transaction.mockResolvedValue(undefined as never);
+  });
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si transaction introuvable", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(null as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Transaction introuvable");
+  });
+
+  it("erreur si facture introuvable", async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(null as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Facture introuvable");
+  });
+
+  it("rapproche avec succès", async () => {
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CREATE", entity: "BankReconciliation" })
+    );
+  });
+});
+
+// ─── reconcileWithLoanLine ────────────────────────────────────────────────────
+
+describe("reconcileWithLoanLine", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction() as never);
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({
+      id: LOAN_LINE_ID, isPaid: false, dueDate: new Date(),
+    } as never);
+    prismaMock.$transaction.mockResolvedValue([] as never);
+  });
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si transaction introuvable", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(null as never);
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Transaction introuvable");
+  });
+
+  it("erreur si échéance introuvable", async () => {
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue(null as never);
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Échéance introuvable");
+  });
+
+  it("rapproche avec l'échéance de prêt avec succès", async () => {
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "UPDATE", entity: "LoanAmortizationLine" })
+    );
+  });
+});
+
+// ─── generateJournalEntry ─────────────────────────────────────────────────────
+
+const JOURNAL_ID = "cjournal01";
+const ACCOUNT_LINE_ID = "caccline01";
+
+describe("generateJournalEntry", () => {
+  const buildAccountRecord = (code: string) => ({
+    id: ACCOUNT_LINE_ID, societyId: SOCIETY_ID, code, label: "Compte", type: "5",
+  });
+
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: 500,
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue(buildAccountRecord("512") as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+  });
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si transaction introuvable", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(null as never);
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvable");
+  });
+
+  it("génère une écriture comptable pour un encaissement", async () => {
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.id).toBe(JOURNAL_ID);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ journalType: "BANQUE" }),
+      })
+    );
+  });
+
+  it("génère une écriture pour un décaissement (montant négatif)", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: -300,
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(true);
   });
 });
