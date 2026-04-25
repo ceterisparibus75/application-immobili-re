@@ -20,6 +20,11 @@ import {
   removeDocumentFromDataroom,
   verifyDataroomPassword,
   reorderDocument,
+  getDatarooms,
+  getDataroom,
+  getDataroomByToken,
+  getDataroomsForDocument,
+  getDataroomMeta,
 } from "./dataroom";
 import { createAuditLog } from "@/lib/audit";
 
@@ -400,5 +405,123 @@ describe("reorderDocument", () => {
     const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, "doc-b", "down");
     expect(r.success).toBe(true);
     expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+});
+
+// ─── getDatarooms ─────────────────────────────────────────────────────────────
+
+describe("getDatarooms", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getDatarooms(SOCIETY_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne la liste des datarooms", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findMany.mockResolvedValue([buildDataroom()] as never);
+    const r = await getDatarooms(SOCIETY_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── getDataroom ──────────────────────────────────────────────────────────────
+
+describe("getDataroom", () => {
+  it("retourne null si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r).toBeNull();
+  });
+
+  it("retourne la dataroom par son ID", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findFirst.mockResolvedValue(buildDataroom() as never);
+    const r = await getDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r).not.toBeNull();
+    expect(r?.id).toBe(DATAROOM_ID);
+  });
+});
+
+// ─── getDataroomByToken ───────────────────────────────────────────────────────
+
+describe("getDataroomByToken", () => {
+  it("retourne null si la dataroom est introuvable", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue(null);
+    const r = await getDataroomByToken(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+
+  it("retourne null si la dataroom n'est pas active", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue(
+      buildDataroom({ status: "ARCHIVE" }) as never
+    );
+    const r = await getDataroomByToken(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+
+  it("retourne la dataroom et incrémente le compteur d'accès", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue(
+      buildDataroom({ status: "ACTIF" }) as never
+    );
+    prismaMock.dataroom.update.mockResolvedValue(buildDataroom() as never);
+    prismaMock.dataroomAccess.create.mockResolvedValue({} as never);
+
+    const r = await getDataroomByToken(SHARE_TOKEN);
+    expect(r).not.toBeNull();
+    expect(prismaMock.dataroom.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { accessCount: { increment: 1 } } })
+    );
+    expect(prismaMock.dataroomAccess.create).toHaveBeenCalled();
+  });
+});
+
+// ─── getDataroomsForDocument ──────────────────────────────────────────────────
+
+describe("getDataroomsForDocument", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getDataroomsForDocument(SOCIETY_ID);
+    expect(r).toEqual([]);
+  });
+
+  it("retourne les datarooms actives", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findMany.mockResolvedValue([
+      { id: DATAROOM_ID, name: "Vente", status: "ACTIF" },
+    ] as never);
+    const r = await getDataroomsForDocument(SOCIETY_ID);
+    expect(r).toHaveLength(1);
+  });
+});
+
+// ─── getDataroomMeta ──────────────────────────────────────────────────────────
+
+describe("getDataroomMeta", () => {
+  it("retourne null si dataroom introuvable", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue(null);
+    const r = await getDataroomMeta(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+
+  it("retourne null si dataroom non active", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue({
+      name: "Test", status: "ARCHIVE", expiresAt: null, password: null,
+      description: null, purpose: null, society: { name: "Soc", logoUrl: null },
+    } as never);
+    const r = await getDataroomMeta(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+
+  it("retourne les métadonnées d'une dataroom active sans mot de passe", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue({
+      name: "Dossier Vente", status: "ACTIF", expiresAt: null, password: null,
+      description: "Desc", purpose: "VENTE",
+      society: { name: "Ma Société", logoUrl: null },
+    } as never);
+    const r = await getDataroomMeta(SHARE_TOKEN);
+    expect(r).not.toBeNull();
+    expect(r?.name).toBe("Dossier Vente");
+    expect(r?.hasPassword).toBe(false);
   });
 });
