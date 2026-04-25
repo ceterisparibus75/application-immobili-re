@@ -71,6 +71,13 @@ describe("getUncategorizedTransactions", () => {
     // transactionDate doit être une chaîne ISO
     expect(typeof r.data?.[0].transactionDate).toBe("string");
   });
+
+  it("retourne une erreur générique si la BDD échoue dans getUncategorizedTransactions (lignes 414-415)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockRejectedValue(new Error("DB error"));
+    const r = await getUncategorizedTransactions(SOCIETY_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la récupération des transactions" });
+  });
 });
 
 // ─── categorizeTransactions ───────────────────────────────────────────────────
@@ -147,6 +154,14 @@ describe("categorizeTransactions", () => {
     ]);
     // L'auto-tag est best-effort — l'action doit quand même réussir
     expect(r.success).toBe(true);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans categorizeTransactions (lignes 503-504)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.update.mockRejectedValue(new Error("DB error"));
+    const r = await categorizeTransactions(SOCIETY_ID, [{ transactionId: TX_ID_1, category: "energie" }]);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("catégorisation");
   });
 });
 
@@ -385,6 +400,64 @@ describe("getCashflowDashboard", () => {
     expect(r.data?.uncategorizedCount).toBe(1);
     expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
     expect(r.data?.totalActualIncome).toBeGreaterThan(0);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans getCashflowDashboard (lignes 368-369)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockRejectedValue(new Error("DB error"));
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("cash-flow");
+  });
+
+  it("ignore les catégories neutres et trie le globalIncomeBreakdown (lignes 139 et 347)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, transactionDate: new Date(), amount: 800, label: "Loyer", category: "loyers", bankAccount: { accountName: "Compte" } },
+      { id: TX_ID_2, transactionDate: new Date(), amount: 100, label: "Charges locatives", category: "charges_locatives", bankAccount: { accountName: "Compte" } },
+      { id: "tx3", transactionDate: new Date(), amount: 500, label: "Virement interne", category: "virement_interne", bankAccount: { accountName: "Compte" } },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    // virement_interne (neutre) ne contribue pas aux revenus
+    expect(r.data?.totalActualIncome).toBeCloseTo(900, 0);
+    // globalIncomeBreakdown trié par montant décroissant
+    const breakdown = r.data?.globalIncomeBreakdown ?? [];
+    if (breakdown.length >= 2) {
+      expect(breakdown[0].amount).toBeGreaterThanOrEqual(breakdown[1].amount);
+    }
+  });
+
+  it("construit amortByMonth, loanByMonth, chargeByMonth et ventile remboursement_emprunt (lignes 124-237)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    const now = new Date();
+    const futureMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+    const chargeEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, transactionDate: now, amount: -500, label: "Remboursement emprunt", category: "remboursement_emprunt", bankAccount: { accountName: "Compte" } },
+    ] as never);
+    // 1re findMany → amortLines (lignes 124-127)
+    prismaMock.loanAmortizationLine.findMany
+      .mockResolvedValueOnce([{ dueDate: now, totalPayment: 500, principalPayment: 400, interestPayment: 100 }] as never)
+      // 2e findMany → loanLines (lignes 202-205)
+      .mockResolvedValueOnce([{ dueDate: futureMonth, totalPayment: 500, interestPayment: 100 }] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    // charges non vides (lignes 225-237)
+    prismaMock.charge.findMany.mockResolvedValue([
+      { amount: 300, periodStart: now, periodEnd: chargeEnd }
+    ] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    // remboursement_emprunt ventilé en intérêts + capital (lignes 162-169)
+    expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
   });
 
   it("trie les catégories par montant décroissant avec 2+ dépenses (ligne 789)", async () => {

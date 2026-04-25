@@ -58,6 +58,35 @@ describe("notifications actions", () => {
     expect(unread).toBe(0);
   });
 
+  it("lance une erreur si l'utilisateur cible n'est pas membre de la société (ligne 28)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.userSociety.findFirst.mockResolvedValue(null as never);
+    await expect(
+      createNotification({
+        userId: "user-2",
+        societyId: "society-1",
+        type: "TICKET_CREATED",
+        title: "Test",
+        message: "Test",
+        link: "/test",
+      })
+    ).rejects.toThrow("Utilisateur cible non membre");
+  });
+
+  it("retourne les notifications de l'utilisateur connecté (ligne 49)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.notification.findMany.mockResolvedValue([{ id: "notif-1", title: "Test" }] as never);
+    const result = await getNotifications("society-1");
+    expect(result).toEqual([{ id: "notif-1", title: "Test" }]);
+  });
+
+  it("retourne le nombre de notifications non lues (ligne 62)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.notification.count.mockResolvedValue(3 as never);
+    const count = await getUnreadCount("society-1");
+    expect(count).toBe(3);
+  });
+
   it("marque comme lu, tout lit et supprime dans le scope de l'utilisateur courant", async () => {
     mockAuthSession(UserRole.LECTURE);
 

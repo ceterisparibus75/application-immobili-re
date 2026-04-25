@@ -245,6 +245,13 @@ describe("merge actions", () => {
     expect(result).toEqual([]);
   });
 
+  it("retourne une erreur générique si la BDD échoue dans mergeBuildings (lignes 74-77)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await mergeBuildings(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la fusion des immeubles" });
+  });
+
   it("retourne une erreur générique si la BDD échoue dans mergeLots", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
     prismaMock.lot.findFirst.mockRejectedValue(new Error("DB connection lost"));

@@ -151,6 +151,14 @@ describe("sendManualReminder", () => {
     );
   });
 
+  it("retourne une erreur générique si la BDD échoue dans sendManualReminder (lignes 150-152)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await sendManualReminder(SOCIETY_ID, INVOICE_ID, "RELANCE_1");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("relance");
+  });
+
   it("utilise le nom de société pour le sujet MISE_EN_DEMEURE", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice() as never);
@@ -180,6 +188,14 @@ describe("sendBulkReminders", () => {
     expect(result.success).toBe(true);
     expect(result.data?.sent).toBe(0);
     expect(result.data?.failed).toBe(0);
+  });
+
+  it("retourne une erreur générique si requireSocietyActionContext échoue (lignes 180-182)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.society.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await sendBulkReminders(SOCIETY_ID, [INVOICE_ID], "RELANCE_1");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("relances");
   });
 
   it("compte les succès et les échecs", async () => {
