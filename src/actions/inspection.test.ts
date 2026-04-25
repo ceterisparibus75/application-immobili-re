@@ -111,4 +111,79 @@ describe("inspection actions", () => {
     expect(list).toEqual([]);
     expect(item).toBeNull();
   });
+
+  it("retourne une erreur si le bail est introuvable lors de createInspection", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "ENTREE",
+      performedAt: "2026-04-20",
+      rooms: [{ name: "Cuisine", condition: "BON" }],
+    });
+
+    expect(result).toEqual({ success: false, error: "Bail introuvable" });
+  });
+
+  it("retourne une erreur si l'inspection est introuvable lors de updateInspection", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.inspection.findFirst.mockResolvedValue(null);
+
+    const result = await updateInspection(SOCIETY_ID, {
+      id: INSPECTION_ID,
+      performedBy: "Alice",
+    });
+
+    expect(result).toEqual({ success: false, error: "Inspection introuvable" });
+  });
+
+  it("retourne non authentifié pour createInspection", async () => {
+    mockUnauthenticated();
+
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "ENTREE",
+      performedAt: "2026-04-20",
+      rooms: [{ name: "Salon", condition: "BON" }],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
+
+  it("retourne non authentifié pour updateInspection", async () => {
+    mockUnauthenticated();
+
+    const result = await updateInspection(SOCIETY_ID, { id: INSPECTION_ID });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
+
+  it("retourne les inspections pour un bail authentifié", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.inspection.findMany.mockResolvedValue([
+      { id: INSPECTION_ID, leaseId: LEASE_ID, type: "ENTREE" },
+    ] as never);
+
+    const list = await getInspectionsByLease(SOCIETY_ID, LEASE_ID);
+
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe(INSPECTION_ID);
+  });
+
+  it("retourne une inspection par son ID", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.inspection.findFirst.mockResolvedValue({
+      id: INSPECTION_ID,
+      leaseId: LEASE_ID,
+      type: "SORTIE",
+      rooms: [],
+    } as never);
+
+    const item = await getInspectionById(SOCIETY_ID, INSPECTION_ID);
+
+    expect(item?.id).toBe(INSPECTION_ID);
+  });
 });
