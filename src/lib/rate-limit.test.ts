@@ -1,4 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  RedisCtor: vi.fn(),
+  RatelimitCtor: vi.fn(),
+  slidingWindow: vi.fn().mockReturnValue("sliding-window"),
+}));
+
+vi.mock("@upstash/redis", () => ({
+  Redis: function MockRedis(opts: unknown) { mocks.RedisCtor(opts); return {}; },
+}));
+vi.mock("@upstash/ratelimit", () => ({
+  Ratelimit: Object.assign(
+    function MockRatelimit(opts: unknown) { mocks.RatelimitCtor(opts); return { limit: vi.fn().mockResolvedValue({ success: true, reset: Date.now() + 10000 }) }; },
+    { slidingWindow: mocks.slidingWindow }
+  ),
+}));
+
 import { getLoginRatelimit, getApiRatelimit, get2FARatelimit, getPortalRatelimit, getAIRatelimit } from "./rate-limit";
 
 // Redis n'est pas configuré en test → tous les limiters sont InMemoryRateLimiter
@@ -123,5 +140,46 @@ describe("getAIRatelimit — 5 req / 60s", () => {
     for (let i = 0; i < 5; i++) await limiter.limit(key);
     const r6 = await limiter.limit(key);
     expect(r6.success).toBe(false);
+  });
+});
+
+describe("rate-limit — branche Redis (credentials configurés)", () => {
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("crée les limiters Redis si UPSTASH_REDIS_REST_URL et TOKEN sont définis (lignes 10, 58, 72, 86, 101, 115)", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://fake.upstash.io");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "fake-token");
+    vi.resetModules();
+
+    const mod = await import("./rate-limit");
+
+    const loginLimiter = mod.getLoginRatelimit();
+    const apiLimiter = mod.getApiRatelimit();
+    const faLimiter = mod.get2FARatelimit();
+    const aiLimiter = mod.getAIRatelimit();
+    const portalLimiter = mod.getPortalRatelimit();
+
+    expect(loginLimiter).toBeDefined();
+    expect(apiLimiter).toBeDefined();
+    expect(faLimiter).toBeDefined();
+    expect(aiLimiter).toBeDefined();
+    expect(portalLimiter).toBeDefined();
+  });
+
+  it("retourne le Redis en cache lors du second appel (ligne 15)", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://fake.upstash.io");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "fake-token");
+    vi.resetModules();
+
+    mocks.RedisCtor.mockClear();
+    const mod = await import("./rate-limit");
+
+    mod.getLoginRatelimit(); // crée _redis (ligne 10)
+    mod.getApiRatelimit();   // réutilise _redis (ligne 15)
+
+    expect(mocks.RedisCtor).toHaveBeenCalledTimes(1);
   });
 });

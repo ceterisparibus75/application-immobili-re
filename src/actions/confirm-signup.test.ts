@@ -7,6 +7,7 @@ vi.mock("@/lib/email", () => ({
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { confirmSignup, resendConfirmationCode } from "./confirm-signup";
+import { sendSignupCodeEmail } from "@/lib/email";
 
 const FUTURE = new Date(Date.now() + 60 * 60 * 1000); // dans 1h
 
@@ -97,6 +98,13 @@ describe("confirmSignup", () => {
     expect(result.success).toBe(true);
     expect(result.data?.email).toBe("jean@example.com");
   });
+
+  it("retourne une erreur générique si la BDD échoue dans confirmSignup (lignes 80-81)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(makeUser() as never);
+    prismaMock.user.update.mockRejectedValue(new Error("DB error"));
+    const result = await confirmSignup(validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la confirmation du compte" });
+  });
 });
 
 describe("resendConfirmationCode", () => {
@@ -125,5 +133,20 @@ describe("resendConfirmationCode", () => {
         data: expect.objectContaining({ resetToken: expect.any(String) }),
       })
     );
+  });
+
+  it("reste en succès si l'envoi d'email échoue (ligne 116 — .catch)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(makeUser() as never);
+    prismaMock.user.update.mockResolvedValue(makeUser() as never);
+    vi.mocked(sendSignupCodeEmail).mockRejectedValueOnce(new Error("SMTP error"));
+
+    const result = await resendConfirmationCode("jean@example.com");
+    expect(result.success).toBe(true);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans resendConfirmationCode (lignes 120-121)", async () => {
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await resendConfirmationCode("jean@example.com");
+    expect(result).toEqual({ success: false, error: "Erreur lors du renvoi du code" });
   });
 });

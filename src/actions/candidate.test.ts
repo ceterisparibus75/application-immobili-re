@@ -64,6 +64,12 @@ describe("createPipeline", () => {
     const r = await createPipeline(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
   });
+
+  it("retourne une erreur si validation Zod échoue (stages vides) — ligne 33", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createPipeline(SOCIETY_ID, { name: "Test", stages: [] });
+    expect(r.success).toBe(false);
+  });
 });
 
 // ─── createCandidate ──────────────────────────────────────────────────────────
@@ -207,6 +213,12 @@ describe("updateCandidate", () => {
     const r = await updateCandidate(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
+
+  it("retourne une erreur si validation Zod échoue (id invalide) — ligne 106", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await updateCandidate(SOCIETY_ID, { id: "not-a-cuid", status: "CONTACTED" });
+    expect(r.success).toBe(false);
+  });
 });
 
 // ─── deleteCandidate ──────────────────────────────────────────────────────────
@@ -287,5 +299,11 @@ describe("addActivity", () => {
     prismaMock.candidateActivity.create.mockRejectedValue(new Error("DB error"));
     const r = await addActivity(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors de l'ajout" });
+  });
+
+  it("retourne une erreur si validation Zod échoue (candidateId invalide) — ligne 189", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await addActivity(SOCIETY_ID, { candidateId: "not-a-cuid", type: "NOTE" });
+    expect(r.success).toBe(false);
   });
 });

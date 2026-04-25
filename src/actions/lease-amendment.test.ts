@@ -150,6 +150,19 @@ describe("createLeaseAmendment", () => {
     expect(r.success).toBe(true);
     expect(prismaMock.lease.update).not.toHaveBeenCalled();
   });
+
+  it("retourne une erreur générique si la BDD échoue dans createLeaseAmendment (lignes 89-90)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue(buildLease() as never);
+    prismaMock.leaseAmendment.create.mockRejectedValue(new Error("DB error"));
+    const r = await createLeaseAmendment(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      effectiveDate: "2026-06-01",
+      description: "Avenant divers",
+      amendmentType: "AVENANT_DIVERS",
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de l'avenant" });
+  });
 });
 
 describe("renewLease", () => {
@@ -195,6 +208,20 @@ describe("renewLease", () => {
 
     expect(r.success).toBe(false);
     expect(r.error).toBe("La nouvelle date de fin doit être postérieure à l'actuelle");
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant pour renewLease (ligne 133)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await renewLease(SOCIETY_ID, { leaseId: LEASE_ID, newEndDate: "2027-12-31" });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans renewLease (lignes 134-135)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await renewLease(SOCIETY_ID, { leaseId: LEASE_ID, newEndDate: "2027-12-31" });
+    expect(r).toEqual({ success: false, error: "Erreur lors du renouvellement" });
   });
 
   it("renouvelle le bail via un avenant de renouvellement", async () => {

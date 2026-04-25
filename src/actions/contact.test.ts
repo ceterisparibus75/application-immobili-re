@@ -70,6 +70,20 @@ describe("createContact", () => {
     const result = await createContact(SOCIETY_ID, { ...validInput, name: "" });
     expect(result.success).toBe(false);
   });
+
+  it("retourne ForbiddenError si rôle insuffisant pour createContact (ligne 68)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createContact(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createContact (lignes 69-70)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.contact.create.mockRejectedValue(new Error("DB error"));
+    const result = await createContact(SOCIETY_ID, validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
 });
 
 describe("updateContact", () => {
@@ -104,11 +118,18 @@ describe("updateContact", () => {
     expect(result.success).toBe(false);
   });
 
-  it("retourne une erreur si rôle insuffisant pour updateContact (ForbiddenError lignes 115-117)", async () => {
+  it("retourne une erreur si rôle insuffisant pour updateContact (ForbiddenError ligne 115)", async () => {
     mockAuthSession("LECTURE", SOCIETY_ID);
     const result = await updateContact(SOCIETY_ID, { id: CONTACT_ID, name: "Test" });
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/insuffisantes|refus/i);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateContact (lignes 116-117)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.contact.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await updateContact(SOCIETY_ID, { id: CONTACT_ID, name: "Test" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
 });
 

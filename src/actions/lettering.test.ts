@@ -62,6 +62,20 @@ describe("getNextLetteringCode", () => {
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("AAA");
   });
+
+  it("retourne ForbiddenError si rôle insuffisant pour getNextLetteringCode (lignes 48-49)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await getNextLetteringCode(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans getNextLetteringCode (lignes 51-52)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await getNextLetteringCode(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la generation du code de lettrage" });
+  });
 });
 
 describe("letterEntries", () => {
@@ -137,6 +151,18 @@ describe("letterEntries", () => {
     prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
     expect(result).toEqual({ success: false, error: "Erreur lors du lettrage" });
+  });
+
+  it("retourne une erreur si getNextLetteringCode échoue (ligne 141)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      makeLine({ debit: 500, credit: 0 }),
+      makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
+    ] as never);
+    prismaMock.journalEntryLine.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Impossible de generer/);
   });
 });
 
