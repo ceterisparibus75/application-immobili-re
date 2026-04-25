@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import path from "path";
 import { withSentryConfig } from "@sentry/nextjs";
 
+const enableSentryBuildUploads =
+  process.env.VERCEL === "1" || process.env.SENTRY_UPLOAD_SOURCE_MAPS === "true";
+
 const nextConfig: NextConfig = {
   typescript: {
     // TypeScript is checked in CI separately
@@ -71,6 +74,17 @@ export default withSentryConfig(nextConfig, {
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
+
+  telemetry: enableSentryBuildUploads,
+
+  sourcemaps: {
+    disable: !enableSentryBuildUploads,
+  },
+
+  release: {
+    create: enableSentryBuildUploads,
+    finalize: enableSentryBuildUploads,
+  },
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
