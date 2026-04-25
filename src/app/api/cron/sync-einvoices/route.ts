@@ -68,9 +68,14 @@ export async function GET(request: Request) {
   const totalUpdated = summary.reduce((s, r) => s + r.updated, 0);
   const errors = summary.filter((r) => r.error);
 
-  console.log(
-    `[sync-einvoices] ${societies.length} société(s) — créées: ${totalCreated}, mises à jour: ${totalUpdated}, erreurs: ${errors.length}`
-  );
+  if (errors.length > 0) {
+    console.error("[sync-einvoices]", {
+      societies: societies.length,
+      created: totalCreated,
+      updated: totalUpdated,
+      errors: errors.length,
+    });
+  }
 
   return NextResponse.json({ societies: societies.length, created: totalCreated, updated: totalUpdated, errors: errors.length, summary });
 }

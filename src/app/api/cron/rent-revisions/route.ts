@@ -12,11 +12,14 @@ export async function GET(req: NextRequest) {
   try {
     const results = await detectPendingRevisions();
 
-    console.error(
-      "[cron/rent-revisions]",
-      `${results.created} révision(s) créée(s)`,
-      results.errors.length > 0 ? `${results.errors.length} erreur(s)` : ""
-    );
+    if (results.errors.length > 0) {
+      console.error(
+        "[cron/rent-revisions]",
+        `${results.created} révision(s) créée(s)`,
+        `${results.errors.length} erreur(s)`,
+        results.errors
+      );
+    }
 
     return NextResponse.json({ success: true, ...results });
   } catch (error) {

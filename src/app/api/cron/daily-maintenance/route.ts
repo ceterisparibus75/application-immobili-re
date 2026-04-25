@@ -8,12 +8,14 @@ type CronTask = {
 };
 
 const TASKS: CronTask[] = [
+  { path: "/api/cron/ai-retry", cadence: "daily" },
   { path: "/api/cron/generate-drafts", cadence: "daily" },
   { path: "/api/cron/sync-einvoices", cadence: "daily" },
   { path: "/api/cron/sync-bank", cadence: "daily" },
   { path: "/api/cron/sync-subscriptions", cadence: "daily" },
   { path: "/api/cron/send-reports", cadence: "daily" },
   { path: "/api/cron/run-workflows", cadence: "daily" },
+  { path: "/api/cron/lease-alerts", cadence: "daily" },
   { path: "/api/cron/invoice-reminder", cadence: "weekly-monday" },
   { path: "/api/cron/insurance-reminder", cadence: "weekly-monday" },
   { path: "/api/cron/sync-indices", cadence: "monthly-first" },

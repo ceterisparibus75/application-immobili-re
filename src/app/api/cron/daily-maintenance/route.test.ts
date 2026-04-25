@@ -37,7 +37,7 @@ describe("GET /api/cron/daily-maintenance", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ success: true, executed: 6, failed: 0 });
+    expect(body).toMatchObject({ success: true, executed: 8, failed: 0 });
     expect(fetch).toHaveBeenCalledWith(new URL("/api/cron/generate-drafts", "http://localhost/api/cron/daily-maintenance"), {
       method: "GET",
       headers: {
@@ -81,7 +81,7 @@ describe("GET /api/cron/daily-maintenance", () => {
     const body = await response.json();
 
     expect(response.status).toBe(207);
-    expect(body).toMatchObject({ success: false, executed: 6, failed: 1 });
-    expect(fetch).toHaveBeenCalledTimes(6);
+    expect(body).toMatchObject({ success: false, executed: 8, failed: 1 });
+    expect(fetch).toHaveBeenCalledTimes(8);
   });
 });

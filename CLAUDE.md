@@ -479,15 +479,18 @@ Définis dans `vercel.json`, protégés par `CRON_SECRET` :
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
+| `/api/cron/ai-retry` | Toutes les heures | Relance analyse IA des documents en erreur |
 | `/api/cron/generate-drafts` | Quotidien 7h | Génération auto brouillons factures |
-| `/api/cron/sync-bank` | Quotidien 6h | Synchronisation transactions bancaires |
-| `/api/cron/sync-subscriptions` | Quotidien 6h30 | Expiration trials + sync statuts Stripe |
-| `/api/cron/sync-einvoices` | Toutes les heures | Sync factures électroniques reçues (PA B2B) |
-| `/api/cron/invoice-reminder` | Lundi 8h | Relances factures impayées |
 | `/api/cron/insurance-reminder` | Lundi 9h | Rappels assurances |
-| `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
+| `/api/cron/invoice-reminder` | Lundi 8h | Relances factures impayées |
+| `/api/cron/lease-alerts` | Quotidien 9h30 | Alertes baux et diagnostics à échéance |
 | `/api/cron/rent-revisions` | 1er du mois 8h | Révisions de loyer |
-| `/api/cron/send-reports` | Configurable | Envoi rapports planifiés |
+| `/api/cron/run-workflows` | Quotidien 2h | Exécution des workflows planifiés |
+| `/api/cron/send-reports` | Quotidien 8h | Envoi rapports planifiés |
+| `/api/cron/sync-bank` | Quotidien 6h | Synchronisation transactions bancaires |
+| `/api/cron/sync-einvoices` | Toutes les heures | Sync factures électroniques reçues (PA B2B) |
+| `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
+| `/api/cron/sync-subscriptions` | Quotidien 6h30 | Expiration trials + sync statuts Stripe |
 
 ## Monitoring (Sentry)
 
