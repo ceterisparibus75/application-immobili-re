@@ -129,6 +129,24 @@ describe("report schedule actions", () => {
       expect(result).toEqual({ success: false, error: "Non authentifié" });
     });
 
+    it("retourne une erreur si rôle insuffisant", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await updateReportSchedule("society-1", { id: "cm8m6m6m6000008l2a1bcdefg" });
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/insuffisantes|refus/i);
+    });
+
+    it("retourne une erreur générique si la BDD échoue", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.reportSchedule.update.mockRejectedValue(new Error("DB connection lost"));
+
+      const result = await updateReportSchedule("society-1", {
+        id: "cm8m6m6m6000008l2a1bcdefg",
+        isActive: true,
+      });
+      expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+    });
+
     it("recalcule nextRunAt si la fréquence change", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
 
@@ -156,6 +174,21 @@ describe("report schedule actions", () => {
       mockUnauthenticated();
       const result = await deleteReportSchedule("society-1", "schedule-1");
       expect(result).toEqual({ success: false, error: "Non authentifié" });
+    });
+
+    it("retourne une erreur si rôle insuffisant", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await deleteReportSchedule("society-1", "schedule-1");
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/insuffisantes|refus/i);
+    });
+
+    it("retourne une erreur générique si la BDD échoue", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.reportSchedule.delete.mockRejectedValue(new Error("DB connection lost"));
+
+      const result = await deleteReportSchedule("society-1", "schedule-1");
+      expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
     });
 
     it("supprime une planification et écrit l'audit", async () => {
