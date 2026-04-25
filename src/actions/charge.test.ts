@@ -4,11 +4,19 @@ import { prismaMock } from "@/test/mocks/prisma"
 import { UserRole } from "@/generated/prisma/client"
 import {
   createChargeCategory,
+  updateChargeCategory,
+  getChargeCategories,
   createCharge,
   updateCharge,
   deleteCharge,
+  getCharges,
+  getChargeById,
+  getSocietyChargeCategories,
   createSocietyChargeCategory,
+  updateSocietyChargeCategory,
   deleteSocietyChargeCategory,
+  getChargeRegularizations,
+  finalizeChargeReport,
 } from "@/actions/charge"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
@@ -541,5 +549,177 @@ describe("deleteSocietyChargeCategory", () => {
     expect(prismaMock.societyChargeCategory.delete).toHaveBeenCalledWith({
       where: { id: "scc-1" },
     })
+  })
+})
+
+const SOCIETY_ID = "society-1"
+const VALID_CUID_3 = "clh3x2z4k0002qh8g7z1y2v3v"
+
+// ─── updateChargeCategory ────────────────────────────────────────────────────
+
+describe("updateChargeCategory", () => {
+  const validUpdate = { id: VALID_CUID, name: "Entretien modifié" }
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await updateChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si catégorie introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeCategory.findFirst.mockResolvedValue(null as never)
+    const r = await updateChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("met à jour la catégorie avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeCategory.findFirst.mockResolvedValue({ id: VALID_CUID } as never)
+    prismaMock.chargeCategory.update.mockResolvedValue({} as never)
+    const r = await updateChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeCategory.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: VALID_CUID } })
+    )
+  })
+})
+
+// ─── getChargeCategories ─────────────────────────────────────────────────────
+
+describe("getChargeCategories", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getChargeCategories(SOCIETY_ID)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les catégories de charges", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeCategory.findMany.mockResolvedValue([{ id: VALID_CUID, name: "Eau" }] as never)
+    const r = await getChargeCategories(SOCIETY_ID)
+    expect(r).toHaveLength(1)
+  })
+})
+
+// ─── getCharges ───────────────────────────────────────────────────────────────
+
+describe("getCharges", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getCharges(SOCIETY_ID)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les charges", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([{ id: VALID_CUID_2, amount: 150 }] as never)
+    const r = await getCharges(SOCIETY_ID)
+    expect(r).toHaveLength(1)
+  })
+})
+
+// ─── getChargeById ────────────────────────────────────────────────────────────
+
+describe("getChargeById", () => {
+  it("retourne null si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getChargeById(SOCIETY_ID, VALID_CUID_2)
+    expect(r).toBeNull()
+  })
+
+  it("retourne la charge si trouvée", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findFirst.mockResolvedValue({ id: VALID_CUID_2, amount: 150 } as never)
+    const r = await getChargeById(SOCIETY_ID, VALID_CUID_2)
+    expect(r?.id).toBe(VALID_CUID_2)
+  })
+})
+
+// ─── getSocietyChargeCategories ───────────────────────────────────────────────
+
+describe("getSocietyChargeCategories", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getSocietyChargeCategories(SOCIETY_ID)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les catégories incluant les globales", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.findMany.mockResolvedValue([
+      { id: "scc-1", name: "Eau froide", isGlobal: true },
+      { id: "scc-2", name: "Gardiennage", isGlobal: false },
+    ] as never)
+    const r = await getSocietyChargeCategories(SOCIETY_ID)
+    expect(r).toHaveLength(2)
+  })
+})
+
+// ─── updateSocietyChargeCategory ─────────────────────────────────────────────
+
+describe("updateSocietyChargeCategory", () => {
+  const validUpdate = { id: VALID_CUID_3, name: "Eau modifiée" }
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await updateSocietyChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(false)
+  })
+
+  it("bloque la modification d'une catégorie globale", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.findUnique.mockResolvedValue({ id: VALID_CUID_3, isGlobal: true } as never)
+    const r = await updateSocietyChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("standards")
+  })
+
+  it("met à jour avec succès une catégorie non globale", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.findUnique.mockResolvedValue({ id: VALID_CUID_3, isGlobal: false } as never)
+    prismaMock.societyChargeCategory.update.mockResolvedValue({} as never)
+    const r = await updateSocietyChargeCategory(SOCIETY_ID, validUpdate)
+    expect(r.success).toBe(true)
+  })
+})
+
+// ─── getChargeRegularizations ─────────────────────────────────────────────────
+
+describe("getChargeRegularizations", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getChargeRegularizations(SOCIETY_ID)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les régularisations", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeRegularization.findMany.mockResolvedValue([
+      { id: "reg-1", fiscalYear: 2024 },
+    ] as never)
+    const r = await getChargeRegularizations(SOCIETY_ID)
+    expect(r).toHaveLength(1)
+  })
+})
+
+// ─── finalizeChargeReport ─────────────────────────────────────────────────────
+
+describe("finalizeChargeReport", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await finalizeChargeReport(SOCIETY_ID, "reg-1")
+    expect(r.success).toBe(false)
+  })
+
+  it("finalise le rapport avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeRegularization.update.mockResolvedValue({} as never)
+    const r = await finalizeChargeReport(SOCIETY_ID, "reg-1")
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ isFinalized: true }) })
+    )
   })
 })
