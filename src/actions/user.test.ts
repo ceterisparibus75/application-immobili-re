@@ -134,6 +134,14 @@ describe("user admin actions", () => {
     });
   });
 
+  it("retourne Accès refusé si l'utilisateur n'est pas membre de la société", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null);
+
+    const result = await toggleEmailCopy(USER_ID, SOCIETY_ID, true);
+    expect(result).toEqual({ success: false, error: "Accès refusé" });
+  });
+
   it("empêche un non-admin de modifier la copie email d'un autre utilisateur", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValue({
