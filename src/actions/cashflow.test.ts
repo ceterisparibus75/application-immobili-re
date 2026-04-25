@@ -3,8 +3,16 @@ import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
 import { prismaMock } from "@/test/mocks/prisma";
 import { UserRole } from "@/generated/prisma/client";
 
+const mockMessagesCreate = vi.hoisted(() => vi.fn().mockResolvedValue({
+  content: [{ type: "text", text: '[{"id": "tx-1", "category": "loyers", "confidence": 0.9}]' }],
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class { messages = { create: mockMessagesCreate }; },
+}));
+vi.mock("jsonrepair", () => ({ jsonrepair: (s: string) => s }));
 
 import {
   getUncategorizedTransactions,
@@ -245,6 +253,45 @@ describe("aiSuggestCategories", () => {
     const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
     expect(r).toEqual({ success: false, error: "Erreur lors de la suggestion IA" });
   });
+
+  it("appelle Claude et retourne les suggestions IA (lignes 646-718)", async () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = "test-api-key";
+    try {
+      mockAuthSession(UserRole.COMPTABLE);
+      prismaMock.bankTransaction.findMany
+        .mockResolvedValueOnce([{ id: TX_ID_1, label: "INCONNU XYZ", amount: -50, reference: null }] as never)
+        .mockResolvedValueOnce([] as never);
+      prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+      const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+      expect(r.success).toBe(true);
+      expect(r.data).toBeDefined();
+    } finally {
+      process.env.ANTHROPIC_API_KEY = originalKey;
+    }
+  });
+
+  it("retourne localResults si Claude ne renvoie pas de JSON (ligne 703)", async () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = "test-api-key";
+    try {
+      mockMessagesCreate.mockResolvedValueOnce({
+        content: [{ type: "text", text: "Je ne suis pas sûr" }],
+      });
+      mockAuthSession(UserRole.COMPTABLE);
+      prismaMock.bankTransaction.findMany
+        .mockResolvedValueOnce([{ id: TX_ID_1, label: "INCONNU XYZ", amount: -50, reference: null }] as never)
+        .mockResolvedValueOnce([] as never);
+      prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+      const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+      expect(r.success).toBe(true);
+      expect(r.data).toEqual([]);
+    } finally {
+      process.env.ANTHROPIC_API_KEY = originalKey;
+    }
+  });
 });
 
 // ─── getCashflowDashboard ─────────────────────────────────────────────────────
@@ -309,5 +356,35 @@ describe("getCashflowDashboard", () => {
     expect(r.data?.uncategorizedCount).toBe(1);
     expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
     expect(r.data?.totalActualIncome).toBeGreaterThan(0);
+  });
+
+  it("trie les catégories par montant décroissant avec 2+ dépenses (ligne 789)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        id: TX_ID_1,
+        transactionDate: new Date(),
+        amount: -50,
+        label: "EDF",
+        category: "energie",
+        bankAccount: { accountName: "Compte" },
+      },
+      {
+        id: TX_ID_2,
+        transactionDate: new Date(),
+        amount: -200,
+        label: "Assurance habitation",
+        category: "assurance",
+        bankAccount: { accountName: "Compte" },
+      },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
   });
 });

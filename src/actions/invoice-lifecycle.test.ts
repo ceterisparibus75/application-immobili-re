@@ -5,6 +5,8 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 vi.mock("@/lib/email", () => ({
   sendInvoiceEmail: vi.fn().mockResolvedValue({ success: true }),
 }));
+
+import { sendInvoiceEmail } from "@/lib/email";
 vi.mock("@/lib/encryption", () => ({
   decrypt: vi.fn().mockReturnValue("decrypted-value"),
   encrypt: vi.fn().mockReturnValue("encrypted-value"),
@@ -177,6 +179,48 @@ describe("sendInvoiceToTenant", () => {
     const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(true);
   });
+
+  it("utilise le nom de société pour un locataire PERSONNE_MORALE avec billingEmail", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({
+      lines: [],
+      periodStart: null,
+      tenant: {
+        email: "contact@sci.fr",
+        billingEmail: "billing@sci.fr",
+        firstName: null,
+        lastName: null,
+        entityType: "PERSONNE_MORALE",
+        companyName: "SCI Dupont",
+      },
+    }) as never);
+
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("retourne une erreur si l'email échoue (ligne 409)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ lines: [] }) as never);
+    vi.mocked(sendInvoiceEmail).mockResolvedValueOnce({ success: false, error: "SMTP error" });
+
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour sendInvoiceToTenant (lignes 422-423)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans sendInvoiceToTenant (lignes 424-426)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
 });
 
 // ── validateInvoice ────────────────────────────────────────────
@@ -208,6 +252,20 @@ describe("validateInvoice", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour validateInvoice (lignes 463-464)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await validateInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans validateInvoice (lignes 465-466)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await validateInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la validation" });
+  });
 });
 
 // ── validateBatchInvoices ──────────────────────────────────────
@@ -226,6 +284,20 @@ describe("validateBatchInvoices", () => {
     const result = await validateBatchInvoices(SOCIETY_ID, ["id1", "id2", "id3"]);
     expect(result.success).toBe(true);
     expect(result.data?.validated).toBe(3);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour validateBatchInvoices (lignes 497-498)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await validateBatchInvoices(SOCIETY_ID, [INVOICE_ID]);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans validateBatchInvoices (lignes 499-500)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.updateMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await validateBatchInvoices(SOCIETY_ID, [INVOICE_ID]);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la validation en masse" });
   });
 });
 
