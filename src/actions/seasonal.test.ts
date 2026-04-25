@@ -251,6 +251,36 @@ describe("deletePricing", () => {
     const r = await deletePricing(SOCIETY_ID, PRICING_ID);
     expect(r.success).toBe(true);
   });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await deletePricing(SOCIETY_ID, PRICING_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalPricing.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deletePricing(SOCIETY_ID, PRICING_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+describe("cancelBooking — erreurs", () => {
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await cancelBooking(SOCIETY_ID, BOOKING_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalBooking.update.mockRejectedValue(new Error("DB error"));
+    const r = await cancelBooking(SOCIETY_ID, BOOKING_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'annulation" });
+  });
 });
 
 // ─── createBlockedDate ────────────────────────────────────────────────────────
@@ -284,5 +314,19 @@ describe("createBlockedDate", () => {
         }),
       })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createBlockedDate(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalBlockedDate.create.mockRejectedValue(new Error("DB error"));
+    const r = await createBlockedDate(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors du blocage des dates" });
   });
 });

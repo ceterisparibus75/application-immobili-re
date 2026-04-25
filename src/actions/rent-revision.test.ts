@@ -491,4 +491,35 @@ describe("applyCatchUpRevisions", () => {
     expect(r.data?.stepsCount).toBe(2)
     expect(r.data?.finalRent).toBeGreaterThan(800)
   })
+
+  it("retourne erreur si bail introuvable après vérification révision existante", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst
+      .mockResolvedValueOnce(BASE_LEASE as never) // preview
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst
+      .mockResolvedValueOnce(null as never) // lastRevision (preview)
+      .mockResolvedValueOnce(null as never) // existing pending (applyCatch)
+    prismaMock.lease.findFirst.mockResolvedValueOnce(null as never) // bail introuvable
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("rattrapage")
+  })
 })
