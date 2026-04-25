@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Building2, Home, Users, FileText, Receipt,
-  UserCircle, Clock, X, Filter, FileIcon,
+  UserCircle, Clock, X, Filter, FileIcon, Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,39 @@ const TYPE_COLORS: Record<string, string> = {
 
 const HISTORY_KEY = "mygestia-search-history";
 const MAX_HISTORY = 8;
+
+const QUICK_ACTIONS = [
+  {
+    label: "Créer un immeuble",
+    href: "/patrimoine/immeubles/nouveau",
+    icon: Building2,
+    color: TYPE_COLORS.building,
+  },
+  {
+    label: "Créer un locataire",
+    href: "/locataires/nouveau",
+    icon: Users,
+    color: TYPE_COLORS.tenant,
+  },
+  {
+    label: "Créer un bail",
+    href: "/baux/nouveau",
+    icon: FileText,
+    color: TYPE_COLORS.lease,
+  },
+  {
+    label: "Créer une facture",
+    href: "/facturation/nouvelle",
+    icon: Receipt,
+    color: TYPE_COLORS.invoice,
+  },
+  {
+    label: "Importer un document",
+    href: "/documents/nouveau",
+    icon: FileIcon,
+    color: TYPE_COLORS.document,
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /*  History helpers                                                     */
@@ -158,6 +191,11 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
     closeSearch(); setQuery(""); setResults([]);
   };
 
+  const navigateQuickAction = (href: string) => {
+    router.push(href);
+    closeSearch(); setQuery(""); setResults([]); setFilterType(null);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const list = showHistory ? history : results;
     if (e.key === "ArrowDown") { e.preventDefault(); setSelected((s) => Math.min(s + 1, list.length - 1)); }
@@ -174,6 +212,7 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
   }, {});
 
   const showHistory = query.length < 2 && history.length > 0;
+  const showQuickActions = query.length < 2;
   const showResults = query.length >= 2 && results.length > 0;
   const showEmpty = query.length >= 2 && results.length === 0 && !loading;
 
@@ -286,6 +325,33 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
           </div>
         )}
 
+        {/* Quick actions */}
+        {showQuickActions && (
+          <div className="border-t border-border/40 px-2 py-2">
+            <p className="px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 font-semibold">
+              Actions rapides
+            </p>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {QUICK_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.href}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-all duration-100 hover:bg-accent/50"
+                    onClick={() => navigateQuickAction(action.href)}
+                  >
+                    <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", action.color)}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="truncate">{action.label}</span>
+                    <Plus className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search results */}
         {showResults && (
           <div className="max-h-80 overflow-y-auto border-t border-border/40 px-2 py-2">
@@ -344,7 +410,6 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
         <div className="border-t border-border/30 px-5 py-2.5 flex items-center gap-5 text-[10px] text-muted-foreground/40">
           <span><kbd className="bg-secondary/80 px-1 rounded font-mono">&#x2191;&#x2193;</kbd> Naviguer</span>
           <span><kbd className="bg-secondary/80 px-1 rounded font-mono">&#x21B5;</kbd> Ouvrir</span>
-          <span><kbd className="bg-secondary/80 px-1 rounded font-mono">Tab</kbd> Filtrer</span>
           <span><kbd className="bg-secondary/80 px-1 rounded font-mono">Esc</kbd> Fermer</span>
         </div>
       </div>

@@ -2,13 +2,15 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
 import { RelancesClient } from "./overdue-tab";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCallback } from "react";
+import Link from "next/link";
 
 const LEVEL_LABELS: Record<string, string> = {
   RELANCE_1: "1ère relance",
@@ -150,8 +152,28 @@ export function FacturationTabs({
         <DraftsBanner drafts={brouillons} societyId={societyId} />
         {invoices.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-20">
-              <p className="text-sm text-muted-foreground">Aucune facture</p>
+            <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Receipt className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-semibold">Aucune facture</h3>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                Générez les appels de loyers depuis les baux actifs ou créez une facture ponctuelle.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <Button asChild>
+                  <Link href="/facturation/generer">
+                    <Zap className="h-4 w-4" />
+                    Générer les appels
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/facturation/nouvelle">
+                    <Plus className="h-4 w-4" />
+                    Nouvelle facture
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (

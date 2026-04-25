@@ -551,9 +551,9 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 |----------|--------|----------------------|
 | P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
-| P1 | Ajouter une recherche globale visible (`Ctrl/Cmd K`) : baux, locataires, lots, factures, documents. | Réduire la dépendance à la navigation profonde. |
+| P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | Réduire encore la dépendance à la navigation profonde. |
 | P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | Faire de chaque module une zone de travail, pas seulement une liste. |
-| P1 | Ajouter des états vides métier avec CTA précis : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Aider les nouveaux utilisateurs à avancer sans lire de documentation. |
+| P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Aider les nouveaux utilisateurs à avancer sans lire de documentation. |
 | P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
 | P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |
 | P2 | Ajouter une base de staging seedée réaliste pour les démonstrations commerciales. | Tester les vrais flux avec des données proches production. |
