@@ -157,4 +157,74 @@ describe("generateBalanceAgee", () => {
     );
     expect(helperMocks.drawTableRow).toHaveBeenCalled();
   });
+
+  it("classe les créances à 100 jours dans la tranche 91-120j (ligne 19)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        totalTTC: 700,
+        dueDate: new Date(today.getTime() - 100 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Jean", lastName: "Martin", companyName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble C" } } },
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.bold,
+      expect.any(Number),
+      ["TOTAL GÉNÉRAL", "", "-", "700.00 EUR", "-", "-", "-", "700.00 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+    );
+  });
+
+  it("classe les créances à 45 jours dans la tranche 31-60j (ligne 21)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        totalTTC: 500,
+        dueDate: new Date(today.getTime() - 45 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Marie", lastName: "Dupont", companyName: null },
+        lease: { lot: { number: "B1", building: { name: "Immeuble D" } } },
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.bold,
+      expect.any(Number),
+      ["TOTAL GÉNÉRAL", "", "-", "-", "-", "500.00 EUR", "-", "500.00 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+    );
+  });
+
+  it("gère les sauts de page quand y < seuil (lignes 100, 107, 124)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        totalTTC: 1200,
+        dueDate: new Date(today.getTime() - 20 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble X" } } },
+      },
+      {
+        totalTTC: 800,
+        dueDate: new Date(today.getTime() - 45 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Martin", companyName: null },
+        lease: { lot: { number: "A2", building: { name: "Immeuble X" } } },
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+    helperMocks.contentStartY.mockReturnValue(700); // restore
+    expect(result.contentType).toBe("application/pdf");
+    expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
+  });
 });

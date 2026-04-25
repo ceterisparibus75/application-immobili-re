@@ -178,4 +178,53 @@ describe("generateSituationLocative", () => {
     );
     expect(helperMocks.drawMoyennesRow).toHaveBeenCalled();
   });
+
+  it("couvre ANNUEL, SEMESTRIEL et les sauts de page (lignes 21, 22, 75, 101-103, 149)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [
+          {
+            number: "A1",
+            lotType: "BUREAUX",
+            floor: "1",
+            area: 50,
+            marketRentValue: 0,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "ANNUEL",
+              currentRentHT: 5000,
+              tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
+              chargeProvisions: [],
+            }],
+          },
+          {
+            number: "A2",
+            lotType: "STOCKAGE",
+            floor: "0",
+            area: 40,
+            marketRentValue: 0,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "SEMESTRIEL",
+              currentRentHT: 2500,
+              tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Martin", companyName: null },
+              chargeProvisions: [],
+            }],
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await generateSituationLocative({
+      societyId: "society-1",
+      type: "SITUATION_LOCATIVE",
+    });
+
+    helperMocks.contentStartY.mockReturnValue(700);
+    expect(result.contentType).toBe("application/pdf");
+    expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
+  });
 });

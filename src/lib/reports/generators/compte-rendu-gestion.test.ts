@@ -170,4 +170,57 @@ describe("generateCompteRenduGestion", () => {
       expect.objectContaining({ rowIndex: 1 })
     );
   });
+
+  it("affiche un message vide si aucune facture et aucune charge (ligne 69)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ id: "society-1", name: "Test" } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.building.findMany.mockResolvedValue([] as never);
+
+    const result = await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawEmptyMessage).toHaveBeenCalled();
+  });
+
+  it("gère les sauts de page et ignore les immeubles sans factures (lignes 92-94, 112, 114, 146-148)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    prismaMock.society.findUnique.mockResolvedValue({ id: "society-1", name: "Test Société" } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        totalTTC: 1200,
+        status: "PAYE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
+        lease: { lot: { buildingId: "building-1", number: "A1" } },
+        payments: [{ amount: 1200 }],
+      },
+      {
+        tenantId: "tenant-2",
+        totalTTC: 800,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_MORALE", companyName: "ACME SAS", firstName: null, lastName: null },
+        lease: { lot: { buildingId: "building-1", number: "A2" } },
+        payments: [],
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble A", lots: [{ id: "lot-1" }] },
+      { id: "building-2", name: "Immeuble B", lots: [{ id: "lot-2" }] },
+    ] as never);
+
+    const result = await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+    });
+
+    helperMocks.contentStartY.mockReturnValue(700);
+    expect(result.contentType).toBe("application/pdf");
+    expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + lines 92-94 + line 114 + lines 146-148
+  });
 });

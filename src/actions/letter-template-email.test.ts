@@ -317,6 +317,68 @@ describe("letter-template-email actions", () => {
     expect(result.error).toMatch(/insuffisantes|refus/i);
   });
 
+  it("remplit societyName (ligne 242) et leaseStart (ligne 249) via autoFill avec revision_loyer", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({
+      name: "Immeuble A",
+      lots: [{ leases: [{ id: LEASE_ID, tenant: { id: TENANT_ID, firstName: "Alice", lastName: "Durand", email: "alice@example.com" } }] }],
+    } as never);
+    prismaMock.society.findUnique
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", addressLine1: "1 rue Paris", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", siret: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+      currentRentHT: 1000,
+      tenant: { firstName: "Alice", lastName: "Durand", email: "alice@example.com", personalAddress: "2 avenue Victor Hugo" },
+      lot: { building: { addressLine1: "10 rue des Lilas", city: "Paris", postalCode: "75011" } },
+      chargeProvisions: [],
+    } as never);
+
+    // revision_loyer a VAR_BAILLEUR_NOM (society_name) et DATE_BAIL (lease_start)
+    // Sans BAILLEUR_NOM dans commonValues → values["BAILLEUR_NOM"] falsy → ligne 242 atteinte
+    // lease_start dans la liste d'exclusion → pas de continue → ligne 249 atteinte
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "revision_loyer",
+      buildingId: BUILDING_ID,
+      commonValues: {},
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.sent).toBe(1);
+  });
+
+  it("remplit leaseEnd (ligne 250) via autoFill avec le modèle conge_bailleur_vente", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({
+      name: "Immeuble A",
+      lots: [{ leases: [{ id: LEASE_ID, tenant: { id: TENANT_ID, firstName: "Alice", lastName: "Durand", email: "alice@example.com" } }] }],
+    } as never);
+    prismaMock.society.findUnique
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", addressLine1: "1 rue Paris", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", siret: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2027-01-01"),
+      currentRentHT: 1000,
+      tenant: { firstName: "Alice", lastName: "Durand", email: "alice@example.com", personalAddress: "2 avenue Victor Hugo" },
+      lot: { building: { addressLine1: "10 rue des Lilas", city: "Paris", postalCode: "75011" } },
+      chargeProvisions: [],
+    } as never);
+
+    // conge_bailleur_vente a DATE_FIN_BAIL (lease_end) → ligne 250 atteinte
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "conge_bailleur_vente",
+      buildingId: BUILDING_ID,
+      commonValues: {},
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.sent).toBe(1);
+  });
+
   it("retourne une erreur générique si la BDD échoue dans sendLetterToBuilding", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"));

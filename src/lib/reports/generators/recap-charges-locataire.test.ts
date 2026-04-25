@@ -171,4 +171,43 @@ describe("generateRecapChargesLocataire", () => {
       "2500.00 EUR"
     );
   });
+
+  it("gère les sauts de page (lignes 63, 78, 87)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      societyId: "society-1",
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: "Alice",
+      lastName: "Durand",
+      email: null,
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-1",
+        startDate: new Date("2026-01-01"),
+        lot: { number: "A1", building: { name: "Immeuble Test" } },
+        chargeProvisions: [
+          { label: "Provision 1", monthlyAmount: 50 },
+          { label: "Provision 2", monthlyAmount: 75 },
+        ],
+        chargeRegularizations: [
+          { fiscalYear: 2026, totalCharges: 1600, totalProvisions: 1500, balance: 100 },
+        ],
+        invoices: [],
+      },
+    ] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+    });
+
+    helperMocks.contentStartY.mockReturnValue(700);
+    expect(result.contentType).toBe("application/pdf");
+    expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
+  });
 });

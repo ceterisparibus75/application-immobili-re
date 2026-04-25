@@ -119,6 +119,20 @@ describe("getManagementReports", () => {
       expect.objectContaining({ where: expect.objectContaining({ leaseId: LEASE_ID }) })
     );
   });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 97)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await getManagementReports(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 98-99)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findMany.mockRejectedValue(new Error("DB error"));
+    const result = await getManagementReports(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la recuperation des comptes rendus de gestion" });
+  });
 });
 
 describe("getManagementReportById", () => {
@@ -144,6 +158,20 @@ describe("getManagementReportById", () => {
     const result = await getManagementReportById(SOCIETY_ID, REPORT_ID);
     expect(result.success).toBe(true);
     expect((result.data as { report: { id: string } }).report.id).toBe(REPORT_ID);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 144)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await getManagementReportById(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 145-146)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await getManagementReportById(SOCIETY_ID, REPORT_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la recuperation du compte rendu de gestion" });
   });
 });
 
@@ -192,6 +220,20 @@ describe("createManualReport", () => {
       })
     );
   });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 486)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createManualReport(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 487-488)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await createManualReport(SOCIETY_ID, validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la creation du compte rendu de gestion" });
+  });
 });
 
 describe("deleteManagementReport", () => {
@@ -229,6 +271,20 @@ describe("deleteManagementReport", () => {
     expect(prismaMock.managementReport.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: REPORT_ID } })
     );
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 531)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await deleteManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 532-533)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await deleteManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression du compte rendu de gestion" });
   });
 });
 
@@ -295,6 +351,20 @@ describe("uploadAndAnalyzeReport", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 248)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await uploadAndAnalyzeReport(SOCIETY_ID, LEASE_ID, FILE_URL, STORAGE_PATH);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 249-250)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await uploadAndAnalyzeReport(SOCIETY_ID, LEASE_ID, FILE_URL, STORAGE_PATH);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'analyse du compte rendu de gestion" });
+  });
 });
 
 // ── confirmManagementReport ───────────────────────────────────────────────────
@@ -333,6 +403,20 @@ describe("confirmManagementReport", () => {
     expect(result.success).toBe(true);
     expect(result.data?.invoiceId).toBe(INVOICE_ID);
     expect(result.data?.paymentId).toBe(PAYMENT_ID);
+  });
+
+  it("retourne ForbiddenError si rôle insuffisant (ligne 422)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne erreur générique si la BDD échoue (lignes 423-424)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la confirmation du compte rendu de gestion" });
   });
 
   it("exécute le callback transactionnel et vérifie la création de la facture et du paiement", async () => {
@@ -381,5 +465,32 @@ describe("confirmManagementReport", () => {
         data: expect.objectContaining({ isReconciled: true }),
       })
     );
+  });
+
+  it("inclut une ligne de charges dans la facture si chargesAmount > 0 (lignes 334-337)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockResolvedValue(
+      makeReportWithLease({ chargesAmount: 200 }) as never
+    );
+
+    prismaMock.society.findUnique.mockResolvedValue({
+      invoiceNumberYear: new Date().getFullYear(),
+      nextInvoiceNumber: 10,
+      invoicePrefix: "FAC",
+    } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 11, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({ id: PAYMENT_ID } as never);
+    prismaMock.managementReport.update.mockResolvedValue({} as never);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(true);
+
+    const invoiceCreateCall = prismaMock.invoice.create.mock.calls[0][0];
+    expect(invoiceCreateCall.data.lines.create).toHaveLength(2);
+    expect(invoiceCreateCall.data.lines.create[1].label).toContain("Charges");
   });
 });

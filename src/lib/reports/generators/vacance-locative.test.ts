@@ -135,4 +135,34 @@ describe("generateVacanceLocative", () => {
     );
     expect(helperMocks.drawBarChart).toHaveBeenCalled();
   });
+
+  it("gère les sauts de page (lignes 94, 114-116, 143)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [{ area: 50, leases: [{ id: "lease-1" }] }],
+      },
+      {
+        id: "building-2",
+        name: "Immeuble B",
+        lots: [{ area: 30, leases: [] }],
+      },
+      {
+        id: "building-3",
+        name: "Immeuble C",
+        lots: [{ area: 20, leases: [] }],
+      },
+    ] as never);
+
+    const result = await generateVacanceLocative({
+      societyId: "society-1",
+      type: "VACANCE_LOCATIVE",
+    });
+
+    helperMocks.contentStartY.mockReturnValue(700);
+    expect(result.contentType).toBe("application/pdf");
+    expect(pdfCtx.np).toHaveBeenCalledTimes(5); // initial + line 94 + line 105 + lines 114-116 + line 143
+  });
 });

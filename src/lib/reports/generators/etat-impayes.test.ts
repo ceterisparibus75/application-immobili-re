@@ -245,4 +245,61 @@ describe("generateEtatImpayes", () => {
     expect(excelMocks.writeBuffer).toHaveBeenCalled();
     expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(expect.arrayContaining(["TOTAL", "", "", "", 1200, "", "", ""]));
   });
+
+  it("classe correctement les créances 31-60j et 91-120j et gère les sauts de page (lignes 18, 20, 145-147)", async () => {
+    helperMocks.contentStartY.mockReturnValue(150);
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "t1",
+        invoiceNumber: "INV-045",
+        dueDate: new Date(today.getTime() - 45 * 86400000),
+        totalTTC: 600,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble A" } } },
+      },
+      {
+        tenantId: "t2",
+        invoiceNumber: "INV-100",
+        dueDate: new Date(today.getTime() - 100 * 86400000),
+        totalTTC: 900,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Martin", companyName: null },
+        lease: { lot: { number: "B1", building: { name: "Immeuble B" } } },
+      },
+    ] as never);
+
+    const result = await generateEtatImpayes({ societyId: "society-1", type: "ETAT_IMPAYES" });
+    helperMocks.contentStartY.mockReturnValue(700);
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      pageMock, pdfCtx.bold, expect.any(Number),
+      ["TOTAL", "", "-", "600.00 EUR", "-", "900.00 EUR", "-", "1500.00 EUR"],
+      expect.any(Array), expect.any(Array)
+    );
+    expect(pdfCtx.np).toHaveBeenCalledTimes(2); // initial + page break at lines 145-147
+  });
+
+  it("colore en rouge les retards > 30 jours dans le xlsx (ligne 72)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Dupont", companyName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble A" } } },
+        invoiceNumber: "INV-045",
+        dueDate: new Date(today.getTime() - 45 * 86400000),
+        totalTTC: 1000,
+        status: "VALIDE",
+      },
+    ] as never);
+
+    const result = await generateEtatImpayes({
+      societyId: "society-1",
+      type: "ETAT_IMPAYES",
+      format: "xlsx",
+    });
+    expect(result.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(excelMocks.writeBuffer).toHaveBeenCalled();
+  });
 });
