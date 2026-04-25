@@ -39,7 +39,6 @@ interface StatementActionsProps {
 
 export function StatementActions({
   statementId,
-  buildingId,
   type,
   status,
   totalAmount,

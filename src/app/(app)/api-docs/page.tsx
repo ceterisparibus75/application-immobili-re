@@ -2,12 +2,9 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import {
   Code2, Key, Webhook, BookOpen, Zap, Shield,
-  ArrowRight, Copy, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 const ENDPOINTS = [
   { method: "GET", path: "/api/v1/buildings", description: "Lister les immeubles", tag: "Patrimoine" },

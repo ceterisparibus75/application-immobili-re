@@ -37,10 +37,6 @@ function entityLabel(type: EntityType): string {
   return type === "building" ? "Immeuble" : type === "lot" ? "Lot" : "Locataire";
 }
 
-function entityIcon(type: EntityType) {
-  return type === "building" ? Building2 : type === "lot" ? Layers : Users;
-}
-
 function displayName(type: EntityType, item: SearchResult): string {
   if (type === "building") return `${item.name} — ${item.addressLine1}, ${item.city}`;
   if (type === "lot") return `Lot ${item.number} — ${item.building?.name ?? ""}`;

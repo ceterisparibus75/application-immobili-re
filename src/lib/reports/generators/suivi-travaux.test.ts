@@ -160,6 +160,22 @@ describe("generateSuiviTravaux", () => {
     );
   });
 
+  it("maintenance planifiée mais non terminée → couleur jaune (ligne 61 scheduledAt branch)", async () => {
+    prismaMock.maintenance.findMany.mockResolvedValue([
+      makeMaintenance({ completedAt: null }),
+    ] as never);
+
+    const result = await generateSuiviTravaux({
+      societyId: SOCIETY_ID,
+      type: "SUIVI_TRAVAUX",
+    });
+
+    expect(result.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["Remplacement chaudière"])
+    );
+  });
+
   it("gère les maintenances avec cost null (compte comme 0)", async () => {
     prismaMock.maintenance.findMany.mockResolvedValue([
       makeMaintenance({ cost: null, isPaid: false }),

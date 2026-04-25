@@ -210,4 +210,82 @@ describe("generateRecapChargesLocataire", () => {
     expect(result.contentType).toBe("application/pdf");
     expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
   });
+
+  it("utilise l'année courante si year est absent (ligne 18)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: "Alice",
+      lastName: "Durand",
+      email: null,
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+
+    const currentYear = new Date().getFullYear();
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+    });
+    expect(result.filename).toBe(`charges-locataire-tenant-1-${currentYear}.pdf`);
+  });
+
+  it("affiche '-' pour PERSONNE_MORALE sans companyName (ligne 37), gère aucune provision (ligne 71) et balance <= 0 (ligne 88)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      entityType: "PERSONNE_MORALE",
+      companyName: null,
+      email: null,
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-1",
+        startDate: new Date("2026-01-01"),
+        lot: { number: "A1", building: { name: "Immeuble A" } },
+        chargeProvisions: [],
+        chargeRegularizations: [
+          { fiscalYear: 2026, totalCharges: 1000, totalProvisions: 1200, balance: -200 },
+        ],
+        invoices: [],
+      },
+    ] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableHeader).not.toHaveBeenCalled();
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.bold, pdfCtx.reg, expect.any(Number),
+      "Régularisation 2026", expect.any(String), undefined
+    );
+  });
+
+  it("affiche '-' pour PERSONNE_PHYSIQUE sans nom (ligne 38)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: null,
+      lastName: null,
+      email: null,
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawCoverPage).toHaveBeenCalledWith(
+      pdfCtx, "Récapitulatif des Charges", "Locataire : -", expect.any(Array)
+    );
+  });
 });

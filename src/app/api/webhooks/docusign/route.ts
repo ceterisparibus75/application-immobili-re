@@ -20,7 +20,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 2. Valider la signature DocuSign Connect (HMAC-SHA256)
   const sig = req.headers.get("X-DocuSign-Signature-1") ?? "";
   if (!sig || !validateWebhookSignature(rawBody, sig)) {
-    console.warn("[docusign webhook] signature invalide");
+    console.error("[docusign webhook] signature invalide");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

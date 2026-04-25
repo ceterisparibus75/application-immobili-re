@@ -8,7 +8,6 @@ import {
   drawTableHeader,
   drawTableRow,
   drawTotalsRow,
-  drawEmptyMessage,
 } from "../pdf-helpers";
 import { drawPieChart } from "../pdf-charts";
 

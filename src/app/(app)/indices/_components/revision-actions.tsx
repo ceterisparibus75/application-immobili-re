@@ -32,7 +32,6 @@ import {
   rejectRevision,
   previewCatchUpRevisions,
   applyCatchUpRevisions,
-  type ChainStep,
   type CatchUpResult,
 } from "@/actions/rent-revision";
 

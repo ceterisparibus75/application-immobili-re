@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { sendSignupCodeEmail } from "@/lib/email";
-import type { ActionResult } from "@/actions/society";
 
 const registerSchema = z.object({
   email: z.string().email("Adresse email invalide"),

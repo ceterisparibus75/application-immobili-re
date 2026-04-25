@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW, CORAL, GREEN, CHART_COLORS } from "../constants";
-import { initPdf, drawCoverPage, pdfCur, contentStartY, minY } from "../pdf-core";
+import { initPdf, drawCoverPage, contentStartY, minY } from "../pdf-core";
 import {
   drawSectionHeader,
   drawTableHeader,

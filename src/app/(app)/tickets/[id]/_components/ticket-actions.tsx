@@ -18,7 +18,6 @@ export function TicketActions({
   ticketId,
   societyId,
   currentStatus,
-  currentPriority,
 }: {
   ticketId: string;
   societyId: string;

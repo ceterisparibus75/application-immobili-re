@@ -304,6 +304,52 @@ describe("generateSuiviMensuel", () => {
     );
   });
 
+  it("taux recouvrement 80-95% → couleur null, et pay.amount null → 0 (lignes 68, 113)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble X" },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        issueDate: new Date("2026-01-10T00:00:00.000Z"),
+        totalTTC: 4550,
+        status: "PAYE",
+        payments: [],
+        lease: { lot: { buildingId: "building-1" } },
+      },
+      {
+        issueDate: new Date("2026-01-20T00:00:00.000Z"),
+        totalTTC: 1000,
+        status: "EN_ATTENTE",
+        payments: [{ amount: null }],
+        lease: { lot: { buildingId: "building-1" } },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const result = await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+      year: 2026,
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    // monthlyRec[0] = 4550/5550 ≈ 82% → 80 <= 82 < 95 → null
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      4,
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Taux recouvrement"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({
+        rowIndex: 3,
+        cellColors: expect.arrayContaining([null]),
+      }),
+      841.89
+    );
+  });
+
   it("taux recouvrement >= 95% → couleur GREEN (lignes 111-113)", async () => {
     prismaMock.building.findMany.mockResolvedValue([
       { id: "building-1", name: "Immeuble Vert" },

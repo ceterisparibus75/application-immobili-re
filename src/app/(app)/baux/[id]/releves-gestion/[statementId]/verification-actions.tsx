@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
-  AlertTriangle,
   Loader2,
   Search,
   ShieldCheck,
@@ -31,9 +30,7 @@ interface VerificationActionsProps {
 export function VerificationActions({
   societyId,
   statementId,
-  leaseId,
   status,
-  verificationStatus,
 }: VerificationActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);

@@ -86,11 +86,6 @@ function defaultLines(): FormLine[] {
   ];
 }
 
-const FEE_TYPE_LABELS: Record<string, string> = {
-  POURCENTAGE: "Pourcentage",
-  FORFAIT: "Forfait",
-};
-
 const FEE_BASIS_LABELS: Record<string, string> = {
   LOYER_HT: "Loyer HT",
   LOYER_CHARGES_HT: "Loyer + charges HT",

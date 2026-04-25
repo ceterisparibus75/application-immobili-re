@@ -37,6 +37,7 @@ npm run test:coverage      # Avec rapport de couverture
 
 # Tests E2E (Playwright)
 npm run test:e2e           # Lancer les tests E2E (build + start automatiques)
+npm run test:e2e:a11y      # Audit accessibilité Axe des pages publiques + shell protégé
 npm run test:e2e:ui        # Mode UI Playwright
 # Tests dans e2e/, uniquement Chromium, base URL http://localhost:3000
 # ⚠️ Couverture E2E minimale : seulement auth.spec.ts + navigation.spec.ts — ne pas s'y fier pour la non-régression
@@ -46,6 +47,7 @@ npm run db:generate        # Régénérer le client Prisma après modif du sché
 npm run db:push            # Appliquer le schéma sans migration (dev)
 npm run db:migrate         # Créer et appliquer une migration
 npm run db:seed            # Seeder la base (tsx prisma/seed.ts)
+npm run db:seed:staging    # Seeder une base demo/staging réaliste (alias explicite)
 npm run db:studio          # Ouvrir Prisma Studio
 ```
 

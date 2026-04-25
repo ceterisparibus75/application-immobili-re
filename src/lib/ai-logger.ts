@@ -29,5 +29,5 @@ export function logAiCall(metrics: AiCallMetrics): void {
     success: metrics.success,
     ...(metrics.error !== undefined && { error: metrics.error }),
   };
-  console.log(JSON.stringify(entry));
+  process.stdout.write(`${JSON.stringify(entry)}\n`);
 }

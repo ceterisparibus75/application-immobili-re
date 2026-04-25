@@ -558,12 +558,12 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 |----------|--------|----------------------|
 | P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Réduire les frictions sur petit écran, particulièrement pour les actions rapides terrain. |
-| P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | En cours : hubs et actions principales ajoutés avec filtrage par mots-clés naturels ; la recherche réelle couvre aussi comptes bancaires, charges, factures fournisseurs, tickets et rapports planifiés. |
-| P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | En cours : `Location` et `Finances` proposent désormais des prochaines actions contextualisées. |
-| P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | En cours : `Baux`, `Banque`, `Documents`, `Tickets`, `Locataires`, `Candidatures`, `Workflows`, `Sociétés`, `Immeubles`, `Contacts`, `Emprunts`, `Lots`, `Charges` et `Factures fournisseurs` guident maintenant vers des parcours existants. |
-| P2 | Traiter les 183 avertissements lint restants par lots. | Améliorer la maintenabilité et réduire le bruit CI. |
-| P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Sécuriser les usages clavier/lecteur d'écran avant commercialisation large. |
-| P2 | Ajouter une base de staging seedée réaliste pour les démonstrations commerciales. | Tester les vrais flux avec des données proches production. |
+| P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | Terminé : hubs, actions principales, filtres par mots-clés naturels et recherche réelle sur comptes bancaires, charges, factures fournisseurs, tickets et rapports planifiés. |
+| P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | Terminé : les hubs `Location` et `Finances` proposent des prochaines actions contextualisées et rendent les parcours majeurs plus directs. |
+| P1 | Étendre les états vides métier guidés au-delà de la facturation : “Créer un bail”, “Importer un bail PDF”, “Ajouter un compte bancaire”. | Terminé : `Baux`, `Banque`, `Documents`, `Tickets`, `Locataires`, `Candidatures`, `Workflows`, `Sociétés`, `Immeubles`, `Contacts`, `Emprunts`, `Lots`, `Charges` et `Factures fournisseurs` guident vers des parcours existants. |
+| P2 | Traiter les 183 avertissements lint restants par lots. | Terminé : `npm run lint` passe sans erreur ni avertissement ; les scripts/tests conservent uniquement des overrides ciblés. |
+| P2 | Ajouter un test d'accessibilité automatisé sur les pages publiques et le shell app. | Terminé : `npm run test:e2e:a11y` lance Axe sur les pages publiques clés et vérifie la redirection du shell protégé. |
+| P2 | Ajouter une base de staging seedée réaliste pour les démonstrations commerciales. | Terminé : `npm run db:seed:staging` expose explicitement le seed réaliste existant (société, immeuble, lot, locataire, bail, factures, banque, charges, documents, emprunt, ticket). |
 
 ### 9.6 Verdict ajusté
 

@@ -23,7 +23,6 @@ import {
   Download,
   Loader2,
   Pencil,
-  Eye,
   EyeOff,
   AlertTriangle,
   Sparkles,
@@ -151,7 +150,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
   const [invoiceDate, setInvoiceDate] = useState(toDateInput(invoice.invoiceDate));
   const [dueDate, setDueDate] = useState(toDateInput(invoice.dueDate));
   const [amountHT, setAmountHT] = useState(invoice.amountHT?.toString() ?? "");
-  const [amountVAT, setAmountVAT] = useState(invoice.amountVAT?.toString() ?? "");
+  const [amountVAT] = useState(invoice.amountVAT?.toString() ?? "");
   const [amountTTC, setAmountTTC] = useState(invoice.amountTTC?.toString() ?? "");
   const [vatRate, setVatRate] = useState(invoice.vatRate?.toString() ?? "");
   const [description, setDescription] = useState(invoice.description ?? "");

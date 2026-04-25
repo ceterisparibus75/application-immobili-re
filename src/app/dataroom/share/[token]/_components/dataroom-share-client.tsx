@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,14 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
         {/* En-tête */}
         <div className="text-center mb-8">
           {meta.society.logoUrl && (
-            <img src={meta.society.logoUrl} alt="" className="h-12 mx-auto mb-4 object-contain" />
+            <Image
+              src={meta.society.logoUrl}
+              alt=""
+              width={160}
+              height={48}
+              unoptimized
+              className="h-12 w-auto mx-auto mb-4 object-contain"
+            />
           )}
           <h1 className="text-2xl font-bold tracking-tight">{meta.name}</h1>
           <p className="text-muted-foreground text-sm mt-1">{meta.society.name}</p>

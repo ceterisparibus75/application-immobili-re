@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useCallback, useState } from "react";
+import { createContext, useContext, useEffect, useCallback, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Plus, FileText, Building2, Users, Receipt, CreditCard,
@@ -59,7 +59,7 @@ function CommandPalette({
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const inputRef = { current: null as HTMLInputElement | null };
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Filtrer les raccourcis visibles et correspondant à la recherche
   const visible = shortcuts

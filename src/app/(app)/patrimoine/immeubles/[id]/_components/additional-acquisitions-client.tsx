@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronUp } from "lucide-react";
 import { createAdditionalAcquisition, deleteAdditionalAcquisition } from "@/actions/building";
 import { toast } from "sonner";
 

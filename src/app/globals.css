@@ -9,12 +9,12 @@
   /* --- Brand MyGestia 2.4 — Bleu Profond → Cyan --- */
   --color-brand-deep: #0C2340;
   --color-brand-blue: #1B4F8A;
-  --color-brand-cyan: #22B8CF;
+  --color-brand-cyan: #0E7490;
   --color-brand-light: #E0F7FA;
 
   /* --- Status colors (muted / institutional) --- */
-  --color-status-positive: #4A7C6F;
-  --color-status-caution: #9B7A3C;
+  --color-status-positive: #37685C;
+  --color-status-caution: #7C5D1F;
   --color-status-negative: #A04040;
   --color-status-positive-bg: #EDF5F2;
   --color-status-caution-bg: #F5F0E5;

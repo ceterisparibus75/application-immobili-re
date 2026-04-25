@@ -9,7 +9,6 @@ import {
   assignUserToSociety,
   createUser,
   removeUserFromSociety,
-  deleteUser,
 } from "@/actions/user";
 import { toast } from "sonner";
 import { Loader2, Pencil, UserMinus, Check, X, ShieldCheck } from "lucide-react";

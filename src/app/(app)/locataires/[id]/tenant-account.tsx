@@ -39,7 +39,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Download,
-  FileText,
   Plus,
   Receipt,
   Wallet,

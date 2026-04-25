@@ -227,4 +227,46 @@ describe("generateSituationLocative", () => {
     expect(result.contentType).toBe("application/pdf");
     expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
   });
+
+  it("couvre MENSUEL (ligne 27), area nulle (ligne 137) et les moyennes vides (lignes 151, 158, 160)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [
+          {
+            number: "A1",
+            lotType: "BUREAUX",
+            floor: null,
+            area: null,
+            marketRentValue: null,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "MENSUEL",
+              currentRentHT: 1000,
+              baseRentHT: 1000,
+              tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
+              chargeProvisions: [],
+            }],
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await generateSituationLocative({
+      societyId: "society-1",
+      type: "SITUATION_LOCATIVE",
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["-"]),
+      expect.any(Array), expect.any(Array), expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawMoyennesRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.bold, expect.any(Number),
+      expect.arrayContaining(["-"]),
+      expect.any(Array), expect.any(Array)
+    );
+  });
 });

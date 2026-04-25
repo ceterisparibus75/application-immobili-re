@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import { bulkImportAccounts } from "@/actions/accounting";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,7 +28,6 @@ const CLASS_COLORS: Record<string, string> = {
 
 export default function ImporterPlanComptablePage() {
   const { activeSociety } = useSociety();
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +81,8 @@ export default function ImporterPlanComptablePage() {
   function toggleOne(code: string, checked: boolean) {
     setSelected(s => {
       const next = new Set(s);
-      checked ? next.add(code) : next.delete(code);
+      if (checked) next.add(code);
+      else next.delete(code);
       return next;
     });
   }
@@ -268,7 +267,11 @@ export default function ImporterPlanComptablePage() {
               </Table>
             </div>
             <div className="p-4 border-t flex justify-between items-center">
-              <Button variant="outline" onClick={() => { setAccounts([]); setSelected(new Set()); inputRef.current && (inputRef.current.value = ""); }}>
+              <Button variant="outline" onClick={() => {
+                setAccounts([]);
+                setSelected(new Set());
+                if (inputRef.current) inputRef.current.value = "";
+              }}>
                 Changer de fichier
               </Button>
               <Button onClick={handleImport} disabled={isPending || selected.size === 0}>

@@ -139,4 +139,33 @@ describe("generateRentabiliteLot", () => {
     }));
     expect(excelMocks.writeBuffer).toHaveBeenCalled();
   });
+
+  it("utilise l'année courante si year absent (ligne 7) et gère marketRentValue null (ligne 63)", async () => {
+    prismaMock.lot.findMany.mockResolvedValue([
+      {
+        building: { name: "Immeuble A" },
+        number: "A1",
+        lotType: "APPARTEMENT",
+        status: "EN_LOCATION",
+        marketRentValue: null,
+        leases: [
+          {
+            currentRentHT: 900,
+            invoices: [{ totalTTC: 1000 }],
+          },
+        ],
+      },
+    ] as never);
+
+    const currentYear = new Date().getFullYear();
+    const result = await generateRentabiliteLot({
+      societyId: "society-1",
+      type: "RENTABILITE_LOT",
+    });
+
+    expect(result.filename).toBe(`rentabilite-lots-${currentYear}.xlsx`);
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["A1", null, "EN LOCATION"])
+    );
+  });
 });

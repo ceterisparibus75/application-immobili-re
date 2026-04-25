@@ -44,7 +44,7 @@ export function ComparablesTable({
   buildingName?: string;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [radiusKm, setRadiusKm] = useState(5);
+  const [radiusKm] = useState(5);
   const [periodYears, setPeriodYears] = useState(3);
 
   function handleSearch() {

@@ -1,5 +1,4 @@
 import { getStatementById } from "@/actions/third-party-statement";
-import { getLeaseById } from "@/actions/lease";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +31,6 @@ import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { VerificationActions } from "./verification-actions";
-import type { TenantEntityType } from "@/generated/prisma/client";
 
 export const metadata = { title: "Detail decompte de gestion" };
 

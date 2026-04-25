@@ -15,11 +15,6 @@ export function ConfidenceGauge({ value }: { value: number }) {
     percentage >= 50 ? "bg-[var(--color-status-caution-bg)]" :
     "bg-[var(--color-status-negative-bg)]";
 
-  const label =
-    percentage >= 75 ? "Élevé" :
-    percentage >= 50 ? "Modéré" :
-    "Faible";
-
   return (
     <div className={`flex items-center gap-3 rounded-lg p-3 ${bgColor}`}>
       <div className="relative h-10 w-10">

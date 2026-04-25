@@ -25,15 +25,15 @@ export function CaseStudies() {
               <h3 className="text-base font-bold text-[var(--color-brand-deep)] mb-4 leading-snug">{cs.title}</h3>
               <div className="space-y-3 flex-1">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Enjeu</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Enjeu</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">{cs.challenge}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Solution</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Solution</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">{cs.solution}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8] mb-1">Résultat</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Résultat</p>
                   <p className="text-sm font-medium text-[var(--color-brand-deep)] leading-relaxed">{cs.result}</p>
                 </div>
               </div>

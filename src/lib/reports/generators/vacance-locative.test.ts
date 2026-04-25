@@ -165,4 +165,62 @@ describe("generateVacanceLocative", () => {
     expect(result.contentType).toBe("application/pdf");
     expect(pdfCtx.np).toHaveBeenCalledTimes(5); // initial + line 94 + line 105 + lines 114-116 + line 143
   });
+
+  it("filtre par buildingId (ligne 18), gère l'area nulle (lignes 47-48, 124) et un immeuble sans lots (ligne 60)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [
+          { area: null, leases: [{ id: "lease-1" }] },
+          { area: null, leases: [] },
+        ],
+      },
+      {
+        id: "building-2",
+        name: "Immeuble B",
+        lots: [],
+      },
+    ] as never);
+
+    const result = await generateVacanceLocative({
+      societyId: "society-1",
+      type: "VACANCE_LOCATIVE",
+      buildingId: "building-1",
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.bold, expect.any(Number),
+      ["TOTAL", "2", "1", "1", "50.0%", "-", "-"],
+      expect.any(Array), expect.any(Array)
+    );
+  });
+
+  it("affiche GREEN pour surface vacante nulle (ligne 79 — vacSurface = 0)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [
+          { area: 50, leases: [{ id: "lease-1" }] },
+          { area: 30, leases: [{ id: "lease-2" }] },
+        ],
+      },
+    ] as never);
+
+    const result = await generateVacanceLocative({
+      societyId: "society-1",
+      type: "VACANCE_LOCATIVE",
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.bold, pdfCtx.reg, expect.any(Number),
+      "Surface vacante", "0 m2", expect.anything()
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.bold, expect.any(Number),
+      ["TOTAL", "2", "2", "0", "0.0%", "80 m2", "-"],
+      expect.any(Array), expect.any(Array)
+    );
+  });
 });

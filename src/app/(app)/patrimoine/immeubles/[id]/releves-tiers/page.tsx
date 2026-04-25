@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { StatementStatus, StatementType } from "@/generated/prisma/client";
+import type { StatementStatus } from "@/generated/prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   APPEL_FONDS: "Appel de fonds",

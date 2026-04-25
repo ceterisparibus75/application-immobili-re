@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2, Upload, X, ExternalLink } from "lucide-react";
+import { FileText, Loader2, Upload, ExternalLink } from "lucide-react";
 
 interface LeasePdfUploadProps {
   leaseId: string;

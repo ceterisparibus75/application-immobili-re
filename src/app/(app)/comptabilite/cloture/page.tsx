@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useSociety } from "@/providers/society-provider";
 import { getFiscalYears, createFiscalYear, closeFiscalYear } from "@/actions/accounting";
 import type { FiscalYearRow } from "@/actions/accounting";
@@ -17,17 +17,18 @@ import { toast } from "sonner";
 
 export default function CloturePage() {
   const { activeSociety } = useSociety();
+  const societyId = activeSociety?.id;
   const [isPending, startTransition] = useTransition();
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [newYear, setNewYear] = useState({ year: new Date().getFullYear(), startDate: "", endDate: "" });
 
-  function reload() {
-    if (!activeSociety?.id) return;
-    getFiscalYears(activeSociety.id).then(r => { if (r.success && r.data) setFiscalYears(r.data); });
-  }
+  const reload = useCallback(() => {
+    if (!societyId) return;
+    getFiscalYears(societyId).then(r => { if (r.success && r.data) setFiscalYears(r.data); });
+  }, [societyId]);
 
-  useEffect(() => { reload(); }, [activeSociety?.id]);
+  useEffect(() => { reload(); }, [reload]);
 
   function handleCreate() {
     if (!activeSociety?.id) return;

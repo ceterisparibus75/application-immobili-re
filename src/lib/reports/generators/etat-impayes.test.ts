@@ -340,6 +340,42 @@ describe("generateEtatImpayes", () => {
     );
   });
 
+  it("xlsx — affiche '-' pour PERSONNE_MORALE sans companyName et PERSONNE_PHYSIQUE sans nom (lignes 63-66)", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble A" } } },
+        invoiceNumber: "INV-X1",
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        totalTTC: 500,
+        status: "VALIDE",
+      },
+      {
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
+        lease: { lot: { number: "B1", building: { name: "Immeuble B" } } },
+        invoiceNumber: "INV-X2",
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        totalTTC: 300,
+        status: "VALIDE",
+      },
+    ] as never);
+
+    const result = await generateEtatImpayes({
+      societyId: "society-1",
+      type: "ETAT_IMPAYES",
+      format: "xlsx",
+    });
+
+    expect(result.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["INV-X1", "-"])
+    );
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["INV-X2", "-"])
+    );
+  });
+
   it("colore en rouge les retards > 30 jours dans le xlsx (ligne 72)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([

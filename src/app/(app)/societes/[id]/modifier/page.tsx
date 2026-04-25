@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { getSocietyById, updateSociety } from "@/actions/society";
 import { Button } from "@/components/ui/button";
@@ -324,7 +325,14 @@ export default function ModifierSocietePage() {
             <div className="space-y-2">
               <Label>Logo (affiché sur les factures)</Label>
               {form.logoUrl && (
-                <img src={getLogoProxyUrl(form.logoUrl) ?? ""} alt="Logo société" className="h-16 object-contain border rounded p-2 bg-white" />
+                <Image
+                  src={getLogoProxyUrl(form.logoUrl) ?? ""}
+                  alt="Logo société"
+                  width={160}
+                  height={64}
+                  unoptimized
+                  className="h-16 w-auto object-contain border rounded p-2 bg-white"
+                />
               )}
               <label className="flex items-center gap-2 cursor-pointer w-fit">
                 <span className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors">

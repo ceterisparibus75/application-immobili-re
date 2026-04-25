@@ -91,7 +91,6 @@ export default function NouveauComptePage() {
     );
     setIsConnecting(false);
     if (result.success && result.data) {
-      console.log('[Powens] URL webview:', result.data.authLink);
       window.location.href = result.data.authLink;
     } else {
       toast.error(result.error ?? "Erreur lors de la connexion");

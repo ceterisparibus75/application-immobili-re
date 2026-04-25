@@ -47,12 +47,6 @@ const COUPON_FREQ_LABELS: Record<string, string> = {
   ANNUEL: "Annuel",
 };
 
-const MOVEMENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  APPORT: { label: "Apport", color: "text-[var(--color-status-positive)]" },
-  RETRAIT: { label: "Retrait", color: "text-destructive" },
-  INTERETS: { label: "Intérêts", color: "text-blue-600 dark:text-blue-400" },
-};
-
 export default async function EmpruntDetailPage({
   params,
 }: {
