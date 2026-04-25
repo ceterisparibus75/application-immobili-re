@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { formatCurrency, formatDate, formatDateTime, getLogoProxyUrl, cn } from "@/lib/utils"
+import { formatCurrency, formatDate, formatDateTime, getLogoProxyUrl, buildLenderMapping, cn } from "@/lib/utils"
 
 describe("formatCurrency", () => {
   it("formate un montant en euros fr-FR", () => {
@@ -32,6 +32,41 @@ describe("getLogoProxyUrl", () => {
   it("retourne null si undefined", () => { expect(getLogoProxyUrl(undefined)).toBeNull() })
   it("proxifie un chemin relatif", () => {
     expect(getLogoProxyUrl("/uploads/logo.png")).toBe("/api/storage/view?path=%2Fuploads%2Flogo.png")
+  })
+  it("proxifie une URL Supabase signée (upload/sign)", () => {
+    const url = "https://xxx.supabase.co/storage/v1/object/upload/sign/documents/societies/logo.png?token=abc"
+    expect(getLogoProxyUrl(url)).toBe("/api/storage/view?path=societies%2Flogo.png")
+  })
+  it("proxifie une URL Supabase publique", () => {
+    const url = "https://xxx.supabase.co/storage/v1/object/public/documents/logos/test.jpg"
+    expect(getLogoProxyUrl(url)).toBe("/api/storage/view?path=logos%2Ftest.jpg")
+  })
+  it("retourne l'URL telle quelle si non Supabase", () => {
+    const url = "https://external.cdn.com/logo.png"
+    expect(getLogoProxyUrl(url)).toBe(url)
+  })
+})
+
+describe("buildLenderMapping", () => {
+  it("mappe une liste vide sur une map vide", () => {
+    expect(buildLenderMapping([])).toEqual(new Map())
+  })
+
+  it("regroupe des noms identiques", () => {
+    const mapping = buildLenderMapping(["LCL", "LCL"])
+    expect(mapping.get("LCL")).toBe("LCL")
+  })
+
+  it("regroupe des noms qui partagent des tokens", () => {
+    const mapping = buildLenderMapping(["LCL - Crédit Lyonnais", "LCL"])
+    expect(mapping.get("LCL")).toBe("LCL - Crédit Lyonnais")
+    expect(mapping.get("LCL - Crédit Lyonnais")).toBe("LCL - Crédit Lyonnais")
+  })
+
+  it("garde des noms distincts séparés", () => {
+    const mapping = buildLenderMapping(["Société Générale", "BNP Paribas"])
+    expect(mapping.get("Société Générale")).toBe("Société Générale")
+    expect(mapping.get("BNP Paribas")).toBe("BNP Paribas")
   })
 })
 

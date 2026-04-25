@@ -123,6 +123,12 @@ describe("report schedule actions", () => {
   });
 
   describe("updateReportSchedule", () => {
+    it("retourne une erreur si non authentifié", async () => {
+      mockUnauthenticated();
+      const result = await updateReportSchedule("society-1", { id: "cm8m6m6m6000008l2a1bcdefg" });
+      expect(result).toEqual({ success: false, error: "Non authentifié" });
+    });
+
     it("recalcule nextRunAt si la fréquence change", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
 
@@ -146,6 +152,12 @@ describe("report schedule actions", () => {
   });
 
   describe("deleteReportSchedule", () => {
+    it("retourne une erreur si non authentifié", async () => {
+      mockUnauthenticated();
+      const result = await deleteReportSchedule("society-1", "schedule-1");
+      expect(result).toEqual({ success: false, error: "Non authentifié" });
+    });
+
     it("supprime une planification et écrit l'audit", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
 
