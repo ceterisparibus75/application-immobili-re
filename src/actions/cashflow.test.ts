@@ -206,6 +206,38 @@ describe("aiSuggestCategories", () => {
     expect(r.success).toBe(false);
     expect(r.error).toContain("Aucune transaction");
   });
+
+  it("résout localement via auto-tag quand le libellé correspond", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    // transactions à catégoriser — label court pour éviter la suppression des "long refs"
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "EDF GAZ", amount: -80, reference: null }] as never)
+      // transactions déjà catégorisées (pour l'historique)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([
+      { normalizedLabel: "edf gaz", category: "energie" },
+    ] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("energie");
+    expect(r.data?.[0].confidence).toBe(0.95);
+  });
+
+  it("retourne le fallback divers si aucune correspondance et pas de clé Anthropic", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "INCONNU XYZ", amount: -50, reference: null }] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+    // ANTHROPIC_API_KEY n'est pas défini dans l'environnement de test
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    // Fallback : catégorie "divers_depense" pour un débit
+    expect(r.data?.[0].suggestedCategory).toBe("divers_depense");
+    expect(r.data?.[0].confidence).toBe(0.1);
+  });
 });
 
 // ─── getCashflowDashboard ─────────────────────────────────────────────────────
@@ -221,5 +253,54 @@ describe("getCashflowDashboard", () => {
     mockAuthSession(UserRole.LECTURE);
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(false);
+  });
+
+  it("retourne le tableau de bord cashflow avec des données vides", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([] as never);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.totalBankBalance).toBe(5000);
+    expect(r.data?.uncategorizedCount).toBe(0);
+    expect(r.data?.months).toBeDefined();
+  });
+
+  it("comptabilise les transactions catégorisées et non catégorisées", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        id: TX_ID_1,
+        transactionDate: new Date(),
+        amount: -150,
+        label: "EDF",
+        category: "energie",
+        bankAccount: { accountName: "Compte" },
+      },
+      {
+        id: TX_ID_2,
+        transactionDate: new Date(),
+        amount: 800,
+        label: "Virement loyer",
+        category: null, // non catégorisé
+        bankAccount: { accountName: "Compte" },
+      },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      { currentRentHT: 800, vatApplicable: false, vatRate: 0 },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 10000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.uncategorizedCount).toBe(1);
+    expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
+    expect(r.data?.totalActualIncome).toBeGreaterThan(0);
   });
 });
