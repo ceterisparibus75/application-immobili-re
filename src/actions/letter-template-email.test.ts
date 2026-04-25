@@ -262,6 +262,72 @@ describe("letter-template-email actions", () => {
     expect(result).toEqual({ success: false, error: "Non authentifié" });
   });
 
+  it("retourne une erreur si rôle insuffisant pour sendLetterByEmail", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      tenantId: TENANT_ID,
+      values: {
+        BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris",
+        LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 avenue Foch",
+        DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test",
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si generateLetterPdf lève une exception dans sendLetterByEmail", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      email: "alice@example.com",
+      firstName: "Alice",
+      lastName: "Durand",
+    } as never);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Société", siret: null } as never);
+    generateLetterPdf.mockRejectedValue(new Error("PDF generation failed"));
+
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      tenantId: TENANT_ID,
+      values: {
+        BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris",
+        LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 avenue Foch",
+        DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test",
+      },
+    });
+
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'envoi du courrier" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour sendLetterToBuilding", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      buildingId: BUILDING_ID,
+      commonValues: { BAILLEUR_NOM: "SCI", DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test" },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans sendLetterToBuilding", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"));
+
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      buildingId: BUILDING_ID,
+      commonValues: {},
+    });
+
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'envoi groupé" });
+  });
+
   it("retourne erreur modèle introuvable si templateId n'existe pas dans les builtins ni en BDD", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.tenant.findFirst.mockResolvedValue({
