@@ -10,6 +10,7 @@ import {
   updateCharge,
   deleteCharge,
   getCharges,
+  getChargesPaginated,
   getChargeById,
   getSocietyChargeCategories,
   createSocietyChargeCategory,
@@ -17,6 +18,8 @@ import {
   deleteSocietyChargeCategory,
   getChargeRegularizations,
   finalizeChargeReport,
+  generateAnnualChargeReport,
+  autoRegularizeCharges,
 } from "@/actions/charge"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
@@ -721,5 +724,156 @@ describe("finalizeChargeReport", () => {
     expect(prismaMock.chargeRegularization.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ isFinalized: true }) })
     )
+  })
+})
+
+// ─── getChargesPaginated ──────────────────────────────────────────────────────
+
+describe("getChargesPaginated", () => {
+  it("retourne { data: [], total: 0 } si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getChargesPaginated(SOCIETY_ID)
+    expect(r.data).toEqual([])
+    expect(r.total).toBe(0)
+  })
+
+  it("retourne les charges paginées", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([{ id: VALID_CUID }] as never)
+    prismaMock.charge.count.mockResolvedValue(1 as never)
+
+    const r = await getChargesPaginated(SOCIETY_ID, { page: 1, pageSize: 10 })
+    expect(r.data).toHaveLength(1)
+    expect(r.total).toBe(1)
+  })
+
+  it("applique le filtre de recherche", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+
+    await getChargesPaginated(SOCIETY_ID, { search: "plomberie" })
+
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ OR: expect.any(Array) }) })
+    )
+  })
+})
+
+// ─── generateAnnualChargeReport ───────────────────────────────────────────────
+
+const BUILDING_ID = "clh3x2z4k0002qh8g7z1y2v3v"
+const LEASE_ID = "clh3x2z4k0003qh8g7z1y2v3w"
+
+function makeCharge() {
+  return {
+    id: VALID_CUID,
+    societyId: SOCIETY_ID,
+    buildingId: BUILDING_ID,
+    categoryId: "cat-1",
+    amount: 1200,
+    date: new Date("2024-06-01"),
+    category: {
+      id: "cat-1",
+      name: "Entretien",
+      nature: "RECUPERABLE",
+      recoverableRate: 100,
+      allocationMethod: "TANTIEME",
+    },
+  }
+}
+
+function makeLot() {
+  return {
+    id: VALID_CUID_2,
+    area: 50,
+    commonShares: 100,
+    number: "A101",
+  }
+}
+
+function makeLease() {
+  return {
+    id: LEASE_ID,
+    startDate: new Date("2024-01-01"),
+    endDate: null,
+    lot: { ...makeLot(), building: { id: BUILDING_ID } },
+    tenant: { firstName: "Jean", lastName: "Dupont", companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+    chargeProvisions: [],
+  }
+}
+
+describe("generateAnnualChargeReport", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur si aucune charge trouvée", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/Aucune charge/)
+  })
+
+  it("retourne une erreur si aucun bail actif", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([] as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/Aucun bail/)
+  })
+
+  it("génère les régularisations annuelles avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+    expect(r.data?.created).toBe(1)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ─── autoRegularizeCharges ────────────────────────────────────────────────────
+
+describe("autoRegularizeCharges", () => {
+  const validInput = {
+    buildingId: BUILDING_ID,
+    fiscalYear: 2024,
+    periodStart: "2024-01-01",
+    periodEnd: "2024-12-31",
+  }
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(false)
+  })
+
+  it("régularise les charges avec succès", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        chargeProvisions: [{ monthlyAmount: 100, startDate: new Date("2024-01-01"), endDate: null }],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(true)
+    expect(r.data?.regularizations).toBe(1)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
   })
 })
