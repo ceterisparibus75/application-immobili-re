@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest"
+import { beforeEach, describe, it, expect, vi } from "vitest"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import { prismaMock } from "@/test/mocks/prisma"
 import { UserRole } from "@/generated/prisma/client"
@@ -722,6 +722,34 @@ describe("importBankStatement", () => {
     expect(r.success).toBe(true)
     expect(r.data?.duplicates).toBe(1)
     expect(r.data?.imported).toBe(0)
+  })
+
+  it("déduplique par tolérance ±1 jour (niveau 3)", async () => {
+    // Existing tx on Jan 14 → loose fingerprints cover Jan 13, 14, 15
+    // Imported tx on Jan 15 with same amount + label → level 3 duplicate
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2025-01-14"),
+        amount: -500,
+        label: "Virement loyer",
+        externalId: null,
+      },
+    ] as never)
+
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.duplicates).toBe(1)
+    expect(r.data?.imported).toBe(0)
+  })
+
+  it("accepte les dates au format français (dd/MM/yyyy)", async () => {
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "15/01/2025", amount: -500, label: "Virement loyer" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(1)
   })
 
   it("retourne une erreur si rôle insuffisant pour importBankStatement", async () => {

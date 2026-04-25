@@ -302,6 +302,38 @@ describe("getGrandLivre", () => {
     expect(rows[1].solde).toBe(600);
   });
 
+  it("filtre par dateTo seul (sans dateFrom)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
+    const result = await getGrandLivre(SOCIETY_ID, { dateTo: "2025-12-31" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({
+            entryDate: expect.objectContaining({ lte: expect.any(Date) }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it("filtre par dateTo et dateFrom combinés", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
+    const result = await getGrandLivre(SOCIETY_ID, { dateTo: "2025-12-31", dateFrom: "2025-01-01" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({
+            entryDate: expect.objectContaining({ gte: expect.any(Date), lte: expect.any(Date) }),
+          }),
+        }),
+      })
+    );
+  });
+
   it("retourne une erreur générique si la BDD échoue dans getGrandLivre", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
@@ -544,6 +576,30 @@ describe("bulkImportJournalEntries", () => {
       },
     ]);
     expect(result).toEqual({ success: false, error: "Erreur lors de l'import" });
+  });
+
+  it("saute une écriture déjà existante en BDD (doublon)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture loyer",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
+      },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
   });
 
   it("normalise un type de journal inconnu en OD", async () => {
