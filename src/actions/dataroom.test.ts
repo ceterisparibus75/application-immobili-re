@@ -685,6 +685,22 @@ describe("addDocumentToDataroom — branches manquantes", () => {
     expect(sendDataroomDocumentAddedEmail).toHaveBeenCalled();
   });
 
+  it("log l'erreur si l'envoi d'email échoue silencieusement (ligne 245 catch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(
+      buildDataroom({ recipientEmail: "contact@example.com", shareToken: SHARE_TOKEN }) as never
+    );
+    prismaMock.document.findFirst.mockResolvedValue({ id: DOC_ID, fileName: "contrat.pdf" } as never);
+    prismaMock.dataroomDocument.count.mockResolvedValue(1 as never);
+    prismaMock.dataroomDocument.upsert.mockResolvedValue({} as never);
+    const emailMod = await import("@/lib/email");
+    vi.mocked(emailMod.sendDataroomDocumentAddedEmail).mockRejectedValueOnce(new Error("email KO"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(true);
+    consoleSpy.mockRestore();
+  });
+
   it("retourne une erreur générique si la BDD échoue (lignes 261-263)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB error"));

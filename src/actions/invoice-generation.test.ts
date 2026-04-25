@@ -127,7 +127,8 @@ describe("createInvoice", () => {
   });
 
   it("retourne une erreur si checkSubscriptionActive échoue (ligne 43)", async () => {
-    prismaMock.subscription.findUnique.mockResolvedValueOnce(null as never);
+    const { checkSubscriptionActive } = await import("@/lib/plan-limits");
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement inactif" } as never);
     const result = await createInvoice(SOCIETY_ID, {
       tenantId: TENANT_ID,
       dueDate: "2025-01-31",
@@ -135,6 +136,7 @@ describe("createInvoice", () => {
       lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
     });
     expect(result.success).toBe(false);
+    expect(result.error).toBe("Abonnement inactif");
   });
 
   it("retourne une erreur si rôle insuffisant pour createInvoice (ligne 101)", async () => {
@@ -416,6 +418,30 @@ describe("generateInvoiceFromLease", () => {
       isThirdPartyManaged: true, managementFeeType: "POURCENTAGE",
       managementFeeValue: 8, managementFeeBasis: "LOYER_CC", managementFeeVatRate: 20,
       rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.invoice.update).toHaveBeenCalled();
+  });
+
+  it("calcule chargeProvisions avec fréquence non-mensuelle pour gestion tiers (lignes 367-368)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID, startDate: new Date("2024-01-01"),
+      paymentFrequency: "TRIMESTRIEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: true, managementFeeType: "POURCENTAGE",
+      managementFeeValue: 8, managementFeeBasis: "LOYER_CC", managementFeeVatRate: 20,
+      rentSteps: [],
+      chargeProvisions: [{ monthlyAmount: 50, vatRate: 20, label: "Charges" }],
       lot: { number: "12", building: { name: "Résidence Les Pins" } },
     } as never);
     prismaMock.invoice.findFirst.mockResolvedValue(null);
