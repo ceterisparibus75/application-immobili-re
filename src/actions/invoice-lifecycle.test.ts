@@ -288,6 +288,25 @@ describe("cancelInvoice", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "ANNULEE" }) })
     );
   });
+
+  it("annule une facture ENVOYEE et crée un avoir", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(
+      makeInvoice({ status: "ENVOYEE", creditNotes: [], lines: [
+        { label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 },
+      ] }) as never
+    );
+    prismaMock.$transaction.mockResolvedValue({ id: "avoir-id" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.creditNoteId).toBe("avoir-id");
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(prismaMock.invoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "ANNULEE" }) })
+    );
+  });
 });
 
 // ── markAsLitigious ────────────────────────────────────────────
@@ -379,5 +398,21 @@ describe("generateAndSendQuittance", () => {
     const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
     expect(result.success).toBe(true);
     expect(result.data?.quittanceId).toBe("quittance-existante");
+  });
+
+  it("génère une nouvelle quittance avec succès", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0002qh8g7z1y2v3t";
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice() as never)
+      .mockResolvedValueOnce(null as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+    expect(result.data?.quittanceId).toBe(QUITTANCE_ID);
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(prismaMock.payment.create).toHaveBeenCalledOnce();
   });
 });
