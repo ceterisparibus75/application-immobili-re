@@ -381,6 +381,13 @@ describe("createRentSteps", () => {
     const result = await createRentSteps(SOCIETY_ID, validInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de la création des paliers" });
   });
+
+  it("retourne une erreur si rôle insuffisant pour createRentSteps (min GESTIONNAIRE)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
 });
 
 // ── updateRentStep ────────────────────────────────────────────────
@@ -499,6 +506,26 @@ describe("updateRentStep", () => {
     const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", endDate: "2024-09-30", rentHT: 1500 });
     expect(result.success).toBe(false);
     expect(result.error).toContain("Chevauchement");
+  });
+
+  it("met à jour le palier sans erreur quand bail introuvable (if(lease) false branch)", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    prismaMock.leaseRentStep.update.mockResolvedValue({ id: STEP_ID } as never);
+    const result = await updateRentStep(SOCIETY_ID, validInput);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte la mise à jour quand le palier existant (oEnd truthy) ne chevauche pas", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-01-01"), endDate: null } as never);
+    // Palier C se termine avant le début du nouveau palier → pas de chevauchement
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([
+      { label: "Palier C", startDate: new Date("2024-01-01"), endDate: new Date("2024-03-31") },
+    ] as never);
+    prismaMock.leaseRentStep.update.mockResolvedValue({ id: STEP_ID } as never);
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", rentHT: 1500 });
+    expect(result.success).toBe(true);
   });
 });
 

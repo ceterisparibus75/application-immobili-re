@@ -162,12 +162,25 @@ describe("createBankAccount", () => {
     // Zod transform removes spaces and uppercases
     expect(encrypt).toHaveBeenCalledWith("FR7630006000011234567890189")
   })
+
+  it("retourne une erreur générique si la BDD échoue dans createBankAccount", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.bankAccount.create.mockRejectedValue(new Error("DB connection lost"))
+    const r = await createBankAccount(SOCIETY_ID, validInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création du compte" })
+  })
 })
 
 // ─── updateBankAccount ──────────────────────────────────────────────────────
 
 describe("updateBankAccount", () => {
   const validInput = { id: VALID_CUID, bankName: "Societe Generale" }
+
+  it("erreur si id invalide (non-CUID)", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    const r = await updateBankAccount(SOCIETY_ID, { id: "not-a-cuid", bankName: "Test" })
+    expect(r.success).toBe(false)
+  })
 
   it("erreur si non authentifie", async () => {
     mockUnauthenticated()
