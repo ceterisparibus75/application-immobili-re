@@ -337,3 +337,152 @@ describe("checkSubscriptionActive — couverture par abonnement admin croisé", 
     expect(result.daysLeft).toBeUndefined();
   });
 });
+
+describe("checkSubscriptionActive — sync Stripe silencieuse (lignes 103-120)", () => {
+  it("synchronise depuis Stripe si statut non-ACTIVE avec stripeSubscriptionId", async () => {
+    const { getStripe } = await import("@/lib/stripe");
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          status: "active",
+          items: { data: [{ price: { id: null } }] },
+          metadata: {},
+          trial_end: null,
+          cancel_at: null,
+        }),
+      },
+    } as never);
+
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "TRIALING", stripeSubscriptionId: "stripe-sub-1" })
+    );
+    prismaMock.subscription.update.mockResolvedValue(
+      makeSubscription({ status: "ACTIVE" })
+    );
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(true);
+    expect(result.status).toBe("ACTIVE");
+    expect(prismaMock.subscription.update).toHaveBeenCalled();
+  });
+});
+
+describe("checkCoveredByOwnerSubscription — branches manquantes", () => {
+  it("retourne covered=false si admins trouvés mais aucun abonnement actif (ligne 241)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "CANCELED", stripeSubscriptionId: null })
+    );
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ userId: USER_ID }] as never)
+      .mockResolvedValueOnce([{ societyId: "soc-other" }] as never);
+    prismaMock.subscription.findMany.mockResolvedValue([] as never);
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(false);
+  });
+
+  it("prend le meilleur abonnement quand plusieurs plans actifs (ligne 246)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "CANCELED", stripeSubscriptionId: null })
+    );
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ userId: USER_ID }] as never)
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }, { societyId: "soc-2" }, { societyId: "soc-3" }] as never);
+    prismaMock.subscription.findMany.mockResolvedValue([
+      { societyId: "soc-2", planId: "STARTER" },
+      { societyId: "soc-3", planId: "PRO" },
+    ] as never);
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-3", createdAt: new Date("2025-01-01") },
+      { id: SOCIETY_ID, createdAt: new Date("2025-02-01") },
+      { id: "soc-2", createdAt: new Date("2025-03-01") },
+    ] as never);
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    // PRO: maxSocieties=3, soc-3 (paying) + SOCIETY_ID + soc-2 → SOCIETY_ID est couvert
+    expect(result.active).toBe(true);
+  });
+
+  it("retourne covered=true immédiatement pour plan ENTERPRISE illimité (ligne 254)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "CANCELED", stripeSubscriptionId: null })
+    );
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ userId: USER_ID }] as never)
+      .mockResolvedValueOnce([{ societyId: "soc-enterprise" }] as never);
+    prismaMock.subscription.findMany.mockResolvedValue([
+      { societyId: "soc-enterprise", planId: "ENTERPRISE" },
+    ] as never);
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(true);
+    expect(prismaMock.society.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("checkSignatureFeature — branches getSocietyPlan non couvertes", () => {
+  it("retourne allowed=false si aucun abonnement (ligne 332)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(null);
+    const result = await checkSignatureFeature(SOCIETY_ID);
+    expect(result.allowed).toBe(false);
+  });
+
+  it("synchronise Stripe et autorise si plan ENTERPRISE après sync (lignes 336-348, 358)", async () => {
+    const { getStripe } = await import("@/lib/stripe");
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          status: "active",
+          items: { data: [{ price: { id: null } }] },
+          metadata: { planId: "ENTERPRISE" },
+          trial_end: null,
+          cancel_at: null,
+        }),
+      },
+    } as never);
+
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE", status: "TRIALING", stripeSubscriptionId: "stripe-sub-2" })
+    );
+    prismaMock.subscription.update.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE", status: "ACTIVE" })
+    );
+
+    const result = await checkSignatureFeature(SOCIETY_ID);
+    expect(result.allowed).toBe(true);
+    expect(prismaMock.subscription.update).toHaveBeenCalled();
+  });
+
+  it("retourne STARTER si Stripe sync retourne CANCELED (ligne 357)", async () => {
+    const { getStripe } = await import("@/lib/stripe");
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          status: "canceled",
+          items: { data: [] },
+          metadata: {},
+          trial_end: null,
+          cancel_at: null,
+        }),
+      },
+    } as never);
+
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE", status: "PAST_DUE", stripeSubscriptionId: "stripe-sub-3" })
+    );
+    prismaMock.subscription.update.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE", status: "CANCELED" })
+    );
+
+    const result = await checkSignatureFeature(SOCIETY_ID);
+    expect(result.allowed).toBe(false);
+  });
+
+  it("retourne allowed=false pour abonnement CANCELED sans Stripe (ligne 364)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ planId: "ENTERPRISE", status: "CANCELED", stripeSubscriptionId: null })
+    );
+    const result = await checkSignatureFeature(SOCIETY_ID);
+    expect(result.allowed).toBe(false);
+  });
+});

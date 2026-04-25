@@ -330,3 +330,132 @@ describe("createBlockedDate", () => {
     expect(r).toEqual({ success: false, error: "Erreur lors du blocage des dates" });
   });
 });
+
+// ─── Zod validation errors ────────────────────────────────────────────────────
+
+describe("createSeasonalProperty — erreurs Zod et DB (lignes 35, 54-55)", () => {
+  it("retourne une erreur Zod si le nom est vide (ligne 35)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createSeasonalProperty(SOCIETY_ID, { ...buildValidProperty(), name: "" });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 54-55)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.create.mockRejectedValue(new Error("DB error"));
+    const r = await createSeasonalProperty(SOCIETY_ID, buildValidProperty());
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+});
+
+describe("updateSeasonalProperty — erreurs Zod, ForbiddenError et DB (lignes 67, 84-86)", () => {
+  it("retourne une erreur Zod si l'id est manquant (ligne 67)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateSeasonalProperty(SOCIETY_ID, {} as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 84)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await updateSeasonalProperty(SOCIETY_ID, { id: PROP_ID, name: "Nouveau" });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 85-86)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.update.mockRejectedValue(new Error("DB error"));
+    const r = await updateSeasonalProperty(SOCIETY_ID, { id: PROP_ID, name: "Nouveau" });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+});
+
+describe("deleteSeasonalProperty — UnauthenticatedActionError et DB (lignes 110, 112-113)", () => {
+  it("retourne une erreur si non authentifié (ligne 110)", async () => {
+    mockUnauthenticated();
+    const r = await deleteSeasonalProperty(SOCIETY_ID, PROP_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Non authentifié");
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 112-113)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.seasonalProperty.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deleteSeasonalProperty(SOCIETY_ID, PROP_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+describe("createBooking — erreur Zod et DB (lignes 127, 172-173)", () => {
+  it("retourne une erreur Zod si guestName est vide (ligne 127)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createBooking(SOCIETY_ID, {
+      propertyId: PROP_ID, guestName: "", checkIn: "2026-07-01", checkOut: "2026-07-08",
+      totalPrice: 700, cleaningFee: 50, platformFee: 70, guestCount: 2,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 172-173)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalBooking.findFirst.mockResolvedValue(null);
+    prismaMock.seasonalBooking.create.mockRejectedValue(new Error("DB error"));
+    const r = await createBooking(SOCIETY_ID, {
+      propertyId: PROP_ID, guestName: "Jean", checkIn: "2026-07-01", checkOut: "2026-07-08",
+      totalPrice: 700, cleaningFee: 50, platformFee: 70, guestCount: 2,
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de la réservation" });
+  });
+});
+
+describe("createPricing — erreur Zod, ForbiddenError et DB (lignes 217, 231-233)", () => {
+  it("retourne une erreur Zod si le nom est vide (ligne 217)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createPricing(SOCIETY_ID, {
+      propertyId: PROP_ID, name: "", startDate: "2026-07-01", endDate: "2026-08-31", pricePerNight: 100,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 231)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createPricing(SOCIETY_ID, {
+      propertyId: PROP_ID, name: "Été", startDate: "2026-07-01", endDate: "2026-08-31", pricePerNight: 100,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 232-233)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalPricing.create.mockRejectedValue(new Error("DB error"));
+    const r = await createPricing(SOCIETY_ID, {
+      propertyId: PROP_ID, name: "Été", startDate: "2026-07-01", endDate: "2026-08-31", pricePerNight: 100,
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+});
+
+describe("deletePricing — UnauthenticatedActionError (ligne 249)", () => {
+  it("retourne une erreur si non authentifié (ligne 249)", async () => {
+    mockUnauthenticated();
+    const r = await deletePricing(SOCIETY_ID, PRICING_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Non authentifié");
+  });
+});
+
+describe("createBlockedDate — erreur Zod (ligne 266)", () => {
+  it("retourne une erreur Zod si propertyId est manquant (ligne 266)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await createBlockedDate(SOCIETY_ID, { startDate: "2026-12-24", endDate: "2026-12-26" } as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});

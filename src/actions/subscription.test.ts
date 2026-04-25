@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import {
   getSubscription,
@@ -225,5 +225,138 @@ describe("syncAllAdminSubscriptions", () => {
     const r = await syncAllAdminSubscriptions()
     expect(r.success).toBe(true)
     expect(r.data?.synced).toBe(1)
+  })
+})
+
+describe("getSubscription — branches syncFromStripeIfNeeded (lignes 69, 90-92, 141-142, 168-169)", () => {
+  it("retourne les données locales si Stripe échoue (lignes 90-92)", async () => {
+    const { getStripe } = await import("@/lib/stripe")
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: { retrieve: vi.fn().mockRejectedValue(new Error("Stripe down")) },
+    } as never)
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await getSubscription("society-1")
+    expect(r.success).toBe(true)
+    expect(r.data?.planId).toBe("STARTER")
+  })
+
+  it("met à jour la BDD et propage currentPeriodEnd + trialEnd (lignes 69, 141-142)", async () => {
+    const { getStripe } = await import("@/lib/stripe")
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          status: "active",
+          items: { data: [{ price: { id: "price_starter_m" }, current_period_end: 1800000000 }] },
+          customer: "cus_test",
+          cancel_at: null,
+          trial_end: 1800000000,
+        }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    } as never)
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      buildSubscription({ status: "PAST_DUE", trialEnd: null, currentPeriodEnd: null }) as never
+    )
+    prismaMock.subscription.update.mockResolvedValue(buildSubscription({ status: "ACTIVE" }) as never)
+    const r = await getSubscription("society-1")
+    expect(r.success).toBe(true)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 168-169)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.subscription.findUnique.mockRejectedValue(new Error("DB error"))
+    const r = await getSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("recuperation")
+  })
+})
+
+describe("createCheckout — succès et erreur générique (lignes 189-190, 203, 207-208)", () => {
+  it("crée un checkout avec succès (lignes 189-190, 203)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription({ trialUsed: false }) as never)
+    const r = await createCheckout("society-1", "STARTER" as never, "monthly")
+    expect(r.success).toBe(true)
+    expect(r.data?.url).toContain("checkout")
+  })
+
+  it("retourne une erreur générique si createCheckoutSession échoue (lignes 207-208)", async () => {
+    const { createCheckoutSession } = await import("@/lib/stripe")
+    vi.mocked(createCheckoutSession).mockRejectedValueOnce(new Error("Stripe error"))
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await createCheckout("society-1", "STARTER" as never, "monthly")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("checkout")
+  })
+})
+
+describe("forceSyncSubscription — ForbiddenError et erreur générique (lignes 257-259)", () => {
+  it("retourne une erreur si rôle insuffisant (ligne 257)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si Stripe échoue (lignes 258-259)", async () => {
+    const { getStripe } = await import("@/lib/stripe")
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: { retrieve: vi.fn().mockRejectedValue(new Error("Stripe error")) },
+    } as never)
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await forceSyncSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("synchronisation")
+  })
+})
+
+describe("openBillingPortal — erreur générique (lignes 289-290)", () => {
+  it("retourne une erreur si createCustomerPortalSession échoue", async () => {
+    const { createCustomerPortalSession } = await import("@/lib/stripe")
+    vi.mocked(createCustomerPortalSession).mockRejectedValueOnce(new Error("Stripe error"))
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await openBillingPortal("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("portail")
+  })
+})
+
+describe("syncAllAdminSubscriptions — branches manquantes (lignes 322, 341-342)", () => {
+  it("saute les abonnements sans stripeSubscriptionId (ligne 322)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.userSociety.findMany.mockResolvedValue([{ societyId: "society-1" }] as never)
+    prismaMock.subscription.findMany.mockResolvedValue([
+      buildSubscription({ stripeSubscriptionId: null }),
+    ] as never)
+    const r = await syncAllAdminSubscriptions()
+    expect(r.success).toBe(true)
+    expect(r.data?.synced).toBe(0)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 341-342)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.userSociety.findMany.mockRejectedValue(new Error("DB error"))
+    const r = await syncAllAdminSubscriptions()
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("synchronisation")
+  })
+})
+
+describe("cancelCurrentSubscription — erreur générique (lignes 370-371)", () => {
+  it("retourne une erreur si subscriptions.update Stripe échoue", async () => {
+    const { getStripe } = await import("@/lib/stripe")
+    vi.mocked(getStripe).mockReturnValueOnce({
+      subscriptions: { update: vi.fn().mockRejectedValue(new Error("Stripe error")) },
+    } as never)
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.subscription.findUnique.mockResolvedValue(buildSubscription() as never)
+    const r = await cancelCurrentSubscription("society-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("annulation")
   })
 })

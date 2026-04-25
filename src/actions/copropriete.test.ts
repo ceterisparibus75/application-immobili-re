@@ -578,3 +578,178 @@ describe("closeResolution — erreurs", () => {
     expect(r).toEqual({ success: false, error: "Erreur lors de la clôture" });
   });
 });
+
+// ─── Branches manquantes : Zod, ForbiddenError et erreurs génériques ──────────
+
+describe("createCopropriete — erreur générique (lignes 62-63)", () => {
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.copropriete.create.mockRejectedValue(new Error("DB error"));
+    const r = await createCopropriete(SOCIETY_ID, {
+      name: "Résidence Test", address: "1 rue Test", city: "Paris",
+      postalCode: "75001", totalTantiemes: 1000, fiscalYearStart: 1,
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+});
+
+describe("updateCopropriete — Zod, ForbiddenError et DB (lignes 75, 92-94)", () => {
+  it("retourne une erreur Zod si l'id est manquant (ligne 75)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateCopropriete(SOCIETY_ID, {} as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 92)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await updateCopropriete(SOCIETY_ID, { id: COPRO_ID, name: "Nouveau" });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 93-94)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.copropriete.update.mockRejectedValue(new Error("DB error"));
+    const r = await updateCopropriete(SOCIETY_ID, { id: COPRO_ID, name: "Nouveau" });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+});
+
+describe("deleteCopropriete — erreur générique (lignes 120-121)", () => {
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.copropriete.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deleteCopropriete(SOCIETY_ID, COPRO_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+describe("createCoproLot — Zod, ForbiddenError et DB (lignes 135, 151-153)", () => {
+  it("retourne une erreur Zod si lotNumber est vide (ligne 135)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createCoproLot(SOCIETY_ID, { coproprieteId: COPRO_ID, lotNumber: "", ownerName: "Test", tantiemes: 100 });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 151)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createCoproLot(SOCIETY_ID, { coproprieteId: COPRO_ID, lotNumber: "A01", ownerName: "Test", tantiemes: 100 });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 152-153)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproLot.create.mockRejectedValue(new Error("DB error"));
+    const r = await createCoproLot(SOCIETY_ID, { coproprieteId: COPRO_ID, lotNumber: "A01", ownerName: "Test", tantiemes: 100 });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création du lot" });
+  });
+});
+
+describe("updateCoproLot — Zod, ForbiddenError et DB (lignes 165, 182-184)", () => {
+  it("retourne une erreur Zod si l'id est manquant (ligne 165)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateCoproLot(SOCIETY_ID, {} as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 182)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await updateCoproLot(SOCIETY_ID, { id: CLOT_ID, ownerName: "Test" });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 183-184)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproLot.update.mockRejectedValue(new Error("DB error"));
+    const r = await updateCoproLot(SOCIETY_ID, { id: CLOT_ID, ownerName: "Test" });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour du lot" });
+  });
+});
+
+describe("deleteCoproLot — erreur générique (lignes 210-211)", () => {
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproLot.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deleteCoproLot(SOCIETY_ID, CLOT_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+describe("createCoproBudget — Zod et DB (lignes 225, 242-243)", () => {
+  it("retourne une erreur Zod si totalAmount est manquant (ligne 225)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await createCoproBudget(SOCIETY_ID, { coproprieteId: COPRO_ID, year: 2026, lines: [] } as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 242-243)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproBudget.create.mockRejectedValue(new Error("DB error"));
+    const r = await createCoproBudget(SOCIETY_ID, {
+      coproprieteId: COPRO_ID, year: 2026, totalAmount: 50000,
+      lines: [{ category: "charges_communes", label: "Test", amount: 50000 }],
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création du budget" });
+  });
+});
+
+describe("approveBudget — UnauthenticatedActionError (ligne 275)", () => {
+  it("retourne une erreur si non authentifié (ligne 275)", async () => {
+    mockUnauthenticated();
+    const r = await approveBudget(SOCIETY_ID, BUDGET_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Non authentifié");
+  });
+});
+
+describe("createAssembly — Zod (ligne 292)", () => {
+  it("retourne une erreur Zod si title est vide (ligne 292)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createAssembly(SOCIETY_ID, {
+      coproprieteId: COPRO_ID, title: "", date: "2026-09-15",
+      type: "ORDINAIRE" as const, isOnline: false, quorumRequired: 0.5,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});
+
+describe("updateAssembly — Zod (ligne 324)", () => {
+  it("retourne une erreur Zod si l'id est manquant (ligne 324)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateAssembly(SOCIETY_ID, {} as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});
+
+describe("createResolution — Zod (ligne 358)", () => {
+  it("retourne une erreur Zod si title est vide (ligne 358)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await createResolution(SOCIETY_ID, {
+      assemblyId: ASSEMBLY_ID, number: 1, title: "", majority: "SIMPLE" as const,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});
+
+describe("recordVote — Zod (ligne 388)", () => {
+  it("retourne une erreur Zod si resolutionId est manquant (ligne 388)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await recordVote(SOCIETY_ID, { lotId: CLOT_ID, vote: "POUR", proxy: false } as any);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});
