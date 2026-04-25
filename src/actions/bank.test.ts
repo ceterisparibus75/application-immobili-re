@@ -11,8 +11,12 @@ vi.mock("@/lib/encryption", () => ({
   encrypt: vi.fn((v: string) => `encrypted_${v}`),
   decrypt: vi.fn((v: string) => v.replace("encrypted_", "")),
 }))
+vi.mock("@/actions/cashflow", () => ({
+  applyAutoTag: vi.fn().mockResolvedValue(null),
+}))
 
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t"
+const ACCOUNT_ID = "clh3x2z4k0001qh8g7z1y2v3t"
 const SOCIETY_ID = "society-1"
 
 import {
@@ -23,6 +27,8 @@ import {
   createBankTransaction,
   recalculateBankBalance,
   correctBankBalance,
+  importBankStatement,
+  type ImportRow,
 } from "./bank"
 import { encrypt } from "@/lib/encryption"
 import { createAuditLog } from "@/lib/audit"
@@ -599,5 +605,122 @@ describe("correctBankBalance", () => {
         data: { initialBalance: 3000, currentBalance: 3000 },
       })
     )
+  })
+})
+
+// ─── importBankStatement ────────────────────────────────────────────────────
+
+const validRows: ImportRow[] = [
+  { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer" },
+  { transactionDate: "2025-01-20", amount: 1000, label: "Remboursement caution" },
+]
+
+describe("importBankStatement", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({ id: ACCOUNT_ID } as never)
+    prismaMock.bankTransaction.findMany.mockResolvedValue([])
+    prismaMock.bankTransaction.create.mockResolvedValue({} as never)
+    prismaMock.bankAccount.update.mockResolvedValue({} as never)
+  })
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si aucune ligne à importer", async () => {
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [])
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Aucune ligne")
+  })
+
+  it("erreur si trop de lignes (> 2000)", async () => {
+    const rows = Array.from({ length: 2001 }, (_, i) => ({
+      transactionDate: "2025-01-15",
+      amount: -100,
+      label: `Transaction ${i}`,
+    }))
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, rows)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("2000 lignes")
+  })
+
+  it("erreur si le compte est introuvable", async () => {
+    prismaMock.bankAccount.findFirst.mockResolvedValue(null as never)
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("erreur si aucune date valide dans le fichier", async () => {
+    const badRows: ImportRow[] = [{ transactionDate: "not-a-date", amount: -100, label: "Test" }]
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, badRows)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("date valide")
+  })
+
+  it("importe les transactions et met à jour le solde", async () => {
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(2)
+    expect(r.data?.skipped).toBe(0)
+    expect(r.data?.duplicates).toBe(0)
+    expect(prismaMock.bankTransaction.create).toHaveBeenCalledTimes(2)
+    expect(prismaMock.bankAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ACCOUNT_ID },
+        data: { currentBalance: { increment: 500 } },
+      })
+    )
+  })
+
+  it("ignore les doublons (empreinte identique)", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2025-01-15"),
+        amount: -500,
+        label: "Virement loyer",
+        externalId: null,
+      },
+    ] as never)
+
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(0)
+    expect(r.data?.duplicates).toBe(1)
+    expect(prismaMock.bankTransaction.create).not.toHaveBeenCalled()
+  })
+
+  it("saute les lignes avec des données invalides (label vide)", async () => {
+    const mixedRows: ImportRow[] = [
+      { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer" },
+      { transactionDate: "2025-01-16", amount: 0, label: "" },
+    ]
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, mixedRows)
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(1)
+    expect(r.data?.skipped).toBe(1)
+  })
+
+  it("déduplique par référence externe", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2025-01-15"),
+        amount: -500,
+        label: "Virement",
+        externalId: "REF-123",
+      },
+    ] as never)
+
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer", reference: "REF-123" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.duplicates).toBe(1)
+    expect(r.data?.imported).toBe(0)
   })
 })
