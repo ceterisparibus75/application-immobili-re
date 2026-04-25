@@ -44,6 +44,10 @@ vi.mock("@supabase/supabase-js", () => ({
 vi.mock("@/lib/einvoice-generator", () => ({
   generateFacturXml,
 }));
+vi.mock("@/lib/pa-oauth", () => ({
+  disconnectSocietyFromSuperPDP: vi.fn().mockResolvedValue(undefined),
+  getSocietyAccessToken: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("@/lib/env", () => ({
   env: {
     NEXT_PUBLIC_SUPABASE_URL: "https://supabase.test",
@@ -56,8 +60,10 @@ vi.mock("@/lib/env", () => ({
 import {
   acknowledgeInvoice,
   checkChorusProStatus,
+  disconnectFromSuperPDP,
   getEInvoiceStatus,
   lookupDirectory,
+  markInvoiceInPayment,
   refuseInvoice,
   registerSocietyInPPF,
   submitInvoice,
@@ -330,5 +336,58 @@ describe("einvoicing actions", () => {
     expect(result.error).toContain("Chorus Pro n'est pas configuré");
     expect(statusResult.success).toBe(false);
     expect(statusResult.error).toContain("Chorus Pro n'est pas configuré");
+  });
+
+  it("déconnecte la société du SuperPDP avec succès", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const result = await disconnectFromSuperPDP(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(revalidatePath).toHaveBeenCalledWith("/parametres/facturation");
+  });
+
+  it("retourne une erreur si la société n'est pas inscrite au PPF (syncReceivedInvoices)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: null } as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("inscrite");
+  });
+
+  it("marque une facture en cours de paiement (markInvoiceInPayment)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      updateFlowStatus: vi.fn().mockResolvedValue(undefined),
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      ppfInvoiceId: "flow-pay-1",
+      invoiceNumber: "F-2026-099",
+    } as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue({} as never);
+
+    const result = await markInvoiceInPayment(SOCIETY_ID, SUPPLIER_INVOICE_ID, "2026-04-30", 1200);
+    expect(result.success).toBe(true);
+    expect(paClient.updateFlowStatus).toHaveBeenCalledWith(
+      "flow-pay-1",
+      expect.objectContaining({ status: "EN_COURS_DE_PAIEMENT", paymentAmount: 1200 })
+    );
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ppfStatus: "EN_COURS_DE_PAIEMENT", status: "VALIDATED" }) })
+    );
+  });
+
+  it("checkChorusProStatus retourne une erreur si la facture n'est pas Chorus Pro", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      einvoiceXmlUrl: "flow-456", // pas de préfixe "cpro:"
+      invoiceNumber: "F-001",
+    } as never);
+
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Chorus Pro");
   });
 });
