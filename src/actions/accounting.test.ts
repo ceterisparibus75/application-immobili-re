@@ -642,3 +642,114 @@ describe("bulkImportJournalEntries", () => {
     );
   });
 });
+
+
+// ─── ForbiddenError branches ──────────────────────────────────────────────────
+
+describe("getFiscalYears — ForbiddenError", () => {
+  it("retourne une erreur si pas de membership (ligne 79)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await getFiscalYears(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("getAccounts — ForbiddenError", () => {
+  it("retourne une erreur si pas de membership (ligne 203)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await getAccounts(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("getBalance — ForbiddenError", () => {
+  it("retourne une erreur si pas de membership (ligne 272)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await getBalance(SOCIETY_ID, {});
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("getGrandLivre — ForbiddenError", () => {
+  it("retourne une erreur si pas de membership (ligne 332)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const result = await getGrandLivre(SOCIETY_ID, {});
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("bulkImportAccounts — code ou label vide", () => {
+  it("saute les comptes dont le code ou le label est vide apres trim (ligne 432)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findUnique.mockResolvedValue(null as never);
+    prismaMock.accountingAccount.create.mockResolvedValue({} as never);
+
+    const result = await bulkImportAccounts(SOCIETY_ID, [
+      { code: "", label: "Clients", type: "4" },
+      { code: "411000", label: "", type: "4" },
+      { code: "706000", label: "Produits", type: "7" },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.skipped).toBe(2);
+    expect(result.data?.imported).toBe(1);
+  });
+});
+
+describe("bulkImportJournalEntries — normalizeJournalType branches", () => {
+  const makeEntry = (journalType: string) => ({
+    journalType,
+    entryDate: "2025-01-15",
+    label: "Test",
+    lines: [
+      { accountCode: "411000", debit: 100, credit: 0 },
+      { accountCode: "706000", debit: 0, credit: 100 },
+    ],
+  });
+
+  beforeEach(() => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+  });
+
+  it("normalise AN (ligne 491)", async () => {
+    const r = await bulkImportJournalEntries(SOCIETY_ID, [makeEntry("AN")]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ journalType: "AN" }) })
+    );
+  });
+
+  it("normalise ACH -> AC (ligne 492)", async () => {
+    const r = await bulkImportJournalEntries(SOCIETY_ID, [makeEntry("ACH")]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ journalType: "AC" }) })
+    );
+  });
+
+  it("normalise BQ -> BQUE (ligne 493)", async () => {
+    const r = await bulkImportJournalEntries(SOCIETY_ID, [makeEntry("BQ")]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ journalType: "BQUE" }) })
+    );
+  });
+
+  it("normalise INV (ligne 494)", async () => {
+    const r = await bulkImportJournalEntries(SOCIETY_ID, [makeEntry("INV")]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ journalType: "INV" }) })
+    );
+  });
+});
+

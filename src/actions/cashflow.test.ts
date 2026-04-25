@@ -490,3 +490,62 @@ describe("getCashflowDashboard", () => {
     expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
   });
 });
+
+
+// ─── aiSuggestCategories — branches normalizeLabel ───────────────────────────
+
+describe("aiSuggestCategories — normalizeLabel edge cases", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("ignore les transactions historiques dont le label se normalise en vide (ligne 555)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "INCONNU XYZ", amount: -50, reference: null }] as never)
+      // historique : un libelle qui normalise en vide (ref longue) et un autre valide
+      .mockResolvedValueOnce([
+        { label: "12345678901234", category: "energie" },
+        { label: "LOYER MENSUEL", category: "loyer" },
+      ] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data).toBeDefined();
+  });
+
+  it("retourne null dans findMatchingCategory si le label se normalise en vide (ligne 566)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      // transaction avec ref longue -> normalise en ""
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "12345678901234", amount: -50, reference: null }] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data).toBeDefined();
+  });
+
+  it("retourne null si normWords est vide (tous les mots < 4 chars) (ligne 585)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      // label avec uniquement des mots courts (< 4 chars)
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "AB EDF", amount: -30, reference: null }] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data).toBeDefined();
+  });
+
+  it("ignore les labels historiques dont les mots sont tous courts (ligne 590)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "LOYER VOITURE", amount: -150, reference: null }] as never)
+      // historique avec mots courts -> knownWords = [] -> continue (ligne 590)
+      .mockResolvedValueOnce([{ label: "AB CD", category: "loyer" }] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data).toBeDefined();
+  });
+});
+

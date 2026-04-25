@@ -317,3 +317,142 @@ describe("getProprietairesWithSocieties", () => {
     expect(r.data![0].displayName).toBe("Jean Martin")
   })
 })
+
+
+// ─── createProprietaire — avec associes ──────────────────────────────────────
+
+describe("createProprietaire — avec associes (ligne 277)", () => {
+  it("cree un proprietaire avec des associes", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.create.mockResolvedValue({ id: "prop-new" } as never);
+
+    const r = await createProprietaire({
+      label: "SCI Test",
+      entityType: "PERSONNE_MORALE",
+      associes: [
+        { firstName: "Alice", lastName: "Durand", email: "alice@test.com" },
+        { firstName: "Bob", lastName: "Martin" },
+      ],
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaire.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          associes: expect.objectContaining({ create: expect.any(Array) }),
+        }),
+      })
+    );
+  });
+});
+
+// ─── updateProprietaire — branches associes (lignes 363-415) ─────────────────
+
+describe("updateProprietaire — associes delete + update + create", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-1" } as never);
+    prismaMock.proprietaire.update.mockResolvedValue({} as never);
+  });
+
+  it("supprime les associes retires et cree les nouveaux (lignes 373-415)", async () => {
+    prismaMock.proprietaireAssocie.findMany.mockResolvedValue([
+      { id: "assoc-old" },
+    ] as never);
+    prismaMock.proprietaireAssocie.deleteMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.proprietaireAssocie.update.mockResolvedValue({} as never);
+    prismaMock.proprietaireAssocie.create.mockResolvedValue({} as never);
+
+    const r = await updateProprietaire({
+      id: "prop-1",
+      label: "SCI Modifiee",
+      associes: [
+        // nouvel associe (pas d'id -> create)
+        { firstName: "Alice", lastName: "Durand" },
+      ],
+    });
+    expect(r.success).toBe(true);
+    // assoc-old est supprime (pas dans la liste de mise a jour)
+    expect(prismaMock.proprietaireAssocie.deleteMany).toHaveBeenCalled();
+    // Le nouvel associe est cree
+    expect(prismaMock.proprietaireAssocie.create).toHaveBeenCalled();
+  });
+
+  it("met a jour un associe existant (ligne 384)", async () => {
+    prismaMock.proprietaireAssocie.findMany.mockResolvedValue([
+      { id: "assoc-1" },
+    ] as never);
+    prismaMock.proprietaireAssocie.update.mockResolvedValue({} as never);
+
+    const r = await updateProprietaire({
+      id: "prop-1",
+      label: "SCI Modifiee",
+      associes: [
+        // associe existant avec id -> update
+        { id: "assoc-1", firstName: "Alice", lastName: "Durand" },
+      ],
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaireAssocie.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "assoc-1" } })
+    );
+  });
+});
+
+// ─── migrateOwnerToProprietaire — orphans avec proprietaire existant ──────────
+
+describe("migrateOwnerToProprietaire — orphan societies avec proprietaire existant", () => {
+  it("rattache les societes orphelines si un proprietaire existe deja (lignes 529-530)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    // proprietaire existe deja
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-existing" } as never);
+    // societés orphelines trouvées pour l'associer
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-orphan" }] as never);
+    prismaMock.society.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const r = await migrateOwnerToProprietaire();
+    expect(r.success).toBe(true);
+    expect(prismaMock.society.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { proprietaireId: "prop-existing" } })
+    );
+  });
+});
+
+
+// ─── getProprietairesWithSocieties — auto-migration branches ─────────────────
+
+describe("getProprietairesWithSocieties — auto-migration", () => {
+  it("declenche migrateOwnerToProprietaire si pas de proprietaire et societes orphelines (lignes 525,529,530)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // Pas de proprietaire existant
+    prismaMock.proprietaire.findFirst.mockResolvedValue(null);
+    // Societes orphelines trouvees
+    prismaMock.society.findMany
+      .mockResolvedValueOnce([{ id: "soc-orphan" }] as never) // orphanSocieties check
+      .mockResolvedValueOnce([] as never); // inside migrateOwnerToProprietaire
+    prismaMock.proprietaire.create.mockResolvedValue({ id: "prop-new", societies: [] } as never);
+    prismaMock.society.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.proprietaire.findMany.mockResolvedValue([] as never);
+
+    const r = await getProprietairesWithSocieties();
+    expect(r.success).toBe(true);
+  });
+
+  it("rattache les societes orphelines si proprietaire existe deja (lignes 538-539)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // Proprietaire existant
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-existing" } as never);
+    // Societes orphelines trouvees pour le proprietaire existant
+    prismaMock.society.findMany
+      .mockResolvedValueOnce([{ id: "soc-orphan" }] as never) // orphans check
+      .mockResolvedValueOnce([] as never); // second findMany call
+    prismaMock.society.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.proprietaire.findMany.mockResolvedValue([] as never);
+
+    const r = await getProprietairesWithSocieties();
+    expect(r.success).toBe(true);
+    expect(prismaMock.society.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { proprietaireId: "prop-existing" } })
+    );
+  });
+});
+

@@ -299,3 +299,136 @@ describe("ticket queries", () => {
     });
   });
 });
+
+
+// ─── createTicketFromPortal — branches manquantes ─────────────────────────────
+
+describe("createTicketFromPortal — branches manquantes", () => {
+  it("retourne une erreur Zod si input invalide (ligne 50)", async () => {
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, { subject: "", description: "", category: "PLOMBERIE" as const, priority: "NORMALE" as const });
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 112-113)", async () => {
+    prismaMock.tenant.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, validCreateInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Erreur");
+  });
+});
+
+// ─── addTicketMessageFromPortal — branches manquantes ─────────────────────────
+
+describe("addTicketMessageFromPortal — branches manquantes", () => {
+  it("retourne une erreur Zod si input invalide (ligne 126)", async () => {
+    const r = await addTicketMessageFromPortal(TENANT_ID, { ticketId: "", content: "" });
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si le ticket est introuvable (ligne 133)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(null);
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvable");
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 173-174)", async () => {
+    prismaMock.ticket.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Erreur");
+  });
+});
+
+// ─── addTicketMessageFromManager — branches manquantes ────────────────────────
+
+describe("addTicketMessageFromManager — branches manquantes", () => {
+  it("retourne une erreur Zod si input invalide (ligne 189)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, { ticketId: "", content: "" });
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si le ticket est introuvable (ligne 195)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockResolvedValue(null);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvable");
+  });
+
+  it("retourne une erreur ForbiddenError (ligne 225)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 226-227)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Erreur");
+  });
+});
+
+// ─── updateTicket — branches manquantes ───────────────────────────────────────
+
+describe("updateTicket — branches manquantes", () => {
+  it("retourne une erreur Zod si input invalide (ligne 240)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const r = await updateTicket(SOCIETY_ID, { id: "" });
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si le ticket est introuvable (ligne 248)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockResolvedValue(null);
+    const r = await updateTicket(SOCIETY_ID, validUpdateInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvable");
+  });
+
+  it("met a jour le closedAt/closedBy si statut FERME (lignes 258-259)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockResolvedValue({ id: TICKET_ID, status: "EN_COURS" } as never);
+    prismaMock.ticket.update.mockResolvedValue({} as never);
+    const r = await updateTicket(SOCIETY_ID, { id: TICKET_ID, status: "FERME" as const });
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ closedAt: expect.any(Date) }) })
+    );
+  });
+
+  it("retourne une erreur ForbiddenError (ligne 281)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+    const r = await updateTicket(SOCIETY_ID, validUpdateInput);
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 282-283)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await updateTicket(SOCIETY_ID, validUpdateInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Erreur");
+  });
+});
+
+
+// ─── getTicketById — retourne le ticket (ligne 314) ──────────────────────────
+
+describe("getTicketById — succes", () => {
+  it("retourne le ticket si authentifie (ligne 314)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.ticket.findFirst.mockResolvedValue({ id: TICKET_ID, status: "OUVERT", messages: [] } as never);
+
+    const r = await getTicketById(SOCIETY_ID, TICKET_ID);
+
+    expect(r).not.toBeNull();
+    expect(r?.id).toBe(TICKET_ID);
+  });
+});
+

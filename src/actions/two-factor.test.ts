@@ -25,6 +25,14 @@ vi.mock("bcryptjs", () => ({
   hash: vi.fn().mockResolvedValue("hashed"),
 }));
 
+const mockTotpValidate = vi.hoisted(() => vi.fn().mockReturnValue(1));
+vi.mock("otpauth", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TOTP: vi.fn().mockImplementation(function(this: any) { (this as any).__validate = mockTotpValidate; return { validate: mockTotpValidate }; }),
+  Secret: { fromBase32: vi.fn().mockReturnValue("secret-obj") },
+}));
+
+
 import { prismaMock } from "@/test/mocks/prisma";
 import { auth } from "@/lib/auth";
 import { requiresTwoFactor } from "@/lib/plan-limits";
@@ -178,3 +186,69 @@ describe("disableTwoFactor", () => {
     );
   });
 });
+
+
+// ─── initSetupTwoFactor — erreur generique ────────────────────────────────────
+
+describe("initSetupTwoFactor — erreur generique", () => {
+  it("retourne une erreur generique si la BDD echoue (lignes 48-49)", async () => {
+    mockAuthUser();
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await initSetupTwoFactor();
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/initialisation/);
+  });
+});
+
+// ─── confirmSetupTwoFactor — branches manquantes ──────────────────────────────
+
+describe("confirmSetupTwoFactor — code invalide", () => {
+  it("retourne une erreur si le code TOTP est invalide (ligne 76)", async () => {
+    mockAuthUser();
+    prismaMock.user.findUnique.mockResolvedValue({
+      pendingTwoFactorSecret: "encrypted-pending",
+    } as never);
+    // simulate invalid TOTP code
+    mockTotpValidate.mockReturnValueOnce(null);
+    const result = await confirmSetupTwoFactor("000000");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/invalide/);
+  });
+
+  it("confirme et active le 2FA avec un code valide (lignes 78-101)", async () => {
+    mockAuthUser();
+    prismaMock.user.findUnique.mockResolvedValue({
+      pendingTwoFactorSecret: "encrypted-pending",
+    } as never);
+    prismaMock.user.update.mockResolvedValue({} as never);
+    const result = await confirmSetupTwoFactor("123456");
+    expect(result.success).toBe(true);
+    expect(result.data?.recoveryCodes).toEqual(["CODE1-CODE1", "CODE2-CODE2"]);
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ twoFactorEnabled: true, pendingTwoFactorSecret: null }),
+      })
+    );
+  });
+
+  it("retourne une erreur generique si la BDD echoue (lignes 103-105)", async () => {
+    mockAuthUser();
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await confirmSetupTwoFactor("123456");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/confirmation/);
+  });
+});
+
+// ─── disableTwoFactor — erreur generique ──────────────────────────────────────
+
+describe("disableTwoFactor — erreur generique", () => {
+  it("retourne une erreur generique si la BDD echoue (lignes 151-152)", async () => {
+    mockAuthUser();
+    prismaMock.user.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await disableTwoFactor("password123");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/desactivation/);
+  });
+});
+
