@@ -117,4 +117,39 @@ describe("maintenance actions", () => {
       where: { id: MAINTENANCE_ID },
     });
   });
+
+  it("retourne une erreur si updateMaintenance ne trouve pas l'intervention", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.maintenance.findFirst.mockResolvedValue(null);
+
+    const result = await updateMaintenance(SOCIETY_ID, {
+      id: MAINTENANCE_ID,
+      title: "Titre quelconque",
+    });
+
+    expect(result).toEqual({ success: false, error: "Intervention introuvable" });
+  });
+
+  it("retourne une erreur si deleteMaintenance ne trouve pas l'intervention", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.maintenance.findFirst.mockResolvedValue(null);
+
+    const result = await deleteMaintenance(SOCIETY_ID, MAINTENANCE_ID);
+
+    expect(result).toEqual({ success: false, error: "Intervention introuvable" });
+  });
+
+  it("retourne non authentifié pour updateMaintenance", async () => {
+    mockUnauthenticated();
+    const result = await updateMaintenance(SOCIETY_ID, { id: MAINTENANCE_ID });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
+
+  it("retourne non authentifié pour deleteMaintenance", async () => {
+    mockUnauthenticated();
+    const result = await deleteMaintenance(SOCIETY_ID, MAINTENANCE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
 });
