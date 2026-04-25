@@ -17,6 +17,7 @@ export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string
 export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
+type AnalyticsCoreOptions = { includeTopTenants?: boolean };
 
 function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
   if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "—";
@@ -39,7 +40,7 @@ function monthLabel(d: Date): string {
 
 const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
 
-async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> {
+async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOptions = {}): Promise<AnalyticsData> {
   const now = new Date();
   const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -98,21 +99,23 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
     orderBy: { valuationDate: "desc" },
     select: { buildingId: true, estimatedValueMid: true },
   });
-  const topTenantsPromise = prisma.$queryRaw<
-    Array<{ tenantId: string; total: number; companyName: string | null; firstName: string | null; lastName: string | null; entityType: string }>
-  >`
-    SELECT
-      i."tenantId",
-      SUM(i."totalTTC")::float AS total,
-      t."companyName", t."firstName", t."lastName", t."entityType"
-    FROM "Invoice" i
-    JOIN "Tenant" t ON t.id = i."tenantId"
-    WHERE i."societyId" = ANY(${societyIds})
-      AND i."invoiceType" != 'AVOIR'
-    GROUP BY i."tenantId", t."companyName", t."firstName", t."lastName", t."entityType"
-    ORDER BY total DESC
-    LIMIT 5
-  `;
+  const topTenantsPromise = options.includeTopTenants
+    ? prisma.$queryRaw<
+        Array<{ tenantId: string; total: number; companyName: string | null; firstName: string | null; lastName: string | null; entityType: string }>
+      >`
+        SELECT
+          i."tenantId",
+          SUM(i."totalTTC")::float AS total,
+          t."companyName", t."firstName", t."lastName", t."entityType"
+        FROM "Invoice" i
+        JOIN "Tenant" t ON t.id = i."tenantId"
+        WHERE i."societyId" = ANY(${societyIds})
+          AND i."invoiceType" != 'AVOIR'
+        GROUP BY i."tenantId", t."companyName", t."firstName", t."lastName", t."entityType"
+        ORDER BY total DESC
+        LIMIT 5
+      `
+    : Promise.resolve<Array<{ tenantId: string; total: number; companyName: string | null; firstName: string | null; lastName: string | null; entityType: string }>>([]);
   const riskLeasesPromise = prisma.lease.findMany({
     where: { societyId: { in: societyIds }, status: "EN_COURS" },
     select: {
@@ -448,11 +451,12 @@ async function fetchAnalyticsCore(societyIds: string[]): Promise<AnalyticsData> 
   };
 }
 
-export async function getAnalyticsData(societyId: string): Promise<AnalyticsData | null> {
+export async function getAnalyticsData(societyId: string, options: AnalyticsCoreOptions = {}): Promise<AnalyticsData | null> {
   if (!(await getOptionalSocietyActionContext(societyId))) return null;
+  const cacheKeySuffix = options.includeTopTenants ? "with-top-tenants" : "base";
   return unstable_cache(
-    () => fetchAnalyticsCore([societyId]),
-    [`dashboard-analytics-${societyId}`],
+    () => fetchAnalyticsCore([societyId], options),
+    [`dashboard-analytics-${societyId}-${cacheKeySuffix}`],
     { revalidate: 300, tags: [`society-${societyId}-analytics`] }
   )();
 }

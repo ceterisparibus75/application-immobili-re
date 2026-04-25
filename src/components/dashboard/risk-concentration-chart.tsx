@@ -1,5 +1,3 @@
-"use client";
-
 import type { RiskConcentration } from "@/actions/analytics";
 import { formatCurrency } from "@/lib/utils";
 

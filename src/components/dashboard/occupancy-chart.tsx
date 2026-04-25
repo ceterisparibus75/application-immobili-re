@@ -1,5 +1,3 @@
-"use client";
-
 import type { BuildingOccupancy } from "@/actions/analytics";
 
 interface Props {

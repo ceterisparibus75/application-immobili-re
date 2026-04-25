@@ -1,19 +1,8 @@
-"use client";
-
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { OverdueByAge } from "@/actions/analytics";
-
-const TOOLTIP_STYLE = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #E2E8F0",
-  borderRadius: "8px",
-  fontSize: "12px",
-  color: "#0C2340",
-  boxShadow: "0 4px 16px rgba(12, 35, 64, 0.08)",
-};
 
 // Couleurs désaturées pastels → plus saturées selon l'ancienneté
 const BUCKET_COLORS = ["#C4A96A", "#B08650", "#A04040", "#7A2020"];
+const CHART = { width: 360, height: 200, top: 12, right: 10, bottom: 30, left: 46 };
 
 export function OverdueChart({ data }: { data: OverdueByAge[] }) {
   const hasData = data.some((d) => d.amount > 0);
@@ -26,37 +15,46 @@ export function OverdueChart({ data }: { data: OverdueByAge[] }) {
     );
   }
 
+  const max = Math.max(...data.map((d) => d.amount), 1);
+  const plotWidth = CHART.width - CHART.left - CHART.right;
+  const plotHeight = CHART.height - CHART.top - CHART.bottom;
+  const gap = 16;
+  const barWidth = Math.max(34, (plotWidth - gap * (data.length - 1)) / data.length);
+  const ticks = [0, max / 2, max];
+
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-        <XAxis
-          dataKey="label"
-          tick={{ fontSize: 11, fill: "#64748B" }}
-          tickLine={false}
-          axisLine={false}
-        />
-        <YAxis
-          tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)}
-          tick={{ fontSize: 11, fill: "#64748B" }}
-          tickLine={false}
-          axisLine={false}
-          width={44}
-        />
-        <Tooltip
-          contentStyle={TOOLTIP_STYLE}
-          formatter={(v) => [
-            `${Number(v ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} \u20AC`,
-            "Impayés",
-          ]}
-          cursor={{ fill: "#F5EDED", opacity: 0.5 }}
-        />
-        <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={48}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={BUCKET_COLORS[i % BUCKET_COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <svg
+      className="h-[200px] w-full overflow-visible"
+      viewBox={`0 0 ${CHART.width} ${CHART.height}`}
+      role="img"
+      aria-label="Montants impayés par ancienneté"
+    >
+      {ticks.map((tick) => {
+        const y = CHART.top + plotHeight - (tick / max) * plotHeight;
+        const label = tick >= 1000 ? `${(tick / 1000).toFixed(0)}k` : tick.toFixed(0);
+        return (
+          <g key={tick}>
+            <line x1={CHART.left} x2={CHART.width - CHART.right} y1={y} y2={y} stroke="#E2E8F0" strokeDasharray="3 3" />
+            <text x={CHART.left - 8} y={y + 4} textAnchor="end" className="fill-slate-500 text-[11px]">
+              {label}
+            </text>
+          </g>
+        );
+      })}
+      {data.map((item, index) => {
+        const x = CHART.left + index * (barWidth + gap);
+        const height = Math.max(2, (item.amount / max) * plotHeight);
+        const y = CHART.top + plotHeight - height;
+        return (
+          <g key={item.label}>
+            <title>{`${item.label}: ${item.amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} \u20AC`}</title>
+            <rect x={x} y={y} width={barWidth} height={height} rx={4} fill={BUCKET_COLORS[index % BUCKET_COLORS.length]} />
+            <text x={x + barWidth / 2} y={CHART.height - 10} textAnchor="middle" className="fill-slate-500 text-[11px]">
+              {item.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }

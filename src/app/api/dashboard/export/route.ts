@@ -30,7 +30,7 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ error: context.status === 400 ? "Aucune societe selectionnee" : "Non authentifie" }, { status: context.status });
     }
 
-    const data = await getAnalyticsData(context.societyId);
+    const data = await getAnalyticsData(context.societyId, { includeTopTenants: true });
     if (!data) {
       return NextResponse.json({ error: "Impossible de charger les donnees" }, { status: 500 });
     }
