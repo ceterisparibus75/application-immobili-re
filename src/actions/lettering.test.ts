@@ -186,4 +186,25 @@ describe("getUnletteredEntries", () => {
     expect(result.data?.lines[0].debit).toBe(800);
     expect(result.data?.lines[0].entryLabel).toBe("Facture janvier");
   });
+
+  it("retourne une erreur de validation si l'accountId est invalide", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const result = await getUnletteredEntries(SOCIETY_ID, "not-a-cuid");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it("retourne une erreur si rôle insuffisant pour getUnletteredEntries", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await getUnletteredEntries(SOCIETY_ID, ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans getUnletteredEntries", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await getUnletteredEntries(SOCIETY_ID, ACCOUNT_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la recuperation des lignes non lettrees" });
+  });
 });

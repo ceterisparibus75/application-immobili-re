@@ -202,4 +202,36 @@ describe("chargeProvision actions", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("authentifié");
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateChargeProvision", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await updateChargeProvision(SOCIETY_ID, {
+      id: PROVISION_ID, label: "x", monthlyAmount: 1, vatRate: 0, startDate: "2026-01-01",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateChargeProvision", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.chargeProvision.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await updateChargeProvision(SOCIETY_ID, {
+      id: PROVISION_ID, label: "x", monthlyAmount: 1, vatRate: 0, startDate: "2026-01-01",
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteChargeProvision", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await deleteChargeProvision(SOCIETY_ID, PROVISION_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteChargeProvision", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.chargeProvision.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await deleteChargeProvision(SOCIETY_ID, PROVISION_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
 });

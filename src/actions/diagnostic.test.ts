@@ -161,4 +161,32 @@ describe("diagnostic actions", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("authentifié");
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateDiagnostic", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await updateDiagnostic(SOCIETY_ID, { id: DIAGNOSTIC_ID });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateDiagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.diagnostic.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await updateDiagnostic(SOCIETY_ID, { id: DIAGNOSTIC_ID });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteDiagnostic", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await deleteDiagnostic(SOCIETY_ID, DIAGNOSTIC_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteDiagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.diagnostic.findFirst.mockRejectedValue(new Error("DB error"));
+    const result = await deleteDiagnostic(SOCIETY_ID, DIAGNOSTIC_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
 });
