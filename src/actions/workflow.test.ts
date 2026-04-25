@@ -108,6 +108,18 @@ describe("updateWorkflow", () => {
     expect(result.data?.id).toBe(WORKFLOW_ID);
   });
 
+  it("met à jour trigger et steps quand fournis (branches if(trigger) + if(steps))", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.update.mockResolvedValue(makeWorkflow() as never);
+
+    const result = await updateWorkflow(SOCIETY_ID, {
+      id: WORKFLOW_ID,
+      trigger: { type: "schedule" as const, config: {} },
+      steps: [validStep],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("retourne une erreur si rôle insuffisant pour updateWorkflow (min ADMIN_SOCIETE)", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     const result = await updateWorkflow(SOCIETY_ID, { id: WORKFLOW_ID, name: "Test" });
@@ -230,6 +242,18 @@ describe("runWorkflow", () => {
     expect(prismaMock.workflowRun.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED" }) })
     );
+  });
+
+  it("utilise [] si workflow.steps est null (branche ?? [])", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.findFirst.mockResolvedValue(makeWorkflow({ steps: null }) as never);
+    prismaMock.workflowRun.create.mockResolvedValue({ id: RUN_ID } as never);
+    prismaMock.workflowRun.update.mockResolvedValue({} as never);
+    prismaMock.workflow.update.mockResolvedValue({} as never);
+
+    const result = await runWorkflow(SOCIETY_ID, WORKFLOW_ID);
+    expect(result.success).toBe(true);
+    expect(executeWorkflowSteps).toHaveBeenCalledWith([], expect.any(Object));
   });
 
   it("marque le run comme FAILED si une étape échoue", async () => {

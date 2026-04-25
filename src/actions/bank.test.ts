@@ -217,6 +217,13 @@ describe("updateBankAccount", () => {
       })
     )
   })
+
+  it("retourne une erreur générique si la BDD échoue dans updateBankAccount", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await updateBankAccount(SOCIETY_ID, validInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" })
+  })
 })
 
 // ─── getBankAccounts ────────────────────────────────────────────────────────
@@ -429,6 +436,13 @@ describe("createBankTransaction", () => {
         }),
       })
     )
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans createBankTransaction", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await createBankTransaction(SOCIETY_ID, validInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création de la transaction" })
   })
 })
 
