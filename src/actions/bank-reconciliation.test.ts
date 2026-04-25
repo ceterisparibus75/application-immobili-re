@@ -356,6 +356,19 @@ describe("reconcileWithInvoice", () => {
       expect.objectContaining({ action: "CREATE", entity: "BankReconciliation" })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour reconcileWithInvoice (ForbiddenError ligne 589)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans reconcileWithInvoice (lignes 590-591)", async () => {
+    prismaMock.bankTransaction.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
+  });
 });
 
 // ─── reconcileWithLoanLine ────────────────────────────────────────────────────
@@ -397,6 +410,19 @@ describe("reconcileWithLoanLine", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "UPDATE", entity: "LoanAmortizationLine" })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour reconcileWithLoanLine (ForbiddenError ligne 639)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans reconcileWithLoanLine (lignes 640-641)", async () => {
+    prismaMock.bankTransaction.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
   });
 });
 
