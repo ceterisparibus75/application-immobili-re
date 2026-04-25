@@ -593,4 +593,144 @@ describe("getDataroomMeta", () => {
     expect(r?.name).toBe("Dossier Vente");
     expect(r?.hasPassword).toBe(false);
   });
+
+  it("retourne null si la dataroom est expirée (ligne 502)", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue({
+      name: "Dossier Vente", status: "ACTIF",
+      expiresAt: new Date("2000-01-01"),
+      password: null, description: null, purpose: null,
+      society: { name: "Soc", logoUrl: null },
+    } as never);
+    const r = await getDataroomMeta(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+});
+
+// ─── createDataroom — erreur DB (lignes 112-113) ──────────────────────────────
+
+describe("createDataroom — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 112-113)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.create.mockRejectedValue(new Error("DB error"));
+    const r = await createDataroom(SOCIETY_ID, { name: "Test Dataroom" });
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Erreur lors de la création");
+  });
+});
+
+// ─── updateDataroom — Zod + erreur DB ────────────────────────────────────────
+
+describe("updateDataroom — branches manquantes", () => {
+  it("retourne une erreur Zod si l'input est invalide (ligne 127)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { name: "A" });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("2");
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 173-175)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(buildDataroom() as never);
+    prismaMock.dataroom.update.mockRejectedValue(new Error("DB error"));
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { name: "Valide" });
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Erreur lors de la mise à jour");
+  });
+});
+
+// ─── deleteDataroom — not found + erreur DB ───────────────────────────────────
+
+describe("deleteDataroom — branches manquantes", () => {
+  it("retourne une erreur si la dataroom est introuvable (ligne 184)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    const r = await deleteDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 202-203)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(buildDataroom() as never);
+    prismaMock.dataroom.delete.mockRejectedValue(new Error("DB error"));
+    const r = await deleteDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Erreur lors de la suppression");
+  });
+});
+
+// ─── addDocumentToDataroom — branches manquantes ──────────────────────────────
+
+describe("addDocumentToDataroom — branches manquantes", () => {
+  it("retourne une erreur si la dataroom est introuvable (ligne 222)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    prismaMock.document.findFirst.mockResolvedValue({ id: DOC_ID } as never);
+    const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+
+  it("envoie une notification email si recipientEmail est défini (lignes 235-237,245)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(
+      buildDataroom({ recipientEmail: "contact@example.com", shareToken: SHARE_TOKEN }) as never
+    );
+    prismaMock.document.findFirst.mockResolvedValue({ id: DOC_ID, fileName: "contrat.pdf" } as never);
+    prismaMock.dataroomDocument.count.mockResolvedValue(1 as never);
+    prismaMock.dataroomDocument.upsert.mockResolvedValue({} as never);
+    const { sendDataroomDocumentAddedEmail } = await import("@/lib/email");
+    const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(true);
+    expect(sendDataroomDocumentAddedEmail).toHaveBeenCalled();
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 261-263)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB error"));
+    const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Erreur lors de l'ajout");
+  });
+});
+
+// ─── getDataroomByToken — expirée (ligne 345) ─────────────────────────────────
+
+describe("getDataroomByToken — expirée", () => {
+  it("retourne null si la dataroom est expirée (ligne 345)", async () => {
+    prismaMock.dataroom.findUnique.mockResolvedValue({
+      id: DATAROOM_ID, status: "ACTIF",
+      expiresAt: new Date("2000-01-01"),
+      documents: [],
+      society: { name: "Soc", logoUrl: null },
+    } as never);
+    const r = await getDataroomByToken(SHARE_TOKEN);
+    expect(r).toBeNull();
+  });
+});
+
+// ─── archiveDataroom — UnauthenticatedActionError (ligne 435) ─────────────────
+
+describe("archiveDataroom — non authentifié", () => {
+  it("retourne une erreur si non authentifié (ligne 435)", async () => {
+    mockUnauthenticated();
+    const r = await archiveDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Non authentifié");
+  });
+});
+
+// ─── reorderDocument — document introuvable (ligne 460) ──────────────────────
+
+describe("reorderDocument — document introuvable", () => {
+  it("retourne une erreur si le document n'est pas dans la dataroom (ligne 460)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(buildDataroom() as never);
+    prismaMock.dataroomDocument.findMany.mockResolvedValue([
+      { id: "dd-1", documentId: "other-doc", sortOrder: 0 },
+    ] as never);
+    const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, DOC_ID, "up");
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Document introuvable");
+  });
 });
