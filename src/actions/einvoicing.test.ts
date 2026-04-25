@@ -708,6 +708,13 @@ describe("einvoicing actions", () => {
   });
   // --- disconnectFromSuperPDP ---
 
+  it("disconnectFromSuperPDP retourne une erreur si non authentifié (ligne 96)", async () => {
+    mockUnauthenticated();
+    const result = await disconnectFromSuperPDP(SOCIETY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
   it("disconnectFromSuperPDP retourne une erreur si role insuffisant (ForbiddenError)", async () => {
     mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
     const result = await disconnectFromSuperPDP(SOCIETY_ID);

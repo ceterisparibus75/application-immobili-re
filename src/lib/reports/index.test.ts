@@ -140,6 +140,16 @@ describe("generateReport", () => {
     expect(generatorMocks.generateVacanceLocative).toHaveBeenCalledOnce();
   });
 
+  it("lève une erreur si le type de rapport est inconnu (ligne 38)", async () => {
+    await expect(
+      generateReport({
+        societyId: "society-1",
+        type: "TYPE_INCONNU" as never,
+        format: "pdf",
+      })
+    ).rejects.toThrow("Erreur lors de la generation du rapport. Veuillez reessayer.");
+  });
+
   it("masque les erreurs internes du générateur par un message stable", async () => {
     generatorMocks.generateCompteRenduGestion.mockRejectedValue(new Error("boom"));
 

@@ -7,6 +7,17 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
 
 // Anthropic SDK — mocké comme classe pour supporter new Anthropic(...)
+const anthropicCreateMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    content: [{ type: "text", text: JSON.stringify({
+      immeuble: { name: "Immeuble Test", addressLine1: "1 rue Test", city: "Paris", postalCode: "75001", buildingType: "BUREAU" },
+      lot: { number: "A1", lotType: "BUREAUX", area: 50 },
+      locataire: { entityType: "PERSONNE_MORALE", companyName: "ACME SAS", email: "contact@acme.fr" },
+      bail: { leaseType: "COMMERCIAL_369", startDate: "2026-01-01", durationMonths: 108, baseRentHT: 2000, depositAmount: 4000, paymentFrequency: "MENSUEL", vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0 },
+    }) }],
+  })
+);
+
 const MOCK_EXTRACTED_JSON = JSON.stringify({
   immeuble: { name: "Immeuble Test", addressLine1: "1 rue Test", city: "Paris", postalCode: "75001", buildingType: "BUREAU" },
   lot: { number: "A1", lotType: "BUREAUX", area: 50 },
@@ -16,11 +27,7 @@ const MOCK_EXTRACTED_JSON = JSON.stringify({
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
-    messages = {
-      create: vi.fn().mockResolvedValue({
-        content: [{ type: "text", text: MOCK_EXTRACTED_JSON }],
-      }),
-    };
+    messages = { create: anthropicCreateMock };
   },
 }));
 
@@ -53,6 +60,7 @@ import {
   parseImportFileAction,
   type ImportInput,
 } from "./import";
+import { env } from "@/lib/env";
 import { createAuditLog } from "@/lib/audit";
 import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
 import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
@@ -322,6 +330,13 @@ describe("importFromPdf", () => {
     expect(r.success).toBe(false);
   });
 
+  it("retourne une erreur générique si la BDD lève une valeur non-Error (lignes 328-329)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.$transaction.mockRejectedValueOnce("string error" as unknown as Error);
+    const r = await importFromPdf(SOCIETY_ID, buildImportInput());
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'import" });
+  });
+
   it("importe le bail complet dans une transaction et crée un audit log", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const r = await importFromPdf(SOCIETY_ID, buildImportInput());
@@ -567,6 +582,37 @@ describe("analyzePdfAction — branches manquantes", () => {
     const r = await analyzePdfAction(makeFormData(bigFile));
     expect(r.success).toBe(false);
     expect(r.error).toContain("volumineux");
+  });
+
+  it("erreur si ANTHROPIC_API_KEY absent (ligne 413)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const original = (env as any).ANTHROPIC_API_KEY;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (env as any).ANTHROPIC_API_KEY = undefined;
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (env as any).ANTHROPIC_API_KEY = original;
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Anthropic");
+  });
+
+  it("erreur si la réponse IA ne contient pas de JSON (ligne 442)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    anthropicCreateMock.mockResolvedValueOnce({
+      content: [{ type: "text", text: "Texte sans JSON" }],
+    });
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("extraire");
+  });
+
+  it("retourne une erreur si l'IA lève une exception (lignes 449-450)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    anthropicCreateMock.mockRejectedValueOnce(new Error("Anthropic API down"));
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Anthropic API down");
   });
 });
 
