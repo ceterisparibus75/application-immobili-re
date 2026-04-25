@@ -270,3 +270,70 @@ describe("checkSocietyLimit", () => {
     expect(result.allowed).toBe(true);
   });
 });
+
+// ── checkCoveredByOwnerSubscription (via checkSubscriptionActive) ─
+
+describe("checkSubscriptionActive — couverture par abonnement admin croisé", () => {
+  it("retourne active=true si l'admin a un plan PRO ACTIVE sur une autre société couvrant celle-ci", async () => {
+    // La société cible a un abonnement CANCELED
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "CANCELED", stripeSubscriptionId: null })
+    );
+
+    // checkCoveredByOwnerSubscription: admins de la société
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ userId: USER_ID }] as never)  // admins
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }, { societyId: "soc-2" }] as never); // allMemberships
+
+    // Abonnements ACTIVE sur les sociétés de l'admin
+    prismaMock.subscription.findMany.mockResolvedValue([
+      { societyId: "soc-2", planId: "PRO" },
+    ] as never);
+
+    // Sociétés triées par date de création (SOCIETY_ID + soc-2, toutes dans quota PRO=3)
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: SOCIETY_ID, createdAt: new Date("2025-01-01") },
+      { id: "soc-2", createdAt: new Date("2025-06-01") },
+    ] as never);
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(true);
+    expect(result.status).toBe("ACTIVE");
+  });
+
+  it("retourne OVER_LIMIT si le quota du plan est dépassé", async () => {
+    // La société cible a un abonnement CANCELED
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "CANCELED", stripeSubscriptionId: null })
+    );
+
+    // checkCoveredByOwnerSubscription: l'admin gère 2 sociétés, mais le plan STARTER n'en permet qu'1
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ userId: USER_ID }] as never)  // admins
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }, { societyId: "soc-paying" }] as never);
+
+    prismaMock.subscription.findMany.mockResolvedValue([
+      { societyId: "soc-paying", planId: "STARTER" },
+    ] as never);
+
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-paying", createdAt: new Date("2025-01-01") },  // prioritaire (payante)
+      { id: SOCIETY_ID, createdAt: new Date("2025-06-01") },   // hors quota
+    ] as never);
+
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(false);
+    expect(result.status).toBe("OVER_LIMIT");
+    expect(result.message).toContain("Starter");
+  });
+
+  it("retourne active=true pour TRIALING sans trialEnd (daysLeft undefined)", async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(
+      makeSubscription({ status: "TRIALING", trialEnd: null })
+    );
+    const result = await checkSubscriptionActive(SOCIETY_ID);
+    expect(result.active).toBe(true);
+    expect(result.status).toBe("TRIALING");
+    expect(result.daysLeft).toBeUndefined();
+  });
+});
