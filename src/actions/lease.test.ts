@@ -283,6 +283,11 @@ describe("createRentSteps", () => {
     expect(result.success).toBe(false);
   });
 
+  it("retourne une erreur Zod si leaseId n'est pas un CUID valide", async () => {
+    const result = await createRentSteps(SOCIETY_ID, { ...validInput, leaseId: "not-a-cuid" });
+    expect(result.success).toBe(false);
+  });
+
   it("retourne une erreur si le bail est introuvable", async () => {
     prismaMock.lease.findFirst.mockResolvedValue(null);
     const result = await createRentSteps(SOCIETY_ID, validInput);
@@ -300,6 +305,32 @@ describe("createRentSteps", () => {
     const result = await createRentSteps(SOCIETY_ID, validInput);
     expect(result.success).toBe(false);
     expect(result.error).toContain("avant le début du bail");
+  });
+
+  it("retourne une erreur si un palier commence après la fin du bail", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID,
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-03-31"),
+    } as never);
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("après la fin du bail");
+  });
+
+  it("retourne une erreur si un palier se termine après la fin du bail", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID,
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-12-31"),
+    } as never);
+    const stepWithLateEnd = {
+      leaseId: LEASE_ID,
+      steps: [{ label: "Palier 1", startDate: "2024-03-01", endDate: "2025-02-01", rentHT: 1500, chargesHT: null }],
+    };
+    const result = await createRentSteps(SOCIETY_ID, stepWithLateEnd);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("se termine après la fin du bail");
   });
 
   it("crée les paliers avec succès", async () => {

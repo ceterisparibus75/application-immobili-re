@@ -118,6 +118,16 @@ describe("createBuilding", () => {
     expect(prismaMock.building.create).toHaveBeenCalledOnce()
   })
 
+  it("crée l'immeuble avec acquisitionDate converti en Date", async () => {
+    mockAuthSession()
+    const building = buildBuilding({ acquisitionDate: new Date("2025-01-01") })
+    prismaMock.building.create.mockResolvedValue(building as never)
+    const result = await createBuilding("society-1", { ...validInput, acquisitionDate: "2025-01-01" })
+    expect(result.success).toBe(true)
+    const call = prismaMock.building.create.mock.calls[0][0]
+    expect(call.data.acquisitionDate).toBeInstanceOf(Date)
+  })
+
   it("retourne une erreur générique si la BDD échoue dans createBuilding", async () => {
     mockAuthSession()
     prismaMock.building.create.mockRejectedValue(new Error("DB connection lost"))

@@ -95,6 +95,20 @@ describe("createFiscalYear", () => {
     expect(result.success).toBe(true);
     expect(result.data?.id).toBe(FISCAL_YEAR_ID);
   });
+
+  it("retourne une erreur si rôle insuffisant pour createFiscalYear", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createFiscalYear(SOCIETY_ID, { year: 2025, startDate: "2025-01-01", endDate: "2025-12-31" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createFiscalYear", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findUnique.mockRejectedValue(new Error("DB connection lost"));
+    const result = await createFiscalYear(SOCIETY_ID, { year: 2025, startDate: "2025-01-01", endDate: "2025-12-31" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'exercice" });
+  });
 });
 
 describe("closeFiscalYear", () => {
@@ -160,6 +174,20 @@ describe("closeFiscalYear", () => {
     expect(prismaMock.fiscalYear.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ isClosed: true }) })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour closeFiscalYear", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans closeFiscalYear", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la clôture" });
   });
 });
 
