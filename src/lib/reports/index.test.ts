@@ -131,6 +131,15 @@ describe("generateReport", () => {
     }
   });
 
+  it("dispatch vers VACANCE_LOCATIVE (ligne 38)", async () => {
+    await generateReport({
+      societyId: "society-1",
+      type: "VACANCE_LOCATIVE" as never,
+      format: "pdf",
+    });
+    expect(generatorMocks.generateVacanceLocative).toHaveBeenCalledOnce();
+  });
+
   it("masque les erreurs internes du générateur par un message stable", async () => {
     generatorMocks.generateCompteRenduGestion.mockRejectedValue(new Error("boom"));
 
