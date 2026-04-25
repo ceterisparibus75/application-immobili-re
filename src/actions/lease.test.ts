@@ -124,6 +124,18 @@ describe("updateLease", () => {
       data: expect.objectContaining({ currentRentHT: 2000 })
     }))
   })
+  it("erreur si role LECTURE pour updateLease (min GESTIONNAIRE requis)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await updateLease("society-1", { id: VALID_CUID, status: "RESILIE" })
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+  it("retourne une erreur générique si la BDD échoue dans updateLease", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await updateLease("society-1", { id: VALID_CUID, status: "RESILIE" })
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" })
+  })
 })
 
 describe("deleteLease", () => {
@@ -182,6 +194,12 @@ describe("deleteLease", () => {
     prismaMock.leaseLot.count.mockResolvedValue(1)
     await deleteLease("society-1", VALID_CUID)
     expect(prismaMock.lot.update).not.toHaveBeenCalled()
+  })
+  it("retourne une erreur générique si la BDD échoue dans deleteLease", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await deleteLease("society-1", VALID_CUID)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression du bail" })
   })
 })
 

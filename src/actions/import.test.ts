@@ -204,6 +204,36 @@ describe("importEntities — lots", () => {
     expect(r.success).toBe(true);
     expect(r.data?.imported).toBe(1);
   });
+
+  it("collecte les erreurs Zod pour les lots invalides (référence vide)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      validRow,
+      { reference: "", type: "BUREAUX", surface: "50", buildingId: BUILDING_ID },
+    ];
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
+    const r = await importEntities(SOCIETY_ID, "lots", rows);
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors).toHaveLength(1);
+  });
+
+  it("collecte les erreurs d'insertion lot quand prisma.lot.create échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lot.create.mockRejectedValue(new Error("Unique constraint failed"));
+    const r = await importEntities(SOCIETY_ID, "lots", [validRow]);
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors).toHaveLength(1);
+    expect(r.data?.errors[0].message).toContain("Unique constraint");
+  });
+
+  it("retourne une erreur générique si building.findFirst échoue dans importEntities (lots)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await importEntities(SOCIETY_ID, "lots", [validRow]);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'import en masse" });
+  });
 });
 
 // ─── importFromPdf ────────────────────────────────────────────────────────────

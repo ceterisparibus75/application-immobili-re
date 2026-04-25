@@ -62,6 +62,13 @@ describe("getFiscalYears", () => {
     expect(result.success).toBe(true);
     expect((result.data as unknown[]).length).toBe(1);
   });
+
+  it("retourne une erreur générique si la BDD échoue dans getFiscalYears", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await getFiscalYears(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la récupération des exercices" });
+  });
 });
 
 describe("createFiscalYear", () => {

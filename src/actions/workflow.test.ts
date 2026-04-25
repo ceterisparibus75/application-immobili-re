@@ -142,6 +142,20 @@ describe("toggleWorkflow", () => {
       expect.objectContaining({ data: { isActive: false } })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour toggleWorkflow (min ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await toggleWorkflow(SOCIETY_ID, WORKFLOW_ID, true);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans toggleWorkflow", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.update.mockRejectedValue(new Error("DB connection lost"));
+    const result = await toggleWorkflow(SOCIETY_ID, WORKFLOW_ID, true);
+    expect(result).toEqual({ success: false, error: "Erreur lors du changement d'état" });
+  });
 });
 
 describe("runWorkflow", () => {
@@ -192,5 +206,19 @@ describe("runWorkflow", () => {
     expect(prismaMock.workflowRun.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour runWorkflow (min ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await runWorkflow(SOCIETY_ID, WORKFLOW_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans runWorkflow", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await runWorkflow(SOCIETY_ID, WORKFLOW_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'exécution" });
   });
 });
