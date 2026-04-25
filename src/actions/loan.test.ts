@@ -798,4 +798,247 @@ describe("upsertBudgetLine", () => {
     prismaMock.budgetLine.findFirst.mockRejectedValue(new Error("DB connection lost"))
     await expect(upsertBudgetLine(SOCIETY_ID, validInput)).rejects.toThrow("DB connection lost")
   })
+
+  it("retourne une erreur Zod si l'input est invalide (ligne 589)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID)
+    const r = await upsertBudgetLine(SOCIETY_ID, {})
+    expect(r.error).toBeDefined()
+  })
+})
+
+// ─── createLoanFromPdf ────────────────────────────────────────────────────────
+
+const validPdfLoanInput = {
+  label: "Emprunt PDF",
+  lender: "Banque PDF",
+  loanType: "AMORTISSABLE" as const,
+  amount: 50000,
+  interestRate: 3,
+  insuranceRate: 0,
+  durationMonths: 3,
+  startDate: "2025-01-01",
+  buildingId: VALID_CUID,
+  schedule: [
+    { period: 1, dueDate: "2025-02-01", principal: 16000, interest: 125, insurance: 0, total: 16125, balance: 34000 },
+    { period: 2, dueDate: "2025-03-01", principal: 17000, interest: 85, insurance: 0, total: 17085, balance: 17000 },
+    { period: 3, dueDate: "2025-04-01", principal: 17000, interest: 42, insurance: 0, total: 17042, balance: 0 },
+  ],
+}
+
+describe("createLoanFromPdf", () => {
+  it("retourne une erreur si non authentifié (ligne 249)", async () => {
+    mockUnauthenticated()
+    const { createLoanFromPdf } = await importActions()
+    const r = await createLoanFromPdf("society-1", validPdfLoanInput)
+    expect(r.error).toBe("Non authentifié")
+  })
+
+  it("retourne une erreur si rôle LECTURE (ligne 250)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const { createLoanFromPdf } = await importActions()
+    const r = await createLoanFromPdf("society-1", validPdfLoanInput)
+    expect(r.error).toBe("Accès refusé")
+  })
+
+  it("retourne une erreur Zod si l'input est invalide (lignes 196-197)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoanFromPdf } = await importActions()
+    const r = await createLoanFromPdf("society-1", {})
+    expect(r.error).toBeDefined()
+  })
+
+  it("crée un emprunt depuis le tableau PDF avec succès (lignes 200-247)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoanFromPdf } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-pdf-1", label: "Emprunt PDF" } as never)
+    const r = await createLoanFromPdf("society-1", validPdfLoanInput)
+    expect(r.data).toBeDefined()
+    expect(r.error).toBeUndefined()
+    expect(prismaMock.loan.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ label: "Emprunt PDF", amount: 50000 }),
+      })
+    )
+  })
+
+  it("relance l'erreur si la BDD échoue (ligne 251)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoanFromPdf } = await importActions()
+    prismaMock.loan.create.mockRejectedValue(new Error("DB error"))
+    await expect(createLoanFromPdf("society-1", validPdfLoanInput)).rejects.toThrow("DB error")
+  })
+})
+
+// ─── createLoan — OBLIGATION et COMPTE_COURANT ────────────────────────────────
+
+describe("createLoan — types OBLIGATION et COMPTE_COURANT", () => {
+  it("crée un emprunt OBLIGATION avec les champs spécifiques (lignes 298-301)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-oblig" } as never)
+    const input = {
+      ...validLoanInput,
+      loanType: "OBLIGATION" as const,
+      amount: 100000,
+      interestRate: 5,
+      durationMonths: 12,
+      nominalValue: 1000,
+      bondCount: 100,
+      couponFrequency: "ANNUEL" as const,
+      issuePrice: 990,
+    }
+    const r = await createLoan("society-1", input)
+    expect(r.data).toBeDefined()
+    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
+      data: Record<string, unknown>
+    }
+    expect(createCall.data.nominalValue).toBe(1000)
+    expect(createCall.data.bondCount).toBe(100)
+  })
+
+  it("crée un emprunt COMPTE_COURANT sans tableau d'amortissement (lignes 64, 306-329)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-cc" } as never)
+    const input = {
+      ...validLoanInput,
+      loanType: "COMPTE_COURANT" as const,
+      amount: 20000,
+      partnerName: "Jean Dupont",
+      partnerShare: 50,
+      maxAmount: 50000,
+      conventionDate: "2025-01-01",
+    }
+    const r = await createLoan("society-1", input)
+    expect(r.data).toBeDefined()
+    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
+      data: Record<string, unknown>
+    }
+    // No amortizationLines for COMPTE_COURANT
+    expect(createCall.data.amortizationLines).toBeUndefined()
+    // Initial movement created
+    expect(createCall.data.movements).toBeDefined()
+    expect(createCall.data.partnerName).toBe("Jean Dupont")
+    expect(createCall.data.currentBalance).toBe(20000)
+  })
+
+  it("relance l'erreur si la BDD échoue dans createLoan (ligne 349)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockRejectedValue(new Error("DB unexpected"))
+    await expect(createLoan("society-1", validLoanInput)).rejects.toThrow("DB unexpected")
+  })
+})
+
+// ─── markAmortizationLinePaid — DB error (ligne 419) ─────────────────────────
+
+describe("markAmortizationLinePaid — DB error", () => {
+  it("relance l'erreur si la BDD échoue (ligne 419)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { markAmortizationLinePaid } = await importActions()
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({ id: "line-1", loanId: "loan-1" } as never)
+    prismaMock.loanAmortizationLine.update.mockRejectedValue(new Error("DB unexpected"))
+    await expect(markAmortizationLinePaid("society-1", "line-1", true)).rejects.toThrow("DB unexpected")
+  })
+})
+
+// ─── updateAmortizationLine ───────────────────────────────────────────────────
+
+describe("updateAmortizationLine", () => {
+  const validLineData = {
+    principalPayment: 500,
+    interestPayment: 25,
+    insurancePayment: 10,
+    totalPayment: 535,
+    remainingBalance: 9500,
+  }
+
+  it("retourne une erreur si non authentifié (ligne 459)", async () => {
+    mockUnauthenticated()
+    const { updateAmortizationLine } = await importActions()
+    const r = await updateAmortizationLine("society-1", "line-1", validLineData)
+    expect(r.error).toBe("Non authentifié")
+  })
+
+  it("retourne une erreur si rôle LECTURE (ligne 460)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const { updateAmortizationLine } = await importActions()
+    const r = await updateAmortizationLine("society-1", "line-1", validLineData)
+    expect(r.error).toBe("Accès refusé")
+  })
+
+  it("retourne une erreur Zod si les données sont invalides (lignes 433-434)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { updateAmortizationLine } = await importActions()
+    const r = await updateAmortizationLine("society-1", "line-1", {})
+    expect(r.error).toBeDefined()
+  })
+
+  it("retourne une erreur si la ligne est introuvable (ligne 440)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { updateAmortizationLine } = await importActions()
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue(null)
+    const r = await updateAmortizationLine("society-1", "line-1", validLineData)
+    expect(r.error).toBe("Ligne introuvable")
+  })
+
+  it("met à jour la ligne avec succès (lignes 442-457)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { updateAmortizationLine } = await importActions()
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({ id: "line-1", loanId: "loan-1" } as never)
+    prismaMock.loanAmortizationLine.update.mockResolvedValue({} as never)
+    const r = await updateAmortizationLine("society-1", "line-1", validLineData)
+    expect(r.success).toBe(true)
+    expect(prismaMock.loanAmortizationLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "line-1" }, data: validLineData })
+    )
+  })
+
+  it("relance l'erreur si la BDD échoue (ligne 461)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { updateAmortizationLine } = await importActions()
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({ id: "line-1", loanId: "loan-1" } as never)
+    prismaMock.loanAmortizationLine.update.mockRejectedValue(new Error("DB unexpected"))
+    await expect(updateAmortizationLine("society-1", "line-1", validLineData)).rejects.toThrow("DB unexpected")
+  })
+})
+
+// ─── deleteLoan — DB error (ligne 492) ───────────────────────────────────────
+
+describe("deleteLoan — DB error", () => {
+  it("relance l'erreur si la BDD échoue (ligne 492)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { deleteLoan } = await importActions()
+    prismaMock.loan.findFirst.mockResolvedValue({ id: "loan-1", label: "Test" } as never)
+    prismaMock.loan.delete.mockRejectedValue(new Error("DB unexpected"))
+    await expect(deleteLoan("society-1", "loan-1")).rejects.toThrow("DB unexpected")
+  })
+})
+
+// ─── regenerateAmortizationTable — DB error (ligne 567) ──────────────────────
+
+describe("regenerateAmortizationTable — DB error", () => {
+  it("relance l'erreur si la BDD échoue (ligne 567)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { regenerateAmortizationTable } = await importActions()
+    const loan = {
+      id: "loan-1", amount: 10000, interestRate: 3, insuranceRate: 0,
+      durationMonths: 6, startDate: new Date("2025-01-01"), loanType: "AMORTISSABLE", label: "Test",
+    }
+    prismaMock.loan.findFirst.mockResolvedValue(loan as never)
+    prismaMock.loanAmortizationLine.findMany.mockRejectedValue(new Error("DB unexpected"))
+    await expect(regenerateAmortizationTable("society-1", "loan-1")).rejects.toThrow("DB unexpected")
+  })
+})
+
+// ─── addLoanMovement — ForbiddenError (ligne 709) ────────────────────────────
+
+describe("addLoanMovement — ForbiddenError", () => {
+  it("retourne une erreur si rôle LECTURE (ligne 709)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await addLoanMovement(SOCIETY_ID, {
+      loanId: LOAN_ID, date: "2025-01-01", type: "APPORT", amount: 1000,
+    })
+    expect(r.error).toBe("Accès refusé")
+  })
 })
