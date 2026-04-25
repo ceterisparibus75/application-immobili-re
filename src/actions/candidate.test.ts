@@ -124,6 +124,20 @@ describe("createCandidate", () => {
       expect.objectContaining({ action: "CREATE", entity: "Candidate" })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour createCandidate", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createCandidate(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createCandidate", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidate.create.mockRejectedValue(new Error("DB connection lost"));
+    const r = await createCandidate(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
 });
 
 // ─── updateCandidate ──────────────────────────────────────────────────────────
@@ -171,6 +185,20 @@ describe("updateCandidate", () => {
     const r = await updateCandidate(SOCIETY_ID, validInput);
     expect(r.success).toBe(true);
     expect(prismaMock.candidateActivity.create).not.toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si rôle insuffisant pour updateCandidate", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await updateCandidate(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateCandidate", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidate.findUnique.mockRejectedValue(new Error("DB connection lost"));
+    const r = await updateCandidate(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
   });
 });
 

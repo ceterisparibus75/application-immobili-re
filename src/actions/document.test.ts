@@ -17,7 +17,7 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-import { updateDocument, deleteDocument } from "./document";
+import { updateDocument, deleteDocument, getDocuments } from "./document";
 import { createAuditLog } from "@/lib/audit";
 
 const SOCIETY_ID = "society-1";
@@ -166,5 +166,44 @@ describe("deleteDocument", () => {
     prismaMock.document.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const r = await deleteDocument(SOCIETY_ID, DOC_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+// ─── getDocuments ─────────────────────────────────────────────────────────────
+
+describe("getDocuments", () => {
+  it("retourne un tableau vide si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getDocuments(SOCIETY_ID);
+    expect(result).toEqual([]);
+  });
+
+  it("retourne les documents de la société sans filtre", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.document.findMany.mockResolvedValue([buildDocument()] as never);
+    const result = await getDocuments(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+  });
+
+  it("filtre par buildingId si fourni", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.document.findMany.mockResolvedValue([]);
+    await getDocuments(SOCIETY_ID, { buildingId: "bld-1" });
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ buildingId: "bld-1" }),
+      })
+    );
+  });
+
+  it("filtre par lotId si fourni", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.document.findMany.mockResolvedValue([]);
+    await getDocuments(SOCIETY_ID, { lotId: "lot-1" });
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ lotId: "lot-1" }),
+      })
+    );
   });
 });
