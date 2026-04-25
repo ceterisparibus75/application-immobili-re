@@ -124,6 +124,20 @@ describe("letterEntries", () => {
     expect(result.data?.letteringCode).toBe("AA");
     expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalled();
   });
+
+  it("retourne une erreur si rôle insuffisant pour letterEntries", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans letterEntries", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
+    expect(result).toEqual({ success: false, error: "Erreur lors du lettrage" });
+  });
 });
 
 describe("unletterEntries", () => {
@@ -158,6 +172,20 @@ describe("unletterEntries", () => {
     expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { letteringCode: null, letteredAt: null } })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant pour unletterEntries", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await unletterEntries(SOCIETY_ID, "AA");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans unletterEntries", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await unletterEntries(SOCIETY_ID, "AA");
+    expect(result).toEqual({ success: false, error: "Erreur lors du delettrage" });
   });
 });
 

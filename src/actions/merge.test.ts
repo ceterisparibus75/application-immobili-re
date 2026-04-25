@@ -237,4 +237,32 @@ describe("merge actions", () => {
       { id: SOURCE_ID, number: "A01", lotType: "APPARTEMENT", building: { name: "Résidence Atlas" } },
     ]);
   });
+
+  it("retourne [] pour un type inconnu dans searchDuplicates", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await searchDuplicates(SOCIETY_ID, "unknown" as any, "query");
+    expect(result).toEqual([]);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans mergeLots", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.lot.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la fusion des lots" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour mergeTenants", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans mergeTenants", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la fusion des locataires" });
+  });
 });
