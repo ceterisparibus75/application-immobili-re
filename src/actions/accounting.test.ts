@@ -180,6 +180,13 @@ describe("getAccounts", () => {
     expect(result.success).toBe(true);
     expect((result.data as unknown[]).length).toBe(1);
   });
+
+  it("retourne une erreur générique si la BDD échoue dans getAccounts", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await getAccounts(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la récupération des comptes" });
+  });
 });
 
 describe("getBalance", () => {
@@ -213,6 +220,13 @@ describe("getBalance", () => {
     const result = await getBalance(SOCIETY_ID, {});
     expect(result.success).toBe(true);
     expect(result.data).toHaveLength(0);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans getBalance", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    const result = await getBalance(SOCIETY_ID, {});
+    expect(result).toEqual({ success: false, error: "Erreur lors du calcul de la balance" });
   });
 });
 

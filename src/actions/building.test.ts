@@ -117,6 +117,13 @@ describe("createBuilding", () => {
     expect(result.data?.id).toBe(VALID_CUID)
     expect(prismaMock.building.create).toHaveBeenCalledOnce()
   })
+
+  it("retourne une erreur générique si la BDD échoue dans createBuilding", async () => {
+    mockAuthSession()
+    prismaMock.building.create.mockRejectedValue(new Error("DB connection lost"))
+    const result = await createBuilding("society-1", validInput)
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'immeuble" })
+  })
 })
 
 describe("updateBuilding", () => {
@@ -125,6 +132,12 @@ describe("updateBuilding", () => {
     const result = await updateBuilding("society-1", { id: VALID_CUID, name: "Nouveau nom" })
     expect(result.success).toBe(false)
     expect(result.error).toBe("Non authentifié")
+  })
+
+  it("retourne une erreur Zod si l'id n'est pas un CUID valide", async () => {
+    mockAuthSession()
+    const result = await updateBuilding("society-1", { id: "not-a-cuid", name: "Nouveau nom" })
+    expect(result.success).toBe(false)
   })
 
   it("retourne une erreur si immeuble introuvable", async () => {

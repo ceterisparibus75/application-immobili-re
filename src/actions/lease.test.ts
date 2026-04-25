@@ -315,6 +315,12 @@ describe("createRentSteps", () => {
     expect(result.success).toBe(true);
     expect(result.data?.count).toBe(1);
   });
+
+  it("retourne une erreur générique si la BDD échoue dans createRentSteps", async () => {
+    prismaMock.lease.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const result = await createRentSteps(SOCIETY_ID, validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création des paliers" });
+  });
 });
 
 // ── updateRentStep ────────────────────────────────────────────────
@@ -332,11 +338,32 @@ describe("updateRentStep", () => {
     expect(result.success).toBe(false);
   });
 
+  it("retourne une erreur Zod si l'id n'est pas un CUID valide", async () => {
+    const result = await updateRentStep(SOCIETY_ID, { ...validInput, id: "not-a-cuid" });
+    expect(result.success).toBe(false);
+  });
+
   it("retourne une erreur si le palier est introuvable", async () => {
     prismaMock.leaseRentStep.findFirst.mockResolvedValue(null);
     const result = await updateRentStep(SOCIETY_ID, validInput);
     expect(result.success).toBe(false);
     expect(result.error).toContain("introuvable");
+  });
+
+  it("retourne une erreur si la date de fin est antérieure ou égale à la date de début", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-01-01"), endDate: null } as never);
+    const result = await updateRentStep(SOCIETY_ID, { ...validInput, startDate: "2024-06-01", endDate: "2024-05-01" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("postérieure à la date de début");
+  });
+
+  it("retourne une erreur si la date de début est antérieure au début du bail", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-06-01"), endDate: null } as never);
+    const result = await updateRentStep(SOCIETY_ID, { ...validInput, startDate: "2024-01-01" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("antérieure au début du bail");
   });
 
   it("met à jour le palier avec succès", async () => {
