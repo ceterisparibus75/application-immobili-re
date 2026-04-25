@@ -54,6 +54,8 @@ import {
   type ImportInput,
 } from "./import";
 import { createAuditLog } from "@/lib/audit";
+import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
+import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
 
 const SOCIETY_ID = "society-1";
 const BUILDING_ID = "cbuilding01";
@@ -417,3 +419,240 @@ describe("parseImportFileAction", () => {
     expect(r.data?.rows[0]).toMatchObject({ email: "jean.dupont@example.com" });
   });
 });
+
+
+// ─── importFromPdf — branches existingId ─────────────────────────────────────
+
+describe("importFromPdf — branches existingId", () => {
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.lot.findFirst.mockResolvedValue(null);
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
+    prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.leaseLot.findFirst.mockResolvedValue(null);
+    prismaMock.lease.create.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.leaseLot.createMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.update.mockResolvedValue({} as never);
+  });
+
+  it("erreur si l'immeuble existant est introuvable dans cette societe (lignes 133-134)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue(null);
+    const input = {
+      building: {
+        existingId: BUILDING_ID,
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Immeuble introuvable");
+  });
+
+  it("erreur si le lot existant est introuvable dans cet immeuble (lignes 141,144-145)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.findFirst.mockResolvedValue(null);
+    const input = {
+      building: {
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { existingId: LOT_ID, number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Lot introuvable");
+  });
+
+  it("erreur si un lot secondaire est introuvable (lignes 168,171,179-180)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
+    prismaMock.lot.findMany.mockResolvedValue([] as never); // secondaryLot not found
+    const input = {
+      building: {
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+      secondaryLotIds: ["csec0123456"],
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("introuvables");
+  });
+
+  it("erreur si le locataire existant est introuvable (lignes 216-217)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
+    const input = {
+      building: {
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { existingId: TENANT_ID, entityType: "PERSONNE_MORALE" as const, email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Locataire introuvable");
+  });
+
+  it("erreur si un lot secondaire a deja un bail actif (lignes 227,234-236)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
+    prismaMock.lot.findMany.mockResolvedValue([{ id: "csec0123456" }] as never); // found secondary lot
+    prismaMock.leaseLot.findMany.mockResolvedValue([{ id: "cll01234567", lot: { number: "B1" } }] as never);
+    const input = {
+      building: {
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+      secondaryLotIds: ["csec0123456"],
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("bail actif");
+  });
+});
+
+// ─── analyzePdfAction — branches manquantes ───────────────────────────────────
+
+describe("analyzePdfAction — branches manquantes", () => {
+  it("erreur si pas de societe active (ligne 410)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    vi.mocked(getOptionalAccessibleActiveSocietyId).mockResolvedValueOnce(null as never);
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    expect(r.success).toBe(false);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si fichier trop volumineux (ligne 419)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const bigFile = makeFile("application/pdf", "big.pdf");
+    Object.defineProperty(bigFile, "size", { value: 21 * 1024 * 1024 });
+    const r = await analyzePdfAction(makeFormData(bigFile));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("volumineux");
+  });
+});
+
+// ─── parseImportFileAction — branches manquantes ─────────────────────────────
+
+describe("parseImportFileAction — branches manquantes", () => {
+  it("erreur si fichier trop volumineux (ligne 495)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const bigFile = makeFile("text/csv", "big.csv");
+    Object.defineProperty(bigFile, "size", { value: 11 * 1024 * 1024 });
+    const r = await parseImportFileAction(makeFormData(bigFile));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("volumineux");
+  });
+
+  it("erreur si le fichier est vide (ligne 502)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const { parseImportFile } = await import("@/lib/import-parser");
+    vi.mocked(parseImportFile).mockResolvedValueOnce({ headers: [], rows: [] });
+    const r = await parseImportFileAction(makeFormData(makeFile("text/csv", "empty.csv")));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("vide");
+  });
+
+  it("retourne une erreur generique si parseImportFile lance une exception (lignes 508-509)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const { parseImportFile } = await import("@/lib/import-parser");
+    vi.mocked(parseImportFile).mockRejectedValueOnce(new Error("Parse failed"));
+    const r = await parseImportFileAction(makeFormData(makeFile("text/csv", "bad.csv")));
+    expect(r).toEqual({ success: false, error: "Erreur lors de la lecture du fichier" });
+  });
+});
+
+// ─── importEntities — branches subscription/lot-limit ────────────────────────
+
+describe("importEntities — subscription et lot limit", () => {
+  it("erreur si abonnement inactif (ligne 531)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, message: "Abonnement expire", status: "CANCELED" } as never);
+    const r = await importEntities(SOCIETY_ID, "tenants", [{ nom: "A", prenom: "B", email: "a@b.fr" }]);
+    expect(r).toEqual({ success: false, error: "Abonnement expire" });
+  });
+
+  it("erreur si limite de lots atteinte (ligne 598)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    vi.mocked(checkLotLimit).mockResolvedValueOnce({ allowed: false, message: "Limite atteinte" } as never);
+    const r = await importEntities(SOCIETY_ID, "lots", [{ reference: "A1", type: "BUREAUX", surface: "50", buildingId: BUILDING_ID }]);
+    expect(r).toEqual({ success: false, error: "Limite atteinte" });
+  });
+});
+
+
+// ─── importFromPdf — lot existant trouve (ligne 145) ─────────────────────────
+
+describe("importFromPdf — lot existant trouve", () => {
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.findFirst.mockResolvedValue({ id: LOT_ID, buildingId: BUILDING_ID, number: "A1" } as never);
+    prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.leaseLot.findFirst.mockResolvedValue(null);
+    prismaMock.lease.create.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.leaseLot.createMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.update.mockResolvedValue({} as never);
+  });
+
+  it("utilise le lot existant si existingId est fourni et que le lot est trouve (ligne 145)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const input = {
+      building: {
+        name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const,
+      },
+      lot: { existingId: LOT_ID, number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: {
+        leaseType: "COMMERCIAL_369" as const,
+        startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+        paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+      },
+    };
+    const r = await importFromPdf(SOCIETY_ID, input);
+    expect(r.success).toBe(true);
+    expect(r.data?.lotId).toBe(LOT_ID);
+  });
+});
+

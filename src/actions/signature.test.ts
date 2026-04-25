@@ -528,4 +528,14 @@ describe("signature actions", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe("getEmbeddedSigningUrlForRequest — ForbiddenError (ligne 228)", () => {
+    it("retourne une erreur si pas de membership (ligne 228)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-1", "https://app.test/retour");
+      expect(result.success).toBe(false);
+    });
+  });
+
 });

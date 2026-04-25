@@ -734,3 +734,25 @@ describe("reorderDocument — document introuvable", () => {
     expect(r.error).toBe("Document introuvable");
   });
 });
+
+
+// ─── updateDataroom — ForbiddenError (ligne 173) ─────────────────────────────
+
+describe("updateDataroom — ForbiddenError", () => {
+  it("retourne une erreur si role insuffisant (ligne 173)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { name: "Test" });
+    expect(r.success).toBe(false);
+  });
+});
+
+// ─── addDocumentToDataroom — ForbiddenError (ligne 261) ──────────────────────
+
+describe("addDocumentToDataroom — ForbiddenError", () => {
+  it("retourne une erreur si role insuffisant (ligne 261)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+  });
+});
+
