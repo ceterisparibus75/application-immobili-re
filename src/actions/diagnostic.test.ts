@@ -113,4 +113,52 @@ describe("diagnostic actions", () => {
       where: { id: DIAGNOSTIC_ID },
     });
   });
+
+  it("retourne une erreur si l'immeuble n'existe pas lors de createDiagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue(null);
+
+    const result = await createDiagnostic(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      type: "DPE",
+      performedAt: "2026-04-20",
+    });
+
+    expect(result).toEqual({ success: false, error: "Immeuble introuvable" });
+  });
+
+  it("retourne une erreur si updateDiagnostic ne trouve pas le diagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.diagnostic.findFirst.mockResolvedValue(null);
+
+    const result = await updateDiagnostic(SOCIETY_ID, {
+      id: DIAGNOSTIC_ID,
+      result: "Conforme",
+    });
+
+    expect(result).toEqual({ success: false, error: "Diagnostic introuvable" });
+  });
+
+  it("retourne une erreur si deleteDiagnostic ne trouve pas le diagnostic", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.diagnostic.findFirst.mockResolvedValue(null);
+
+    const result = await deleteDiagnostic(SOCIETY_ID, DIAGNOSTIC_ID);
+
+    expect(result).toEqual({ success: false, error: "Diagnostic introuvable" });
+  });
+
+  it("retourne non authentifié pour updateDiagnostic", async () => {
+    mockUnauthenticated();
+    const result = await updateDiagnostic(SOCIETY_ID, { id: DIAGNOSTIC_ID });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
+
+  it("retourne non authentifié pour deleteDiagnostic", async () => {
+    mockUnauthenticated();
+    const result = await deleteDiagnostic(SOCIETY_ID, DIAGNOSTIC_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
 });
