@@ -202,4 +202,62 @@ describe("getDashboardAlerts", () => {
     expect(draftAlert?.type).toBe("info");
     expect(draftAlert?.count).toBe(3);
   });
+
+  it("retourne alertes pour factures impayées, diagnostics expirants et révisions (lignes 302-366)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+
+    // 2 overdue invoices to trigger per-invoice loop (lines 302-314)
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-1",
+        invoiceNumber: "FAC-2025-001",
+        totalTTC: 800,
+        dueDate: new Date("2025-01-01"),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Jean", lastName: "Dupont" },
+      },
+      {
+        id: "inv-2",
+        invoiceNumber: "FAC-2025-002",
+        totalTTC: 600,
+        dueDate: new Date("2025-01-15"),
+        tenant: { entityType: "PERSONNE_MORALE", companyName: "SCI Test", firstName: null, lastName: null },
+      },
+    ] as never);
+
+    // expiring diagnostic with daysLeft <= 60 → isUrgent = true (lines 332-334)
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 30);
+    prismaMock.diagnostic.findMany.mockResolvedValue([
+      {
+        id: "diag-1",
+        type: "DPE",
+        expiresAt: soon,
+        building: { id: "building-1", name: "Immeuble A" },
+      },
+    ] as never);
+
+    // pending revisions → triggers line 366
+    prismaMock.rentRevision.findMany.mockResolvedValue([
+      { id: "rev-1", effectiveDate: new Date(), newRentHT: 900, lease: { id: "lease-1", tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Jean", lastName: "Dupont" } } },
+    ] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
+    prismaMock.invoice.count
+      .mockResolvedValueOnce(0 as never)
+      .mockResolvedValueOnce(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    const overdueAlert = result.find((a) => a.id === "invoices-overdue-30d");
+    expect(overdueAlert).toBeDefined();
+    expect(overdueAlert?.count).toBe(2);
+
+    const diagAlert = result.find((a) => a.id === "diagnostic-expiring-diag-1");
+    expect(diagAlert).toBeDefined();
+    expect(diagAlert?.type).toBe("danger"); // isUrgent=true → danger
+
+    const revisionAlert = result.find((a) => a.id === "rent-revisions-pending");
+    expect(revisionAlert).toBeDefined();
+  });
 });
