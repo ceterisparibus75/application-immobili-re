@@ -276,6 +276,30 @@ describe("createManualRevision", () => {
   })
 })
 
+const VALID_LEASE_BASE = {
+  id: VALID_CUID,
+  indexType: "IRL" as const,
+  baseIndexValue: 131.31,
+  baseIndexQuarter: null,
+  revisionFrequency: 12,
+  revisionDateBasis: null,
+  revisionCustomMonth: null,
+  revisionCustomDay: null,
+  entryDate: null,
+  currentRentHT: 1000,
+  rentRevisions: [],
+  tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Jean", lastName: "Dupont" },
+  lot: { number: "A1", building: { name: "Immeuble A" } },
+  society: { id: SOCIETY_ID, userSocieties: [{ userId: "user-manager" }] },
+  societyId: SOCIETY_ID,
+}
+
+function leaseStartedOneYearAgo() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 1)
+  return d
+}
+
 // ─── detectPendingRevisions ───────────────────────────────────────────────────
 
 describe("detectPendingRevisions", () => {
@@ -289,20 +313,67 @@ describe("detectPendingRevisions", () => {
   it("ignore les baux sans indexType ou baseIndexValue", async () => {
     prismaMock.lease.findMany.mockResolvedValue([
       {
-        id: VALID_CUID, indexType: null, baseIndexValue: null,
-        startDate: new Date("2022-01-01"), entryDate: null,
-        revisionFrequency: 12, revisionDateBasis: null,
-        revisionCustomMonth: null, revisionCustomDay: null,
-        baseIndexQuarter: null,
-        rentRevisions: [],
-        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Jean", lastName: "Dupont" },
-        lot: { number: "1", building: { name: "Immeuble A" } },
-        society: { id: "society-1", userSocieties: [] },
+        ...VALID_LEASE_BASE,
+        indexType: null,
+        baseIndexValue: null,
+        startDate: new Date("2022-01-01"),
       },
     ] as never)
 
     const r = await detectPendingRevisions()
     expect(r.created).toBe(0)
+  })
+
+  it("crée une révision et une notification pour un bail dont la révision est dans la fenêtre", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { ...VALID_LEASE_BASE, startDate: leaseStartedOneYearAgo() },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null) // pas de révision en attente
+    prismaMock.inseeIndex.findFirst.mockResolvedValue({ value: 142.0, year: 2026, quarter: 1 } as never)
+    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-auto-1" } as never)
+    prismaMock.notification.create.mockResolvedValue({} as never)
+
+    const r = await detectPendingRevisions()
+
+    expect(r.created).toBe(1)
+    expect(r.errors).toHaveLength(0)
+    expect(prismaMock.rentRevision.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leaseId: VALID_CUID,
+          previousRentHT: 1000,
+          newIndexValue: 142.0,
+          isValidated: false,
+        }),
+      })
+    )
+    expect(prismaMock.notification.create).toHaveBeenCalledOnce()
+  })
+
+  it("saute un bail dont une révision est déjà en attente", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { ...VALID_LEASE_BASE, startDate: leaseStartedOneYearAgo() },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue({ id: "rev-pending" } as never)
+
+    const r = await detectPendingRevisions()
+
+    expect(r.created).toBe(0)
+    expect(prismaMock.rentRevision.create).not.toHaveBeenCalled()
+  })
+
+  it("ajoute une erreur si aucun indice n'est disponible pour le bail", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { ...VALID_LEASE_BASE, startDate: leaseStartedOneYearAgo() },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(null) // aucun indice
+
+    const r = await detectPendingRevisions()
+
+    expect(r.created).toBe(0)
+    expect(r.errors).toHaveLength(1)
+    expect(r.errors[0]).toContain("aucun indice IRL disponible")
   })
 })
 
