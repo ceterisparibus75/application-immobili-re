@@ -104,6 +104,19 @@ describe("parseImportFile", () => {
       const result = await parseImportFile(Buffer.from("x"), "old.xls");
       expect(result.headers).toEqual(["ref"]);
     });
+
+    it("retourne headers et rows vides si toutes les colonnes d'en-tête sont vides (ligne 60)", async () => {
+      excelMocks.worksheet.rowCount = 2;
+      excelMocks.worksheet.getRow.mockImplementation((n: number) => {
+        if (n === 1) return makeRow(["", "", ""]);
+        if (n === 2) return makeRow(["val1", "val2", "val3"]);
+        return makeRow([]);
+      });
+
+      const result = await parseImportFile(Buffer.from("dummy"), "empty-headers.xlsx");
+      expect(result.headers).toEqual([]);
+      expect(result.rows).toEqual([]);
+    });
   });
 
   describe("CSV (détection de délimiteur)", () => {

@@ -5,9 +5,11 @@ import {
   requireSocietyAccess,
   requireSuperAdmin,
   hasModulePermission,
+  requireModulePermission,
   getEffectivePermissions,
   getUserSocieties,
   ForbiddenError,
+  NotFoundError,
 } from "@/lib/permissions"
 import { buildMembership } from "@/test/factories"
 import { UserRole } from "@/generated/prisma/client"
@@ -118,6 +120,73 @@ describe("getEffectivePermissions", () => {
     const r = await getEffectivePermissions("user-1", "society-1")
     expect(r?.role).toBe(UserRole.LECTURE)
     expect(r?.permissions).toBeDefined()
+  })
+})
+
+// ─── requireModulePermission ──────────────────────────────────────────────────
+
+describe("requireModulePermission", () => {
+  it("ne lance pas d'erreur si la permission est accordée (lignes 88-90)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(
+      buildMembership(UserRole.GESTIONNAIRE, { modulePermissions: null })
+    )
+    await expect(requireModulePermission("user-1", "society-1", "locataires", "read")).resolves.toBeUndefined()
+  })
+
+  it("lance ForbiddenError si la permission est refusée (lignes 88-90)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never)
+    await expect(requireModulePermission("user-1", "society-1", "locataires", "read")).rejects.toThrow(ForbiddenError)
+  })
+})
+
+// ─── NotFoundError ────────────────────────────────────────────────────────────
+
+describe("NotFoundError", () => {
+  it("crée une erreur avec le nom et message par défaut (lignes 135-136)", () => {
+    const err = new NotFoundError()
+    expect(err.name).toBe("NotFoundError")
+    expect(err.message).toBe("Ressource introuvable")
+  })
+
+  it("crée une erreur avec un message personnalisé", () => {
+    const err = new NotFoundError("Entité non trouvée")
+    expect(err.name).toBe("NotFoundError")
+    expect(err.message).toBe("Entité non trouvée")
+  })
+})
+
+// ─── hasModulePermission — branches supplémentaires ──────────────────────────
+
+describe("hasModulePermission — branches supplémentaires", () => {
+  it("retourne true via modulePermissions JSON valide (ligne 38)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(
+      buildMembership(UserRole.GESTIONNAIRE, { modulePermissions: { locataires: ["read", "write"] } })
+    )
+    const r = await hasModulePermission("user-1", "society-1", "locataires", "read")
+    expect(r).toBe(true)
+  })
+
+  it("retourne false si le module n'est pas dans les permissions JSON (ligne 74)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(
+      buildMembership(UserRole.GESTIONNAIRE, { modulePermissions: {} })
+    )
+    const r = await hasModulePermission("user-1", "society-1", "locataires", "read")
+    expect(r).toBe(false)
+  })
+})
+
+// ─── requireSocietyAccess — owner avec minRole supérieur ─────────────────────
+
+describe("requireSocietyAccess — owner avec minRole supérieur (ligne 158)", () => {
+  it("lance ForbiddenError si owner mais minRole=SUPER_ADMIN exigé", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "user-1", proprietaire: null } as never)
+    await expect(
+      requireSocietyAccess("user-1", "society-1", UserRole.SUPER_ADMIN)
+    ).rejects.toThrow(ForbiddenError)
   })
 })
 
