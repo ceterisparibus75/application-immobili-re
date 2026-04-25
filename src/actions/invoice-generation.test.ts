@@ -307,10 +307,45 @@ describe("generateBatchInvoices", () => {
     expect(result.data?.skipped).toBe(0);
   });
 
-  it("retourne une erreur si rôle insuffisant pour generateBatchInvoices", async () => {
+  it("retourne une erreur si non authentifié pour generateBatchInvoices (UnauthenticatedActionError)", async () => {
     mockUnauthenticated();
     const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
     expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour generateBatchInvoices (ForbiddenError ligne 619)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("capture l'erreur par bail si $transaction échoue (lignes 592-593)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: LEASE_ID,
+        tenantId: TENANT_ID,
+        startDate: new Date("2024-01-01"),
+        paymentFrequency: "MENSUEL",
+        billingTerm: "ECHU",
+        currentRentHT: 800,
+        vatApplicable: false,
+        vatRate: 0,
+        rentFreeMonths: 0,
+        progressiveRent: false,
+        rentSteps: [],
+        chargeProvisions: [],
+        lot: { number: "1", building: { name: "Immeuble A" } },
+      },
+    ] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockRejectedValue(new Error("Transaction failed"));
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(0);
+    expect(result.data?.errors).toHaveLength(1);
+    expect(result.data?.errors[0]).toContain("Transaction failed");
   });
 
   it("retourne une erreur générique si la BDD échoue dans generateBatchInvoices", async () => {
