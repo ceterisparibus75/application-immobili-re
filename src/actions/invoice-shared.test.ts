@@ -1,8 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 
+const { mockCreateSignedUrl } = vi.hoisted(() => ({
+  mockCreateSignedUrl: vi.fn().mockResolvedValue({ data: null }),
+}));
+
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
-    storage: { from: vi.fn(() => ({ createSignedUrl: vi.fn().mockResolvedValue({ data: null }) })) },
+    storage: { from: vi.fn(() => ({ createSignedUrl: mockCreateSignedUrl })) },
   })),
 }));
 vi.mock("@/lib/encryption", () => ({
@@ -474,5 +478,31 @@ describe("computeInvoicePreview", () => {
     expect(result?.lines).toHaveLength(2);
     expect(result?.lines[0].label).toContain("avant révision");
     expect(result?.lines[1].label).toContain("révisé");
+  });
+
+  it("résout le logo via Supabase si logoUrl est un chemin relatif (lignes 381-402)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety({ logoUrl: "logos/society.png" }) as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+  });
+
+  it("résout le logo via Supabase et stocke l'URL signée (ligne 403)", async () => {
+    mockCreateSignedUrl.mockResolvedValueOnce({ data: { signedUrl: "https://cdn.example.com/logo.png" } });
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(
+      makeSociety({ logoUrl: "https://supabase.example.com/storage/v1/object/public/logos/society.png" }) as never,
+    );
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.logoResolvedUrl).toBe("https://cdn.example.com/logo.png");
   });
 });
