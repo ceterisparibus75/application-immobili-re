@@ -383,4 +383,149 @@ describe("signature actions", () => {
       expect(result).toEqual({ success: false, error: "Erreur lors de l'annulation" });
     });
   });
+
+  describe("createSignatureRequest — branches manquantes", () => {
+    it("retourne une erreur Zod si l'input est invalide (ligne 38)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await createSignatureRequest("society-1", {} as any);
+      expect(result.success).toBe(false);
+    });
+
+    it("retourne succes sans signingUrl si non-embarque (ligne 95)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      createEnvelope.mockResolvedValue("env-notemb");
+      prismaMock.signatureRequest.create.mockResolvedValue({ id: "sig-notemb" } as never);
+      const result = await createSignatureRequest("society-1", {
+        documentType: "BAIL",
+        documentName: "Bail.pdf",
+        documentBase64: "ZmFrZQ==",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result).toEqual({ success: true, data: { id: "sig-notemb" } });
+    });
+
+    it("retourne une erreur si role LECTURE (ligne 98)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await createSignatureRequest("society-1", {
+        documentType: "BAIL",
+        documentName: "Bail.pdf",
+        documentBase64: "ZmFrZQ==",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("retourne une erreur generique si la BDD echoue (lignes 99-100)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      createEnvelope.mockResolvedValue("env-dberr");
+      prismaMock.signatureRequest.create.mockRejectedValue(new Error("DB error"));
+      const result = await createSignatureRequest("society-1", {
+        documentType: "BAIL",
+        documentName: "Bail.pdf",
+        documentBase64: "ZmFrZQ==",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result).toEqual({ success: false, error: "Erreur lors de la creation de la demande de signature" });
+    });
+  });
+
+  describe("createSignatureRequestFromUrl — branches manquantes", () => {
+    it("retourne une erreur si plan non autorise (ligne 126)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      checkSignatureFeature.mockResolvedValue({ allowed: false, message: "Plan insuffisant" });
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/doc.pdf",
+        documentName: "doc.pdf",
+        documentType: "BAIL",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result).toEqual({ success: false, error: "Plan insuffisant" });
+    });
+
+    it("retourne une erreur si non authentifie (ligne 173)", async () => {
+      mockUnauthenticated();
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/doc.pdf",
+        documentName: "doc.pdf",
+        documentType: "BAIL",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result).toEqual({ success: false, error: "Non authentifie" });
+    });
+
+    it("retourne une erreur si role LECTURE (ligne 174)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/doc.pdf",
+        documentName: "doc.pdf",
+        documentType: "BAIL",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("retourne une erreur generique si la BDD echoue (lignes 175-176)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      }));
+      createEnvelope.mockResolvedValue("env-url-dberr");
+      prismaMock.signatureRequest.create.mockRejectedValue(new Error("DB error"));
+      const result = await createSignatureRequestFromUrl("society-1", {
+        documentUrl: "https://storage.test/doc.pdf",
+        documentName: "doc.pdf",
+        documentType: "BAIL",
+        signerEmail: "alice@example.com",
+        signerName: "Alice",
+      });
+      expect(result).toEqual({ success: false, error: "Erreur lors de la creation de la demande de signature" });
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe("getEmbeddedSigningUrlForRequest — branches manquantes", () => {
+    it("retourne une erreur si non authentifie (ligne 227)", async () => {
+      mockUnauthenticated();
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-1", "https://app.test/retour");
+      expect(result).toEqual({ success: false, error: "Non authentifie" });
+    });
+
+    it("retourne une erreur generique si la BDD echoue (lignes 229-230)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.signatureRequest.findFirst.mockRejectedValue(new Error("DB error"));
+      const result = await getEmbeddedSigningUrlForRequest("society-1", "sig-1", "https://app.test/retour");
+      expect(result).toEqual({ success: false, error: "Impossible d'obtenir l'URL de signature" });
+    });
+  });
+
+  describe("cancelSignatureRequest — non authentifie", () => {
+    it("retourne une erreur si non authentifie (ligne 273)", async () => {
+      mockUnauthenticated();
+      const result = await cancelSignatureRequest("society-1", "sig-1");
+      expect(result).toEqual({ success: false, error: "Non authentifie" });
+    });
+  });
+
+  describe("syncSignatureStatus — branches manquantes", () => {
+    it("retourne une erreur si non authentifie (ligne 313)", async () => {
+      mockUnauthenticated();
+      const result = await syncSignatureStatus("society-1", "sig-1");
+      expect(result).toEqual({ success: false, error: "Non authentifie" });
+    });
+
+    it("retourne une erreur si pas de membership (ligne 314)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      prismaMock.userSociety.findUnique.mockResolvedValue(null as never);
+      const result = await syncSignatureStatus("society-1", "sig-1");
+      expect(result.success).toBe(false);
+    });
+  });
 });
