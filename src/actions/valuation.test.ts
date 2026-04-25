@@ -11,6 +11,7 @@ const {
   collectBuildingData,
   callClaude,
   callOpenAI,
+  extractReportData,
 } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   checkSubscriptionActive: vi.fn(),
@@ -18,6 +19,7 @@ const {
   collectBuildingData: vi.fn(),
   callClaude: vi.fn(),
   callOpenAI: vi.fn(),
+  extractReportData: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -28,7 +30,7 @@ vi.mock("@/lib/valuation/data-collector", () => ({ collectBuildingData }));
 vi.mock("@/lib/valuation/ai-service", () => ({
   callClaude,
   callOpenAI,
-  extractReportData: vi.fn(),
+  extractReportData,
 }));
 
 import {
@@ -41,6 +43,7 @@ import {
   runAiAnalysis,
   searchComparables,
   updateValuationResults,
+  uploadExpertReport,
 } from "./valuation";
 
 const SOCIETY_ID = "society-1";
@@ -590,5 +593,112 @@ describe("batchCreatePropertyValuations", () => {
     expect(r.success).toBe(true);
     expect(r.data?.created).toBe(1);
     expect(r.data?.skipped).toBe(0);
+  });
+});
+
+// ── uploadExpertReport ────────────────────────────────────────────────────────
+
+describe("uploadExpertReport", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSubscriptionActive.mockResolvedValue({ active: true });
+  });
+
+  function makeFormData(hasFile = true): FormData {
+    const mockFile = hasFile
+      ? { name: "rapport-expert.pdf", arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) }
+      : null;
+    const fields: Record<string, unknown> = {
+      file: mockFile,
+      expertName: "Expert SA",
+      reportDate: "2026-04-20",
+      reportReference: null,
+    };
+    return { get: (key: string) => fields[key] ?? null } as unknown as FormData;
+  }
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, makeFormData(false));
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si aucun fichier fourni", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, makeFormData(false));
+    expect(result).toEqual({ success: false, error: "Aucun fichier fourni" });
+  });
+
+  it("retourne une erreur si l'évaluation est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue(null);
+
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, makeFormData());
+    expect(result).toEqual({ success: false, error: "Évaluation introuvable" });
+  });
+
+  it("crée le rapport expert et met à jour la valeur vénale si l'IA extrait une estimation", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+    } as never);
+    extractReportData.mockResolvedValue({
+      result: {
+        valuation: { estimatedValue: 450000, rentalValue: 36000, pricePerSqm: 4500, capRate: 5.0, methodsUsed: ["Comparison"] },
+        property: { totalArea: 100 },
+      },
+    });
+    prismaMock.expertReport.create.mockResolvedValue({ id: "report-1" } as never);
+
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, makeFormData());
+    expect(result).toEqual({ success: true, data: { id: "report-1" } });
+    expect(prismaMock.expertReport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ expertName: "Expert SA", estimatedValue: 450000 }),
+      })
+    );
+    expect(prismaMock.building.update).toHaveBeenCalledWith({
+      where: { id: BUILDING_ID },
+      data: { marketValue: 450000 },
+    });
+  });
+
+  it("crée le rapport même si l'extraction IA échoue (fallback gracieux)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+    } as never);
+    extractReportData.mockRejectedValue(new Error("IA indisponible"));
+    prismaMock.expertReport.create.mockResolvedValue({ id: "report-2" } as never);
+
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, makeFormData());
+    expect(result).toEqual({ success: true, data: { id: "report-2" } });
+    expect(prismaMock.expertReport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ estimatedValue: null }),
+      })
+    );
+  });
+});
+
+// ── rerunAllValuations — catch block ──────────────────────────────────────────
+
+describe("rerunAllValuations — erreurs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne une erreur ForbiddenError si l'utilisateur n'est pas SUPER_ADMIN", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    // findMany retourne un membership sans SUPER_ADMIN → requireSuperAdmin lève ForbiddenError
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { userId: "user-1", societyId: SOCIETY_ID, role: "GESTIONNAIRE" },
+    ] as never);
+
+    const result = await rerunAllValuations();
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/super|accès/i);
   });
 });

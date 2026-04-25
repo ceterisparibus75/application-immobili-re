@@ -302,7 +302,7 @@ export async function uploadExpertReport(
     const metaParsed = uploadExpertReportSchema.safeParse({
       expertName: formData.get("expertName"),
       reportDate: formData.get("reportDate"),
-      reportReference: formData.get("reportReference"),
+      reportReference: formData.get("reportReference") ?? undefined,
     });
     if (!metaParsed.success) {
       return { success: false, error: metaParsed.error.errors.map((e) => e.message).join(", ") };
