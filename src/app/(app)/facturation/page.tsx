@@ -96,23 +96,19 @@ export default async function FacturationPage() {
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalImpaye = [...enAttente, ...enRetard].reduce((s, i) => s + i.totalTTC, 0);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
-  const totalOverdue = overdueInvoices.reduce((s, inv) => {
-    const paid = inv.payments.reduce((ps, p) => ps + p.amount, 0);
-    return s + inv.totalTTC - paid;
-  }, 0);
   const remindersCount = reminders.filter((r) => r.isSent).length;
 
   return (
     <div className="space-y-6 max-w-7xl">
       <GestionLocativeNav />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {invoices.length} facture{invoices.length !== 1 ? "s" : ""} &middot; Suivi complet
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExportFactures data={invoices.map((inv) => {
             const tenantName = inv.tenant
               ? inv.tenant.entityType === "PERSONNE_MORALE"

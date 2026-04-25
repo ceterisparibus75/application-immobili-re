@@ -97,14 +97,14 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Locataires</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {total} locataire{total !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportLocataires data={serialized} />
           <Link href="/locataires/nouveau">
             <Button>

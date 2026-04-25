@@ -264,7 +264,7 @@ export default async function BauxPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Baux</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -274,12 +274,12 @@ export default async function BauxPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportBaux data={exportData} />
-          <Link href="/import">
+          <Link href="/baux/import">
             <Button variant="outline" size="sm">
               <Upload className="h-4 w-4" />
-              Import PDF
+              Import bail PDF
             </Button>
           </Link>
           <NewLeaseMenu />
