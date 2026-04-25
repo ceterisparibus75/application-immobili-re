@@ -488,6 +488,18 @@ describe("updateRentStep", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Chevauchement");
   });
+
+  it("détecte le chevauchement quand les deux paliers ont une date de fin (branches oEnd/newEnd truthy)", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-01-01"), endDate: null } as never);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([
+      { label: "Palier B", startDate: new Date("2024-04-01"), endDate: new Date("2024-08-31") },
+    ] as never);
+    // update: startDate=2024-06-01, endDate=2024-09-30 → chevauche avec Palier B (fin: 2024-08-31)
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", endDate: "2024-09-30", rentHT: 1500 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Chevauchement");
+  });
 });
 
 // ── deleteRentStep ────────────────────────────────────────────────

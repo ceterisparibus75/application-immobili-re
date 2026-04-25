@@ -53,6 +53,20 @@ describe("createWorkflow", () => {
     expect(result.success).toBe(false);
   });
 
+  it("retourne une erreur si rôle insuffisant pour createWorkflow (min ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await createWorkflow(SOCIETY_ID, validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createWorkflow", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.workflow.create.mockRejectedValue(new Error("DB connection lost"));
+    const result = await createWorkflow(SOCIETY_ID, validInput);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
+
   it("retourne une erreur si aucune étape", async () => {
     mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
     const result = await createWorkflow(SOCIETY_ID, { ...validInput, steps: [] });

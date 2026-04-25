@@ -510,6 +510,13 @@ describe("recalculateBankBalance", () => {
     expect(r.success).toBe(true)
     expect(r.data).toEqual({ newBalance: 5000 })
   })
+
+  it("retourne une erreur générique si la BDD échoue dans recalculateBankBalance", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await recalculateBankBalance(SOCIETY_ID, VALID_CUID)
+    expect(r).toEqual({ success: false, error: "Erreur lors du recalcul du solde" })
+  })
 })
 
 // ─── correctBankBalance ─────────────────────────────────────────────────────
@@ -605,6 +612,13 @@ describe("correctBankBalance", () => {
         data: { initialBalance: 3000, currentBalance: 3000 },
       })
     )
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans correctBankBalance", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE)
+    prismaMock.bankAccount.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const r = await correctBankBalance(SOCIETY_ID, VALID_CUID, 10000)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la correction du solde" })
   })
 })
 
