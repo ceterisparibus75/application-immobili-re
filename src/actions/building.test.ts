@@ -1,7 +1,15 @@
 import { describe, it, expect, vi } from "vitest"
 import { prismaMock } from "@/test/mocks/prisma"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
-import { createBuilding, updateBuilding, deleteBuilding, getBuildings, getBuildingById } from "@/actions/building"
+import {
+  createBuilding,
+  updateBuilding,
+  deleteBuilding,
+  getBuildings,
+  getBuildingById,
+  createAdditionalAcquisition,
+  deleteAdditionalAcquisition,
+} from "@/actions/building"
 import { UserRole } from "@/generated/prisma/client"
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
@@ -220,5 +228,73 @@ describe("getBuildingById", () => {
         }),
       })
     )
+  })
+})
+
+const BUILDING_ID = "clh3x2z4k0001qh8g7z1y2v3t"
+const ACQ_ID = "clh3x2z4k0002qh8g7z1y2v3t"
+
+const validAcqInput = {
+  label: "Extension Sud",
+  acquisitionDate: "2025-06-01",
+  acquisitionPrice: 50000,
+}
+
+// ─── createAdditionalAcquisition ─────────────────────────────────────────────
+
+describe("createAdditionalAcquisition", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, "society-1")
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never)
+    prismaMock.additionalAcquisition.create.mockResolvedValue({ id: ACQ_ID } as never)
+  })
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si l'immeuble est introuvable", async () => {
+    prismaMock.building.findFirst.mockResolvedValue(null as never)
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("crée l'acquisition avec succès", async () => {
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r.success).toBe(true)
+    expect(r.data?.id).toBe(ACQ_ID)
+    expect(prismaMock.additionalAcquisition.create).toHaveBeenCalledOnce()
+  })
+})
+
+// ─── deleteAdditionalAcquisition ──────────────────────────────────────────────
+
+describe("deleteAdditionalAcquisition", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, "society-1")
+    prismaMock.additionalAcquisition.findFirst.mockResolvedValue({ id: ACQ_ID, buildingId: BUILDING_ID } as never)
+    prismaMock.additionalAcquisition.delete.mockResolvedValue({} as never)
+  })
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await deleteAdditionalAcquisition("society-1", ACQ_ID)
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si acquisition introuvable", async () => {
+    prismaMock.additionalAcquisition.findFirst.mockResolvedValue(null as never)
+    const r = await deleteAdditionalAcquisition("society-1", "acq-inexistant")
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("supprime l'acquisition avec succès", async () => {
+    const r = await deleteAdditionalAcquisition("society-1", ACQ_ID)
+    expect(r.success).toBe(true)
+    expect(prismaMock.additionalAcquisition.delete).toHaveBeenCalledWith({ where: { id: ACQ_ID } })
   })
 })

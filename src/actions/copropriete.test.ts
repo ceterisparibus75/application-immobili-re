@@ -8,12 +8,15 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import {
   createCopropriete,
+  updateCopropriete,
   deleteCopropriete,
   createCoproLot,
+  updateCoproLot,
   deleteCoproLot,
   createCoproBudget,
   approveBudget,
   createAssembly,
+  updateAssembly,
   createResolution,
   recordVote,
   closeResolution,
@@ -402,5 +405,71 @@ describe("closeResolution", () => {
     const r = await closeResolution(SOCIETY_ID, RESOLUTION_ID);
     expect(r.success).toBe(true);
     expect(r.data?.status).toBe("REJECTED");
+  });
+});
+
+const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t";
+const VALID_CUID_2 = "clh3x2z4k0001qh8g7z1y2v3t";
+
+// ─── updateCopropriete ────────────────────────────────────────────────────────
+
+describe("updateCopropriete", () => {
+  const validUpdate = { id: VALID_CUID, name: "Résidence Modifiée" };
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await updateCopropriete(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(false);
+  });
+
+  it("met à jour la copropriété avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.copropriete.update.mockResolvedValue({ id: VALID_CUID } as never);
+    const r = await updateCopropriete(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(true);
+    expect(r.data?.id).toBe(VALID_CUID);
+    expect(prismaMock.copropriete.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: VALID_CUID, societyId: SOCIETY_ID } })
+    );
+  });
+});
+
+// ─── updateCoproLot ───────────────────────────────────────────────────────────
+
+describe("updateCoproLot", () => {
+  const validUpdate = { id: VALID_CUID, ownerName: "Nouveau Proprio" };
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await updateCoproLot(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(false);
+  });
+
+  it("met à jour le lot avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproLot.update.mockResolvedValue({ id: VALID_CUID } as never);
+    const r = await updateCoproLot(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(true);
+    expect(r.data?.id).toBe(VALID_CUID);
+  });
+});
+
+// ─── updateAssembly ───────────────────────────────────────────────────────────
+
+describe("updateAssembly", () => {
+  const validUpdate = { id: VALID_CUID_2, title: "AG Extraordinaire 2025" };
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await updateAssembly(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(false);
+  });
+
+  it("met à jour l'assemblée avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproAssembly.update.mockResolvedValue({ id: VALID_CUID_2 } as never);
+    const r = await updateAssembly(SOCIETY_ID, validUpdate);
+    expect(r.success).toBe(true);
+    expect(r.data?.id).toBe(VALID_CUID_2);
   });
 });
