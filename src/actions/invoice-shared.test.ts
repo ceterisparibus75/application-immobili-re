@@ -505,4 +505,33 @@ describe("computeInvoicePreview", () => {
     expect(result).not.toBeNull();
     expect(result?.logoResolvedUrl).toBe("https://cdn.example.com/logo.png");
   });
+
+  it("déchiffre l'IBAN et le BIC quand non nuls (lignes 375-376)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(
+      makeSociety({ ibanEncrypted: "enc:FR7612345678901234567890189", bicEncrypted: "enc:BNPAFRPP" }) as never,
+    );
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.iban).toBe("FR7612345678901234567890189");
+    expect(result?.bic).toBe("BNPAFRPP");
+  });
+});
+
+describe("buildRevisionProrataLines — retourne null si daysBefore=0 (ligne 276)", () => {
+  it("retourne null si l'effectiveDate coïncide avec periodStart (daysBefore=0)", async () => {
+    const periodStart = new Date("2025-01-01");
+    const periodEnd = new Date("2025-01-31");
+    prismaMock.rentRevision.findFirst.mockResolvedValue({
+      effectiveDate: new Date("2025-01-01"),
+      previousRentHT: 800,
+      newRentHT: 900,
+    } as never);
+    const r = await buildRevisionProrataLines("clease01234", periodStart, periodEnd, 0, "Lot A", "janvier 2025");
+    expect(r).toBeNull();
+  });
 });

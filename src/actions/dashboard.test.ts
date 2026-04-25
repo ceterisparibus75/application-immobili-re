@@ -260,4 +260,48 @@ describe("getDashboardAlerts", () => {
     const revisionAlert = result.find((a) => a.id === "rent-revisions-pending");
     expect(revisionAlert).toBeDefined();
   });
+
+  it("retourne une alerte pour un bail expirant bientôt (lignes 256-257)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 30);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-expiring-1",
+        endDate,
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Marie", lastName: "Curie" },
+        lot: { number: "B-201", building: { name: "Immeuble Central" } },
+      },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+    const leaseAlert = result.find((a) => a.id === "lease-expiring-lease-expiring-1");
+    expect(leaseAlert).toBeDefined();
+    expect(leaseAlert?.type).toBe("warning");
+    expect(leaseAlert?.message).toContain("Marie Curie");
+  });
+
+  it("ignore un locataire introuvable dans la map (ligne 399)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([
+      { tenantId: "unknown-tenant", _sum: { totalTTC: 1000 }, _count: 1 },
+    ] as never);
+    prismaMock.tenant.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+    const lateAlert = result.find((a) => a.id === "tenant-late-unknown-tenant");
+    expect(lateAlert).toBeUndefined();
+  });
 });
