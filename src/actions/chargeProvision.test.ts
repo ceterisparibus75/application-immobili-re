@@ -135,4 +135,71 @@ describe("chargeProvision actions", () => {
       where: { id: PROVISION_ID },
     });
   });
+
+  it("retourne Bail introuvable si lease n'appartient pas à la société", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+
+    const result = await createChargeProvision(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      lotId: LOT_ID,
+      label: "Provision",
+      monthlyAmount: 50,
+      vatRate: 0,
+      startDate: "2026-01-01",
+    });
+
+    expect(result).toEqual({ success: false, error: "Bail introuvable" });
+  });
+
+  it("retourne Provision introuvable pour updateChargeProvision si société ne correspond pas", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.chargeProvision.findFirst.mockResolvedValue({
+      id: PROVISION_ID,
+      lease: { societyId: "autre-societe", id: LEASE_ID },
+    } as never);
+
+    const result = await updateChargeProvision(SOCIETY_ID, {
+      id: PROVISION_ID,
+      label: "Test",
+      monthlyAmount: 50,
+      vatRate: 0,
+      startDate: "2026-01-01",
+    });
+
+    expect(result).toEqual({ success: false, error: "Provision introuvable" });
+  });
+
+  it("retourne Provision introuvable pour deleteChargeProvision si société ne correspond pas", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.chargeProvision.findFirst.mockResolvedValue({
+      id: PROVISION_ID,
+      leaseId: LEASE_ID,
+      lease: { societyId: "autre-societe", id: LEASE_ID },
+    } as never);
+
+    const result = await deleteChargeProvision(SOCIETY_ID, PROVISION_ID);
+
+    expect(result).toEqual({ success: false, error: "Provision introuvable" });
+  });
+
+  it("retourne non authentifié pour updateChargeProvision", async () => {
+    mockUnauthenticated();
+    const result = await updateChargeProvision(SOCIETY_ID, {
+      id: PROVISION_ID,
+      label: "x",
+      monthlyAmount: 1,
+      vatRate: 0,
+      startDate: "2026-01-01",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
+
+  it("retourne non authentifié pour deleteChargeProvision", async () => {
+    mockUnauthenticated();
+    const result = await deleteChargeProvision(SOCIETY_ID, PROVISION_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("authentifié");
+  });
 });
