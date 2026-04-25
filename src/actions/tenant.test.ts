@@ -10,8 +10,9 @@ vi.mock("@/lib/email", () => ({
   sendPortalActivationEmail: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/env", () => ({
-  env: { APP_URL: "https://app.mygestia.immo", EMAIL_FROM: "no-reply@mygestia.immo" },
+  env: { APP_URL: "https://app.mygestia.immo", EMAIL_FROM: "no-reply@mygestia.immo", AUTH_URL: "https://app.test" },
 }));
+vi.mock("bcryptjs", () => ({ hash: vi.fn().mockResolvedValue("hashed-activation-code") }));
 
 import {
   createTenant,
@@ -23,6 +24,13 @@ import {
   getTenantById,
   createTenantContact,
   deleteTenant,
+  getTenantsPaginated,
+  getTenantAccountStatement,
+  updateTenantContact,
+  deleteTenantContact,
+  inviteOrReinviteTenant,
+  syncTenantsToContacts,
+  createManualDebit,
 } from "./tenant";
 
 const SOCIETY_ID = "society-1";
@@ -312,6 +320,312 @@ describe("deleteTenant", () => {
 
     const result = await deleteTenant(SOCIETY_ID, TENANT_ID);
     expect(result.success).toBe(true);
+    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+  });
+});
+
+// ── getTenantsPaginated ───────────────────────────────────────────
+
+describe("getTenantsPaginated", () => {
+  it("retourne { data: [], total: 0 } si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getTenantsPaginated(SOCIETY_ID);
+    expect(result).toEqual({ data: [], total: 0 });
+  });
+
+  it("retourne les locataires paginés avec leur solde", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: TENANT_ID, companyName: null, firstName: "Jean", lastName: "Dupont" },
+    ] as never);
+    prismaMock.tenant.count.mockResolvedValue(1 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([]);
+
+    const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
+    expect(result.total).toBe(1);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({ id: TENANT_ID, balance: 0 });
+  });
+
+  it("applique le filtre de recherche", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([]);
+    prismaMock.tenant.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([]);
+
+    await getTenantsPaginated(SOCIETY_ID, { search: "Dupont" });
+    expect(prismaMock.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ OR: expect.anything() }) })
+    );
+  });
+
+  it("applique le filtre statut actif", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([]);
+    prismaMock.tenant.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([]);
+
+    await getTenantsPaginated(SOCIETY_ID, { filters: { status: "active" } });
+    expect(prismaMock.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isActive: true }) })
+    );
+  });
+});
+
+// ── getTenantAccountStatement ─────────────────────────────────────
+
+describe("getTenantAccountStatement", () => {
+  it("retourne null si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await getTenantAccountStatement(SOCIETY_ID, TENANT_ID);
+    expect(result).toBeNull();
+  });
+
+  it("calcule le solde correctement", async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-1",
+        invoiceNumber: "FAC-2025-0001",
+        invoiceType: "APPEL_LOYER",
+        status: "VALIDEE",
+        issueDate: new Date(),
+        dueDate: new Date(),
+        periodStart: null,
+        periodEnd: null,
+        totalHT: 800,
+        totalVAT: 0,
+        totalTTC: 800,
+        payments: [{ id: "pay-1", amount: 200, paidAt: new Date(), method: "VIREMENT", reference: null }],
+      },
+      {
+        id: "inv-2",
+        invoiceNumber: "FAC-2025-0002",
+        invoiceType: "AVOIR",
+        status: "VALIDEE",
+        issueDate: new Date(),
+        dueDate: new Date(),
+        periodStart: null,
+        periodEnd: null,
+        totalHT: 100,
+        totalVAT: 0,
+        totalTTC: 100,
+        payments: [],
+      },
+    ] as never);
+
+    const result = await getTenantAccountStatement(SOCIETY_ID, TENANT_ID);
+    expect(result).not.toBeNull();
+    expect(result?.balance).toBe(500); // 800 - 200 (paiement) - 100 (avoir)
+  });
+
+  it("ignore les factures annulées et les brouillons", async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { totalTTC: 800, invoiceType: "APPEL_LOYER", status: "ANNULEE", payments: [] },
+      { totalTTC: 500, invoiceType: "APPEL_LOYER", status: "BROUILLON", payments: [] },
+    ] as never);
+
+    const result = await getTenantAccountStatement(SOCIETY_ID, TENANT_ID);
+    expect(result?.balance).toBe(0);
+  });
+});
+
+// ── updateTenantContact ───────────────────────────────────────────
+
+describe("updateTenantContact", () => {
+  const contactInput = { name: "Marie Dupont", role: "Conjoint", email: "marie@example.com", phone: null };
+
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await updateTenantContact(SOCIETY_ID, CONTACT_ID, contactInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le contact est introuvable", async () => {
+    prismaMock.tenantContact.findFirst.mockResolvedValue(null);
+    const result = await updateTenantContact(SOCIETY_ID, CONTACT_ID, contactInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("met à jour le contact avec succès", async () => {
+    prismaMock.tenantContact.findFirst.mockResolvedValue({
+      id: CONTACT_ID, tenantId: TENANT_ID, name: "Ancienne Marie",
+    } as never);
+    prismaMock.tenantContact.update.mockResolvedValue({ id: CONTACT_ID } as never);
+
+    const result = await updateTenantContact(SOCIETY_ID, CONTACT_ID, contactInput);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenantContact.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: CONTACT_ID } })
+    );
+  });
+});
+
+// ── deleteTenantContact ───────────────────────────────────────────
+
+describe("deleteTenantContact", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await deleteTenantContact(SOCIETY_ID, CONTACT_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le contact est introuvable", async () => {
+    prismaMock.tenantContact.findFirst.mockResolvedValue(null);
+    const result = await deleteTenantContact(SOCIETY_ID, CONTACT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("supprime le contact avec succès", async () => {
+    prismaMock.tenantContact.findFirst.mockResolvedValue({
+      id: CONTACT_ID, tenantId: TENANT_ID,
+    } as never);
+    prismaMock.tenantContact.delete.mockResolvedValue({ id: CONTACT_ID } as never);
+
+    const result = await deleteTenantContact(SOCIETY_ID, CONTACT_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenantContact.delete).toHaveBeenCalledWith({ where: { id: CONTACT_ID } });
+  });
+});
+
+// ── inviteOrReinviteTenant ────────────────────────────────────────
+
+describe("inviteOrReinviteTenant", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le locataire est introuvable", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("envoie l'invitation et crée/met à jour l'accès portail", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_ID,
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: "Jean",
+      lastName: "Dupont",
+      email: "jean@example.com",
+      companyName: null,
+    } as never);
+    prismaMock.tenantPortalAccess.upsert.mockResolvedValue({} as never);
+
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenantPortalAccess.upsert).toHaveBeenCalledOnce();
+  });
+
+  it("utilise companyName pour une personne morale", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_ID,
+      entityType: "PERSONNE_MORALE",
+      firstName: null,
+      lastName: null,
+      email: "contact@acme.com",
+      companyName: "ACME SARL",
+    } as never);
+    prismaMock.tenantPortalAccess.upsert.mockResolvedValue({} as never);
+
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── syncTenantsToContacts ─────────────────────────────────────────
+
+describe("syncTenantsToContacts", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne { created: 0, updated: 0 } si aucun locataire", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([] as never);
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ created: 0, updated: 0 });
+  });
+
+  it("crée un contact si aucun contact existant", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+        firstName: "Jean", lastName: "Dupont",
+        email: "jean@example.com", phone: null, mobile: null, isActive: true,
+        companyName: null, legalRepName: null,
+        contact: null,
+      },
+    ] as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-new" } as never);
+
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ created: 1, updated: 0 });
+    expect(prismaMock.contact.create).toHaveBeenCalledOnce();
+  });
+
+  it("met à jour un contact existant", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+        firstName: "Jean", lastName: "Dupont",
+        email: "jean@example.com", phone: null, mobile: null, isActive: true,
+        companyName: null, legalRepName: null,
+        contact: { id: "contact-existing" },
+      },
+    ] as never);
+    prismaMock.contact.update.mockResolvedValue({ id: "contact-existing" } as never);
+
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ created: 0, updated: 1 });
+    expect(prismaMock.contact.update).toHaveBeenCalledOnce();
+  });
+});
+
+// ── createManualDebit ─────────────────────────────────────────────
+
+const INVOICE_ID = "clh3x2z4k0004qh8g7z1y2v3t";
+const validDebitInput = {
+  tenantId: TENANT_ID,
+  label: "Reprise de solde",
+  amount: 500,
+  dueDate: "2025-06-01",
+  vatRate: 0,
+};
+
+describe("createManualDebit", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await createManualDebit(SOCIETY_ID, validDebitInput);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si le montant est invalide", async () => {
+    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, amount: -100 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("positif");
+  });
+
+  it("retourne une erreur si le locataire est introuvable", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
+    const result = await createManualDebit(SOCIETY_ID, validDebitInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("introuvable");
+  });
+
+  it("crée la facture manuelle avec succès", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await createManualDebit(SOCIETY_ID, validDebitInput);
+    expect(result.success).toBe(true);
+    expect(result.data?.id).toBe(INVOICE_ID);
     expect(prismaMock.$transaction).toHaveBeenCalledOnce();
   });
 });
