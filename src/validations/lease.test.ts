@@ -206,6 +206,11 @@ describe("getLeaseCategory", () => {
     const foncier = ["EMPHYTEOTIQUE", "CONSTRUCTION", "REHABILITATION", "BRS"] as const
     foncier.forEach(t => expect(getLeaseCategory(t)).toBe("FONCIER"))
   })
+
+  it("retourne AUTRE pour un type inconnu (branche default)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(getLeaseCategory("INCONNU" as any)).toBe("AUTRE")
+  })
 })
 
 describe("getDefaultDuration", () => {
@@ -220,6 +225,11 @@ describe("getDefaultDuration", () => {
     Object.entries(expected).forEach(([type, dur]) => {
       expect(getDefaultDuration(type as Parameters<typeof getDefaultDuration>[0])).toBe(dur)
     })
+  })
+
+  it("retourne 36 pour un type inconnu (branche default)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(getDefaultDuration("INCONNU" as any)).toBe(36)
   })
 })
 
@@ -273,5 +283,10 @@ describe("getDefaultDepositMonths", () => {
     Object.entries(expected).forEach(([type, months]) => {
       expect(getDefaultDepositMonths(type as Parameters<typeof getDefaultDepositMonths>[0])).toBe(months)
     })
+  })
+
+  it("retourne 1 pour un type inconnu (branche default)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(getDefaultDepositMonths("INCONNU" as any)).toBe(1)
   })
 })

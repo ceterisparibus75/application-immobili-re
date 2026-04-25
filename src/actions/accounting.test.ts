@@ -682,6 +682,47 @@ describe("getGrandLivre — ForbiddenError", () => {
   });
 });
 
+describe("getGrandLivre — filtres accountId, fiscalYearId, journalType (lignes 289-293)", () => {
+  beforeEach(() => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
+  });
+
+  it("filtre par accountId", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { accountId: ACCOUNT_ID_1 });
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ accountId: ACCOUNT_ID_1 }),
+      })
+    );
+  });
+
+  it("filtre par fiscalYearId", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { fiscalYearId: FISCAL_YEAR_ID });
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({ fiscalYearId: FISCAL_YEAR_ID }),
+        }),
+      })
+    );
+  });
+
+  it("filtre par journalType", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { journalType: "VT" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({ journalType: "VT" }),
+        }),
+      })
+    );
+  });
+});
+
 describe("bulkImportAccounts — code ou label vide", () => {
   it("saute les comptes dont le code ou le label est vide apres trim (ligne 432)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
