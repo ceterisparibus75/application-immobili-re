@@ -18,6 +18,18 @@ import {
   sendReceiptEmail,
   sendSignupCodeEmail,
   sendPasswordResetEmail,
+  sendNewUserEmail,
+  sendNewUserInviteEmail,
+  sendWelcomeEmail,
+  sendPortalActivationEmail,
+  sendPortalLoginCodeEmail,
+  sendInsuranceReminderEmail,
+  sendDataroomDocumentAddedEmail,
+  sendDataroomAccessEmail,
+  sendInvoiceReminderEmail,
+  sendConsolidatedReportEmail,
+  sendLetterEmail,
+  sendWelcomeTrialEmail,
 } from "./email";
 
 beforeEach(() => {
@@ -181,5 +193,257 @@ describe("sendPasswordResetEmail", () => {
       resetUrl: "https://app.example.com/reset-password?token=reset-token-abc",
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// ── sendNewUserEmail ───────────────────────────────────────────
+
+describe("sendNewUserEmail", () => {
+  it("envoie les identifiants au nouvel utilisateur avec succès", async () => {
+    const result = await sendNewUserEmail({
+      to: "user@example.com",
+      name: "Alice Martin",
+      email: "user@example.com",
+      password: "Passw0rd!",
+      appUrl: "https://app.example.com",
+      societyName: "SCI Test",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "user@example.com" })
+    );
+  });
+});
+
+// ── sendNewUserInviteEmail ─────────────────────────────────────
+
+describe("sendNewUserInviteEmail", () => {
+  it("envoie l'invitation avec lien de création de mot de passe", async () => {
+    const result = await sendNewUserInviteEmail({
+      to: "invite@example.com",
+      name: "Bob Dupont",
+      email: "invite@example.com",
+      resetUrl: "https://app.example.com/set-password?token=abc",
+      appUrl: "https://app.example.com",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "invite@example.com",
+        subject: expect.stringContaining("Activez votre compte"),
+      })
+    );
+  });
+});
+
+// ── sendWelcomeEmail ───────────────────────────────────────────
+
+describe("sendWelcomeEmail", () => {
+  it("envoie l'email de bienvenue locataire avec succès", async () => {
+    const result = await sendWelcomeEmail({
+      to: "locataire@example.com",
+      tenantName: "Marie Curie",
+      propertyAddress: "12 rue de la Paix, Paris",
+      leaseStart: "01/02/2026",
+      monthlyRent: 900,
+      societyName: "SCI Patrimoine",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "locataire@example.com" })
+    );
+  });
+});
+
+// ── sendPortalActivationEmail ──────────────────────────────────
+
+describe("sendPortalActivationEmail", () => {
+  it("envoie le code d'activation du portail locataire", async () => {
+    const result = await sendPortalActivationEmail({
+      to: "tenant@example.com",
+      tenantName: "Jean Valjean",
+      activationCode: "A1B2C3",
+      portalUrl: "https://portal.example.com",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("espace locataire"),
+      })
+    );
+  });
+});
+
+// ── sendPortalLoginCodeEmail ───────────────────────────────────
+
+describe("sendPortalLoginCodeEmail", () => {
+  it("envoie le code de connexion OTP au portail", async () => {
+    const result = await sendPortalLoginCodeEmail({
+      to: "tenant@example.com",
+      tenantName: "Jean Valjean",
+      code: "748291",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Code de connexion"),
+      })
+    );
+  });
+});
+
+// ── sendInsuranceReminderEmail ─────────────────────────────────
+
+describe("sendInsuranceReminderEmail", () => {
+  it("envoie le rappel d'attestation d'assurance", async () => {
+    const result = await sendInsuranceReminderEmail({
+      to: "tenant@example.com",
+      tenantName: "Sophie Martin",
+      societyName: "SCI Test",
+      portalUrl: "https://portal.example.com",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("assurance"),
+      })
+    );
+  });
+});
+
+// ── sendDataroomDocumentAddedEmail ─────────────────────────────
+
+describe("sendDataroomDocumentAddedEmail", () => {
+  it("notifie l'ajout d'un document dans une dataroom", async () => {
+    const result = await sendDataroomDocumentAddedEmail({
+      to: "investor@example.com",
+      recipientName: "Paul Investor",
+      dataroomName: "SCI Patrimoine — Due Diligence",
+      documentName: "Bilan 2025.pdf",
+      documentCount: 5,
+      dataroomUrl: "https://app.example.com/dataroom/dr-1",
+      societyName: "SCI Patrimoine",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Nouveau document"),
+      })
+    );
+  });
+
+  it("fonctionne sans recipientName (null)", async () => {
+    const result = await sendDataroomDocumentAddedEmail({
+      to: "anon@example.com",
+      recipientName: null,
+      dataroomName: "Dataroom",
+      documentName: "doc.pdf",
+      documentCount: 1,
+      dataroomUrl: "https://app.example.com/dataroom/dr-2",
+      societyName: "SCI Test",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── sendDataroomAccessEmail ────────────────────────────────────
+
+describe("sendDataroomAccessEmail", () => {
+  it("notifie l'accès à une dataroom avec email et IP", async () => {
+    const result = await sendDataroomAccessEmail({
+      to: "owner@example.com",
+      dataroomName: "Due Diligence 2026",
+      viewerIp: "192.168.1.1",
+      viewerEmail: "viewer@example.com",
+      accessedAt: "25/04/2026 à 10h30",
+      dataroomUrl: "https://app.example.com/dataroom/dr-1",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Dataroom"),
+      })
+    );
+  });
+});
+
+// ── sendInvoiceReminderEmail ───────────────────────────────────
+
+describe("sendInvoiceReminderEmail", () => {
+  it("envoie le rappel de facture impayée", async () => {
+    const result = await sendInvoiceReminderEmail({
+      to: "client@example.com",
+      tenantName: "Entreprise Dupont",
+      invoiceNumber: "F-2026-042",
+      amount: 1200,
+      dueDate: "30/04/2026",
+      societyName: "SCI Test",
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("F-2026-042"),
+      })
+    );
+  });
+});
+
+// ── sendConsolidatedReportEmail ────────────────────────────────
+
+describe("sendConsolidatedReportEmail", () => {
+  it("envoie le rapport consolidé avec pièce jointe", async () => {
+    const result = await sendConsolidatedReportEmail({
+      to: "manager@example.com",
+      scheduleName: "Rapport mensuel avril",
+      frequencyLabel: "Mensuel",
+      reportLabels: ["Situation locative", "Impayés"],
+      societyName: "SCI Test",
+      attachment: { filename: "rapport-avril.pdf", content: Buffer.from("pdf") },
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ filename: "rapport-avril.pdf" }),
+        ]),
+      })
+    );
+  });
+});
+
+// ── sendLetterEmail ────────────────────────────────────────────
+
+describe("sendLetterEmail", () => {
+  it("envoie un courrier type avec pièce jointe PDF", async () => {
+    const result = await sendLetterEmail({
+      to: "tenant@example.com",
+      tenantName: "Jean Dupont",
+      subject: "Mise en demeure",
+      societyName: "SCI Test",
+      attachment: { filename: "mise-en-demeure.pdf", content: Buffer.from("pdf") },
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ filename: "mise-en-demeure.pdf" }),
+        ]),
+      })
+    );
+  });
+});
+
+// ── sendWelcomeTrialEmail ──────────────────────────────────────
+
+describe("sendWelcomeTrialEmail", () => {
+  it("envoie l'email de bienvenue à l'inscription avec les étapes de démarrage", async () => {
+    const result = await sendWelcomeTrialEmail("new@example.com", "Alice", "Starter");
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "new@example.com",
+        subject: expect.stringContaining("essai"),
+      })
+    );
   });
 });
