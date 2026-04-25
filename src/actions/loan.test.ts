@@ -21,6 +21,14 @@ const validLoanInput = {
 }
 
 // Lazy imports to ensure mocks are in place
+import {
+  addLoanMovement,
+  getLoanMovements,
+  deleteLoanMovement,
+  getBudgetLines,
+  upsertBudgetLine,
+} from "./loan"
+
 const importActions = async () => import("@/actions/loan")
 
 // ---------------------------------------------------------------------------
@@ -564,5 +572,170 @@ describe("regenerateAmortizationTable", () => {
     // Last line: full principal, zero remaining
     expect(newLines[5].principalPayment).toBe(50000)
     expect(newLines[5].remainingBalance).toBe(0)
+  })
+})
+
+const SOCIETY_ID = "society-1"
+const LOAN_ID = "clh3x2z4k0001qh8g7z1y2v3t"
+
+// ─── addLoanMovement ──────────────────────────────────────────────────────────
+
+describe("addLoanMovement", () => {
+  const validMovement = {
+    loanId: LOAN_ID,
+    date: "2025-03-15",
+    type: "APPORT",
+    amount: 5000,
+  }
+
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID)
+    prismaMock.loan.findFirst.mockResolvedValue({ id: LOAN_ID, currentBalance: 10000, maxAmount: null, label: "CCA" } as never)
+    prismaMock.loanMovement.create.mockResolvedValue({ id: "mv-1" } as never)
+    prismaMock.loan.update.mockResolvedValue({} as never)
+  })
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await addLoanMovement(SOCIETY_ID, validMovement)
+    expect(r.error).toBeTruthy()
+  })
+
+  it("erreur si le compte courant est introuvable", async () => {
+    prismaMock.loan.findFirst.mockResolvedValue(null as never)
+    const r = await addLoanMovement(SOCIETY_ID, validMovement)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("additionne l'apport au solde courant", async () => {
+    const r = await addLoanMovement(SOCIETY_ID, validMovement)
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: 15000 } })
+    )
+  })
+
+  it("bloque un retrait si le solde serait négatif", async () => {
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, type: "RETRAIT", amount: 20000 })
+    expect(r.error).toContain("insuffisant")
+    expect(prismaMock.loanMovement.create).not.toHaveBeenCalled()
+  })
+
+  it("bloque un apport si le plafond serait dépassé", async () => {
+    prismaMock.loan.findFirst.mockResolvedValue({ id: LOAN_ID, currentBalance: 9000, maxAmount: 10000, label: "CCA" } as never)
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, amount: 5000 })
+    expect(r.error).toContain("plafond")
+  })
+})
+
+// ─── getLoanMovements ─────────────────────────────────────────────────────────
+
+describe("getLoanMovements", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getLoanMovements(SOCIETY_ID, LOAN_ID)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les mouvements triés par date décroissante", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID)
+    prismaMock.loanMovement.findMany.mockResolvedValue([
+      { id: "mv-1", type: "APPORT", amount: 5000 },
+      { id: "mv-2", type: "RETRAIT", amount: 2000 },
+    ] as never)
+    const r = await getLoanMovements(SOCIETY_ID, LOAN_ID)
+    expect(r).toHaveLength(2)
+  })
+})
+
+// ─── deleteLoanMovement ───────────────────────────────────────────────────────
+
+describe("deleteLoanMovement", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID)
+  })
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await deleteLoanMovement(SOCIETY_ID, "mv-1")
+    expect(r.error).toBeTruthy()
+  })
+
+  it("erreur si mouvement introuvable", async () => {
+    prismaMock.loanMovement.findFirst.mockResolvedValue(null as never)
+    const r = await deleteLoanMovement(SOCIETY_ID, "mv-inexistant")
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("supprime le mouvement et recalcule le solde", async () => {
+    prismaMock.loanMovement.findFirst.mockResolvedValue({
+      id: "mv-1", loanId: LOAN_ID, type: "APPORT", amount: 3000,
+      loan: { id: LOAN_ID, loanType: "COMPTE_COURANT" },
+    } as never)
+    prismaMock.loanMovement.findMany.mockResolvedValue([
+      { id: "mv-2", type: "APPORT", amount: 5000, balanceAfter: 5000 },
+    ] as never)
+    prismaMock.loanMovement.update.mockResolvedValue({} as never)
+    prismaMock.loanMovement.delete.mockResolvedValue({} as never)
+    prismaMock.loan.update.mockResolvedValue({} as never)
+
+    const r = await deleteLoanMovement(SOCIETY_ID, "mv-1")
+    expect(r.success).toBe(true)
+    expect(prismaMock.loanMovement.delete).toHaveBeenCalledWith({ where: { id: "mv-1" } })
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: 5000 } })
+    )
+  })
+})
+
+// ─── getBudgetLines ───────────────────────────────────────────────────────────
+
+describe("getBudgetLines", () => {
+  it("retourne [] si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await getBudgetLines(SOCIETY_ID, 2025)
+    expect(r).toEqual([])
+  })
+
+  it("retourne les lignes budgétaires pour l'année", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID)
+    prismaMock.budgetLine.findMany.mockResolvedValue([
+      { id: "bl-1", year: 2025, budgetAmount: 12000, account: { code: "613", label: "Loyers" } },
+    ] as never)
+    const r = await getBudgetLines(SOCIETY_ID, 2025)
+    expect(r).toHaveLength(1)
+  })
+})
+
+// ─── upsertBudgetLine ─────────────────────────────────────────────────────────
+
+describe("upsertBudgetLine", () => {
+  const validInput = { year: 2025, accountId: VALID_CUID, budgetAmount: 12000 }
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await upsertBudgetLine(SOCIETY_ID, validInput)
+    expect(r.error).toBeTruthy()
+  })
+
+  it("crée une nouvelle ligne si elle n'existe pas", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID)
+    prismaMock.budgetLine.findFirst.mockResolvedValue(null as never)
+    prismaMock.budgetLine.create.mockResolvedValue({ id: "bl-1", ...validInput } as never)
+
+    const r = await upsertBudgetLine(SOCIETY_ID, validInput)
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.budgetLine.create).toHaveBeenCalledOnce()
+  })
+
+  it("met à jour la ligne si elle existe déjà", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID)
+    prismaMock.budgetLine.findFirst.mockResolvedValue({ id: "bl-1" } as never)
+    prismaMock.budgetLine.update.mockResolvedValue({ id: "bl-1", budgetAmount: 12000 } as never)
+
+    const r = await upsertBudgetLine(SOCIETY_ID, validInput)
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.budgetLine.update).toHaveBeenCalledOnce()
+    expect(prismaMock.budgetLine.create).not.toHaveBeenCalled()
   })
 })
