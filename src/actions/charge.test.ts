@@ -856,6 +856,39 @@ describe("generateAnnualChargeReport", () => {
     expect(r.data?.created).toBe(1)
     expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
   })
+
+  it("calcule les provisions avec startDate > periodStart et endDate non-null < periodEnd (lignes 595-598)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      chargeProvisions: [
+        // startDate > periodStart (2024-01-01) → provStart = startDate
+        // endDate < periodEnd (2024-12-31) → provEnd = endDate
+        { monthlyAmount: 100, startDate: new Date("2024-03-01"), endDate: new Date("2024-09-30") },
+      ],
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("retourne une erreur si rôle insuffisant pour generateAnnualChargeReport (ForbiddenError lignes 663-665)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans generateAnnualChargeReport", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockRejectedValue(new Error("DB connection lost"))
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Erreur lors de la génération")
+  })
 })
 
 // ─── autoRegularizeCharges ────────────────────────────────────────────────────

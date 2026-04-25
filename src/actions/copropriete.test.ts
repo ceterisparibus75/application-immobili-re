@@ -153,6 +153,13 @@ describe("deleteCoproLot", () => {
       expect.objectContaining({ action: "DELETE", entity: "CoproLot" })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant pour deleteCoproLot (ForbiddenError lignes 209-211)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await deleteCoproLot(SOCIETY_ID, CLOT_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
 });
 
 // ─── createCoproBudget / approveBudget ────────────────────────────────────────
@@ -178,6 +185,13 @@ describe("createCoproBudget", () => {
     const r = await createCoproBudget(SOCIETY_ID, validInput);
     expect(r.success).toBe(true);
     expect(r.data?.id).toBe(BUDGET_ID);
+  });
+
+  it("retourne une erreur si rôle insuffisant pour createCoproBudget (ForbiddenError lignes 241-243)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await createCoproBudget(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
   });
 });
 
