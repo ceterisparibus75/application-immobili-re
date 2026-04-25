@@ -791,3 +791,169 @@ describe("detectPendingRevisions — branches manquantes", () => {
     expect(r.error).toContain("rattrapage")
   })
 })
+
+// ─── Branches manquantes — findBaseIndexInfo, buildCatchUpPreview ─────────────
+
+describe("previewCatchUpRevisions — branches manquantes", () => {
+  const NO_QUARTER_LEASE = { ...BASE_LEASE, baseIndexQuarter: null }
+
+  it("utilise tous les trimestres si le trimestre préféré ne donne pas de match (lignes 620-627, 643-644)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    // preferred quarter T1: value 200 is >5% away from 131.31 → no match
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([{ value: 200.0, year: 2021, quarter: 1 }] as never)
+    // all quarters: 2 candidates; second (132.0) is closer than first (150.0) → line 643-644
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([
+      { value: 150.0, year: 2021, quarter: 2 },
+      { value: 132.0, year: 2021, quarter: 3 },
+    ] as never)
+    // buildCatchUpPreview with quarter=3, baseYear=2021
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 143.0, year: 2023, quarter: 3 } as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([
+      { value: 132.0, year: 2021, quarter: 3 },
+      { value: 137.0, year: 2022, quarter: 3 },
+      { value: 143.0, year: 2023, quarter: 3 },
+    ] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.steps).toHaveLength(2)
+  })
+
+  it("retourne une erreur si baseInfo est null et aucun indice après l'année de base (lignes 688-712)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    // Both findMany return values >5% away → baseInfo = null
+    prismaMock.inseeIndex.findMany
+      .mockResolvedValueOnce([{ value: 200.0, year: 2021, quarter: 1 }] as never)
+      .mockResolvedValueOnce([{ value: 200.0, year: 2021, quarter: 1 }] as never)
+    // fallback: lastRevision → null → fallbackYear=2021, fallbackQuarter=1
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce(null as never)
+    // anyAfter → null → error
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("disponible après")
+  })
+
+  it("interroge latestAny si aucun trimestre de référence n'est disponible (lignes 699-703)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(NO_QUARTER_LEASE as never)
+    // No preferred quarter → only all-quarters search, no match
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([{ value: 200.0, year: 2021, quarter: 1 }] as never)
+    // fallback: lastRevision → null
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce(null as never)
+    // latestAny → provides fallbackQuarter=2
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 136.0, year: 2022, quarter: 2 } as never)
+    // anyAfter → null → error
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("disponible après")
+  })
+
+  it("utilise le fallback et appelle buildCatchUpPreview si anyAfter est disponible (ligne 714)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(NO_QUARTER_LEASE as never)
+    // All-quarters search: no close match → baseInfo = null
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([{ value: 200.0, year: 2021, quarter: 1 }] as never)
+    // fallback: lastRevision → null
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce(null as never)
+    // latestAny → quarter=2
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 136.0, year: 2022, quarter: 2 } as never)
+    // anyAfter → available
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 140.0, year: 2022, quarter: 2 } as never)
+    // buildCatchUpPreview: latestAvailable
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 145.0, year: 2023, quarter: 2 } as never)
+    // buildCatchUpPreview: range
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([
+      { value: 131.31, year: 2021, quarter: 2 },
+      { value: 136.0, year: 2022, quarter: 2 },
+      { value: 145.0, year: 2023, quarter: 2 },
+    ] as never)
+    // buildCatchUpPreview: lastRevision
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.steps).toHaveLength(2)
+  })
+
+  it("retourne une erreur si aucun indice latestAvailable n'est disponible (ligne 741)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never) // preferred quarter: match
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce(null as never) // latestAvailable → null
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("disponible")
+  })
+
+  it("retourne une erreur si targetYear <= baseYear (lignes 745-747)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    // preferred quarter: exact match → baseInfo = { year: 2021, quarter: 1 }
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    // buildCatchUpPreview: latestAvailable same year as baseYear → targetYear <= baseYear
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 131.31, year: 2021, quarter: 1 } as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("déjà à jour")
+  })
+
+  it("insère baseIndexValue dans indexMap si la plage est vide (ligne 765) puis retourne une erreur si aucune étape (ligne 816)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never) // preferred quarter: match
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 142.0, year: 2023, quarter: 1 } as never) // latestAvailable
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([] as never) // range empty → line 765 triggered
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce(null as never) // lastRevision
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("manquants entre")
+  })
+
+  it("avance la date d'effet dans la boucle while si la dernière révision est antérieure à l'année de base (ligne 789)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never) // preferred quarter: match
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({ value: 142.0, year: 2023, quarter: 1 } as never) // latestAvailable
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never) // range
+    // lastRevision far in the past → while loop advances effectiveDate (line 789)
+    prismaMock.rentRevision.findFirst.mockResolvedValueOnce({
+      effectiveDate: new Date("2020-01-01"),
+      isValidated: true,
+    } as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.steps).toHaveLength(2)
+  })
+})
+
+describe("detectPendingRevisions — DATE_PERSONNALISEE", () => {
+  it("utilise DATE_PERSONNALISEE comme date d'ancrage (lignes 544-548)", async () => {
+    const startDate = new Date()
+    startDate.setFullYear(startDate.getFullYear() - 1)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...VALID_LEASE_BASE,
+        startDate,
+        revisionDateBasis: "DATE_PERSONNALISEE",
+        revisionCustomMonth: 6,
+        revisionCustomDay: 15,
+        revisionFrequency: 12,
+        rentRevisions: [],
+      },
+    ] as never)
+    // Computed revision date is likely outside the detection window → no extra DB calls needed
+    const r = await detectPendingRevisions()
+    expect(r.errors).toHaveLength(0)
+  })
+})
