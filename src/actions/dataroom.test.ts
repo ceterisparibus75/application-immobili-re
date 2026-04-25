@@ -322,6 +322,27 @@ describe("removeDocumentFromDataroom", () => {
       where: { dataroomId: DATAROOM_ID, documentId: DOC_ID },
     });
   });
+
+  it("retourne une erreur si non authentifié (ligne 309)", async () => {
+    mockUnauthenticated();
+    const r = await removeDocumentFromDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/authentif/i);
+  });
+
+  it("retourne une erreur si rôle insuffisant (ligne 310)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await removeDocumentFromDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 311-312)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await removeDocumentFromDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
 });
 
 // ─── verifyDataroomPassword ───────────────────────────────────────────────────
@@ -389,6 +410,12 @@ describe("verifyDataroomPassword", () => {
 
     const r = await verifyDataroomPassword(SHARE_TOKEN, "secret123");
     expect(r.success).toBe(true);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 288-289)", async () => {
+    prismaMock.dataroom.findUnique.mockRejectedValue(new Error("DB connection lost"));
+    const r = await verifyDataroomPassword(SHARE_TOKEN, "secret");
+    expect(r).toEqual({ success: false, error: "Erreur lors de la vérification" });
   });
 });
 
