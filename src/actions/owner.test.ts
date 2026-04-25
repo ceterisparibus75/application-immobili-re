@@ -478,4 +478,71 @@ describe("getOwnerAnalytics", () => {
     expect(r.data?.totalLots).toBe(0);
     expect(r.data?.grossYield).toBeNull();
   });
+
+  it("calcule les agrégats consolidés avec une société et des données", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-1", name: "SCI Test", legalForm: "SCI", city: "Lyon", logoUrl: null },
+    ] as never);
+
+    // Promise.all order: building, lot, lease.groupBy(activeLeases), invoice.groupBy(monthRev),
+    //   invoice.groupBy(overdue), bankAccount, loan, invoice.findMany(allOverdue),
+    //   lease.findMany(expiring), lease.groupBy(rent), charge.findMany
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        societyId: "soc-1",
+        acquisitionPrice: 200000, acquisitionFees: 10000, acquisitionTaxes: 5000,
+        acquisitionOtherCosts: 0, worksCost: 5000,
+        additionalAcquisitions: [],
+      },
+    ] as never);
+    prismaMock.lot.findMany.mockResolvedValue([
+      { status: "OCCUPE", building: { societyId: "soc-1" } },
+      { status: "VACANT", building: { societyId: "soc-1" } },
+    ] as never);
+    prismaMock.lease.groupBy
+      .mockResolvedValueOnce([{ societyId: "soc-1", _count: { id: 1 } }] as never)  // activeLeases
+      .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { currentRentHT: 800 } }] as never); // rentAgg
+    prismaMock.invoice.groupBy
+      .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { totalTTC: 900 } }] as never)  // monthRevAgg
+      .mockResolvedValueOnce([] as never); // overdueInvoices
+    prismaMock.bankAccount.findMany.mockResolvedValue([
+      { societyId: "soc-1", currentBalance: 5000 },
+    ] as never);
+    prismaMock.loan.findMany.mockResolvedValue([
+      {
+        societyId: "soc-1", lender: "BNP", amount: 150000, purchaseValue: null,
+        amortizationLines: [{ remainingBalance: 120000, totalPayment: 700 }],
+      },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never); // allOverdue
+    prismaMock.lease.findMany.mockResolvedValue([] as never);   // expiringLeasesRaw
+    prismaMock.charge.findMany.mockResolvedValue([
+      { amount: 500 },
+    ] as never);
+
+    const r = await getOwnerAnalytics();
+
+    expect(r.success).toBe(true);
+    expect(r.data?.totalSocieties).toBe(1);
+    expect(r.data?.totalBuildings).toBe(1);
+    expect(r.data?.totalLots).toBe(2);
+    expect(r.data?.totalOccupied).toBe(1);
+    expect(r.data?.occupancyRate).toBe(50);
+    expect(r.data?.totalMonthRevenue).toBe(900);
+    expect(r.data?.totalActiveLeases).toBe(1);
+    expect(r.data?.totalCash).toBe(5000);
+    expect(r.data?.totalDebt).toBe(120000);
+    expect(r.data?.totalMonthlyLoanPayment).toBe(700);
+    expect(r.data?.totalMonthlyRentHT).toBe(800);
+    expect(r.data?.totalRecoverableCharges).toBe(500);
+    expect(r.data?.totalPatrimonyValue).toBe(220000); // 200000+10000+5000+0+5000
+    expect(r.data?.grossYield).toBeGreaterThan(0);
+    expect(r.data?.consolidatedLTV).toBeGreaterThan(0);
+    expect(r.data?.lenderSummaries).toHaveLength(1);
+    expect(r.data?.lenderSummaries[0].lender).toBe("BNP");
+    expect(r.data?.overdueByAge).toHaveLength(4);
+    expect(r.data?.expiringLeases).toEqual([]);
+  });
 });
