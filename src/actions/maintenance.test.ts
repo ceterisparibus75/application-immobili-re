@@ -152,4 +152,60 @@ describe("maintenance actions", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("authentifié");
   });
+
+  it("retourne une erreur si rôle insuffisant pour updateMaintenance", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await updateMaintenance(SOCIETY_ID, { id: MAINTENANCE_ID, title: "Test" });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans updateMaintenance", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.maintenance.findFirst.mockResolvedValue({ id: MAINTENANCE_ID, buildingId: BUILDING_ID } as never);
+    prismaMock.maintenance.update.mockRejectedValue(new Error("DB connection lost"));
+
+    const result = await updateMaintenance(SOCIETY_ID, { id: MAINTENANCE_ID, title: "Test" });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour deleteMaintenance", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await deleteMaintenance(SOCIETY_ID, MAINTENANCE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteMaintenance", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.maintenance.findFirst.mockResolvedValue({ id: MAINTENANCE_ID, buildingId: BUILDING_ID } as never);
+    prismaMock.maintenance.delete.mockRejectedValue(new Error("DB connection lost"));
+
+    const result = await deleteMaintenance(SOCIETY_ID, MAINTENANCE_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+
+  it("retourne une erreur si rôle insuffisant pour createMaintenance", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const result = await createMaintenance(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      title: "Réparation chaudière",
+      isPaid: false,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans createMaintenance", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.maintenance.create.mockRejectedValue(new Error("DB connection lost"));
+
+    const result = await createMaintenance(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      title: "Réparation chaudière",
+      isPaid: false,
+    });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'intervention" });
+  });
 });

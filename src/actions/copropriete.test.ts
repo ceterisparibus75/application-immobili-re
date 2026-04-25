@@ -473,3 +473,45 @@ describe("updateAssembly", () => {
     expect(r.data?.id).toBe(VALID_CUID_2);
   });
 });
+
+describe("recordVote — erreurs", () => {
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await recordVote(SOCIETY_ID, {
+      resolutionId: RESOLUTION_ID,
+      lotId: CLOT_ID,
+      vote: "POUR",
+      proxy: false,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproVote.upsert.mockRejectedValue(new Error("DB error"));
+    const r = await recordVote(SOCIETY_ID, {
+      resolutionId: RESOLUTION_ID,
+      lotId: CLOT_ID,
+      vote: "POUR",
+      proxy: false,
+    });
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'enregistrement du vote" });
+  });
+});
+
+describe("closeResolution — erreurs", () => {
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await closeResolution(SOCIETY_ID, RESOLUTION_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproResolution.findUnique.mockRejectedValue(new Error("DB connection lost"));
+    const r = await closeResolution(SOCIETY_ID, RESOLUTION_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la clôture" });
+  });
+});
