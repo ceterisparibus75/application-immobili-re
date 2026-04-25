@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getNextInvoiceNumber } from "@/actions/invoice-shared";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -216,7 +217,9 @@ async function generateDraftInvoices() {
     }
   }
 
-  console.error("[cron/generate-drafts]", `${created} brouillon(s), ${skipped} ignore(s), ${errors.length} erreur(s)`);
+  if (errors.length > 0) {
+    console.error("[cron/generate-drafts]", `${created} brouillon(s), ${skipped} ignore(s), ${errors.length} erreur(s)`, errors);
+  }
   return { created, skipped, errors };
 }
 
@@ -303,17 +306,3 @@ function computeRent(
   return currentRentHT;
 }
 
-async function getNextInvoiceNumber(
-  societyId: string,
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `FAC-${year}-`;
-  const last = await tx.invoice.findFirst({
-    where: { societyId, invoiceNumber: { startsWith: prefix } },
-    orderBy: { invoiceNumber: "desc" },
-    select: { invoiceNumber: true },
-  });
-  const seq = last ? parseInt(last.invoiceNumber.replace(prefix, ""), 10) + 1 : 1;
-  return `${prefix}${String(seq).padStart(4, "0")}`;
-}
