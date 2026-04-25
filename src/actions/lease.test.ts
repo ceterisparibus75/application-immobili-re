@@ -82,6 +82,27 @@ describe("createLease", () => {
     const r = await createLease("society-1", validLeaseInput)
     expect(r).toEqual({ success: false, error: "Erreur lors de la création du bail" })
   })
+
+  it("ne remet pas le compteur à 1 si leaseNumberYear est l'année courante (branche if(year) false)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lot.findMany.mockResolvedValue([{ id: VALID_CUID, buildingId: "b1" }] as never)
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenantPhysique({ id: VALID_CUID2 }) as never)
+    prismaMock.leaseLot.findMany.mockResolvedValue([])
+    prismaMock.society.findUnique.mockResolvedValue({
+      leasePrefix: "BAIL",
+      nextLeaseNumber: 5,
+      leaseNumberYear: new Date().getFullYear(),
+    } as never)
+    prismaMock.society.update.mockResolvedValue({} as never)
+    prismaMock.lease.create.mockResolvedValue({ id: "lease-year" } as never)
+    prismaMock.lot.updateMany.mockResolvedValue({ count: 1 } as never)
+    prismaMock.lot.update.mockResolvedValue({} as never)
+    const r = await createLease("society-1", validLeaseInput)
+    expect(r.success).toBe(true)
+    expect(prismaMock.society.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ nextLeaseNumber: 6 }) })
+    )
+  })
 })
 
 describe("updateLease", () => {
@@ -146,6 +167,40 @@ describe("updateLease", () => {
     prismaMock.lease.findFirst.mockRejectedValue(new Error("DB connection lost"))
     const r = await updateLease("society-1", { id: VALID_CUID, status: "RESILIE" })
     expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" })
+  })
+
+  it("met à jour entryDate, exitDate, startDate, endDate quand fournis (branches if(date) lines 198-201)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, societyId: "society-1", status: "EN_COURS" } as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
+    const r = await updateLease("society-1", {
+      id: VALID_CUID,
+      entryDate: "2024-01-15",
+      exitDate: "2024-12-31",
+      startDate: "2024-01-01",
+      endDate: "2024-12-31",
+    })
+    expect(r.success).toBe(true)
+    expect(prismaMock.lease.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entryDate: new Date("2024-01-15"),
+          exitDate: new Date("2024-12-31"),
+          startDate: new Date("2024-01-01"),
+          endDate: new Date("2024-12-31"),
+        }),
+      })
+    )
+  })
+
+  it("résiliation sans lots (if(lotIds.length > 0) false branch, ligne 211)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, societyId: "society-1", status: "EN_COURS" } as never)
+    prismaMock.leaseLot.findMany.mockResolvedValue([])
+    prismaMock.lease.update.mockResolvedValue({} as never)
+    const r = await updateLease("society-1", { id: VALID_CUID, status: "RESILIE" })
+    expect(r.success).toBe(true)
+    expect(prismaMock.lot.updateMany).not.toHaveBeenCalled()
   })
 })
 
@@ -388,6 +443,22 @@ describe("createRentSteps", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/insuffisantes|refus/i);
   });
+
+  it("crée les paliers avec endDate non-null (branche endDate ? new Date : null true arm)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID,
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-12-31"),
+    } as never);
+    prismaMock.leaseRentStep.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.leaseRentStep.createMany.mockResolvedValue({ count: 1 });
+
+    const result = await createRentSteps(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      steps: [{ label: "Palier 1", startDate: "2024-03-01", endDate: "2024-09-30", rentHT: 1500, chargesHT: null }],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── updateRentStep ────────────────────────────────────────────────
@@ -526,6 +597,18 @@ describe("updateRentStep", () => {
     prismaMock.leaseRentStep.update.mockResolvedValue({ id: STEP_ID } as never);
     const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier test", startDate: "2024-06-01", rentHT: 1500 });
     expect(result.success).toBe(true);
+  });
+
+  it("met à jour le palier avec endDate non-null (branche endDate ? new Date : null true arm)", async () => {
+    prismaMock.leaseRentStep.findFirst.mockResolvedValue({ id: STEP_ID, leaseId: LEASE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ startDate: new Date("2024-01-01"), endDate: null } as never);
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([]);
+    prismaMock.leaseRentStep.update.mockResolvedValue({ id: STEP_ID } as never);
+    const result = await updateRentStep(SOCIETY_ID, { id: STEP_ID, label: "Palier avec fin", startDate: "2024-06-01", endDate: "2024-12-31", rentHT: 1600 });
+    expect(result.success).toBe(true);
+    expect(prismaMock.leaseRentStep.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endDate: new Date("2024-12-31") }) })
+    );
   });
 });
 

@@ -805,4 +805,22 @@ describe("importBankStatement", () => {
     const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, validRows)
     expect(r).toEqual({ success: false, error: "Erreur lors de l'import du relevé" })
   })
+
+  it("ajoute la référence au set si la ligne importée a une référence (branche if(row.reference))", async () => {
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "2025-01-15", amount: -500, label: "Virement loyer", reference: "REF-NEW-001" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(1)
+  })
+
+  it("saute une ligne avec transactionDate vide (parseFlexDate retourne null)", async () => {
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "", amount: -500, label: "Virement loyer" },
+      { transactionDate: "2025-01-15", amount: -200, label: "EDF" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(1)
+    expect(r.data?.skipped).toBe(1)
+  })
 })
