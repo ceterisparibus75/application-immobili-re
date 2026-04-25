@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2, FileUp, FolderOpen, CheckCircle2, X, Upload, File a
 import Link from "next/link";
 import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 import { cn } from "@/lib/utils";
+import { isAllowedDocumentMimeType } from "@/lib/document-upload-security";
 
 type Props = {
   societyId: string;
@@ -18,12 +19,6 @@ type Props = {
   leases: { id: string; label: string }[];
   tenants: { id: string; label: string }[];
 };
-
-const ALLOWED_TYPES = [
-  "application/pdf", "image/jpeg", "image/png", "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
 
 export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants }: Props) {
   const router = useRouter();
@@ -49,7 +44,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
   const totalFiles = mode === "folder" ? folderFiles.length : (file ? 1 : 0);
 
   function handleFolderChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).filter((f) => ALLOWED_TYPES.includes(f.type));
+    const files = Array.from(e.target.files ?? []).filter((f) => isAllowedDocumentMimeType(f.type));
     if (files.length > 0) {
       setFolderFiles(files);
       const first = files[0] as File & { webkitRelativePath: string };

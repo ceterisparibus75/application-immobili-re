@@ -3,6 +3,11 @@ import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
+import {
+  isAiSupportedDocumentMimeType,
+  validateDocumentUploadMetadata,
+  verifyDocumentMagicBytes,
+} from "@/lib/document-upload-security";
 
 export const maxDuration = 60;
 
@@ -10,35 +15,6 @@ function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
-
-const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-
-const ALLOWED_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
-
-// Vérification des magic bytes pour éviter les fichiers falsifiés
-const MAGIC_BYTES: Record<string, number[][]> = {
-  "application/pdf": [[0x25, 0x50, 0x44, 0x46]], // %PDF
-  "image/jpeg": [[0xFF, 0xD8, 0xFF]],
-  "image/png": [[0x89, 0x50, 0x4E, 0x47]], // .PNG
-  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF
-  "application/msword": [[0xD0, 0xCF, 0x11, 0xE0]], // OLE
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [[0x50, 0x4B, 0x03, 0x04]], // PK (zip)
-};
-
-function verifyMagicBytes(buffer: Buffer, declaredType: string): boolean {
-  const signatures = MAGIC_BYTES[declaredType];
-  if (!signatures) return true; // Type non vérifié, accepter
-  return signatures.some((sig) =>
-    sig.every((byte, i) => buffer[i] === byte)
   );
 }
 
@@ -60,16 +36,18 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: "Format non supporté (PDF, images, Word)" }, { status: 400 });
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
+    const metadataValidation = validateDocumentUploadMetadata({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+    if (!metadataValidation.ok) {
+      return NextResponse.json({ error: metadataValidation.error }, { status: 400 });
     }
 
     // Vérification magic bytes (anti-spoofing MIME)
-    const headerBytes = Buffer.from(await file.slice(0, 8).arrayBuffer());
-    if (!verifyMagicBytes(headerBytes, file.type)) {
+    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (!verifyDocumentMagicBytes(headerBytes, metadataValidation.mimeType)) {
       return NextResponse.json(
         { error: "Le contenu du fichier ne correspond pas au type déclaré" },
         { status: 400 }
@@ -95,7 +73,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase();
     const { error: uploadError } = await supabase.storage
       .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-      .upload(resolvedStoragePath, fileBuffer, { contentType: file.type, upsert: false });
+      .upload(resolvedStoragePath, fileBuffer, { contentType: metadataValidation.mimeType, upsert: false });
 
     if (uploadError) {
       console.error("[documents/upload] upload error", uploadError);
@@ -114,7 +92,7 @@ export async function POST(req: NextRequest) {
         fileName: file.name,
         fileUrl,
         fileSize: file.size,
-        mimeType: file.type,
+        mimeType: metadataValidation.mimeType,
         category: category ?? "autre",
         description: description || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
@@ -123,7 +101,7 @@ export async function POST(req: NextRequest) {
         leaseId: leaseId || null,
         tenantId: tenantId || null,
         storagePath: resolvedStoragePath,
-        aiStatus: AI_SUPPORTED_TYPES.includes(file.type) ? "pending" : null,
+        aiStatus: isAiSupportedDocumentMimeType(metadataValidation.mimeType) ? "pending" : null,
       },
     });
 
@@ -137,7 +115,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Déclencher l analyse IA en arrière-plan pour les types supportés
-    if (AI_SUPPORTED_TYPES.includes(file.type)) {
+    if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
       const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
       void fetch(`${baseUrl}/api/documents/${doc.id}/analyze`, {
         method: "POST",

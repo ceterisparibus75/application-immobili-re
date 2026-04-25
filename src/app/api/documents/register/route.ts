@@ -4,8 +4,10 @@ import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
-
-const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+import {
+  isAiSupportedDocumentMimeType,
+  validateDocumentUploadMetadata,
+} from "@/lib/document-upload-security";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,6 +34,16 @@ export async function POST(req: NextRequest) {
     if (!fileName || !storagePath) {
       return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
     }
+    const metadataValidation = validateDocumentUploadMetadata({
+      fileName,
+      fileSize,
+      mimeType,
+      storagePath,
+      societyId: context.societyId,
+    });
+    if (!metadataValidation.ok) {
+      return NextResponse.json({ error: metadataValidation.error }, { status: 400 });
+    }
 
     // Générer une URL signée longue durée pour la consultation
     let fileUrl = storagePath;
@@ -51,8 +63,8 @@ export async function POST(req: NextRequest) {
         societyId: context.societyId,
         fileName,
         fileUrl,
-        fileSize: fileSize ?? 0,
-        mimeType: mimeType ?? null,
+        fileSize,
+        mimeType: metadataValidation.mimeType,
         category: category ?? "autre",
         description: description || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
@@ -61,7 +73,7 @@ export async function POST(req: NextRequest) {
         leaseId: leaseId || null,
         tenantId: tenantId || null,
         storagePath,
-        aiStatus: AI_SUPPORTED_TYPES.includes(mimeType ?? "") ? "pending" : null,
+        aiStatus: isAiSupportedDocumentMimeType(metadataValidation.mimeType) ? "pending" : null,
       },
     });
 
@@ -75,7 +87,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Déclencher l'analyse IA en arrière-plan
-    if (AI_SUPPORTED_TYPES.includes(mimeType ?? "")) {
+    if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
       const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
       void fetch(`${baseUrl}/api/documents/${doc.id}/analyze`, {
         method: "POST",

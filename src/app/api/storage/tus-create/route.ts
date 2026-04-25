@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { ForbiddenError } from "@/lib/permissions";
+import {
+  sanitizeDocumentStorageFolder,
+  validateDocumentUploadMetadata,
+} from "@/lib/document-upload-security";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +14,15 @@ export async function POST(req: NextRequest) {
     const { filename, mimeType, fileSize, entityFolder } = await req.json() as {
       filename: string; mimeType: string; fileSize: number; entityFolder: string;
     };
+
+    const metadataValidation = validateDocumentUploadMetadata({ fileName: filename, fileSize, mimeType });
+    if (!metadataValidation.ok) {
+      return NextResponse.json({ error: metadataValidation.error }, { status: 400 });
+    }
+    const cleanEntityFolder = sanitizeDocumentStorageFolder(entityFolder);
+    if (!cleanEntityFolder) {
+      return NextResponse.json({ error: "Dossier cible invalide" }, { status: 400 });
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,12 +35,12 @@ export async function POST(req: NextRequest) {
 
     const timestamp = Date.now();
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storagePath = `documents/${context.societyId}/${entityFolder}/${timestamp}_${safeName}`;
+    const storagePath = `documents/${context.societyId}/${cleanEntityFolder}/${timestamp}_${safeName}`;
 
     const metadata = [
       `bucketName ${Buffer.from(bucket).toString("base64")}`,
       `objectName ${Buffer.from(storagePath).toString("base64")}`,
-      `contentType ${Buffer.from(mimeType || "application/octet-stream").toString("base64")}`,
+      `contentType ${Buffer.from(metadataValidation.mimeType).toString("base64")}`,
       `cacheControl ${Buffer.from("3600").toString("base64")}`,
     ].join(",");
 

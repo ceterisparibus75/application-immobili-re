@@ -260,7 +260,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **MOYENNE** | CSP autorise `unsafe-inline` pour les styles | `src/proxy.ts` | Attaques par injection CSS |
 | **MOYENNE** | Pas de rotation de clé de chiffrement | `src/lib/encryption.ts` | Compromission = toutes les données historiques |
 | **MOYENNE** | Tokens dataroom prédictibles (CUID) | `src/app/api/dataroom/[token]/route.ts` | Énumération de tokens |
-| **MOYENNE** | Pas de vérification MIME pour les uploads | `src/app/api/documents/upload/route.ts` | Upload de fichiers malveillants |
+| **MOYENNE** | Vérification MIME à maintenir sur tous les flux d'upload | `src/app/api/documents/upload*`, `src/app/api/storage/tus-create`, `src/app/api/documents/register` | Risque réduit : magic bytes sur flux classique, métadonnées et chemin société vérifiés sur TUS |
 | **BASSE** | Secret portail avec fallback en dur | `src/lib/portal-auth.ts` | Secret par défaut exposé |
 | **BASSE** | Session non liée à l'IP/user-agent | `src/lib/auth.ts` | Interception de token moins détectable |
 | **BASSE** | Suppression RGPD non implémentée | `src/app/api/rgpd/requests/route.ts` | Risque de non-conformité RGPD |
@@ -508,6 +508,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Onboarding hydratation-safe** : les écrans Welcome/Onboarding ne lisent plus `localStorage` pendant le rendu initial ; suppression du risque d'hydration mismatch.
 - **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux.
 - **Tests alignés avec les contrats actuels** : corrections de tests sur dashboard, échéances, tâches du jour, FEC, notifications, limites de plan, inscription, email, société active et facturation.
+- **Uploads GED renforcés** : les flux classique, streaming et TUS partagent désormais des règles serveur communes (MIME autorisé, extension cohérente, taille maximale, dossier normalisé, chemin limité à la société active).
 
 ### 9.3 Constat fonctionnel par parcours utilisateur
 
@@ -518,6 +519,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Protection des routes app | Fonctionnel | Les routes critiques non authentifiées redirigent vers `/login`. |
 | Dashboard/composants | Fonctionnel en unitaire | `EcheancesPanel` et `TodayTasks` testés ; les chiffres métier doivent être validés sur données de staging. |
 | Navigation | Améliorée | Architecture lisible, mais le drawer mobile reste très complet ; à surveiller après usage réel. |
+| GED / uploads | Renforcé | Le flux TUS utilisé par `Documents > Nouveau` refuse les extensions incohérentes, les dossiers traversants et les chemins hors société active. |
 | Build et qualité technique | Fonctionnel | Build OK ; dette lint non bloquante mais visible. |
 
 ### 9.4 Proposition de topnav cible

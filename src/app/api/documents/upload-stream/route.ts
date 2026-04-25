@@ -4,14 +4,17 @@ import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
+import {
+  isAiSupportedDocumentMimeType,
+  sanitizeDocumentStorageFolder,
+  validateDocumentUploadMetadata,
+} from "@/lib/document-upload-security";
 
 export const maxDuration = 60;
 
 // Ce contournement permet d’uploader des fichiers >4.5 Mo sur Vercel :
 // le body est lu en streaming (ReadableStream) et transmis directement
 // à Supabase sans jamais être bufferisé en mémoire par Vercel.
-
-const AI_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 function getSupabase() {
   return createClient(
@@ -40,12 +43,20 @@ export async function POST(req: NextRequest) {
 
     if (!fileName) return NextResponse.json({ error: "Nom de fichier manquant" }, { status: 400 });
     if (!req.body) return NextResponse.json({ error: "Corps de requête vide" }, { status: 400 });
+    const metadataValidation = validateDocumentUploadMetadata({ fileName, fileSize, mimeType });
+    if (!metadataValidation.ok) {
+      return NextResponse.json({ error: metadataValidation.error }, { status: 400 });
+    }
 
-    const entityFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
+    const rawEntityFolder = entityType === "building" && buildingId ? "buildings/" + buildingId
       : entityType === "lot" && lotId ? "lots/" + lotId
       : entityType === "lease" && leaseId ? "leases/" + leaseId
       : entityType === "tenant" && tenantId ? "tenants/" + tenantId
       : "general";
+    const entityFolder = sanitizeDocumentStorageFolder(rawEntityFolder);
+    if (!entityFolder) {
+      return NextResponse.json({ error: "Dossier cible invalide" }, { status: 400 });
+    }
 
     const timestamp = Date.now();
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest) {
     const { error: uploadError } = await (supabase.storage.from(bucket) as any).upload(
       storagePath,
       req.body,
-      { contentType: mimeType, duplex: "half", upsert: false }
+      { contentType: metadataValidation.mimeType, duplex: "half", upsert: false }
     );
 
     if (uploadError) {
@@ -78,8 +89,8 @@ export async function POST(req: NextRequest) {
         societyId: context.societyId,
         fileName,
         fileUrl,
-        fileSize: fileSize || 0,
-        mimeType,
+        fileSize,
+        mimeType: metadataValidation.mimeType,
         category,
         description: description || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
@@ -88,7 +99,7 @@ export async function POST(req: NextRequest) {
         leaseId: entityType === "lease" ? leaseId : null,
         tenantId: entityType === "tenant" ? tenantId : null,
         storagePath,
-        aiStatus: AI_SUPPORTED_TYPES.includes(mimeType) ? "pending" : null,
+        aiStatus: isAiSupportedDocumentMimeType(metadataValidation.mimeType) ? "pending" : null,
       },
     });
 
@@ -97,7 +108,7 @@ export async function POST(req: NextRequest) {
       details: { fileName, category, buildingId, lotId, leaseId, tenantId },
     });
 
-    if (AI_SUPPORTED_TYPES.includes(mimeType)) {
+    if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
       const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
       void fetch(baseUrl + "/api/documents/" + doc.id + "/analyze", {
         method: "POST", headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
