@@ -702,3 +702,305 @@ describe("rerunAllValuations — erreurs", () => {
     expect(result.error).toMatch(/super|accès/i);
   });
 });
+
+// ── createValuation — branches manquantes ────────────────────────────────────
+
+describe("createValuation — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSubscriptionActive.mockResolvedValue({ active: true });
+  });
+
+  it("retourne une erreur Zod si buildingId n'est pas un CUID valide (ligne 47)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await createValuation(SOCIETY_ID, { buildingId: "not-a-cuid" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("invalide");
+  });
+
+  it("refuse si le quota de 2 évaluations par an est atteint (ligne 66)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID, name: "Atlas" } as never);
+    prismaMock.propertyValuation.count.mockResolvedValue(2);
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+    expect(result).toEqual({ success: false, error: "Limite atteinte : 2 avis de valeur maximum par an et par immeuble" });
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (ligne 91)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques lors de la création (lignes 92-93)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID, name: "Atlas" } as never);
+    prismaMock.propertyValuation.count.mockResolvedValue(0);
+    prismaMock.propertyValuation.create.mockRejectedValue(new Error("DB crash"));
+    const result = await createValuation(SOCIETY_ID, { buildingId: BUILDING_ID });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'évaluation" });
+  });
+});
+
+// ── runAiAnalysis — branches manquantes ──────────────────────────────────────
+
+describe("runAiAnalysis — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne une erreur Zod si providers est vide (ligne 111)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await runAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: [] as never });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("fournisseur");
+  });
+
+  it("continue si le rafraîchissement DVF échoue — non bloquant (ligne 165)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({ id: VALUATION_ID, buildingId: BUILDING_ID } as never);
+    prismaMock.building.findFirst.mockResolvedValue({ postalCode: "69001", city: "Lyon", latitude: null, longitude: null } as never);
+    searchDvfTransactions.mockRejectedValue(new Error("DVF unavailable"));
+    collectBuildingData.mockResolvedValue({ building: { name: "Atlas" } });
+    callClaude.mockRejectedValue(new Error("no key"));
+    callOpenAI.mockRejectedValue(new Error("no key"));
+    const result = await runAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE", "OPENAI"] });
+    expect(result.success).toBe(true);
+    expect(result.data?.analysisCount).toBe(0);
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (lignes 280-281)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await runAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques (lignes 282-283)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await runAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'analyse IA" });
+  });
+});
+
+// ── uploadExpertReport — branches manquantes ──────────────────────────────────
+
+describe("uploadExpertReport — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function fd(expertName: string): FormData {
+    return {
+      get: (key: string) =>
+        ({
+          file: { name: "r.pdf", size: 100, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) },
+          expertName,
+          reportDate: "2026-04-20",
+          reportReference: null,
+        } as Record<string, unknown>)[key] ?? null,
+    } as unknown as FormData;
+  }
+
+  it("retourne une erreur Zod si expertName est trop court (ligne 308)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, fd("A"));
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("expert");
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (ligne 385)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, fd("Expert SA"));
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques (lignes 386-387)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({ id: VALUATION_ID, buildingId: BUILDING_ID } as never);
+    extractReportData.mockRejectedValue(new Error("AI crash"));
+    prismaMock.expertReport.create.mockRejectedValue(new Error("DB crash"));
+    const result = await uploadExpertReport(SOCIETY_ID, VALUATION_ID, fd("Expert SA"));
+    expect(result).toEqual({ success: false, error: "Erreur lors de l'import du rapport" });
+  });
+});
+
+// ── searchComparables — branches manquantes ───────────────────────────────────
+
+describe("searchComparables — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne une erreur Zod si radiusKm est inférieur à 0,5 (ligne 405)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await searchComparables(SOCIETY_ID, VALUATION_ID, { radiusKm: 0, periodYears: 3 });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("km");
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (lignes 463-464)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await searchComparables(SOCIETY_ID, VALUATION_ID, { radiusKm: 5, periodYears: 3 });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques (lignes 465-466)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await searchComparables(SOCIETY_ID, VALUATION_ID, { radiusKm: 5, periodYears: 3 });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la recherche de comparables" });
+  });
+});
+
+// ── updateValuationResults — branches manquantes ──────────────────────────────
+
+describe("updateValuationResults — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne une erreur Zod si capitalizationRate dépasse 100 (ligne 484)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await updateValuationResults(SOCIETY_ID, VALUATION_ID, { capitalizationRate: 200 });
+    expect(result.success).toBe(false);
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (lignes 519-520)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const result = await updateValuationResults(SOCIETY_ID, VALUATION_ID, { estimatedValueMid: 450000 });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques (lignes 521-522)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await updateValuationResults(SOCIETY_ID, VALUATION_ID, { estimatedValueMid: 450000 });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
+});
+
+// ── getValuation / getValuations — succès ────────────────────────────────────
+
+describe("getValuation / getValuations — succès", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("retourne l'évaluation si l'utilisateur a accès (ligne 589)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({
+      id: VALUATION_ID,
+      buildingId: BUILDING_ID,
+      aiAnalyses: [],
+      expertReports: [],
+      comparableSales: [],
+    } as never);
+    const result = await getValuation(SOCIETY_ID, VALUATION_ID);
+    expect(result).toBeTruthy();
+    expect(prismaMock.propertyValuation.findFirst).toHaveBeenCalled();
+  });
+
+  it("retourne la liste des évaluations si l'utilisateur a accès (ligne 604)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.propertyValuation.findMany.mockResolvedValue([
+      { id: VALUATION_ID, buildingId: BUILDING_ID },
+    ] as never);
+    const result = await getValuations(SOCIETY_ID, BUILDING_ID);
+    expect(result).toHaveLength(1);
+    expect(prismaMock.propertyValuation.findMany).toHaveBeenCalled();
+  });
+});
+
+// ── deleteValuation — branches manquantes ─────────────────────────────────────
+
+describe("deleteValuation — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (ligne 643)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await deleteValuation(SOCIETY_ID, VALUATION_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques (lignes 644-645)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.propertyValuation.findFirst.mockRejectedValue(new Error("DB crash"));
+    const result = await deleteValuation(SOCIETY_ID, VALUATION_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+// ── batchCreatePropertyValuations — branches manquantes ──────────────────────
+
+describe("batchCreatePropertyValuations — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSubscriptionActive.mockResolvedValue({ active: true });
+  });
+
+  it("ajoute une erreur si un immeuble lève une exception dans la boucle (lignes 566-567)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID, societyId: SOCIETY_ID } as never);
+    prismaMock.propertyValuation.count.mockRejectedValue(new Error("count crash"));
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, [BUILDING_ID]);
+    expect(r.success).toBe(true);
+    expect(r.data?.errors).toHaveLength(1);
+    expect(r.data?.created).toBe(0);
+  });
+
+  it("renvoie ForbiddenError si le rôle est insuffisant (lignes 575-576)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, [BUILDING_ID]);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/permissions|insuffisant/i);
+  });
+
+  it("capture les erreurs génériques de l'outer catch (lignes 577-578)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    checkSubscriptionActive.mockRejectedValue(new Error("subscription crash"));
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, [BUILDING_ID]);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'évaluation en lot" });
+  });
+});
+
+// ── rerunAllValuations — branches manquantes ──────────────────────────────────
+
+describe("rerunAllValuations — branches manquantes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("ajoute un message d'erreur si l'analyse d'un immeuble échoue (lignes 814-815)", async () => {
+    mockAuthSession(UserRole.SUPER_ADMIN, SOCIETY_ID);
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID, role: "SUPER_ADMIN" }] as never)
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: BUILDING_ID, societyId: SOCIETY_ID, name: "Immeuble Cassé" },
+    ] as never);
+    prismaMock.propertyValuation.create.mockRejectedValue(new Error("valuation create crash"));
+    const result = await rerunAllValuations();
+    expect(result.success).toBe(true);
+    expect(result.data?.errors).toHaveLength(1);
+    expect(result.data?.errors[0]).toContain("Immeuble Cassé");
+  });
+
+  it("capture les erreurs génériques de l'outer catch (lignes 824-825)", async () => {
+    mockAuthSession(UserRole.SUPER_ADMIN, SOCIETY_ID);
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID, role: "SUPER_ADMIN" }] as never)
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }] as never);
+    prismaMock.propertyValuation.deleteMany.mockRejectedValue(new Error("deleteMany crash"));
+    const result = await rerunAllValuations();
+    expect(result).toEqual({ success: false, error: "Erreur lors de la réévaluation" });
+  });
+});
