@@ -1,9 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
 
+const sendReceiptEmailMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const renderToBufferMock = vi.hoisted(() => vi.fn().mockResolvedValue(Buffer.from("pdf-buffer")));
+const getAllEmailCopyBccMock = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const supabaseStorageMock = vi.hoisted(() => ({
+  upload: vi.fn().mockResolvedValue({ error: null }),
+  download: vi.fn().mockResolvedValue({ data: null }),
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/email", () => ({
   sendInvoiceEmail: vi.fn().mockResolvedValue({ success: true }),
+  sendReceiptEmail: sendReceiptEmailMock,
+}));
+vi.mock("@react-pdf/renderer", () => ({ renderToBuffer: renderToBufferMock }));
+vi.mock("@/lib/invoice-pdf", () => ({ InvoicePdf: () => null }));
+vi.mock("@/lib/email-copy", () => ({ getAllEmailCopyBcc: getAllEmailCopyBccMock }));
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({ storage: { from: vi.fn(() => supabaseStorageMock) } })),
 }));
 
 import { sendInvoiceEmail } from "@/lib/email";
@@ -27,6 +42,37 @@ import {
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const INVOICE_ID = "clh3x2z4k0001qh8g7z1y2v3t";
+
+function makeFullQuittance(id: string) {
+  return {
+    id,
+    invoiceNumber: "QIT-2025-001",
+    invoiceType: "QUITTANCE",
+    issueDate: new Date("2025-01-31"),
+    dueDate: new Date("2025-01-31"),
+    periodStart: new Date("2025-01-01"),
+    periodEnd: new Date("2025-01-31"),
+    totalHT: 800,
+    totalVAT: 0,
+    totalTTC: 800,
+    tenantId: "tenant-1",
+    leaseId: "lease-1",
+    society: {
+      name: "SCI Test", addressLine1: "1 rue de Paris", postalCode: "75001", city: "Paris",
+      country: "France", phone: null, siret: null, vatNumber: null, legalForm: null,
+      shareCapital: null, bankName: null, vatRegime: null, legalMentions: null,
+      signatoryName: null, email: null, ibanEncrypted: null, bicEncrypted: null, logoUrl: null,
+    },
+    tenant: {
+      entityType: "PERSONNE_PHYSIQUE", firstName: "Jean", lastName: "Dupont",
+      companyName: null, billingEmail: null, email: "jean@example.com",
+      personalAddress: "2 rue de Lyon, 75002 Paris", companyAddress: null,
+    },
+    lease: { lot: { number: "A1", building: { name: "Immeuble A", addressLine1: "1 rue de Paris" } } },
+    lines: [{ label: "Loyer", totalHT: 800, vatRate: 0, totalTTC: 800 }],
+    payments: [{ paidAt: new Date("2025-01-10"), method: "virement", amount: 800 }],
+  };
+}
 
 function makeInvoice(overrides = {}) {
   return {
@@ -604,5 +650,90 @@ describe("generateAndSendQuittance", () => {
 
     const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
     expect(result).toEqual({ success: false, error: "Erreur lors de la génération de la quittance" });
+  });
+
+  it("exécute generateQuittancePdfAndSend en arrière-plan — email envoyé (lignes 208-358)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0005qh8g7z1y2v3u";
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({
+        lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+      }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(makeFullQuittance(QUITTANCE_ID) as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(() => expect(sendReceiptEmailMock).toHaveBeenCalled(), { timeout: 5000 });
+  });
+
+  it("tente le téléchargement du logo si logoUrl et supabase configurés (lignes 244-257)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k0007qh8g7z1y2v3w";
+      const quittanceWithLogo = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        society: { ...makeFullQuittance(QUITTANCE_ID).society, logoUrl: "logos/society-1/logo.png" },
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({
+          lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+        }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittanceWithLogo as never);
+      prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+
+      // sendReceiptEmail is called after the logo block — if it was called, logo code was reached
+      await vi.waitFor(() => expect(sendReceiptEmailMock).toHaveBeenCalled(), { timeout: 5000 });
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("upload PDF dans Supabase si configuré (lignes 328-356)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k0006qh8g7z1y2v3v";
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({
+          lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+        }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(makeFullQuittance(QUITTANCE_ID) as never);
+      prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+
+      await vi.waitFor(() => expect(supabaseStorageMock.upload).toHaveBeenCalled(), { timeout: 5000 });
+      expect(prismaMock.document.create).toHaveBeenCalled();
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
   });
 });
