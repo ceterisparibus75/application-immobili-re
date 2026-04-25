@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest"
 import { prismaMock } from "@/test/mocks/prisma"
-import { hasMinRole, requireSocietyAccess, requireSuperAdmin, ForbiddenError } from "@/lib/permissions"
+import {
+  hasMinRole,
+  requireSocietyAccess,
+  requireSuperAdmin,
+  hasModulePermission,
+  getEffectivePermissions,
+  getUserSocieties,
+  ForbiddenError,
+} from "@/lib/permissions"
 import { buildMembership } from "@/test/factories"
 import { UserRole } from "@/generated/prisma/client"
 
@@ -57,5 +65,76 @@ describe("requireSuperAdmin", () => {
   it("ForbiddenError si aucun membership du tout", async () => {
     prismaMock.userSociety.findMany.mockResolvedValue([])
     await expect(requireSuperAdmin("user-1")).rejects.toThrow(ForbiddenError)
+  })
+})
+
+// ─── hasModulePermission ──────────────────────────────────────────────────────
+
+describe("hasModulePermission", () => {
+  it("retourne true si l'utilisateur est owner de la société", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "user-1", proprietaire: null } as never)
+    const r = await hasModulePermission("user-1", "society-1", "locataires", "read")
+    expect(r).toBe(true)
+  })
+
+  it("retourne false si aucun membership trouvé", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other-user", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never)
+    const r = await hasModulePermission("user-1", "society-1", "locataires", "read")
+    expect(r).toBe(false)
+  })
+
+  it("retourne true si le rôle GESTIONNAIRE a accès en lecture", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(
+      buildMembership(UserRole.GESTIONNAIRE, { modulePermissions: null })
+    )
+    const r = await hasModulePermission("user-1", "society-1", "locataires", "read")
+    expect(r).toBe(true)
+  })
+})
+
+// ─── getEffectivePermissions ──────────────────────────────────────────────────
+
+describe("getEffectivePermissions", () => {
+  it("retourne null si l'utilisateur n'a pas de membership", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(null as never)
+    const r = await getEffectivePermissions("user-1", "society-1")
+    expect(r).toBeNull()
+  })
+
+  it("retourne ADMIN_SOCIETE si l'utilisateur est le owner", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "user-1", proprietaire: null } as never)
+    const r = await getEffectivePermissions("user-1", "society-1")
+    expect(r?.role).toBe("ADMIN_SOCIETE")
+  })
+
+  it("retourne le rôle et les permissions réelles du membership", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: "other", proprietaire: null } as never)
+    prismaMock.userSociety.findUnique.mockResolvedValue(
+      buildMembership(UserRole.LECTURE, { modulePermissions: null })
+    )
+    const r = await getEffectivePermissions("user-1", "society-1")
+    expect(r?.role).toBe(UserRole.LECTURE)
+    expect(r?.permissions).toBeDefined()
+  })
+})
+
+// ─── getUserSocieties ─────────────────────────────────────────────────────────
+
+describe("getUserSocieties", () => {
+  it("retourne un tableau vide si aucun membership", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never)
+    const r = await getUserSocieties("user-1")
+    expect(r).toEqual([])
+  })
+
+  it("retourne les sociétés de l'utilisateur", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      { societyId: "soc-1", role: "GESTIONNAIRE", society: { id: "soc-1", name: "SCI A" } },
+    ] as never)
+    const r = await getUserSocieties("user-1")
+    expect(r).toHaveLength(1)
   })
 })
