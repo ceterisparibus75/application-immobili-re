@@ -143,4 +143,33 @@ describe("getDashboardAlerts", () => {
     expect(Array.isArray(result)).toBe(true);
     expect(result).toHaveLength(0);
   });
+
+  it("retourne une alerte litigieuse et trie danger avant warning", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
+    prismaMock.invoice.count
+      .mockResolvedValueOnce(0 as never) // draftCount
+      .mockResolvedValueOnce(2 as never); // litigiousCount
+    prismaMock.lot.count.mockResolvedValue(1 as never); // vacantLots → warning
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    const litigiousAlert = result.find((a) => a.id === "invoices-litigious");
+    expect(litigiousAlert).toBeDefined();
+    expect(litigiousAlert?.type).toBe("danger");
+    expect(litigiousAlert?.count).toBe(2);
+
+    const vacantAlert = result.find((a) => a.id === "lots-vacant");
+    expect(vacantAlert).toBeDefined();
+    expect(vacantAlert?.type).toBe("warning");
+
+    // Tri : danger avant warning
+    const dangerIndex = result.findIndex((a) => a.type === "danger");
+    const warningIndex = result.findIndex((a) => a.type === "warning");
+    expect(dangerIndex).toBeLessThan(warningIndex);
+  });
 });
