@@ -4,7 +4,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Building2, Home, Users, FileText, Receipt,
   UserCircle, Clock, X, Filter, FileIcon, Plus,
-  Landmark, Upload, BookOpen, BarChart3,
+  Landmark, Upload, BookOpen, BarChart3, Briefcase,
+  Mail, FolderLock, MessageSquare, ClipboardCheck,
+  CalendarClock, Send, ChartNoAxesCombined,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const HISTORY_KEY = "mygestia-search-history";
 const MAX_HISTORY = 8;
+const INITIAL_QUICK_ACTION_LIMIT = 12;
 
 const QUICK_ACTIONS = [
   {
@@ -113,6 +116,62 @@ const QUICK_ACTIONS = [
     color: TYPE_COLORS.document,
     keywords: ["fichier", "pdf", "upload"],
   },
+  {
+    label: "Suivre les candidatures",
+    href: "/candidatures",
+    icon: Briefcase,
+    color: "bg-sky-500/10 text-sky-600",
+    keywords: ["candidat", "dossier", "pipeline", "location"],
+  },
+  {
+    label: "Préparer un courrier",
+    href: "/courriers",
+    icon: Mail,
+    color: "bg-blue-500/10 text-blue-600",
+    keywords: ["lettre", "modele", "email", "publipostage"],
+  },
+  {
+    label: "Créer une dataroom",
+    href: "/dataroom",
+    icon: FolderLock,
+    color: "bg-fuchsia-500/10 text-fuchsia-600",
+    keywords: ["partage", "documents", "audit", "vente"],
+  },
+  {
+    label: "Traiter les tickets",
+    href: "/tickets",
+    icon: MessageSquare,
+    color: "bg-amber-500/10 text-amber-600",
+    keywords: ["demande", "incident", "support", "locataire"],
+  },
+  {
+    label: "Voir les révisions de loyer",
+    href: "/baux/revisions",
+    icon: CalendarClock,
+    color: "bg-emerald-500/10 text-emerald-600",
+    keywords: ["revision", "indice", "irl", "ilc", "ilat", "loyer"],
+  },
+  {
+    label: "Suivre les relances",
+    href: "/relances",
+    icon: Send,
+    color: "bg-rose-500/10 text-rose-600",
+    keywords: ["impaye", "retard", "recouvrement", "email"],
+  },
+  {
+    label: "Ouvrir les rapports",
+    href: "/rapports",
+    icon: ChartNoAxesCombined,
+    color: "bg-indigo-500/10 text-indigo-600",
+    keywords: ["reporting", "tableau", "export", "suivi"],
+  },
+  {
+    label: "Planifier un rapport",
+    href: "/rapports/planification",
+    icon: ClipboardCheck,
+    color: "bg-teal-500/10 text-teal-600",
+    keywords: ["planning", "planification", "email", "mensuel"],
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +209,13 @@ function addToHistory(result: SearchResult): void {
 
 function clearHistory(): void {
   localStorage.removeItem(HISTORY_KEY);
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 /* ------------------------------------------------------------------ */
@@ -260,11 +326,11 @@ export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchPro
   }, {});
 
   const showHistory = query.length < 2 && history.length > 0;
-  const quickActionQuery = query.trim().toLowerCase();
+  const quickActionQuery = normalizeSearchText(query.trim());
   const visibleQuickActions = quickActionQuery.length < 2
-    ? QUICK_ACTIONS
+    ? QUICK_ACTIONS.slice(0, INITIAL_QUICK_ACTION_LIMIT)
     : QUICK_ACTIONS.filter((action) => (
-      [action.label, ...action.keywords].some((value) => value.toLowerCase().includes(quickActionQuery))
+      [action.label, ...action.keywords].some((value) => normalizeSearchText(value).includes(quickActionQuery))
     ));
   const showQuickActions = visibleQuickActions.length > 0;
   const showResults = query.length >= 2 && results.length > 0;

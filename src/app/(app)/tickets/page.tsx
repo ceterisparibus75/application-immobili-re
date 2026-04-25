@@ -4,11 +4,12 @@ import { getTickets } from "@/actions/ticket";
 export const metadata: Metadata = { title: "Tickets" };
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { MessageSquare, Clock, User } from "lucide-react";
+import { ArrowRight, Clock, FileText, MessageSquare, User, Users } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -85,12 +86,32 @@ export default async function TicketsPage() {
 
       {tickets.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
             <MessageSquare className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground mb-2">Aucun ticket</p>
-            <p className="text-sm text-muted-foreground">
-              Les demandes des locataires depuis le portail apparaitront ici.
+            <p className="text-base font-medium">Aucun ticket ouvert</p>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Les demandes créées depuis le portail locataire apparaîtront ici. Pour préparer ce flux, vérifiez les accès portail et les documents utiles aux locataires.
             </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Button asChild>
+                <Link href="/locataires">
+                  <Users className="h-4 w-4" />
+                  Voir les locataires
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/documents">
+                  <FileText className="h-4 w-4" />
+                  Préparer les documents
+                </Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href="/aide/automatisation">
+                  Comprendre les tickets
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

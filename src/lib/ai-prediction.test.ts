@@ -368,6 +368,64 @@ describe("collectTenantPaymentData", () => {
 
     expect(result[0].currentDebt).toBe(400)
   })
+
+  it("marque status='unpaid' pour une facture sans paiement (ligne 124)", async () => {
+    const dueDate = new Date("2024-03-05")
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-u",
+        societyId: "society-1",
+        status: "EN_COURS",
+        startDate: new Date("2023-01-01"),
+        currentRentHT: 800,
+        baseRentHT: 800,
+        tenant: { id: "t-u", firstName: "Pierre", lastName: "Martin", companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+        lot: { id: "l-u", number: "U1", description: "" },
+        invoices: [
+          { id: "inv-u", issueDate: dueDate, dueDate, totalTTC: 800, payments: [] },
+        ],
+      },
+    ] as never)
+    const result = await collectTenantPaymentData("society-1")
+    expect(result[0].paymentHistory[0].status).toBe("unpaid")
+    expect(result[0].currentDebt).toBe(800)
+  })
+
+  it("marque status='late' et calcule avgDaysLate pour paiement tardif (lignes 113, 126, 161)", async () => {
+    const dueDate = new Date("2024-04-05")
+    const paidAt1 = new Date("2024-04-07")
+    const paidAt2 = new Date("2024-04-20")
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-l",
+        societyId: "society-1",
+        status: "EN_COURS",
+        startDate: new Date("2023-01-01"),
+        currentRentHT: 900,
+        baseRentHT: 900,
+        tenant: { id: "t-l", firstName: "Sophie", lastName: "Durand", companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+        lot: { id: "l-l", number: "L1", description: "" },
+        invoices: [
+          {
+            id: "inv-l",
+            issueDate: dueDate,
+            dueDate,
+            totalTTC: 900,
+            payments: [
+              { amount: 500, paidAt: paidAt1 },
+              { amount: 400, paidAt: paidAt2 },
+            ],
+          },
+        ],
+      },
+    ] as never)
+    const result = await collectTenantPaymentData("society-1")
+    const payment = result[0].paymentHistory[0]
+    expect(payment.status).toBe("late")
+    expect(payment.daysLate).toBeGreaterThan(5)
+    expect(result[0].latePaymentCount).toBe(1)
+    expect(result[0].avgDaysLate).toBeGreaterThan(0)
+  })
 })
 
 /* ─── predictWithAI ──────────────────────────────────────────────── */
@@ -375,6 +433,24 @@ describe("collectTenantPaymentData", () => {
 describe("predictWithAI", () => {
   beforeEach(() => {
     mockCreate.mockReset()
+  })
+
+  it("inclut l'historique de paiement dans le prompt (ligne 285)", async () => {
+    const aiResults = [{ riskScore: 20, riskLevel: "low", defaultProbability: 0.1, predictedDaysLate: 0, riskFactors: [], recommendations: [] }]
+    mockCreate.mockResolvedValue(makeAnthropicResponse(aiResults))
+
+    const profiles = [buildProfile({
+      paymentHistory: [
+        makePayment("late", 10),
+        makePayment("unpaid"),
+        makePayment("on_time"),
+      ],
+    })]
+    const results = await predictWithAI(profiles)
+    expect(results).toHaveLength(1)
+    const prompt = mockCreate.mock.calls[0][0].messages[0].content as string
+    expect(prompt).toContain("retard")
+    expect(prompt).toContain("impayé")
   })
 
   it("returns AI-enhanced predictions when API key is available", async () => {

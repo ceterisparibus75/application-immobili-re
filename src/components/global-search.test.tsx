@@ -46,6 +46,23 @@ describe("GlobalSearch", () => {
     expect(screen.queryByRole("button", { name: /Créer un bail/i })).not.toBeInTheDocument();
   });
 
+  it("trouve les parcours métier avancés avec des mots-clés naturels", () => {
+    render(<GlobalSearch initiallyOpen />);
+
+    fireEvent.change(screen.getByPlaceholderText(/rechercher immeubles/i), { target: { value: "revision" } });
+
+    expect(screen.getByRole("button", { name: /Voir les révisions de loyer/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ajouter un compte bancaire/i })).not.toBeInTheDocument();
+  });
+
+  it("expose les actions moins fréquentes quand elles correspondent à la recherche", () => {
+    render(<GlobalSearch initiallyOpen />);
+
+    fireEvent.change(screen.getByPlaceholderText(/rechercher immeubles/i), { target: { value: "candidature" } });
+
+    expect(screen.getByRole("button", { name: /Suivre les candidatures/i })).toBeInTheDocument();
+  });
+
   it("navigue vers une action rapide", () => {
     const onClose = vi.fn();
     render(<GlobalSearch initiallyOpen onClose={onClose} />);
