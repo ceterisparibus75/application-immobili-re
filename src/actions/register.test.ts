@@ -7,6 +7,7 @@ vi.mock("@/lib/email", () => ({
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { registerUser } from "./register";
+import { sendSignupCodeEmail } from "@/lib/email";
 
 const validInput = {
   email: "jean@example.com",
@@ -93,9 +94,47 @@ describe("registerUser", () => {
 
     await registerUser(validInput);
 
-    const { sendSignupCodeEmail } = await import("@/lib/email");
     expect(vi.mocked(sendSignupCodeEmail)).toHaveBeenCalledWith(
       expect.objectContaining({ to: "jean@example.com" })
     );
+  });
+
+  it("utilise le fallback create si la première tentative échoue avec 'Unknown arg'", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create
+      .mockRejectedValueOnce(new Error("Unknown arg firstName"))
+      .mockResolvedValueOnce({ id: "user-fallback", email: "jean@example.com" } as never);
+
+    const result = await registerUser(validInput);
+    expect(result.success).toBe(true);
+    expect(prismaMock.user.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("retourne ACCOUNT_EXISTS si create propage une Unique constraint", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    // Message sans 'column'/'field'/'Unknown arg' → re-throw de l'inner catch
+    prismaMock.user.create.mockRejectedValue(new Error("Unique constraint violation on email"));
+
+    const result = await registerUser(validInput);
+    expect(result.success).toBe(false);
+    expect(result.code).toBe("ACCOUNT_EXISTS");
+  });
+
+  it("retourne une erreur générique si create lève une autre exception", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockRejectedValue(new Error("Connection timeout"));
+
+    const result = await registerUser(validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Connection timeout");
+  });
+
+  it("continue avec succès même si l'envoi d'email échoue", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({ id: "user-1", email: "jean@example.com" } as never);
+    vi.mocked(sendSignupCodeEmail).mockRejectedValueOnce(new Error("SMTP error"));
+
+    const result = await registerUser(validInput);
+    expect(result.success).toBe(true);
   });
 });
