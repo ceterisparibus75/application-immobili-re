@@ -3,13 +3,14 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { Users, Plus, UserPlus } from "lucide-react";
-
-export const metadata: Metadata = { title: "Candidatures" };
+import Link from "next/link";
+import { UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { CandidaturesEmptyState } from "./_components/candidatures-empty-state";
+
+export const metadata: Metadata = { title: "Candidatures" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
   NEW: { label: "Nouveau", color: "text-blue-700", bgColor: "bg-blue-50 border-blue-200" },
@@ -68,26 +69,16 @@ export default async function CandidaturesPage() {
             {avgScore > 0 && ` · Score moyen : ${avgScore}/100`}
           </p>
         </div>
-        <Button className="gap-1.5 bg-brand-gradient-soft hover:opacity-90 text-white">
-          <UserPlus className="h-4 w-4" />
-          Nouvelle candidature
+        <Button asChild className="gap-1.5 bg-brand-gradient-soft text-white hover:opacity-90">
+          <Link href="/locataires/nouveau">
+            <UserPlus className="h-4 w-4" />
+            Créer un locataire
+          </Link>
         </Button>
       </div>
 
       {totalActive === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Users className="h-12 w-12 text-muted-foreground/30 mb-4" />
-            <p className="text-lg font-medium mb-1">Aucune candidature</p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Le pipeline de candidatures est vide
-            </p>
-            <Button className="gap-1.5">
-              <UserPlus className="h-4 w-4" />
-              Ajouter un candidat
-            </Button>
-          </CardContent>
-        </Card>
+        <CandidaturesEmptyState />
       ) : (
         /* Pipeline board */
         <div className="overflow-x-auto pb-4">

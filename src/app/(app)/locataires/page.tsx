@@ -1,7 +1,6 @@
 import { getTenantsPaginated } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { ExportLocataires } from "@/components/exports/export-locataires";
 import { headers } from "next/headers";
@@ -9,6 +8,7 @@ import { redirect } from "next/navigation";
 import { parsePaginationParams } from "@/lib/pagination";
 import type { RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
 import { TenantsDataTable } from "./_components/tenants-data-table";
+import { LocatairesEmptyState } from "./_components/locataires-empty-state";
 
 export const metadata = { title: "Locataires" };
 
@@ -116,23 +116,7 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
       </div>
 
       {total === 0 && !pagination.search && Object.keys(pagination.filters ?? {}).length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 mb-4">
-              <Users className="h-7 w-7 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">Aucun locataire</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Créez votre premier dossier locataire pour préparer un bail.
-            </p>
-            <Link href="/locataires/nouveau">
-              <Button>
-                <Plus className="h-4 w-4" />
-                Créer un locataire
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <LocatairesEmptyState />
       ) : (
         <TenantsDataTable
           tenants={serialized}
