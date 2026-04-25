@@ -32,6 +32,7 @@ vi.mock("@/lib/valuation/ai-service", () => ({
 }));
 
 import {
+  batchCreatePropertyValuations,
   createValuation,
   deleteValuation,
   getValuation,
@@ -492,6 +493,31 @@ describe("valuation actions", () => {
     });
   });
 
+  it("passe le statut à DRAFT si aucune analyse IA ne réussit (rerunAllValuations)", async () => {
+    mockAuthSession(UserRole.SUPER_ADMIN, SOCIETY_ID);
+    prismaMock.userSociety.findMany
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID, role: "SUPER_ADMIN" }] as never) // requireSuperAdmin
+      .mockResolvedValueOnce([{ societyId: SOCIETY_ID }] as never); // getMyManagedSocieties
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: BUILDING_ID, societyId: SOCIETY_ID, name: "Bâtiment A" },
+    ] as never);
+    prismaMock.propertyValuation.create.mockResolvedValue({ id: VALUATION_ID } as never);
+    prismaMock.building.findFirst.mockResolvedValue(null); // DVF lookup → null → pas de DVF
+    collectBuildingData.mockResolvedValue({ city: "Lyon" });
+    callClaude.mockRejectedValue(new Error("Claude KO"));
+    callOpenAI.mockRejectedValue(new Error("OpenAI KO"));
+    prismaMock.propertyValuation.update.mockResolvedValue({} as never);
+
+    const result = await rerunAllValuations();
+
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+    expect(prismaMock.propertyValuation.update).toHaveBeenCalledWith({
+      where: { id: VALUATION_ID },
+      data: { status: "DRAFT" },
+    });
+  });
+
   it("supprime une évaluation existante pour un admin de société", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
     prismaMock.propertyValuation.findFirst.mockResolvedValue({
@@ -513,5 +539,56 @@ describe("valuation actions", () => {
       entityId: VALUATION_ID,
     });
     expect(revalidatePath).toHaveBeenCalledWith(`/patrimoine/immeubles/${BUILDING_ID}/valorisation`);
+  });
+});
+
+// ── batchCreatePropertyValuations ─────────────────────────────────
+
+describe("batchCreatePropertyValuations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSubscriptionActive.mockResolvedValue({ active: true });
+  });
+
+  it("retourne une erreur si aucun immeuble sélectionné", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, []);
+    expect(r).toEqual({ success: false, error: "Aucun immeuble sélectionné" });
+  });
+
+  it("retourne une erreur si plus de 20 immeubles", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const ids = Array.from({ length: 21 }, (_, i) => `bld-${i}`);
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, ids);
+    expect(r).toEqual({ success: false, error: "Maximum 20 immeubles à la fois" });
+  });
+
+  it("ignore un immeuble déjà évalué 2 fois cette année (skipped)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID, societyId: SOCIETY_ID } as never);
+    prismaMock.propertyValuation.count.mockResolvedValue(2); // déjà 2 évaluations
+
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, [BUILDING_ID]);
+    expect(r.success).toBe(true);
+    expect(r.data?.skipped).toBe(1);
+    expect(r.data?.created).toBe(0);
+  });
+
+  it("crée une évaluation pour un immeuble non encore évalué", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID, societyId: SOCIETY_ID } as never);
+    prismaMock.propertyValuation.count.mockResolvedValue(0);
+    prismaMock.propertyValuation.create.mockResolvedValue({ id: VALUATION_ID } as never);
+    // runAiAnalysis is called internally; mock its Prisma calls
+    prismaMock.propertyValuation.findFirst.mockResolvedValue({ id: VALUATION_ID, buildingId: BUILDING_ID } as never);
+    collectBuildingData.mockResolvedValue({ city: "Lyon" });
+    callClaude.mockRejectedValue(new Error("no key"));
+    callOpenAI.mockRejectedValue(new Error("no key"));
+    prismaMock.propertyValuation.update.mockResolvedValue({} as never);
+
+    const r = await batchCreatePropertyValuations(SOCIETY_ID, [BUILDING_ID]);
+    expect(r.success).toBe(true);
+    expect(r.data?.created).toBe(1);
+    expect(r.data?.skipped).toBe(0);
   });
 });
