@@ -216,6 +216,20 @@ describe("activateDataroom", () => {
       expect.objectContaining({ data: expect.objectContaining({ status: "ACTIF" }) })
     );
   });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await activateDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await activateDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'activation" });
+  });
 });
 
 // ─── archiveDataroom ─────────────────────────────────────────────────────────
@@ -233,6 +247,20 @@ describe("archiveDataroom", () => {
     expect(prismaMock.dataroom.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "ARCHIVE" }) })
     );
+  });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await archiveDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await archiveDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'archivage" });
   });
 });
 
@@ -405,6 +433,20 @@ describe("reorderDocument", () => {
     const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, "doc-b", "down");
     expect(r.success).toBe(true);
     expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, "doc-b", "up");
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.dataroom.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, "doc-b", "up");
+    expect(r).toEqual({ success: false, error: "Erreur lors de la réorganisation" });
   });
 });
 

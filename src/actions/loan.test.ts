@@ -626,6 +626,11 @@ describe("addLoanMovement", () => {
     const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, amount: 5000 })
     expect(r.error).toContain("plafond")
   })
+
+  it("relance l'erreur si la BDD échoue de façon inattendue", async () => {
+    prismaMock.loanMovement.create.mockRejectedValue(new Error("DB unexpected"))
+    await expect(addLoanMovement(SOCIETY_ID, validMovement)).rejects.toThrow("DB unexpected")
+  })
 })
 
 // ─── getLoanMovements ─────────────────────────────────────────────────────────
@@ -685,6 +690,36 @@ describe("deleteLoanMovement", () => {
     expect(prismaMock.loan.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { currentBalance: 5000 } })
     )
+  })
+
+  it("recalcule correctement si des mouvements RETRAIT subsistent", async () => {
+    prismaMock.loanMovement.findFirst.mockResolvedValue({
+      id: "mv-1", loanId: LOAN_ID, type: "APPORT", amount: 3000,
+      loan: { id: LOAN_ID, loanType: "COMPTE_COURANT" },
+    } as never)
+    prismaMock.loanMovement.findMany.mockResolvedValue([
+      { id: "mv-2", type: "RETRAIT", amount: 1000, balanceAfter: -1000 },
+    ] as never)
+    prismaMock.loanMovement.update.mockResolvedValue({} as never)
+    prismaMock.loanMovement.delete.mockResolvedValue({} as never)
+    prismaMock.loan.update.mockResolvedValue({} as never)
+
+    const r = await deleteLoanMovement(SOCIETY_ID, "mv-1")
+    expect(r.success).toBe(true)
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: -1000 } })
+    )
+  })
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await deleteLoanMovement(SOCIETY_ID, "mv-1")
+    expect(r.error).toMatch(/refus/i)
+  })
+
+  it("relance l'erreur si la BDD échoue de façon inattendue", async () => {
+    prismaMock.loanMovement.findFirst.mockRejectedValue(new Error("DB unexpected"))
+    await expect(deleteLoanMovement(SOCIETY_ID, "mv-1")).rejects.toThrow("DB unexpected")
   })
 })
 
