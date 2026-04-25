@@ -1,7 +1,8 @@
+import { getDueCronTasks } from "./daily-maintenance/route";
 import { describe, expect, it } from "vitest";
 import config from "../../../../vercel.json";
 
-const expectedCrons = new Map([
+const expectedBusinessCrons = new Map([
   ["/api/cron/ai-retry", "0 * * * *"],
   ["/api/cron/generate-drafts", "0 7 * * *"],
   ["/api/cron/insurance-reminder", "0 9 * * 1"],
@@ -17,14 +18,26 @@ const expectedCrons = new Map([
 ]);
 
 describe("vercel cron configuration", () => {
-  it("déclare tous les jobs cron métier avec leur cadence attendue", () => {
+  it("reste déployable sur le scope Vercel actuel limité à 2 cron jobs quotidiens", () => {
     const configuredCrons = new Map(config.crons.map((cron) => [cron.path, cron.schedule]));
 
-    expect(configuredCrons).toEqual(expectedCrons);
+    expect(configuredCrons).toEqual(
+      new Map([
+        ["/api/cron/generate-drafts", "0 7 * * *"],
+        ["/api/cron/daily-maintenance", "15 8 * * *"],
+      ])
+    );
+    expect(config.crons).toHaveLength(2);
   });
 
-  it("reste dans la limite Pro/Team de 40 cron jobs", () => {
-    expect(config.crons).toHaveLength(expectedCrons.size);
-    expect(config.crons.length).toBeLessThanOrEqual(40);
+  it("garde tous les jobs métier couverts par le rattrapage daily-maintenance", () => {
+    const coveredPaths = new Set([
+      ...getDueCronTasks(new Date("2026-04-25T08:15:00.000Z")).map((task) => task.path),
+      ...getDueCronTasks(new Date("2026-06-01T08:15:00.000Z")).map((task) => task.path),
+    ]);
+
+    for (const path of expectedBusinessCrons.keys()) {
+      expect(coveredPaths).toContain(path);
+    }
   });
 });

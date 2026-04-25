@@ -475,7 +475,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 
 ## Cron Jobs (Vercel)
 
-Définis dans `vercel.json`, protégés par `CRON_SECRET` :
+Protégés par `CRON_SECRET`. Tant que le projet Vercel est reconnu comme Hobby, `vercel.json` ne déclare que `/api/cron/generate-drafts` et `/api/cron/daily-maintenance` pour respecter la limite de 2 crons quotidiens. Les jobs métier ci-dessous sont exécutés directement par Vercel en Pro/Team, ou via le rattrapage `daily-maintenance` sur Hobby.
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
