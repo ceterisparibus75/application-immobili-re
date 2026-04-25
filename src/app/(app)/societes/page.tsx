@@ -9,10 +9,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ROLE_LABELS } from "@/lib/permissions";
-import { Building2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import type { UserRole } from "@/generated/prisma/client";
 import { LEGAL_FORM_LABELS } from "@/lib/constants";
+import { SocietesEmptyState } from "./_components/societes-empty-state";
 
 export const metadata = {
   title: "Sociétés",
@@ -39,24 +40,7 @@ export default async function SocietesPage() {
       </div>
 
       {societies.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              Aucune société
-            </h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Créez votre première société propriétaire pour commencer à gérer
-              votre patrimoine immobilier.
-            </p>
-            <Link href="/societes/nouvelle">
-              <Button>
-                <Plus className="h-4 w-4" />
-                Créer une société
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <SocietesEmptyState />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {societies.map((society) => (

@@ -5,11 +5,12 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { Plus, Phone, Mail, Building2, Users } from "lucide-react";
+import { Plus, Phone, Mail, Building2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SyncTenantsButton } from "./_components/sync-tenants-button";
 import { ExportContacts } from "@/components/exports/export-contacts";
+import { ContactsEmptyState } from "./_components/contacts-empty-state";
 
 export const metadata = { title: "Contacts" };
 
@@ -84,26 +85,7 @@ export default async function ContactsPage() {
       </div>
 
       {contacts.length === 0 && (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
-              <Users className="h-7 w-7 text-[var(--color-brand-blue)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">Aucun contact</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Ajoutez vos prestataires, notaires, experts ou synchronisez vos locataires.
-            </p>
-            <div className="flex items-center gap-2">
-              <SyncTenantsButton societyId={societyId} />
-              <Link href="/contacts/nouveau">
-                <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  Ajouter un contact
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <ContactsEmptyState syncAction={<SyncTenantsButton societyId={societyId} />} />
       )}
 
       {typeOrder.map((type) => {

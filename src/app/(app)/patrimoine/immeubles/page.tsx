@@ -1,12 +1,12 @@
 import { getBuildings } from "@/actions/building";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { BuildingsViewToggle, type BuildingSummary } from "./_components/buildings-view-toggle";
+import { ImmeublesEmptyState } from "./_components/immeubles-empty-state";
 
 export const metadata = { title: "Immeubles" };
 
@@ -118,20 +118,7 @@ export default async function ImmeublesPage() {
       )}
 
       {buildings.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <div className="h-16 w-16 rounded-2xl bg-primary/8 flex items-center justify-center mb-5">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">Aucun immeuble</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              Ajoutez votre premier immeuble pour commencer à gérer vos lots et baux locatifs.
-            </p>
-            <Link href="/patrimoine/immeubles/nouveau">
-              <Button><Plus className="h-4 w-4" />Ajouter un immeuble</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <ImmeublesEmptyState />
       ) : (
         <BuildingsViewToggle buildings={buildingSummaries} />
       )}

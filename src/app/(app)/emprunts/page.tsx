@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck, Clock } from "lucide-react";
 import Link from "next/link";
 import { buildLenderMapping } from "@/lib/utils";
+import { EmpruntsEmptyState } from "./_components/emprunts-empty-state";
 
 export const metadata = { title: "Emprunts" };
 
@@ -49,13 +50,6 @@ export default async function EmpruntsPage() {
     if (l.loanType === "COMPTE_COURANT") return s; // Pas d'échéance mensuelle fixe
     const line = l.amortizationLines[0];
     return s + (line && line.remainingBalance > 0 ? (line.totalPayment ?? 0) : 0);
-  }, 0);
-
-  // Calcul fin la plus lointaine pour les emprunts en cours
-  const maxRemainingMonths = enCours.reduce((max, l) => {
-    const currentPeriod = l.amortizationLines[0]?.period ?? 0;
-    const remaining = l.durationMonths - currentPeriod;
-    return Math.max(max, remaining);
   }, 0);
 
   // Regrouper par preteur (normalisation des noms identiques)
@@ -215,21 +209,7 @@ export default async function EmpruntsPage() {
       )}
 
       {loans.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Landmark className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun emprunt</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Enregistrez vos emprunts immobiliers pour suivre les amortissements et la valeur nette de vos biens.
-            </p>
-            <Link href="/emprunts/nouveau">
-              <Button>
-                <Plus className="h-4 w-4" />
-                Nouvel emprunt
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <EmpruntsEmptyState />
       ) : (
         <div className="space-y-6">
           {sortedLenders.map(([lender, lenderLoans]) => {

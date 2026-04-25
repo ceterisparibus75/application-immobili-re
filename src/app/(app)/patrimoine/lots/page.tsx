@@ -1,17 +1,16 @@
 import { getLots } from "@/actions/lot";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Home } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
+import { LotsEmptyState } from "./_components/lots-empty-state";
 
 const FREQUENCY_SHORT: Record<PaymentFrequency, string> = {
   MENSUEL: "€/mois",
@@ -85,18 +84,7 @@ export default async function LotsPage() {
       </div>
 
       {lots.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Home className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Aucun lot</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Commencez par créer un immeuble, puis ajoutez des lots.
-            </p>
-            <Link href="/patrimoine/immeubles">
-              <Button>Voir les immeubles</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <LotsEmptyState />
       ) : (
         <div className="space-y-6">
           {Object.values(byBuilding).map(({ building, lots: buildingLots }) => (
