@@ -95,6 +95,13 @@ describe("updateDocument", () => {
     const call = prismaMock.document.update.mock.calls[0][0];
     expect(call.data.expiresAt).toBeNull();
   });
+
+  it("retourne une erreur générique si la BDD échoue dans updateDocument", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.document.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await updateDocument(SOCIETY_ID, DOC_ID, { category: "bail" });
+    expect(r).toEqual({ success: false, error: "Erreur lors de la mise à jour" });
+  });
 });
 
 // ─── deleteDocument ───────────────────────────────────────────────────────────
@@ -152,5 +159,12 @@ describe("deleteDocument", () => {
     const r = await deleteDocument(SOCIETY_ID, DOC_ID);
     // La suppression Supabase est best-effort : l'action doit quand même réussir
     expect(r.success).toBe(true);
+  });
+
+  it("retourne une erreur générique si la BDD échoue dans deleteDocument", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.document.findFirst.mockRejectedValue(new Error("DB connection lost"));
+    const r = await deleteDocument(SOCIETY_ID, DOC_ID);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
 });

@@ -268,6 +268,19 @@ describe("createAdditionalAcquisition", () => {
     expect(r.data?.id).toBe(ACQ_ID)
     expect(prismaMock.additionalAcquisition.create).toHaveBeenCalledOnce()
   })
+
+  it("retourne une erreur si rôle insuffisant pour createAdditionalAcquisition", async () => {
+    mockAuthSession(UserRole.LECTURE, "society-1")
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans createAdditionalAcquisition", async () => {
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB error"))
+    const r = await createAdditionalAcquisition("society-1", BUILDING_ID, validAcqInput)
+    expect(r).toEqual({ success: false, error: "Erreur lors de l'ajout de l'acquisition" })
+  })
 })
 
 // ─── deleteAdditionalAcquisition ──────────────────────────────────────────────
@@ -296,5 +309,18 @@ describe("deleteAdditionalAcquisition", () => {
     const r = await deleteAdditionalAcquisition("society-1", ACQ_ID)
     expect(r.success).toBe(true)
     expect(prismaMock.additionalAcquisition.delete).toHaveBeenCalledWith({ where: { id: ACQ_ID } })
+  })
+
+  it("retourne une erreur si rôle insuffisant pour deleteAdditionalAcquisition", async () => {
+    mockAuthSession(UserRole.LECTURE, "society-1")
+    const r = await deleteAdditionalAcquisition("society-1", ACQ_ID)
+    expect(r.success).toBe(false)
+    expect(r.error).toMatch(/insuffisantes|refus/i)
+  })
+
+  it("retourne une erreur générique si la BDD échoue dans deleteAdditionalAcquisition", async () => {
+    prismaMock.additionalAcquisition.findFirst.mockRejectedValue(new Error("DB error"))
+    const r = await deleteAdditionalAcquisition("society-1", ACQ_ID)
+    expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" })
   })
 })
