@@ -308,6 +308,21 @@ describe("detectPendingRevisions", () => {
 
 // ─── previewCatchUpRevisions ──────────────────────────────────────────────────
 
+const BASE_LEASE = {
+  id: VALID_CUID,
+  indexType: "IRL",
+  baseIndexValue: 131.31,
+  baseIndexQuarter: "T1 2021",
+  currentRentHT: 800,
+  revisionFrequency: 12,
+  startDate: new Date("2021-01-01"),
+  status: "EN_COURS",
+}
+
+const IDX_2021 = { value: 131.31, year: 2021, quarter: 1 }
+const IDX_2022 = { value: 136.0, year: 2022, quarter: 1 }
+const IDX_2023 = { value: 142.0, year: 2023, quarter: 1 }
+
 describe("previewCatchUpRevisions", () => {
   it("erreur si non authentifié", async () => {
     mockUnauthenticated()
@@ -333,6 +348,25 @@ describe("previewCatchUpRevisions", () => {
     expect(r.success).toBe(false)
     expect(r.error).toContain("sans indexation")
   })
+
+  it("retourne le preview chaîné avec les étapes de rattrapage", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(BASE_LEASE as never)
+    // findBaseIndexInfo : findMany avec preferred quarter T1
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    // buildCatchUpPreview : findFirst (latestAvailable)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    // buildCatchUpPreview : findMany (indices range)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    // buildCatchUpPreview : rentRevision.findFirst (lastRevision) → null
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.steps).toHaveLength(2) // 2022 + 2023
+    expect(r.data?.finalRent).toBeGreaterThan(800)
+    expect(r.data?.finalIndexValue).toBe(142.0)
+  })
 })
 
 // ─── applyCatchUpRevisions ────────────────────────────────────────────────────
@@ -349,5 +383,41 @@ describe("applyCatchUpRevisions", () => {
     prismaMock.lease.findFirst.mockResolvedValue(null as never)
     const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
     expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur si une révision est déjà en attente", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    // mocks pour previewCatchUpRevisions
+    prismaMock.lease.findFirst.mockResolvedValueOnce(BASE_LEASE as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst
+      .mockResolvedValueOnce(null as never)             // lastRevision (preview)
+      .mockResolvedValueOnce({ id: "rev-pending" } as never) // existing pending (applyCatch)
+
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("en attente")
+  })
+
+  it("applique le rattrapage chaîné avec succès", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    // mocks pour previewCatchUpRevisions
+    prismaMock.lease.findFirst
+      .mockResolvedValueOnce(BASE_LEASE as never) // preview
+      .mockResolvedValueOnce(BASE_LEASE as never) // applyCatch fetch
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst
+      .mockResolvedValueOnce(null as never) // lastRevision (preview)
+      .mockResolvedValueOnce(null as never) // existing pending (applyCatch)
+    prismaMock.$transaction.mockResolvedValue(undefined as never)
+
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(true)
+    expect(r.data?.stepsCount).toBe(2)
+    expect(r.data?.finalRent).toBeGreaterThan(800)
   })
 })
