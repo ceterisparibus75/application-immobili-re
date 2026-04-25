@@ -75,8 +75,13 @@ function clearHistory(): void {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export function GlobalSearch() {
-  const [open, setOpen] = useState(false);
+interface GlobalSearchProps {
+  initiallyOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function GlobalSearch({ initiallyOpen = false, onClose }: GlobalSearchProps) {
+  const [open, setOpen] = useState(initiallyOpen);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +91,11 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const closeSearch = useCallback(() => {
+    setOpen(false);
+    onClose?.();
+  }, [onClose]);
 
   // Charger l'historique à l'ouverture
   useEffect(() => {
@@ -100,13 +110,14 @@ export function GlobalSearch() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        if (open) closeSearch();
+        else setOpen(true);
       }
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeSearch();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [closeSearch, open]);
 
   const search = useCallback(async (q: string, type: string | null) => {
     if (q.length < 2) { setResults([]); return; }
@@ -139,12 +150,12 @@ export function GlobalSearch() {
   const navigate = (result: SearchResult) => {
     addToHistory(result);
     router.push(result.href);
-    setOpen(false); setQuery(""); setResults([]); setFilterType(null);
+    closeSearch(); setQuery(""); setResults([]); setFilterType(null);
   };
 
   const navigateHistory = (entry: HistoryEntry) => {
     router.push(entry.href);
-    setOpen(false); setQuery(""); setResults([]);
+    closeSearch(); setQuery(""); setResults([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -167,7 +178,7 @@ export function GlobalSearch() {
   const showEmpty = query.length >= 2 && results.length === 0 && !loading;
 
   // Filters chips
-  const filterTypes = ["building", "lot", "tenant", "lease", "invoice", "contact"];
+  const filterTypes = ["building", "lot", "tenant", "lease", "invoice", "contact", "document"];
 
   if (!open) {
     return (
@@ -184,7 +195,7 @@ export function GlobalSearch() {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={closeSearch} />
       <div className="fixed left-1/2 top-[12%] z-50 w-full max-w-lg -translate-x-1/2 rounded-2xl border border-border/40 bg-card shadow-2xl animate-fade-in-scale overflow-hidden">
         {/* Search input */}
         <div className="flex items-center gap-3 px-5 py-4">

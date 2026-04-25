@@ -198,7 +198,7 @@ export function Header() {
 
       {mobileSearchOpen && (
         <div className="lg:hidden">
-          <GlobalSearch />
+          <GlobalSearch initiallyOpen onClose={() => setMobileSearchOpen(false)} />
         </div>
       )}
     </>

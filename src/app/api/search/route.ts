@@ -124,6 +124,38 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Baux
+  if (!typeFilter || typeFilter === "lease") {
+    const leases = await prisma.lease.findMany({
+      where: {
+        societyId,
+        OR: [
+          { leaseNumber: { contains: q, mode: "insensitive" } },
+          { tenant: { firstName: { contains: q, mode: "insensitive" } } },
+          { tenant: { lastName: { contains: q, mode: "insensitive" } } },
+          { tenant: { companyName: { contains: q, mode: "insensitive" } } },
+          { lot: { number: { contains: q, mode: "insensitive" } } },
+          { lot: { building: { name: { contains: q, mode: "insensitive" } } } },
+        ],
+      },
+      take: 3,
+      include: {
+        tenant: { select: { firstName: true, lastName: true, companyName: true } },
+        lot: { select: { number: true, building: { select: { name: true } } } },
+      },
+    });
+    for (const lease of leases) {
+      const tenantName = lease.tenant.companyName ?? [lease.tenant.firstName, lease.tenant.lastName].filter(Boolean).join(" ");
+      results.push({
+        id: lease.id,
+        type: "lease",
+        title: lease.leaseNumber ?? `Bail ${lease.lot.number ?? lease.id}`,
+        subtitle: [tenantName, lease.lot.building.name].filter(Boolean).join(" - "),
+        href: `/baux/${lease.id}`,
+      });
+    }
+  }
+
   // Contacts
   if (!typeFilter || typeFilter === "contact") {
     const contacts = await prisma.contact.findMany({
@@ -143,6 +175,31 @@ export async function GET(req: NextRequest) {
         id: c.id, type: "contact",
         title: c.name, subtitle: c.company ?? c.email ?? undefined,
         href: `/contacts/${c.id}`,
+      });
+    }
+  }
+
+  // Documents
+  if (!typeFilter || typeFilter === "document") {
+    const documents = await prisma.document.findMany({
+      where: {
+        societyId,
+        OR: [
+          { fileName: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { category: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      take: 3,
+      select: { id: true, fileName: true, category: true, description: true },
+    });
+    for (const doc of documents) {
+      results.push({
+        id: doc.id,
+        type: "document",
+        title: doc.fileName,
+        subtitle: doc.category ?? doc.description ?? undefined,
+        href: "/documents",
       });
     }
   }

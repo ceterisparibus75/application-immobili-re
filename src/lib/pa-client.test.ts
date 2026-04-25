@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
   PA_API_BASE_URL: "" as string | undefined,
