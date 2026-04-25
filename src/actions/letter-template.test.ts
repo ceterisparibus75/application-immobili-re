@@ -38,6 +38,21 @@ describe("letter-template actions", () => {
     expect(result).toEqual({ success: false, error: "Non authentifié" });
   });
 
+  it("retourne les locataires avec leurs baux actifs", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: "t-1", firstName: "Alice", lastName: "Durand", leases: [{ id: LEASE_ID }] },
+      { id: "t-2", firstName: "Bob", lastName: "Martin", leases: [] },
+    ] as never);
+
+    const result = await getTenantsWithLease(SOCIETY_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    expect(result.data![0]).toMatchObject({ id: "t-1", leaseId: LEASE_ID });
+    expect(result.data![1]).toMatchObject({ id: "t-2", leaseId: undefined });
+  });
+
   it("retourne les modèles built-in et personnalisés", async () => {
     mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
     prismaMock.letterTemplate.findMany.mockResolvedValue([
