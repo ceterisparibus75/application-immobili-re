@@ -938,3 +938,272 @@ describe("autoRegularizeCharges", () => {
     expect(r).toEqual({ success: false, error: "Erreur lors de la régularisation" })
   })
 })
+
+// ─── createChargeCategory — erreur DB (lignes 70-71) ─────────────────────────
+
+describe("createChargeCategory — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 70-71)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.building.findFirst.mockResolvedValue({ id: VALID_CUID, societyId: "society-1" } as never)
+    prismaMock.chargeCategory.create.mockRejectedValue(new Error("DB error"))
+    const r = await createChargeCategory("society-1", validChargeCategoryInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la création")
+  })
+})
+
+// ─── updateChargeCategory — Zod + ForbiddenError + erreur DB ─────────────────
+
+describe("updateChargeCategory — branches manquantes", () => {
+  it("retourne une erreur Zod si l'input est invalide (lignes 84,86)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateChargeCategory("society-1", {} as any)
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne ForbiddenError si rôle LECTURE (ligne 112)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await updateChargeCategory("society-1", { id: VALID_CUID, name: "Modif" })
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("insuffisantes")
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 113-114)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeCategory.findFirst.mockResolvedValue({ id: VALID_CUID } as never)
+    prismaMock.chargeCategory.update.mockRejectedValue(new Error("DB error"))
+    const r = await updateChargeCategory("society-1", { id: VALID_CUID, name: "Modif" })
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la mise à jour")
+  })
+})
+
+// ─── createCharge — erreur DB (lignes 198-199) ───────────────────────────────
+
+describe("createCharge — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 198-199)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.building.findFirst.mockResolvedValue({ id: VALID_CUID } as never)
+    prismaMock.chargeCategory.findFirst.mockResolvedValue({ id: VALID_CUID_2 } as never)
+    prismaMock.charge.create.mockRejectedValue(new Error("DB error"))
+    const r = await createCharge("society-1", validChargeInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la création")
+  })
+})
+
+// ─── updateCharge — Zod + erreur DB ──────────────────────────────────────────
+
+describe("updateCharge — branches manquantes", () => {
+  it("retourne une erreur Zod si l'input est invalide (lignes 212,214)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateCharge("society-1", {} as any)
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (lignes 244-245)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findFirst.mockResolvedValue({ id: VALID_CUID } as never)
+    prismaMock.charge.update.mockRejectedValue(new Error("DB error"))
+    const r = await updateCharge("society-1", { id: VALID_CUID, description: "test" })
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la mise à jour")
+  })
+})
+
+// ─── deleteCharge — erreur DB (lignes 277-278) ───────────────────────────────
+
+describe("deleteCharge — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 277-278)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findFirst.mockResolvedValue({ id: VALID_CUID, buildingId: VALID_CUID_2, amount: 100 } as never)
+    prismaMock.charge.delete.mockRejectedValue(new Error("DB error"))
+    const r = await deleteCharge("society-1", VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la suppression")
+  })
+})
+
+// ─── getChargesPaginated — filtres et tri (lignes 311-314, 319) ──────────────
+
+describe("getChargesPaginated — filtres et tri", () => {
+  it("filtre par buildingId (ligne 311)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { filters: { buildingId: BUILDING_ID } })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ buildingId: BUILDING_ID }) })
+    )
+  })
+
+  it("filtre isPaid=true (ligne 312)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { filters: { isPaid: "true" } })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isPaid: true }) })
+    )
+  })
+
+  it("filtre isPaid=false (ligne 313)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { filters: { isPaid: "false" } })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isPaid: false }) })
+    )
+  })
+
+  it("filtre par nature (ligne 314)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { filters: { nature: "RECUPERABLE" } })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ category: { nature: "RECUPERABLE" } }) })
+    )
+  })
+
+  it("tri personnalisé (ligne 319)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { sortBy: "amount", sortOrder: "asc" })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ amount: "asc" }] })
+    )
+  })
+})
+
+// ─── createSocietyChargeCategory — erreur DB (lignes 403-404) ────────────────
+
+describe("createSocietyChargeCategory — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (lignes 403-404)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.create.mockRejectedValue(new Error("DB error"))
+    const r = await createSocietyChargeCategory("society-1", validSocietyCategoryInput)
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la création")
+  })
+})
+
+// ─── updateSocietyChargeCategory — Zod + ForbiddenError + erreur DB ──────────
+
+describe("updateSocietyChargeCategory — branches manquantes", () => {
+  it("retourne une erreur Zod si l'input est invalide (ligne 415)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await updateSocietyChargeCategory("society-1", {} as any)
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne ForbiddenError si rôle LECTURE (ligne 424)", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    const r = await updateSocietyChargeCategory("society-1", { id: VALID_CUID_3, name: "Test" })
+    expect(r.success).toBe(false)
+  })
+
+  it("retourne une erreur générique si la BDD échoue (ligne 425)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.findUnique.mockResolvedValue({ id: VALID_CUID_3, isGlobal: false } as never)
+    prismaMock.societyChargeCategory.update.mockRejectedValue(new Error("DB error"))
+    const r = await updateSocietyChargeCategory("society-1", { id: VALID_CUID_3, name: "Test" })
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la mise à jour")
+  })
+})
+
+// ─── deleteSocietyChargeCategory — erreur DB (ligne 440) ─────────────────────
+
+describe("deleteSocietyChargeCategory — erreur générique DB", () => {
+  it("retourne une erreur générique si la BDD échoue (ligne 440)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.societyChargeCategory.findUnique.mockResolvedValue({ id: "scc-1", isGlobal: false } as never)
+    prismaMock.societyChargeCategory.delete.mockRejectedValue(new Error("DB error"))
+    const r = await deleteSocietyChargeCategory("society-1", "scc-1")
+    expect(r.success).toBe(false)
+    expect(r.error).toBe("Erreur lors de la suppression")
+  })
+})
+
+// ─── generateAnnualChargeReport — branches allocationMethod ──────────────────
+
+describe("generateAnnualChargeReport — répartition PROPRIETAIRE, SURFACE, NB_LOTS, TANTIEME fallbacks", () => {
+  it("ignore les charges PROPRIETAIRE (ligne 556)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const chargeProprietaire = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, nature: "PROPRIETAIRE", allocationMethod: "TANTIEME" },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargeProprietaire] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ balance: 0 }) })
+    )
+  })
+
+  it("répartit par SURFACE (ligne 565)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const chargeSurface = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, nature: "RECUPERABLE", allocationMethod: "SURFACE" },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargeSurface] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("répartit par NB_LOTS (ligne 567)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const chargeNbLots = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, nature: "RECUPERABLE", allocationMethod: "NB_LOTS" },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargeNbLots] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("TANTIEME fallback surface (ligne 573) : commonShares=0 mais area > 0", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([{ ...makeLot(), commonShares: 0 }] as never)
+    const leaseNoShares = {
+      ...makeLease(),
+      lot: { ...makeLot(), commonShares: 0, area: 50, building: { id: BUILDING_ID } },
+    }
+    prismaMock.lease.findMany.mockResolvedValue([leaseNoShares] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("TANTIEME fallback 1/nbLots (ligne 575) : commonShares=0 et area=0", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([{ ...makeLot(), commonShares: 0, area: 0 }] as never)
+    const leaseNoAreaNoShares = {
+      ...makeLease(),
+      lot: { ...makeLot(), commonShares: 0, area: 0, building: { id: BUILDING_ID } },
+    }
+    prismaMock.lease.findMany.mockResolvedValue([leaseNoAreaNoShares] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+})
