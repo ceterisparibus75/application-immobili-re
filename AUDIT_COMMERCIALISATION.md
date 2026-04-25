@@ -256,7 +256,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **HAUTE** | Timing attack sur bcrypt.compare du portail | `src/app/api/portal/login/route.ts` | Énumération de comptes valides |
 | **HAUTE** | Requêtes raw SQL contournent le tenant filtering | `src/actions/analytics.ts` | Fuite potentielle de données cross-tenant |
 | **HAUTE** | Tokens bancaires stockés en clair | Schema Prisma | Exposition si BDD compromise |
-| **MOYENNE** | Endpoint admin non protégé par rôle | `src/app/api/admin/email-diagnostics/route.ts` | Tout utilisateur authentifié y accède |
+| **MOYENNE** | Endpoints admin à surveiller dans le temps | `src/app/api/admin/*` | Risque réduit : `email-diagnostics` exige `requireSuperAdmin()`, `fix-subscription` exige le secret cron |
 | **MOYENNE** | CSP autorise `unsafe-inline` pour les styles | `src/proxy.ts` | Attaques par injection CSS |
 | **MOYENNE** | Pas de rotation de clé de chiffrement | `src/lib/encryption.ts` | Compromission = toutes les données historiques |
 | **MOYENNE** | Tokens dataroom prédictibles (CUID) | `src/app/api/dataroom/[token]/route.ts` | Énumération de tokens |
@@ -509,6 +509,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **E2E stabilisés** : Playwright utilise Chrome système, un secret E2E valide, une DB factice fail-fast et un seul worker pour éviter les faux rouges locaux.
 - **Tests alignés avec les contrats actuels** : corrections de tests sur dashboard, échéances, tâches du jour, FEC, notifications, limites de plan, inscription, email, société active et facturation.
 - **Uploads GED renforcés** : les flux classique, streaming et TUS partagent désormais des règles serveur communes (MIME autorisé, extension cohérente, taille maximale, dossier normalisé, chemin limité à la société active).
+- **Endpoint admin vérifié** : `email-diagnostics` est couvert par test pour refuser les utilisateurs non authentifiés et les utilisateurs non super-admin.
 
 ### 9.3 Constat fonctionnel par parcours utilisateur
 
@@ -520,6 +521,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Dashboard/composants | Fonctionnel en unitaire | `EcheancesPanel` et `TodayTasks` testés ; les chiffres métier doivent être validés sur données de staging. |
 | Navigation | Améliorée | Architecture lisible, mais le drawer mobile reste très complet ; à surveiller après usage réel. |
 | GED / uploads | Renforcé | Le flux TUS utilisé par `Documents > Nouveau` refuse les extensions incohérentes, les dossiers traversants et les chemins hors société active. |
+| Administration | Renforcé | `email-diagnostics` exige un super-admin ; `fix-subscription` reste déclenchable uniquement avec le secret cron. |
 | Build et qualité technique | Fonctionnel | Build OK ; dette lint non bloquante mais visible. |
 
 ### 9.4 Proposition de topnav cible
