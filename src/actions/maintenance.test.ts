@@ -196,6 +196,22 @@ describe("maintenance actions", () => {
     expect(result.error).toMatch(/insuffisantes|refus/i);
   });
 
+  it("retourne une erreur Zod si buildingId invalide dans createMaintenance (lignes 28-30)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const result = await createMaintenance(SOCIETY_ID, {
+      buildingId: "not-a-cuid",
+      title: "Réparation chaudière",
+      isPaid: false,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur Zod si id invalide dans updateMaintenance (lignes 91-93)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const result = await updateMaintenance(SOCIETY_ID, { id: "not-a-cuid", title: "Test" });
+    expect(result.success).toBe(false);
+  });
+
   it("retourne une erreur générique si la BDD échoue dans createMaintenance", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);

@@ -82,6 +82,8 @@ export function ProprietaireSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => canSwitch ? setOpen((v) => !v) : router.push("/proprietaire")}
+        aria-label={canSwitch ? "Changer de propriétaire" : "Voir le propriétaire"}
+        aria-expanded={canSwitch ? open : undefined}
         className={cn(
           "flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors text-left",
           "hover:bg-sidebar-accent cursor-pointer",

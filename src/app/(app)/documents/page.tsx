@@ -30,14 +30,14 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Documents</h1>
           <p className="text-muted-foreground text-sm">
-            {documents.length} document{documents.length !== 1 ? "s" : ""} · GED intelligente
+            {documents.length} document{documents.length !== 1 ? "s" : ""}{" · "}GED intelligente
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/dataroom">
             <Button variant="outline" className="rounded-lg border-border/60 gap-1.5">
               <FolderLock className="h-4 w-4" />

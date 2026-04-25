@@ -57,6 +57,13 @@ describe("createPipeline", () => {
     expect(r.success).toBe(true);
     expect(r.data?.id).toBe(PIPELINE_ID);
   });
+
+  it("retourne une erreur générique si la BDD échoue dans createPipeline", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidatePipeline.create.mockRejectedValue(new Error("DB connection lost"));
+    const r = await createPipeline(SOCIETY_ID, validInput);
+    expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
+  });
 });
 
 // ─── createCandidate ──────────────────────────────────────────────────────────

@@ -68,6 +68,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
   {
     title: "Location",
     items: [
+      { name: "Vue d'ensemble", href: "/location", icon: Home },
       { name: "Baux", href: "/baux", icon: FileText },
       { name: "Nouveau bail", href: "/baux/nouveau", icon: FileText },
       { name: "Import bail PDF", href: "/baux/import", icon: Upload },
@@ -84,6 +85,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
   {
     title: "Finances",
     items: [
+      { name: "Vue d'ensemble", href: "/finances", icon: BarChart3 },
       { name: "Banque", href: "/banque", icon: Landmark },
       { name: "Factures fournisseurs", href: "/banque/factures-fournisseurs", icon: Package },
       { name: "Emprunts", href: "/emprunts", icon: Wallet },
@@ -139,6 +141,7 @@ export const TOP_NAV_GROUPS: NavGroup[] = [
     "Évaluations IA",
   ]),
   pickTopNavGroup("Location", [
+    "Vue d'ensemble",
     "Baux",
     "Nouveau bail",
     "Locataires",
@@ -147,6 +150,7 @@ export const TOP_NAV_GROUPS: NavGroup[] = [
     "Tickets",
   ]),
   pickTopNavGroup("Finances", [
+    "Vue d'ensemble",
     "Banque",
     "Factures fournisseurs",
     "Emprunts",

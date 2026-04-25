@@ -110,12 +110,19 @@ export default async function ChargesPage({ searchParams }: PageProps) {
             <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Aucune charge</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              Enregistrez les charges d&apos;exploitation de vos immeubles.
+              {buildings.length === 0
+                ? "Créez d'abord un immeuble pour pouvoir rattacher les charges au bon patrimoine."
+                : "Enregistrez vos charges d'exploitation, puis rattachez-les aux immeubles et catégories pour préparer les régularisations."}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/charges/bibliotheque/nouvelle">
                 <Button variant="outline"><BookOpen className="h-4 w-4" />Créer la bibliothèque</Button>
               </Link>
+              {buildings.length === 0 && (
+                <Link href="/patrimoine/immeubles/nouveau">
+                  <Button variant="outline"><Plus className="h-4 w-4" />Créer un immeuble</Button>
+                </Link>
+              )}
               <Link href="/charges/nouvelle">
                 <Button><Plus className="h-4 w-4" />Nouvelle charge</Button>
               </Link>

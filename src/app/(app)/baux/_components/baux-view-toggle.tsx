@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -56,6 +56,20 @@ function formatCurrency(n: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function subscribeToMobileViewport(onStoreChange: () => void) {
+  const query = window.matchMedia("(max-width: 640px)");
+  query.addEventListener("change", onStoreChange);
+  return () => query.removeEventListener("change", onStoreChange);
+}
+
+function getMobileViewportSnapshot() {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
+function getServerMobileViewportSnapshot() {
+  return false;
 }
 
 const FREQ_LABELS: Record<string, string> = {
@@ -206,7 +220,13 @@ export function BauxViewToggle({
   autresGrouped: BuildingGroupSummary[];
   totalMensuel: number;
 }) {
-  const [view, setView] = useState<"table" | "cards">("table");
+  const isMobileViewport = useSyncExternalStore(
+    subscribeToMobileViewport,
+    getMobileViewportSnapshot,
+    getServerMobileViewportSnapshot
+  );
+  const [selectedView, setSelectedView] = useState<"table" | "cards" | null>(null);
+  const view = selectedView ?? (isMobileViewport ? "cards" : "table");
 
   const allActifs = actifsGrouped.flatMap((g) => g.leases);
   const allAutres = autresGrouped.flatMap((g) => g.leases);
@@ -214,13 +234,13 @@ export function BauxViewToggle({
   return (
     <div className="space-y-6">
       {/* Toggle vue */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {allActifs.length} bail{allActifs.length > 1 ? "s" : ""} actif
           {allActifs.length > 1 ? "s" : ""}
           {allActifs.length > 0 && (
             <span className="ml-1.5">
-              · {formatCurrency(totalMensuel)} €&nbsp;HT/mois
+              · {formatCurrency(totalMensuel)} € HT/mois
             </span>
           )}
         </p>
@@ -228,7 +248,7 @@ export function BauxViewToggle({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setView("table")}
+            onClick={() => setSelectedView("table")}
             className={`h-7 px-2.5 rounded-md text-xs gap-1.5 ${
               view === "table"
                 ? "bg-white shadow-sm text-[var(--color-brand-deep)]"
@@ -241,7 +261,7 @@ export function BauxViewToggle({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setView("cards")}
+            onClick={() => setSelectedView("cards")}
             className={`h-7 px-2.5 rounded-md text-xs gap-1.5 ${
               view === "cards"
                 ? "bg-white shadow-sm text-[var(--color-brand-deep)]"
@@ -249,7 +269,7 @@ export function BauxViewToggle({
             }`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            Cards
+            Cartes
           </Button>
         </div>
       </div>

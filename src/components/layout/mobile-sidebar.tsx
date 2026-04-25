@@ -15,14 +15,30 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 w-72 flex flex-col bg-sidebar border-r border-sidebar-border animate-slide-in-left">
+      <button
+        type="button"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Fermer le menu"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation principale"
+        className="fixed inset-y-0 left-0 flex w-[min(20rem,calc(100vw-2rem))] flex-col border-r border-sidebar-border bg-sidebar animate-slide-in-left"
+      >
         <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-mygestia.svg" alt="MyGestia" className="h-7" width={108} height={28} />
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-7 w-7 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            aria-label="Fermer le menu"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -30,7 +46,7 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
           <ProprietaireSwitcher />
           <SocietySwitcher />
         </div>
-        <nav className="flex-1 overflow-y-auto py-3 px-3">
+        <nav className="flex-1 overflow-y-auto px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" aria-label="Navigation mobile">
           {MOBILE_NAV_GROUPS.map((group, gi) => (
             <div key={group.title} className={cn(gi > 0 && "mt-4")}>
               <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-muted/60 select-none">

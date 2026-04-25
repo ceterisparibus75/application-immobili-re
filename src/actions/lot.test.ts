@@ -106,6 +106,13 @@ describe("createLot", () => {
     expect(result.data?.id).toBe(VALID_CUID)
     expect(prismaMock.lot.create).toHaveBeenCalledOnce()
   })
+
+  it("retourne une erreur générique si la BDD échoue dans createLot", async () => {
+    mockAuthSession()
+    prismaMock.building.findFirst.mockRejectedValue(new Error("DB connection lost"))
+    const result = await createLot("society-1", validInput)
+    expect(result).toEqual({ success: false, error: "Erreur lors de la création du lot" })
+  })
 })
 
 describe("updateLot", () => {
@@ -114,6 +121,12 @@ describe("updateLot", () => {
     const result = await updateLot("society-1", { id: VALID_CUID, number: "B-202" })
     expect(result.success).toBe(false)
     expect(result.error).toBe("Non authentifié")
+  })
+
+  it("retourne une erreur Zod si id invalide (non-CUID)", async () => {
+    mockAuthSession()
+    const result = await updateLot("society-1", { id: "not-a-cuid", number: "B-202" })
+    expect(result.success).toBe(false)
   })
 
   it("retourne une erreur si lot introuvable", async () => {

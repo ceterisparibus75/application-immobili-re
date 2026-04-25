@@ -115,19 +115,24 @@ const WIZARD_STEPS: WizardStep[] = [
 
 const PROGRESS_LABELS = WIZARD_STEPS.map((s) => ({ label: s.title.split(" ").slice(0, 2).join(" ") }));
 
+const WELCOME_STORAGE_KEY = "mygestia-welcome-seen";
+const WELCOME_STORAGE_EVENT = "mygestia-welcome-change";
 const ONBOARDING_STORAGE_EVENT = "mygestia-onboarding-change";
 
 function subscribeToOnboardingVisibility(onStoreChange: () => void) {
   window.addEventListener("storage", onStoreChange);
+  window.addEventListener(WELCOME_STORAGE_EVENT, onStoreChange);
   window.addEventListener(ONBOARDING_STORAGE_EVENT, onStoreChange);
   return () => {
     window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(WELCOME_STORAGE_EVENT, onStoreChange);
     window.removeEventListener(ONBOARDING_STORAGE_EVENT, onStoreChange);
   };
 }
 
 function getOnboardingVisibilitySnapshot(activeSocietyId: string | null) {
   if (!activeSocietyId) return false;
+  if (!localStorage.getItem(WELCOME_STORAGE_KEY)) return false;
   return !localStorage.getItem(`onboarding-wizard-seen-${activeSocietyId}`);
 }
 
@@ -191,31 +196,42 @@ export function OnboardingWizard() {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm" />
+      <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm" aria-hidden="true" />
 
       {/* Wizard modal */}
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-border/40 bg-card shadow-2xl animate-fade-in-scale overflow-hidden">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto p-3 sm:p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-wizard-title"
+          className="w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl border border-border/40 bg-card shadow-2xl animate-fade-in-scale sm:rounded-2xl"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-6 pb-2">
+          <div className="flex items-center justify-between px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
             <div className="flex items-center gap-2">
               <Rocket className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 id="onboarding-wizard-title" className="text-lg font-semibold text-foreground">
                 Bienvenue sur MyGestia
               </h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={dismiss} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={dismiss}
+              className="h-8 w-8"
+              aria-label="Fermer le guide de démarrage"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Progress */}
-          <div className="flex justify-center px-6 py-4">
-            <ProgressSteps steps={PROGRESS_LABELS} currentStep={currentStep} />
+          <div className="overflow-x-auto px-4 py-3 sm:flex sm:justify-center sm:px-6 sm:py-4">
+            <ProgressSteps steps={PROGRESS_LABELS} currentStep={currentStep} className="min-w-max" />
           </div>
 
           {/* Step content */}
-          <div className="px-6 pb-4 animate-slide-up" key={step.id}>
+          <div className="px-4 pb-4 animate-slide-up sm:px-6" key={step.id}>
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Icon className="h-6 w-6" />
@@ -262,8 +278,8 @@ export function OnboardingWizard() {
           </div>
 
           {/* Footer actions */}
-          <div className="flex items-center justify-between border-t border-border/30 px-6 py-4 bg-muted/20">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 border-t border-border/30 bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex flex-wrap items-center gap-2">
               {isFirst && (
                 <Button variant="outline" size="sm" onClick={loadDemoData} className="gap-1.5 text-xs">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -278,7 +294,7 @@ export function OnboardingWizard() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={dismiss} className="text-xs text-muted-foreground">
                 Passer le guide
               </Button>

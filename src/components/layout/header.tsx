@@ -72,6 +72,8 @@ export function Header() {
             <div className="relative ml-2 pl-3 border-l border-border/40" ref={profileRef}>
               <button
                 onClick={() => setProfileOpen((v) => !v)}
+                aria-label="Ouvrir le menu utilisateur"
+                aria-expanded={profileOpen}
                 className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors cursor-pointer"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary text-white text-[11px] font-bold select-none shadow-sm">

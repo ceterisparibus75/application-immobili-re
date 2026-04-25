@@ -105,7 +105,7 @@ export default async function FacturationPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {invoices.length} facture{invoices.length !== 1 ? "s" : ""} &middot; Suivi complet
+            {invoices.length} facture{invoices.length !== 1 ? "s" : ""}{" · "}Suivi complet
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

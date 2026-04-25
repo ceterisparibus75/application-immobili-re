@@ -862,6 +862,7 @@ export function DocumentsClient({
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [folderFiltered, categoryFilter, search, sortBy, sortDir]);
+  const hasActiveFilters = search.trim().length > 0 || categoryFilter !== "all" || selectedFolder !== "all";
 
   function handleSort(key: SortKey) {
     if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1034,8 +1035,35 @@ export function DocumentsClient({
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
                 <FolderOpen className="h-7 w-7 text-[var(--color-brand-blue)]" />
               </div>
-              <p className="text-sm font-semibold text-[var(--color-brand-deep)] mb-1">Aucun document</p>
-              <Link href="/documents/nouveau"><Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5"><Plus className="h-4 w-4" />Ajouter</Button></Link>
+              <p className="text-sm font-semibold text-[var(--color-brand-deep)] mb-1">
+                {documents.length === 0 ? "Aucun document" : "Aucun résultat"}
+              </p>
+              <p className="mb-4 max-w-sm text-sm text-muted-foreground">
+                {documents.length === 0
+                  ? "Ajoutez vos baux, diagnostics, factures ou pièces locataire pour les retrouver depuis la GED et les partager en dataroom."
+                  : "Aucun document ne correspond aux filtres actifs. Élargissez la recherche pour retrouver le bon fichier."}
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {hasActiveFilters && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSearch("");
+                      setCategoryFilter("all");
+                      setSelectedFolder("all");
+                    }}
+                  >
+                    Réinitialiser
+                  </Button>
+                )}
+                <Link href="/documents/nouveau">
+                  <Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
+                    <Plus className="h-4 w-4" />
+                    Ajouter un document
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : viewMode === "list" ? (
             <div>{sorted.map((doc) => <FileRow key={doc.id} doc={doc} selected={selectedDoc?.id === doc.id} onSelect={selectDoc} societyId={societyId} checked={selectedIds.has(doc.id)} onCheckedChange={toggleSelection} />)}</div>

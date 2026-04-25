@@ -1,5 +1,5 @@
 import { getLeases } from "@/actions/lease";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -20,11 +20,9 @@ export const metadata = { title: "Baux" };
 function NewLeaseMenu({ align = "end" }: { align?: "start" | "center" | "end" }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
-          Ajouter un bail
-        </Button>
+      <DropdownMenuTrigger className={buttonVariants({ size: "sm" })}>
+        <Plus className="h-4 w-4" />
+        Ajouter un bail
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-80">
         <DropdownMenuItem asChild>
@@ -294,9 +292,17 @@ export default async function BauxPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">Aucun bail</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-              Créez votre premier bail en associant un lot et un locataire.
+              Créez votre premier bail depuis un lot et un locataire existants, ou importez un bail signé pour préremplir les données.
             </p>
-            <NewLeaseMenu align="center" />
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/baux/import">
+                <Button variant="outline">
+                  <Upload className="h-4 w-4" />
+                  Import bail PDF
+                </Button>
+              </Link>
+              <NewLeaseMenu align="center" />
+            </div>
           </CardContent>
         </Card>
       ) : (

@@ -21,8 +21,8 @@ import {
 
 const GROUP_ROOTS: Record<string, string[]> = {
   Patrimoine: ["/patrimoine", "/societes", "/proprietaire"],
-  Location: ["/baux", "/locataires", "/facturation", "/charges", "/relances", "/candidatures", "/tickets"],
-  Finances: ["/banque", "/emprunts", "/comptabilite", "/rapports", "/indices"],
+  Location: ["/location", "/baux", "/locataires", "/facturation", "/charges", "/relances", "/candidatures", "/tickets"],
+  Finances: ["/finances", "/banque", "/emprunts", "/comptabilite", "/rapports", "/indices"],
   Documents: ["/documents", "/dataroom", "/courriers", "/releves-gestion", "/import"],
   Automatisation: ["/assistant", "/workflows", "/api-docs"],
 };

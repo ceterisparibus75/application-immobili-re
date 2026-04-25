@@ -275,11 +275,387 @@ async function main() {
 
   // ─── Bibliothèque globale de charges ─────────────────────────────────────
   await seedGlobalChargeCategories(prisma);
+  await seedRealisticDemoPortfolio(society.id, admin.id);
 
   console.log("\nSeed completed!");
   console.log("Login credentials:");
   console.log("  Email: admin@gestimmo.fr");
   console.log("  Password: Admin123!");
+}
+
+async function seedRealisticDemoPortfolio(societyId: string, adminUserId: string) {
+  console.log("Seeding realistic staging portfolio...");
+
+  let proprietaire = await prisma.proprietaire.findFirst({
+    where: { userId: adminUserId, label: "Patrimoine familial Langet" },
+  });
+  proprietaire ??= await prisma.proprietaire.create({
+    data: {
+      userId: adminUserId,
+      entityType: "PERSONNE_MORALE",
+      label: "Patrimoine familial Langet",
+      email: "gestion@demo-mygestia.fr",
+      companyName: "Patrimoine familial Langet",
+      legalForm: "SCI",
+      siret: "12345678901234",
+      representativeName: "Administrateur",
+      representativeRole: "Gérant",
+      city: "Paris",
+    },
+  });
+
+  await prisma.society.update({
+    where: { id: societyId },
+    data: { proprietaireId: proprietaire.id },
+  });
+
+  const building = await upsertBuilding(societyId, {
+    name: "Résidence Les Orchidées",
+    addressLine1: "12 rue des Orchidées",
+    city: "Saint-Denis",
+    postalCode: "97400",
+    buildingType: "MIXTE",
+    yearBuilt: 2012,
+    totalArea: 420,
+    acquisitionPrice: 620000,
+    acquisitionFees: 42000,
+    acquisitionTaxes: 18000,
+    marketValue: 760000,
+    netBookValue: 598000,
+    acquisitionDate: new Date("2021-07-15"),
+    description: "Immeuble mixte de démonstration avec logements, commerce et parking.",
+  });
+
+  const apartment = await prisma.lot.upsert({
+    where: { buildingId_number: { buildingId: building.id, number: "201" } },
+    update: {
+      lotType: "APPARTEMENT",
+      area: 52,
+      floor: "2",
+      status: "OCCUPE",
+      marketRentValue: 890,
+      currentRent: 850,
+    },
+    create: {
+      buildingId: building.id,
+      number: "201",
+      lotType: "APPARTEMENT",
+      area: 52,
+      floor: "2",
+      commonShares: 118,
+      status: "OCCUPE",
+      marketRentValue: 890,
+      currentRent: 850,
+      description: "T2 lumineux avec balcon.",
+    },
+  });
+
+  await prisma.lot.upsert({
+    where: { buildingId_number: { buildingId: building.id, number: "PK-12" } },
+    update: { lotType: "PARKING", area: 12, status: "VACANT", marketRentValue: 80 },
+    create: {
+      buildingId: building.id,
+      number: "PK-12",
+      lotType: "PARKING",
+      area: 12,
+      commonShares: 12,
+      status: "VACANT",
+      marketRentValue: 80,
+      description: "Place de parking couverte.",
+    },
+  });
+
+  const tenant = await upsertTenant(societyId, {
+    email: "marie.dupont.demo@example.com",
+    firstName: "Marie",
+    lastName: "Dupont",
+    mobile: "06 12 34 56 78",
+    personalAddress: "12 rue des Orchidées, 97400 Saint-Denis",
+    riskIndicator: "VERT",
+  });
+
+  const lease = await prisma.lease.upsert({
+    where: { leaseNumber: "BAIL-2026-0001" },
+    update: {
+      lotId: apartment.id,
+      tenantId: tenant.id,
+      currentRentHT: 850,
+      status: "EN_COURS",
+    },
+    create: {
+      societyId,
+      lotId: apartment.id,
+      tenantId: tenant.id,
+      leaseNumber: "BAIL-2026-0001",
+      leaseType: "HABITATION",
+      destination: "HABITATION",
+      status: "EN_COURS",
+      startDate: new Date("2025-10-01"),
+      durationMonths: 36,
+      endDate: new Date("2028-09-30"),
+      baseRentHT: 850,
+      currentRentHT: 850,
+      depositAmount: 850,
+      paymentFrequency: "MENSUEL",
+      billingTerm: "A_ECHOIR",
+      vatApplicable: false,
+      vatRate: 0,
+      indexType: "IRL",
+      baseIndexValue: 145.47,
+      baseIndexQuarter: "T3 2025",
+      leaseLots: { create: [{ lotId: apartment.id, isPrimary: true }] },
+      chargeProvisions: {
+        create: [{
+          lotId: apartment.id,
+          monthlyAmount: 95,
+          vatRate: 0,
+          startDate: new Date("2025-10-01"),
+        }],
+      },
+    },
+  });
+
+  await seedInvoices(societyId, tenant.id, lease.id);
+  await seedBanking(societyId);
+  await seedCharges(societyId, building.id);
+  await seedDocuments(societyId, building.id, apartment.id, lease.id, tenant.id);
+  await seedLoan(societyId, building.id);
+  await seedTicket(societyId, tenant.id);
+
+  console.log("Realistic staging portfolio seeded");
+}
+
+async function upsertBuilding(societyId: string, data: {
+  name: string;
+  addressLine1: string;
+  city: string;
+  postalCode: string;
+  buildingType: "BUREAU" | "COMMERCE" | "MIXTE" | "ENTREPOT";
+  yearBuilt: number;
+  totalArea: number;
+  acquisitionPrice: number;
+  acquisitionFees: number;
+  acquisitionTaxes: number;
+  marketValue: number;
+  netBookValue: number;
+  acquisitionDate: Date;
+  description: string;
+}) {
+  const existing = await prisma.building.findFirst({ where: { societyId, name: data.name } });
+  if (existing) {
+    return prisma.building.update({ where: { id: existing.id }, data });
+  }
+  return prisma.building.create({ data: { societyId, ...data } });
+}
+
+async function upsertTenant(societyId: string, data: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  mobile: string;
+  personalAddress: string;
+  riskIndicator: "VERT" | "ORANGE" | "ROUGE";
+}) {
+  const existing = await prisma.tenant.findFirst({ where: { societyId, email: data.email } });
+  const tenantData = {
+    entityType: "PERSONNE_PHYSIQUE" as const,
+    isActive: true,
+    ...data,
+  };
+  if (existing) return prisma.tenant.update({ where: { id: existing.id }, data: tenantData });
+  return prisma.tenant.create({ data: { societyId, ...tenantData } });
+}
+
+async function seedInvoices(societyId: string, tenantId: string, leaseId: string) {
+  const invoices = [
+    { number: "DEMO-2026-0001", status: "PAYE" as const, issueDate: "2026-01-01", dueDate: "2026-01-05", periodStart: "2026-01-01", periodEnd: "2026-01-31" },
+    { number: "DEMO-2026-0002", status: "PAYE" as const, issueDate: "2026-02-01", dueDate: "2026-02-05", periodStart: "2026-02-01", periodEnd: "2026-02-28" },
+    { number: "DEMO-2026-0003", status: "EN_RETARD" as const, issueDate: "2026-03-01", dueDate: "2026-03-05", periodStart: "2026-03-01", periodEnd: "2026-03-31" },
+  ];
+
+  for (const invoice of invoices) {
+    await prisma.invoice.upsert({
+      where: { societyId_invoiceNumber: { societyId, invoiceNumber: invoice.number } },
+      update: { status: invoice.status },
+      create: {
+        societyId,
+        tenantId,
+        leaseId,
+        invoiceNumber: invoice.number,
+        invoiceType: "APPEL_LOYER",
+        status: invoice.status,
+        issueDate: new Date(invoice.issueDate),
+        dueDate: new Date(invoice.dueDate),
+        periodStart: new Date(invoice.periodStart),
+        periodEnd: new Date(invoice.periodEnd),
+        totalHT: 945,
+        totalVAT: 0,
+        totalTTC: 945,
+        lines: {
+          create: [
+            { label: "Loyer mensuel", quantity: 1, unitPrice: 850, vatRate: 0, totalHT: 850, totalVAT: 0, totalTTC: 850, accountingAccountCode: "706100" },
+            { label: "Provision sur charges", quantity: 1, unitPrice: 95, vatRate: 0, totalHT: 95, totalVAT: 0, totalTTC: 95, accountingAccountCode: "708200" },
+          ],
+        },
+        payments: invoice.status === "PAYE"
+          ? { create: [{ amount: 945, paidAt: new Date(invoice.dueDate), method: "Virement", reference: invoice.number, isReconciled: true }] }
+          : undefined,
+      },
+    });
+  }
+}
+
+async function seedBanking(societyId: string) {
+  let account = await prisma.bankAccount.findFirst({
+    where: { societyId, accountName: "Compte courant exploitation" },
+  });
+  const accountData = {
+    bankName: "BNP Paribas",
+    accountName: "Compte courant exploitation",
+    ibanEncrypted: "DEMO-IBAN-FR7612345678900000000000000",
+    initialBalance: 12450,
+    currentBalance: 15285,
+    isActive: true,
+    lastSyncAt: new Date("2026-04-20"),
+  };
+  account = account
+    ? await prisma.bankAccount.update({ where: { id: account.id }, data: accountData })
+    : await prisma.bankAccount.create({ data: { societyId, ...accountData } });
+
+  const transactions = [
+    { externalId: "DEMO-BANK-2026-001", date: "2026-02-05", amount: 945, label: "VIR MARIE DUPONT LOYER FEVRIER", category: "loyers", isReconciled: true },
+    { externalId: "DEMO-BANK-2026-002", date: "2026-03-12", amount: -382.4, label: "EDF REUNION PARTIES COMMUNES", category: "charges", isReconciled: false },
+    { externalId: "DEMO-BANK-2026-003", date: "2026-03-28", amount: -1260, label: "ECHEANCE PRET BNP ORCHIDEES", category: "emprunt", isReconciled: false },
+  ];
+  for (const tx of transactions) {
+    await prisma.bankTransaction.upsert({
+      where: { bankAccountId_externalId: { bankAccountId: account.id, externalId: tx.externalId } },
+      update: { amount: tx.amount, label: tx.label, isReconciled: tx.isReconciled },
+      create: {
+        bankAccountId: account.id,
+        externalId: tx.externalId,
+        transactionDate: new Date(tx.date),
+        valueDate: new Date(tx.date),
+        amount: tx.amount,
+        label: tx.label,
+        category: tx.category,
+        isReconciled: tx.isReconciled,
+        importBatch: "DEMO-2026-Q1",
+      },
+    });
+  }
+}
+
+async function seedCharges(societyId: string, buildingId: string) {
+  const category = await prisma.chargeCategory.upsert({
+    where: { buildingId_name: { buildingId, name: "Entretien parties communes" } },
+    update: { nature: "MIXTE", recoverableRate: 80, allocationMethod: "TANTIEME" },
+    create: {
+      societyId,
+      buildingId,
+      name: "Entretien parties communes",
+      nature: "MIXTE",
+      recoverableRate: 80,
+      allocationMethod: "TANTIEME",
+      description: "Nettoyage, petites réparations et consommables des parties communes.",
+    },
+  });
+
+  const existing = await prisma.charge.findFirst({
+    where: { societyId, buildingId, description: "Nettoyage parties communes - mars 2026" },
+  });
+  if (!existing) {
+    await prisma.charge.create({
+      data: {
+        societyId,
+        buildingId,
+        categoryId: category.id,
+        description: "Nettoyage parties communes - mars 2026",
+        amount: 382.4,
+        date: new Date("2026-03-12"),
+        periodStart: new Date("2026-03-01"),
+        periodEnd: new Date("2026-03-31"),
+        supplierName: "Nettoyage Austral",
+        isPaid: false,
+      },
+    });
+  }
+}
+
+async function seedDocuments(societyId: string, buildingId: string, lotId: string, leaseId: string, tenantId: string) {
+  const documents = [
+    {
+      fileName: "Bail Marie Dupont - Lot 201.pdf",
+      category: "bail",
+      description: "Bail d'habitation signé pour le lot 201.",
+      leaseId,
+      tenantId,
+      aiTags: ["bail", "lot-201", "marie-dupont"],
+    },
+    {
+      fileName: "DPE Residence Les Orchidees.pdf",
+      category: "diagnostic",
+      description: "Diagnostic énergétique de l'immeuble.",
+      buildingId,
+      expiresAt: new Date("2031-06-30"),
+      aiTags: ["diagnostic", "dpe", "immeuble"],
+    },
+  ];
+
+  for (const doc of documents) {
+    const existing = await prisma.document.findFirst({ where: { societyId, fileName: doc.fileName } });
+    const data = {
+      fileUrl: `/demo/documents/${encodeURIComponent(doc.fileName)}`,
+      fileSize: 245000,
+      mimeType: "application/pdf",
+      aiStatus: "done",
+      aiSummary: doc.description,
+      aiMetadata: { source: "staging-seed" },
+      lotId,
+      ...doc,
+    };
+    if (existing) await prisma.document.update({ where: { id: existing.id }, data });
+    else await prisma.document.create({ data: { societyId, ...data } });
+  }
+}
+
+async function seedLoan(societyId: string, buildingId: string) {
+  const existing = await prisma.loan.findFirst({ where: { societyId, label: "Prêt BNP — Résidence Les Orchidées" } });
+  const data = {
+    buildingId,
+    label: "Prêt BNP — Résidence Les Orchidées",
+    lender: "BNP Paribas",
+    loanType: "AMORTISSABLE" as const,
+    status: "EN_COURS" as const,
+    amount: 430000,
+    interestRate: 2.35,
+    insuranceRate: 0.24,
+    durationMonths: 240,
+    startDate: new Date("2021-08-01"),
+    endDate: new Date("2041-07-31"),
+    purchaseValue: 680000,
+    notes: "Emprunt principal du bien de démonstration.",
+  };
+  if (existing) await prisma.loan.update({ where: { id: existing.id }, data });
+  else await prisma.loan.create({ data: { societyId, ...data } });
+}
+
+async function seedTicket(societyId: string, tenantId: string) {
+  await prisma.ticket.upsert({
+    where: { ticketNumber: "TK-2026-0001" },
+    update: { status: "EN_COURS", priority: "NORMALE" },
+    create: {
+      societyId,
+      tenantId,
+      ticketNumber: "TK-2026-0001",
+      subject: "Robinet cuisine à remplacer",
+      description: "Le locataire signale une fuite légère sous l'évier de la cuisine.",
+      category: "PLOMBERIE",
+      priority: "NORMALE",
+      status: "EN_COURS",
+      location: "Cuisine",
+    },
+  });
 }
 
 main()

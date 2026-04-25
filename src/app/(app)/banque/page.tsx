@@ -63,15 +63,22 @@ export default async function BanquePage() {
             </div>
             <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">Aucun compte bancaire</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-              Ajoutez vos comptes bancaires pour suivre vos mouvements et
-              effectuer des rapprochements.
+              Ajoutez un compte pour suivre les mouvements, rapprocher les encaissements et alimenter le cash-flow.
             </p>
-            <Link href="/banque/nouveau-compte">
-              <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
-                <Plus className="h-4 w-4" />
-                Ajouter un compte
-              </Button>
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/comptabilite/cashflow">
+                <Button variant="outline" className="gap-1.5">
+                  <BarChart3 className="h-4 w-4" />
+                  Voir le cash-flow
+                </Button>
+              </Link>
+              <Link href="/banque/nouveau-compte">
+                <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  Ajouter un compte
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       ) : (
