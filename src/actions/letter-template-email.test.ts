@@ -6,6 +6,8 @@ import { createAuditLog } from "@/lib/audit";
 
 const sendLetterEmail = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const generateLetterPdf = vi.hoisted(() => vi.fn());
+const mockUpload = vi.hoisted(() => vi.fn().mockResolvedValue({ error: null }));
+const mockSignedUrlDoc = vi.hoisted(() => vi.fn().mockResolvedValue({ data: { signedUrl: "https://cdn.example.com/doc.pdf" } }));
 
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/email", () => ({ sendLetterEmail }));
@@ -14,8 +16,8 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
     storage: {
       from: vi.fn(() => ({
-        upload: vi.fn(),
-        createSignedUrl: vi.fn(),
+        upload: mockUpload,
+        createSignedUrl: mockSignedUrlDoc,
       })),
     },
   })),
@@ -353,5 +355,165 @@ describe("letter-template-email actions", () => {
     });
 
     expect(result).toEqual({ success: false, error: "Modèle introuvable" });
+  });
+
+  it("retourne erreur non authentifié pour sendLetterByEmail (ligne 153)", async () => {
+    mockUnauthenticated();
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      tenantId: TENANT_ID,
+      values: { BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris", LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 av", DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test" },
+    });
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
+  });
+
+  it("retourne une erreur Zod si templateId est vide (ligne 76)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "",
+      tenantId: TENANT_ID,
+      values: {},
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/requis/i);
+  });
+
+  it("utilise le sujet et corps d'un modèle personnalisé dans sendLetterByEmail (lignes 92-93)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.findFirst.mockResolvedValue({
+      id: "custom-template-id",
+      subject: "Sujet personnalisé",
+      bodyHtml: "<p>Corps personnalisé</p>",
+    } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      email: "alice@example.com",
+      firstName: "Alice",
+      lastName: "Durand",
+    } as never);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Société", siret: null } as never);
+
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "custom-template-id",
+      tenantId: TENANT_ID,
+      values: { BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris", LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 av", DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test" },
+    });
+    expect(result.success).toBe(true);
+    expect(sendLetterEmail).toHaveBeenCalledWith(expect.objectContaining({ subject: "Sujet personnalisé" }));
+  });
+
+  it("sauvegarde le PDF dans Supabase si les env vars sont configurées (lignes 31-48)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+      prismaMock.tenant.findFirst.mockResolvedValue({ email: "alice@example.com", firstName: "Alice", lastName: "Durand" } as never);
+      prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Société", siret: null } as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const result = await sendLetterByEmail(SOCIETY_ID, {
+        templateId: "courrier_libre",
+        tenantId: TENANT_ID,
+        values: { BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris", LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 av", DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test" },
+      });
+      expect(result.success).toBe(true);
+      expect(mockUpload).toHaveBeenCalled();
+      expect(prismaMock.document.create).toHaveBeenCalled();
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("log l'erreur upload Supabase et continue (lignes 39-41)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      mockUpload.mockResolvedValueOnce({ error: { message: "Upload failed" } });
+      mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+      prismaMock.tenant.findFirst.mockResolvedValue({ email: "alice@example.com", firstName: "Alice", lastName: "Durand" } as never);
+      prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Société", siret: null } as never);
+
+      const result = await sendLetterByEmail(SOCIETY_ID, {
+        templateId: "courrier_libre",
+        tenantId: TENANT_ID,
+        values: { BAILLEUR_NOM: "SCI", BAILLEUR_ADRESSE: "1 rue Paris", LOCATAIRE_NOM: "Alice", LOCATAIRE_ADRESSE: "2 av", DATE: "20/04/2026", LIEU: "Paris", OBJET: "Info", CORPS: "Test" },
+      });
+      expect(result.success).toBe(true);
+      expect(prismaMock.document.create).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("utilise le sujet d'un modèle personnalisé dans sendLetterToBuilding (lignes 183-188)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.letterTemplate.findFirst.mockResolvedValue({
+      id: "custom-building-template",
+      subject: "Sujet immeuble",
+      bodyHtml: "<p>Corps immeuble</p>",
+    } as never);
+    prismaMock.building.findFirst.mockResolvedValue({
+      name: "Immeuble A",
+      lots: [{ leases: [{ id: LEASE_ID, tenant: { id: TENANT_ID, firstName: "Alice", lastName: "Durand", email: "alice@example.com" } }] }],
+    } as never);
+    // society.findUnique is called 4 times (requireSocietyAccess ×2, getAutoFillData ×1, main ×1)
+    prismaMock.society.findUnique
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", addressLine1: "1 rue Paris", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", siret: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+      currentRentHT: 800,
+      tenant: { firstName: "Alice", lastName: "Durand", email: "alice@example.com", personalAddress: "2 av Victor Hugo" },
+      lot: { building: { addressLine1: "10 rue des Lilas", city: "Paris", postalCode: "75011" } },
+      chargeProvisions: [],
+    } as never);
+
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "custom-building-template",
+      buildingId: BUILDING_ID,
+      commonValues: {},
+    });
+    expect(result.success).toBe(true);
+    expect(sendLetterEmail).toHaveBeenCalledWith(expect.objectContaining({ subject: "Sujet immeuble" }));
+  });
+
+  it("remplit les variables via autoFill dans sendLetterToBuilding (lignes 237-252)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.building.findFirst.mockResolvedValue({
+      name: "Immeuble A",
+      lots: [{ leases: [{ id: LEASE_ID, tenant: { id: TENANT_ID, firstName: "Alice", lastName: "Durand", email: "alice@example.com" } }] }],
+    } as never);
+    // society.findUnique is called 4 times:
+    // #1: requireSocietyAccess inside sendLetterToBuilding's requireSocietyActionContext
+    // #2: requireSocietyAccess inside getAutoFillData's requireSocietyActionContext
+    // #3: getAutoFillData's own society lookup
+    // #4: sendLetterToBuilding's own society lookup (line 221)
+    prismaMock.society.findUnique
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ ownerId: null } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", addressLine1: "1 rue Paris", addressLine2: null, city: "Paris", postalCode: "75001", siret: "12345678900011" } as never)
+      .mockResolvedValueOnce({ name: "Ma Société", siret: "12345678900011" } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-12-31"),
+      currentRentHT: 900,
+      tenant: { firstName: "Alice", lastName: "Durand", email: "alice@example.com", personalAddress: "2 avenue Victor Hugo" },
+      lot: { building: { addressLine1: "10 rue des Lilas", city: "Paris", postalCode: "75011" } },
+      chargeProvisions: [{ monthlyAmount: 40, isActive: true }],
+    } as never);
+
+    // Use quittance_loyer (has society_name, today, tenant_name, lot_address, rent_amount, charges_amount)
+    // commonValues has BAILLEUR_NOM so that variable gets a continue (line 239 covered)
+    const result = await sendLetterToBuilding(SOCIETY_ID, {
+      templateId: "quittance_loyer",
+      buildingId: BUILDING_ID,
+      commonValues: { BAILLEUR_NOM: "Ma Société" },
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.sent).toBe(1);
   });
 });
