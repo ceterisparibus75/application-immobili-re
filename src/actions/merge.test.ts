@@ -11,6 +11,7 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import {
   mergeBuildings,
+  mergeLots,
   mergeTenants,
   searchDuplicates,
 } from "./merge";
@@ -97,10 +98,94 @@ describe("merge actions", () => {
     );
   });
 
-  it("retourne une recherche vide si non authentifié, sinon cherche les doublons", async () => {
+  it("retourne une erreur si l'immeuble source est introuvable", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.building.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: TARGET_ID, name: "Cible" } as never);
+
+    const result = await mergeBuildings(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Immeuble source introuvable" });
+  });
+
+  it("retourne une erreur si l'immeuble cible est introuvable", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.building.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, name: "Source" } as never)
+      .mockResolvedValueOnce(null);
+
+    const result = await mergeBuildings(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Immeuble cible introuvable" });
+  });
+
+  it("bloque la fusion d'un lot avec lui-même", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, SOURCE_ID);
+    expect(result).toEqual({ success: false, error: "Impossible de fusionner un lot avec lui-même" });
+  });
+
+  it("retourne une erreur si le lot source est introuvable", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.lot.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: TARGET_ID, number: "B02", buildingId: "bld-1" } as never);
+
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Lot source introuvable" });
+  });
+
+  it("fusionne deux lots et journalise l'opération", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.lot.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, number: "A01", buildingId: "bld-1", building: { societyId: SOCIETY_ID } } as never)
+      .mockResolvedValueOnce({ id: TARGET_ID, number: "B02", buildingId: "bld-1", building: { societyId: SOCIETY_ID } } as never);
+    prismaMock.$transaction.mockResolvedValue([] as never);
+
+    const result = await mergeLots(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE",
+        entity: "Lot",
+        entityId: TARGET_ID,
+        details: expect.objectContaining({
+          action: "merge",
+          mergedFrom: { id: SOURCE_ID, number: "A01" },
+          mergedInto: { id: TARGET_ID, number: "B02" },
+        }),
+      })
+    );
+  });
+
+  it("bloque la fusion d'un locataire avec lui-même", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, SOURCE_ID);
+    expect(result).toEqual({ success: false, error: "Impossible de fusionner un locataire avec lui-même" });
+  });
+
+  it("retourne une erreur si le locataire source est introuvable", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: TARGET_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Dupont" } as never);
+
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: false, error: "Locataire source introuvable" });
+  });
+
+  it("retourne une recherche vide si requête trop courte", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    expect(await searchDuplicates(SOCIETY_ID, "building", "a")).toEqual([]);
+  });
+
+  it("retourne une recherche vide si non authentifié", async () => {
     mockUnauthenticated();
     expect(await searchDuplicates(SOCIETY_ID, "tenant", "al")).toEqual([]);
+  });
 
+  it("recherche des doublons de locataires", async () => {
     mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
     prismaMock.tenant.findMany.mockResolvedValue([
       {
@@ -124,6 +209,32 @@ describe("merge actions", () => {
         lastName: "Durand",
         email: "alice@example.com",
       },
+    ]);
+  });
+
+  it("recherche des doublons d'immeubles", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: SOURCE_ID, name: "Résidence Atlas", addressLine1: "1 rue de Lyon", city: "Lyon" },
+    ] as never);
+
+    const result = await searchDuplicates(SOCIETY_ID, "building", "Atlas");
+
+    expect(result).toEqual([
+      { id: SOURCE_ID, name: "Résidence Atlas", addressLine1: "1 rue de Lyon", city: "Lyon" },
+    ]);
+  });
+
+  it("recherche des doublons de lots", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.lot.findMany.mockResolvedValue([
+      { id: SOURCE_ID, number: "A01", lotType: "APPARTEMENT", building: { name: "Résidence Atlas" } },
+    ] as never);
+
+    const result = await searchDuplicates(SOCIETY_ID, "lot", "A01");
+
+    expect(result).toEqual([
+      { id: SOURCE_ID, number: "A01", lotType: "APPARTEMENT", building: { name: "Résidence Atlas" } },
     ]);
   });
 });
