@@ -127,7 +127,7 @@ export function FacturationTabs({
 
   return (
     <Tabs value={currentTab} onValueChange={handleTabChange}>
-      <TabsList>
+      <TabsList className="max-w-full justify-start overflow-x-auto">
         <TabsTrigger value="factures">Factures</TabsTrigger>
         <TabsTrigger value="en-retard" className="gap-1.5">
           En retard

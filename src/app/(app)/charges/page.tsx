@@ -53,12 +53,12 @@ export default async function ChargesPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <GestionLocativeNav />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Charges</h1>
           <p className="text-muted-foreground">{total} charge{total !== 1 ? "s" : ""}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportCharges data={charges.map((c) => ({
             description: c.description,
             amount: c.amount,
@@ -112,7 +112,7 @@ export default async function ChargesPage({ searchParams }: PageProps) {
             <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
               Enregistrez les charges d&apos;exploitation de vos immeubles.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               <Link href="/charges/bibliotheque/nouvelle">
                 <Button variant="outline"><BookOpen className="h-4 w-4" />Créer la bibliothèque</Button>
               </Link>

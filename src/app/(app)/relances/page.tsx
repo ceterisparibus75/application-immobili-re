@@ -402,7 +402,7 @@ export default async function RelancesPage() {
       {/* Factures à relancer */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <Bell className="h-4 w-4 text-[var(--color-status-negative)]" />
