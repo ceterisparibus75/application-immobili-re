@@ -59,6 +59,24 @@ describe("createLeaseTemplate", () => {
       expect.objectContaining({ data: { isDefault: false } })
     );
   });
+
+  it("retourne une erreur Zod si l'input est invalide (ligne 29)", async () => {
+    const result = await createLeaseTemplate(SOCIETY_ID, { name: "", leaseType: "HABITATION", content: "x", isDefault: false, isActive: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur ForbiddenError si rôle insuffisant (ligne 62)", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createLeaseTemplate(SOCIETY_ID, VALID_CREATE_INPUT);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+
+  it("retourne une erreur générique si la BDD échoue (lignes 63-64)", async () => {
+    prismaMock.leaseTemplate.create.mockRejectedValue(new Error("DB error"));
+    const result = await createLeaseTemplate(SOCIETY_ID, VALID_CREATE_INPUT);
+    expect(result).toEqual({ success: false, error: "Erreur lors de la creation du modele" });
+  });
 });
 
 // ── updateLeaseTemplate ───────────────────────────────────────────
@@ -67,6 +85,11 @@ describe("updateLeaseTemplate", () => {
   it("retourne une erreur si non authentifié", async () => {
     mockUnauthenticated();
     const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, name: "Nouveau nom" });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur Zod si l'id est invalide (ligne 77)", async () => {
+    const result = await updateLeaseTemplate(SOCIETY_ID, { id: "not-a-cuid" });
     expect(result.success).toBe(false);
   });
 
@@ -87,6 +110,20 @@ describe("updateLeaseTemplate", () => {
 
     const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, name: "Nouveau nom" });
     expect(result.success).toBe(true);
+  });
+
+  it("retire le flag isDefault des autres modèles si isDefault passe à true (ligne 89)", async () => {
+    prismaMock.leaseTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      isDefault: false,
+      leaseType: "HABITATION",
+    } as never);
+    prismaMock.leaseTemplate.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.leaseTemplate.update.mockResolvedValue({ id: TEMPLATE_ID } as never);
+
+    const result = await updateLeaseTemplate(SOCIETY_ID, { id: TEMPLATE_ID, isDefault: true });
+    expect(result.success).toBe(true);
+    expect(prismaMock.leaseTemplate.updateMany).toHaveBeenCalled();
   });
 
   it("retourne une erreur si rôle insuffisant pour updateLeaseTemplate", async () => {

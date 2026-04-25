@@ -194,6 +194,122 @@ describe("letter-template actions", () => {
     expect(result).toEqual({ success: false, error: "Société introuvable" });
   });
 
+  it("remplit les données depuis le bail actif du locataire quand tenantId fourni (lignes 252-257)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société", addressLine1: "1 rue de Paris", addressLine2: null,
+      city: "Paris", postalCode: "75001", siret: null,
+    } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      firstName: "Clara", lastName: "Morel", personalAddress: "3 bd Victor Hugo",
+    } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2025-01-01"),
+      endDate: null,
+      currentRentHT: 750,
+      lot: { building: { addressLine1: "12 rue des Fleurs", city: "Nice", postalCode: "06000" } },
+      chargeProvisions: [{ monthlyAmount: 30 }],
+    } as never);
+    const result = await getAutoFillData(SOCIETY_ID, "tenant-clara");
+    expect(result.success).toBe(true);
+    expect(result.data?.lotAddress).toContain("12 rue des Fleurs");
+    expect(result.data?.leaseEnd).toBe("");
+  });
+
+  it("retourne une erreur ForbiddenError dans getAutoFillData (ligne 264)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
+    const result = await getAutoFillData(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique dans getAutoFillData (ligne 265)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await getAutoFillData(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du chargement des données" });
+  });
+
+  it("retourne une erreur ForbiddenError dans getTenantsWithLease (ligne 59)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
+    const result = await getTenantsWithLease(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique dans getTenantsWithLease (ligne 60)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.tenant.findMany.mockRejectedValue(new Error("DB error"));
+    const result = await getTenantsWithLease(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du chargement des locataires" });
+  });
+
+  it("retourne une erreur ForbiddenError dans getBuildingsWithTenants (ligne 121)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique dans getBuildingsWithTenants (ligne 122)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockRejectedValue(new Error("DB error"));
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du chargement des immeubles" });
+  });
+
+  it("retourne une erreur ForbiddenError dans getLetterTemplates (ligne 168)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
+    const result = await getLetterTemplates(SOCIETY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique dans getLetterTemplates (ligne 169)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.letterTemplate.findMany.mockRejectedValue(new Error("DB error"));
+    const result = await getLetterTemplates(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Erreur lors du chargement des modèles" });
+  });
+
+  it("retourne une erreur Zod dans generateLetter si input invalide (ligne 280)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await generateLetter(SOCIETY_ID, { templateId: "", values: {} });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur ForbiddenError dans generateLetter (ligne 347)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.userSociety.findUnique.mockResolvedValueOnce(null);
+    const result = await generateLetter(SOCIETY_ID, { templateId: "courrier_libre", values: {} });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur générique dans generateLetter (ligne 348)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockRejectedValue(new Error("DB error"));
+    const result = await generateLetter(SOCIETY_ID, { templateId: "courrier_libre", values: {} });
+    expect(result).toEqual({ success: false, error: "Erreur lors de la génération du courrier" });
+  });
+
+  it("retourne une erreur Zod dans saveCustomTemplate si input invalide (ligne 363)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    const result = await saveCustomTemplate(SOCIETY_ID, { name: "", subject: "s", bodyHtml: "h", variables: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur non authentifié dans saveCustomTemplate (ligne 387)", async () => {
+    mockUnauthenticated();
+    const result = await saveCustomTemplate(SOCIETY_ID, { name: "Mon modèle", subject: "Sujet", bodyHtml: "<p>Contenu</p>", variables: [] });
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
+  });
+
+  it("retourne une erreur non authentifié dans deleteCustomTemplate (ligne 417)", async () => {
+    mockUnauthenticated();
+    const result = await deleteCustomTemplate(SOCIETY_ID, "tpl-1");
+    expect(result).toEqual({ success: false, error: "Non authentifié" });
+  });
+
   it("retourne les immeubles avec leurs locataires actifs", async () => {
     mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
     prismaMock.building.findMany.mockResolvedValue([

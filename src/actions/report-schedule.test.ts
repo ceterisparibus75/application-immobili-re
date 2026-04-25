@@ -36,6 +36,19 @@ describe("report schedule actions", () => {
       expect(result).toEqual({ success: false, error: "Non authentifié" });
     });
 
+    it("retourne une erreur ForbiddenError si rôle insuffisant (ligne 48)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await getReportSchedules("society-1");
+      expect(result.success).toBe(false);
+    });
+
+    it("retourne une erreur générique si la BDD échoue (lignes 49-50)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.reportSchedule.findMany.mockRejectedValue(new Error("DB error"));
+      const result = await getReportSchedules("society-1");
+      expect(result).toEqual({ success: false, error: "Erreur lors du chargement des planifications" });
+    });
+
     it("retourne les planifications de la société", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
       prismaMock.reportSchedule.findMany.mockResolvedValue([
@@ -66,6 +79,29 @@ describe("report schedule actions", () => {
   });
 
   describe("createReportSchedule", () => {
+    it("retourne une erreur ForbiddenError si rôle insuffisant (lignes 93-94)", async () => {
+      mockAuthSession(UserRole.LECTURE);
+      const result = await createReportSchedule("society-1", {
+        name: "Reporting mensuel",
+        frequency: "MENSUEL",
+        reportTypes: ["SITUATION_LOCATIVE"],
+        recipients: ["alice@example.com"],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("retourne une erreur générique si la BDD échoue (lignes 95-96)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      prismaMock.reportSchedule.create.mockRejectedValue(new Error("DB error"));
+      const result = await createReportSchedule("society-1", {
+        name: "Reporting mensuel",
+        frequency: "MENSUEL",
+        reportTypes: ["SITUATION_LOCATIVE"],
+        recipients: ["alice@example.com"],
+      });
+      expect(result).toEqual({ success: false, error: "Erreur lors de la création de la planification" });
+    });
+
     it("retourne une erreur de validation si le payload est invalide", async () => {
       mockAuthSession(UserRole.GESTIONNAIRE);
 
@@ -123,6 +159,12 @@ describe("report schedule actions", () => {
   });
 
   describe("updateReportSchedule", () => {
+    it("retourne une erreur Zod si l'id est invalide (ligne 111)", async () => {
+      mockAuthSession(UserRole.GESTIONNAIRE);
+      const result = await updateReportSchedule("society-1", { id: "not-a-cuid" });
+      expect(result.success).toBe(false);
+    });
+
     it("retourne une erreur si non authentifié", async () => {
       mockUnauthenticated();
       const result = await updateReportSchedule("society-1", { id: "cm8m6m6m6000008l2a1bcdefg" });
