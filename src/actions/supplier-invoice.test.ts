@@ -209,6 +209,37 @@ describe("validateSupplierInvoice", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/TTC/);
   });
+
+  it("retourne une erreur si aucun compte comptable ni catégorie", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ accountingAccountId: null, categoryId: null }) as never
+    );
+
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/compte comptable/);
+  });
+
+  it("valide une facture fournisseur et retourne chargeId et journalEntryId", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "PENDING_REVIEW",
+        buildingId: "building-1",
+        accountingAccountId: ACCOUNT_ID,
+        amountTTC: 1200,
+        supplierName: "Fournisseur SA",
+        invoiceDate: new Date("2026-04-01"),
+      }) as never
+    );
+    prismaMock.$transaction.mockResolvedValue({ chargeId: null, journalEntryId: "journal-1" } as never);
+
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ chargeId: null, journalEntryId: "journal-1" });
+  });
 });
 
 describe("rejectSupplierInvoice", () => {
@@ -371,5 +402,16 @@ describe("markSupplierInvoicePaid", () => {
     const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/valid/);
+  });
+
+  it("marque la facture comme payée avec succès", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({ status: "VALIDATED" }) as never);
+    prismaMock.$transaction.mockResolvedValue({ bankJournalEntryId: null } as never);
+
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ bankJournalEntryId: null });
   });
 });
