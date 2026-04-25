@@ -13,6 +13,9 @@ import {
   validateRevision,
   rejectRevision,
   createManualRevision,
+  detectPendingRevisions,
+  previewCatchUpRevisions,
+  applyCatchUpRevisions,
 } from "./rent-revision"
 
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t"
@@ -270,5 +273,81 @@ describe("createManualRevision", () => {
     const r = await createManualRevision(SOCIETY_ID, validInput)
     expect(r.success).toBe(false)
     expect(r.error).toBe("Aucun indice de base défini sur ce bail")
+  })
+})
+
+// ─── detectPendingRevisions ───────────────────────────────────────────────────
+
+describe("detectPendingRevisions", () => {
+  it("retourne 0 créations si aucun bail actif indexé", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([] as never)
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(0)
+    expect(r.errors).toHaveLength(0)
+  })
+
+  it("ignore les baux sans indexType ou baseIndexValue", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: VALID_CUID, indexType: null, baseIndexValue: null,
+        startDate: new Date("2022-01-01"), entryDate: null,
+        revisionFrequency: 12, revisionDateBasis: null,
+        revisionCustomMonth: null, revisionCustomDay: null,
+        baseIndexQuarter: null,
+        rentRevisions: [],
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Jean", lastName: "Dupont" },
+        lot: { number: "1", building: { name: "Immeuble A" } },
+        society: { id: "society-1", userSocieties: [] },
+      },
+    ] as never)
+
+    const r = await detectPendingRevisions()
+    expect(r.created).toBe(0)
+  })
+})
+
+// ─── previewCatchUpRevisions ──────────────────────────────────────────────────
+
+describe("previewCatchUpRevisions", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+  })
+
+  it("erreur si bail introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(null as never)
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("introuvable")
+  })
+
+  it("erreur si bail sans indexation", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID, indexType: null, baseIndexValue: null,
+      startDate: new Date("2022-01-01"), currentRentHT: 800, revisionFrequency: 12,
+    } as never)
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("sans indexation")
+  })
+})
+
+// ─── applyCatchUpRevisions ────────────────────────────────────────────────────
+
+describe("applyCatchUpRevisions", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated()
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
+  })
+
+  it("propage l'erreur du preview si le bail est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue(null as never)
+    const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+    expect(r.success).toBe(false)
   })
 })

@@ -9,6 +9,9 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 import {
   getUncategorizedTransactions,
   categorizeTransactions,
+  applyAutoTag,
+  aiSuggestCategories,
+  getCashflowDashboard,
 } from "./cashflow";
 import { createAuditLog } from "@/lib/audit";
 
@@ -136,5 +139,87 @@ describe("categorizeTransactions", () => {
     ]);
     // L'auto-tag est best-effort — l'action doit quand même réussir
     expect(r.success).toBe(true);
+  });
+});
+
+// ─── applyAutoTag ─────────────────────────────────────────────────────────────
+
+describe("applyAutoTag", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("retourne null si le libellé normalisé est vide", async () => {
+    const r = await applyAutoTag(SOCIETY_ID, "");
+    expect(r).toBeNull();
+  });
+
+  it("retourne null si le libellé fait moins de 3 caractères", async () => {
+    const r = await applyAutoTag(SOCIETY_ID, "AB");
+    expect(r).toBeNull();
+  });
+
+  it("retourne la catégorie si un auto-tag existe", async () => {
+    prismaMock.transactionAutoTag.findUnique.mockResolvedValue({ category: "energie" } as never);
+    prismaMock.transactionAutoTag.update.mockResolvedValue({} as never);
+
+    const r = await applyAutoTag(SOCIETY_ID, "EDF ELECTRICITE");
+    expect(r).toBe("energie");
+    expect(prismaMock.transactionAutoTag.update).toHaveBeenCalledOnce();
+  });
+
+  it("retourne null si aucun auto-tag trouvé", async () => {
+    prismaMock.transactionAutoTag.findUnique.mockResolvedValue(null as never);
+
+    const r = await applyAutoTag(SOCIETY_ID, "VIREMENT LOCATAIRE");
+    expect(r).toBeNull();
+  });
+
+  it("retourne null si la table n'existe pas encore (erreur silencieuse)", async () => {
+    prismaMock.transactionAutoTag.findUnique.mockRejectedValue(new Error("Table not found"));
+
+    const r = await applyAutoTag(SOCIETY_ID, "EDF ELECTRICITE");
+    expect(r).toBeNull();
+  });
+});
+
+// ─── aiSuggestCategories ──────────────────────────────────────────────────────
+
+describe("aiSuggestCategories", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si role insuffisant (min COMPTABLE requis)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(false);
+  });
+
+  it("retourne une erreur si aucune transaction trouvée", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, ["tx-inexistant"]);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Aucune transaction");
+  });
+});
+
+// ─── getCashflowDashboard ─────────────────────────────────────────────────────
+
+describe("getCashflowDashboard", () => {
+  it("erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(false);
+  });
+
+  it("erreur si role insuffisant (min COMPTABLE requis)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(false);
   });
 });
