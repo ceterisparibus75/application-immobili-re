@@ -5,6 +5,7 @@ import {
   sanitizeDocumentStorageFolder,
   validateDocumentUploadMetadata,
 } from "@/lib/document-upload-security";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,14 +25,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Dossier cible invalide" }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !serviceKey) return NextResponse.json({ error: "Stockage non configuré (SUPABASE_SERVICE_ROLE_KEY manquante)" }, { status: 503 });
     if (serviceKey.length < 100) {
       console.error("[tus-create] SUPABASE_SERVICE_ROLE_KEY semble tronquée (longueur:", serviceKey.length, ")");
       return NextResponse.json({ error: "Clé Supabase invalide (trop courte). Régénérez-la depuis le dashboard Supabase." }, { status: 503 });
     }
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     const timestamp = Date.now();
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");

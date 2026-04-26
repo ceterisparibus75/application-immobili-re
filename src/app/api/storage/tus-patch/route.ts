@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
+import { env } from "@/lib/env";
 
 export const maxDuration = 60;
 
@@ -29,8 +30,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "x-upload-offset invalide" }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
     }

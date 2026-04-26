@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { createClient } from "@supabase/supabase-js";
 import { requireSocietyAccess } from "@/lib/permissions";
+import { env } from "@/lib/env";
 import * as nodePath from "path";
 
 /**
@@ -77,8 +78,8 @@ export async function GET(req: NextRequest) {
   if (!path || path.trim() === "") return new NextResponse(null, { status: 400 });
   const forceDownload = req.nextUrl.searchParams.get("dl") === "1";
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) {
     console.error("[storage/view] Variables Supabase manquantes");
     return new NextResponse(null, { status: 503 });
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+  const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
   const ext = cleanPath.split(".").pop()?.toLowerCase() ?? "";
   const forceAttachmentExts = new Set(["svg", "html", "htm", "xml", "xhtml"]);
   const mustForceDownload = forceDownload || forceAttachmentExts.has(ext);
