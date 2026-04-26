@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { Webhook } from "svix";
+import { env } from "@/lib/env";
 import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ function sanitizeReferencePart(value: string): string {
 }
 
 function verifyResendWebhook(rawBody: string, request: NextRequest): ResendEmailReceivedEvent | null {
-  const secret = process.env.RESEND_WEBHOOK_SECRET;
+  const secret = env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[email-inbound] RESEND_WEBHOOK_SECRET non configuré");
     return null;
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const event = verifyResendWebhook(rawBody, request);
     if (!event) {
-      const status = process.env.RESEND_WEBHOOK_SECRET ? 401 : 500;
+      const status = env.RESEND_WEBHOOK_SECRET ? 401 : 500;
       return NextResponse.json({ error: "Webhook email non autorisé" }, { status });
     }
 
@@ -109,21 +110,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Initialiser les clients
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = env.RESEND_API_KEY;
     if (!apiKey) {
       console.error("[email-inbound] RESEND_API_KEY non configuré");
       return NextResponse.json({ ok: true });
     }
     const resend = new Resend(apiKey);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
       console.error("[email-inbound] Supabase non configuré");
       return NextResponse.json({ ok: true });
     }
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     // Récupérer les URLs de téléchargement via l'API Resend
     const { data: attachmentListResponse } = await resend.emails.receiving.attachments.list({
@@ -217,8 +218,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
 
         // Déclencher l'analyse IA en arrière-plan
-        const appUrl = process.env.AUTH_URL ?? "";
-        const cronSecret = process.env.CRON_SECRET ?? "";
+        const appUrl = env.AUTH_URL ?? "";
+        const cronSecret = env.CRON_SECRET ?? "";
         if (appUrl && cronSecret) {
           fetch(`${appUrl}/api/supplier-invoices/${invoice.id}/analyze`, {
             method: "POST",
@@ -245,10 +246,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ) {
       try {
         const notifyEmails = (config as { notifyEmails: string[] }).notifyEmails;
+        const appName = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
         await resend.emails.send({
-          from: `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`,
+          from: `"${appName}" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`,
           to: notifyEmails,
-          subject: `[${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}] ${receivedCount} facture(s) reçue(s) par email`,
+          subject: `[${appName}] ${receivedCount} facture(s) reçue(s) par email`,
           html: `<p>Vous avez reçu ${receivedCount} nouvelle(s) facture(s) fournisseur via l'adresse <strong>${toEmail}</strong>.</p><p>Expéditeur : ${extractEmail(from)}<br/>Sujet : ${subject}</p>`,
         });
       } catch (mailErr) {
