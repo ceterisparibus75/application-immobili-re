@@ -9,6 +9,7 @@ vi.mock("@/lib/email", () => ({
   sendDataroomDocumentAddedEmail: vi.fn().mockResolvedValue({ success: true }),
   sendDataroomAccessEmail: vi.fn().mockResolvedValue({ success: true }),
 }));
+vi.mock("@/lib/env", () => ({ env: { AUTH_URL: "https://app.example.com" } }));
 
 import {
   createDataroom,

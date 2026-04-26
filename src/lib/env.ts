@@ -70,6 +70,46 @@ const envSchema = z.object({
     (val) => (val === "" ? undefined : val),
     z.string().url().optional()
   ), // ex: https://api.superpdp.tech/oauth2/authorize
+
+  // GoCardless Open Banking PSD2
+  GOCARDLESS_SECRET_ID: z.string().optional(),
+  GOCARDLESS_SECRET_KEY: z.string().optional(),
+  // GoCardless SEPA Payments
+  GOCARDLESS_PAYMENTS_KEY: z.string().optional(),
+  GOCARDLESS_PAYMENTS_ENV: z.enum(["live", "sandbox"]).optional(),
+  GOCARDLESS_PAYMENTS_CREDITOR_ID: z.string().optional(),
+  GOCARDLESS_PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
+
+  // Qonto
+  QONTO_CLIENT_ID: z.string().optional(),
+  QONTO_CLIENT_SECRET: z.string().optional(),
+
+  // DocuSign (ENTERPRISE)
+  DOCUSIGN_API_KEY: z.string().optional(),
+  DOCUSIGN_ACCOUNT_ID: z.string().optional(),
+  DOCUSIGN_USER_ID: z.string().optional(),
+  DOCUSIGN_PRIVATE_KEY: z.string().optional(), // RSA en base64
+  DOCUSIGN_BASE_URL: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().url().optional()
+  ),
+  DOCUSIGN_AUTH_URL: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().url().optional()
+  ),
+  DOCUSIGN_WEBHOOK_SECRET: z.string().optional(),
+
+  // INSEE
+  INSEE_API_KEY: z.string().optional(),
+  INSEE_API_SECRET: z.string().optional(),
+
+  // Supabase Storage
+  SUPABASE_STORAGE_BUCKET: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+
+  // Contact
+  EMAIL_CONTACT: z.string().email().optional(),
 });
 
 const isBuildPhase =

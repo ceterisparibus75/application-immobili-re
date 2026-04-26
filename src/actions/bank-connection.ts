@@ -24,6 +24,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { applyAutoTag } from "@/actions/cashflow";
+import { env } from "@/lib/env";
 
 // ─── Liste des connecteurs (banques disponibles) ─────────────────────────────
 
@@ -52,7 +53,7 @@ export async function initiateOpenBanking(
   try {
     const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
-    const appUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+    const appUrl = env.AUTH_URL ?? "http://localhost:3000";
     const redirectUrl = appUrl + "/api/banque/callback";
 
     const { auth_token, id_user } = await initPowensUser();
@@ -89,8 +90,6 @@ export async function initiateOpenBanking(
       details: { connectorId, connectorName },
     });
 
-    // eslint-disable-next-line no-console
-    console.log("[initiateOpenBanking] webviewUrl:", webviewUrl);
     return { success: true, data: { authLink: webviewUrl, connectionId: connection.id } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };

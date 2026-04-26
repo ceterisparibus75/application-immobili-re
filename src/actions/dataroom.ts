@@ -13,6 +13,7 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import { env } from "@/lib/env";
 
 // ─── Requêtes ─────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ export async function addDocumentToDataroom(
     // Envoyer notification au destinataire externe si configuré
     if (dr.recipientEmail && dr.shareToken) {
       const newCount = await prisma.dataroomDocument.count({ where: { dataroomId } });
-      const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://app.example.com";
+      const appUrl = env.AUTH_URL ?? "https://app.example.com";
       void sendDataroomDocumentAddedEmail({
         to: dr.recipientEmail,
         recipientName: dr.recipientName ?? null,

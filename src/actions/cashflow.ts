@@ -17,6 +17,7 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import { env } from "@/lib/env";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -632,7 +633,7 @@ export async function aiSuggestCategories(
     }
 
     // ── 5. Appeler Claude pour les transactions non résolues ────────────
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       // Pas de clé API : renvoyer les résultats locaux + marquer les autres en "divers"
       const fallback = needsAI.map((tx) => ({

@@ -13,6 +13,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   default: class { messages = { create: mockMessagesCreate }; },
 }));
 vi.mock("jsonrepair", () => ({ jsonrepair: (s: string) => s }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import {
   getUncategorizedTransactions,

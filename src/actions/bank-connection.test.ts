@@ -44,6 +44,7 @@ vi.mock("@/lib/qonto", () => ({
 vi.mock("@/actions/cashflow", () => ({
   applyAutoTag: vi.fn(),
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import {
   connectQonto,
