@@ -550,6 +550,29 @@ const myMocks = vi.hoisted(() => ({
 vi.mock("exceljs", () => ({ default: { Workbook: vi.fn(() => myMocks) } }));
 ```
 
+### Couverture de branches V8
+
+V8 trace les branches par opérateur :
+- `A ?? B` → arm0 = A non-null, arm1 = A null (utilise B)
+- `A ? B : C` → arm0 = A truthy, arm1 = A falsy
+- `A && B` → arm0 = court-circuit (A falsy), arm1 = évalue B
+
+**Tester le fallback `?? valeur` d'un objet `env` mocké** : le mock retourne un objet plain muable. Muter temporairement dans `beforeEach`/`afterEach` :
+
+```typescript
+import { env } from "@/lib/env";
+
+beforeEach(() => { (env as Record<string, unknown>).AUTH_URL = undefined; });
+afterEach(() => { (env as Record<string, unknown>).AUTH_URL = "https://app.test"; });
+```
+
+**Branches mortes fréquentes** — ne pas chercher à les couvrir, elles sont structurellement inaccessibles :
+- `soc.siret ?? null` après un guard `if (!soc?.siret) return` (siret garanti non-null)
+- `?? null` sur un champ Prisma `non-null` dans le schéma
+- `?? "PENDING_REVIEW"` dans une fonction privée dont tous les appelants passent des statuts connus
+- `storagePath.endsWith(".xml") ? "xml" : "pdf"` quand la logique amont ne met jamais `storagePath` à une valeur `.xml`
+- `ext ?? ""` quand `ext = file.name.split(".").pop()?.toLowerCase()` — `pop()` sur un tableau non-vide retourne toujours une string
+
 ## CI (GitHub Actions)
 
 Pipeline `.github/workflows/ci.yml` sur push/PR vers `main` :
