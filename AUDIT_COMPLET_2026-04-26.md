@@ -33,7 +33,7 @@ Limites : pas d'accès aux consoles Supabase/Vercel/Sentry, aux bases de product
 
 ### Note de correction - 26 avril 2026
 
-Un premier lot de corrections a été appliqué après cet audit :
+**Lot 1 (session 1) :**
 
 - F-001 : le proxy TUS refuse désormais toute URL hors origine Supabase configurée et tout chemin hors `/storage/v1/upload/resumable`.
 - F-002 : le webhook email entrant exige désormais une signature Svix/Resend via `RESEND_WEBHOOK_SECRET` et ajoute une idempotence applicative par référence déterministe.
@@ -43,7 +43,35 @@ Un premier lot de corrections a été appliqué après cet audit :
 - F-003 : une première migration RLS versionnée a été ajoutée dans `prisma/migration-rls-tenant-policies-2026-04-26.sql`. Elle active les politiques par `app.current_society_id`, sans `FORCE ROW LEVEL SECURITY` tant que le contexte tenant n'est pas branché côté Prisma.
 - F-011 : inscription et réinitialisation utilisent la même politique de mot de passe fort ; les codes de confirmation utilisent `crypto.randomInt`.
 - F-012 : `computeTenantBalance` vérifie désormais l'accès société côté serveur.
-- Qualité : `npm run lint`, `npx tsc --noEmit` et `npm test` passent après correction.
+- Qualité (F-010) : `npm run lint`, `npx tsc --noEmit` et `npm test` passent après correction. 4 265 tests passent, 0 en échec.
+
+**Lot 2 (session 2) :**
+
+- F-006 : soft-delete appliqué sur les suppressions physiques restantes : locataire dans `merge.ts`, baux dans `lease.ts`, documents dans `document.ts`.
+- F-020 : analytics Vercel conditionnés au consentement cookie via `ConsentAnalytics` (composant client + événement `cookie-consent-updated`).
+- F-016 : rate limiting ajouté sur toutes les routes webhooks publiques (`enforceWebhookRateLimit` dans `src/lib/webhook-rate-limit.ts`), y compris email-inbound, Stripe, GoCardless, DocuSign. Un rate limit minimal global couvre aussi `/api/cron` et `/api/public`.
+- F-023 : toutes les lectures directes de `process.env` dans le code de production ont été migrées vers le module `env` validé (`src/lib/env.ts`). Les variables manquantes (GoCardless, DocuSign, Qonto, Supabase, INSEE, Resend) ont été ajoutées au schéma Zod. Les tests dépendant de `vi.stubEnv()` ont reçu `vi.mock("@/lib/env", () => ({ env: process.env }))` pour déléguer correctement.
+- F-024 : tests UI stabilisés (global-search, mobile-sidebar, empty states, invoice-pdf).
+
+**Statut global après lot 2 :** 4 265 tests passent. Lint et TypeScript OK. Arbre git propre.
+
+**Lot 3 (session 3) :**
+
+- F-015 : `npm install --force` retiré de `vercel.json` ; build CI dépend désormais des E2E.
+- F-022 : `README.md` récrit avec setup, env vars, commandes, déploiement, sécurité et procédures d'urgence.
+- F-017 : `calculateNewRent` reçoit le `indexType` ; seuils d'alerte par indice (`IRL: 10%`, `ILC/ILAT: 15%`, `ICC: 20%`) ; variation `%` incluse dans chaque formule.
+- F-014 : cron `data-retention-cleanup` complété (consentements révoqués > 3 ans, notifications lues > 6 mois) ; tests ajoutés (6 cas).
+- F-013 : plafond défensif `take: 200-500` sur `getInvoices`, `getLeases`, `getBuildings` ; variantes paginées `getInvoicesPaginated`, `getLeasesPaginated`, `getBuildingsPaginated` ajoutées.
+- F-021 : `docs/runbook-pra.md` créé (RTO/RPO cibles, 6 scénarios d'incident, protocole de test trimestriel, checklist post-incident).
+
+**Statut global après lot 3 :** 4 271+ tests passent. Lint et TypeScript OK. Arbre git propre.
+
+**Restant à traiter (long terme) :**
+
+- F-005 : baseline Prisma Migrate (effort L)
+- F-007 : validation magic bytes uploads signés/TUS (effort M)
+- F-018 : module événements juridiques bail commercial (effort L)
+- F-019 : comptabilité append-only + clôtures (effort L)
 
 ---
 
