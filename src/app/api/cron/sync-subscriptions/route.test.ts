@@ -6,6 +6,7 @@ const { getStripe } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/stripe", () => ({ getStripe }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 

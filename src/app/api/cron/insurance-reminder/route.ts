@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendInsuranceReminderEmail } from "@/lib/email";
 import { env } from "@/lib/env";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 export async function GET(req: NextRequest) {
   // Vérifier le secret cron
   const authHeader = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET) {
+  if (!env.CRON_SECRET) {
     return NextResponse.json({ error: { code: "CRON_NOT_CONFIGURED", message: "CRON_SECRET non configure" } }, { status: 500 });
   }
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Non autorise" } }, { status: 401 });
   }
 

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { GET, getDueCronTasks } from "./route";
 
 describe("GET /api/cron/daily-maintenance", () => {

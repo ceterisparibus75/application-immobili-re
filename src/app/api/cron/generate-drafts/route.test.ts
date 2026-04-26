@@ -9,6 +9,7 @@ const { getNextInvoiceNumber } = vi.hoisted(() => ({
 vi.mock("@/actions/invoice-shared", () => ({
   getNextInvoiceNumber,
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 

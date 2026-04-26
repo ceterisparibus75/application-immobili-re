@@ -5,6 +5,7 @@ const { detectPendingRevisions } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/actions/rent-revision", () => ({ detectPendingRevisions }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { executeWorkflowSteps } from "@/lib/workflow-engine";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * Route CRON : exécute les workflows déclenchés par un planning (trigger.type = "schedule").
@@ -12,9 +13,8 @@ import { executeWorkflowSteps } from "@/lib/workflow-engine";
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== "Bearer " + cronSecret) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

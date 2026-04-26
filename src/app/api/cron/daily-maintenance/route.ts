@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { env } from "@/lib/env";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 type CronCadence = "daily" | "weekly-monday" | "monthly-first";
 
@@ -36,9 +38,9 @@ export function getDueCronTasks(now = new Date()): CronTask[] {
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || !verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
   }
 

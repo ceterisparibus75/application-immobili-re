@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * Route CRON : synchronise les indices IRL, ILC, ILAT et ICC depuis l'API INSEE publique.
@@ -84,9 +85,8 @@ async function fetchInseeSeriesLastN(seriesId: string, lastN = 20): Promise<Arra
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

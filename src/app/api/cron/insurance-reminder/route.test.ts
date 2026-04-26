@@ -6,13 +6,14 @@ const { sendInsuranceReminderEmail } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/email", () => ({ sendInsuranceReminderEmail }));
-vi.mock("@/lib/env", () => ({ env: { AUTH_URL: "https://app.test", CRON_SECRET: "cron-secret" } }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = "cron-secret";
+  process.env.AUTH_URL = "https://app.test";
   prismaMock.tenant.findMany.mockResolvedValue([]);
   prismaMock.tenant.update.mockResolvedValue({} as never);
 });

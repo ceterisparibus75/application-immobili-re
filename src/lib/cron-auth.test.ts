@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { verifyCronSecret } from "./cron-auth";
 
 describe("verifyCronSecret", () => {

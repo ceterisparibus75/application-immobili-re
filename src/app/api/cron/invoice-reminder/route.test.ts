@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "@/test/mocks/prisma";
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();

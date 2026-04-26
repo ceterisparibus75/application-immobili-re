@@ -5,18 +5,20 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 export const maxDuration = 300; // 5 minutes max
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET) {
+  if (!env.CRON_SECRET) {
     return NextResponse.json(
       { error: { code: "CRON_NOT_CONFIGURED", message: "CRON_SECRET non configuré" } },
       { status: 500 }
     );
   }
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json(
       { error: { code: "UNAUTHORIZED", message: "Non autorisé" } },
       { status: 401 }
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, retried: 0, message: "Aucun document à retraiter" });
     }
 
-    const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
+    const appUrl = env.AUTH_URL ?? "http://localhost:3000";
     let retried = 0;
     let failed = 0;
 
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
         const res = await fetch(`${appUrl}/api/documents/${doc.id}/analyze`, {
           method: "POST",
           headers: {
-            "x-cron-secret": process.env.CRON_SECRET,
+            "x-cron-secret": env.CRON_SECRET,
           },
         });
 

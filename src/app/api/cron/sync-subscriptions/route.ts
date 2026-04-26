@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * Cron job : vérifie les abonnements en essai dont le trial a expiré
@@ -10,9 +12,8 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: "Non autorise" }, { status: 401 });
   }
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     //    on les laisse car Stripe gère la transition via webhook.
     //    Mais si le webhook a raté, on corrige ici.
     let stripeUpdated = 0;
-    if (process.env.STRIPE_SECRET_KEY) {
+    if (env.STRIPE_SECRET_KEY) {
       const { getStripe } = await import("@/lib/stripe");
       const stripe = getStripe();
 

@@ -5,6 +5,7 @@ import {
   syncAccountTransactionsInternal,
   syncQontoTransactionsInternal,
 } from "@/actions/bank-connection";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 /**
  * Route CRON : synchronise automatiquement les transactions de tous les comptes
@@ -17,9 +18,8 @@ import {
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== "Bearer " + cronSecret) {
+  if (!verifyCronSecret(authHeader)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 

@@ -1,11 +1,12 @@
 import { timingSafeEqual } from "crypto";
+import { env } from "@/lib/env";
 
 /**
  * Verify a CRON_SECRET using constant-time comparison to prevent timing attacks.
  * Returns true if the provided value matches the expected CRON_SECRET.
  */
 export function verifyCronSecret(provided: string | null | undefined): boolean {
-  const expected = process.env.CRON_SECRET;
+  const expected = env.CRON_SECRET;
   if (!provided || !expected) return false;
 
   // Extract the token from "Bearer <token>" format if present

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "@/test/mocks/prisma";
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 const SDMX_XML = `<?xml version="1.0"?>
 <message:StructureSpecificData>
   <message:DataSet>

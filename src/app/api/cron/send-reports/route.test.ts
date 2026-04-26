@@ -25,6 +25,7 @@ vi.mock("@/lib/reports/consolidated", () => ({
 vi.mock("@/lib/email", () => ({
   sendConsolidatedReportEmail,
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 

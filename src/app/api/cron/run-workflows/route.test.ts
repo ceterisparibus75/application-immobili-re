@@ -6,6 +6,7 @@ const { executeWorkflowSteps } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/workflow-engine", () => ({ executeWorkflowSteps }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 

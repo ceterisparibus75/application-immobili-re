@@ -12,6 +12,7 @@ vi.mock("@/actions/bank-connection", () => ({
   syncAccountTransactionsInternal,
   syncQontoTransactionsInternal,
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
 
