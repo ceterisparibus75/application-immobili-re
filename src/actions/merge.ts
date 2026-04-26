@@ -161,8 +161,8 @@ export async function mergeTenants(
     if (sourceId === targetId) return { success: false, error: "Impossible de fusionner un locataire avec lui-même" };
 
     const [source, target] = await Promise.all([
-      prisma.tenant.findFirst({ where: { id: sourceId, societyId } }),
-      prisma.tenant.findFirst({ where: { id: targetId, societyId } }),
+      prisma.tenant.findFirst({ where: { id: sourceId, societyId, deletedAt: null } }),
+      prisma.tenant.findFirst({ where: { id: targetId, societyId, deletedAt: null } }),
     ]);
 
     if (!source) return { success: false, error: "Locataire source introuvable" };
@@ -186,8 +186,16 @@ export async function mergeTenants(
       prisma.document.updateMany({ where: { tenantId: sourceId }, data: { tenantId: targetId } }),
       // Transférer les relances
       prisma.reminder.updateMany({ where: { tenantId: sourceId }, data: { tenantId: targetId } }),
-      // Supprimer le locataire source
-      prisma.tenant.delete({ where: { id: sourceId } }),
+      // Archiver le locataire source (RGPD + audit trail)
+      prisma.tenant.update({
+        where: { id: sourceId },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: context.userId,
+          archivedReason: `Fusion vers le locataire ${targetId}`,
+          isActive: false,
+        },
+      }),
     ]);
 
     const sourceName = source.entityType === "PERSONNE_MORALE"

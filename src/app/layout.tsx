@@ -6,10 +6,9 @@ import { SessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
 import * as Sentry from "@sentry/nextjs";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ZendeskWidget } from "@/components/zendesk-widget";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { ConsentAnalytics } from "@/components/layout/consent-analytics";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -81,8 +80,7 @@ export default function RootLayout({
             <Toaster richColors closeButton />
             <ZendeskWidget />
             <PwaInstallPrompt />
-            <Analytics />
-            <SpeedInsights />
+            <ConsentAnalytics />
           </ThemeProvider>
         </SessionProvider>
       </body>

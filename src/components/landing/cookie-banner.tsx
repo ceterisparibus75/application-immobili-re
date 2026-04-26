@@ -42,12 +42,14 @@ export function CookieBanner() {
 
   const accept = useCallback(async () => {
     localStorage.setItem(STORAGE_KEY, "accepted");
+    window.dispatchEvent(new Event("cookie-consent-updated"));
     setVisible(false);
     await recordConsent("accepted", getOrCreateVisitorId());
   }, []);
 
   const reject = useCallback(async () => {
     localStorage.setItem(STORAGE_KEY, "rejected");
+    window.dispatchEvent(new Event("cookie-consent-updated"));
     setVisible(false);
     await recordConsent("rejected", getOrCreateVisitorId());
   }, []);
