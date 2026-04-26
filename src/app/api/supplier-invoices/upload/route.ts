@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
+import {
+  validateDocumentUploadMetadata,
+  verifyDocumentMagicBytes,
+} from "@/lib/document-upload-security";
 
 export async function POST(req: NextRequest) {
   try {
     const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
     if (context instanceof NextResponse) return context;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
     }
@@ -20,7 +25,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fichier manquant" }, { status: 400 });
     }
 
-    if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
+    const metadataValidation = validateDocumentUploadMetadata({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+    if (!metadataValidation.ok || metadataValidation.mimeType !== "application/pdf") {
       return NextResponse.json({ error: "Seuls les PDF sont acceptés" }, { status: 400 });
     }
 
@@ -28,9 +38,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 20 Mo)" }, { status: 400 });
     }
 
+    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (!verifyDocumentMagicBytes(headerBytes, metadataValidation.mimeType)) {
+      return NextResponse.json({ error: "Le contenu du fichier ne correspond pas au type PDF" }, { status: 400 });
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
     const storagePath = `documents/${context.societyId}/supplier-invoices/${Date.now()}_${safeName}`;
 
     const supabase = createClient(supabaseUrl, supabaseKey);

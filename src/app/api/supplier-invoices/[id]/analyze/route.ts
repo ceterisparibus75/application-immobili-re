@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { analyzeSupplierInvoice } from "@/lib/supplier-invoice-ai";
 import { encrypt } from "@/lib/encryption";
+import { env } from "@/lib/env";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +17,7 @@ export async function POST(
 
   // ── Authentification : Bearer CRON_SECRET OU session NextAuth ────────────
   const authHeader = request.headers.get("Authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  const isCronCall =
-    cronSecret !== undefined &&
-    cronSecret !== "" &&
-    authHeader === `Bearer ${cronSecret}`;
+  const isCronCall = verifyCronSecret(authHeader);
 
   let sessionSocietyId: string | undefined;
 
@@ -57,8 +55,8 @@ export async function POST(
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.json(
       { error: "Stockage non configuré" },
@@ -75,7 +73,7 @@ export async function POST(
   try {
     // ── Télécharger le PDF depuis Supabase Storage ────────────────────────
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     const { data: fileData, error: downloadError } = await supabase.storage
       .from(bucket)

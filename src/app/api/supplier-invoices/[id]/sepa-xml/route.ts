@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { buildPain001Xml, type SepaCreditTransferInput } from "@/lib/sepa-credit-transfer";
 import { decrypt } from "@/lib/encryption";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -161,13 +162,13 @@ export async function GET(
   const xmlString = buildPain001Xml(sepaInput);
 
   // ── Upload XML dans Supabase Storage ─────────────────────────────────────
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (supabaseUrl && supabaseKey) {
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+      const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
       const xmlStoragePath = `documents/${context.societyId}/supplier-invoices/sepa/${invoice.id}.xml`;
 
       const { error: uploadError } = await supabase.storage
