@@ -20,6 +20,7 @@ vi.mock("@/lib/email-copy", () => ({ getAllEmailCopyBcc: getAllEmailCopyBccMock 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({ storage: { from: vi.fn(() => supabaseStorageMock) } })),
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { sendInvoiceEmail } from "@/lib/email";
 vi.mock("@/lib/encryption", () => ({

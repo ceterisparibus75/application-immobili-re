@@ -22,6 +22,7 @@ vi.mock("@supabase/supabase-js", () => ({
     },
   })),
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import {
   sendLetterByEmail,

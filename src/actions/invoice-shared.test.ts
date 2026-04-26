@@ -13,6 +13,7 @@ vi.mock("@/lib/encryption", () => ({
   encrypt: vi.fn((v: string) => `enc:${v}`),
   decrypt: vi.fn((v: string) => v.replace(/^enc:/, "")),
 }));
+vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { prismaMock } from "@/test/mocks/prisma";
 
@@ -492,18 +493,29 @@ describe("computeInvoicePreview", () => {
   });
 
   it("résout le logo via Supabase et stocke l'URL signée (ligne 403)", async () => {
-    mockCreateSignedUrl.mockResolvedValueOnce({ data: { signedUrl: "https://cdn.example.com/logo.png" } });
-    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
-    prismaMock.society.findUnique.mockResolvedValue(
-      makeSociety({ logoUrl: "https://supabase.example.com/storage/v1/object/public/logos/society.png" }) as never,
-    );
-    prismaMock.invoice.findMany.mockResolvedValue([] as never);
-    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
-    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    const prevSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const prevSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      mockCreateSignedUrl.mockResolvedValueOnce({ data: { signedUrl: "https://cdn.example.com/logo.png" } });
+      prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+      prismaMock.society.findUnique.mockResolvedValue(
+        makeSociety({ logoUrl: "https://supabase.example.com/storage/v1/object/public/logos/society.png" }) as never,
+      );
+      prismaMock.invoice.findMany.mockResolvedValue([] as never);
+      prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+      prismaMock.invoice.findFirst.mockResolvedValue(null);
 
-    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
-    expect(result).not.toBeNull();
-    expect(result?.logoResolvedUrl).toBe("https://cdn.example.com/logo.png");
+      const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+      expect(result).not.toBeNull();
+      expect(result?.logoResolvedUrl).toBe("https://cdn.example.com/logo.png");
+    } finally {
+      if (prevSupabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = prevSupabaseUrl;
+      if (prevSupabaseKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      else process.env.SUPABASE_SERVICE_ROLE_KEY = prevSupabaseKey;
+    }
   });
 
   it("déchiffre l'IBAN et le BIC quand non nuls (lignes 375-376)", async () => {

@@ -14,6 +14,7 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import { env } from "@/lib/env";
 
 // ── Upload PDF courrier dans Supabase + création Document ───────
 
@@ -24,12 +25,12 @@ async function saveLetterDocument(
   buffer: Buffer,
   subject: string,
 ): Promise<void> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) return; // Supabase non configuré, on skip
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const bucket = "documents";
+  const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
   const storagePath = `documents/${societyId}/courriers/${Date.now()}_${filename}`;
 
   const { error: uploadError } = await supabase.storage

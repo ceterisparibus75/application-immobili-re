@@ -16,6 +16,7 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import { env } from "@/lib/env";
 import { getNextInvoiceNumber } from "./invoice-shared";
 
 // Numéro alloué à la validation, pas à la création du brouillon.
@@ -237,10 +238,10 @@ async function generateQuittancePdfAndSend(
   } catch { /* non bloquant */ }
 
   let logoSignedUrl: string | null = null;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
   const supabase = url && key ? createClient(url, key) : null;
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+  const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
   if (soc?.logoUrl && supabase) {
     try {

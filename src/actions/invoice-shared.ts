@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import type { PaymentFrequency, BillingTerm, Prisma } from "@/generated/prisma/client";
 
 // ============================================================
@@ -379,28 +380,27 @@ export async function computeInvoicePreview(
   let logoResolvedUrl: string | null = null;
   if (society?.logoUrl) {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const logoUrl = society.logoUrl;
-      let storagePath: string | null = null;
+      if (env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+        const logoUrl = society.logoUrl;
+        let storagePath: string | null = null;
 
-      if (!logoUrl.startsWith("http")) {
-        storagePath = logoUrl.replace(/^\//, "");
-      } else {
-        const m = logoUrl.match(
-          /\/storage\/v1\/object\/(?:sign\/|upload\/sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/
-        );
-        if (m) storagePath = decodeURIComponent(m[1]);
-      }
+        if (!logoUrl.startsWith("http")) {
+          storagePath = logoUrl.replace(/^\//, "");
+        } else {
+          const m = logoUrl.match(
+            /\/storage\/v1\/object\/(?:sign\/|upload\/sign\/|public\/)[^/]+\/(.+?)(?:\?|$)/
+          );
+          if (m) storagePath = decodeURIComponent(m[1]);
+        }
 
-      if (storagePath) {
-        const clean = storagePath.replace(/\.\.\//g, "").replace(/^\//, "");
-        const { data } = await supabase.storage
-          .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-          .createSignedUrl(clean, 3600);
-        if (data?.signedUrl) logoResolvedUrl = data.signedUrl;
+        if (storagePath) {
+          const clean = storagePath.replace(/\.\.\//g, "").replace(/^\//, "");
+          const { data } = await supabase.storage
+            .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
+            .createSignedUrl(clean, 3600);
+          if (data?.signedUrl) logoResolvedUrl = data.signedUrl;
+        }
       }
     } catch { /* non bloquant */ }
   }
