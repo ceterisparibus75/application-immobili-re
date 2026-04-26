@@ -76,10 +76,27 @@ describe("createTenantPrisma — $allOperations (B0-B7)", () => {
     });
   });
 
-  it("injecte societyId dans where ET create pour upsert (B6 arm0, B7 arm0)", () => {
+  it("lit les modèles à societyId optionnel dans la société ou en partagé", () => {
+    const query = callOp("Contact", "findMany", { where: { isActive: true } });
+    expect(query).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          { isActive: true },
+          { OR: [{ societyId: SOCIETY_ID }, { societyId: null }] },
+        ],
+      },
+    });
+  });
+
+  it("borne les écritures des modèles à societyId optionnel à la société courante", () => {
     const query = callOp("Contact", "upsert", { where: { email: "a@b.com" }, create: { email: "a@b.com" }, update: {} });
     expect(query).toHaveBeenCalledWith({
-      where: { email: "a@b.com", societyId: SOCIETY_ID },
+      where: {
+        AND: [
+          { email: "a@b.com" },
+          { societyId: SOCIETY_ID },
+        ],
+      },
       create: { email: "a@b.com", societyId: SOCIETY_ID },
       update: {},
     });

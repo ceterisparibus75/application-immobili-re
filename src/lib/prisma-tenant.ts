@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-// Modèles qui ont un societyId direct (pas via une relation)
+// Modèles qui ont un societyId direct obligatoire (pas via une relation)
 const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
   // Patrimoine
   "Building",
@@ -46,7 +46,6 @@ const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
   "Dataroom",
   // Communication
   "Announcement",
-  "Contact",
   // RGPD
   "GdprRequest",
   // Évaluation
@@ -54,6 +53,35 @@ const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
   "RentValuation",
   "Loan",
 ];
+
+// Modèles avec societyId nullable : null signifie "partagé".
+const MODELS_WITH_OPTIONAL_SOCIETY_ID: string[] = [
+  "Contact",
+  "Message",
+  "SocietyChargeCategory",
+];
+
+function scopeRequiredSociety(where: Record<string, unknown> | undefined, societyId: string) {
+  return { ...where, societyId };
+}
+
+function scopeOptionalSocietyForRead(where: Record<string, unknown> | undefined, societyId: string) {
+  return {
+    AND: [
+      where ?? {},
+      { OR: [{ societyId }, { societyId: null }] },
+    ],
+  };
+}
+
+function scopeOptionalSocietyForWrite(where: Record<string, unknown> | undefined, societyId: string) {
+  return {
+    AND: [
+      where ?? {},
+      { societyId },
+    ],
+  };
+}
 
 /**
  * Crée un client Prisma étendu qui filtre automatiquement par societyId.
@@ -67,7 +95,10 @@ export function createTenantPrisma(societyId: string) {
   return prisma.$extends({
     query: {
       $allOperations({ model, operation, args, query }) {
-        if (!model || !MODELS_WITH_DIRECT_SOCIETY_ID.includes(model)) {
+        const hasRequiredSocietyId = model ? MODELS_WITH_DIRECT_SOCIETY_ID.includes(model) : false;
+        const hasOptionalSocietyId = model ? MODELS_WITH_OPTIONAL_SOCIETY_ID.includes(model) : false;
+
+        if (!model || (!hasRequiredSocietyId && !hasOptionalSocietyId)) {
           return query(args);
         }
 
@@ -84,7 +115,9 @@ export function createTenantPrisma(societyId: string) {
             "groupBy",
           ].includes(operation)
         ) {
-          args.where = { ...args.where, societyId };
+          args.where = hasOptionalSocietyId
+            ? scopeOptionalSocietyForRead(args.where, societyId)
+            : scopeRequiredSociety(args.where, societyId);
         }
 
         // Création : injecter le societyId dans les données
@@ -110,10 +143,14 @@ export function createTenantPrisma(societyId: string) {
           )
         ) {
           if (operation === "upsert") {
-            args.where = { ...args.where, societyId };
+            args.where = hasOptionalSocietyId
+              ? scopeOptionalSocietyForWrite(args.where, societyId)
+              : scopeRequiredSociety(args.where, societyId);
             args.create = { ...args.create, societyId };
           } else {
-            args.where = { ...args.where, societyId };
+            args.where = hasOptionalSocietyId
+              ? scopeOptionalSocietyForWrite(args.where, societyId)
+              : scopeRequiredSociety(args.where, societyId);
           }
         }
 
