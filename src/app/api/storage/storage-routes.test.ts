@@ -63,6 +63,7 @@ vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET as viewFile } from "./view/route";
 import { POST as signedUpload } from "./signed-upload/route";
+import { POST as tusPatch } from "./tus-patch/route";
 
 describe("storage routes", () => {
   beforeEach(() => {
@@ -284,6 +285,8 @@ describe("storage routes", () => {
           method: "POST",
           body: JSON.stringify({
             filename: "logo.png",
+            contentType: "image/png",
+            fileSize: 128 * 1024,
             societyId: "society-1",
           }),
           headers: { "Content-Type": "application/json" },
@@ -308,6 +311,169 @@ describe("storage routes", () => {
       expect(res.status).toBe(200);
       expect(body.storagePath).toMatch(/^temp\/user-1\/\d+_draft\.pdf$/);
       expect(requireSocietyAccess).not.toHaveBeenCalled();
+    });
+
+    // ── F-007 : validation logo ───────────────────────────────────────────────
+
+    it("rejette un logo avec un MIME non autorisé (ex: PDF)", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "logo.pdf",
+            contentType: "application/pdf",
+            fileSize: 1024,
+            societyId: "society-1",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("Format non supporté pour un logo");
+    });
+
+    it("rejette un logo SVG (non dans l'allowlist)", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "logo.svg",
+            contentType: "image/svg+xml",
+            fileSize: 1024,
+            societyId: "society-1",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejette un logo sans taille de fichier", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "logo.png",
+            contentType: "image/png",
+            societyId: "society-1",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("invalide");
+    });
+
+    it("rejette un logo trop volumineux (> 5 Mo)", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "logo.png",
+            contentType: "image/png",
+            fileSize: 6 * 1024 * 1024,
+            societyId: "society-1",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("5 Mo");
+    });
+
+    it("accepte un logo PNG valide et génère le storagePath correct", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "logo.png",
+            contentType: "image/png",
+            fileSize: 512 * 1024,
+            societyId: "society-1",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.storagePath).toMatch(/^logos\/society-1\/\d+_logo\.png$/);
+    });
+  });
+
+  // ── F-007 : TUS patch — détection contenu dangereux ──────────────────────
+
+  describe("POST /api/storage/tus-patch", () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example";
+      process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    });
+
+    function makeTusPatchRequest(body: ArrayBuffer, tusUrl = "https://supabase.example/storage/v1/upload/resumable/abc", offset = "0") {
+      return new NextRequest("http://localhost/api/storage/tus-patch", {
+        method: "POST",
+        body,
+        headers: {
+          "Content-Type": "application/offset+octet-stream",
+          "x-tus-url": tusUrl,
+          "x-upload-offset": offset,
+        },
+      });
+    }
+
+    it("rejette si x-tus-url est absent", async () => {
+      const req = new NextRequest("http://localhost/api/storage/tus-patch", {
+        method: "POST",
+        body: new ArrayBuffer(4),
+        headers: { "Content-Type": "application/offset+octet-stream" },
+      });
+
+      const res = await tusPatch(req);
+      expect(res.status).toBe(400);
+    });
+
+    it("rejette un contenu HTML en premier chunk (offset=0)", async () => {
+      const html = new TextEncoder().encode("<html><body>Hello</body></html>");
+      const res = await tusPatch(makeTusPatchRequest(html.buffer as ArrayBuffer));
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("dangereux");
+    });
+
+    it("rejette un contenu SVG en premier chunk", async () => {
+      const svg = new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'></svg>");
+      const res = await tusPatch(makeTusPatchRequest(svg.buffer as ArrayBuffer));
+
+      expect(res.status).toBe(400);
+    });
+
+    it("rejette un contenu XML en premier chunk", async () => {
+      const xml = new TextEncoder().encode("<?xml version='1.0'?><root/>");
+      const res = await tusPatch(makeTusPatchRequest(xml.buffer as ArrayBuffer));
+
+      expect(res.status).toBe(400);
+    });
+
+    it("ne vérifie pas le contenu pour les chunks suivants (offset != 0)", async () => {
+      const html = new TextEncoder().encode("<html>could be partial chunk data</html>");
+      // offset != 0 → pas de vérification magic bytes, relayé à Supabase
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => "1000" },
+      } as unknown as Response);
+
+      const res = await tusPatch(makeTusPatchRequest(html.buffer as ArrayBuffer, "https://supabase.example/storage/v1/upload/resumable/abc", "500"));
+
+      // Supabase est appelé (pas de rejet magic bytes)
+      expect(global.fetch).toHaveBeenCalled();
     });
   });
 });

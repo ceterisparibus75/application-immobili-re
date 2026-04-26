@@ -1,3 +1,69 @@
+// ── Logos ────────────────────────────────────────────────────────────────────
+
+export const ALLOWED_LOGO_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+export const MAX_LOGO_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5 Mo
+
+const LOGO_EXTENSIONS_BY_MIME: Record<string, string[]> = {
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+};
+
+export function validateLogoUploadMetadata(input: {
+  fileName: string | null | undefined;
+  fileSize: number | null | undefined;
+  mimeType: string | null | undefined;
+}): { ok: true; mimeType: string } | { ok: false; error: string } {
+  const fileName = input.fileName?.trim();
+  const mimeType = normalizeDocumentMimeType(input.mimeType);
+
+  if (!fileName) return { ok: false, error: "Nom de fichier manquant" };
+  if (!ALLOWED_LOGO_MIME_TYPES.includes(mimeType as (typeof ALLOWED_LOGO_MIME_TYPES)[number])) {
+    return { ok: false, error: "Format non supporté pour un logo (JPEG, PNG, WebP uniquement)" };
+  }
+  const allowedExtensions = LOGO_EXTENSIONS_BY_MIME[mimeType];
+  if (!allowedExtensions?.some((ext) => fileName.toLowerCase().endsWith(ext))) {
+    return { ok: false, error: "L'extension du fichier ne correspond pas au type déclaré" };
+  }
+  if (!Number.isSafeInteger(input.fileSize) || (input.fileSize ?? 0) <= 0) {
+    return { ok: false, error: "Taille de fichier invalide" };
+  }
+  if ((input.fileSize ?? 0) > MAX_LOGO_UPLOAD_SIZE_BYTES) {
+    return { ok: false, error: "Logo trop volumineux (max 5 Mo)" };
+  }
+
+  return { ok: true, mimeType };
+}
+
+// ── Détection de contenu dangereux ───────────────────────────────────────────
+
+/**
+ * Détecte HTML/SVG/XML/script en tête de fichier.
+ * Utilisé pour refuser les uploads TUS dont le premier chunk est un contenu actif.
+ */
+export function isDangerousFileContent(bytes: Uint8Array): boolean {
+  // Sauter le BOM UTF-8 éventuel avant de comparer
+  const offset = startsWithBytes(bytes, [0xef, 0xbb, 0xbf]) ? 3 : 0;
+  return (
+    startsWithBytes(bytes, [0x3c, 0x21, 0x44, 0x4f], offset) || // <!DO (DOCTYPE)
+    startsWithBytes(bytes, [0x3c, 0x21, 0x64, 0x6f], offset) || // <!do
+    startsWithBytes(bytes, [0x3c, 0x73, 0x76, 0x67], offset) || // <svg
+    startsWithBytes(bytes, [0x3c, 0x53, 0x56, 0x47], offset) || // <SVG
+    startsWithBytes(bytes, [0x3c, 0x3f, 0x78, 0x6d], offset) || // <?xm (<?xml)
+    startsWithBytes(bytes, [0x3c, 0x68, 0x74, 0x6d], offset) || // <htm
+    startsWithBytes(bytes, [0x3c, 0x48, 0x54, 0x4d], offset) || // <HTM
+    startsWithBytes(bytes, [0x3c, 0x73, 0x63, 0x72], offset) || // <scr (<script)
+    startsWithBytes(bytes, [0x3c, 0x53, 0x43, 0x52], offset)    // <SCR
+  );
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+
 export const AI_SUPPORTED_DOCUMENT_MIME_TYPES = [
   "application/pdf",
   "image/jpeg",

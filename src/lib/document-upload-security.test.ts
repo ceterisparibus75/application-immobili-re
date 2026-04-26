@@ -4,6 +4,8 @@ import {
   isDocumentStoragePathForSociety,
   sanitizeDocumentStorageFolder,
   validateDocumentUploadMetadata,
+  validateLogoUploadMetadata,
+  isDangerousFileContent,
   verifyDocumentMagicBytes,
 } from "./document-upload-security";
 
@@ -125,5 +127,97 @@ describe("document upload security", () => {
     expect(
       validateDocumentUploadMetadata({ fileName: "bail.pdf", fileSize: 200 * 1024 * 1024, mimeType: "application/pdf" })
     ).toEqual({ ok: false, error: "Fichier trop volumineux (max 100 Mo)" });
+  });
+});
+
+describe("validateLogoUploadMetadata", () => {
+  it("accepte un PNG valide sous 5 Mo", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.png", fileSize: 1024 * 1024, mimeType: "image/png" })
+    ).toEqual({ ok: true, mimeType: "image/png" });
+  });
+
+  it("rejette un MIME non autorisé pour logo (PDF)", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.pdf", fileSize: 1024, mimeType: "application/pdf" })
+    ).toMatchObject({ ok: false });
+  });
+
+  it("rejette un SVG (non dans l'allowlist logo)", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.svg", fileSize: 1024, mimeType: "image/svg+xml" })
+    ).toMatchObject({ ok: false });
+  });
+
+  it("rejette si extension et MIME divergent (logo)", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.jpg", fileSize: 1024, mimeType: "image/png" })
+    ).toMatchObject({ ok: false, error: expect.stringContaining("extension") });
+  });
+
+  it("rejette si taille invalide ou nulle", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.png", fileSize: 0, mimeType: "image/png" })
+    ).toMatchObject({ ok: false, error: expect.stringContaining("invalide") });
+  });
+
+  it("rejette si logo dépasse 5 Mo", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: "logo.png", fileSize: 6 * 1024 * 1024, mimeType: "image/png" })
+    ).toMatchObject({ ok: false, error: expect.stringContaining("5 Mo") });
+  });
+
+  it("rejette si fileName est absent", () => {
+    expect(
+      validateLogoUploadMetadata({ fileName: null, fileSize: 1024, mimeType: "image/png" })
+    ).toMatchObject({ ok: false });
+  });
+});
+
+describe("isDangerousFileContent", () => {
+  function toBytes(str: string): Uint8Array {
+    return new Uint8Array(str.split("").map((c) => c.charCodeAt(0)));
+  }
+
+  it("bloque les fichiers HTML", () => {
+    expect(isDangerousFileContent(toBytes("<html><body>"))).toBe(true);
+    expect(isDangerousFileContent(toBytes("<HTML><BODY>"))).toBe(true);
+    expect(isDangerousFileContent(toBytes("<!DOCTYPE html>"))).toBe(true);
+    expect(isDangerousFileContent(toBytes("<!doctype html>"))).toBe(true);
+  });
+
+  it("bloque les fichiers SVG", () => {
+    expect(isDangerousFileContent(toBytes("<svg xmlns="))).toBe(true);
+    expect(isDangerousFileContent(toBytes("<SVG xmlns="))).toBe(true);
+  });
+
+  it("bloque les fichiers XML", () => {
+    expect(isDangerousFileContent(toBytes("<?xml version="))).toBe(true);
+  });
+
+  it("bloque les balises script", () => {
+    expect(isDangerousFileContent(toBytes("<script>alert(1)</script>"))).toBe(true);
+    expect(isDangerousFileContent(toBytes("<SCRIPT>"))).toBe(true);
+  });
+
+  it("bloque après un BOM UTF-8", () => {
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+    const html = toBytes("<svg>");
+    const combined = new Uint8Array(bom.length + html.length);
+    combined.set(bom);
+    combined.set(html, bom.length);
+    expect(isDangerousFileContent(combined)).toBe(true);
+  });
+
+  it("accepte un PDF (ne commence pas par du texte actif)", () => {
+    expect(isDangerousFileContent(new Uint8Array([0x25, 0x50, 0x44, 0x46]))).toBe(false);
+  });
+
+  it("accepte une image PNG", () => {
+    expect(isDangerousFileContent(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe(false);
+  });
+
+  it("accepte un buffer vide", () => {
+    expect(isDangerousFileContent(new Uint8Array([]))).toBe(false);
   });
 });

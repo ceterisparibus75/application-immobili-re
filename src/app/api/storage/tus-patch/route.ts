@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
+import { isDangerousFileContent } from "@/lib/document-upload-security";
 import { env } from "@/lib/env";
 
 export const maxDuration = 60;
@@ -43,6 +44,14 @@ export async function POST(req: NextRequest) {
     }
 
     const chunkData = await req.arrayBuffer();
+
+    // Vérifier le contenu du premier chunk : bloquer HTML/SVG/XML
+    if (uploadOffset === "0" && chunkData.byteLength > 0) {
+      const headerBytes = new Uint8Array(chunkData.slice(0, 16));
+      if (isDangerousFileContent(headerBytes)) {
+        return NextResponse.json({ error: "Contenu dangereux détecté (HTML/SVG/XML non autorisé)" }, { status: 400 });
+      }
+    }
 
     const patchRes = await fetch(safeTusUrl, {
       method: "PATCH",

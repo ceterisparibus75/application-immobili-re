@@ -5,7 +5,7 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 import * as nodePath from "path";
 import { env } from "@/lib/env";
-import { validateDocumentUploadMetadata } from "@/lib/document-upload-security";
+import { validateDocumentUploadMetadata, validateLogoUploadMetadata } from "@/lib/document-upload-security";
 
 function sanitizeFolderPath(raw: string): string | null {
   let decoded = raw;
@@ -81,6 +81,15 @@ export async function POST(req: NextRequest) {
       await requireSocietyAccess(context.userId, societyId, "GESTIONNAIRE");
       storagePath = `documents/${societyId}/${cleanEntityFolder}/${timestamp}_${safeName}`;
     } else if (societyId) {
+      const logoValidation = validateLogoUploadMetadata({
+        fileName: filename,
+        fileSize,
+        mimeType: mimeType ?? contentType,
+      });
+      if (!logoValidation.ok) {
+        return NextResponse.json({ error: logoValidation.error }, { status: 400 });
+      }
+      normalizedContentType = logoValidation.mimeType;
       await requireSocietyAccess(context.userId, societyId, "ADMIN_SOCIETE");
       storagePath = `logos/${societyId}/${timestamp}_${safeName}`;
     } else {
