@@ -29,7 +29,7 @@ function calculateNewRent(
   const maxRent = currentRentHT * 1.5;
   const minRent = Math.max(1, currentRentHT * 0.5);
   if (rounded > maxRent || rounded < minRent) {
-    console.warn(
+    console.error(
       `[calculateNewRent] Variation anormale détectée — loyer actuel: ${currentRentHT}, calculé: ${rounded}. Valeur plafonnée.`
     );
     return rounded > maxRent ? Math.round(maxRent * 100) / 100 : Math.round(minRent * 100) / 100;

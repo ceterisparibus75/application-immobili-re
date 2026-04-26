@@ -91,9 +91,5 @@ async function runDataRetentionCleanup() {
     anonymized++;
   }
 
-  console.log(
-    `[data-retention-cleanup] AuditLog supprimés: ${auditDeleted}, GdprRequest: ${gdprDeleted}, Locataires anonymisés: ${anonymized}`
-  );
-
   return { auditDeleted, gdprDeleted, anonymized };
 }
