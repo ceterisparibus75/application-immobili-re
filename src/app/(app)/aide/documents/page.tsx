@@ -1,7 +1,7 @@
 import { FolderLock } from "lucide-react";
 import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/help-page-layout";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
   title: `Documents, Dataroom et signatures | Centre d'aide | ${APP_NAME}`,

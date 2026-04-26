@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { Metadata } from "next";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: `Sécurité & Conformité — ${APP_NAME}`,

@@ -1,7 +1,7 @@
 import { Building2 } from "lucide-react";
 import Link from "next/link";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
   title: `Accord de Traitement des Donnees | ${APP_NAME}`,

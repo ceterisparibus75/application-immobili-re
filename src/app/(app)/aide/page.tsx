@@ -28,7 +28,7 @@ import Link from "next/link";
 import { HelpSearch } from "./_components/help-search";
 import { FaqAccordion } from "./_components/faq-accordion";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
   title: `Centre d'aide | ${APP_NAME}`,

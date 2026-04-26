@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import "../globals.css";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 /* ------------------------------------------------------------------ */
 /*  Nav links                                                          */

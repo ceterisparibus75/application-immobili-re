@@ -4,8 +4,10 @@ import type { Metadata } from "next";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { articles, getArticleBySlug, getCategoryColor } from "../_data/articles";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
-const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
+import { APP_NAME } from "@/lib/constants";
+import { env } from "@/lib/env";
+
+const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
 
 export function generateStaticParams() {
   return articles.map((a) => ({ slug: a.slug }));

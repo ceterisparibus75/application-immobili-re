@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Clock, Calendar } from "lucide-react";
 import { articles, getCategoryColor } from "./_data/articles";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Blog — Gestion immobilière, réglementation et fiscalité foncière",

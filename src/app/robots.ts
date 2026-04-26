@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { env } from "@/lib/env";
 
-const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
+const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
 
 export default function robots(): MetadataRoute.Robots {
   return {
