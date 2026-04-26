@@ -223,17 +223,17 @@ describe("deleteBuilding", () => {
     expect(result.error).toBe("Permissions insuffisantes pour cette action")
   })
 
-  it("retourne une erreur si des baux actifs existent", async () => {
+  it("retourne une erreur si des lots sont rattachés", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
-    prismaMock.lease.count.mockResolvedValue(2 as never)
+    prismaMock.lot.count.mockResolvedValue(2 as never)
     const result = await deleteBuilding("society-1", VALID_CUID)
     expect(result.success).toBe(false)
-    expect(result.error).toContain("2 bail(aux) actif(s)")
+    expect(result.error).toContain("2 lot(s) rattaché(s)")
   })
 
   it("supprime l'immeuble avec succès", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
-    prismaMock.lease.count.mockResolvedValue(0 as never)
+    prismaMock.lot.count.mockResolvedValue(0 as never)
     prismaMock.building.delete.mockResolvedValue(buildBuilding() as never)
     const result = await deleteBuilding("society-1", VALID_CUID)
     expect(result.success).toBe(true)
@@ -242,7 +242,7 @@ describe("deleteBuilding", () => {
 
   it("retourne une erreur générique si la BDD échoue dans deleteBuilding", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
-    prismaMock.lease.count.mockRejectedValue(new Error("DB connection lost"))
+    prismaMock.lot.count.mockRejectedValue(new Error("DB connection lost"))
     const result = await deleteBuilding("society-1", VALID_CUID)
     expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" })
   })

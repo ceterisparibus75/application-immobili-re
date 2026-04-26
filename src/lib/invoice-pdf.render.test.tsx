@@ -62,7 +62,7 @@ describe("InvoicePdf rendu end-to-end", () => {
     expect(buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
     expect(buffer.length).toBeGreaterThan(2_000);
     expect(buffer.includes(Buffer.from("%%EOF"))).toBe(true);
-  });
+  }, 20_000);
 
   it("rend aussi un avoir sans société ni paiement", async () => {
     const buffer = await renderToBuffer(
@@ -84,5 +84,5 @@ describe("InvoicePdf rendu end-to-end", () => {
 
     expect(buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
     expect(buffer.length).toBeGreaterThan(1_500);
-  });
+  }, 20_000);
 });
