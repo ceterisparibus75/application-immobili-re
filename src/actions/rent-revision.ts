@@ -24,7 +24,17 @@ function calculateNewRent(
 ): number {
   if (baseIndexValue <= 0) return currentRentHT;
   const newRent = currentRentHT * (newIndexValue / baseIndexValue);
-  return Math.round(newRent * 100) / 100;
+  const rounded = Math.round(newRent * 100) / 100;
+  // Guard anti-données-aberrantes : variation max ±50% sur une révision
+  const maxRent = currentRentHT * 1.5;
+  const minRent = Math.max(1, currentRentHT * 0.5);
+  if (rounded > maxRent || rounded < minRent) {
+    console.warn(
+      `[calculateNewRent] Variation anormale détectée — loyer actuel: ${currentRentHT}, calculé: ${rounded}. Valeur plafonnée.`
+    );
+    return rounded > maxRent ? Math.round(maxRent * 100) / 100 : Math.round(minRent * 100) / 100;
+  }
+  return rounded;
 }
 
 async function getLatestIndex(indexType: IndexType): Promise<{
