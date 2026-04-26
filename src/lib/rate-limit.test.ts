@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 const mocks = vi.hoisted(() => ({
   RedisCtor: vi.fn(),
   RatelimitCtor: vi.fn(),
