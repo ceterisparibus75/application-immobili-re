@@ -3,6 +3,20 @@ import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 
 export const maxDuration = 60;
 
+function resolveSupabaseTusUrl(rawTusUrl: string, supabaseUrl: string): string | null {
+  try {
+    const target = new URL(rawTusUrl);
+    const supabase = new URL(supabaseUrl);
+
+    if (target.origin !== supabase.origin) return null;
+    if (!target.pathname.startsWith("/storage/v1/upload/resumable")) return null;
+
+    return target.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const context = await requireAuthenticatedRouteContext();
@@ -11,13 +25,25 @@ export async function POST(req: NextRequest) {
     const tusUrl = req.headers.get("x-tus-url");
     const uploadOffset = req.headers.get("x-upload-offset") ?? "0";
     if (!tusUrl) return NextResponse.json({ error: "x-tus-url manquant" }, { status: 400 });
+    if (!/^\d+$/.test(uploadOffset)) {
+      return NextResponse.json({ error: "x-upload-offset invalide" }, { status: 400 });
+    }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceKey) return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    if (!supabaseUrl || !serviceKey) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    }
+
+    const safeTusUrl = resolveSupabaseTusUrl(tusUrl, supabaseUrl);
+    if (!safeTusUrl) {
+      console.error("[tus-patch] URL TUS rejetée", { tusUrl });
+      return NextResponse.json({ error: "URL TUS non autorisée" }, { status: 400 });
+    }
 
     const chunkData = await req.arrayBuffer();
 
-    const patchRes = await fetch(tusUrl, {
+    const patchRes = await fetch(safeTusUrl, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${serviceKey}`,

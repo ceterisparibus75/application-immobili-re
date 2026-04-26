@@ -35,6 +35,8 @@ import {
  * Un solde positif = le locataire doit de l'argent.
  */
 export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
+  await requireSocietyActionContext(societyId);
+
   const invoices = await prisma.invoice.findMany({
     where: {
       societyId,

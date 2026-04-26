@@ -62,10 +62,11 @@ function ConfirmForm() {
 
   // Validation mot de passe en temps réel
   const passwordChecks = {
-    length: password.length >= 8,
+    length: password.length >= 12,
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),
     digit: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
     match: password === confirmPassword && password.length > 0,
   };
   const allChecksPass = Object.values(passwordChecks).every(Boolean);
@@ -228,10 +229,11 @@ function ConfirmForm() {
           {password.length > 0 && (
             <div className="space-y-1 mt-2">
               {[
-                { check: passwordChecks.length, label: "Au moins 8 caractères" },
+                { check: passwordChecks.length, label: "Au moins 12 caractères" },
                 { check: passwordChecks.uppercase, label: "Une majuscule" },
                 { check: passwordChecks.lowercase, label: "Une minuscule" },
                 { check: passwordChecks.digit, label: "Un chiffre" },
+                { check: passwordChecks.special, label: "Un caractère spécial" },
               ].map(({ check, label }) => (
                 <div key={label} className={`flex items-center gap-2 text-xs ${check ? "text-green-600" : "text-muted-foreground"}`}>
                   <div className={`h-1.5 w-1.5 rounded-full ${check ? "bg-green-500" : "bg-muted-foreground/30"}`} />

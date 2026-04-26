@@ -23,8 +23,13 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caracteres");
+    if (password.length < 12) {
+      setError("Le mot de passe doit contenir au moins 12 caracteres");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setError("Le mot de passe doit contenir une majuscule, une minuscule, un chiffre et un caractere special");
       return;
     }
 
@@ -105,11 +110,11 @@ function ResetPasswordForm() {
           <Input
             id="password"
             type="password"
-            placeholder="Minimum 8 caracteres"
+            placeholder="Minimum 12 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             autoComplete="new-password"
             disabled={isLoading}
             className="rounded-xl h-11"
@@ -125,7 +130,7 @@ function ResetPasswordForm() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             autoComplete="new-password"
             disabled={isLoading}
             className="rounded-xl h-11"

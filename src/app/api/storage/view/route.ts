@@ -97,6 +97,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+  const ext = cleanPath.split(".").pop()?.toLowerCase() ?? "";
+  const forceAttachmentExts = new Set(["svg", "html", "htm", "xml", "xhtml"]);
+  const mustForceDownload = forceDownload || forceAttachmentExts.has(ext);
 
   // Téléchargement direct — contourne les problèmes de CORS et de policies sur les URLs signées
   const { data: blob, error } = await supabase.storage.from(bucket).download(cleanPath);
@@ -109,27 +112,32 @@ export async function GET(req: NextRequest) {
       console.error("[storage/view] signedUrl error:", signedErr?.message);
       return new NextResponse(null, { status: 404 });
     }
+    if (mustForceDownload) {
+      return new NextResponse(null, { status: 404 });
+    }
     const response = NextResponse.redirect(signed.signedUrl);
     response.headers.set("Cache-Control", "private, max-age=3600");
     return response;
   }
 
   const ab = await blob.arrayBuffer();
-  const ext = cleanPath.split(".").pop()?.toLowerCase() ?? "";
   const mimeMap: Record<string, string> = {
     png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-    gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    gif: "image/gif", webp: "image/webp",
     pdf: "application/pdf",
   };
-  const contentType = mimeMap[ext] ?? blob.type ?? "application/octet-stream";
+  const contentType = forceAttachmentExts.has(ext)
+    ? "application/octet-stream"
+    : (mimeMap[ext] ?? blob.type ?? "application/octet-stream");
 
   const fileName = cleanPath.split("/").pop() ?? "document";
   const headers: Record<string, string> = {
     "Content-Type": contentType,
     "Cache-Control": "private, max-age=3600",
     "Content-Length": String(ab.byteLength),
+    "X-Content-Type-Options": "nosniff",
   };
-  if (forceDownload) {
+  if (mustForceDownload) {
     headers["Content-Disposition"] = `attachment; filename="${encodeURIComponent(fileName)}"`;
   }
 

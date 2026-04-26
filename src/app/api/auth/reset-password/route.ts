@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashSync } from "bcryptjs";
 import { getLoginRatelimit } from "@/lib/rate-limit";
+import { strongPasswordSchema } from "@/validations/auth";
 
 export async function POST(request: NextRequest) {
   // Rate limiting
@@ -20,8 +21,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Token et mot de passe requis" }, { status: 400 });
   }
 
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caracteres" }, { status: 400 });
+  const passwordResult = strongPasswordSchema.safeParse(password);
+  if (!passwordResult.success) {
+    return NextResponse.json(
+      { error: passwordResult.error.issues[0]?.message ?? "Mot de passe invalide" },
+      { status: 400 }
+    );
   }
 
   try {

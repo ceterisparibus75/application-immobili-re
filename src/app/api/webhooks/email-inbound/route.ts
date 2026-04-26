@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { Webhook } from "svix";
 
 export const dynamic = "force-dynamic";
 
@@ -36,18 +37,41 @@ function extractEmail(field: string): string {
   return match ? match[1].trim() : field.trim();
 }
 
+function sanitizeReferencePart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+}
+
+function verifyResendWebhook(rawBody: string, request: NextRequest): ResendEmailReceivedEvent | null {
+  const secret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[email-inbound] RESEND_WEBHOOK_SECRET non configuré");
+    return null;
+  }
+
+  const headers = {
+    "svix-id": request.headers.get("svix-id") ?? request.headers.get("webhook-id") ?? "",
+    "svix-timestamp": request.headers.get("svix-timestamp") ?? request.headers.get("webhook-timestamp") ?? "",
+    "svix-signature": request.headers.get("svix-signature") ?? request.headers.get("webhook-signature") ?? "",
+  };
+
+  try {
+    return new Webhook(secret).verify(rawBody, headers) as ResendEmailReceivedEvent;
+  } catch {
+    console.error("[email-inbound] Signature webhook invalide");
+    return null;
+  }
+}
+
 /* ─── Route POST ─────────────────────────────────────────────────────── */
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const rawBody = await request.text();
 
-    let event: ResendEmailReceivedEvent;
-    try {
-      event = JSON.parse(rawBody) as ResendEmailReceivedEvent;
-    } catch {
-      console.error("[email-inbound] Payload JSON invalide");
-      return NextResponse.json({ ok: true });
+    const event = verifyResendWebhook(rawBody, request);
+    if (!event) {
+      const status = process.env.RESEND_WEBHOOK_SECRET ? 401 : 500;
+      return NextResponse.json({ error: "Webhook email non autorisé" }, { status });
     }
 
     if (event.type !== "email.received") {
@@ -130,6 +154,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const buffer = Buffer.from(await dlRes.arrayBuffer());
 
         const safeName = meta.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const attachmentKey = attachmentInfo.id ?? meta.id ?? safeName;
+        const reference = [
+          "FINV-EMAIL",
+          sanitizeReferencePart(email_id),
+          sanitizeReferencePart(attachmentKey),
+        ].join("-");
+
+        const existing = await prisma.supplierInvoice.findFirst({
+          where: {
+            societyId: config.societyId,
+            source: "email_inbound",
+            reference,
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          continue;
+        }
+
         const storagePath = `documents/${config.societyId}/supplier-invoices/${Date.now()}_${safeName}`;
 
         // Upload dans Supabase Storage
@@ -160,7 +203,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             emailSubject: subject,
             receivedAt: new Date(),
             aiStatus: "pending",
-            reference: `FINV-${Date.now()}`,
+            reference,
+            aiRawMetadata: {
+              resendEmailId: email_id,
+              resendAttachmentId: attachmentKey,
+              inboundReceivedAt: event.created_at,
+            },
           },
         });
 

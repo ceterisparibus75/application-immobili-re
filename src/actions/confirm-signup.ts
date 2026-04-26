@@ -2,8 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
+import { randomInt } from "crypto";
 import { z } from "zod";
 import type { ActionResult } from "@/actions/society";
+import { strongPasswordSchema } from "@/validations/auth";
 
 const confirmSignupSchema = z.object({
   email: z.string().email("Adresse email invalide"),
@@ -11,12 +13,7 @@ const confirmSignupSchema = z.object({
     .string()
     .length(6, "Le code doit contenir 6 chiffres")
     .regex(/^\d{6}$/, "Le code doit contenir uniquement des chiffres"),
-  password: z
-    .string()
-    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-    .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
-    .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
-    .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
+  password: strongPasswordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
@@ -97,7 +94,7 @@ export async function resendConfirmationCode(
     }
 
     // Générer un nouveau code
-    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const newCode = randomInt(100000, 1000000).toString();
 
     await prisma.user.update({
       where: { id: user.id },

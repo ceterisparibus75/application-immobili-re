@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
+import { randomInt } from "crypto";
 import { z } from "zod";
 import { sendSignupCodeEmail } from "@/lib/email";
 
@@ -23,7 +24,7 @@ export type RegisterResult = {
 
 /** Génère un code de confirmation à 6 chiffres */
 function generateConfirmationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 export async function registerUser(
