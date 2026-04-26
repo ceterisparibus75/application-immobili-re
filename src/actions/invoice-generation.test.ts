@@ -61,6 +61,7 @@ const INVOICE_ID = "clh3x2z4k0004qh8g7z1y2v3t";
 
 beforeEach(() => {
   mockAuthSession("COMPTABLE", SOCIETY_ID);
+  prismaMock.invoice.findMany.mockResolvedValue([] as never);
 });
 
 // ── createInvoice ─────────────────────────────────────────────────
@@ -506,7 +507,11 @@ describe("generateBatchInvoices", () => {
         lot: { number: "1", building: { name: "Immeuble A" } },
       },
     ] as never);
-    prismaMock.invoice.findFirst.mockResolvedValue({ id: "existing" } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([{
+      leaseId: LEASE_ID,
+      periodStart: new Date("2025-01-01"),
+      periodEnd: new Date("2025-01-31"),
+    }] as never);
 
     const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
     expect(result.success).toBe(true);

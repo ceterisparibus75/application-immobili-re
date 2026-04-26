@@ -460,23 +460,38 @@ export async function generateBatchInvoices(
     let skipped = 0;
     const errors: string[] = [];
 
-    for (const lease of leases) {
-      try {
-        const { periodStart, periodEnd } = computePeriodDates(
-          parsed.data.periodMonth,
-          lease.paymentFrequency
-        );
+    // Calcul des périodes par bail (varie selon la fréquence de paiement)
+    const leaseWithPeriods = leases.map((lease) => ({
+      lease,
+      ...computePeriodDates(parsed.data.periodMonth, lease.paymentFrequency),
+    }));
 
-        const existing = await prisma.invoice.findFirst({
+    // Vérification de doublons en 1 requête groupée (au lieu de N requêtes)
+    const periodStarts = leaseWithPeriods.map((l) => l.periodStart.getTime());
+    const periodEnds = leaseWithPeriods.map((l) => l.periodEnd.getTime());
+    const existingInvoices = leaseWithPeriods.length > 0
+      ? await prisma.invoice.findMany({
           where: {
             societyId,
-            leaseId: lease.id,
+            leaseId: { in: leaseWithPeriods.map((l) => l.lease.id) },
             invoiceType: "APPEL_LOYER",
-            periodStart: { gte: periodStart },
-            periodEnd: { lte: periodEnd },
+            periodStart: { gte: new Date(Math.min(...periodStarts)) },
+            periodEnd: { lte: new Date(Math.max(...periodEnds)) },
           },
-        });
-        if (existing) {
+          select: { leaseId: true, periodStart: true, periodEnd: true },
+        })
+      : [];
+    const invoicePeriodKey = (leaseId: string, periodStart: Date | null, periodEnd: Date | null) =>
+      `${leaseId}:${periodStart?.getTime() ?? "null"}:${periodEnd?.getTime() ?? "null"}`;
+    const alreadyInvoicedPeriods = new Set(
+      existingInvoices
+        .filter((inv) => inv.leaseId)
+        .map((inv) => invoicePeriodKey(inv.leaseId!, inv.periodStart, inv.periodEnd))
+    );
+
+    for (const { lease, periodStart, periodEnd } of leaseWithPeriods) {
+      try {
+        if (alreadyInvoicedPeriods.has(invoicePeriodKey(lease.id, periodStart, periodEnd))) {
           skipped++;
           continue;
         }
