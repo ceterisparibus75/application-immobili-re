@@ -277,20 +277,27 @@ describe("deleteLease", () => {
     expect(r.success).toBe(false)
     expect(r.error).toContain("bail en cours")
   })
-  it("supprime un bail resilie avec succes", async () => {
+  it("archive un bail resilie avec succes", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
     prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, status: "RESILIE", lotId: "lot-1", leaseLots: [{ lotId: "lot-1" }] } as never)
-    prismaMock.lease.delete.mockResolvedValue({} as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
     prismaMock.leaseLot.count.mockResolvedValue(0)
     prismaMock.lot.update.mockResolvedValue({} as never)
     const r = await deleteLease("society-1", VALID_CUID)
     expect(r.success).toBe(true)
-    expect(prismaMock.lease.delete).toHaveBeenCalledWith({ where: { id: VALID_CUID } })
+    expect(prismaMock.lease.update).toHaveBeenCalledWith({
+      where: { id: VALID_CUID },
+      data: expect.objectContaining({
+        deletedAt: expect.any(Date),
+        deletedBy: "user-1",
+        archivedReason: "Suppression utilisateur",
+      }),
+    })
   })
   it("remet le lot en VACANT si plus de bail actif", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
     prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, status: "RESILIE", lotId: "lot-1", leaseLots: [{ lotId: "lot-1" }] } as never)
-    prismaMock.lease.delete.mockResolvedValue({} as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
     prismaMock.leaseLot.count.mockResolvedValue(0)
     prismaMock.lot.update.mockResolvedValue({} as never)
     await deleteLease("society-1", VALID_CUID)
@@ -302,7 +309,7 @@ describe("deleteLease", () => {
   it("ne touche pas le lot si autres baux actifs", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE)
     prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, status: "RESILIE", lotId: "lot-1", leaseLots: [{ lotId: "lot-1" }] } as never)
-    prismaMock.lease.delete.mockResolvedValue({} as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
     prismaMock.leaseLot.count.mockResolvedValue(1)
     await deleteLease("society-1", VALID_CUID)
     expect(prismaMock.lot.update).not.toHaveBeenCalled()

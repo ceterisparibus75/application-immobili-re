@@ -314,7 +314,7 @@ describe("deleteTenant", () => {
     expect(result.error).toContain("bail actif");
   });
 
-  it("bloque la suppression si des factures comptables existent", async () => {
+  it("archive même si des factures comptables existent", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({
       id: TENANT_ID,
       firstName: "Jean",
@@ -323,14 +323,22 @@ describe("deleteTenant", () => {
       leases: [],
     } as never);
     prismaMock.invoice.count.mockResolvedValue(3 as never);
+    prismaMock.$transaction.mockResolvedValue([]);
 
     const result = await deleteTenant(SOCIETY_ID, TENANT_ID);
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("facture(s) comptable(s)");
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenant.update).toHaveBeenCalledWith({
+      where: { id: TENANT_ID },
+      data: expect.objectContaining({
+        isActive: false,
+        deletedAt: expect.any(Date),
+        deletedBy: "user-1",
+        archivedReason: expect.stringContaining("3 facture(s) comptable(s)"),
+      }),
+    });
   });
 
-  it("supprime le locataire si aucun bail actif et aucune facture comptable", async () => {
+  it("archive le locataire si aucun bail actif et aucune facture comptable", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({
       id: TENANT_ID,
       firstName: "Jean",
@@ -344,6 +352,7 @@ describe("deleteTenant", () => {
     const result = await deleteTenant(SOCIETY_ID, TENANT_ID);
     expect(result.success).toBe(true);
     expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(prismaMock.tenant.delete).not.toHaveBeenCalled();
   });
 });
 

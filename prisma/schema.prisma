@@ -940,6 +940,9 @@ model Lease {
   societyId String
   lotId     String
   tenantId  String
+  deletedAt DateTime?
+  deletedBy String?
+  archivedReason String? @db.Text
 
   // Numérotation incrémentale
   leaseNumber String? @unique // Ex: "BAIL-2026-0001"
@@ -1034,6 +1037,7 @@ model Lease {
   supplierInvoices          SupplierInvoice[]
 
   @@index([societyId])
+  @@index([societyId, deletedAt])
   @@index([lotId])
   @@index([tenantId])
   @@index([societyId, status])
@@ -1185,6 +1189,9 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   societyId String
+  deletedAt DateTime?
+  deletedBy String?
+  archivedReason String? @db.Text
 
   entityType TenantEntityType
   isActive   Boolean          @default(true)
@@ -1245,6 +1252,7 @@ model Tenant {
   supplierInvoices  SupplierInvoice[]
 
   @@index([societyId])
+  @@index([societyId, deletedAt])
   @@index([societyId, isActive])
   @@index([email])
 }
@@ -2159,6 +2167,9 @@ model Document {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   societyId String
+  deletedAt DateTime?
+  deletedBy String?
+  archivedReason String? @db.Text
 
   // Polymorphisme via champs nullable
   buildingId String?
@@ -2191,6 +2202,7 @@ model Document {
   thirdPartyStatement ThirdPartyStatement?
 
   @@index([societyId])
+  @@index([societyId, deletedAt])
   @@index([buildingId])
   @@index([lotId])
   @@index([leaseId])

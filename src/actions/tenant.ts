@@ -271,7 +271,7 @@ export async function updateTenant(
     const { id, birthDate, ...data } = parsed.data;
 
     const existing = await prisma.tenant.findFirst({
-      where: { id, societyId },
+      where: { id, societyId, deletedAt: null },
     });
     if (!existing) {
       return { success: false, error: "Locataire introuvable" };
@@ -339,7 +339,7 @@ export async function deactivateTenant(
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const activeLeases = await prisma.lease.count({
-      where: { societyId, tenantId, status: "EN_COURS" },
+      where: { societyId, tenantId, status: "EN_COURS", deletedAt: null },
     });
     if (activeLeases > 0) {
       return {
@@ -402,7 +402,7 @@ export async function getTenantsPaginated(
   const skip = (page - 1) * pageSize;
 
   // Build where clause
-  const where: Record<string, unknown> = { societyId };
+  const where: Record<string, unknown> = { societyId, deletedAt: null };
 
   if (params.search) {
     const q = params.search;
@@ -443,7 +443,7 @@ export async function getTenantsPaginated(
         isActive: true,
         _count: { select: { leases: true } },
         leases: {
-          where: { status: "EN_COURS" },
+          where: { status: "EN_COURS", deletedAt: null },
           select: {
             id: true,
             currentRentHT: true,
@@ -482,11 +482,11 @@ export async function getTenants(societyId: string) {
   if (!context) return [];
 
   return prisma.tenant.findMany({
-    where: { societyId },
+    where: { societyId, deletedAt: null },
     include: {
       _count: { select: { leases: true } },
       leases: {
-        where: { status: "EN_COURS" },
+        where: { status: "EN_COURS", deletedAt: null },
         select: {
           id: true,
           currentRentHT: true,
@@ -511,7 +511,7 @@ export async function getActiveTenants(societyId: string) {
   if (!context) return [];
 
   return prisma.tenant.findMany({
-    where: { societyId, isActive: true },
+    where: { societyId, isActive: true, deletedAt: null },
     select: {
       id: true,
       entityType: true,
@@ -529,9 +529,10 @@ export async function getTenantById(societyId: string, tenantId: string) {
   if (!context) return null;
 
   return prisma.tenant.findFirst({
-    where: { id: tenantId, societyId },
+    where: { id: tenantId, societyId, deletedAt: null },
     include: {
       leases: {
+        where: { deletedAt: null },
         include: {
           lot: {
             include: { building: { select: { id: true, name: true, city: true } } },
@@ -625,7 +626,7 @@ export async function createTenantContact(
       return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
     }
 
-    const tenant = await prisma.tenant.findFirst({ where: { id: tenantId, societyId } });
+    const tenant = await prisma.tenant.findFirst({ where: { id: tenantId, societyId, deletedAt: null } });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
     const contact = await prisma.tenantContact.create({
@@ -698,8 +699,8 @@ export async function deleteTenant(
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const tenant = await prisma.tenant.findFirst({
-      where: { id: tenantId, societyId },
-      include: { leases: { where: { status: "EN_COURS" } } },
+      where: { id: tenantId, societyId, deletedAt: null },
+      include: { leases: { where: { status: "EN_COURS", deletedAt: null } } },
     });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
@@ -707,26 +708,24 @@ export async function deleteTenant(
       return { success: false, error: "Impossible de supprimer un locataire ayant un bail actif. Résiliez d'abord ses baux." };
     }
 
-    // Bloquer si des factures comptables existent — elles doivent être conservées 10 ans (CGI Art. 102 B)
+    // Les factures comptables restent conservees ; l'action archive le locataire.
     const accountingInvoices = await prisma.invoice.count({
       where: { tenantId, status: { not: "BROUILLON" } },
     });
-    if (accountingInvoices > 0) {
-      return {
-        success: false,
-        error: `Ce locataire a ${accountingInvoices} facture(s) comptable(s). Les documents fiscaux doivent être conservés 10 ans. Archivez le locataire plutôt que de le supprimer.`,
-      };
-    }
 
-    // Supprimer les relations puis le locataire en transaction (seuls les brouillons peuvent être supprimés)
     await prisma.$transaction([
-      prisma.tenantContact.deleteMany({ where: { tenantId } }),
-      prisma.tenantDocument.deleteMany({ where: { tenantId } }),
-      prisma.guarantee.deleteMany({ where: { tenantId } }),
-      prisma.tenantPortalAccess.deleteMany({ where: { tenantId } }),
-      prisma.invoice.deleteMany({ where: { tenantId, status: "BROUILLON" } }),
-      prisma.document.updateMany({ where: { tenantId }, data: { tenantId: null } }),
-      prisma.tenant.delete({ where: { id: tenantId } }),
+      prisma.tenantPortalAccess.updateMany({ where: { tenantId }, data: { isActive: false } }),
+      prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          isActive: false,
+          deletedAt: new Date(),
+          deletedBy: context.userId,
+          archivedReason: accountingInvoices > 0
+            ? `Archivage avec ${accountingInvoices} facture(s) comptable(s) conservée(s)`
+            : "Suppression utilisateur",
+        },
+      }),
     ]);
 
     await createAuditLog({
@@ -791,7 +790,7 @@ export async function inviteOrReinviteTenant(
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const tenant = await prisma.tenant.findFirst({
-      where: { id: tenantId, societyId },
+      where: { id: tenantId, societyId, deletedAt: null },
     });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
@@ -858,7 +857,7 @@ export async function syncTenantsToContacts(
 
     // Récupérer tous les locataires de la société
     const tenants = await prisma.tenant.findMany({
-      where: { societyId },
+      where: { societyId, deletedAt: null },
       include: { contact: true },
     });
 
@@ -925,7 +924,7 @@ export async function getTenantsForSelect(): Promise<{ id: string; name: string 
   if (!societyId) return [];
 
   const tenants = await prisma.tenant.findMany({
-    where: { societyId, isActive: true },
+    where: { societyId, isActive: true, deletedAt: null },
     select: { id: true, entityType: true, companyName: true, firstName: true, lastName: true },
     orderBy: [{ companyName: "asc" }, { lastName: "asc" }],
   });
@@ -971,13 +970,13 @@ export async function createManualDebit(
     }
 
     const tenant = await prisma.tenant.findFirst({
-      where: { id: parsed.data.tenantId, societyId },
+      where: { id: parsed.data.tenantId, societyId, deletedAt: null },
     });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
     // Trouver le bail actif si existant
     const activeLease = await prisma.lease.findFirst({
-      where: { societyId, tenantId: parsed.data.tenantId, status: "EN_COURS" },
+      where: { societyId, tenantId: parsed.data.tenantId, status: "EN_COURS", deletedAt: null },
       select: { id: true },
     });
 

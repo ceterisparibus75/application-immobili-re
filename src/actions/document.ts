@@ -5,7 +5,6 @@ import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   getOptionalSocietyActionContext,
@@ -36,6 +35,7 @@ export async function getDocuments(
   return prisma.document.findMany({
     where: {
       societyId,
+      deletedAt: null,
       ...(filters?.buildingId ? { buildingId: filters.buildingId } : {}),
       ...(filters?.lotId ? { lotId: filters.lotId } : {}),
       ...(filters?.leaseId ? { leaseId: filters.leaseId } : {}),
@@ -69,7 +69,7 @@ export async function updateDocument(
     const parsed = updateDocumentSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
 
-    const doc = await prisma.document.findFirst({ where: { id: documentId, societyId } });
+    const doc = await prisma.document.findFirst({ where: { id: documentId, societyId, deletedAt: null } });
     if (!doc) return { success: false, error: "Document introuvable" };
 
     await prisma.document.update({
@@ -107,22 +107,17 @@ export async function deleteDocument(
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-    const doc = await prisma.document.findFirst({ where: { id: documentId, societyId } });
+    const doc = await prisma.document.findFirst({ where: { id: documentId, societyId, deletedAt: null } });
     if (!doc) return { success: false, error: "Document introuvable" };
 
-    // Supprimer le fichier de Supabase Storage (best-effort)
-    const storagePath = doc.fileUrl.includes("storage/v1/object")
-      ? doc.fileUrl.split("/").slice(-3).join("/")
-      : null;
-    if (storagePath) {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-      await supabase.storage
-        .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
-        .remove([storagePath])
-        .catch(() => null);
-    }
-
-    await prisma.document.delete({ where: { id: documentId } });
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: context.userId,
+        archivedReason: "Suppression utilisateur",
+      },
+    });
 
     await createAuditLog({
       societyId,

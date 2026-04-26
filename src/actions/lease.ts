@@ -55,7 +55,7 @@ export async function createLease(
 
     // Vérifier que le locataire appartient à la société
     const tenant = await prisma.tenant.findFirst({
-      where: { id: data.tenantId, societyId, isActive: true },
+      where: { id: data.tenantId, societyId, isActive: true, deletedAt: null },
     });
     if (!tenant) return { success: false, error: "Locataire introuvable ou inactif" };
 
@@ -63,7 +63,7 @@ export async function createLease(
     const existingActiveLeases = await prisma.leaseLot.findMany({
       where: {
         lotId: { in: data.lotIds },
-        lease: { societyId, status: "EN_COURS" },
+        lease: { societyId, status: "EN_COURS", deletedAt: null },
       },
       include: { lot: { select: { number: true } } },
     });
@@ -190,7 +190,7 @@ export async function updateLease(
     const { id, entryDate, exitDate, startDate, endDate, ...data } = parsed.data;
 
     const existing = await prisma.lease.findFirst({
-      where: { id, societyId },
+      where: { id, societyId, deletedAt: null },
     });
     if (!existing) return { success: false, error: "Bail introuvable" };
 
@@ -251,7 +251,7 @@ export async function deleteLease(
     const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
     const lease = await prisma.lease.findFirst({
-      where: { id: leaseId, societyId },
+      where: { id: leaseId, societyId, deletedAt: null },
       select: { id: true, status: true, lotId: true, leaseLots: { select: { lotId: true } } },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
@@ -265,13 +265,19 @@ export async function deleteLease(
 
     const lotIds = lease.leaseLots.map((ll) => ll.lotId);
 
-    // Cascade supprime les LeaseLot automatiquement
-    await prisma.lease.delete({ where: { id: leaseId } });
+    await prisma.lease.update({
+      where: { id: leaseId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: context.userId,
+        archivedReason: "Suppression utilisateur",
+      },
+    });
 
     // Remettre chaque lot en vacant s'il n'a plus de bail actif
     for (const lotId of lotIds) {
       const remainingActive = await prisma.leaseLot.count({
-        where: { lotId, lease: { status: "EN_COURS" } },
+        where: { lotId, lease: { status: "EN_COURS", deletedAt: null } },
       });
       if (remainingActive === 0) {
         await prisma.lot.update({
@@ -305,7 +311,7 @@ export async function getLeases(societyId: string) {
   if (!context) return [];
 
   return prisma.lease.findMany({
-    where: { societyId },
+    where: { societyId, deletedAt: null },
     include: {
       lot: {
         include: {
@@ -379,7 +385,7 @@ export async function getLeaseById(societyId: string, leaseId: string) {
   if (!context) return null;
 
   return prisma.lease.findFirst({
-    where: { id: leaseId, societyId },
+    where: { id: leaseId, societyId, deletedAt: null },
     include: {
       lot: {
         include: {
@@ -550,7 +556,7 @@ export async function getLeaseDocuments(societyId: string, leaseId: string) {
   if (!context) return [];
 
   return prisma.document.findMany({
-    where: { leaseId, societyId },
+    where: { leaseId, societyId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: 20,
     select: {
@@ -586,7 +592,7 @@ export async function createRentSteps(
 
     // Vérifier que le bail appartient à la société
     const lease = await prisma.lease.findFirst({
-      where: { id: leaseId, societyId },
+      where: { id: leaseId, societyId, deletedAt: null },
       select: { id: true, startDate: true, endDate: true },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
@@ -669,14 +675,14 @@ export async function updateRentStep(
     const { id, ...data } = parsed.data;
 
     const step = await prisma.leaseRentStep.findFirst({
-      where: { id, lease: { societyId } },
+      where: { id, lease: { societyId, deletedAt: null } },
       select: { id: true, leaseId: true },
     });
     if (!step) return { success: false, error: "Palier introuvable" };
 
     // Vérifier cohérence avec le bail et les autres paliers
     const lease = await prisma.lease.findFirst({
-      where: { id: step.leaseId, societyId },
+      where: { id: step.leaseId, societyId, deletedAt: null },
       select: { startDate: true, endDate: true },
     });
     if (lease) {
@@ -753,7 +759,7 @@ export async function deleteRentStep(
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const step = await prisma.leaseRentStep.findFirst({
-      where: { id: stepId, lease: { societyId } },
+      where: { id: stepId, lease: { societyId, deletedAt: null } },
       select: { id: true, leaseId: true },
     });
     if (!step) return { success: false, error: "Palier introuvable" };
@@ -783,7 +789,7 @@ export async function getRentSteps(societyId: string, leaseId: string) {
   if (!context) return [];
 
   return prisma.leaseRentStep.findMany({
-    where: { leaseId, lease: { societyId } },
+    where: { leaseId, lease: { societyId, deletedAt: null } },
     orderBy: { position: "asc" },
   });
 }

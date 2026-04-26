@@ -6,17 +6,6 @@ import { UserRole } from "@/generated/prisma/client";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
 
-// Supabase Storage : best-effort, ne doit pas bloquer la suppression
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: vi.fn().mockReturnValue({
-    storage: {
-      from: vi.fn().mockReturnValue({
-        remove: vi.fn().mockResolvedValue({ data: null, error: null }),
-      }),
-    },
-  }),
-}));
-
 import { updateDocument, deleteDocument, getDocuments } from "./document";
 import { createAuditLog } from "@/lib/audit";
 
@@ -109,7 +98,7 @@ describe("updateDocument", () => {
 describe("deleteDocument", () => {
   beforeEach(() => {
     prismaMock.document.findFirst.mockResolvedValue(buildDocument() as never);
-    prismaMock.document.delete.mockResolvedValue(buildDocument() as never);
+    prismaMock.document.update.mockResolvedValue(buildDocument() as never);
   });
 
   it("erreur si non authentifié", async () => {
@@ -133,32 +122,28 @@ describe("deleteDocument", () => {
     expect(r.error).toBe("Document introuvable");
   });
 
-  it("supprime le document en base et crée un audit log", async () => {
+  it("archive le document en base et crée un audit log", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const r = await deleteDocument(SOCIETY_ID, DOC_ID);
     expect(r.success).toBe(true);
-    expect(prismaMock.document.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: DOC_ID } })
-    );
+    expect(prismaMock.document.update).toHaveBeenCalledWith({
+      where: { id: DOC_ID },
+      data: expect.objectContaining({
+        deletedAt: expect.any(Date),
+        deletedBy: "user-1",
+        archivedReason: "Suppression utilisateur",
+      }),
+    });
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "DELETE", entity: "Document", entityId: DOC_ID })
     );
   });
 
-  it("ne plante pas si la suppression Supabase échoue (best-effort)", async () => {
+  it("ne supprime pas le fichier physique lors de l'archivage", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
-    const { createClient } = await import("@supabase/supabase-js");
-    vi.mocked(createClient).mockReturnValueOnce({
-      storage: {
-        from: vi.fn().mockReturnValue({
-          remove: vi.fn().mockRejectedValue(new Error("Supabase down")),
-        }),
-      },
-    } as never);
-
     const r = await deleteDocument(SOCIETY_ID, DOC_ID);
-    // La suppression Supabase est best-effort : l'action doit quand même réussir
     expect(r.success).toBe(true);
+    expect(prismaMock.document.delete).not.toHaveBeenCalled();
   });
 
   it("retourne une erreur générique si la BDD échoue dans deleteDocument", async () => {
@@ -234,20 +219,20 @@ describe("updateDocument — expiresAt fournie (ligne 80)", () => {
   });
 });
 
-describe("deleteDocument — fileUrl sans storage/v1/object (ligne 114)", () => {
+describe("deleteDocument — archivage logique", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("storagePath null si fileUrl ne contient pas 'storage/v1/object'", async () => {
+  it("archive aussi les documents dont l'URL n'est pas une URL Supabase Storage", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.document.findFirst.mockResolvedValue({
       id: DOC_ID, societyId: SOCIETY_ID, fileUrl: "https://cdn.example.com/file.pdf",
     } as never);
-    prismaMock.document.delete.mockResolvedValue({} as never);
+    prismaMock.document.update.mockResolvedValue({} as never);
 
     const r = await deleteDocument(SOCIETY_ID, DOC_ID);
     expect(r.success).toBe(true);
-    // storagePath = null → createClient n'est pas appelé
-    const { createClient } = await import("@supabase/supabase-js");
-    expect(vi.mocked(createClient)).not.toHaveBeenCalled();
+    expect(prismaMock.document.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+    }));
   });
 });
