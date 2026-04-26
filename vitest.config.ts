@@ -12,11 +12,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/actions/**", "src/validations/**"],
-      // Phase 1 covers lib/utils, lib/encryption, lib/permissions, invoice/tenant actions
-      // and all validation schemas. Actions requiring DB/auth will be covered in Phase 2.
-      // Global thresholds reflect Phase 1 scope; Phase 2 will raise these to 70%+.
-      // Thresholds set below measured values to guard against regression with room for variation.
-      thresholds: { lines: 10, functions: 12, statements: 10, branches: 8 },
+      thresholds: { lines: 75, functions: 72, statements: 75, branches: 70 },
     },
   },
 })

@@ -46,6 +46,7 @@ const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
   "Dataroom",
   // Communication
   "Announcement",
+  "Contact",
   // RGPD
   "GdprRequest",
   // Évaluation
