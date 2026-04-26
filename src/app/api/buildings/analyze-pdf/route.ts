@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/lib/env";
 
 export const maxDuration = 60;
 
@@ -42,10 +43,14 @@ Règles :
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
     if (context instanceof NextResponse) return context;
+    if (!env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "Analyse IA non configurée" }, { status: 503 });
+    }
+
+    let supabase: ReturnType<typeof createClient> | null = null;
+    const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     let pdfBuffer: Buffer;
     let tempStoragePath: string | null = null;
@@ -58,9 +63,14 @@ export async function POST(req: NextRequest) {
       if (!storagePath) {
         return NextResponse.json({ error: "storagePath requis" }, { status: 400 });
       }
+      if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+        return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+      }
+
+      supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
       const { data: blob, error: downloadError } = await supabase.storage
-        .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+        .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
         .download(storagePath);
 
       if (downloadError || !blob) {
@@ -203,9 +213,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Supprimer le fichier temporaire Supabase après analyse
-    if (tempStoragePath) {
+    if (tempStoragePath && supabase) {
       await supabase.storage
-        .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+        .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
         .remove([tempStoragePath]);
     }
 
