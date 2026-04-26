@@ -51,8 +51,8 @@ function calculateNewRent(
   const alertPct = indexType ? (INDEX_ALERT_THRESHOLD_PCT[indexType] ?? 20) : 20;
   const variationPct = ((newIndexValue - baseIndexValue) / baseIndexValue) * 100;
   if (Math.abs(variationPct) > alertPct) {
-    console.warn(
-      `[calculateNewRent] Variation ${indexType ?? "indice"} inhabituelle : ${variationPct.toFixed(2)}% (seuil alerte: ${alertPct}%). Vérifier la cohérence des indices INSEE.`
+    console.error(
+      `[calculateNewRent] Alerte variation ${indexType ?? "indice"} inhabituelle : ${variationPct.toFixed(2)}% (seuil alerte: ${alertPct}%). Vérifier la cohérence des indices INSEE.`
     );
   }
 
