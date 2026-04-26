@@ -162,18 +162,12 @@ export async function deleteBuilding(
   try {
     const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
-    // Vérifier l'absence de baux actifs sur les lots de cet immeuble
-    const activeLeases = await prisma.lease.count({
-      where: {
-        societyId,
-        lot: { buildingId },
-        status: "EN_COURS",
-      },
-    });
-    if (activeLeases > 0) {
+    // Vérifier l'absence de lots (la relation Lot→Building est Restrict en base)
+    const lotCount = await prisma.lot.count({ where: { buildingId } });
+    if (lotCount > 0) {
       return {
         success: false,
-        error: `Impossible de supprimer : ${activeLeases} bail(aux) actif(s) sur cet immeuble`,
+        error: `Impossible de supprimer : ${lotCount} lot(s) rattaché(s) à cet immeuble. Supprimez d'abord chaque lot.`,
       };
     }
 

@@ -894,7 +894,7 @@ model Lot {
   marketRentValue Float? // Valeur locative de marché
   currentRent     Float? // Loyer pratiqué
 
-  building             Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  building             Building             @relation(fields: [buildingId], references: [id], onDelete: Restrict)
   leases               Lease[]
   leaseLots            LeaseLot[]
   announcements        Announcement[]
@@ -1634,6 +1634,7 @@ model Invoice {
   @@unique([societyId, invoiceNumber])
   @@index([societyId])
   @@index([societyId, status])
+  @@index([societyId, status, dueDate])
   @@index([societyId, invoiceType, status])
   @@index([societyId, issueDate])
   @@index([tenantId])
