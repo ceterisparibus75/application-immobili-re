@@ -40,6 +40,7 @@ Un premier lot de corrections a été appliqué après cet audit :
 - F-004 : les configs Sentry server/edge n'ont plus de DSN codé en dur, désactivent `sendDefaultPii`, désactivent l'envoi de logs et réduisent le sampling.
 - F-008 : les formats actifs comme SVG/HTML/XML sont forcés en téléchargement avec `nosniff`.
 - F-009 : Next.js, NextAuth, Sentry, Resend et Anthropic SDK ont été mis à jour ; `defu` et `picomatch` sont forcés via `overrides`. `npm audit --omit=dev` ne remonte plus de vulnérabilité haute ou critique, mais conserve 9 modérées à arbitrer.
+- F-003 : une première migration RLS versionnée a été ajoutée dans `prisma/migration-rls-tenant-policies-2026-04-26.sql`. Elle active les politiques par `app.current_society_id`, sans `FORCE ROW LEVEL SECURITY` tant que le contexte tenant n'est pas branché côté Prisma.
 - F-011 : inscription et réinitialisation utilisent la même politique de mot de passe fort ; les codes de confirmation utilisent `crypto.randomInt`.
 - F-012 : `computeTenantBalance` vérifie désormais l'accès société côté serveur.
 - Qualité : `npm run lint`, `npx tsc --noEmit` et `npm test` passent après correction.
