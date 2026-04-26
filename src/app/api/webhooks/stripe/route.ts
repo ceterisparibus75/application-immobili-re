@@ -3,8 +3,12 @@ import { getStripe, planIdFromPriceId } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import type Stripe from "stripe";
 import { env } from "@/lib/env";
+import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await enforceWebhookRateLimit(request, "stripe");
+  if (rateLimitResponse) return rateLimitResponse;
+
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 

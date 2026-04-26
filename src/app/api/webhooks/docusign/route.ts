@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { validateWebhookSignature } from "@/lib/docusign";
 import { createAuditLog } from "@/lib/audit";
 import type { SignatureStatus } from "@/generated/prisma/client";
+import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
 
 // Correspondance statuts DocuSign -> enum interne
 const STATUS_MAP: Record<string, SignatureStatus> = {
@@ -14,6 +15,9 @@ const STATUS_MAP: Record<string, SignatureStatus> = {
 };
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const rateLimitResponse = await enforceWebhookRateLimit(req, "docusign");
+  if (rateLimitResponse) return rateLimitResponse;
+
   // 1. Lire le body brut pour la validation HMAC
   const rawBody = Buffer.from(await req.arrayBuffer());
 

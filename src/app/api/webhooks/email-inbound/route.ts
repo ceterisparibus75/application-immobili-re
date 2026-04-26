@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { Webhook } from "svix";
+import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,9 @@ function verifyResendWebhook(rawBody: string, request: NextRequest): ResendEmail
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const rateLimitResponse = await enforceWebhookRateLimit(request, "email-inbound");
+    if (rateLimitResponse) return rateLimitResponse;
+
     const rawBody = await request.text();
 
     const event = verifyResendWebhook(rawBody, request);

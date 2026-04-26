@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateGocardlessWebhook } from "@/lib/gocardless-sepa";
 import { createInternalNotification as createNotification } from "@/lib/notifications-internal";
+import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
 
 export async function POST(req: NextRequest) {
+  const rateLimitResponse = await enforceWebhookRateLimit(req, "gocardless");
+  if (rateLimitResponse) return rateLimitResponse;
+
   const rawBody = Buffer.from(await req.arrayBuffer());
   const signature = req.headers.get("webhook-signature") ?? "";
 
