@@ -24,6 +24,11 @@ jobs:
       - run: npx prisma generate
       - run: npm run lint
       - run: npx tsc --noEmit
+      - name: Valider le schéma Prisma et vérifier les migrations
+        run: |
+          npx prisma validate
+          test -f prisma/migrations/migration_lock.toml || (echo "ERROR: prisma/migrations/ manquant — utiliser db:migrate, pas db:push" && exit 1)
+          test $(ls prisma/migrations/*.sql prisma/migrations/**/*.sql 2>/dev/null | wc -l) -gt 0 || (echo "ERROR: Aucun fichier SQL dans prisma/migrations/" && exit 1)
 
   test:
     name: Unit Tests
