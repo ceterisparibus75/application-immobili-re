@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { withRetry } from "@/lib/retryable";
 
 export interface SupplierInvoiceAIResult {
   supplierName: string | null;
@@ -108,19 +109,21 @@ Règles importantes :
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            buildContentBlock(buffer, mimeType),
-            { type: "text", text: prompt },
-          ],
-        },
-      ],
-    });
+    const response = await withRetry(() =>
+      anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: [
+              buildContentBlock(buffer, mimeType),
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      })
+    );
 
     const raw = response.content.find((b) => b.type === "text")?.text ?? "{}";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);

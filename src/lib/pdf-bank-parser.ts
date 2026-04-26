@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import type { ImportRow } from "@/actions/bank";
+import { withRetry } from "@/lib/retryable";
 
 const PROMPT = `Tu es un expert en analyse de relevés bancaires français.
 Analyse ce document PDF et extrait TOUTES les opérations bancaires.
@@ -46,26 +47,28 @@ export async function parsePdfBankStatement(
   const anthropic = new Anthropic({ apiKey });
   const b64 = fileBuffer.toString("base64");
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: b64,
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8192,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: b64,
+              },
             },
-          },
-          { type: "text", text: PROMPT },
-        ],
-      },
-    ],
-  });
+            { type: "text", text: PROMPT },
+          ],
+        },
+      ],
+    })
+  );
 
   const raw = response.content.find((b) => b.type === "text")?.text ?? "[]";
 

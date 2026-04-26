@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { jsonrepair } from "jsonrepair";
 import { prisma } from "@/lib/prisma";
 import { logAiCall } from "@/lib/ai-logger";
+import { withRetry } from "@/lib/retryable";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -315,12 +316,14 @@ Règles :
 
   const start = Date.now();
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: "Tu es un analyste financier spécialisé en gestion locative française. Tu analyses les historiques de paiement pour prédire les risques d'impayés. Réponds uniquement en JSON valide.",
-      messages: [{ role: "user", content: prompt }],
-    });
+    const response = await withRetry(() =>
+      anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: "Tu es un analyste financier spécialisé en gestion locative française. Tu analyses les historiques de paiement pour prédire les risques d'impayés. Réponds uniquement en JSON valide.",
+        messages: [{ role: "user", content: prompt }],
+      })
+    );
     logAiCall({
       provider: "anthropic",
       model: "claude-sonnet-4-6",

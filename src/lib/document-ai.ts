@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/lib/env";
 import { logAiCall } from "@/lib/ai-logger";
+import { withRetry } from "@/lib/retryable";
 
 const CATEGORY_HINTS: Record<string, string> = {
   bail: "Extrais : loyer mensuel (nombre), charges (nombre), date debut bail, date fin bail, type bail (meuble/non meuble), surface (m2), depot garantie, destination des locaux (HABITATION/BUREAU/COMMERCE/ACTIVITE/ENTREPOT/INDUSTRIEL/PROFESSIONNEL/MIXTE/PARKING/TERRAIN/AGRICOLE/HOTELLERIE/EQUIPEMENT/AUTRE).",
@@ -64,19 +65,21 @@ Si une information n est pas dans le document, ne l inclus pas.`;
 
   const start = Date.now();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: [
-          buildContentBlock(fileBuffer, mimeType),
-          { type: "text", text: prompt },
-        ],
-      },
-    ],
-  });
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "user",
+          content: [
+            buildContentBlock(fileBuffer, mimeType),
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+    })
+  );
   logAiCall({
     provider: "anthropic",
     model: "claude-sonnet-4-6",
@@ -120,12 +123,14 @@ export async function chatWithDocument(
 
   const start = Date.now();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: "Tu es un assistant specialise en gestion immobiliere francaise. Reponds en francais, de facon concise et precise, en te basant uniquement sur le contenu du document fourni.",
-    messages: apiMessages,
-  });
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: "Tu es un assistant specialise en gestion immobiliere francaise. Reponds en francais, de facon concise et precise, en te basant uniquement sur le contenu du document fourni.",
+      messages: apiMessages,
+    })
+  );
   logAiCall({
     provider: "anthropic",
     model: "claude-sonnet-4-6",

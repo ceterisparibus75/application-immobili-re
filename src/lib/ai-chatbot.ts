@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { logAiCall } from "@/lib/ai-logger";
+import { withRetry } from "@/lib/retryable";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -77,15 +78,17 @@ export async function chatWithAssistant(
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   const start = Date.now();
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2048,
-    system: buildSystemPrompt(context),
-    messages: messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    })),
-  });
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2048,
+      system: buildSystemPrompt(context),
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+    })
+  );
   logAiCall({
     provider: "anthropic",
     model: "claude-sonnet-4-6",

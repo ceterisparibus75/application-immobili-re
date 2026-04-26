@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import { env } from "@/lib/env";
 import { logAiCall } from "@/lib/ai-logger";
+import { withRetry } from "@/lib/retryable";
 
 // Types pour les resultats d analyse IA
 
@@ -107,19 +108,21 @@ Les alertes doivent etre en francais et precises (montant attendu vs montant tro
 
   const start = Date.now();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: [
-          buildContentBlock(fileBuffer, mimeType),
-          { type: "text", text: prompt },
-        ],
-      },
-    ],
-  });
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1500,
+      messages: [
+        {
+          role: "user",
+          content: [
+            buildContentBlock(fileBuffer, mimeType),
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+    })
+  );
   logAiCall({
     provider: "anthropic",
     model: "claude-sonnet-4-6",
@@ -181,19 +184,21 @@ Si une information n est pas trouvee, mets null pour les champs texte et 0 pour 
 
   const start = Date.now();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: [
-          buildContentBlock(fileBuffer, mimeType),
-          { type: "text", text: prompt },
-        ],
-      },
-    ],
-  });
+  const response = await withRetry(() =>
+    anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "user",
+          content: [
+            buildContentBlock(fileBuffer, mimeType),
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+    })
+  );
   logAiCall({
     provider: "anthropic",
     model: "claude-sonnet-4-6",
