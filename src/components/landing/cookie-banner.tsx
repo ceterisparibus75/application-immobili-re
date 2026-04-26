@@ -1,10 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Cookie } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "cookie-consent";
+const VISITOR_ID_KEY = "cookie-visitor-id";
+
+function getOrCreateVisitorId(): string {
+  try {
+    const existing = localStorage.getItem(VISITOR_ID_KEY);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    localStorage.setItem(VISITOR_ID_KEY, id);
+    return id;
+  } catch {
+    return "unknown";
+  }
+}
+
+async function recordConsent(decision: "accepted" | "rejected", visitorId: string) {
+  try {
+    await fetch("/api/consent/cookie", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision, visitorId }),
+    });
+  } catch {
+    // Échec silencieux : le localStorage reste la source de vérité locale
+  }
+}
 
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
@@ -15,15 +40,17 @@ export function CookieBanner() {
     if (!stored) setVisible(true);
   }, []);
 
-  function accept() {
+  const accept = useCallback(async () => {
     localStorage.setItem(STORAGE_KEY, "accepted");
     setVisible(false);
-  }
+    await recordConsent("accepted", getOrCreateVisitorId());
+  }, []);
 
-  function reject() {
+  const reject = useCallback(async () => {
     localStorage.setItem(STORAGE_KEY, "rejected");
     setVisible(false);
-  }
+    await recordConsent("rejected", getOrCreateVisitorId());
+  }, []);
 
   if (!visible) return null;
 
