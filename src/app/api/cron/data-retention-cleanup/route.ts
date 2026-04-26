@@ -39,7 +39,24 @@ async function runDataRetentionCleanup() {
     },
   });
 
-  // 3. Anonymisation des locataires archivés > 5 ans après fin de dernier bail
+  // 3. Consentements révoqués > 3 ans — suppression définitive (RGPD : 3 ans après révocation)
+  const { count: consentDeleted } = await prisma.consent.deleteMany({
+    where: {
+      isGranted: false,
+      revokedAt: { lt: threeYearsAgo },
+    },
+  });
+
+  // 4. Notifications lues > 6 mois — suppression pour éviter accumulation
+  const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+  const { count: notificationsDeleted } = await prisma.notification.deleteMany({
+    where: {
+      isRead: true,
+      createdAt: { lt: sixMonthsAgo },
+    },
+  });
+
+  // 5. Anonymisation des locataires archivés > 5 ans après fin de dernier bail
   //    Condition : isActive = false ET tous les baux terminés il y a > 5 ans
   const tenantsToAnonymize = await prisma.tenant.findMany({
     where: {
@@ -91,5 +108,5 @@ async function runDataRetentionCleanup() {
     anonymized++;
   }
 
-  return { auditDeleted, gdprDeleted, anonymized };
+  return { auditDeleted, gdprDeleted, consentDeleted, notificationsDeleted, anonymized };
 }
