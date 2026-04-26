@@ -66,12 +66,17 @@ Limites : pas d'accès aux consoles Supabase/Vercel/Sentry, aux bases de product
 
 **Statut global après lot 3 :** 4 271+ tests passent. Lint et TypeScript OK. Arbre git propre.
 
+**Lot 4 (session 4) :**
+
+- F-018 : `LegalEventType` (10 types) + `LegalEventStatus` (4 états) ajoutés au schéma Prisma ; modèle `LegalEvent` créé (scopé `societyId + leaseId`) ; actions CRUD complètes dans `src/actions/legal-event.ts` ; validation Zod dans `src/validations/legal-event.ts` ; `resolvedAt` posé automatiquement lors du passage à RESOLU/CLASSE ; 10 tests unitaires passants.
+- F-019 : guard dans `createJournalEntry` : rejette si l'exercice fiscal est clôturé (`isClosed = true`) ou introuvable ; `validateJournalEntry()` ajouté — transition BROUILLON → VALIDEE avec `isValidated=true + validatedById` ; les écritures VALIDEE et CLOTUREE sont immuables ; 9 nouveaux tests dans `accounting.test.ts` (80 tests total).
+
+**Statut global après lot 4 :** 80 tests accounting passent, 10 tests legal-event passent. TypeScript OK. Commits poussés.
+
 **Restant à traiter (long terme) :**
 
 - F-005 : baseline Prisma Migrate (effort L)
 - F-007 : validation magic bytes uploads signés/TUS (effort M)
-- F-018 : module événements juridiques bail commercial (effort L)
-- F-019 : comptabilité append-only + clôtures (effort L)
 
 ---
 
