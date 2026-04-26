@@ -543,6 +543,7 @@ model Society {
   transactionAutoTags     TransactionAutoTag[]
   supplierInboxConfig     SupplierInboxConfig?
   supplierInvoices        SupplierInvoice[]
+  legalEvents             LegalEvent[]
 
   // Numérotation baux
   leasePrefix       String? // Préfixe numérotation bail (ex: "BAIL")
@@ -1035,6 +1036,7 @@ model Lease {
   thirdPartyStatementLines  ThirdPartyStatementLine[]
   thirdPartyStatementLeases ThirdPartyStatementLease[]
   supplierInvoices          SupplierInvoice[]
+  legalEvents               LegalEvent[]
 
   @@index([societyId])
   @@index([societyId, deletedAt])
@@ -1113,6 +1115,54 @@ model LeaseAmendment {
 
   @@unique([leaseId, amendmentNumber])
   @@index([leaseId])
+}
+
+/// Type d'événement juridique bail commercial
+enum LegalEventType {
+  CESSION
+  CONGE
+  EVICTION
+  COMMANDEMENT_PAYER
+  ACTE_HUISSIER
+  RENOUVELLEMENT_CONTESTE
+  SOUS_LOCATION
+  DESPECIALISATION
+  MISE_EN_DEMEURE
+  AUTRE
+}
+
+/// Statut d'un événement juridique
+enum LegalEventStatus {
+  OUVERT
+  EN_COURS
+  RESOLU
+  CLASSE
+}
+
+/// Événement juridique lié à un bail commercial
+model LegalEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  leaseId   String
+
+  type         LegalEventType
+  title        String
+  description  String?          @db.Text
+  eventDate    DateTime
+  dueDate      DateTime?
+  status       LegalEventStatus @default(OUVERT)
+  resolvedAt   DateTime?
+  resolvedNote String?          @db.Text
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@index([societyId])
+  @@index([leaseId])
+  @@index([societyId, type])
+  @@index([societyId, status])
 }
 
 /// Mouvement sur dépôt de garantie
