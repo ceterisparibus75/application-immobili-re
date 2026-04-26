@@ -17,7 +17,7 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
-import { PLANS, getPlanLimits } from "./stripe";
+import { PLANS, getPlanLimits, planIdFromPriceId } from "./stripe";
 
 describe("PLANS", () => {
   it("STARTER a 20 lots max et 1 société", () => {
@@ -53,5 +53,23 @@ describe("getPlanLimits", () => {
   it("retourne les limites du plan ENTERPRISE", () => {
     const limits = getPlanLimits("ENTERPRISE");
     expect(limits.maxLots).toBe(-1);
+  });
+});
+
+describe("planIdFromPriceId", () => {
+  it("retourne STARTER pour le price ID mensuel (B8 arm0, B9 arm0)", () => {
+    expect(planIdFromPriceId("price_starter_monthly")).toBe("STARTER");
+  });
+
+  it("retourne PRO pour le price ID annuel", () => {
+    expect(planIdFromPriceId("price_pro_yearly")).toBe("PRO");
+  });
+
+  it("retourne ENTERPRISE pour le price ID mensuel", () => {
+    expect(planIdFromPriceId("price_enterprise_monthly")).toBe("ENTERPRISE");
+  });
+
+  it("retourne null si aucun plan ne correspond (B8 arm1 — if jamais vrai)", () => {
+    expect(planIdFromPriceId("price_inconnu")).toBeNull();
   });
 });

@@ -201,6 +201,18 @@ describe("recordPayment", () => {
     const result = await recordPayment(SOCIETY_ID, validPaymentInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de l'enregistrement du paiement" });
   });
+
+  it("tenantId null — revalidatePath locataire non appelé (B8 arm1 L82)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(
+      makeInvoice({ tenantId: null, totalTTC: 800, payments: [], invoiceType: "CHARGES" }) as never
+    );
+    prismaMock.payment.create.mockResolvedValue({ id: "payment-no-tenant" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await recordPayment(SOCIETY_ID, validPaymentInput);
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── sendInvoiceToTenant ────────────────────────────────────────
@@ -290,6 +302,48 @@ describe("sendInvoiceToTenant", () => {
 
     const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(true);
+  });
+
+  it("PERSONNE_MORALE companyName null → tenantName '—' (B55 arm1 L391)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({
+      tenant: { email: "contact@sci.fr", billingEmail: null, firstName: null, lastName: null, entityType: "PERSONNE_MORALE", companyName: null },
+    }) as never);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("PERSONNE_PHYSIQUE firstName/lastName null → tenantName '—' (B56/B57/B58 L392)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({
+      tenant: { email: "jean@example.com", billingEmail: null, firstName: null, lastName: null, entityType: "PERSONNE_PHYSIQUE", companyName: null },
+    }) as never);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("society.name null → societyName '' (B60 arm1 L405)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ society: { name: null } }) as never);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("result.error absent → 'Erreur d'envoi' par défaut (B62 arm1 L409)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ lines: [] }) as never);
+    vi.mocked(sendInvoiceEmail).mockResolvedValueOnce({ success: false } as never);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Erreur d'envoi");
+  });
+
+  it("exception non-Error → String(error) (B65 arm1 L424)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockRejectedValue("raw string error" as never);
+    const result = await sendInvoiceToTenant(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("raw string error");
   });
 });
 
@@ -803,6 +857,376 @@ describe("generateAndSendQuittance", () => {
       const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
       expect(result.success).toBe(true);
       await vi.waitFor(() => expect(supabaseStorageMock.download).toHaveBeenCalledWith("logos/logo.jpeg"), { timeout: 5000 });
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("le callback .catch de generateQuittancePdfAndSend couvre la ligne 182", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0006qh8g7z1y2v3t";
+    const spyError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({
+        lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0, totalHT: 800, totalVAT: 0, totalTTC: 800 }],
+      }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockRejectedValueOnce(new Error("DB failure inside generateQuittancePdfAndSend"));
+
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(spyError).toHaveBeenCalledWith(
+        "[generateAndSendQuittance] Envoi email/PDF échoué:",
+        expect.any(Error)
+      ),
+      { timeout: 3000 }
+    );
+
+    spyError.mockRestore();
+  });
+
+  it("paidInvoice.tenantId null → ligne 187 FALSE, revalidatePath locataire non appelé (B16 arm1)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0011qh8g7z1y2v3b";
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ tenantId: null }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(null as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+    expect(result.data?.quittanceId).toBe(QUITTANCE_ID);
+
+    // Attendre que le background termine (quittance null → early return après findFirst)
+    await vi.waitFor(
+      () => expect(prismaMock.invoice.findFirst.mock.calls).toHaveLength(3),
+      { timeout: 3000 }
+    );
+  });
+
+  it("tenant sans email dans generateQuittancePdfAndSend → ligne 228 early return (B19 arm0)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0012qh8g7z1y2v3c";
+    const noEmailQuittance = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      tenant: { ...makeFullQuittance(QUITTANCE_ID).tenant, email: null, billingEmail: null },
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(noEmailQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(prismaMock.invoice.findFirst.mock.calls).toHaveLength(3),
+      { timeout: 3000 }
+    );
+  });
+
+  it("ibanEncrypted/bicEncrypted non null → décryptage IBAN et BIC (B20/B21 arm0)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0013qh8g7z1y2v3d";
+    const quittanceWithBank = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      society: { ...makeFullQuittance(QUITTANCE_ID).society, ibanEncrypted: "enc-iban", bicEncrypted: "enc-bic" },
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(quittanceWithBank as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+  });
+
+  it("tenant PERSONNE_MORALE dans generateQuittancePdfAndSend → tenantName depuis companyName (B32 arm0 L263)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0014qh8g7z1y2v3e";
+    const moralQuittance = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      tenant: {
+        entityType: "PERSONNE_MORALE", companyName: "SCI Exemple",
+        firstName: null, lastName: null,
+        billingEmail: null, email: "contact@sci.fr",
+        personalAddress: null, companyAddress: "10 rue Rivoli, 75001 Paris",
+      },
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(moralQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+    const lastCall = sendReceiptEmailMock.mock.calls[sendReceiptEmailMock.mock.calls.length - 1][0];
+    expect(lastCall.tenantName).toBe("SCI Exemple");
+  });
+
+  it("PERSONNE_MORALE companyName null → tenantName '—' dans background (B33 arm1 L264)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0015qh8g7z1y2v3f";
+    const moralNullQuittance = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      tenant: {
+        entityType: "PERSONNE_MORALE", companyName: null,
+        firstName: null, lastName: null,
+        billingEmail: null, email: "contact@sci.fr",
+        personalAddress: null, companyAddress: null,
+      },
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(moralNullQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+    const lastCall = sendReceiptEmailMock.mock.calls[sendReceiptEmailMock.mock.calls.length - 1][0];
+    expect(lastCall.tenantName).toBe("—");
+  });
+
+  it("PERSONNE_PHYSIQUE firstName/lastName null → tenantName '—' dans background (B34/B35/B36 arm1 L265)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0016qh8g7z1y2v3g";
+    const physNullQuittance = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      tenant: {
+        entityType: "PERSONNE_PHYSIQUE", companyName: null,
+        firstName: null, lastName: null,
+        billingEmail: null, email: "jean@example.com",
+        personalAddress: null, companyAddress: null,
+      },
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(physNullQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+    const lastCall = sendReceiptEmailMock.mock.calls[sendReceiptEmailMock.mock.calls.length - 1][0];
+    expect(lastCall.tenantName).toBe("—");
+  });
+
+  it("periodStart/periodEnd null + payments vide + leaseId null dans background (B38/B39/B47 arm1)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0017qh8g7z1y2v3h";
+    const sparseQuittance = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      periodStart: null,
+      periodEnd: null,
+      leaseId: null,
+      lease: null,
+      payments: [],
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(sparseQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+  });
+
+  it("society null dans background → B40 arm1 L282 + societyName '' B48 arm1 L323", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0018qh8g7z1y2v3i";
+    const noSocQuittance = { ...makeFullQuittance(QUITTANCE_ID), society: null };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(noSocQuittance as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+    const lastCall = sendReceiptEmailMock.mock.calls[sendReceiptEmailMock.mock.calls.length - 1][0];
+    expect(lastCall.societyName).toBe("");
+  });
+
+  it("payment.method null dans background → B44 arm1 L297 (p.method ?? null right branch)", async () => {
+    const QUITTANCE_ID = "clh3x2z4k0019qh8g7z1y2v3j";
+    const quittanceNullMethod = {
+      ...makeFullQuittance(QUITTANCE_ID),
+      payments: [{ paidAt: new Date("2025-01-10"), method: null, amount: 800 }],
+    };
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(quittanceNullMethod as never);
+    prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const callsBefore = sendReceiptEmailMock.mock.calls.length;
+    const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+    expect(result.success).toBe(true);
+
+    await vi.waitFor(
+      () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+  });
+
+  it("URL http sans correspondance regex → storagePath vide → pas de download (B28 arm1, B29 arm1)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k001aqh8g7z1y2v30";
+      const httpLogoNoMatch = "https://other.domain.com/logo.png";
+      const quittanceHttpLogo = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        society: { ...makeFullQuittance(QUITTANCE_ID).society, logoUrl: httpLogoNoMatch },
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittanceHttpLogo as never);
+      prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({} as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const callsBefore = sendReceiptEmailMock.mock.calls.length;
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+      await vi.waitFor(
+        () => expect(sendReceiptEmailMock.mock.calls.length).toBeGreaterThan(callsBefore),
+        { timeout: 5000 }
+      );
+      expect(supabaseStorageMock.download).not.toHaveBeenCalledWith("");
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("logo PNG local avec blob → mime image/png (B27 arm1, B30 arm0, B31 arm0)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k001bqh8g7z1y2v31";
+      const fakePngBlob = { arrayBuffer: vi.fn().mockResolvedValue(Buffer.from("png-data").buffer) };
+      supabaseStorageMock.download.mockResolvedValueOnce({ data: fakePngBlob });
+
+      const quittancePngLogo = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        society: { ...makeFullQuittance(QUITTANCE_ID).society, logoUrl: "logos/logo.png" },
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({ lines: [] }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittancePngLogo as never);
+      prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({} as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const callsBefore = renderToBufferMock.mock.calls.length;
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+      await vi.waitFor(
+        () => expect(renderToBufferMock.mock.calls.length).toBeGreaterThan(callsBefore),
+        { timeout: 5000 }
+      );
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  });
+
+  it("quittance sans leaseId → spread vide dans document.create (B50 arm1 L346)", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
+    try {
+      const QUITTANCE_ID = "clh3x2z4k001cqh8g7z1y2v32";
+      const quittanceNoLease = {
+        ...makeFullQuittance(QUITTANCE_ID),
+        leaseId: null,
+        lease: null,
+      };
+      prismaMock.invoice.findFirst
+        .mockResolvedValueOnce(makeInvoice({ lines: [], leaseId: null, lease: null }) as never)
+        .mockResolvedValueOnce(null as never)
+        .mockResolvedValueOnce(quittanceNoLease as never);
+      prismaMock.$transaction.mockResolvedValue({ id: QUITTANCE_ID } as never);
+      prismaMock.payment.create.mockResolvedValue({} as never);
+      prismaMock.invoice.update.mockResolvedValue({} as never);
+      prismaMock.document.create.mockResolvedValue({} as never);
+
+      const docCreateCallsBefore = prismaMock.document.create.mock.calls.length;
+      const result = await generateAndSendQuittance(SOCIETY_ID, INVOICE_ID, new Date());
+      expect(result.success).toBe(true);
+
+      await vi.waitFor(
+        () => expect(prismaMock.document.create.mock.calls.length).toBeGreaterThan(docCreateCallsBefore),
+        { timeout: 5000 }
+      );
+      const lastCall = prismaMock.document.create.mock.calls.at(-1)?.[0];
+      expect(lastCall?.data).not.toHaveProperty("leaseId");
     } finally {
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;

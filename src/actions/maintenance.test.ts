@@ -224,4 +224,24 @@ describe("maintenance actions", () => {
     });
     expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'intervention" });
   });
+
+  it("updateMaintenance avec scheduledAt mais sans completedAt (ligne 110 true / ligne 111 false)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.maintenance.findFirst.mockResolvedValue({ id: MAINTENANCE_ID, buildingId: BUILDING_ID } as never);
+
+    const result = await updateMaintenance(SOCIETY_ID, {
+      id: MAINTENANCE_ID,
+      scheduledAt: "2026-06-01",
+      // completedAt absent → null
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.maintenance.update).toHaveBeenCalledWith({
+      where: { id: MAINTENANCE_ID },
+      data: expect.objectContaining({
+        scheduledAt: new Date("2026-06-01"),
+        completedAt: null,
+      }),
+    });
+  });
 });

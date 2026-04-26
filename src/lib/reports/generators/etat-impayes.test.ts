@@ -340,7 +340,7 @@ describe("generateEtatImpayes", () => {
     );
   });
 
-  it("xlsx — affiche '-' pour PERSONNE_MORALE sans companyName et PERSONNE_PHYSIQUE sans nom (lignes 63-66)", async () => {
+  it("xlsx — affiche '-' pour PERSONNE_MORALE sans companyName, PERSONNE_PHYSIQUE sans nom et lease.lot null (lignes 63-66)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([
       {
@@ -353,7 +353,7 @@ describe("generateEtatImpayes", () => {
       },
       {
         tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
-        lease: { lot: { number: "B1", building: { name: "Immeuble B" } } },
+        lease: { lot: null },
         invoiceNumber: "INV-X2",
         dueDate: new Date(today.getTime() - 10 * 86400000),
         totalTTC: 300,

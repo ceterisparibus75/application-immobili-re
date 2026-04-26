@@ -77,6 +77,12 @@ describe("createLeaseSchema", () => {
     expect(result.success).toBe(true)
     if (result.success) expect(result.data.vatApplicable).toBe(false)
   })
+
+  it("transforme vatApplicable true (booléen) en true (ligne 249 branch 1 LEFT)", () => {
+    const result = createLeaseSchema.safeParse({ ...validLease, vatApplicable: true })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.vatApplicable).toBe(true)
+  })
 })
 
 describe("updateLeaseSchema", () => {
@@ -92,6 +98,12 @@ describe("updateLeaseSchema", () => {
 
   it("transforme vatApplicable string en booléen", () => {
     const result = updateLeaseSchema.safeParse({ id: VALID_CUID, vatApplicable: "true" })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.vatApplicable).toBe(true)
+  })
+
+  it("transforme vatApplicable 'on' en booléen true → B6 arm2 L249", () => {
+    const result = updateLeaseSchema.safeParse({ id: VALID_CUID, vatApplicable: "on" })
     expect(result.success).toBe(true)
     if (result.success) expect(result.data.vatApplicable).toBe(true)
   })

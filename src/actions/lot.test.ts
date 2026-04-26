@@ -177,6 +177,20 @@ describe("updateLot", () => {
     const result = await updateLot("society-1", { id: VALID_CUID, number: "B-202" })
     expect(result).toEqual({ success: false, error: "Erreur lors de la mise à jour du lot" })
   })
+
+  it("convertit les champs vides ('') en null (ligne 132)", async () => {
+    mockAuthSession()
+    const lot = buildLot()
+    prismaMock.lot.findFirst.mockResolvedValue(lot as never)
+    prismaMock.lot.update.mockResolvedValue(lot as never)
+    const result = await updateLot("society-1", { id: VALID_CUID, description: "" })
+    expect(result.success).toBe(true)
+    expect(prismaMock.lot.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ description: null }),
+      })
+    )
+  })
 })
 
 describe("deleteLot", () => {

@@ -262,6 +262,14 @@ describe("manualReconcile", () => {
     const r = await manualReconcile(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
   });
+
+  it("ne tente pas de récupérer l'invoice si invoiceId est null (B19 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.payment.findFirst.mockResolvedValue(buildPayment({ invoiceId: null }) as never);
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.invoice.findUnique).not.toHaveBeenCalled();
+  });
 });
 
 // ─── unreconcile ──────────────────────────────────────────────────────────────
@@ -523,6 +531,49 @@ describe("reconcileWithInvoice", () => {
     const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
     expect(r.success).toBe(true);
   });
+
+  it("traite paidAgg._sum.amount=null comme 0 (B43 arm1 — ligne 556)", async () => {
+    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: null } } as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+  });
+
+  it("génère le statut PARTIELLEMENT_PAYE si paiement partiel (B47 arm1 — ligne 571, B49 arm1 — ligne 609)", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: -100, bankAccountId: ACCOUNT_ID }) as never
+    );
+    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+    // newTotal = 0 + 100 = 100 < 500 → PARTIELLEMENT_PAYE, aucune quittance
+  });
+
+  it("ne revalide pas le chemin locataire si tenantId est null (B48 arm1 — ligne 604)", async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID, totalTTC: 500, invoiceType: "APPEL_LOYER",
+      isThirdPartyManaged: false, expectedNetAmount: null, tenantId: null,
+    } as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+  });
+
+  it("génère le payment avec reference=undefined si transaction.reference=null (B ligne 571 arm1)", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: -500, reference: null, bankAccountId: ACCOUNT_ID }) as never
+    );
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.payment.create.mockResolvedValue({ id: "cpayment04" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+    prismaMock.bankReconciliation.create.mockResolvedValue({} as never);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ reference: undefined }) })
+    );
+  });
 });
 
 // ─── reconcileWithLoanLine ────────────────────────────────────────────────────
@@ -656,6 +707,23 @@ describe("generateJournalEntry", () => {
     expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ journalType: "BANQUE" }),
+      })
+    );
+  });
+
+  it("génère une écriture sans référence quand reference=null (B32 arm1 — ligne 432)", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: 500,
+      reference: null,
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ reference: undefined }),
       })
     );
   });

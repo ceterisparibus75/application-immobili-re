@@ -225,6 +225,31 @@ describe("inspection actions", () => {
     expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
   });
 
+  it("createInspection sans performedBy/generalNotes/room.notes → null (lignes 45-51)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.inspection.create.mockResolvedValue({ id: INSPECTION_ID } as never);
+
+    const result = await createInspection(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      type: "SORTIE",
+      performedAt: "2026-04-20",
+      rooms: [{ name: "Chambre", condition: "DEGRADE" }],
+      // performedBy, generalNotes absents
+    });
+
+    expect(result).toEqual({ success: true, data: { id: INSPECTION_ID } });
+    expect(prismaMock.inspection.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        performedBy: null,
+        generalNotes: null,
+        rooms: {
+          create: [expect.objectContaining({ notes: null })],
+        },
+      }),
+    });
+  });
+
   it("retourne une erreur Zod si l'id est invalide dans updateInspection", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const result = await updateInspection(SOCIETY_ID, { id: "not-a-cuid" });

@@ -702,3 +702,166 @@ describe("importFromPdf — lot existant trouve", () => {
   });
 });
 
+// ─── Branches restantes ────────────────────────────────────────────────────────
+
+describe("importFromPdf — branches restantes", () => {
+  const baseLease = {
+    leaseType: "COMMERCIAL_369" as const,
+    startDate: "2026-01-01", durationMonths: 108, baseRentHT: 1000, depositAmount: 2000,
+    paymentFrequency: "MENSUEL" as const, vatApplicable: true, vatRate: 20, rentFreeMonths: 0, entryFee: 0,
+  };
+
+  beforeEach(() => {
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.findFirst.mockResolvedValue(null);
+    prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
+    prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.leaseLot.findFirst.mockResolvedValue(null);
+    prismaMock.leaseLot.findMany.mockResolvedValue([] as never);
+    prismaMock.lot.findMany.mockResolvedValue([{ id: "csec0123456" }] as never);
+    prismaMock.lease.create.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.leaseLot.createMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.lot.update.mockResolvedValue({} as never);
+  });
+
+  it("utilise l'immeuble existant s'il est trouvé (B1 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { existingId: BUILDING_ID, name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: baseLease,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("crée un locataire PERSONNE_PHYSIQUE avec noms renseignés (B13 arm1, B21/B22 arm0)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_PHYSIQUE" as const, firstName: "Jean", lastName: "Dupont", email: "j@d.fr" },
+      lease: baseLease,
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ firstName: "Jean", lastName: "Dupont" }) })
+    );
+  });
+
+  it("crée un locataire PERSONNE_PHYSIQUE avec noms null → 'À compléter' (B21/B22 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_PHYSIQUE" as const, email: "j@d.fr" },
+      lease: baseLease,
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ firstName: "À compléter", lastName: "À compléter" }) })
+    );
+  });
+
+  it("crée un locataire PERSONNE_MORALE sans companyName → 'À compléter' (B14 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, email: "a@a.fr" },
+      lease: baseLease,
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ companyName: "À compléter" }) })
+    );
+  });
+
+  it("utilise le locataire existant s'il est trouvé (B23 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { existingId: TENANT_ID, entityType: "PERSONNE_MORALE" as const, email: "a@a.fr" },
+      lease: baseLease,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepte les lots secondaires sans bail actif (B26 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lot.findMany.mockResolvedValue([{ id: "csec0123456" }] as never);
+    prismaMock.leaseLot.findMany.mockResolvedValue([] as never); // no active secondary leases
+    const r = await importFromPdf(SOCIETY_ID, {
+      building: { name: "Imm", addressLine1: "1 rue", city: "Paris", postalCode: "75001", buildingType: "BUREAU" as const },
+      lot: { number: "A1", lotType: "BUREAUX" as const, area: 50 },
+      tenant: { entityType: "PERSONNE_MORALE" as const, companyName: "ACME", email: "a@a.fr" },
+      lease: baseLease,
+      secondaryLotIds: ["csec0123456"],
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("analyzePdfAction — branches restantes", () => {
+  it("retourne rawText vide si le contenu IA n'est pas du texte (B50 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    anthropicCreateMock.mockResolvedValueOnce({ content: [{ type: "tool_use", id: "x", name: "x", input: {} }] });
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("extraire");
+  });
+
+  it("retourne l'erreur brute si l'exception n'est pas une Error (B53 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    anthropicCreateMock.mockRejectedValueOnce("string error");
+    const r = await analyzePdfAction(makeFormData(makeFile("application/pdf", "bail.pdf")));
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("analyse du document");
+  });
+});
+
+describe("importEntities — branches internes restantes", () => {
+  it("collecte 'Erreur d\\'insertion' si tenant.create lève un non-Error (B66 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.tenant.create.mockRejectedValue("string error");
+    const r = await importEntities(SOCIETY_ID, "tenants", [{ nom: "X", prenom: "Y", email: "x@y.fr" }]);
+    expect(r.success).toBe(true);
+    expect(r.data?.errors[0].message).toBe("Erreur d'insertion");
+  });
+
+  it("collecte 'Erreur d\\'insertion' si building.create lève un non-Error (B69 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.create.mockRejectedValue("string error");
+    const r = await importEntities(SOCIETY_ID, "buildings", [{
+      name: "Imm", address: "1 rue", postalCode: "75001", city: "Paris", type: "BUREAU",
+    }]);
+    expect(r.success).toBe(true);
+    expect(r.data?.errors[0].message).toBe("Erreur d'insertion");
+  });
+
+  it("ne traite rien pour un entityType inconnu (B70 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "unknown" as never, [{ nom: "X" }]);
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+  });
+
+  it("collecte 'Erreur d\\'insertion' si lot.create lève un non-Error (B75 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.create.mockRejectedValue("string error");
+    const r = await importEntities(SOCIETY_ID, "lots", [{
+      reference: "A1", type: "BUREAUX", surface: "50", buildingId: BUILDING_ID,
+    }]);
+    expect(r.success).toBe(true);
+    expect(r.data?.errors[0].message).toBe("Erreur d'insertion");
+  });
+});
+

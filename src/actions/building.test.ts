@@ -284,6 +284,37 @@ describe("getBuildings", () => {
     expect(result[0].totalCost).toBe(110800)
     expect(result[0].yieldRate).not.toBeNull()
   })
+
+  it("additionalAcquisitions avec fees/taxes/otherCosts null → ?? 0 (ligne 270)", async () => {
+    mockAuthSession()
+    const building = buildBuilding({
+      acquisitionPrice: 50000,
+      lots: [],
+      additionalAcquisitions: [
+        { acquisitionPrice: 20000, acquisitionFees: null, acquisitionTaxes: null, otherCosts: null },
+      ],
+    })
+    prismaMock.building.findMany.mockResolvedValue([building] as never)
+    const result = await getBuildings("society-1")
+    // additionalCost = 20000 + 0 + 0 + 0 = 20000 → totalCost = 70000
+    expect(result[0].totalCost).toBe(70000)
+  })
+
+  it("fréquence de paiement inconnue → FREQ_MULT ?? 12 (ligne 257)", async () => {
+    mockAuthSession()
+    const building = buildBuilding({
+      acquisitionPrice: 120000,
+      lots: [
+        { status: "OCCUPE", leases: [{ currentRentHT: 1000, paymentFrequency: "INCONNU" }] },
+      ],
+      additionalAcquisitions: [],
+    })
+    prismaMock.building.findMany.mockResolvedValue([building] as never)
+    const result = await getBuildings("society-1")
+    // FREQ_MULT["INCONNU"] = undefined → ?? 12 → annualRent = 1000 × 12 = 12000
+    // yieldRate = 12000 / 120000 × 100 = 10
+    expect(result[0].yieldRate).toBeCloseTo(10, 1)
+  })
 })
 
 describe("getBuildingById", () => {

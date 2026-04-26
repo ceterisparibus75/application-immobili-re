@@ -160,6 +160,21 @@ describe("getAuditLogs", () => {
   });
 });
 
+describe("getAuditLogs — filtre par action (B5 arm1 L67)", () => {
+  it("filtre par action si fourni", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+    prismaMock.auditLog.count.mockResolvedValue(0);
+
+    await getAuditLogs(SOCIETY_ID, { action: "CREATE" });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ action: "CREATE" }),
+      })
+    );
+  });
+});
+
 describe("getAuditLogsForExport", () => {
   it("retourne tous les logs sans pagination (limit 10000)", async () => {
     prismaMock.auditLog.findMany.mockResolvedValue([
@@ -197,6 +212,48 @@ describe("getAuditLogsForExport", () => {
           OR: expect.arrayContaining([
             expect.objectContaining({ entity: expect.objectContaining({ contains: "Bob" }) }),
           ]),
+        }),
+      })
+    );
+  });
+
+  it("filtre par userId → B15 arm1 L128", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+
+    await getAuditLogsForExport(SOCIETY_ID, { userId: USER_ID });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: USER_ID }),
+      })
+    );
+  });
+
+  it("filtre par startDate seul → B16 arm0, B18 arm0 TRUE, B19 arm1 FALSE", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+
+    const startDate = new Date("2026-01-01");
+    await getAuditLogsForExport(SOCIETY_ID, { startDate });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: expect.objectContaining({ gte: startDate }),
+        }),
+      })
+    );
+  });
+
+  it("filtre par endDate seul → B18 arm1 FALSE, B19 arm0 TRUE", async () => {
+    prismaMock.auditLog.findMany.mockResolvedValue([] as never);
+
+    const endDate = new Date("2026-04-30");
+    await getAuditLogsForExport(SOCIETY_ID, { endDate });
+
+    expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: expect.objectContaining({ lte: endDate }),
         }),
       })
     );

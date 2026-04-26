@@ -151,6 +151,21 @@ describe("createCandidate", () => {
     const r = await createCandidate(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors de la création" });
   });
+
+  it("convertit desiredMoveIn en Date si fourni (ligne 63 branche true)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidate.create.mockResolvedValue({ id: CANDIDATE_ID } as never);
+    prismaMock.candidateActivity.create.mockResolvedValue({ id: "act-1" } as never);
+
+    const r = await createCandidate(SOCIETY_ID, { ...validInput, desiredMoveIn: "2026-09-01" });
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.candidate.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ desiredMoveIn: new Date("2026-09-01") }),
+      })
+    );
+  });
 });
 
 // ─── updateCandidate ──────────────────────────────────────────────────────────
@@ -218,6 +233,21 @@ describe("updateCandidate", () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const r = await updateCandidate(SOCIETY_ID, { id: "not-a-cuid", status: "CONTACTED" });
     expect(r.success).toBe(false);
+  });
+
+  it("convertit desiredMoveIn en Date si fourni dans updateCandidate (ligne 111 branche true)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidate.findUnique.mockResolvedValue({ id: CANDIDATE_ID, status: "CONTACTED" } as never);
+    prismaMock.candidate.update.mockResolvedValue({ id: CANDIDATE_ID } as never);
+
+    const r = await updateCandidate(SOCIETY_ID, { id: CANDIDATE_ID, desiredMoveIn: "2026-10-01" });
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.candidate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ desiredMoveIn: new Date("2026-10-01") }),
+      })
+    );
   });
 });
 

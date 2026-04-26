@@ -112,6 +112,30 @@ describe("createLease", () => {
       expect.objectContaining({ data: expect.objectContaining({ nextLeaseNumber: 6 }) })
     )
   })
+
+  it("billingTerm undefined → ?? 'A_ECHOIR' (ligne 102 right), isThirdPartyManaged true → ?? false left (ligne 115)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lot.findMany.mockResolvedValue([{ id: VALID_CUID, buildingId: "b1" }] as never)
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenantPhysique({ id: VALID_CUID2 }) as never)
+    prismaMock.leaseLot.findMany.mockResolvedValue([])
+    prismaMock.society.findUnique.mockResolvedValue({
+      leasePrefix: "BAIL",
+      nextLeaseNumber: 3,
+      leaseNumberYear: new Date().getFullYear(),
+    } as never)
+    prismaMock.society.update.mockResolvedValue({} as never)
+    prismaMock.lease.create.mockResolvedValue({ id: "lease-branch" } as never)
+    prismaMock.lot.updateMany.mockResolvedValue({ count: 1 } as never)
+    prismaMock.lot.update.mockResolvedValue({} as never)
+    const input = { ...validLeaseInput, billingTerm: undefined, isThirdPartyManaged: true } as unknown as typeof validLeaseInput
+    const r = await createLease("society-1", input)
+    expect(r.success).toBe(true)
+    expect(prismaMock.lease.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ billingTerm: "A_ECHOIR", isThirdPartyManaged: true }),
+      })
+    )
+  })
 })
 
 describe("updateLease", () => {
@@ -198,6 +222,19 @@ describe("updateLease", () => {
           startDate: new Date("2024-01-01"),
           endDate: new Date("2024-12-31"),
         }),
+      })
+    )
+  })
+
+  it("entryDate null et exitDate null → false branch ternaire → null (lignes 198-199)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({ id: VALID_CUID, societyId: "society-1", status: "EN_COURS" } as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
+    const r = await updateLease("society-1", { id: VALID_CUID, entryDate: null, exitDate: null })
+    expect(r.success).toBe(true)
+    expect(prismaMock.lease.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ entryDate: null, exitDate: null }),
       })
     )
   })

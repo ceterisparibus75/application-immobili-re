@@ -129,6 +129,15 @@ describe("registerUser", () => {
     expect(result.error).toContain("Connection timeout");
   });
 
+  it("create lance une chaîne de caractères — branches false de instanceof (lignes 78 et 105)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockRejectedValue("string error non-Error");
+
+    const result = await registerUser(validInput);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("string error non-Error");
+  });
+
   it("continue avec succès même si l'envoi d'email échoue", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue({ id: "user-1", email: "jean@example.com" } as never);

@@ -85,6 +85,16 @@ describe("owner actions", () => {
     });
   });
 
+  it("liste toutes les sociétés sans filtre proprietaireId (ligne 84 FALSE branch)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.society.findMany.mockResolvedValue([] as never);
+    const result = await getOwnerSocieties();
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ownerId: "user-1" } })
+    );
+  });
+
   it("retourne les sociétés revendicables où l'utilisateur est admin", async () => {
     mockAuthSession(UserRole.ADMIN_SOCIETE);
     prismaMock.userSociety.findMany.mockResolvedValue([
@@ -795,6 +805,440 @@ describe("getOwnerAnalytics — branches manquantes", () => {
     expect(r.data?.lenderSummaries).toHaveLength(2);
     // Sort by remainingBalance desc: BNP 80000 > CA 40000
     expect(r.data?.lenderSummaries[0].lender).toBe("BNP");
+  });
+
+  it("society sans bâtiment/lot/prêt → ?? 0 right branches 327-330, ltv null 334, null 382-385, 0 ligne 386", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-empty", name: "SCI Vide", legalForm: "SCI", city: null, logoUrl: null },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([] as never);
+    prismaMock.lot.findMany.mockResolvedValue([] as never);
+    (prismaMock.lease.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    (prismaMock.invoice.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([] as never);
+    prismaMock.loan.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const r = await getOwnerAnalytics();
+    expect(r.success).toBe(true);
+    expect(r.data?.grossYield).toBeNull();
+    expect(r.data?.consolidatedLTV).toBeNull();
+    expect(r.data?.occupancyRate).toBe(0);
+    const soc = r.data?.societies[0];
+    expect(soc?.totalDebt).toBe(0);
+    expect(soc?.monthlyLoanPayment).toBe(0);
+    expect(soc?.monthlyRentHT).toBe(0);
+    expect(soc?.ltv).toBeNull();
+  });
+
+  it("prêt avec lender null et sans amortizationLines → || 'Autre' lignes 339/343, FALSE lignes 350-351", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-1", name: "SCI Test", legalForm: "SCI", city: "Lyon", logoUrl: null },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([] as never);
+    prismaMock.lot.findMany.mockResolvedValue([] as never);
+    (prismaMock.lease.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    (prismaMock.invoice.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([] as never);
+    prismaMock.loan.findMany.mockResolvedValue([
+      { societyId: "soc-1", lender: null, amount: 100000, purchaseValue: null, amortizationLines: [] },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const r = await getOwnerAnalytics();
+    expect(r.success).toBe(true);
+    expect(r.data?.lenderSummaries).toHaveLength(1);
+    expect(r.data?.lenderSummaries[0].lender).toBe("Autre");
+    expect(r.data?.lenderSummaries[0].remainingBalance).toBe(100000);
+    expect(r.data?.lenderSummaries[0].monthlyPayment).toBe(0);
+  });
+
+  it("filtre par proprietaireId dans getOwnerAnalytics → ligne 102 TRUE branch", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.society.findMany.mockResolvedValue([] as never);
+    const r = await getOwnerAnalytics("prop-xyz");
+    expect(r.success).toBe(true);
+    expect(prismaMock.society.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ proprietaireId: "prop-xyz" }) })
+    );
+  });
+
+  it("coûts null, agrégats _sum null, locataires expirants → branches ?? lignes 243-265, 305-308", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-1", name: "SCI", legalForm: "SCI", city: "Paris", logoUrl: null },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      // L243 right (×5): all null costs; L244 right: additionalAcquisitions = null
+      {
+        societyId: "soc-1",
+        acquisitionPrice: null, acquisitionFees: null, acquisitionTaxes: null,
+        acquisitionOtherCosts: null, worksCost: null,
+        additionalAcquisitions: null,
+      },
+      // L246 right (×4): additionalAcquisitions items with null fields
+      {
+        societyId: "soc-1",
+        acquisitionPrice: 0, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [
+          { acquisitionPrice: null, acquisitionFees: null, acquisitionTaxes: null, otherCosts: null },
+        ],
+      },
+    ] as never);
+    prismaMock.lot.findMany.mockResolvedValue([] as never);
+    // L265 right: currentRentHT = null; L263 right: monthRevAgg null; L264 right: overdueInvoices null
+    (prismaMock.lease.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { currentRentHT: null } }] as never);
+    (prismaMock.invoice.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { totalTTC: null } }] as never)
+      .mockResolvedValueOnce([{ societyId: "soc-1", _sum: { totalTTC: null } }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([] as never);
+    prismaMock.loan.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      // L306 TRUE: PERSONNE_MORALE; L307 right: companyName = null → "—"
+      {
+        id: "lease-pm",
+        endDate: in30Days,
+        societyId: "soc-1",
+        tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+        lot: { number: "1A", building: { name: "Imm" } },
+      },
+      // L308 right (×3): PERSONNE_PHYSIQUE null names → trim → || "—"
+      {
+        id: "lease-pp-null",
+        endDate: in30Days,
+        societyId: "soc-1",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
+        lot: { number: "1B", building: { name: "Imm" } },
+      },
+      // L305 right: societyId pas dans socNameMap → "" ?? "" right branch
+      {
+        id: "lease-unknown",
+        endDate: in30Days,
+        societyId: "soc-unknown",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "X", lastName: "Y" },
+        lot: { number: "2A", building: { name: "Autre" } },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    const r = await getOwnerAnalytics();
+    expect(r.success).toBe(true);
+    expect(r.data?.expiringLeases[0].tenantName).toBe("—");
+    expect(r.data?.expiringLeases[1].tenantName).toBe("—");
+    expect(r.data?.expiringLeases[2].societyName).toBe("");
+    expect(r.data?.societies[0].currentMonthRevenue).toBe(0);
+    expect(r.data?.societies[0].overdueAmount).toBe(0);
+    expect(r.data?.societies[0].monthlyRentHT).toBe(0);
+  });
+
+  it("bail expirant sans lot → '—' ligne 309 FALSE, amount null charge → ?? 0 ligne 380, prêt amount 0 → pctRepaid 0 ligne 358 FALSE", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    prismaMock.society.findMany.mockResolvedValue([
+      { id: "soc-1", name: "SCI Test", legalForm: "SCI", city: "Lyon", logoUrl: null },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        societyId: "soc-1",
+        acquisitionPrice: 100000, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [],
+      },
+    ] as never);
+    prismaMock.lot.findMany.mockResolvedValue([] as never);
+    (prismaMock.lease.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    (prismaMock.invoice.groupBy as unknown as GroupByMock)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([] as never);
+    prismaMock.loan.findMany.mockResolvedValue([
+      { societyId: "soc-1", lender: "BNP", amount: 0, purchaseValue: null, amortizationLines: [{ remainingBalance: 0, totalPayment: 0 }] },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-no-lot",
+        endDate: in30Days,
+        societyId: "soc-1",
+        tenant: { firstName: "Jean", lastName: "Dupont", companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+        lot: null,
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([{ amount: null }] as never);
+
+    const r = await getOwnerAnalytics();
+    expect(r.success).toBe(true);
+    expect(r.data?.expiringLeases[0].lotLabel).toBe("—");
+    expect(r.data?.totalRecoverableCharges).toBe(0);
+    expect(r.data?.lenderSummaries[0].pctRepaid).toBe(0);
+  });
+});
+
+// ── getConsolidatedLeases — branches nom locataire (lignes 713-714) ──────────
+
+describe("getConsolidatedLeases — branches nom locataire (lignes 713-714)", () => {
+  it("PERSONNE_MORALE sans companyName → '—' (ligne 713 right branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-morale-null", status: "EN_COURS", leaseType: "COMMERCIAL", destination: null,
+        startDate: new Date("2024-01-01"), endDate: null,
+        currentRentHT: 500, paymentFrequency: "MENSUEL", indexType: null,
+        tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+        lot: { number: "2B", building: { name: "Centre", postalCode: "75001", city: "Paris" } },
+        rentRevisions: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedLeases();
+    expect(r.success).toBe(true);
+    expect(r.data![0].tenantName).toBe("—");
+  });
+
+  it("PERSONNE_PHYSIQUE noms null → '—' (ligne 714 right branches || et ??)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-physique-null", status: "EN_COURS", leaseType: "HABITATION", destination: null,
+        startDate: new Date("2024-01-01"), endDate: null,
+        currentRentHT: 600, paymentFrequency: "MENSUEL", indexType: null,
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
+        lot: { number: "1A", building: { name: "Résidence", postalCode: "69001", city: "Lyon" } },
+        rentRevisions: [],
+        society: { id: "soc-1", name: "SCI Lyon" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedLeases();
+    expect(r.success).toBe(true);
+    expect(r.data![0].tenantName).toBe("—");
+  });
+});
+
+// ── updateOwnerProfile — champs optionnels absents (lignes 804-814) ──────────
+
+describe("updateOwnerProfile — champs optionnels absents (lignes 804-814)", () => {
+  it("met à jour avec seulement firstName/lastName — champs optionnels undefined (FALSE branches ?? et !== undefined)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+
+    const result = await updateOwnerProfile({ firstName: "Alice", lastName: "Durand" });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          firstName: "Alice",
+          lastName: "Durand",
+          phone: null,
+          birthDate: null,
+          birthPlace: null,
+        }),
+      })
+    );
+    // emailCopyEnabled and emailCopyAddress should NOT be in the update data (undefined → {} spread)
+    const callData = prismaMock.user.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(callData.emailCopyEnabled).toBeUndefined();
+    expect(callData.emailCopyAddress).toBeUndefined();
+  });
+
+  it("emailCopyAddress vide après trim → null (ligne 814 right branch || null)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+
+    await updateOwnerProfile({ firstName: "Alice", lastName: "Durand", emailCopyAddress: "   " });
+
+    const callData = prismaMock.user.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(callData.emailCopyAddress).toBeNull();
+  });
+});
+
+// ── getConsolidatedBuildings — branches lignes 643-646, 650 ─────────────────
+
+describe("getConsolidatedBuildings — branches null fields (lignes 643-646, 650)", () => {
+  it("additionalAcquisitions null → ?? [] (ligne 646 right branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-null-add", name: "Null add", city: "Paris", buildingType: "COLLECTIF",
+        totalArea: 100,
+        acquisitionPrice: 50000, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: null,
+        lots: [],
+        propertyValuations: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings();
+    expect(r.success).toBe(true);
+    expect(r.data![0].totalCost).toBe(50000);
+  });
+
+  it("champs coût null → ?? 0 (ligne 645 right branches)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-null-costs", name: "Null costs", city: "Lyon", buildingType: "COLLECTIF",
+        totalArea: 80,
+        acquisitionPrice: null, acquisitionFees: null, acquisitionTaxes: null,
+        acquisitionOtherCosts: null, worksCost: null,
+        additionalAcquisitions: [],
+        lots: [],
+        propertyValuations: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings();
+    expect(r.success).toBe(true);
+    expect(r.data![0].totalCost).toBe(0);
+  });
+
+  it("paymentFrequency hors FREQ_MULT → ?? 12 (ligne 643 right branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-freq-null", name: "Freq inconnu", city: "Bordeaux", buildingType: "COLLECTIF",
+        totalArea: 60,
+        acquisitionPrice: 0, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [],
+        lots: [
+          { status: "OCCUPE", area: 60, leases: [{ currentRentHT: 500, paymentFrequency: "HEBDOMADAIRE" }] },
+        ],
+        propertyValuations: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings();
+    expect(r.success).toBe(true);
+    // HEBDOMADAIRE not in FREQ_MULT → fallback 12 → annualRent = 500 * 12 = 6000
+    expect(r.data![0].annualRent).toBe(6000);
+  });
+
+  it("lot avec area null quand totalArea null → ?? 0 (ligne 650 inner right branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-null-area", name: "Area null", city: "Nantes", buildingType: "COLLECTIF",
+        totalArea: null,
+        acquisitionPrice: 0, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [],
+        lots: [{ status: "VACANT", area: null, leases: [] }],
+        propertyValuations: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings();
+    expect(r.success).toBe(true);
+    expect(r.data![0].totalArea).toBe(0);
+  });
+
+  it("additionalAcquisitions avec champs null → ?? 0 dans reduce (ligne 646 inner right branches)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-1" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-null-items", name: "Null items", city: "Paris", buildingType: "COLLECTIF",
+        totalArea: 100,
+        acquisitionPrice: 0, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [
+          { acquisitionPrice: null, acquisitionFees: null, acquisitionTaxes: null, otherCosts: null },
+        ],
+        lots: [],
+        propertyValuations: [],
+        society: { id: "soc-1", name: "SCI" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings();
+    expect(r.success).toBe(true);
+    expect(r.data![0].totalCost).toBe(0);
+  });
+});
+
+// ── claimSociety — FALSE branch ligne 453 + 465 ──────────────────────────────
+
+describe("claimSociety — FALSE branch lignes 453 et 465", () => {
+  it("rattache une société sans proprietaireId → ligne 453 FALSE + 465 FALSE", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.userSociety.findUnique.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.society.findUnique.mockResolvedValue({ ownerId: null, name: "SCI Sans Prop" } as never);
+
+    const result = await claimSociety("society-free");
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.society.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ ownerId: "user-1" }),
+      })
+    );
+    // Without proprietaireId, the update should NOT include proprietaireId
+    const callData = prismaMock.society.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(callData.proprietaireId).toBeUndefined();
+  });
+});
+
+// ── getConsolidatedBuildings — avec proprietaireId (ligne 593 TRUE branch) ───
+
+describe("getConsolidatedBuildings — avec proprietaireId (ligne 593 TRUE branch)", () => {
+  it("filtre par proprietaireId quand fourni", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.society.findMany.mockResolvedValue([{ id: "soc-prop" }] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "b-prop", name: "Imm Prop", city: "Paris", buildingType: "COLLECTIF",
+        totalArea: 80,
+        acquisitionPrice: 50000, acquisitionFees: 0, acquisitionTaxes: 0,
+        acquisitionOtherCosts: 0, worksCost: 0,
+        additionalAcquisitions: [],
+        lots: [],
+        propertyValuations: [],
+        society: { id: "soc-prop", name: "SCI Prop" },
+      },
+    ] as never);
+
+    const r = await getConsolidatedBuildings("prop-1");
+    expect(r.success).toBe(true);
+    // getOwnerSocietyIds is called with proprietaireId → uses WHERE proprietaireId filter
+    expect(prismaMock.society.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ proprietaireId: "prop-1" }),
+      })
+    );
   });
 });
 

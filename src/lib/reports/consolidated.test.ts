@@ -74,6 +74,15 @@ describe("computeNextRunAt", () => {
     expect(next.getSeconds()).toBe(0);
   });
 
+  it("utilise new Date() si fromDate absent (ligne 80)", () => {
+    const before = new Date();
+    const next = computeNextRunAt("MENSUEL");
+    const after = new Date();
+    // Le résultat doit être dans le futur (après now) et avoir été calculé sans erreur
+    expect(next.getTime()).toBeGreaterThan(before.getTime());
+    expect(next.getTime()).toBeGreaterThan(after.getTime() - 5000);
+  });
+
   it("TRIMESTRIEL depuis avril → 1er juillet (début Q3)", () => {
     const fromApril = new Date(2025, 3, 10, 12, 0, 0); // Apr 10 2025
     const next = computeNextRunAt("TRIMESTRIEL", fromApril);

@@ -621,6 +621,23 @@ describe("addLoanMovement", () => {
     expect(prismaMock.loanMovement.create).not.toHaveBeenCalled()
   })
 
+  it("effectue un retrait réussi — false branch ligne 669 (newBalance >= 0)", async () => {
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, type: "RETRAIT", amount: 3000 })
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: 7000 } })
+    )
+  })
+
+  it("currentBalance null → ?? 0 — ligne 658 (right branch)", async () => {
+    prismaMock.loan.findFirst.mockResolvedValue({ id: LOAN_ID, currentBalance: null, maxAmount: null, label: "CCA" } as never)
+    const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, type: "APPORT", amount: 5000 })
+    expect(r.data).toBeTruthy()
+    expect(prismaMock.loan.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { currentBalance: 5000 } })
+    )
+  })
+
   it("bloque un apport si le plafond serait dépassé", async () => {
     prismaMock.loan.findFirst.mockResolvedValue({ id: LOAN_ID, currentBalance: 9000, maxAmount: 10000, label: "CCA" } as never)
     const r = await addLoanMovement(SOCIETY_ID, { ...validMovement, amount: 5000 })
@@ -920,6 +937,54 @@ describe("createLoan — types OBLIGATION et COMPTE_COURANT", () => {
     expect(createCall.data.movements).toBeDefined()
     expect(createCall.data.partnerName).toBe("Jean Dupont")
     expect(createCall.data.currentBalance).toBe(20000)
+  })
+
+  it("COMPTE_COURANT sans partnerName/partnerShare/maxAmount/conventionDate — branches ?? null et false (lignes 306-309)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-cc2" } as never)
+    const input = {
+      ...validLoanInput,
+      loanType: "COMPTE_COURANT" as const,
+      amount: 10000,
+    }
+    const r = await createLoan("society-1", input)
+    expect(r.data).toBeDefined()
+    const createCall = prismaMock.loan.create.mock.calls[0][0] as { data: Record<string, unknown> }
+    expect(createCall.data.partnerName).toBeNull()
+    expect(createCall.data.partnerShare).toBeNull()
+    expect(createCall.data.maxAmount).toBeNull()
+    expect(createCall.data.conventionDate).toBeNull()
+  })
+
+  it("crée un emprunt sans buildingId → null (B16 arm1 L291)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-no-bld" } as never)
+    const { buildingId: _omit, ...inputNoBuildingId } = validLoanInput
+    const r = await createLoan("society-1", inputNoBuildingId)
+    expect(r.data).toBeDefined()
+    const createCall = prismaMock.loan.create.mock.calls[0][0] as { data: Record<string, unknown> }
+    expect(createCall.data.buildingId).toBeNull()
+  })
+
+  it("OBLIGATION sans champs optionnels → null (B20-B23 arm1 L298-301)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const { createLoan } = await importActions()
+    prismaMock.loan.create.mockResolvedValue({ id: "loan-oblig-min" } as never)
+    const r = await createLoan("society-1", {
+      ...validLoanInput,
+      loanType: "OBLIGATION" as const,
+      amount: 50000,
+      interestRate: 4,
+      durationMonths: 6,
+    })
+    expect(r.data).toBeDefined()
+    const createCall = prismaMock.loan.create.mock.calls[0][0] as { data: Record<string, unknown> }
+    expect(createCall.data.nominalValue).toBeNull()
+    expect(createCall.data.bondCount).toBeNull()
+    expect(createCall.data.couponFrequency).toBeNull()
+    expect(createCall.data.issuePrice).toBeNull()
   })
 
   it("relance l'erreur si la BDD échoue dans createLoan (ligne 349)", async () => {

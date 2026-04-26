@@ -153,4 +153,12 @@ describe("analyzeSupplierInvoice", () => {
     expect(result.confidence).toBe(0);
     expect(result.supplierName).toBeNull();
   });
+
+  it("utilise '{}' si la réponse n'a pas de bloc text → B4 arm1 L125", async () => {
+    mockMessagesCreate.mockResolvedValue({ content: [{ type: "image" }] });
+
+    const result = await analyzeSupplierInvoice(PDF_BUFFER, "application/pdf");
+    expect(result.supplierName).toBeNull();
+    expect(result.confidence).toBe(0);
+  });
 });

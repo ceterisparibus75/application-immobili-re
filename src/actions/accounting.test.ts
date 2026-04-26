@@ -263,6 +263,49 @@ describe("getBalance", () => {
     const result = await getBalance(SOCIETY_ID, {});
     expect(result).toEqual({ success: false, error: "Erreur lors du calcul de la balance" });
   });
+
+  it("filtre getBalance par dateTo seul sans dateFrom — branche interne false (ligne 228)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([] as never);
+
+    const result = await getBalance(SOCIETY_ID, { dateTo: "2025-12-31" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({
+            entryDate: expect.objectContaining({ lte: expect.any(Date) }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it("filtre getBalance par classe, fiscalYearId, dateFrom et dateTo (lignes 222-228)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([] as never);
+
+    const result = await getBalance(SOCIETY_ID, {
+      classe: "4",
+      fiscalYearId: FISCAL_YEAR_ID,
+      dateFrom: "2025-01-01",
+      dateTo: "2025-12-31",
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          account: expect.objectContaining({ type: "4" }),
+          journalEntry: expect.objectContaining({
+            fiscalYearId: FISCAL_YEAR_ID,
+            entryDate: expect.objectContaining({ gte: expect.any(Date), lte: expect.any(Date) }),
+          }),
+        }),
+      })
+    );
+  });
 });
 
 describe("getGrandLivre", () => {
@@ -535,6 +578,27 @@ describe("bulkImportJournalEntries", () => {
     expect(result.success).toBe(true);
     expect(result.data?.skipped).toBe(1);
     expect(result.data?.errors.length).toBeGreaterThan(0);
+  });
+
+  it("catch interne avec piece null et throw non-Error — branches ?? et instanceof (ligne 566)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockRejectedValue("string error");
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture sans pièce",
+        lines: [{ accountCode: "411000", debit: 1000, credit: 0 }],
+      },
+    ]);
+    expect(result.success).toBe(true);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toContain("Erreur");
   });
 
   it("saute une écriture si la création en BDD échoue (catch interne)", async () => {
@@ -857,6 +921,30 @@ describe("bulkImportJournalEntries — erreur non-Error dans catch (ligne 566)",
     const result = await bulkImportJournalEntries(SOCIETY_ID, entries);
     expect(result.success).toBe(true);
     expect(result.data?.errors.length).toBeLessThanOrEqual(20);
+  });
+
+  it("ne dépasse pas 20 erreurs via journalEntry.create → B64 arm1 L566", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+    ] as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockRejectedValue(new Error("DB create error"));
+
+    // 21 entries with valid account codes → all reach journalEntry.create → all throw
+    // First 20 throws: errors.length < 20 → push (arm0 x20)
+    // 21st throw: errors.length = 20 >= 20 → skip push (arm1 x1)
+    const entries = Array.from({ length: 21 }, (_, i) => ({
+      journalType: "VT" as const,
+      entryDate: "2025-01-15",
+      label: `Facture ${i}`,
+      lines: [{ accountCode: "411000", debit: 100, credit: 0 }],
+    }));
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, entries);
+    expect(result.success).toBe(true);
+    expect(result.data?.errors.length).toBe(20);
+    expect(result.data?.skipped).toBe(21);
   });
 });
 

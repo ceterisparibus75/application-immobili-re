@@ -835,3 +835,297 @@ describe("previewBatchInvoices", () => {
     expect(r).toEqual({ success: false, error: "Erreur lors de la prévisualisation" });
   });
 });
+
+// ── Branches manquantes ───────────────────────────────────────────
+
+describe("createInvoice — branches restantes", () => {
+  it("retourne une erreur Zod si tenantId invalide (B1 arm0)", async () => {
+    const result = await createInvoice(SOCIETY_ID, {
+      tenantId: "not-a-cuid",
+      dueDate: "2025-01-31",
+      invoiceType: "APPEL_LOYER",
+      lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("crée une facture avec periodStart et periodEnd renseignés (B4/B5 arm0)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await createInvoice(SOCIETY_ID, {
+      tenantId: TENANT_ID,
+      dueDate: "2025-01-31",
+      periodStart: "2025-01-01",
+      periodEnd: "2025-01-31",
+      invoiceType: "APPEL_LOYER",
+      lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("generateInvoiceFromLease — branches restantes", () => {
+  it("retourne une erreur Zod si leaseId invalide (B18 arm0)", async () => {
+    const result = await generateInvoiceFromLease(SOCIETY_ID, {
+      leaseId: "not-a-cuid",
+      periodMonth: "2025-01",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("traite rentFreeMonths null (B21/B25 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: null, progressiveRent: false,
+      isThirdPartyManaged: false, managementFeeType: null, managementFeeValue: null,
+      managementFeeBasis: null, managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("n'applique pas la franchise si le mois de la période ne correspond pas (B28 arm1)", async () => {
+    // startDate=2024-10-01, rentFreeMonths=1.5 → monthsSinceLease(2025-01)=3, Math.floor(1.5)=1 → 3≠1
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-10-01"),
+      paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 1.5, progressiveRent: false,
+      isThirdPartyManaged: false, managementFeeType: null, managementFeeValue: null,
+      managementFeeBasis: null, managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("applique la TVA si vatApplicable est true (B29 arm0)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: true, vatRate: 20,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: false, managementFeeType: null, managementFeeValue: null,
+      managementFeeBasis: null, managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("utilise 'Lot non précisé' si lot est null (B30 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: false, managementFeeType: null, managementFeeValue: null,
+      managementFeeBasis: null, managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: null,
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("utilise mult=1 si paymentFrequency inconnu (B31 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "INCONNU", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: false, managementFeeType: null, managementFeeValue: null,
+      managementFeeBasis: null, managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+  });
+
+  it("utilise mult=1 si paymentFrequency inconnu dans isThirdPartyManaged (B34 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "INCONNU", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: true, managementFeeType: "POURCENTAGE",
+      managementFeeValue: 8, managementFeeBasis: "LOYER_CC", managementFeeVatRate: 20,
+      rentSteps: [],
+      chargeProvisions: [{ monthlyAmount: 50, vatRate: 20, label: "Charges" }],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.invoice.update).toHaveBeenCalled();
+  });
+
+  it("ne met pas à jour la facture si feeTTC = 0 (B35 arm1)", async () => {
+    mockComputeManagementFee.mockReturnValueOnce({ feeHT: 0, feeVAT: 0, feeTTC: 0 });
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: LEASE_ID, tenantId: TENANT_ID,
+      startDate: new Date("2024-01-01"),
+      paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+      currentRentHT: 800, vatApplicable: false, vatRate: 0,
+      rentFreeMonths: 0, progressiveRent: false,
+      isThirdPartyManaged: true, managementFeeType: "POURCENTAGE",
+      managementFeeValue: 0, managementFeeBasis: "LOYER_CC", managementFeeVatRate: 20,
+      rentSteps: [], chargeProvisions: [],
+      lot: { number: "12", building: { name: "Résidence Les Pins" } },
+    } as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID, invoiceNumber: "FAC-2025-001" } as never);
+
+    const result = await generateInvoiceFromLease(SOCIETY_ID, { leaseId: LEASE_ID, periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateBatchInvoices — branches restantes", () => {
+  const makeBaseLease = (overrides: Record<string, unknown> = {}) => ({
+    id: LEASE_ID, tenantId: TENANT_ID,
+    startDate: new Date("2024-01-01"),
+    paymentFrequency: "MENSUEL", billingTerm: "ECHU",
+    currentRentHT: 800, vatApplicable: false, vatRate: 0,
+    rentFreeMonths: 0, progressiveRent: false,
+    rentSteps: [], chargeProvisions: [],
+    lot: { number: "1", building: { name: "Immeuble A" } },
+    ...overrides,
+  });
+
+  it("filtre par leaseIds si spécifiés (B39 arm0)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease()] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01", leaseIds: [LEASE_ID] });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+    expect(prismaMock.lease.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: { in: [LEASE_ID] } }) })
+    );
+  });
+
+  it("traite rentFreeMonths null dans generateBatchInvoices (B41 arm1)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease({ rentFreeMonths: null })] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  it("applique la TVA si vatApplicable est true dans generateBatchInvoices (B42 arm0)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease({ vatApplicable: true, vatRate: 20 })] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  it("utilise 'Lot non précisé' si lot est null dans generateBatchInvoices (B43 arm1)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease({ lot: null })] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  it("utilise mult=1 si paymentFrequency inconnu dans generateBatchInvoices (B44 arm1)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease({ paymentFrequency: "INCONNU" })] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  it("capture 'Erreur inconnue' si l'erreur n'est pas une instance de Error (B46 arm1)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([makeBaseLease()] as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.$transaction.mockRejectedValue("string-error");
+
+    const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
+    expect(result.success).toBe(true);
+    expect(result.data?.errors).toHaveLength(1);
+    expect(result.data?.errors[0]).toContain("Erreur inconnue");
+  });
+});

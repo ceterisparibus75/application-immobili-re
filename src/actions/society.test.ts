@@ -109,6 +109,27 @@ describe("createSociety", () => {
     expect(vi.mocked(encrypt)).toHaveBeenCalledWith("FR7630006000011234567890189");
   });
 
+  it("continue si le SIRET est unique (if existing arm1 — ligne 56)", async () => {
+    mockAuthUser();
+    prismaMock.society.findUnique.mockResolvedValue(null); // SIRET unique
+    prismaMock.society.create.mockResolvedValue(makeSociety() as never);
+    prismaMock.userSociety.create.mockResolvedValue({} as never);
+    prismaMock.subscription.create.mockResolvedValue({} as never);
+    const result = await createSociety({ ...validCreateInput, siret: "12345678901234" });
+    expect(result.success).toBe(true);
+  });
+
+  it("chiffre le BIC si fourni (data.bic arm0 — ligne 63)", async () => {
+    mockAuthUser();
+    prismaMock.society.findUnique.mockResolvedValue(null);
+    prismaMock.society.create.mockResolvedValue(makeSociety() as never);
+    prismaMock.userSociety.create.mockResolvedValue({} as never);
+    prismaMock.subscription.create.mockResolvedValue({} as never);
+    await createSociety({ ...validCreateInput, bic: "BNPAFRPP" });
+    const { encrypt } = await import("@/lib/encryption");
+    expect(vi.mocked(encrypt)).toHaveBeenCalledWith("BNPAFRPP");
+  });
+
   it("retourne une erreur générique si la BDD échoue dans createSociety (lignes 136-137)", async () => {
     mockAuthUser();
     prismaMock.society.findUnique.mockResolvedValue(null);
@@ -150,6 +171,15 @@ describe("updateSociety", () => {
         data: expect.objectContaining({ ibanEncrypted: null, bicEncrypted: null }),
       })
     );
+  });
+
+  it("chiffre IBAN et BIC non vides dans updateSociety (arm0 lignes 161, 164)", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.society.update.mockResolvedValue(makeSociety() as never);
+    await updateSociety({ id: SOCIETY_ID, iban: "FR7630006000011234567890189", bic: "BNPAFRPP" });
+    const { encrypt } = await import("@/lib/encryption");
+    expect(vi.mocked(encrypt)).toHaveBeenCalledWith("FR7630006000011234567890189");
+    expect(vi.mocked(encrypt)).toHaveBeenCalledWith("BNPAFRPP");
   });
 
   it("retourne ForbiddenError si rôle insuffisant pour updateSociety (lignes 199-200)", async () => {

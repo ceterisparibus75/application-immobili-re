@@ -84,6 +84,20 @@ describe("createContact", () => {
     const result = await createContact(SOCIETY_ID, validInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de la création" });
   });
+
+  it("convertit email vide en null (ligne 45)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.contact.create.mockResolvedValue(buildContact({ email: null }) as never);
+
+    const result = await createContact(SOCIETY_ID, { ...validInput, email: "" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: null }),
+      })
+    );
+  });
 });
 
 describe("updateContact", () => {

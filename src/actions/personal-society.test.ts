@@ -173,4 +173,94 @@ describe("personal-society actions", () => {
     expect(revalidatePath).toHaveBeenNthCalledWith(2, "/societes");
     expect(revalidatePath).toHaveBeenNthCalledWith(3, "/dashboard");
   });
+
+  it("utilise user.name si firstName/lastName sont absents + fallbacks user.address/ownerCity/postalCode (lignes 70, 88-90)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "John Doe",
+      firstName: null,
+      lastName: null,
+      address: "10 rue de la Paix",
+      postalCode: "69001",
+      ownerCity: "Lyon",
+      phone: "0600000000",
+      email: "john@example.com",
+    } as never);
+    prismaMock.society.create.mockResolvedValue({ id: "society-1", name: "John Doe" } as never);
+
+    const result = await createPersonalSociety({ taxRegime: "IR", vatRegime: "FRANCHISE" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "John Doe",
+          signatoryName: "John Doe",
+          addressLine1: "10 rue de la Paix",
+          city: "Lyon",
+          postalCode: "69001",
+          phone: "0600000000",
+        }),
+      })
+    );
+  });
+
+  it("utilise 'Proprietaire' si name null et couvre fallbacks 'A completer'/'00000'/phone null/fiscalRegime null (lignes 70, 88-95)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: null,
+      firstName: null,
+      lastName: null,
+      address: null,
+      postalCode: null,
+      ownerCity: null,
+      phone: null,
+      email: "anon@example.com",
+    } as never);
+    prismaMock.society.create.mockResolvedValue({ id: "society-anon", name: "Proprietaire" } as never);
+
+    const result = await createPersonalSociety({ taxRegime: "IR", vatRegime: "FRANCHISE" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "Proprietaire",
+          signatoryName: "Proprietaire",
+          addressLine1: "A completer",
+          city: "A completer",
+          postalCode: "00000",
+          fiscalRegime: null,
+          phone: null,
+        }),
+      })
+    );
+  });
+
+  it("utilise les valeurs par défaut IR/FRANCHISE si taxRegime/vatRegime absents (B lignes 92-93)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Jean Dupont",
+      firstName: "Jean",
+      lastName: "Dupont",
+      address: "1 rue de Paris",
+      postalCode: "75001",
+      ownerCity: "Paris",
+      phone: null,
+      email: "jean@example.com",
+    } as never);
+    prismaMock.society.create.mockResolvedValue({ id: "society-default", name: "Jean Dupont" } as never);
+
+    const result = await createPersonalSociety({});
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ taxRegime: "IR", vatRegime: "FRANCHISE" }),
+      })
+    );
+  });
 });

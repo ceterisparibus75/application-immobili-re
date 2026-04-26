@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
 import { prismaMock } from "@/test/mocks/prisma";
 import { UserRole } from "@/generated/prisma/client";
@@ -32,6 +32,7 @@ const mockRandomBytes = vi.hoisted(() => vi.fn().mockReturnValue({ toString: () 
 vi.mock("crypto", () => ({ randomBytes: mockRandomBytes }));
 
 import { sendNewUserInviteEmail } from "@/lib/email";
+import { env } from "@/lib/env";
 
 import {
   assignUserToSociety,
@@ -903,4 +904,158 @@ describe("getAllManagedUsers with data", () => {
     expect(r.data?.users[0].name).toBe("Alice");
   });
 
+  it("fusionne les accès si un user apparaît dans 2 sociétés (B52 arm1: userMap.has = true)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-1", label: "SCI Test",
+        societies: [
+          {
+            id: "soc-1", name: "Société 1",
+            userSocieties: [{ role: "GESTIONNAIRE", user: { id: USER_ID, email: "u@example.com", name: "Alice", firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } }],
+          },
+          {
+            id: "soc-2", name: "Société 2",
+            userSocieties: [{ role: "COMPTABLE", user: { id: USER_ID, email: "u@example.com", name: "Alice", firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } }],
+          },
+        ],
+      },
+    ] as never);
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(true);
+    expect(r.data?.users).toHaveLength(1); // un seul user fusionné
+    expect(r.data?.users[0].accesses).toHaveLength(2); // 2 accès
+  });
+
+  it("trie par name=null correctement — localeCompare avec fallback '' (B54/B55 arm1)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-1", label: "SCI Test",
+        societies: [{
+          id: SOCIETY_ID, name: "Soc",
+          userSocieties: [
+            { role: "GESTIONNAIRE", user: { id: "u1", email: "b@example.com", name: null, firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } },
+            { role: "GESTIONNAIRE", user: { id: "u2", email: "a@example.com", name: "Alice", firstName: null, isActive: true, lastLoginAt: null, emailCopyEnabled: false } },
+          ],
+        }],
+      },
+    ] as never);
+    const r = await getAllManagedUsers();
+    expect(r.success).toBe(true);
+    // null name → "" → sort avant "Alice"
+    expect(r.data?.users[0].name).toBeNull();
+  });
+});
+
+describe("getModulePermissions — permissions personnalisées (B40 arm0)", () => {
+  it("retourne les permissions custom si modulePermissions est non null", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    const customPerms = { documents: { read: true, write: false, delete: false } };
+    prismaMock.userSociety.findUnique
+      .mockResolvedValueOnce({ userId: "user-1", societyId: SOCIETY_ID, role: "ADMIN_SOCIETE", modulePermissions: null } as never)
+      .mockResolvedValueOnce({ userId: USER_ID, societyId: SOCIETY_ID, role: "GESTIONNAIRE", modulePermissions: customPerms } as never);
+    const r = await getModulePermissions(USER_ID, SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.isCustom).toBe(true);
+    expect(r.data?.modulePermissions).toEqual(customPerms);
+  });
+});
+
+describe("resendInvitation — branches restantes", () => {
+  it("utilise firstName dans le nom si défini (B16 arm0)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "u@example.com", name: "Alice", firstName: "Marie", lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r).toEqual({ success: true });
+  });
+
+  it("tombe sur email si name=null et firstName=null (B14 arm1, B15 arm1)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "u@example.com", name: null, firstName: null, lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r).toEqual({ success: true }); // email utilisé comme name de fallback
+  });
+});
+
+describe("createUser — branches firstName (B5/B8)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+  });
+
+  it("inclut firstName dans le nom si défini — utilisateur existant (B5 arm0)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    const r = await createUser({ name: "Alice", email: "alice@example.com", firstName: "Marie" });
+    expect(r.success).toBe(true);
+  });
+
+  it("inclut firstName dans le nom si défini — nouvel utilisateur (B8 arm0)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    prismaMock.user.create.mockResolvedValue({
+      id: USER_ID, email: "bob@example.com", name: "Bob",
+    } as never);
+    const r = await createUser({ name: "Bob", email: "bob@example.com", firstName: "Jean" });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("createUser + resendInvitation — AUTH_URL absent → localhost fallback (lignes 76, 119, 179)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    (env as Record<string, unknown>).AUTH_URL = undefined;
+  });
+
+  afterEach(() => {
+    (env as Record<string, unknown>).AUTH_URL = "https://app.test";
+  });
+
+  it("utilise localhost:3000 si AUTH_URL absent — reinvite existant (B ligne 76 arm1)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "alice@example.com", lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    const r = await createUser({ name: "Alice", email: "alice@example.com" });
+    expect(r.success).toBe(true);
+    expect(vi.mocked(sendNewUserInviteEmail)).toHaveBeenCalledWith(
+      expect.objectContaining({ appUrl: "http://localhost:3000" })
+    );
+  });
+
+  it("utilise localhost:3000 si AUTH_URL absent — nouvel utilisateur (B ligne 119 arm1)", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    prismaMock.user.create.mockResolvedValue({ id: USER_ID, email: "new@example.com", name: "New" } as never);
+    const r = await createUser({ name: "New", email: "new@example.com" });
+    expect(r.success).toBe(true);
+    expect(vi.mocked(sendNewUserInviteEmail)).toHaveBeenCalledWith(
+      expect.objectContaining({ appUrl: "http://localhost:3000" })
+    );
+  });
+
+  it("utilise localhost:3000 si AUTH_URL absent — resendInvitation (B ligne 179 arm1)", async () => {
+    prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: USER_ID, email: "u@example.com", name: "U", firstName: null, lastLoginAt: null,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ id: USER_ID } as never);
+    const r = await resendInvitation(USER_ID);
+    expect(r).toEqual({ success: true });
+    expect(vi.mocked(sendNewUserInviteEmail)).toHaveBeenCalledWith(
+      expect.objectContaining({ appUrl: "http://localhost:3000" })
+    );
+  });
 });

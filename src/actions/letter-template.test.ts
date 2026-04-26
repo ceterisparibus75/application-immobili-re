@@ -490,4 +490,139 @@ describe("letter-template actions", () => {
     const result = await deleteCustomTemplate(SOCIETY_ID, "tpl-1");
     expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
+
+  // ── Branches manquantes ──────────────────────────────────────────
+
+  it("getTenantsWithLease — firstName/lastName null → ?? '' lignes 52-53", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: "t-null", firstName: null, lastName: null, leases: [] },
+    ] as never);
+    const result = await getTenantsWithLease(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data![0].firstName).toBe("");
+    expect(result.data![0].lastName).toBe("");
+  });
+
+  it("getBuildingsWithTenants — PERSONNE_MORALE avec companyName → ligne 111 TRUE + 112 left", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([{
+      id: "bld-pm", name: "Rés. Alpha", city: "Paris",
+      lots: [{
+        leases: [{ id: LEASE_ID, tenant: { id: "t-pm", firstName: null, lastName: null, companyName: "SCI Alpha", entityType: "PERSONNE_MORALE" } }],
+      }],
+    }] as never);
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data![0].tenants[0].name).toBe("SCI Alpha");
+  });
+
+  it("getBuildingsWithTenants — PERSONNE_MORALE companyName null → ligne 112 right (→ '—')", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([{
+      id: "bld-pm2", name: "Rés. Bravo", city: "Lyon",
+      lots: [{
+        leases: [{ id: LEASE_ID, tenant: { id: "t-pm2", firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_MORALE" } }],
+      }],
+    }] as never);
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data![0].tenants[0].name).toBe("—");
+  });
+
+  it("getBuildingsWithTenants — PERSONNE_PHYSIQUE firstName/lastName null → '—' ligne 113", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([{
+      id: "bld-pp", name: "Rés. Charlie", city: "Nice",
+      lots: [{
+        leases: [{ id: LEASE_ID, tenant: { id: "t-pp", firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_PHYSIQUE" } }],
+      }],
+    }] as never);
+    const result = await getBuildingsWithTenants(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data![0].tenants[0].name).toBe("—");
+  });
+
+  it("getAutoFillData — leaseId fourni mais bail non trouvé → if(lease) FALSE ligne 221", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    const result = await getAutoFillData(SOCIETY_ID, undefined, LEASE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.tenantName).toBeUndefined();
+  });
+
+  it("getAutoFillData — bail trouvé avec personalAddress null et endDate null → lignes 223 right, 226 FALSE", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01"), endDate: null, currentRentHT: 500,
+      tenant: { firstName: "Alice", lastName: "D", email: "a@b.com", personalAddress: null },
+      lot: { building: { addressLine1: "10 rue X", city: "Paris", postalCode: "75001" } },
+      chargeProvisions: [],
+    } as never);
+    const result = await getAutoFillData(SOCIETY_ID, undefined, LEASE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.tenantAddress).toBe("");
+    expect(result.data?.leaseEnd).toBe("");
+  });
+
+  it("getAutoFillData — ni leaseId ni tenantId → else if FALSE ligne 231", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: "123" } as never);
+    const result = await getAutoFillData(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.societyName).toBe("Ma Soc");
+    expect(result.data?.tenantName).toBeUndefined();
+  });
+
+  it("getAutoFillData — tenantId fourni mais locataire non trouvé → if(tenant) FALSE ligne 236", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    const result = await getAutoFillData(SOCIETY_ID, "tenant-absent");
+    expect(result.success).toBe(true);
+    expect(result.data?.tenantName).toBeUndefined();
+  });
+
+  it("getAutoFillData — tenant trouvé avec personalAddress null → ligne 238 right", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue({ firstName: "Zoe", lastName: "Blanc", personalAddress: null } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    const result = await getAutoFillData(SOCIETY_ID, "tenant-zoe");
+    expect(result.success).toBe(true);
+    expect(result.data?.tenantAddress).toBe("");
+  });
+
+  it("getAutoFillData — bail actif du locataire avec endDate → ligne 254 TRUE arm", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Soc", addressLine1: "1 r. X", addressLine2: null, city: "Paris", postalCode: "75001", siret: null } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue({ firstName: "Marc", lastName: "Leroy", personalAddress: "3 bd X" } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2025-01-01"), endDate: new Date("2025-12-31"), currentRentHT: 700,
+      lot: { building: { addressLine1: "5 rue Y", city: "Lyon", postalCode: "69000" } },
+      chargeProvisions: [{ monthlyAmount: 25 }],
+    } as never);
+    const result = await getAutoFillData(SOCIETY_ID, "tenant-marc");
+    expect(result.success).toBe(true);
+    expect(result.data?.leaseEnd).toBeTruthy();
+  });
+
+  it("generateLetter — values vides + société trouvée → lignes 312 arm1 + 313-317 right branches", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({ name: "Ma Société", siret: "123" } as never);
+    const result = await generateLetter(SOCIETY_ID, { templateId: "courrier_libre", values: {} });
+    expect(result.success).toBe(true);
+    expect(generateLetterPdf).toHaveBeenCalledWith(expect.objectContaining({ senderName: "Ma Société" }));
+  });
+
+  it("generateLetter — values vides + société null → ligne 312 arm2 (→ '')", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue(null);
+    const result = await generateLetter(SOCIETY_ID, { templateId: "courrier_libre", values: {} });
+    expect(result.success).toBe(true);
+    expect(generateLetterPdf).toHaveBeenCalledWith(expect.objectContaining({ senderName: "" }));
+  });
 });

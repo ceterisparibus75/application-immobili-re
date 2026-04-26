@@ -753,3 +753,33 @@ describe("recordVote — Zod (ligne 388)", () => {
     expect(r.error).toBeTruthy();
   });
 });
+
+describe("updateAssembly — branches date (ligne 327)", () => {
+  it("convertit la date en objet Date si elle est fournie (ligne 327 branche true)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproAssembly.update.mockResolvedValue({ id: VALID_CUID_2 } as never);
+
+    const r = await updateAssembly(SOCIETY_ID, { id: VALID_CUID_2, date: "2026-11-15" });
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.coproAssembly.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ date: new Date("2026-11-15") }),
+      })
+    );
+  });
+
+  it("ne convertit pas la date si elle est absente (ligne 327 branche false)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.coproAssembly.update.mockResolvedValue({ id: VALID_CUID_2 } as never);
+
+    const r = await updateAssembly(SOCIETY_ID, { id: VALID_CUID_2, title: "Sans date" });
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.coproAssembly.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ date: expect.anything() }),
+      })
+    );
+  });
+});

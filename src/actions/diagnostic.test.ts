@@ -217,4 +217,46 @@ describe("diagnostic actions", () => {
     const result = await deleteDiagnostic(SOCIETY_ID, DIAGNOSTIC_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la suppression" });
   });
+
+  it("crée un diagnostic sans expiresAt/aiAnalysis → null (lignes 49, 53-54)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.diagnostic.create.mockResolvedValue({ id: DIAGNOSTIC_ID } as never);
+
+    const result = await createDiagnostic(SOCIETY_ID, {
+      buildingId: BUILDING_ID,
+      type: "AMIANTE",
+      performedAt: "2026-04-20",
+      // expiresAt et aiAnalysis absents → null
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.diagnostic.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expiresAt: null,
+        aiAnalysis: null,
+        aiAnalyzedAt: null,
+      }),
+    });
+  });
+
+  it("updateDiagnostic avec performedAt mais sans expiresAt (lignes 110-111)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.diagnostic.findFirst.mockResolvedValue({ id: DIAGNOSTIC_ID, buildingId: BUILDING_ID } as never);
+
+    const result = await updateDiagnostic(SOCIETY_ID, {
+      id: DIAGNOSTIC_ID,
+      performedAt: "2026-05-01",
+      // expiresAt absent → null
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(prismaMock.diagnostic.update).toHaveBeenCalledWith({
+      where: { id: DIAGNOSTIC_ID },
+      data: expect.objectContaining({
+        performedAt: new Date("2026-05-01"),
+        expiresAt: null,
+      }),
+    });
+  });
 });

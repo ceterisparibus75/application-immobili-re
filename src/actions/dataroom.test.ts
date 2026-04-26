@@ -751,6 +751,113 @@ describe("reorderDocument — document introuvable", () => {
   });
 });
 
+// ─── Branches manquantes ──────────────────────────────────────────────────────
+
+describe("createDataroom — branches restantes", () => {
+  it("utilise new Date(expiresAt) si expiresAt est fourni (B5 arm0)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.create.mockResolvedValue(
+      buildDataroom({ shareToken: null }) as never
+    );
+    const r = await createDataroom(SOCIETY_ID, {
+      name: "Dossier Vente",
+      expiresAt: "2026-12-31",
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.dataroom.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expiresAt: expect.any(Date) }) })
+    );
+    // shareToken is null → token fallback to dataroom.id (B9 arm1)
+    expect(r.data?.token).toBe(DATAROOM_ID);
+  });
+});
+
+describe("updateDataroom — branches restantes", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(buildDataroom() as never);
+    prismaMock.dataroom.update.mockResolvedValue(buildDataroom() as never);
+  });
+
+  it("hash le nouveau mot de passe dans updateDataroom (B15 arm0)", async () => {
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { password: "nouveau123" });
+    expect(r.success).toBe(true);
+    const callArg = prismaMock.dataroom.update.mock.calls[0][0];
+    expect(callArg.data.password).toMatch(/^\$2[ab]\$/);
+  });
+
+  it("met à jour description, status, purpose, recipientEmail, recipientName (B17-B21 arm1)", async () => {
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, {
+      description: "Nouvelle description",
+      status: "ACTIF",
+      purpose: "VENTE",
+      recipientEmail: "contact@example.com",
+      recipientName: "Jean Dupont",
+    });
+    expect(r.success).toBe(true);
+    const callArg = prismaMock.dataroom.update.mock.calls[0][0];
+    expect(callArg.data.description).toBe("Nouvelle description");
+    expect(callArg.data.status).toBe("ACTIF");
+    expect(callArg.data.purpose).toBe("VENTE");
+    expect(callArg.data.recipientEmail).toBe("contact@example.com");
+    expect(callArg.data.recipientName).toBe("Jean Dupont");
+  });
+
+  it("convertit expiresAt en Date si fourni (B23 arm0, B24 arm0)", async () => {
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { expiresAt: "2026-12-31" });
+    expect(r.success).toBe(true);
+    const callArg = prismaMock.dataroom.update.mock.calls[0][0];
+    expect(callArg.data.expiresAt).toBeInstanceOf(Date);
+  });
+
+  it("met expiresAt à null si null est transmis (B23 arm0, B24 arm1)", async () => {
+    const r = await updateDataroom(SOCIETY_ID, DATAROOM_ID, { expiresAt: null });
+    expect(r.success).toBe(true);
+    const callArg = prismaMock.dataroom.update.mock.calls[0][0];
+    expect(callArg.data.expiresAt).toBeNull();
+  });
+});
+
+describe("removeDocumentFromDataroom — dataroom introuvable (B44 arm0)", () => {
+  it("retourne une erreur si la dataroom est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    const r = await removeDocumentFromDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+});
+
+describe("activateDataroom — dataroom introuvable (B52 arm0)", () => {
+  it("retourne une erreur si la dataroom est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    const r = await activateDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+});
+
+describe("archiveDataroom — dataroom introuvable (B55 arm0)", () => {
+  it("retourne une erreur si la dataroom est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    const r = await archiveDataroom(SOCIETY_ID, DATAROOM_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+});
+
+describe("reorderDocument — dataroom introuvable (B58 arm0)", () => {
+  it("retourne une erreur si la dataroom est introuvable", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.dataroom.findFirst.mockResolvedValue(null);
+    const r = await reorderDocument(SOCIETY_ID, DATAROOM_ID, DOC_ID, "up");
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Dataroom introuvable");
+  });
+});
+
 
 // ─── updateDataroom — ForbiddenError (ligne 173) ─────────────────────────────
 

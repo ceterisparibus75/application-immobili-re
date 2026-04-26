@@ -206,4 +206,48 @@ describe("getDocuments", () => {
       })
     );
   });
+
+  it("filtre par leaseId, tenantId et category si fournis (lignes 41-43)", async () => {
+    mockAuthSession(UserRole.LECTURE);
+    prismaMock.document.findMany.mockResolvedValue([]);
+    await getDocuments(SOCIETY_ID, { leaseId: "lease-1", tenantId: "tenant-1", category: "bail" });
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ leaseId: "lease-1", tenantId: "tenant-1", category: "bail" }),
+      })
+    );
+  });
+});
+
+describe("updateDocument — expiresAt fournie (ligne 80)", () => {
+  it("convertit expiresAt en Date si non vide", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: DOC_ID, societyId: SOCIETY_ID, fileUrl: "https://example.com/file.pdf",
+    } as never);
+    prismaMock.document.update.mockResolvedValue({} as never);
+
+    const r = await updateDocument(SOCIETY_ID, DOC_ID, { category: "assurance", expiresAt: "2030-12-31" });
+    expect(r.success).toBe(true);
+    const call = prismaMock.document.update.mock.calls[0][0];
+    expect(call.data.expiresAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("deleteDocument — fileUrl sans storage/v1/object (ligne 114)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("storagePath null si fileUrl ne contient pas 'storage/v1/object'", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: DOC_ID, societyId: SOCIETY_ID, fileUrl: "https://cdn.example.com/file.pdf",
+    } as never);
+    prismaMock.document.delete.mockResolvedValue({} as never);
+
+    const r = await deleteDocument(SOCIETY_ID, DOC_ID);
+    expect(r.success).toBe(true);
+    // storagePath = null → createClient n'est pas appelé
+    const { createClient } = await import("@supabase/supabase-js");
+    expect(vi.mocked(createClient)).not.toHaveBeenCalled();
+  });
 });

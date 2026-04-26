@@ -700,3 +700,237 @@ describe("markSupplierInvoicePaid", () => {
   });
 
 });
+
+// ── Branches restantes ────────────────────────────────────────────────────────
+
+describe("uploadSupplierInvoice — branches restantes", () => {
+  it("fileSize vaut null quand absent du payload (B1 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.create.mockResolvedValue(makeInvoice({ fileSize: null }) as never);
+    const { fileSize: _, ...noFileSize } = validUploadInput;
+    const result = await uploadSupplierInvoice(SOCIETY_ID, noFileSize);
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ fileSize: null }) })
+    );
+  });
+});
+
+describe("updateSupplierInvoiceData — branches restantes", () => {
+  it("supprime l'IBAN si supplierIban est null (B16 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice() as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue(makeInvoice() as never);
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, { id: INVOICE_ID, supplierIban: null });
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ supplierIbanEncrypted: null }) })
+    );
+  });
+
+  it("stocke null pour les dates nulles (B18/B20/B22/B24 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice() as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue(makeInvoice() as never);
+    const result = await updateSupplierInvoiceData(SOCIETY_ID, {
+      id: INVOICE_ID,
+      invoiceDate: null,
+      dueDate: null,
+      periodStart: null,
+      periodEnd: null,
+    });
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ invoiceDate: null, dueDate: null, periodStart: null, periodEnd: null }),
+      })
+    );
+  });
+});
+
+describe("validateSupplierInvoice — branches transaction restantes", () => {
+  it("valide sans charge (categoryId null) avec findUnique compteCharge (B36 arm1, B40 arm0, B43/B44/B45/B48/B49/B50 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({
+      status: "PENDING_REVIEW",
+      buildingId: "bld-1",
+      categoryId: null,
+      accountingAccountId: ACCOUNT_ID,
+      amountTTC: 1200,
+      amountHT: null,
+      amountVAT: null,
+      description: null,
+      invoiceNumber: null,
+    }) as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue({ id: "acc-60" }),
+          findFirst: vi.fn().mockResolvedValue({ id: "acc-401" }),
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "jnl-1" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.chargeId).toBeNull();
+  });
+
+  it("valide avec categoryId et invoiceNumber null dans description charge (B37 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({
+      status: "PENDING_REVIEW",
+      buildingId: "bld-1",
+      categoryId: "cat-1",
+      accountingAccountId: null,
+      amountTTC: 1200,
+      amountHT: 1000,
+      amountVAT: null,
+      description: "desc",
+      invoiceNumber: null,
+    }) as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        charge: { create: vi.fn().mockResolvedValue({ id: "chg-1" }) },
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ id: "acc-60" })
+            .mockResolvedValueOnce({ id: "acc-401" }),
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "jnl-1" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.chargeId).toBe("chg-1");
+  });
+
+  it("ne crée pas d'écriture si comptes comptables introuvables (B41 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({
+      status: "PENDING_REVIEW",
+      buildingId: "bld-1",
+      categoryId: null,
+      accountingAccountId: ACCOUNT_ID,
+      amountTTC: 1200,
+    }) as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.journalEntryId).toBeNull();
+  });
+
+  it("saute la ligne TVA si compte 44566 introuvable (B47 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeInvoice({
+      status: "PENDING_REVIEW",
+      buildingId: "bld-1",
+      categoryId: "cat-1",
+      accountingAccountId: null,
+      amountTTC: 1200,
+      amountHT: 1000,
+      amountVAT: 200,
+      supplierName: "Fournisseur SA",
+      invoiceDate: new Date("2026-04-01"),
+    }) as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        charge: { create: vi.fn().mockResolvedValue({ id: "chg-vat" }) },
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ id: "acc-60" })
+            .mockResolvedValueOnce({ id: "acc-401" })
+            .mockResolvedValueOnce(null), // compte44566 absent → B47 arm1
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "jnl-vat" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.chargeId).toBe("chg-vat");
+  });
+});
+
+describe("markSupplierInvoicePaid — branches transaction restantes", () => {
+  it("ne crée pas d'écriture BQUE si comptes 401/512 introuvables (B60 arm1)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ status: "VALIDATED", amountTTC: 1200, chargeId: null }) as never
+    );
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        accountingAccount: { findFirst: vi.fn().mockResolvedValue(null) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, validPaidInput);
+    expect(result.success).toBe(true);
+    expect(result.data?.bankJournalEntryId).toBeNull();
+  });
+
+  it("gère reference null et supplierName null dans l'écriture BQUE (B62/B63/B64/B65/B66/B67 arm1)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({ status: "VALIDATED", amountTTC: 1200, chargeId: null, supplierName: null, reference: "REF-X" }) as never
+    );
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        accountingAccount: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ id: "acc-401" })
+            .mockResolvedValueOnce({ id: "acc-512" }),
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "bque-x" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+    const { reference: _, ...noRef } = validPaidInput;
+    const result = await markSupplierInvoicePaid(SOCIETY_ID, noRef);
+    expect(result.success).toBe(true);
+    expect(result.data?.bankJournalEntryId).toBe("bque-x");
+  });
+});
+
+describe("initiateQontoPayment — branches restantes", () => {
+  it("retourne une erreur si le compte bancaire n'a pas de connexion (B76 arm0)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(makeValidatedInvoice() as never);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(
+      makeQontoBankAccount({ connection: null }) as never
+    );
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("connexion");
+  });
+
+  it("initie le virement sans BIC/description/invoiceNumber (B81/B82/B83 arm1)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeValidatedInvoice({ supplierBic: null, description: null, invoiceNumber: null }) as never
+    );
+    prismaMock.bankAccount.findFirst.mockResolvedValue(makeQontoBankAccount() as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue(makeValidatedInvoice() as never);
+    const result = await initiateQontoPayment(SOCIETY_ID, INVOICE_ID, BANK_ACCOUNT_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.qontoTransferId).toBe("qonto-1");
+  });
+});

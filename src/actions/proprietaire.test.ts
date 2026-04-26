@@ -456,3 +456,135 @@ describe("getProprietairesWithSocieties — auto-migration", () => {
   });
 });
 
+// ─── birthDate truthy → new Date() (B10, B30, B44, B66, B74 arm0) ────────────
+
+describe("createProprietaire — birthDate fournie (B10 arm0 L256)", () => {
+  it("convertit birthDate en Date si fournie", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.create.mockResolvedValue({ id: "prop-bd" } as never);
+    const r = await createProprietaire({ label: "Jean Dupont", birthDate: "1990-05-15" });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaire.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ birthDate: new Date("1990-05-15") }),
+      })
+    );
+  });
+});
+
+describe("createProprietaire — associé avec birthDate (B30 arm0 L282)", () => {
+  it("convertit birthDate de l'associé en Date si fournie", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.create.mockResolvedValue({ id: "prop-bd2" } as never);
+    const r = await createProprietaire({
+      label: "SCI Test",
+      entityType: "PERSONNE_MORALE",
+      associes: [{ firstName: "Alice", lastName: "Durand", birthDate: "1985-03-10" }],
+    });
+    expect(r.success).toBe(true);
+    const createCall = prismaMock.proprietaire.create.mock.calls[0][0] as { data: { associes: { create: Array<{ birthDate: Date }> } } };
+    expect(createCall.data.associes.create[0].birthDate).toEqual(new Date("1985-03-10"));
+  });
+});
+
+describe("updateProprietaire — birthDate fournie (B44 arm0 L342)", () => {
+  it("convertit birthDate en Date si fournie lors de la mise à jour", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-1" } as never);
+    prismaMock.proprietaire.update.mockResolvedValue({} as never);
+    const r = await updateProprietaire({ id: "prop-1", label: "Jean", birthDate: "1988-07-20" });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaire.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ birthDate: new Date("1988-07-20") }),
+      })
+    );
+  });
+});
+
+describe("updateProprietaire — associé update avec birthDate (B66 arm0 L391)", () => {
+  it("convertit birthDate de l'associé lors de la mise à jour", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-1" } as never);
+    prismaMock.proprietaire.update.mockResolvedValue({} as never);
+    prismaMock.proprietaireAssocie.findMany.mockResolvedValue([{ id: "assoc-1" }] as never);
+    prismaMock.proprietaireAssocie.update.mockResolvedValue({} as never);
+    const r = await updateProprietaire({
+      id: "prop-1",
+      label: "SCI",
+      associes: [{ id: "assoc-1", firstName: "Alice", lastName: "Durand", birthDate: "1980-01-01" }],
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaireAssocie.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ birthDate: new Date("1980-01-01") }),
+      })
+    );
+  });
+});
+
+describe("updateProprietaire — nouvel associé avec birthDate (B74 arm0 L408)", () => {
+  it("convertit birthDate du nouvel associé lors de la création", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-1" } as never);
+    prismaMock.proprietaire.update.mockResolvedValue({} as never);
+    prismaMock.proprietaireAssocie.findMany.mockResolvedValue([] as never);
+    prismaMock.proprietaireAssocie.create.mockResolvedValue({} as never);
+    const r = await updateProprietaire({
+      id: "prop-1",
+      label: "SCI",
+      associes: [{ firstName: "Bob", lastName: "Martin", birthDate: "1975-12-25" }],
+    });
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaireAssocie.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ birthDate: new Date("1975-12-25") }),
+      })
+    );
+  });
+});
+
+describe("getProprietairesWithSocieties — pas de propriétaire, pas d'orphelins (B99 arm1 L529)", () => {
+  it("ne déclenche pas la migration si pas de sociétés orphelines", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue(null);
+    prismaMock.society.findMany.mockResolvedValue([] as never);
+    prismaMock.proprietaire.findMany.mockResolvedValue([] as never);
+    const r = await getProprietairesWithSocieties();
+    expect(r.success).toBe(true);
+    expect(prismaMock.proprietaire.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("getProprietairesWithSocieties — displayName fallbacks (B102 arm1, B103 arm1)", () => {
+  it("PERSONNE_MORALE sans companyName → utilise label (B102 arm1 L584)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-1" } as never);
+    prismaMock.society.findMany.mockResolvedValue([] as never);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-1", label: "SCI Fallback", entityType: "PERSONNE_MORALE",
+        firstName: null, lastName: null, companyName: null, legalForm: null, societies: [],
+      },
+    ] as never);
+    const r = await getProprietairesWithSocieties();
+    expect(r.success).toBe(true);
+    expect(r.data![0].displayName).toBe("SCI Fallback");
+  });
+
+  it("PERSONNE_PHYSIQUE sans nom ni prénom → utilise label (B103 arm1 L585)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.proprietaire.findFirst.mockResolvedValue({ id: "prop-2" } as never);
+    prismaMock.society.findMany.mockResolvedValue([] as never);
+    prismaMock.proprietaire.findMany.mockResolvedValue([
+      {
+        id: "prop-2", label: "Propriétaire Inconnu", entityType: "PERSONNE_PHYSIQUE",
+        firstName: null, lastName: null, companyName: null, legalForm: null, societies: [],
+      },
+    ] as never);
+    const r = await getProprietairesWithSocieties();
+    expect(r.success).toBe(true);
+    expect(r.data![0].displayName).toBe("Propriétaire Inconnu");
+  });
+});
+

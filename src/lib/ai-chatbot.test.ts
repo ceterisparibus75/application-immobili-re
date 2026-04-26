@@ -162,4 +162,21 @@ describe("chatWithAssistant", () => {
       chatWithAssistant([{ role: "user", content: "Test" }], baseContext)
     ).rejects.toThrow("API rate limit exceeded")
   })
+
+  it("scope fourni avec tableaux vides → IF FALSE branches lignes 50/53/56/59", async () => {
+    mockCreate.mockResolvedValue(makeAnthropicResponse("Réponse"))
+
+    await chatWithAssistant(
+      [{ role: "user", content: "Test" }],
+      { ...baseContext, scope: { buildings: [], tenants: [], leases: [], recentActivity: [] } }
+    )
+
+    const callArgs = mockCreate.mock.calls[0][0]
+    const systemPrompt: string = callArgs.system
+    expect(systemPrompt).toContain("Contexte de la société")
+    expect(systemPrompt).not.toContain("Immeubles")
+    expect(systemPrompt).not.toContain("Locataires")
+    expect(systemPrompt).not.toContain("Baux actifs")
+    expect(systemPrompt).not.toContain("Activité récente")
+  })
 })

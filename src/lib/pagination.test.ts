@@ -92,6 +92,11 @@ describe("buildPrismaArgs", () => {
     expect(args.orderBy).toEqual({ createdAt: "desc" });
   });
 
+  it("utilise 'asc' par défaut si sortBy défini mais sortOrder absent → B11 arm1 L57", () => {
+    const args = buildPrismaArgs({ page: 1, pageSize: 10, sortBy: "name", filters: {} });
+    expect(args.orderBy).toEqual({ name: "asc" });
+  });
+
   it("n'ajoute pas orderBy si sortBy est absent", () => {
     const args = buildPrismaArgs({ page: 1, pageSize: 10, sortOrder: "asc", filters: {} });
     expect(args.orderBy).toBeUndefined();

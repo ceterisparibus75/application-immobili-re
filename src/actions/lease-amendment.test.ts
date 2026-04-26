@@ -224,6 +224,20 @@ describe("renewLease", () => {
     expect(r).toEqual({ success: false, error: "Erreur lors du renouvellement" });
   });
 
+  it("propage l'erreur si createLeaseAmendment échoue → B14 arm0 L129", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.$transaction.mockImplementation(
+      async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock)
+    );
+    prismaMock.lease.findFirst
+      .mockResolvedValueOnce(buildLease() as never)
+      .mockResolvedValueOnce(null as never);
+
+    const r = await renewLease(SOCIETY_ID, { leaseId: LEASE_ID, newEndDate: "2027-12-31" });
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Bail introuvable");
+  });
+
   it("renouvelle le bail via un avenant de renouvellement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     prismaMock.lease.findFirst

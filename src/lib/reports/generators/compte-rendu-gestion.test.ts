@@ -245,6 +245,36 @@ describe("generateCompteRenduGestion", () => {
     );
   });
 
+  it("gère lot.number null → lotNum '-' (ligne 136)", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({ id: "society-1", name: "Test" } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        totalTTC: 500,
+        status: "VALIDE",
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Dupont", companyName: null },
+        lease: { lot: { buildingId: "building-1", number: null } },
+        payments: [],
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble A", lots: [{ id: "lot-1" }] },
+    ] as never);
+
+    const result = await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["Bob Dupont", "-"]),
+      expect.any(Array), expect.any(Array), expect.anything()
+    );
+  });
+
   it("gère les sauts de page et ignore les immeubles sans factures (lignes 92-94, 112, 114, 146-148)", async () => {
     helperMocks.contentStartY.mockReturnValue(150);
     prismaMock.society.findUnique.mockResolvedValue({ id: "society-1", name: "Test Société" } as never);

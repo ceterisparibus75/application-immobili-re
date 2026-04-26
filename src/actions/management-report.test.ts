@@ -493,4 +493,117 @@ describe("confirmManagementReport", () => {
     expect(invoiceCreateCall.data.lines.create).toHaveLength(2);
     expect(invoiceCreateCall.data.lines.create[1].label).toContain("Charges");
   });
+
+  it("utilise le fallback vatRate=20 si vatRate est null dans le bail (B29 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockResolvedValue(
+      makeReportWithLease({ lease: makeLease({ vatRate: null }) }) as never
+    );
+    prismaMock.society.findUnique.mockResolvedValue({
+      invoiceNumberYear: new Date().getFullYear(),
+      nextInvoiceNumber: 5,
+      invoicePrefix: "FAC",
+    } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 6, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({ id: PAYMENT_ID } as never);
+    prismaMock.managementReport.update.mockResolvedValue({} as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(true);
+    const invoiceCreateCall = prismaMock.invoice.create.mock.calls[0][0];
+    expect(invoiceCreateCall.data.lines.create[0].vatRate).toBe(20);
+  });
+
+  it("applique yearChanged=true quand society.findUnique retourne null (B1 arm0, B2 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.managementReport.findFirst.mockResolvedValue(makeReportWithLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(null as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: null } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.payment.create.mockResolvedValue({ id: PAYMENT_ID } as never);
+    prismaMock.managementReport.update.mockResolvedValue({} as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+
+    const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.society.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ invoiceNumberYear: expect.any(Number), nextInvoiceNumber: 1 }),
+      })
+    );
+  });
+});
+
+// ── Branches manquantes uploadAndAnalyzeReport ────────────────────────────────
+
+describe("uploadAndAnalyzeReport — branches restantes", () => {
+  const STORAGE_PATH = "reports/society/report.pdf";
+
+  it("utilise image/jpeg si l'URL ne se termine pas par .pdf (B17 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const JPG_URL = "https://cdn.example.com/report.jpg";
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    }));
+    vi.mocked(analyzeManagementReport).mockResolvedValue({
+      ...aiResult,
+      periodStart: null,
+      periodEnd: null,
+      grossRent: null,
+      feeAmountHT: null,
+      feeAmountTTC: null,
+      netTransfer: null,
+    } as never);
+    prismaMock.managementReport.create.mockResolvedValue(makeReport({ aiAnalyzed: true }) as never);
+
+    const result = await uploadAndAnalyzeReport(SOCIETY_ID, LEASE_ID, JPG_URL, STORAGE_PATH);
+    expect(result.success).toBe(true);
+    expect(vi.mocked(analyzeManagementReport)).toHaveBeenCalledWith(
+      expect.anything(),
+      "image/jpeg",
+      expect.anything()
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("utilise les fallback null pour les champs IA manquants et tenant sans nom (B13-B16, B18-B20, B22-B24)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findFirst.mockResolvedValue(
+      makeLease({
+        tenant: { id: "t1", firstName: null, lastName: null, companyName: null },
+        managementFeeValue: null,
+        managementFeeType: null,
+      }) as never
+    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    }));
+    vi.mocked(analyzeManagementReport).mockResolvedValue({
+      periodStart: null,
+      periodEnd: null,
+      grossRent: null,
+      chargesAmount: null,
+      feeAmountHT: null,
+      feeAmountTTC: null,
+      netTransfer: null,
+      confidence: 0.5,
+    } as never);
+    prismaMock.managementReport.create.mockResolvedValue(makeReport({ aiAnalyzed: true }) as never);
+
+    const result = await uploadAndAnalyzeReport(SOCIETY_ID, LEASE_ID, "https://cdn.example.com/report.pdf", STORAGE_PATH);
+    expect(result.success).toBe(true);
+    expect(prismaMock.managementReport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ grossRent: 0, feeAmountHT: 0, feeAmountTTC: 0, netTransfer: 0 }),
+      })
+    );
+    vi.unstubAllGlobals();
+  });
 });

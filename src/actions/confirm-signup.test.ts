@@ -149,4 +149,14 @@ describe("resendConfirmationCode", () => {
     const result = await resendConfirmationCode("jean@example.com");
     expect(result).toEqual({ success: false, error: "Erreur lors du renvoi du code" });
   });
+
+  it("utilise l'email comme nom si user.name est null → B9 arm1 L114", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ name: null }) as never);
+    prismaMock.user.update.mockResolvedValue(makeUser({ name: null }) as never);
+    const result = await resendConfirmationCode("jean@example.com");
+    expect(result.success).toBe(true);
+    expect(sendSignupCodeEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "jean@example.com" })
+    );
+  });
 });

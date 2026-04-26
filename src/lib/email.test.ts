@@ -85,6 +85,20 @@ describe("sendMail", () => {
       expect.objectContaining({ bcc: ["bcc@example.com"] })
     );
   });
+
+  it("normalise bcc string (non-array) en tableau → B15 arm0 arm1 (Array.isArray false)", async () => {
+    await sendMail("to@example.com", "Sujet", "<p>Test</p>", undefined, undefined, "bcc@example.com");
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({ bcc: ["bcc@example.com"] })
+    );
+  });
+
+  it("retourne success:false si l'erreur Resend n'a pas de .message → B20 arm1 L237", async () => {
+    mockEmailsSend.mockResolvedValue({ data: null, error: { code: "RATE_LIMIT" } });
+    const result = await sendMail("to@example.com", "Sujet", "<p>Test</p>");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
 });
 
 // ── sendReminderEmail ──────────────────────────────────────────
@@ -125,6 +139,21 @@ describe("sendReminderEmail", () => {
     const result = await sendReminderEmail(baseParams);
     expect(result.success).toBe(false);
   });
+
+  it("envoie une relance formelle (niveau 2) → B22 arm0 + B25 arm0 (badge amber, para relance)", async () => {
+    const result = await sendReminderEmail({ ...baseParams, reminderLevel: 2 });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: expect.stringContaining("Relance formelle") })
+    );
+  });
+
+  it("inclut le contactEmail dans le corps si fourni → B26 arm0 L285", async () => {
+    const result = await sendReminderEmail({ ...baseParams, contactEmail: "contact@sci.fr" });
+    expect(result.success).toBe(true);
+    const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
+    expect(html).toContain("contact@sci.fr");
+  });
 });
 
 // ── sendInvoiceEmail ───────────────────────────────────────────
@@ -148,6 +177,25 @@ describe("sendInvoiceEmail", () => {
       })
     );
   });
+
+  it("inclut la pièce jointe PDF si pdfAttachment fourni → B28 arm0 L336", async () => {
+    const result = await sendInvoiceEmail({
+      to: "locataire@example.com",
+      tenantName: "Jean Dupont",
+      invoiceRef: "FAC-2025-002",
+      amount: 850,
+      dueDate: "05/01/2025",
+      period: "janvier 2025",
+      societyName: "SCI Test",
+      pdfAttachment: { filename: "fac-2025-002.pdf", content: Buffer.from("fake-pdf") },
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([expect.objectContaining({ filename: "fac-2025-002.pdf" })]),
+      })
+    );
+  });
 });
 
 // ── sendReceiptEmail ───────────────────────────────────────────
@@ -164,6 +212,25 @@ describe("sendReceiptEmail", () => {
       societyName: "SCI Test",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("inclut la pièce jointe PDF si pdfAttachment fourni → B29 arm0 L370 + B30 arm0 L379", async () => {
+    const result = await sendReceiptEmail({
+      to: "locataire@example.com",
+      tenantName: "Jean Dupont",
+      invoiceRef: "QUI-2025-002",
+      amount: 850,
+      period: "janvier 2025",
+      paidAt: "10/01/2025",
+      societyName: "SCI Test",
+      pdfAttachment: { filename: "qui-2025-002.pdf", content: Buffer.from("fake-pdf") },
+    });
+    expect(result.success).toBe(true);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([expect.objectContaining({ filename: "qui-2025-002.pdf" })]),
+      })
+    );
   });
 });
 
@@ -213,6 +280,17 @@ describe("sendNewUserEmail", () => {
       expect.objectContaining({ to: "user@example.com" })
     );
   });
+
+  it("fonctionne sans societyName (optionnel) → B31 arm1 L424", async () => {
+    const result = await sendNewUserEmail({
+      to: "user@example.com",
+      name: "Alice Martin",
+      email: "user@example.com",
+      password: "Passw0rd!",
+      appUrl: "https://app.example.com",
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── sendNewUserInviteEmail ─────────────────────────────────────
@@ -234,6 +312,20 @@ describe("sendNewUserInviteEmail", () => {
       })
     );
   });
+
+  it("inclut la société si societyName fourni → B32 arm0 L455", async () => {
+    const result = await sendNewUserInviteEmail({
+      to: "invite@example.com",
+      name: "Bob Dupont",
+      email: "invite@example.com",
+      resetUrl: "https://app.example.com/set-password?token=abc",
+      appUrl: "https://app.example.com",
+      societyName: "SCI Test",
+    });
+    expect(result.success).toBe(true);
+    const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
+    expect(html).toContain("SCI Test");
+  });
 });
 
 // ── sendWelcomeEmail ───────────────────────────────────────────
@@ -252,6 +344,21 @@ describe("sendWelcomeEmail", () => {
     expect(mockEmailsSend).toHaveBeenCalledWith(
       expect.objectContaining({ to: "locataire@example.com" })
     );
+  });
+
+  it("inclut le contactEmail dans le corps si fourni → B33 arm0 L494", async () => {
+    const result = await sendWelcomeEmail({
+      to: "locataire@example.com",
+      tenantName: "Marie Curie",
+      propertyAddress: "12 rue de la Paix, Paris",
+      leaseStart: "01/02/2026",
+      monthlyRent: 900,
+      societyName: "SCI Patrimoine",
+      contactEmail: "gestion@sci.fr",
+    });
+    expect(result.success).toBe(true);
+    const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
+    expect(html).toContain("gestion@sci.fr");
   });
 });
 
@@ -364,6 +471,18 @@ describe("sendDataroomAccessEmail", () => {
         subject: expect.stringContaining("Dataroom"),
       })
     );
+  });
+
+  it("fonctionne sans viewerIp ni viewerEmail (null) → B35 arm1 L649 + B36 arm1 L650", async () => {
+    const result = await sendDataroomAccessEmail({
+      to: "owner@example.com",
+      dataroomName: "Due Diligence 2026",
+      viewerIp: null,
+      viewerEmail: null,
+      accessedAt: "25/04/2026 à 10h30",
+      dataroomUrl: "https://app.example.com/dataroom/dr-1",
+    });
+    expect(result.success).toBe(true);
   });
 });
 

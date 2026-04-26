@@ -391,6 +391,69 @@ describe("collectTenantPaymentData", () => {
     expect(result[0].currentDebt).toBe(800)
   })
 
+  it("utilise 'Société' si companyName est null pour PERSONNE_MORALE (B1 arm1 — ligne 105)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-pm",
+        societyId: "society-1",
+        status: "EN_COURS",
+        startDate: new Date("2023-01-01"),
+        currentRentHT: 1000,
+        baseRentHT: 1000,
+        tenant: { id: "t-pm", firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_MORALE" },
+        lot: { id: "l-pm", number: "PM1", description: "" },
+        invoices: [],
+      },
+    ] as never)
+    const result = await collectTenantPaymentData("society-1")
+    expect(result[0].tenantName).toBe("Société")
+  })
+
+  it("utilise chaines vides si firstName et lastName sont null pour PERSONNE_PHYSIQUE (B2/B3 arm1 — ligne 106)", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-nn",
+        societyId: "society-1",
+        status: "EN_COURS",
+        startDate: new Date("2023-01-01"),
+        currentRentHT: 800,
+        baseRentHT: 800,
+        tenant: { id: "t-nn", firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+        lot: { id: "l-nn", number: "NN1", description: "" },
+        invoices: [],
+      },
+    ] as never)
+    const result = await collectTenantPaymentData("society-1")
+    expect(result[0].tenantName).toBe("")
+  })
+
+  it("utilise daysLate=0 si paidDate=null et totalPaid >= totalTTC (B9 arm1 — ligne 120)", async () => {
+    const dueDate = new Date("2024-05-05")
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-dn",
+        societyId: "society-1",
+        status: "EN_COURS",
+        startDate: new Date("2023-01-01"),
+        currentRentHT: 900,
+        baseRentHT: 900,
+        tenant: { id: "t-dn", firstName: "A", lastName: "B", companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+        lot: { id: "l-dn", number: "DN1", description: "" },
+        invoices: [
+          {
+            id: "inv-dn",
+            issueDate: dueDate,
+            dueDate,
+            totalTTC: 0,   // totalPaid(0) >= totalTTC(0) → inner arm1 → daysLate=0
+            payments: [],  // paidDate=null → outer condition false
+          },
+        ],
+      },
+    ] as never)
+    const result = await collectTenantPaymentData("society-1")
+    expect(result[0].paymentHistory[0].daysLate).toBe(0)
+  })
+
   it("marque status='late' et calcule avgDaysLate pour paiement tardif (lignes 113, 126, 161)", async () => {
     const dueDate = new Date("2024-04-05")
     const paidAt1 = new Date("2024-04-07")
@@ -586,5 +649,37 @@ describe("predictWithAI", () => {
     expect(typeof result.defaultProbability).toBe("number")
     expect(Array.isArray(result.riskFactors)).toBe(true)
     expect(Array.isArray(result.recommendations)).toBe(true)
+  })
+
+  it("utilise '[]' si le contenu de la réponse ne contient pas de bloc texte (B42 arm1 — ligne 334)", async () => {
+    mockCreate.mockResolvedValue({ content: [], usage: {} })
+    const profiles = [buildProfile()]
+    const results = await predictWithAI(profiles)
+    expect(results).toHaveLength(1)
+    expect(results[0].riskLevel).toBe("low")
+  })
+
+  it("utilise '[]' si le texte ne contient pas de tableau JSON (B43 arm1 — ligne 336)", async () => {
+    mockCreate.mockResolvedValue({ content: [{ type: "text", text: "Analyse sans tableau" }], usage: {} })
+    const profiles = [buildProfile()]
+    const results = await predictWithAI(profiles)
+    expect(results).toHaveLength(1)
+    expect(results[0].riskLevel).toBe("low")
+  })
+
+  it("utilise '' si riskLevel est null dans la réponse IA (B47 arm1 — ligne 349)", async () => {
+    mockCreate.mockResolvedValue(makeAnthropicResponse([{ riskScore: 10, riskLevel: null, defaultProbability: 0.1, predictedDaysLate: 0, riskFactors: [], recommendations: [] }]))
+    const profiles = [buildProfile()]
+    const results = await predictWithAI(profiles)
+    expect(results).toHaveLength(1)
+    expect(["low", "medium", "high", "critical"]).toContain(results[0].riskLevel)
+  })
+
+  it("log l'erreur comme String si l'erreur n'est pas une instance d'Error (B52 arm1 — ligne 369)", async () => {
+    mockCreate.mockRejectedValue("string error non-Error")
+    const profiles = [buildProfile()]
+    const results = await predictWithAI(profiles)
+    expect(results).toHaveLength(1)
+    expect(results[0].riskLevel).toBe("low")
   })
 })

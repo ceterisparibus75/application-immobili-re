@@ -859,4 +859,16 @@ describe("importBankStatement", () => {
     expect(r.data?.imported).toBe(1)
     expect(r.data?.skipped).toBe(1)
   })
+
+  it("saute une ligne avec date ISO invalide (ex: mois 13) → B44 arm0 L554", async () => {
+    // "2024-13-01" passe le regex ISO mais new Date("2024-13-01") = Invalid Date → null → skipped
+    const r = await importBankStatement(SOCIETY_ID, ACCOUNT_ID, [
+      { transactionDate: "2025-01-15", amount: -200, label: "EDF" },
+      { transactionDate: "2024-13-01", amount: -100, label: "Invalid date row" },
+    ])
+    expect(r.success).toBe(true)
+    expect(r.data?.imported).toBe(1)
+    expect(r.data?.skipped).toBe(1)
+  })
+
 })

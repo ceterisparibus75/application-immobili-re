@@ -45,6 +45,7 @@ import {
 } from "./rent-valuation";
 import { callClaudeRentValuation, callOpenAIRentValuation } from "@/lib/valuation/ai-service";
 import { searchDvfTransactions } from "@/lib/valuation/dvf-service";
+import { checkSubscriptionActive } from "@/lib/plan-limits";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const LEASE_ID = "clh3x2z4k0001qh8g7z1y2v3t";
@@ -492,5 +493,195 @@ describe("batchCreateRentValuations — branches manquantes", () => {
     const result = await batchCreateRentValuations(SOCIETY_ID, [LEASE_ID]);
     expect(result.success).toBe(false);
     expect(result.error).toContain("lot");
+  });
+});
+
+// ── createRentValuation — branches subscription + ForbiddenError + fréquence ──
+
+describe("createRentValuation — branches manquantes 2", () => {
+  it("retourne une erreur si abonnement inactif → B0 arm0 L39", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, status: "NONE", message: "Abonnement inactif" });
+    const result = await createRentValuation(SOCIETY_ID, { leaseId: LEASE_ID });
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Abonnement inactif");
+  });
+
+  it("retourne une erreur si rôle insuffisant (ForbiddenError) → B5 arm0 L79", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await createRentValuation(SOCIETY_ID, { leaseId: LEASE_ID });
+    expect(result.success).toBe(false);
+  });
+
+  it("utilise 12 si paymentFrequency inconnu → B3 arm1 L53 (?? 12)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({ paymentFrequency: "HEBDOMADAIRE" }) as never);
+    prismaMock.rentValuation.create.mockResolvedValue(makeValuation({ currentRent: 800 * 12 }) as never);
+    const result = await createRentValuation(SOCIETY_ID, { leaseId: LEASE_ID });
+    expect(result.success).toBe(true);
+    expect(prismaMock.rentValuation.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ currentRent: 800 * 12 }) })
+    );
+  });
+});
+
+// ── runRentAiAnalysis — branches manquantes ────────────────────
+
+describe("runRentAiAnalysis — branches manquantes 2", () => {
+  it("n'exécute pas CLAUDE si providers n'inclut pas CLAUDE → B8 arm1 L118", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    vi.mocked(callClaudeRentValuation).mockClear();
+    prismaMock.rentValuation.findFirst.mockResolvedValue(makeValuation() as never);
+    prismaMock.rentValuation.update.mockResolvedValue({} as never);
+    prismaMock.rentAiAnalysis.create.mockResolvedValue({ id: "a1" } as never);
+    prismaMock.rentAiAnalysis.findMany.mockResolvedValue([
+      { estimatedRent: 9500, rentPerSqm: 190 },
+    ] as never);
+    const result = await runRentAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["OPENAI"] });
+    expect(result.success).toBe(true);
+    expect(callClaudeRentValuation).not.toHaveBeenCalled();
+  });
+
+  it("methodology null si aucune méthode appliquée → B13 arm1 L149", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.rentValuation.findFirst.mockResolvedValue(makeValuation() as never);
+    prismaMock.rentValuation.update.mockResolvedValue({} as never);
+    vi.mocked(callClaudeRentValuation).mockResolvedValueOnce({
+      result: {
+        summary: { estimatedMarketRent: 10000, rentPerSqm: 200, confidence: 0.75 },
+        methodology: { comparisonMethod: { applied: false }, incomeMethod: { applied: false } },
+        swot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+      },
+      rawResponse: "{}",
+      durationMs: 300,
+      tokenCount: 90,
+    } as never);
+    prismaMock.rentAiAnalysis.create.mockResolvedValue({ id: "a1" } as never);
+    prismaMock.rentAiAnalysis.findMany.mockResolvedValue([{ estimatedRent: 10000, rentPerSqm: 200 }] as never);
+    const result = await runRentAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result.success).toBe(true);
+    expect(prismaMock.rentAiAnalysis.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ methodology: null }) })
+    );
+  });
+
+  it("ne met pas à jour si tous estimatedRent null → B15 arm1 L173 (rents vide)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.rentValuation.findFirst.mockResolvedValue(makeValuation() as never);
+    prismaMock.rentValuation.update.mockResolvedValue({} as never);
+    prismaMock.rentAiAnalysis.create.mockResolvedValue({ id: "a1" } as never);
+    prismaMock.rentAiAnalysis.findMany.mockResolvedValue([
+      { estimatedRent: null, rentPerSqm: null },
+    ] as never);
+    const result = await runRentAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result.success).toBe(true);
+    expect(prismaMock.rentValuation.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.rentValuation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "IN_PROGRESS" }) })
+    );
+  });
+
+  it("deviation=0 si currentRent null → B16 arm1 L175 (?? 0) + B17 arm1 L176 (> 0 false)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.rentValuation.findFirst.mockResolvedValue(makeValuation({ currentRent: null }) as never);
+    prismaMock.rentValuation.update.mockResolvedValue({} as never);
+    prismaMock.rentAiAnalysis.create.mockResolvedValue({ id: "a1" } as never);
+    prismaMock.rentAiAnalysis.findMany.mockResolvedValue([{ estimatedRent: 10000, rentPerSqm: 200 }] as never);
+    const result = await runRentAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result.success).toBe(true);
+    expect(prismaMock.rentValuation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ deviationPercent: 0 }) })
+    );
+  });
+
+  it("retourne une erreur si rôle insuffisant (ForbiddenError) → B19 arm0 L205", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await runRentAiAnalysis(SOCIETY_ID, VALUATION_ID, { providers: ["CLAUDE"] });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── searchComparableRents — branches manquantes ────────────────
+
+describe("searchComparableRents — branches manquantes 2", () => {
+  it("rentPerSqm null si builtArea null → B23 arm1 L280", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.rentValuation.findFirst.mockResolvedValue({
+      ...makeValuation(),
+      lease: { lot: { building: { latitude: 48.85, longitude: 2.35, city: "Lyon", postalCode: "69001" } } },
+    } as never);
+    prismaMock.comparableRent.deleteMany.mockResolvedValue({ count: 0 } as never);
+    prismaMock.comparableRent.createMany.mockResolvedValue({ count: 1 } as never);
+    vi.mocked(searchDvfTransactions).mockResolvedValueOnce([{
+      id: "dvf-null",
+      address: "2 rue Test",
+      city: "Lyon",
+      postalCode: "69001",
+      saleDate: "2025-06-01",
+      salePrice: 150000,
+      builtArea: null,
+      propertyType: "Appartement",
+      distanceKm: 0.3,
+    }] as never);
+    const result = await searchComparableRents(SOCIETY_ID, VALUATION_ID, {
+      radiusKm: 5, periodYears: 2, propertyTypes: ["Appartement"],
+    });
+    expect(result.success).toBe(true);
+    expect(prismaMock.comparableRent.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([expect.objectContaining({ rentPerSqm: null })]),
+      })
+    );
+  });
+
+  it("retourne une erreur si rôle insuffisant (ForbiddenError) → B26 arm0 L300", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await searchComparableRents(SOCIETY_ID, VALUATION_ID, {
+      radiusKm: 5, periodYears: 2, propertyTypes: ["Appartement"],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── deleteRentValuation — ForbiddenError ──────────────────────
+
+describe("deleteRentValuation — ForbiddenError → B31 arm0 L375", () => {
+  it("retourne une erreur si rôle insuffisant (GESTIONNAIRE requis ADMIN_SOCIETE)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    const result = await deleteRentValuation(SOCIETY_ID, VALUATION_ID);
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── batchCreateRentValuations — branches manquantes ───────────
+
+describe("batchCreateRentValuations — branches manquantes 2", () => {
+  it("retourne une erreur si abonnement inactif → B32 arm0 L393", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    vi.mocked(checkSubscriptionActive).mockResolvedValueOnce({ active: false, status: "NONE", message: "Pas d'abonnement" });
+    const result = await batchCreateRentValuations(SOCIETY_ID, [LEASE_ID]);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Pas d'abonnement");
+  });
+
+  it("utilise 12 si paymentFrequency inconnu dans lot → B36 arm1 L407 (?? 12)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({ paymentFrequency: "HEBDOMADAIRE" }) as never);
+    prismaMock.rentValuation.create.mockResolvedValue(makeValuation() as never);
+    prismaMock.rentValuation.findFirst.mockResolvedValue(makeValuation() as never);
+    prismaMock.rentValuation.update.mockResolvedValue({} as never);
+    prismaMock.rentAiAnalysis.create.mockResolvedValue({ id: "a1" } as never);
+    prismaMock.rentAiAnalysis.findMany.mockResolvedValue([{ estimatedRent: 10000, rentPerSqm: 200 }] as never);
+    const result = await batchCreateRentValuations(SOCIETY_ID, [LEASE_ID]);
+    expect(result.success).toBe(true);
+    expect(prismaMock.rentValuation.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ currentRent: 9600 }) })
+    );
+  });
+
+  it("retourne une erreur si rôle insuffisant (ForbiddenError) → B38 arm0 L433", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await batchCreateRentValuations(SOCIETY_ID, [LEASE_ID]);
+    expect(result.success).toBe(false);
   });
 });

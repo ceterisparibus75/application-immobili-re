@@ -1147,4 +1147,472 @@ describe("einvoicing actions", () => {
     expect(result.success).toBe(false);
   });
 
+  // --- checkChorusProStatus — statutCR null (B95 arm1) ---
+
+  it("checkChorusProStatus utilise 'EN_COURS' si statutCR est absent (B95 arm1)", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    const cproClient = {
+      deposerFluxFacture: vi.fn(),
+      consulterCR: vi.fn().mockResolvedValue({ libelle: "En traitement" }), // no statutCR
+    };
+    getChorusProClient.mockReturnValue(cproClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      einvoiceXmlUrl: "cpro:CPP-NULL-001",
+      invoiceNumber: "F-2026-null",
+    } as never);
+
+    const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.statut).toBe("EN_COURS");
+  });
+
+  // --- submitInvoice — PERSONNE_PHYSIQUE (B37-B44, B50-B51) ---
+
+  it("submitInvoice construit le nom via firstName/lastName pour PERSONNE_PHYSIQUE avec noms null (B37/B39-B43/B44/B50/B51 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      submitInvoice: vi.fn().mockResolvedValue({ flowId: "flow-physique-null" }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-phys",
+      invoiceType: "LOYER",
+      issueDate: new Date("2026-04-01"),
+      dueDate: new Date("2026-04-10"),
+      periodStart: null, periodEnd: null,
+      totalHT: 900, totalVAT: 0, totalTTC: 900,
+      society: {
+        name: "SCI Atlas", addressLine1: "1 rue", postalCode: "75001",
+        city: "Paris", country: "FR", vatNumber: null,
+        email: "a@b.fr", siret: "12345678901234",
+      },
+      tenant: {
+        entityType: "PERSONNE_PHYSIQUE",
+        siret: null, companyName: null,
+        firstName: null, lastName: null,
+        companyAddress: null, personalAddress: null,
+      },
+      lines: [{ label: "Loyer", totalHT: 900, vatRate: 0, totalTTC: 900 }],
+      lease: null,
+    } as never);
+
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    // tenantName = "---" (both null), tenantSiret = undefined → buyer.siren = "000000000"
+    expect(paClient.submitInvoice).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({ buyer: expect.objectContaining({ siren: "000000000" }) }),
+      undefined
+    );
+  });
+
+  it("submitInvoice construit le nom via firstName/lastName pour PERSONNE_PHYSIQUE avec vrais noms (B41/B42/B43 arm0)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      submitInvoice: vi.fn().mockResolvedValue({ flowId: "flow-physique-name" }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-phys2",
+      invoiceType: "LOYER",
+      issueDate: new Date("2026-04-01"),
+      dueDate: new Date("2026-04-10"),
+      periodStart: null, periodEnd: null,
+      totalHT: 800, totalVAT: 0, totalTTC: 800,
+      society: {
+        name: "SCI Atlas", addressLine1: "1 rue", postalCode: "75001",
+        city: "Paris", country: "FR", vatNumber: null,
+        email: "a@b.fr", siret: "12345678901234",
+      },
+      tenant: {
+        entityType: "PERSONNE_PHYSIQUE",
+        siret: null, companyName: null,
+        firstName: "Jean", lastName: "Dupont",
+        companyAddress: null, personalAddress: "5 rue du Parc",
+      },
+      lines: [{ label: "Loyer", totalHT: 800, vatRate: 0, totalTTC: 800 }],
+      lease: null,
+    } as never);
+
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("submitInvoice utilise '---' si companyName est null pour PERSONNE_MORALE (B38/B40 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      submitInvoice: vi.fn().mockResolvedValue({ flowId: "flow-morale-null" }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-morale-null",
+      invoiceType: "LOYER",
+      issueDate: new Date("2026-04-01"),
+      dueDate: new Date("2026-04-10"),
+      periodStart: null, periodEnd: null,
+      totalHT: 700, totalVAT: 0, totalTTC: 700,
+      society: {
+        name: "SCI Atlas", addressLine1: "1 rue", postalCode: "75001",
+        city: "Paris", country: "FR", vatNumber: null,
+        email: "a@b.fr", siret: "12345678901234",
+      },
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        siret: null, companyName: null, // siret null → tenantSiret=undefined (B38 arm1)
+        firstName: null, lastName: null,
+        companyAddress: null, personalAddress: null,
+      },
+      lines: [{ label: "Loyer", totalHT: 700, vatRate: 0, totalTTC: 700 }],
+      lease: null,
+    } as never);
+
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    // tenantName = "---" (companyName null), tenantSiret = undefined → siren = "000000000"
+    expect(paClient.submitInvoice).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({ buyer: expect.objectContaining({ siren: "000000000", siret: undefined }) }),
+      undefined
+    );
+  });
+
+  it("submitInvoice gère un email de société null (B48 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    const paClient = {
+      submitInvoice: vi.fn().mockResolvedValue({ flowId: "flow-no-email" }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoiceNumber: "F-2026-noemail",
+      invoiceType: "LOYER",
+      issueDate: new Date("2026-04-01"),
+      dueDate: new Date("2026-04-10"),
+      periodStart: null, periodEnd: null,
+      totalHT: 600, totalVAT: 0, totalTTC: 600,
+      society: {
+        name: "SCI B", addressLine1: "2 rue", postalCode: "75002",
+        city: "Paris", country: "FR", vatNumber: null,
+        email: null, // email null → B48 arm1
+        siret: "12345678901234",
+      },
+      tenant: {
+        entityType: "PERSONNE_MORALE", siret: "98765432100011",
+        companyName: "Buyer", firstName: null, lastName: null,
+        companyAddress: "10 av", personalAddress: null,
+      },
+      lines: [{ label: "Loyer", totalHT: 600, vatRate: 0, totalTTC: 600 }],
+      lease: null,
+    } as never);
+
+    const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+  });
+
+  // --- syncReceivedInvoices — branches restantes ---
+
+  it("syncReceivedInvoices traite des flows undefined (B12 arm1 — flows ?? [])", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({}) // flows undefined → [] via ?? (B12 arm1)
+        .mockResolvedValueOnce({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(0);
+  });
+
+  it("syncReceivedInvoices ne met pas à jour si le statut PPF est identique (B15 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-same-status", status: "RECUE",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-SAME-001", format: "FACTURX",
+            totalTTC: 500, currency: "EUR",
+            seller: { name: "Fournisseur", siret: "55566677700001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "existing-1", ppfStatus: "RECUE" } as never); // same status → no update
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.updated).toBe(0);
+    expect(prismaMock.supplierInvoice.update).not.toHaveBeenCalled();
+  });
+
+  it("syncReceivedInvoices continue la pagination si 50 flux retournés (B13 arm1 — hasMore stays true)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+    const baseFlow = {
+      flowId: "ppf-bulk", status: "MISE_A_DISPOSITION",
+      issueDate: "2026-04-01", dueDate: "2026-04-30",
+      invoiceNumber: "FA-BULK", format: "FACTURX",
+      totalTTC: 100, currency: "EUR",
+      seller: { name: "Bulk Corp", siret: "11100000000001" },
+    };
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({ flows: Array(50).fill(baseFlow).map((f, i) => ({ ...f, flowId: `ppf-bulk-${i}` })) })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(null), // supabase may be non-null from prior test
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(paClient.searchFlows).toHaveBeenCalledTimes(2); // second call because hasMore stayed true
+  });
+
+  it("syncReceivedInvoices utilise PENDING_REVIEW pour un statut PPF non mappé (B16 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-unknown", status: "STATUT_INCONNU",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-UNK-001", format: "FACTURX",
+            totalTTC: 100, currency: "EUR",
+            seller: { name: "Inconnu", siret: "99900000000001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "existing-unk", ppfStatus: "MISE_A_DISPOSITION" } as never); // different status → update
+
+    prismaMock.supplierInvoice.update.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "PENDING_REVIEW" }) })
+    );
+  });
+
+  it("syncReceivedInvoices crée une facture avec dueDate/currency/seller.siret null (B27/B28/B29 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-null-fields", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01",
+            dueDate: null,   // B27 arm1
+            currency: null,  // B28 arm1
+            invoiceNumber: "FA-NULL-001", format: "FACTURX",
+            totalTTC: 100,
+            seller: { name: "Vendeur", siret: null }, // B29 arm1
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(null), // supabase may be non-null from prior test
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.supplierInvoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dueDate: null,
+          currency: "EUR",  // fallback
+          supplierSiret: null,
+        }),
+      })
+    );
+  });
+
+  it("syncReceivedInvoices saute l'upload si docBuffer est null (B18 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn().mockResolvedValue({ error: null });
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-no-doc", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-NODOC-001", format: "CII",
+            totalTTC: 100, currency: "EUR",
+            seller: { name: "Vendeur", siret: "11122233300001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(null), // null docBuffer → B18 arm1
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(mockUpload).not.toHaveBeenCalled(); // upload skipped
+  });
+
+  it("syncReceivedInvoices continue si l'upload du document original échoue (B22 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn().mockResolvedValue({ error: new Error("upload failed") }); // B22 arm1
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-upload-fail", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-UFAIL-001", format: "FACTURX",
+            totalTTC: 100, currency: "EUR",
+            seller: { name: "Vendeur", siret: "11122233300001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn().mockResolvedValue(Buffer.from("pdf-data")), // non-null docBuffer
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1); // created despite upload failure
+  });
+
+  it("syncReceivedInvoices saute l'upload PDF lisible si pdfBuffer est null (B25 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn().mockResolvedValue({ error: null });
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-no-pdf", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-NOPDF-001", format: "CII", // non-FACTURX → downloads readable view
+            totalTTC: 100, currency: "EUR",
+            seller: { name: "Vendeur", siret: "11122233300001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn()
+        .mockResolvedValueOnce(Buffer.from("xml-data")) // original CII
+        .mockResolvedValueOnce(null), // readable view null → B25 arm1
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  it("syncReceivedInvoices continue si l'upload du PDF lisible échoue (B26 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const mockUpload = vi.fn()
+      .mockResolvedValueOnce({ error: null })         // original CII upload ok
+      .mockResolvedValueOnce({ error: new Error("pdf fail") }); // readable view upload fails → B26 arm1
+    const mockStorage = { from: vi.fn().mockReturnValue({ upload: mockUpload }) };
+    vi.mocked(createClient).mockReturnValue({ storage: mockStorage } as never);
+
+    const paClient = {
+      searchFlows: vi.fn()
+        .mockResolvedValueOnce({
+          flows: [{
+            flowId: "ppf-pdf-fail", status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01", dueDate: "2026-04-30",
+            invoiceNumber: "FA-PDFFAIL-001", format: "UBL",
+            totalTTC: 100, currency: "EUR",
+            seller: { name: "Vendeur", siret: "11122233300001" },
+          }],
+        })
+        .mockResolvedValueOnce({ flows: [] }),
+      downloadFlowDocument: vi.fn()
+        .mockResolvedValueOnce(Buffer.from("ubl-data"))
+        .mockResolvedValueOnce(Buffer.from("readable-pdf")),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+    prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+    const result = await syncReceivedInvoices(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.created).toBe(1);
+  });
+
+  // --- getSupabase null (B0 arm0) ---
+
+  it("_syncForSociety saute l'upload supabase si la clé supabase est absente (B0 arm0)", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: new Date() } as never);
+
+    const saved = (env as never as Record<string, unknown>)["SUPABASE_SERVICE_ROLE_KEY"];
+    (env as never as Record<string, unknown>)["SUPABASE_SERVICE_ROLE_KEY"] = undefined;
+
+    try {
+      const paClient = {
+        searchFlows: vi.fn()
+          .mockResolvedValueOnce({
+            flows: [{
+              flowId: "ppf-no-supa", status: "MISE_A_DISPOSITION",
+              issueDate: "2026-04-01", dueDate: "2026-04-30",
+              invoiceNumber: "FA-NOSUPA-001", format: "FACTURX",
+              totalTTC: 100, currency: "EUR",
+              seller: { name: "Vendeur", siret: "11122233300001" },
+            }],
+          })
+          .mockResolvedValueOnce({ flows: [] }),
+      };
+      getPAClient.mockReturnValue(paClient);
+      prismaMock.supplierInvoice.findFirst.mockResolvedValue(null);
+      prismaMock.supplierInvoice.create.mockResolvedValue({} as never);
+
+      const result = await syncReceivedInvoices(SOCIETY_ID);
+      expect(result.success).toBe(true);
+      expect(result.data?.created).toBe(1); // created without supabase upload
+    } finally {
+      (env as never as Record<string, unknown>)["SUPABASE_SERVICE_ROLE_KEY"] = saved;
+    }
+  });
+
 });

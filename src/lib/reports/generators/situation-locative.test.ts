@@ -228,6 +228,58 @@ describe("generateSituationLocative", () => {
     expect(pdfCtx.np).toHaveBeenCalledTimes(4); // initial + 3 page breaks
   });
 
+  it("filtre par buildingId (lignes 37, 63), gère PERSONNE_MORALE (lignes 108-110) et immeuble sans lots (ligne 158)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-empty",
+        name: "Immeuble Vide",
+        lots: [],
+      },
+      {
+        id: "building-2",
+        name: "Immeuble B",
+        lots: [
+          {
+            number: "B1",
+            lotType: "BUREAUX",
+            floor: "1",
+            area: 50,
+            marketRentValue: 0,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "MENSUEL",
+              currentRentHT: 1000,
+              baseRentHT: 1000,
+              tenant: {
+                entityType: "PERSONNE_MORALE",
+                companyName: "ACME SAS",
+                firstName: null,
+                lastName: null,
+              },
+              chargeProvisions: [],
+            }],
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await generateSituationLocative({
+      societyId: "society-1",
+      type: "SITUATION_LOCATIVE",
+      buildingId: "building-2",
+    });
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawCoverPage).toHaveBeenCalledWith(
+      pdfCtx, "Situation Locative", "État des lots et baux actifs",
+      expect.arrayContaining(["Immeuble filtré"])
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["ACME SAS"]),
+      expect.any(Array), expect.any(Array), expect.anything()
+    );
+  });
+
   it("couvre MENSUEL (ligne 27), area nulle (ligne 137) et les moyennes vides (lignes 151, 158, 160)", async () => {
     prismaMock.building.findMany.mockResolvedValue([
       {
@@ -267,6 +319,59 @@ describe("generateSituationLocative", () => {
       expect.anything(), pdfCtx.bold, expect.any(Number),
       expect.arrayContaining(["-"]),
       expect.any(Array), expect.any(Array)
+    );
+  });
+
+  it("couvre PERSONNE_MORALE companyName null (ligne 109) et PERSONNE_PHYSIQUE sans nom (ligne 110)", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [
+          {
+            number: "A1",
+            lotType: "BUREAUX",
+            floor: "1",
+            area: 40,
+            marketRentValue: 0,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "MENSUEL",
+              currentRentHT: 900,
+              baseRentHT: 900,
+              tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+              chargeProvisions: [],
+            }],
+          },
+          {
+            number: "A2",
+            lotType: "BUREAUX",
+            floor: "2",
+            area: 30,
+            marketRentValue: 0,
+            leases: [{
+              startDate: new Date("2026-01-01"),
+              paymentFrequency: "MENSUEL",
+              currentRentHT: 700,
+              baseRentHT: 700,
+              tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: null, lastName: null, companyName: null },
+              chargeProvisions: [],
+            }],
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await generateSituationLocative({
+      societyId: "society-1",
+      type: "SITUATION_LOCATIVE",
+    });
+    expect(result.contentType).toBe("application/pdf");
+    // Les deux locataires doivent afficher "-" comme nom
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(), pdfCtx.reg, expect.any(Number),
+      expect.arrayContaining(["-"]),
+      expect.any(Array), expect.any(Array), expect.objectContaining({ rowIndex: 0 })
     );
   });
 });

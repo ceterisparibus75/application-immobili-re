@@ -889,6 +889,71 @@ describe("generateAnnualChargeReport", () => {
     expect(r.success).toBe(false)
     expect(r.error).toContain("Erreur lors de la génération")
   })
+
+  it("locataire PERSONNE_MORALE avec companyName — branche TRUE ligne 603 + LEFT ligne 604", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      tenant: { firstName: null, lastName: null, companyName: "SCI Test", entityType: "PERSONNE_MORALE" },
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ details: expect.objectContaining({ tenantName: "SCI Test" }) }),
+      })
+    )
+  })
+
+  it("locataire PERSONNE_MORALE sans companyName — branche ?? 'Locataire' (ligne 604 RIGHT)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      tenant: { firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_MORALE" },
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ details: expect.objectContaining({ tenantName: "Locataire" }) }),
+      })
+    )
+  })
+
+  it("locataire PERSONNE_PHYSIQUE firstName null + lastName null — branches ?? '' (ligne 605 RIGHT)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      tenant: { firstName: null, lastName: null, companyName: null, entityType: "PERSONNE_PHYSIQUE" },
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ details: expect.objectContaining({ tenantName: "" }) }),
+      })
+    )
+  })
+
+  it("lance une non-Error — branche String(error) dans le catch (ligne 665 FALSE)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockRejectedValue("string error non-Error")
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("string error non-Error")
+  })
 })
 
 // ─── autoRegularizeCharges ────────────────────────────────────────────────────
@@ -936,6 +1001,61 @@ describe("autoRegularizeCharges", () => {
     prismaMock.charge.findMany.mockRejectedValue(new Error("DB connection lost"))
     const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
     expect(r).toEqual({ success: false, error: "Erreur lors de la régularisation" })
+  })
+
+  it("recoverableRate null → ?? 100, endDate set, deux charges même nature — lignes 720,764,787,789", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([
+      { ...makeCharge(), id: "c1", category: { nature: "RECUPERABLE", recoverableRate: null } },
+      { ...makeCharge(), id: "c2", category: { nature: "RECUPERABLE", recoverableRate: null } },
+    ] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      endDate: new Date("2024-12-31"),
+      chargeProvisions: [],
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(true)
+  })
+
+  it("commonShares null → ?? 1 (lignes 747 RIGHT, 756 RIGHT)", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      lot: { ...makeLease().lot, commonShares: null },
+      chargeProvisions: [],
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ totalCharges: expect.any(Number) }),
+      })
+    )
+  })
+
+  it("commonShares 0 → totalShares=0 → shareRatio=0 (ligne 757 FALSE branch)", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      lot: { ...makeLease().lot, commonShares: 0 },
+      chargeProvisions: [],
+    }] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ totalCharges: 0 }),
+      })
+    )
   })
 })
 
@@ -1203,6 +1323,173 @@ describe("generateAnnualChargeReport — répartition PROPRIETAIRE, SURFACE, NB_
     }
     prismaMock.lease.findMany.mockResolvedValue([leaseNoAreaNoShares] as never)
     prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+})
+
+// ─── branches simples — B9, B37, B39 ─────────────────────────────────────────
+
+describe("getChargeCategories avec buildingId (B9 arm0 L125)", () => {
+  it("filtre par buildingId quand fourni", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.chargeCategory.findMany.mockResolvedValue([{ id: "cat-1", name: "Eau" }] as never)
+    const r = await getChargeCategories(SOCIETY_ID, BUILDING_ID)
+    expect(r).toHaveLength(1)
+    expect(prismaMock.chargeCategory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ buildingId: BUILDING_ID }) })
+    )
+  })
+})
+
+describe("getChargesPaginated avec sortBy sans sortOrder (B37 arm1 L319)", () => {
+  it("utilise 'asc' par défaut quand sortOrder absent", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([] as never)
+    prismaMock.charge.count.mockResolvedValue(0 as never)
+    await getChargesPaginated(SOCIETY_ID, { sortBy: "amount" })
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ amount: "asc" }] })
+    )
+  })
+})
+
+describe("getCharges avec buildingId (B39 arm0 L346)", () => {
+  it("filtre par buildingId quand fourni", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([{ id: VALID_CUID_2 }] as never)
+    const r = await getCharges(SOCIETY_ID, BUILDING_ID)
+    expect(r).toHaveLength(1)
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ buildingId: BUILDING_ID }) })
+    )
+  })
+})
+
+// ─── generateAnnualChargeReport — branches dates et provisions ────────────────
+
+describe("generateAnnualChargeReport — branches dates bail et provisions", () => {
+  function setupBase() {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+  }
+
+  it("bail avec endDate non-null (B54 arm1) + startDate avant période (B57 arm1) + endDate < periodEnd (B59 arm0)", async () => {
+    setupBase()
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      startDate: new Date(2023, 11, 1),
+      endDate: new Date("2024-06-30"),
+    }] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("lot avec commonShares null → totalTantiemes 0 (B56 arm1 L519 + B70 arm1 L570)", async () => {
+    setupBase()
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      lot: { ...makeLot(), commonShares: null, area: 50, building: { id: BUILDING_ID } },
+    }] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("deux charges même catégorie → accumulation (B60 arm1 L550)", async () => {
+    setupBase()
+    const charge1 = makeCharge()
+    const charge2 = { ...makeCharge(), id: VALID_CUID_2, amount: 800 }
+    prismaMock.charge.findMany.mockResolvedValue([charge1, charge2] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("nature non-RECUPERABLE avec recoverableRate fixé (B62 arm1 + B63 arm0 L559)", async () => {
+    setupBase()
+    const chargePartielle = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, nature: "PARTIELLE", allocationMethod: "TANTIEME", recoverableRate: 75 },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargePartielle] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("nature non-RECUPERABLE avec recoverableRate null → défaut 50 (B62 arm1 + B63 arm1 L559)", async () => {
+    setupBase()
+    const chargePartielle = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, nature: "PARTIELLE", allocationMethod: "TANTIEME", recoverableRate: null },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargePartielle] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("provision startDate <= periodStart → provStart = periodStart (B73 arm1 L595)", async () => {
+    setupBase()
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      chargeProvisions: [
+        { monthlyAmount: 100, startDate: new Date(2024, 0, 1), endDate: new Date("2024-09-30") },
+      ],
+    }] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("provision endDate null → provEnd = periodEnd (B74 arm1 L596)", async () => {
+    setupBase()
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      chargeProvisions: [
+        { monthlyAmount: 100, startDate: new Date("2024-03-01"), endDate: null },
+      ],
+    }] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("provision endDate >= periodEnd → provEnd = periodEnd (B75 arm1 L596)", async () => {
+    setupBase()
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([{
+      ...makeLease(),
+      chargeProvisions: [
+        { monthlyAmount: 100, startDate: new Date("2024-03-01"), endDate: new Date(2025, 0, 15) },
+      ],
+    }] as never)
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+    expect(r.success).toBe(true)
+  })
+
+  it("bail avec commonShares null quand totalTantiemes > 0 → ?? 0 évalué (B70 arm1 L570)", async () => {
+    // Two leases: lease1 (commonShares=100) makes totalTantiemes=100,
+    // lease2 (commonShares=null) forces the ?? default when evaluating the condition
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lot.findMany.mockResolvedValue([
+      makeLot(),
+      { ...makeLot(), id: "lot-2", commonShares: null, area: 60 },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      makeLease(),
+      {
+        ...makeLease(),
+        id: "lease-2",
+        lot: { ...makeLot(), id: "lot-2", commonShares: null, area: 60, building: { id: BUILDING_ID } },
+        chargeProvisions: [],
+      },
+    ] as never)
     const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
     expect(r.success).toBe(true)
   })

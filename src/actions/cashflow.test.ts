@@ -321,6 +321,46 @@ describe("aiSuggestCategories", () => {
     expect(r.data?.[0].confidence).toBe(0.95);
   });
 
+  it("fallback avec montant positif → 'autres_revenus' (ligne 640 FALSE branch)", async () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    try {
+      mockAuthSession(UserRole.COMPTABLE);
+      prismaMock.bankTransaction.findMany
+        .mockResolvedValueOnce([{ id: TX_ID_1, label: "VIREMENT REMBOURSEMENT", amount: 500, reference: null }] as never)
+        .mockResolvedValueOnce([] as never);
+      prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+      const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+      expect(r.success).toBe(true);
+      expect(r.data?.[0].suggestedCategory).toBe("autres_revenus");
+      expect(r.data?.[0].confidence).toBe(0.1);
+    } finally {
+      if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
+    }
+  });
+
+  it("message.content non-text → '' → no JSON match (ligne 700 FALSE branch)", async () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = "test-api-key";
+    try {
+      mockMessagesCreate.mockResolvedValueOnce({
+        content: [{ type: "tool_use", id: "toolu_1", name: "fn", input: {} }],
+      });
+      mockAuthSession(UserRole.COMPTABLE);
+      prismaMock.bankTransaction.findMany
+        .mockResolvedValueOnce([{ id: TX_ID_1, label: "INCONNU XYZ", amount: -50, reference: null }] as never)
+        .mockResolvedValueOnce([] as never);
+      prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+      const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+      expect(r.success).toBe(true);
+      expect(r.data).toEqual([]);
+    } finally {
+      process.env.ANTHROPIC_API_KEY = originalKey;
+    }
+  });
+
   it("retourne la catégorie de l'historique par correspondance partielle (lignes 589-603)", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     // Labels courts (< 10 chars chacun) pour que normalizeLabel ne les supprime pas
@@ -546,6 +586,220 @@ describe("aiSuggestCategories — normalizeLabel edge cases", () => {
     const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
     expect(r.success).toBe(true);
     expect(r.data).toBeDefined();
+  });
+});
+
+// ─── getCashflowDashboard — branches manquantes ───────────────────────────────
+
+describe("getCashflowDashboard — branches B1, B7, B11, B12, B17", () => {
+  function setupEmptyBase() {
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+  }
+
+  it("deux amortLines même mois → B1 arm1 (clé déjà dans la map)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    const now = new Date();
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, transactionDate: now, amount: -500, label: "Remb emprunt", category: "remboursement_emprunt", bankAccount: { accountName: "Compte" } },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany
+      .mockResolvedValueOnce([
+        { dueDate: now, totalPayment: 250, principalPayment: 200, interestPayment: 50 },
+        { dueDate: now, totalPayment: 250, principalPayment: 200, interestPayment: 50 },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+  });
+
+  it("transaction débit sans catégorie → 'divers_depense' (B7 arm0 L149)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, transactionDate: new Date(), amount: -75, label: "MISC DEBIT", category: null, bankAccount: { accountName: "Compte" } },
+    ] as never);
+    setupEmptyBase();
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.uncategorizedCount).toBe(1);
+    expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
+  });
+
+  it("remboursement_emprunt sans ligne amort dans ce mois → B11 arm1 + B12 arm1", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    // Use current month so the expense appears in the result window
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, transactionDate: new Date(), amount: -600, label: "Remb emprunt", category: "remboursement_emprunt", bankAccount: { accountName: "Compte" } },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany
+      .mockResolvedValueOnce([]) // amortLines empty → amortByMonth empty → B11 arm1
+      .mockResolvedValueOnce([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    // Falls through to regular expense (no matching amort line → B12 arm1)
+    expect(r.data?.totalActualExpenses).toBeGreaterThan(0);
+  });
+
+  it("bail avec vatApplicable=true → loyer TTC calculé (B17 arm0 L185)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([] as never);
+    prismaMock.loanAmortizationLine.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      { currentRentHT: 1000, vatApplicable: true, vatRate: 20 },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 50000 }] as never);
+
+    const r = await getCashflowDashboard(SOCIETY_ID);
+    expect(r.success).toBe(true);
+    // vatApplicable=true → rentTTC = 1000 * 1.2 = 1200; should appear in projected months
+    const currentMonthEntry = r.data?.months?.find((m) => m.isPast);
+    expect(currentMonthEntry?.projectedIncome).toBe(1200);
+  });
+});
+
+// ─── categorizeTransactions — branches B42, B43 ───────────────────────────────
+
+describe("categorizeTransactions — label vide ou trop court (B42 arm1, B43 arm1)", () => {
+  it("label vide → originalLabel falsy → skip auto-tag (B42 arm1 L461)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, label: "" } as never,
+    ]);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+    prismaMock.transactionAutoTag.upsert.mockResolvedValue({} as never);
+    const r = await categorizeTransactions(SOCIETY_ID, [{ transactionId: TX_ID_1, category: "energie" }]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.transactionAutoTag.upsert).not.toHaveBeenCalled();
+  });
+
+  it("label court 'AB' → norm.length < 3 → skip auto-tag (B43 arm1 L463)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: TX_ID_1, label: "AB" } as never,
+    ]);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+    prismaMock.transactionAutoTag.upsert.mockResolvedValue({} as never);
+    const r = await categorizeTransactions(SOCIETY_ID, [{ transactionId: TX_ID_1, category: "energie" }]);
+    expect(r.success).toBe(true);
+    expect(prismaMock.transactionAutoTag.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// ─── aiSuggestCategories — branches B48, B53, B59, B60, B68 ─────────────────
+
+describe("aiSuggestCategories — branches historique et IA", () => {
+  it("deux transactions même libellé normalisé → B48 arm1 L556 (map déjà initialisée)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "EDF ELECTRICITE INCONNU", amount: -80, reference: null }] as never)
+      .mockResolvedValueOnce([
+        { label: "EDF ELECTRICITE INCONNU", category: "energie" },
+        { label: "EDF ELECTRICITE INCONNU", category: "energie" },
+      ] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("energie");
+  });
+
+  it("exactMatch avec deux catégories → B53 arm1 L578 (2e cat count <= bestCount)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "EDF ELECTRICITE MAISON", amount: -80, reference: null }] as never)
+      .mockResolvedValueOnce([
+        { label: "EDF ELECTRICITE MAISON", category: "energie" },
+        { label: "EDF ELECTRICITE MAISON", category: "energie" },
+        { label: "EDF ELECTRICITE MAISON", category: "travaux" },
+      ] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("energie");
+  });
+
+  it("partielle: 2 catégories sur même label → B59 arm1; 3 knownLabels → B60 arm1 + B61 arms 1,2,3", async () => {
+    // tx label "LOYER ASSURANCE IMMEUBLE GRAND" normalisé → 4 mots de 4-9 chars
+    // knownLabel1 "LOYER ASSURANCE IMMEUBLE NORD" → score=0.75, 2 catégories (→ B59 arm1)
+    //   → 1er match : !bestMatch=TRUE → B61 arm0
+    // knownLabel2 "LOYER ASSURANCE IMMEUBLE GRAND CENTRE" → score=0.8 > 0.75 → B61 arm1+arm2
+    // knownLabel3 "LOYER ASSURANCE IMMEUBLE GRAND AUTRE" → score=0.8, count<count2 → B61 arm1+arm3; B60 arm1
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "LOYER ASSURANCE IMMEUBLE GRAND", amount: -150, reference: null }] as never)
+      .mockResolvedValueOnce([
+        { label: "LOYER ASSURANCE IMMEUBLE NORD", category: "assurance" },
+        { label: "LOYER ASSURANCE IMMEUBLE NORD", category: "assurance" },
+        { label: "LOYER ASSURANCE IMMEUBLE NORD", category: "energie" },
+        { label: "LOYER ASSURANCE IMMEUBLE GRAND CENTRE", category: "loyers" },
+        { label: "LOYER ASSURANCE IMMEUBLE GRAND CENTRE", category: "loyers" },
+        { label: "LOYER ASSURANCE IMMEUBLE GRAND AUTRE", category: "loyers" },
+      ] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    expect(r.success).toBe(true);
+    expect(r.data?.[0].suggestedCategory).toBe("loyers");
+  });
+
+  it("exactMatch avec catégorie vide → bestCat='' → exactMatch retourne null, tx va en AI/fallback (B53 arm0 L580 arm1)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany
+      .mockResolvedValueOnce([{ id: TX_ID_1, label: "EDF ELECTRICITE VIDE ZERO", amount: -80, reference: null }] as never)
+      .mockResolvedValueOnce([
+        { label: "EDF ELECTRICITE VIDE ZERO", category: "" }, // catégorie vide → bestCat="" → || null → tx sort du match local
+      ] as never);
+    prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+    const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+    // findMatchingCategory retourne null (branch L580 arm1 exercée) → tx n'est PAS dans localResults
+    // Elle aboutit en AI/fallback — on vérifie juste le succès de l'action
+    expect(r.success).toBe(true);
+    // La catégorie n'est PAS "energie" : preuve que l'exactMatch n'a pas retourné une catégorie valide
+    expect(r.data?.[0].suggestedCategory).not.toBe("energie");
+  });
+
+  it("transaction crédit vers IA → 'CRÉDIT' dans la liste (B68 arm1 L651)", async () => {
+    const originalKey = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = "test-api-key";
+    try {
+      mockMessagesCreate.mockResolvedValueOnce({
+        content: [{ type: "text", text: '[{"id": "' + TX_ID_1 + '", "category": "loyers", "confidence": 0.9}]' }],
+      });
+      mockAuthSession(UserRole.COMPTABLE);
+      prismaMock.bankTransaction.findMany
+        .mockResolvedValueOnce([{ id: TX_ID_1, label: "LOYER VIREMENT LOCATAIRE INCONNU", amount: 800, reference: null }] as never)
+        .mockResolvedValueOnce([] as never);
+      prismaMock.transactionAutoTag.findMany.mockResolvedValue([] as never);
+
+      const r = await aiSuggestCategories(SOCIETY_ID, [TX_ID_1]);
+      expect(r.success).toBe(true);
+      // Positive amount → "CRÉDIT" mentioned in txList sent to Claude
+      expect(mockMessagesCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({ content: expect.stringContaining("CRÉDIT") }),
+          ]),
+        })
+      );
+    } finally {
+      process.env.ANTHROPIC_API_KEY = originalKey;
+    }
   });
 });
 

@@ -101,6 +101,20 @@ describe("createSepaMandate", () => {
     expect(result.error).toMatch(/email/);
   });
 
+  it("utilise legalRepName si firstName est null (B ligne 33 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockResolvedValue(
+      makeTenant({ firstName: null, legalRepName: "Représentant Legal", lastName: null, companyName: "SCI Test" }) as never
+    );
+    prismaMock.sepaMandate.create.mockResolvedValue({ id: "mandate-db-2", mandateReference: "REF-002" } as never);
+    const result = await createSepaMandate(SOCIETY_ID, TENANT_ID, validMandateInput);
+    expect(result.success).toBe(true);
+    const { createSepaMandateForTenant } = await import("@/lib/gocardless-sepa");
+    expect(vi.mocked(createSepaMandateForTenant)).toHaveBeenCalledWith(
+      expect.objectContaining({ givenName: "Représentant Legal", familyName: "SCI Test" })
+    );
+  });
+
   it("crée le mandat SEPA avec succès", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     prismaMock.tenant.findFirst.mockResolvedValue(makeTenant() as never);

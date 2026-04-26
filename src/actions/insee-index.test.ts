@@ -202,4 +202,37 @@ describe("syncInseeIndices", () => {
       })
     );
   });
+
+  it("ignore un bloc Generic Obs sans ObsValue (B ligne 50 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(
+        `<generic:Obs>
+          <generic:ObsKey>
+            <generic:Value id="TIME_PERIOD" value="2025-T1" />
+          </generic:ObsKey>
+        </generic:Obs>`
+      ),
+    }));
+    prismaMock.inseeIndex.upsert.mockResolvedValue({} as never);
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(true);
+    // Bloc sans ObsValue → pas d'upsert
+    expect(prismaMock.inseeIndex.upsert).not.toHaveBeenCalled();
+    expect(result.data?.synced["IRL"]).toBe(0);
+  });
+
+  it("utilise 'Erreur inconnue' si l'erreur upsert n'est pas une instance Error (B ligne 141 arm1)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    mockFetch(true);
+    prismaMock.inseeIndex.upsert.mockRejectedValue("erreur non-Error string");
+
+    const result = await syncInseeIndices(SOCIETY_ID, ["IRL"]);
+    expect(result.success).toBe(true);
+    expect(result.data?.errors).toHaveLength(1);
+    expect(result.data?.errors[0]).toContain("Erreur inconnue");
+  });
 });

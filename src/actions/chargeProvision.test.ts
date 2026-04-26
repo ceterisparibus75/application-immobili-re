@@ -268,4 +268,54 @@ describe("chargeProvision actions", () => {
     const result = await updateChargeProvision(SOCIETY_ID, { id: "not-a-cuid", label: "Test", monthlyAmount: 50, vatRate: 0, startDate: "2026-01-01" });
     expect(result.success).toBe(false);
   });
+
+  it("createChargeProvision sans endDate → endDate null (B ligne 44 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: LEASE_ID } as never);
+    prismaMock.chargeProvision.create.mockResolvedValue({ id: PROVISION_ID } as never);
+
+    const result = await createChargeProvision(SOCIETY_ID, {
+      leaseId: LEASE_ID,
+      lotId: LOT_ID,
+      label: "Charge eau",
+      monthlyAmount: 50,
+      vatRate: 0,
+      startDate: "2026-01-01",
+      // pas d'endDate → arm1 → null
+    });
+
+    expect(result).toEqual({ success: true, data: { id: PROVISION_ID } });
+    expect(prismaMock.chargeProvision.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ endDate: null }) })
+    );
+  });
+
+  it("updateChargeProvision avec endDate valide et sans isActive → isActive=true (B lignes 94 arm0, 95 arm1)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.chargeProvision.findFirst.mockResolvedValue({
+      id: PROVISION_ID,
+      lease: { societyId: SOCIETY_ID, id: LEASE_ID },
+    } as never);
+    prismaMock.chargeProvision.update.mockResolvedValue({ id: PROVISION_ID } as never);
+
+    const result = await updateChargeProvision(SOCIETY_ID, {
+      id: PROVISION_ID,
+      label: "Provision avec fin",
+      monthlyAmount: 60,
+      vatRate: 0,
+      startDate: "2026-01-01",
+      endDate: "2026-06-30",
+      // pas d'isActive → ?? true → arm1
+    });
+
+    expect(result).toEqual({ success: true, data: { id: PROVISION_ID } });
+    expect(prismaMock.chargeProvision.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          endDate: new Date("2026-06-30"),
+          isActive: true,
+        }),
+      })
+    );
+  });
 });

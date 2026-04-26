@@ -1063,3 +1063,390 @@ describe("createManualDebit — erreur generique BDD (lignes 1027-1028)", () => 
   });
 });
 
+// --- syncTenantsToContacts — PERSONNE_MORALE (lignes 847-864) ---
+
+describe("syncTenantsToContacts — PERSONNE_MORALE (lignes 847-864)", () => {
+  it("crée un contact pour un locataire PERSONNE_MORALE avec companyName (ligne 857 TRUE + 864 TRUE)", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: TENANT_ID, entityType: "PERSONNE_MORALE",
+        companyName: "SCI Dupont", legalRepName: "Jean Dupont",
+        email: "sci@example.com", phone: null, mobile: null, isActive: true,
+        firstName: null, lastName: null,
+        contact: null,
+      },
+    ] as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-morale" } as never);
+
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ created: 1, updated: 0 });
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "SCI Dupont",
+          company: "Jean Dupont",
+        }),
+      })
+    );
+  });
+
+  it("utilise '—' si companyName null pour PERSONNE_MORALE (ligne 858 right branch)", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: TENANT_ID, entityType: "PERSONNE_MORALE",
+        companyName: null, legalRepName: null,
+        email: "sci@example.com", phone: null, mobile: null, isActive: true,
+        firstName: null, lastName: null,
+        contact: null,
+      },
+    ] as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-morale-null" } as never);
+
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "—", company: null }),
+      })
+    );
+  });
+});
+
+// --- getTenantsForSelect — PERSONNE_MORALE sans companyName (ligne 923) ---
+
+describe("getTenantsForSelect — PERSONNE_MORALE companyName null (ligne 923 right branch)", () => {
+  it("retourne '—' si PERSONNE_MORALE sans companyName", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: TENANT_ID, entityType: "PERSONNE_MORALE", firstName: null, lastName: null, companyName: null },
+    ] as never);
+
+    const result = await getTenantsForSelect();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("—");
+  });
+});
+
+// --- createManualDebit — avec notes (ligne 1010 TRUE branch) ---
+
+describe("createManualDebit — label avec notes (ligne 1010 TRUE branch)", () => {
+  it("concatène label et notes dans la ligne de facture", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock));
+    const currentYear = new Date().getFullYear();
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: currentYear, nextInvoiceNumber: 3, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ invoicePrefix: "FAC", nextInvoiceNumber: 4 } as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+
+    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, notes: "Détails arriéré 2024" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: expect.objectContaining({
+            create: expect.arrayContaining([
+              expect.objectContaining({ label: "Reprise de solde — Détails arriéré 2024" }),
+            ]),
+          }),
+        }),
+      })
+    );
+  });
+});
+
+// --- inviteOrReinviteTenant — branches ?? lignes 807-808 ---
+
+describe("inviteOrReinviteTenant — branches ?? noms (lignes 807-808)", () => {
+  it("PERSONNE_MORALE avec companyName null → tenantName = '' (ligne 807 right branch)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_ID,
+      entityType: "PERSONNE_MORALE",
+      firstName: null,
+      lastName: null,
+      email: "sci@example.com",
+      companyName: null,
+    } as never);
+    prismaMock.tenantPortalAccess.upsert.mockResolvedValue({} as never);
+
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(true);
+  });
+
+  it("PERSONNE_PHYSIQUE avec noms null → tenantName = '' (ligne 808 right branches ?? et trim)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: TENANT_ID,
+      entityType: "PERSONNE_PHYSIQUE",
+      firstName: null,
+      lastName: null,
+      email: "tenant@example.com",
+      companyName: null,
+    } as never);
+    prismaMock.tenantPortalAccess.upsert.mockResolvedValue({} as never);
+
+    const result = await inviteOrReinviteTenant(SOCIETY_ID, TENANT_ID);
+    expect(result.success).toBe(true);
+  });
+});
+
+// --- syncTenantsToContacts — PERSONNE_PHYSIQUE noms null → '—' (ligne 859) ---
+
+describe("syncTenantsToContacts — PERSONNE_PHYSIQUE noms null (ligne 859 right branch ||)", () => {
+  it("retourne '—' si PERSONNE_PHYSIQUE sans firstName ni lastName", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+        firstName: null, lastName: null,
+        email: "tenant@example.com", phone: null, mobile: null, isActive: true,
+        companyName: null, legalRepName: null,
+        contact: null,
+      },
+    ] as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-physique-null" } as never);
+
+    const result = await syncTenantsToContacts(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ created: 1, updated: 0 });
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "—" }),
+      })
+    );
+  });
+});
+
+// --- updateTenant — branches lignes 280, 283-307 ---
+
+describe("updateTenant — branches lignes 280,283-307", () => {
+  it("valeur vide string → null dans updateData (ligne 280 TRUE branch)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "J", lastName: "D",
+      email: "j@e.fr", phone: null, mobile: null, companyName: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE" as const, phone: "" } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenant.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ phone: null }) })
+    );
+  });
+
+  it("birthDate null → null dans updateData (ligne 283 FALSE branch)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "J", lastName: "D",
+      email: "j@e.fr", phone: null, mobile: null, companyName: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE" as const, birthDate: null } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenant.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ birthDate: null }) })
+    );
+  });
+
+  it("contact sync avec PERSONNE_MORALE — lignes 304-305 TRUE + ligne 307 TRUE", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_MORALE",
+      firstName: null, lastName: null, companyName: "SCI Test", legalRepName: "Jean Dupont",
+      email: "sci@example.com", phone: null, mobile: null,
+    } as never);
+    prismaMock.contact.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_MORALE" as const } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "SCI Test", company: "Jean Dupont" }),
+      })
+    );
+  });
+
+  it("contact sync PERSONNE_MORALE sans companyName → '—' (ligne 305 right branch)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_MORALE",
+      firstName: null, lastName: null, companyName: null, legalRepName: null,
+      email: "sci@example.com", phone: null, mobile: null,
+    } as never);
+    prismaMock.contact.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_MORALE" as const } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "—" }),
+      })
+    );
+  });
+
+  it("contact sync PERSONNE_PHYSIQUE noms null → '—' (ligne 306 right branch ||)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+      firstName: null, lastName: null, companyName: null, legalRepName: null,
+      email: "tenant@example.com", phone: null, mobile: null,
+    } as never);
+    prismaMock.contact.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE" as const } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "—" }),
+      })
+    );
+  });
+});
+
+// --- getTenantsPaginated — sortBy sans sortOrder (ligne 424 right branch) ---
+
+describe("getTenantsPaginated — sortBy sans sortOrder (ligne 424 right branch)", () => {
+  it("utilise 'asc' par defaut si sortOrder est absent", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([]);
+    prismaMock.tenant.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([]);
+
+    await getTenantsPaginated(SOCIETY_ID, { sortBy: "lastName" });
+    expect(prismaMock.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ lastName: "asc" }] })
+    );
+  });
+});
+
+// --- createTenant — PERSONNE_MORALE (lignes 230-232) ---
+
+describe("createTenant — PERSONNE_MORALE (lignes 230-232)", () => {
+  it("crée un locataire moral et calcule tenantName depuis companyName (ligne 230 TRUE + 231 LEFT)", async () => {
+    prismaMock.tenant.create.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_MORALE",
+      firstName: null, lastName: null,
+      email: "sci@example.com", companyName: "SCI Test",
+      phone: null, mobile: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.create.mockResolvedValue({} as never);
+    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as never);
+
+    const result = await createTenant(SOCIETY_ID, {
+      entityType: "PERSONNE_MORALE",
+      companyName: "SCI Test",
+      email: "sci@example.com",
+    } as never);
+    expect(result.success).toBe(true);
+  });
+
+  it("tenant.create retourne companyName null → tenantName = '' (ligne 231 RIGHT branch ??)", async () => {
+    // Le mock retourne companyName=null (anomalie DB), déclenchant le ?? right branch
+    prismaMock.tenant.create.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_MORALE",
+      firstName: null, lastName: null,
+      email: "sci@example.com", companyName: null,
+      phone: null, mobile: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.create.mockResolvedValue({} as never);
+    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as never);
+
+    const result = await createTenant(SOCIETY_ID, {
+      entityType: "PERSONNE_MORALE",
+      companyName: "SCI Test",
+      email: "sci@example.com",
+    } as never);
+    expect(result.success).toBe(true);
+  });
+});
+
+// --- updateTenant — if (updated) FALSE (ligne 299) ---
+
+describe("updateTenant — if (updated) FALSE (ligne 299)", () => {
+  it("skips contact update si tenant.findUnique retourne null apres update", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.update.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.tenant.findUnique.mockResolvedValue(null);
+
+    const result = await updateTenant(SOCIETY_ID, { id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE" as const, email: "j@e.fr" } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+// --- computeTenantBalances — _sum.amount null (ligne 93 right branch) ---
+
+describe("computeTenantBalances — _sum.amount null (ligne 93 right branch ??)", () => {
+  it("utilise 0 si _sum.amount est null", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: TENANT_ID, companyName: null, firstName: "Jean", lastName: "Dupont" },
+    ] as never);
+    prismaMock.tenant.count.mockResolvedValue(1 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "inv-null-pay", tenantId: TENANT_ID, totalTTC: 500, invoiceType: "APPEL_LOYER" },
+    ] as never);
+    prismaMock.payment.groupBy.mockResolvedValue([
+      { invoiceId: "inv-null-pay", _sum: { amount: null } },
+    ] as never);
+
+    const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
+    expect(result.data[0].balance).toBe(500); // 500 - 0 (null → 0) = 500
+  });
+});
+
+// --- createTenant — branches lignes 171, 203, 232 ---
+
+describe("createTenant — branches lignes 171, 203, 232", () => {
+  it("PERSONNE_PHYSIQUE avec birthDate → new Date() (ligne 171 TRUE branch)", async () => {
+    prismaMock.tenant.create.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+      firstName: "Jean", lastName: "Dupont",
+      email: "j@e.fr", companyName: null, phone: null, mobile: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.create.mockResolvedValue({} as never);
+    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as never);
+
+    const result = await createTenant(SOCIETY_ID, {
+      entityType: "PERSONNE_PHYSIQUE",
+      lastName: "Dupont",
+      firstName: "Jean",
+      email: "j@e.fr",
+      birthDate: "1990-05-15",
+    } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ birthDate: expect.any(Date) }),
+      })
+    );
+  });
+
+  it("tenant.create retourne noms null → '—' dans contact et tenantName='' (lignes 203,232 right branches)", async () => {
+    prismaMock.tenant.create.mockResolvedValue({
+      id: TENANT_ID, entityType: "PERSONNE_PHYSIQUE",
+      firstName: null, lastName: null,
+      email: "j@e.fr", companyName: null, phone: null, mobile: null, legalRepName: null,
+    } as never);
+    prismaMock.contact.create.mockResolvedValue({} as never);
+    prismaMock.tenantPortalAccess.create.mockResolvedValue({} as never);
+
+    const result = await createTenant(SOCIETY_ID, {
+      entityType: "PERSONNE_PHYSIQUE",
+      lastName: "Dupont",
+      firstName: "Jean",
+      email: "j@e.fr",
+    } as never);
+    expect(result.success).toBe(true);
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "—" }),
+      })
+    );
+  });
+});
+

@@ -340,6 +340,49 @@ describe("exportTenantData", () => {
     expect(result.tenants[0].consents[0]).toEqual(result.tenants[1].consents[0]);
   });
 
+  it("sanitize un bail avec lot null → lot: null dans l'export (ligne 145)", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: "tenant-1",
+        createdAt: new Date(),
+        entityType: "PERSONNE_PHYSIQUE",
+        isActive: true,
+        leases: [
+          {
+            id: "lease-null-lot",
+            createdAt: new Date(),
+            leaseType: "HABITATION",
+            status: "EN_COURS",
+            startDate: new Date(),
+            endDate: null,
+            durationMonths: 12,
+            baseRentHT: 800,
+            currentRentHT: 800,
+            depositAmount: 1600,
+            paymentFrequency: "MENSUEL",
+            billingTerm: "A_ECHOIR",
+            vatApplicable: false,
+            vatRate: 0,
+            indexType: null,
+            entryDate: new Date(),
+            exitDate: null,
+            depositReceivedAt: null,
+            depositReturnedAt: null,
+            depositReturnAmount: null,
+            lot: null,
+          },
+        ],
+        invoices: [],
+        documents: [],
+      },
+    ] as never);
+    prismaMock.consent.findMany.mockResolvedValue([] as never);
+
+    const result = await exportTenantData(SOCIETY_ID, REQUESTER_EMAIL);
+
+    expect(result.tenants[0].leases[0]).toMatchObject({ id: "lease-null-lot", lot: null });
+  });
+
   it("retourne un export vide mais cohérent si aucun locataire ne correspond", async () => {
     prismaMock.tenant.findMany.mockResolvedValue([] as never);
     prismaMock.consent.findMany.mockResolvedValue([

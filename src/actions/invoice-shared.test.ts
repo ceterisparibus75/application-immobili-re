@@ -535,3 +535,193 @@ describe("buildRevisionProrataLines — retourne null si daysBefore=0 (ligne 276
     expect(r).toBeNull();
   });
 });
+
+// ── computeRentForPeriod — branches step.endDate ──────────────────────
+
+describe("computeRentForPeriod — paliers avec endDate (B8/B9/B10)", () => {
+  const PAST_START = new Date(2020, 0, 1);
+
+  it("applique le palier dont endDate est dans le futur (B8 arm0 — endDate non null)", () => {
+    const futureEnd = new Date();
+    futureEnd.setFullYear(futureEnd.getFullYear() + 1);
+    const step = { startDate: new Date(2020, 0, 1), endDate: futureEnd, rentHT: 950 };
+    const rent = computeRentForPeriod(PAST_START, 800, null, 0, [step]);
+    expect(rent).toBe(950);
+  });
+
+  it("ignore un palier expiré et retourne le loyer courant (B8 arm0 + B9 arm1 + B10 arm2)", () => {
+    const expiredEnd = new Date(2021, 5, 30); // expiré en juin 2021
+    const step = { startDate: new Date(2020, 0, 1), endDate: expiredEnd, rentHT: 950 };
+    const rent = computeRentForPeriod(PAST_START, 800, null, 0, [step]);
+    expect(rent).toBe(800);
+  });
+});
+
+// ── computeInvoicePreview — branches supplémentaires ─────────────────
+
+describe("computeInvoicePreview — branches non couvertes", () => {
+  it("logo http sans pattern Supabase → storagePath null (B28 arm1 + B29 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(
+      makeSociety({ logoUrl: "https://cdn.example.com/logo.png" }) as never,
+    );
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.logoResolvedUrl).toBeNull();
+  });
+
+  it("rentFreeMonths null → ?? 0 arm droit (B33 arm1 + B37 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({ rentFreeMonths: null }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lines[0].totalHT).toBe(800);
+  });
+
+  it("franchise fractionnaire sur période ultérieure → B40 arm1 (condition FALSE)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(
+      makeLease({ startDate: new Date("2024-01-01"), rentFreeMonths: 0.5 }) as never,
+    );
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    // Période 2024-02 : monthsSinceLease=1 ≠ Math.floor(0.5)=0 → B40 arm1
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2024-02");
+    expect(result).not.toBeNull();
+    expect(result?.lines[0].label).not.toContain("franchise");
+  });
+
+  it("vatApplicable=true + fréquence inconnue → B41 arm0 + B42 arm1", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(
+      makeLease({ vatApplicable: true, vatRate: 20, paymentFrequency: "HEBDOMADAIRE" }) as never,
+    );
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lines[0].totalVAT).toBeGreaterThan(0);
+  });
+
+  it("lot null → 'Lot non précisé' + lotNumber='' (B43 arm1 + B44 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({ lot: null }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.lotLabel).toBe("Lot non précisé");
+    expect(result?.lotNumber).toBe("");
+  });
+
+  it("PERSONNE_MORALE avec companyName et companyAddress (B45/B46 arm0 + B51/B52 arm0)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        companyName: "SCI Dupont",
+        companyAddress: "5 rue de la SCI, 75002 Paris",
+        firstName: null,
+        lastName: null,
+        personalAddress: null,
+        email: "contact@sci.fr",
+        billingEmail: null,
+        phone: null,
+      },
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.tenantName).toBe("SCI Dupont");
+    expect(result?.tenantAddress).toBe("5 rue de la SCI, 75002 Paris");
+  });
+
+  it("PERSONNE_MORALE sans companyName ni companyAddress → '—' + null (B46 arm1 + B52 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        companyName: null,
+        companyAddress: null,
+        firstName: null,
+        lastName: null,
+        personalAddress: null,
+        email: "contact@sci.fr",
+        billingEmail: null,
+        phone: null,
+      },
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.tenantName).toBe("—");
+    expect(result?.tenantAddress).toBeNull();
+  });
+
+  it("PERSONNE_PHYSIQUE sans nom ni prénom ni adresse ni email (B47/B48/B49 + B53 arm1 + B55 arm2)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({
+      tenant: {
+        entityType: "PERSONNE_PHYSIQUE",
+        companyName: null,
+        firstName: null,
+        lastName: null,
+        personalAddress: null,
+        companyAddress: null,
+        email: null,
+        billingEmail: null,
+        phone: null,
+      },
+    }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result?.tenantName).toBe("—");
+    expect(result?.tenantAddress).toBeNull();
+    expect(result?.tenantEmail).toBeNull();
+  });
+
+  it("society null → societyClean null (B54 arm1)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease() as never);
+    prismaMock.society.findUnique.mockResolvedValue(null as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.society).toBeNull();
+  });
+
+  it("lease.id vide → previousBalance=0 sans requête Prisma (B32 arm1 L409)", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue(makeLease({ id: "" }) as never);
+    prismaMock.society.findUnique.mockResolvedValue(makeSociety() as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
+    expect(result).not.toBeNull();
+    expect(result?.previousBalance).toBe(0);
+  });
+});

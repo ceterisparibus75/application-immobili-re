@@ -121,6 +121,16 @@ describe("createTicketFromPortal", () => {
     });
     expect(createInternalNotification).toHaveBeenCalledTimes(2);
   });
+
+  it("utilise 'NORMALE' par défaut si priority absente → B2 arm1 L71", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant() as never);
+    const inputWithoutPriority = { subject: "Test", description: "Desc", category: "PLOMBERIE" as const };
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, inputWithoutPriority);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ priority: "NORMALE" }) })
+    );
+  });
 });
 
 describe("addTicketMessageFromPortal", () => {
@@ -304,6 +314,13 @@ describe("ticket queries", () => {
 // ─── createTicketFromPortal — branches manquantes ─────────────────────────────
 
 describe("createTicketFromPortal — branches manquantes", () => {
+  beforeEach(() => {
+    prismaMock.ticket.count.mockResolvedValue(0);
+    prismaMock.ticket.create.mockResolvedValue({ id: TICKET_ID } as never);
+    prismaMock.ticketMessage.create.mockResolvedValue({ id: MESSAGE_ID } as never);
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
+  });
+
   it("retourne une erreur Zod si input invalide (ligne 50)", async () => {
     const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, { subject: "", description: "", category: "PLOMBERIE" as const, priority: "NORMALE" as const });
     expect(r.success).toBe(false);
@@ -315,11 +332,64 @@ describe("createTicketFromPortal — branches manquantes", () => {
     expect(r.success).toBe(false);
     expect(r.error).toContain("Erreur");
   });
+
+  it("PERSONNE_MORALE avec companyName → authorName depuis companyName (lignes 78 TRUE, 79 left)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ entityType: "PERSONNE_MORALE", companyName: "SCI Test" }) as never);
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, validCreateInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "SCI Test" }) })
+    );
+  });
+
+  it("PERSONNE_MORALE companyName null, email present → fallback email (ligne 79 middle)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ entityType: "PERSONNE_MORALE", companyName: null, email: "sci@example.com" }) as never);
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, validCreateInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "sci@example.com" }) })
+    );
+  });
+
+  it("PERSONNE_MORALE sans nom ni email + sans priority/location → 'Locataire' + fallbacks (lignes 71/73 right, 79 right)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ entityType: "PERSONNE_MORALE", companyName: null, email: null }) as never);
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, { subject: "Test", description: "Desc", category: "PLOMBERIE" as const });
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ priority: "NORMALE", location: null }) })
+    );
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "Locataire" }) })
+    );
+  });
+
+  it("PERSONNE_PHYSIQUE noms null, email present → trim vide → email (ligne 80 binary counts[1])", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ firstName: null, lastName: null, email: "alice@example.com" }) as never);
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, validCreateInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "alice@example.com" }) })
+    );
+  });
+
+  it("PERSONNE_PHYSIQUE noms null, email null → 'Locataire' (ligne 80 binary counts[2], email ?? right)", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ firstName: null, lastName: null, email: null }) as never);
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, validCreateInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "Locataire" }) })
+    );
+  });
 });
 
 // ─── addTicketMessageFromPortal — branches manquantes ─────────────────────────
 
 describe("addTicketMessageFromPortal — branches manquantes", () => {
+  beforeEach(() => {
+    prismaMock.ticketMessage.create.mockResolvedValue({ id: MESSAGE_ID } as never);
+    prismaMock.ticket.update.mockResolvedValue({} as never);
+  });
+
   it("retourne une erreur Zod si input invalide (ligne 126)", async () => {
     const r = await addTicketMessageFromPortal(TENANT_ID, { ticketId: "", content: "" });
     expect(r.success).toBe(false);
@@ -338,11 +408,70 @@ describe("addTicketMessageFromPortal — branches manquantes", () => {
     expect(r.success).toBe(false);
     expect(r.error).toContain("Erreur");
   });
+
+  it("PERSONNE_MORALE tenant avec companyName → authorName companyName (lignes 136 TRUE, 137 left)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(
+      buildTicket({ status: "EN_COURS", tenant: buildTenant({ entityType: "PERSONNE_MORALE", companyName: "SCI Lyon" }), assignedToId: null }) as never
+    );
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "SCI Lyon" }) })
+    );
+  });
+
+  it("PERSONNE_MORALE tenant companyName null → 'Locataire' (ligne 137 right)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(
+      buildTicket({ status: "EN_COURS", tenant: buildTenant({ entityType: "PERSONNE_MORALE", companyName: null }), assignedToId: null }) as never
+    );
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "Locataire" }) })
+    );
+  });
+
+  it("PERSONNE_PHYSIQUE noms null → trim vide → 'Locataire' (ligne 138 right branches)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(
+      buildTicket({ status: "EN_COURS", tenant: buildTenant({ firstName: null, lastName: null }), assignedToId: null }) as never
+    );
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "Locataire" }) })
+    );
+  });
+
+  it("status RESOLU → réouvre + || RESOLU right branch (ligne 151 binary right)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(
+      buildTicket({ status: "RESOLU", assignedToId: MANAGER_ID }) as never
+    );
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith({
+      where: { id: TICKET_ID },
+      data: { status: "EN_COURS" },
+    });
+  });
+
+  it("status OUVERT, sans assignedToId → IF 151 FALSE + IF 159 FALSE (pas de notif)", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue(
+      buildTicket({ status: "OUVERT", assignedToId: null }) as never
+    );
+    const r = await addTicketMessageFromPortal(TENANT_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.update).not.toHaveBeenCalled();
+  });
 });
 
 // ─── addTicketMessageFromManager — branches manquantes ────────────────────────
 
 describe("addTicketMessageFromManager — branches manquantes", () => {
+  beforeEach(() => {
+    prismaMock.ticketMessage.create.mockResolvedValue({ id: MESSAGE_ID } as never);
+    prismaMock.ticket.update.mockResolvedValue({} as never);
+  });
+
   it("retourne une erreur Zod si input invalide (ligne 189)", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     const r = await addTicketMessageFromManager(SOCIETY_ID, { ticketId: "", content: "" });
@@ -370,6 +499,37 @@ describe("addTicketMessageFromManager — branches manquantes", () => {
     const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
     expect(r.success).toBe(false);
     expect(r.error).toContain("Erreur");
+  });
+
+  it("user.name null → fallback email (ligne 207 middle branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.ticket.findFirst.mockResolvedValue(buildTicket({ status: "EN_COURS" }) as never);
+    prismaMock.user.findUnique.mockResolvedValue({ name: null, email: "gestionnaire@example.com" } as never);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "gestionnaire@example.com" }) })
+    );
+  });
+
+  it("user null → 'Gestionnaire' (ligne 207 right branch)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.ticket.findFirst.mockResolvedValue(buildTicket({ status: "EN_COURS" }) as never);
+    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticketMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ authorName: "Gestionnaire" }) })
+    );
+  });
+
+  it("ticket status EN_COURS → pas de update (ligne 213 IF FALSE)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.ticket.findFirst.mockResolvedValue(buildTicket({ status: "EN_COURS" }) as never);
+    prismaMock.user.findUnique.mockResolvedValue({ name: "Gestionnaire Test", email: "g@example.com" } as never);
+    const r = await addTicketMessageFromManager(SOCIETY_ID, validMessageInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.update).not.toHaveBeenCalled();
   });
 });
 
@@ -414,6 +574,20 @@ describe("updateTicket — branches manquantes", () => {
     const r = await updateTicket(SOCIETY_ID, validUpdateInput);
     expect(r.success).toBe(false);
     expect(r.error).toContain("Erreur");
+  });
+
+  it("updateTicket sans status → IF 251 FALSE (only priority updated)", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.ticket.findFirst.mockResolvedValue(buildTicket({ status: "EN_COURS" }) as never);
+    prismaMock.ticket.update.mockResolvedValue({} as never);
+    const r = await updateTicket(SOCIETY_ID, { id: TICKET_ID, priority: "HAUTE" as const });
+    expect(r.success).toBe(true);
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ priority: "HAUTE" }) })
+    );
+    const callData = prismaMock.ticket.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(callData.status).toBeUndefined();
+    expect(callData.resolvedAt).toBeUndefined();
   });
 });
 

@@ -246,4 +246,53 @@ describe("generateFec", () => {
 
     expect(result.content).toContain("\tAA\t");
   });
+
+  it("utilise lettrage si letteringCode absent mais lettrage présent (B21 arm0)", async () => {
+    const entry = makeEntry({
+      lines: [
+        { id: "l1", debit: 300, credit: 0, label: "Loyer", letteringCode: null, lettrage: "BB", letteredAt: null, account: { code: "411", label: "Client" } },
+        { id: "l2", debit: 0, credit: 300, label: "Produit", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "706", label: "Produit" } },
+      ],
+    });
+    prismaMock.journalEntry.findMany.mockResolvedValue([entry] as never);
+    const result = await generateFec(SOCIETY_ID);
+    expect(result.content).toContain("\tBB\t");
+  });
+
+  it("fallbacks: journalType inconnu, isValidated=false, piece=null, label=null sur ligne (B11/B17/B18/B19/B23 arm1)", async () => {
+    const entry = makeEntry({
+      journalType: "INCONNU_TYPE",
+      isValidated: false,
+      piece: null,
+      label: "Entrée label",
+      lines: [
+        { id: "l1", debit: 200, credit: 0, label: null, letteringCode: null, lettrage: null, letteredAt: null, account: { code: "411", label: "Client" } },
+        { id: "l2", debit: 0, credit: 200, label: "Produit", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "706", label: "Produit" } },
+      ],
+    });
+    prismaMock.journalEntry.findMany.mockResolvedValue([entry] as never);
+    const result = await generateFec(SOCIETY_ID);
+    // journalType inconnu → code = slice 0-3 = "INC" (B11 arm1)
+    expect(result.content).toContain("INC");
+    // isValidated=false → ValidDate="" (B17 arm1)
+    // piece=null → pieceRef="" (B18 arm1)
+    // label null sur l1 → line.label ?? entry.label = "Entrée label" (B19 arm1)
+    expect(result.content).toContain("Entrée label");
+  });
+
+  it("filtre avec dateFrom uniquement (B8 arm0, B9 arm1: pas de dateTo)", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
+    await generateFec(SOCIETY_ID, { dateFrom: new Date("2025-01-01") });
+    const callArgs = prismaMock.journalEntry.findMany.mock.calls[0][0] as { where?: { entryDate?: { gte?: Date; lte?: Date } } };
+    expect(callArgs.where?.entryDate?.gte).toBeDefined(); // dateFrom set
+    expect(callArgs.where?.entryDate?.lte).toBeUndefined(); // no dateTo
+  });
+
+  it("filtre avec dateTo uniquement (B8 arm1: pas de dateFrom, B9 arm0)", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
+    await generateFec(SOCIETY_ID, { dateTo: new Date("2025-12-31") });
+    const callArgs = prismaMock.journalEntry.findMany.mock.calls[0][0] as { where?: { entryDate?: { gte?: Date; lte?: Date } } };
+    expect(callArgs.where?.entryDate?.lte).toBeDefined(); // dateTo set
+    expect(callArgs.where?.entryDate?.gte).toBeUndefined(); // no dateFrom
+  });
 });

@@ -80,10 +80,26 @@ describe("executeWorkflowSteps", () => {
       expect(results[0].output).toMatch(/vraie/);
     });
 
+    it("opérateur absent → 'eq' par défaut (ligne 132)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "condition", config: { field: "status", value: "PAID" } }],
+        { ...baseCtx, entityData: { status: "PAID" } }
+      );
+      expect(results[0].output).toMatch(/vraie/);
+    });
+
     it("retourne faux pour un opérateur inconnu (ligne 143)", async () => {
       const results = await executeWorkflowSteps(
         [{ id: "s1", type: "condition", config: { field: "status", operator: "unknown_op", value: "PAID" } }],
         { ...baseCtx, entityData: { status: "PAID" } }
+      );
+      expect(results[0].output).toMatch(/fausse/);
+    });
+
+    it("field absent → champ '' par défaut (ligne 131)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "condition", config: { operator: "eq", value: "test" } }],
+        { ...baseCtx, entityData: {} }
       );
       expect(results[0].output).toMatch(/fausse/);
     });
@@ -106,6 +122,15 @@ describe("executeWorkflowSteps", () => {
         baseCtx
       );
       expect(results[0].status).toBe("skipped");
+    });
+
+    it("entity et value absents → affiche '?/?' (ligne 188)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "update_status", config: {} }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("skipped");
+      expect(results[0].output).toContain("?/?");
     });
   });
 
@@ -199,6 +224,15 @@ describe("executeWorkflowSteps", () => {
       expect(results[0].output).toMatch(/Email envoyé à tenant@example\.com/);
       expect(vi.mocked(sendMail)).toHaveBeenCalledWith("tenant@example.com", "Bonjour", "Corps du message");
     });
+
+    it("utilise 'Notification'/'' si subject/body absents (lignes 102-103)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "send_email", config: { to: "user@example.com" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("success");
+      expect(vi.mocked(sendMail)).toHaveBeenCalledWith("user@example.com", "Notification", "");
+    });
   });
 
   describe("webhook", () => {
@@ -233,6 +267,37 @@ describe("executeWorkflowSteps", () => {
       );
       expect(results[0].status).toBe("failed");
       expect(results[0].error).toMatch(/503/);
+    });
+
+    it("passe le body configuré au fetch (ligne 117)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "webhook", config: { url: "https://hook.example.com", method: "POST", body: '{"key":"val"}' } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("success");
+    });
+
+    it("retourne failed si url absente → '' ne passe pas le check HTTPS (ligne 113)", async () => {
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "webhook", config: { method: "POST" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("failed");
+      expect(results[0].error).toMatch(/HTTPS/);
+    });
+  });
+
+  describe("gestion d'exception non-Error (ligne 215)", () => {
+    it("retourne 'Erreur inconnue' si l'exception n'est pas une instance d'Error", async () => {
+      prismaMock.userSociety.findMany.mockRejectedValue("string-error");
+      const results = await executeWorkflowSteps(
+        [{ id: "s1", type: "send_notification", config: { title: "T", message: "M" } }],
+        baseCtx
+      );
+      expect(results[0].status).toBe("failed");
+      expect(results[0].error).toBe("Erreur inconnue");
     });
   });
 
@@ -276,6 +341,22 @@ describe("triggerEventWorkflows", () => {
     expect(prismaMock.workflowRun.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "RUNNING" }) })
     );
+    expect(prismaMock.workflowRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED" }) })
+    );
+  });
+
+  it("gère wf.steps null → traite comme tableau vide (ligne 259)", async () => {
+    prismaMock.workflow.findMany.mockResolvedValue([
+      { id: "wf-null", trigger: { type: "event", config: { event: "invoice.paid" } }, steps: null, isActive: true },
+    ] as never);
+    prismaMock.workflowRun.create.mockResolvedValue({ id: "run-null" } as never);
+    prismaMock.workflowRun.update.mockResolvedValue({} as never);
+    prismaMock.workflow.update.mockResolvedValue({} as never);
+
+    await triggerEventWorkflows("invoice.paid", { societyId: SOCIETY_ID });
+
+    expect(prismaMock.workflowRun.create).toHaveBeenCalled();
     expect(prismaMock.workflowRun.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED" }) })
     );

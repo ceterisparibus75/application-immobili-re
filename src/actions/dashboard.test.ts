@@ -304,4 +304,184 @@ describe("getDashboardAlerts", () => {
     const lateAlert = result.find((a) => a.id === "tenant-late-unknown-tenant");
     expect(lateAlert).toBeUndefined();
   });
+
+  it("1 facture impayée + diagnostic non-urgent (> 60j) + 2 révisions en attente (lignes 296,336,370)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+
+    // 1 seule facture en retard → length=1 → FALSE branch "" (no "s") ligne 296
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-solo",
+        invoiceNumber: "FAC-2025-010",
+        totalTTC: 900,
+        dueDate: new Date("2025-01-01"),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Alice", lastName: "Martin" },
+      },
+    ] as never);
+
+    // Diagnostic avec daysLeft > 60 → isUrgent=false → "warning" ligne 336
+    const in90Days = new Date();
+    in90Days.setDate(in90Days.getDate() + 90);
+    prismaMock.diagnostic.findMany.mockResolvedValue([
+      {
+        id: "diag-long",
+        type: "AMIANTE",
+        expiresAt: in90Days,
+        building: { id: "building-1", name: "Immeuble B" },
+      },
+    ] as never);
+
+    // 2 révisions en attente → length > 1 → TRUE branch "s" ligne 370
+    prismaMock.rentRevision.findMany.mockResolvedValue([
+      { id: "rev-1", effectiveDate: new Date(), newRentHT: 900, lease: { id: "lease-1", tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Paul", lastName: "Dup" } } },
+      { id: "rev-2", effectiveDate: new Date(), newRentHT: 800, lease: { id: "lease-2", tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: "Anne", lastName: "Bon" } } },
+    ] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
+    prismaMock.invoice.count
+      .mockResolvedValueOnce(0 as never)
+      .mockResolvedValueOnce(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    const overdueAlert = result.find((a) => a.id === "invoices-overdue-30d");
+    expect(overdueAlert?.count).toBe(1);
+    expect(overdueAlert?.title).not.toContain("factures");  // 1 → "facture" no "s"
+
+    const diagAlert = result.find((a) => a.id === "diagnostic-expiring-diag-long");
+    expect(diagAlert?.type).toBe("warning");  // not urgent
+
+    const revAlert = result.find((a) => a.id === "rent-revisions-pending");
+    expect(revAlert?.title).toContain("revisions");  // 2 → "revisions" with "s"
+  });
+
+  it("_sum.totalTTC null → ?? 0 et group._count=1 (ligne 406 right branches)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([
+      { tenantId: "tenant-null-ttc", _sum: { totalTTC: null }, _count: 1 },
+    ] as never);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: "tenant-null-ttc", entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Null", companyName: null },
+    ] as never);
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    const lateAlert = result.find((a) => a.id === "tenant-late-tenant-null-ttc");
+    expect(lateAlert).toBeDefined();
+    // totalTTC null → ?? 0 → "0,00 €"
+    expect(lateAlert?.message).toContain("0");
+  });
+
+  it("couvre les branches pluriel singular pour _count=1, draftCount=1, vacantLots=2, litigiousCount=1 (lignes 406,423,443,460)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([
+      { tenantId: "tenant-1", _sum: { totalTTC: 800 }, _count: 1 },
+    ] as never);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: "tenant-1", entityType: "PERSONNE_PHYSIQUE", firstName: "Jean", lastName: "Dupont", companyName: null },
+    ] as never);
+    prismaMock.invoice.count
+      .mockResolvedValueOnce(1 as never)   // draftCount = 1 → false branch (no "s") ligne 423
+      .mockResolvedValueOnce(1 as never);  // litigiousCount = 1 → false branch (no "s") ligne 460
+    prismaMock.lot.count.mockResolvedValue(2 as never);  // vacantLots = 2 → true branch ("s") ligne 443
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+
+    // _count=1 → "facture" (no "s") ligne 406
+    const lateAlert = result.find((a) => a.id === "tenant-late-tenant-1");
+    expect(lateAlert?.message).toContain("facture");
+
+    // draftCount=1 → "brouillon" (no "s") ligne 423
+    const draftAlert = result.find((a) => a.id === "invoices-draft");
+    expect(draftAlert?.title).toContain("brouillon");
+
+    // vacantLots=2 → "lots vacants" (with "s") ligne 443
+    const vacantAlert = result.find((a) => a.id === "lots-vacant");
+    expect(vacantAlert?.title).toContain("lots");
+
+    // litigiousCount=1 → "facture" (no "s") ligne 460
+    const litigiousAlert = result.find((a) => a.id === "invoices-litigious");
+    expect(litigiousAlert?.title).toContain("facture");
+  });
+
+  it("PERSONNE_MORALE companyName null → '—' et PERSONNE_PHYSIQUE noms null → '—' (lignes 216-217 right branches)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.lease.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-morale-null",
+        invoiceNumber: "FAC-2025-010",
+        totalTTC: 500,
+        dueDate: new Date("2025-01-01"),
+        tenant: { entityType: "PERSONNE_MORALE", companyName: null, firstName: null, lastName: null },
+      },
+      {
+        id: "inv-physique-null",
+        invoiceNumber: "FAC-2025-011",
+        totalTTC: 300,
+        dueDate: new Date("2025-01-01"),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", companyName: null, firstName: null, lastName: null },
+      },
+    ] as never);
+    prismaMock.diagnostic.findMany.mockResolvedValue([] as never);
+    prismaMock.rentRevision.findMany.mockResolvedValue([] as never);
+    vi.mocked(prismaMock.invoice.groupBy).mockResolvedValue([] as never);
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.lot.count.mockResolvedValue(0 as never);
+
+    const result = await getDashboardAlerts(SOCIETY_ID);
+    const alert1 = result.find((a) => a.id === "invoice-overdue-inv-morale-null");
+    const alert2 = result.find((a) => a.id === "invoice-overdue-inv-physique-null");
+    // Both alerts should have "—" as tenant name component in title/message
+    expect(alert1 ?? result.find((a) => a.message?.includes("—"))).toBeDefined();
+    expect(result.some((a) => a.id.includes("inv-"))).toBe(true);
+  });
+});
+
+// ── getBuildingPerformance — branches zéro (lignes 191-194) ───────────────────
+
+describe("getBuildingPerformance — branches zéro (lignes 191-194)", () => {
+  it("building sans lots → vacancyRate/grossYield/occupancyRateArea = 0 (FALSE branches 192-194)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-empty", name: "Sans lots", city: "Lyon", lots: [] },
+    ] as never);
+
+    const result = await getBuildingPerformance(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+    expect(result[0].totalLots).toBe(0);
+    expect(result[0].vacancyRate).toBe(0);
+    expect(result[0].grossYield).toBe(0);
+    expect(result[0].occupancyRateArea).toBe(0);
+  });
+
+  it("lot avec marketRentValue=null et currentRent=null → ?? 0 (ligne 191 right branch)", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-null-rents",
+        name: "Nul",
+        city: "Lille",
+        lots: [
+          { id: "lot-null", status: "VACANT", area: 0, currentRent: null, marketRentValue: null, leases: [] },
+        ],
+      },
+    ] as never);
+
+    const result = await getBuildingPerformance(SOCIETY_ID);
+    expect(result).toHaveLength(1);
+    expect(result[0].grossYield).toBe(0);
+    expect(result[0].monthlyRent).toBe(0);
+  });
 });

@@ -309,6 +309,62 @@ describe("merge actions", () => {
     expect(result).toEqual({ success: false, error: "Erreur lors de la fusion des lots" });
   });
 
+  it("fusionne PERSONNE_MORALE source + PERSONNE_PHYSIQUE cible (lignes 193-198 branches inverses)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, entityType: "PERSONNE_MORALE", companyName: "SCI Dupont" } as never)
+      .mockResolvedValueOnce({ id: TARGET_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "Bob", lastName: "Martin" } as never);
+    prismaMock.$transaction.mockResolvedValue([] as never);
+
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: true });
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          mergedFrom: { id: SOURCE_ID, name: "SCI Dupont" },
+          mergedInto: { id: TARGET_ID, name: "Bob Martin" },
+        }),
+      })
+    );
+  });
+
+  it("fusionne PERSONNE_MORALE sans companyName + PERSONNE_PHYSIQUE sans noms (branches ?? '' lignes 194,197,198)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, entityType: "PERSONNE_MORALE", companyName: null } as never)
+      .mockResolvedValueOnce({ id: TARGET_ID, entityType: "PERSONNE_PHYSIQUE", firstName: null, lastName: null } as never);
+    prismaMock.$transaction.mockResolvedValue([] as never);
+
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: true });
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          mergedFrom: { id: SOURCE_ID, name: "" },
+          mergedInto: { id: TARGET_ID, name: "" },
+        }),
+      })
+    );
+  });
+
+  it("fusionne PERSONNE_PHYSIQUE source + PERSONNE_MORALE cible (lignes 195, 197 bras non couverts)", async () => {
+    mockAuthSession(UserRole.ADMIN_SOCIETE, SOCIETY_ID);
+    prismaMock.tenant.findFirst
+      .mockResolvedValueOnce({ id: SOURCE_ID, entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Dupont", companyName: null } as never)
+      .mockResolvedValueOnce({ id: TARGET_ID, entityType: "PERSONNE_MORALE", companyName: "SCI Cible", firstName: null, lastName: null } as never);
+    prismaMock.$transaction.mockResolvedValue([] as never);
+    const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
+    expect(result).toEqual({ success: true });
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          mergedFrom: { id: SOURCE_ID, name: "Alice Dupont" },
+          mergedInto: { id: TARGET_ID, name: "SCI Cible" },
+        }),
+      })
+    );
+  });
+
   it("retourne une erreur si rôle insuffisant pour mergeTenants", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     const result = await mergeTenants(SOCIETY_ID, SOURCE_ID, TARGET_ID);
