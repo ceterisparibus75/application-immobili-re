@@ -2,6 +2,9 @@ name: Business E2E
 
 on:
   workflow_dispatch:
+  schedule:
+    # Staging business proof: every Monday at 04:00 UTC.
+    - cron: "0 4 * * 1"
 
 concurrency:
   group: business-e2e-${{ github.ref }}
@@ -20,6 +23,16 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npx prisma generate
       - run: npx playwright install --with-deps chromium
+      - name: Check staging secrets
+        run: |
+          if [ -z "$E2E_BASE_URL" ] || [ -z "$E2E_EMAIL" ] || [ -z "$E2E_PASSWORD" ]; then
+            echo "::error::Missing E2E_STAGING_URL, E2E_EMAIL or E2E_PASSWORD secret."
+            exit 1
+          fi
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_STAGING_URL }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
       - run: npm run test:e2e:business
         env:
           E2E_RUN_BUSINESS_FLOWS: "1"

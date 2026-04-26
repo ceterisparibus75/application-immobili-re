@@ -1,18 +1,20 @@
 import { expect, type Page, test } from "@playwright/test"
 
 const shouldRunBusinessFlows = process.env.E2E_RUN_BUSINESS_FLOWS === "1"
+const e2eBaseUrl = process.env.E2E_BASE_URL || ""
 const e2eEmail = process.env.E2E_EMAIL || ""
 const e2ePassword = process.env.E2E_PASSWORD || ""
+
+if (shouldRunBusinessFlows && (!e2eBaseUrl || !e2eEmail || !e2ePassword)) {
+  throw new Error(
+    "Business E2E requires E2E_BASE_URL, E2E_EMAIL and E2E_PASSWORD to target a seeded staging environment."
+  )
+}
 
 test.skip(
   !shouldRunBusinessFlows,
   "Set E2E_RUN_BUSINESS_FLOWS=1 to run destructive staging business-flow tests."
 )
-test.skip(
-  !e2eEmail || !e2ePassword,
-  "Set E2E_EMAIL and E2E_PASSWORD for an account with an active society."
-)
-
 function resourceIdFromUrl(url: string, segment: string) {
   const match = new RegExp(`/${segment}/([^/?#]+)`).exec(new URL(url).pathname)
   expect(match?.[1], `Expected URL to contain /${segment}/:id`).toBeTruthy()

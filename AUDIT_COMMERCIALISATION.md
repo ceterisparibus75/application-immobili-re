@@ -305,7 +305,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 | Constat | Détail |
 |---------|--------|
-| Couverture actuelle | 193 suites Vitest, 4 163 cas passés et 16 ignorés (état au 26 avril 2026) |
+| Couverture actuelle | 204 suites Vitest, 4 233 cas passés et 16 ignorés (état au 26 avril 2026) |
 | Actions couvertes | Toutes les mutations critiques (facturation, baux, banque, comptabilité, RGPD…) |
 | Tests de composants React | 9 fichiers : LeaseTimeline, SubscriptionBanner, ActivityFeed, DashboardNotifications, ExportPdfButton, WidgetConfigurator, Breadcrumb, EcheancesPanel, TodayTasks |
 | Tests d'intégration | Non couverts |
@@ -315,7 +315,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 **Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier, avec en plus une couverture complète des composants React du dashboard, des utilitaires lib (normalize-label, pagination, rate-limit, two-factor, cron-auth, ai-logger, portal-auth, export-csv, sepa-credit-transfer) et des schémas de validation Zod (auth, sepa, maintenance, lot, diagnostic, contact, inspection, accounting, ticket, user, society, workflow, candidate).
 
 > **État initial (4 avril) :** 20 suites (382 cas), ~5% lignes. Point faible bloquant à l'époque — depuis résolu.  
-> **État au 26 avril :** 193 suites, 4 163 cas passés — progression de +3 781 cas depuis l'audit initial.
+> **État au 26 avril :** 204 suites, 4 233 cas passés — progression de +3 851 cas depuis l'audit initial.
 
 ### 5.2 Documentation utilisateur — ABSENTE
 
@@ -387,7 +387,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **Sécurité** | Excellente (toutes corrections appliquées) | OUI |
 | **Multi-tenancy** | Excellente | OUI |
 | **UI/UX** | Très bonne (onboarding + loading states) | OUI |
-| **Tests** | Excellente (4 163 tests + E2E Playwright + Axe) | OUI |
+| **Tests** | Excellente (4 233 tests + E2E Playwright + Axe) | OUI |
 | **Documentation utilisateur** | Complète (centre d'aide + FAQ) | OUI |
 | **Monétisation SaaS** | Complète (Stripe + plans + limites) | OUI |
 | **CI/CD** | Complète (GitHub Actions) | OUI |
@@ -492,7 +492,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Axe vérifié | Résultat | Commentaire |
 |-------------|----------|-------------|
 | TypeScript strict | OK | `npx tsc --noEmit --incremental false` passe. |
-| Tests unitaires | OK | `npm test` : 192 fichiers passés, 1 ignoré, 4 163 tests passés, 16 ignorés. |
+| Tests unitaires | OK | `npm test` : 203 fichiers passés, 1 ignoré, 4 233 tests passés, 16 ignorés. |
 | Couverture V8 | OK | `npm run test:coverage` : global 83,14% statements / 79,36% branches ; `actions` 92,76% statements / 91,03% branches. |
 | Lint | OK | `npm run lint` : 0 erreur, 0 avertissement. |
 | Build production | OK | `npm run build` : compilation Next.js 16 réussie, 228 routes générées. |
@@ -518,6 +518,8 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Tests alignés avec les contrats actuels** : corrections de tests sur dashboard, échéances, tâches du jour, FEC, notifications, limites de plan, inscription, email, société active et facturation.
 - **Uploads GED renforcés** : les flux classique, streaming et TUS partagent désormais des règles serveur communes (MIME autorisé, extension cohérente, taille maximale, dossier normalisé, chemin limité à la société active).
 - **Endpoint admin vérifié** : `email-diagnostics` est couvert par test pour refuser les utilisateurs non authentifiés et les utilisateurs non super-admin.
+- **Crons métier vérifiés** : `ai-retry`, `invoice-reminder`, `lease-alerts` et `send-reports` couvrent maintenant secret manquant, accès non autorisé, cas nominal vide, exécution utile et erreur serveur.
+- **Business E2E fiabilisé** : le workflow staging est planifié, vérifie les secrets en préflight et le spec refuse de s'exécuter sans `E2E_BASE_URL`, `E2E_EMAIL` et `E2E_PASSWORD`.
 
 ### 9.3 Constat fonctionnel par parcours utilisateur
 
@@ -557,7 +559,7 @@ La topnav doit rester une **orientation globale**, pas l'inventaire complet de l
 
 | Priorité | Action | Bénéfice utilisateur |
 |----------|--------|----------------------|
-| P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Prouver que le coeur métier fonctionne réellement de bout en bout, pas seulement les gardes d'accès. |
+| P0 | Exécuter régulièrement `npm run test:e2e:business` ou le workflow manuel `Business E2E` sur staging avec `E2E_RUN_BUSINESS_FLOWS=1`, `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` / secrets GitHub équivalents. | Terminé : le workflow `Business E2E` est planifié chaque lundi 04:00 UTC, vérifie les secrets staging en préflight et échoue si les tests destructifs ne ciblent pas une base staging authentifiée. |
 | P0 | Ajouter un audit visuel mobile sur dashboard, topnav, drawer, facturation et baux. | Terminé : `npm run test:e2e:mobile` vérifie le viewport téléphone, le menu mobile public, l'absence de débordement horizontal et les redirections propres de `/dashboard`, `/facturation` et `/baux`. |
 | P1 | Étendre la recherche globale (`Ctrl/Cmd K`) avec davantage d'actions contextuelles et de filtres métier. | Terminé : hubs, actions principales, filtres par mots-clés naturels et recherche réelle sur comptes bancaires, charges, factures fournisseurs, tickets et rapports planifiés. |
 | P1 | Étendre les pages index de module actionnables au-delà du nouveau hub Patrimoine : derniers éléments, alertes, états vides guidés. | Terminé : les hubs `Location` et `Finances` proposent des prochaines actions contextualisées et rendent les parcours majeurs plus directs. |
