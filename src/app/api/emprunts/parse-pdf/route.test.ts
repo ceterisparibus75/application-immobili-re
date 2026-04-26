@@ -17,6 +17,8 @@ vi.mock("@/lib/api-society", () => ({
   requireActiveSocietyRouteContext,
 }));
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { POST } from "./route";
 
 const ORIGINAL_ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -103,13 +105,13 @@ describe("POST /api/emprunts/parse-pdf", () => {
     }
   });
 
-  it("retourne 500 si la cle Anthropic n'est pas configuree", async () => {
+  it("retourne 503 si la cle Anthropic n'est pas configuree", async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
     const res = await POST(makeRequest());
     const body = await res.json();
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
     expect(body.error).toContain("ANTHROPIC_API_KEY");
     expect(anthropicMessagesStream).not.toHaveBeenCalled();
   });

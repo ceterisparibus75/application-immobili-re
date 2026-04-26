@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { env } from "@/lib/env";
 import { parsePdfBankStatement } from "@/lib/pdf-bank-parser";
 
 // Limite à 20 Mo pour les PDF de relevés bancaires
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
     const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
     if (context instanceof NextResponse) return context;
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         { error: "L'analyse IA n'est pas configurée sur ce serveur" },
         { status: 503 }

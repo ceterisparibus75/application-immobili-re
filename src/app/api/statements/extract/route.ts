@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/lib/env";
 
 /* ─── Types de retour ──────────────────────────────────────────────── */
 
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Clé API IA non configurée" }, { status: 500 });
     }

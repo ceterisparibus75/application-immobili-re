@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { env } from "@/lib/env";
 
 const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse de tableaux d'amortissement de prêts immobiliers français.
 
@@ -97,7 +98,7 @@ export interface ParsedLoan {
 }
 
 function isLoanParsePdfDebugEnabled() {
-  return process.env.LOAN_PARSE_PDF_DEBUG === "1";
+  return env.LOAN_PARSE_PDF_DEBUG === "1";
 }
 
 function logLoanParsePdfError(error: unknown) {
@@ -108,16 +109,17 @@ function logLoanParsePdfError(error: unknown) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
+    if (context instanceof NextResponse) return context;
+
+    if (!env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         { error: "Clé API Anthropic non configurée (ANTHROPIC_API_KEY manquante)" },
-        { status: 500 }
+        { status: 503 }
       );
     }
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
-    if (context instanceof NextResponse) return context;
+    const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

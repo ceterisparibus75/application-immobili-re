@@ -11,6 +11,7 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().email(),
   CRON_SECRET: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  LOAN_PARSE_PDF_DEBUG: z.enum(["0", "1"]).optional(),
   POWENS_DOMAIN: z.string().trim().optional(),
   POWENS_CLIENT_ID: z.string().trim().optional(),
   POWENS_CLIENT_SECRET: z.string().trim().optional(),
