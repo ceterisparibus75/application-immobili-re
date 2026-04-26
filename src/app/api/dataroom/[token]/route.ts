@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { sendDataroomAccessEmail } from "@/lib/email";
 import { getApiRatelimit } from "@/lib/rate-limit";
+import { env } from "@/lib/env";
 
 export async function GET(
   req: NextRequest,
@@ -74,16 +75,16 @@ export async function GET(
   }
 
   // Générer des URLs signées courte durée (1h) pour chaque document
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
+  const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
   const documents = await Promise.all(
     dataroom.documents.map(async (dd) => {
       let signedUrl: string | null = null;
 
-      if (dd.document.storagePath && supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+      if (dd.document.storagePath && supabase) {
         const { data } = await supabase.storage
           .from(bucket)
           .createSignedUrl(dd.document.storagePath, 3600); // 1 heure
@@ -131,7 +132,7 @@ export async function GET(
 
   // Notifier le créateur par email (non bloquant)
   if (dataroom.creator?.email) {
-    const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://app.example.com";
+    const appUrl = env.AUTH_URL ?? "https://app.example.com";
     void sendDataroomAccessEmail({
       to: dataroom.creator.email,
       dataroomName: dataroom.name,
