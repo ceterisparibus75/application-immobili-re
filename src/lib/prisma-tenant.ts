@@ -2,24 +2,56 @@ import { prisma } from "./prisma";
 
 // Modèles qui ont un societyId direct (pas via une relation)
 const MODELS_WITH_DIRECT_SOCIETY_ID: string[] = [
+  // Patrimoine
   "Building",
+  "AdditionalAcquisition",
+  "Copropriete",
+  "SeasonalProperty",
+  // Baux et locataires
   "Lease",
+  "LeaseTemplate",
   "Tenant",
+  "Candidate",
+  "CandidatePipeline",
+  // Facturation et paiements
   "Invoice",
+  "SupplierInvoice",
+  "SepaMandate",
+  // Charges et comptabilité
   "Charge",
   "ChargeCategory",
-  "BankAccount",
+  "ChargeRegularization",
   "AccountingAccount",
   "JournalEntry",
+  "FiscalYear",
+  "BudgetLine",
+  "ThirdPartyStatement",
+  "ManagementReport",
+  // Banque
+  "BankAccount",
+  "BankConnection",
+  "MatchingRule",
+  "TransactionAutoTag",
+  // Suivi
   "ReminderScenario",
-  "Contact",
-  "Message",
-  "Announcement",
+  "ReportSchedule",
+  "Workflow",
+  "Ticket",
+  "Notification",
+  // Documents et signatures
   "Document",
   "AuditLog",
   "LetterTemplate",
+  "SignatureRequest",
+  "Dataroom",
+  // Communication
+  "Announcement",
+  // RGPD
+  "GdprRequest",
+  // Évaluation
   "PropertyValuation",
   "RentValuation",
+  "Loan",
 ];
 
 /**
