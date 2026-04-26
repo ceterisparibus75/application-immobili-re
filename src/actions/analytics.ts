@@ -5,6 +5,16 @@ import { getOptionalSocietyActionContext } from "@/lib/action-society";
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 import { buildLenderMapping } from "@/lib/utils";
+import {
+  annualizeRent,
+  calculateHhi,
+  calculateRevenueChange,
+  displayTenantName,
+  monthLabel,
+  normalizeTenantKey,
+  toRiskItems,
+  truncateBuildingName,
+} from "./analytics-helpers";
 
 export type MonthlyRevenue = { month: string; revenue: number };
 export type BuildingOccupancy = { name: string; occupied: number; vacant: number; total: number; rate: number };
@@ -18,27 +28,6 @@ export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: num
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 type AnalyticsCoreOptions = { includeTopTenants?: boolean };
-
-function displayTenantName(t: { entityType: string; companyName: string | null; firstName: string | null; lastName: string | null }): string {
-  if (t.entityType === "PERSONNE_MORALE") return t.companyName ?? "—";
-  return (((t.firstName ?? "") + " " + (t.lastName ?? "")).trim()) || "—";
-}
-
-/** Normalise un nom de locataire pour regrouper les variantes (casse, accents, espaces). */
-function normalizeTenantKey(name: string): string {
-  return name
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function monthLabel(d: Date): string {
-  return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
-}
-
-const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
 
 async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOptions = {}): Promise<AnalyticsData> {
   const now = new Date();
@@ -250,10 +239,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   // 2. KPI revenus mois courant vs précédent
   const currentMonthRevenue = currentMonthAgg._sum.totalTTC ?? 0;
   const prevMonthRevenue = prevMonthAgg._sum.totalTTC ?? 0;
-  const revenueChange =
-    prevMonthRevenue > 0
-      ? Math.round(((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100)
-      : currentMonthRevenue > 0 ? 100 : 0;
+  const revenueChange = calculateRevenueChange(currentMonthRevenue, prevMonthRevenue);
 
   // 3. Taux d'occupation par immeuble
   const buildingOccupancy: BuildingOccupancy[] = buildingsRaw
@@ -262,7 +248,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
       const total = b.lots.length;
       const occupied = b.lots.filter((l) => l.status === "OCCUPE").length;
       return {
-        name: b.name.length > 22 ? b.name.slice(0, 20) + "…" : b.name,
+        name: truncateBuildingName(b.name),
         total, occupied, vacant: total - occupied,
         rate: Math.round((occupied / total) * 100),
       };
@@ -324,7 +310,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const tenantRentMap = new Map<string, number>();
   const tenantDisplayNames = new Map<string, string>();
   for (const l of riskLeases) {
-    const annual = l.currentRentHT * (FREQ_MULT[l.paymentFrequency] ?? 12);
+    const annual = annualizeRent(l.currentRentHT, l.paymentFrequency);
     const bName = l.lot.building.name;
     buildingRentMap.set(bName, (buildingRentMap.get(bName) ?? 0) + annual);
     const tName = displayTenantName(l.tenant);
@@ -332,16 +318,10 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     tenantRentMap.set(tKey, (tenantRentMap.get(tKey) ?? 0) + annual);
     if (!tenantDisplayNames.has(tKey)) tenantDisplayNames.set(tKey, tName);
   }
-  const totalAnnualRentRisk = riskLeases.reduce((s, l) => s + l.currentRentHT * (FREQ_MULT[l.paymentFrequency] ?? 12), 0);
-  const toRiskItems = (m: Map<string, number>, displayMap?: Map<string, string>) =>
-    [...m.entries()]
-      .map(([key, annualRent]) => ({ name: displayMap?.get(key) ?? key, annualRent, pct: totalAnnualRentRisk > 0 ? Math.round((annualRent / totalAnnualRentRisk) * 1000) / 10 : 0 }))
-      .sort((a, b) => b.pct - a.pct);
-  // Indice Herfindahl-Hirschman (0 = diversifié, 10000 = concentré)
-  const hhi = (items: { pct: number }[]) => Math.round(items.reduce((s, i) => s + i.pct * i.pct, 0));
-  const byBuilding = toRiskItems(buildingRentMap);
-  const byTenant = toRiskItems(tenantRentMap, tenantDisplayNames);
-  const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: hhi(byBuilding), hhiTenant: hhi(byTenant) };
+  const totalAnnualRentRisk = riskLeases.reduce((sum, lease) => sum + annualizeRent(lease.currentRentHT, lease.paymentFrequency), 0);
+  const byBuilding = toRiskItems(buildingRentMap, totalAnnualRentRisk);
+  const byTenant = toRiskItems(tenantRentMap, totalAnnualRentRisk, tenantDisplayNames);
+  const riskConcentration: RiskConcentration = { byBuilding, byTenant, hhiBuilding: calculateHhi(byBuilding), hhiTenant: calculateHhi(byTenant) };
 
   // 7. Échéancier baux (10 plus proches expirations)
   const leaseTimeline: LeaseTimelineItem[] = activeLeases.map((l) => {

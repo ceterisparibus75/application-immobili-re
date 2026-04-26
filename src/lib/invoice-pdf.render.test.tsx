@@ -1,5 +1,6 @@
 import React from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { InvoicePdf, type InvoicePdfData } from "./invoice-pdf";
 
@@ -55,7 +56,7 @@ function invoicePdfData(overrides: Partial<InvoicePdfData> = {}): InvoicePdfData
 describe("InvoicePdf rendu end-to-end", () => {
   it("produit un vrai PDF exploitable pour une facture métier complète", async () => {
     const buffer = await renderToBuffer(
-      React.createElement(InvoicePdf, { data: invoicePdfData() })
+      React.createElement(InvoicePdf, { data: invoicePdfData() }) as ReactElement<DocumentProps>
     );
 
     expect(buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
@@ -78,7 +79,7 @@ describe("InvoicePdf rendu end-to-end", () => {
           payments: [],
           creditNoteForNumber: "FAC-2026-0001",
         }),
-      })
+      }) as ReactElement<DocumentProps>
     );
 
     expect(buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
