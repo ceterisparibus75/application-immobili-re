@@ -73,10 +73,15 @@ Limites : pas d'accès aux consoles Supabase/Vercel/Sentry, aux bases de product
 
 **Statut global après lot 4 :** 80 tests accounting passent, 10 tests legal-event passent. TypeScript OK. Commits poussés.
 
+**Lot 5 (session 5) :**
+
+- F-007 : `document-upload-security.ts` — ajout de `validateLogoUploadMetadata()` (allowlist JPEG/PNG/WebP, max 5 Mo) et `isDangerousFileContent()` (bloque HTML/SVG/XML/script, gère BOM UTF-8) ; `signed-upload/route.ts` — logo path désormais validé côté serveur avant émission de l'URL signée ; `tus-patch/route.ts` — premier chunk (offset=0) filtré contre les contenus dangereux avant relais à Supabase ; 32 tests dans `document-upload-security.test.ts`, 24 dans `storage-routes.test.ts`.
+
+**Statut global après lot 5 :** 32 + 24 tests passent. TypeScript OK. Commit poussé.
+
 **Restant à traiter (long terme) :**
 
 - F-005 : baseline Prisma Migrate (effort L)
-- F-007 : validation magic bytes uploads signés/TUS (effort M)
 
 ---
 

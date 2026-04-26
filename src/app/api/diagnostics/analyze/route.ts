@@ -3,6 +3,7 @@ import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
 
 const ANALYSIS_PROMPT = `Tu es un expert en diagnostics immobiliers techniques français. Analyse ce document de diagnostic et fournis une synthèse structurée en français comprenant :
 
@@ -17,10 +18,16 @@ Sois précis, concis et factuel. Si le document n'est pas un diagnostic immobili
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
     if (context instanceof NextResponse) return context;
+    if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    }
+    if (!env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "Analyse IA non configurée" }, { status: 503 });
+    }
+    const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -44,7 +51,7 @@ export async function POST(req: NextRequest) {
     const storagePath = `diagnostics/${context.societyId}/${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
     const { error: uploadError } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .upload(storagePath, fileBuffer, { contentType: "application/pdf", upsert: false });
 
     if (uploadError) {
@@ -54,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // URL publique signée (1 an)
     const { data: urlData } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .createSignedUrl(storagePath, 24 * 3600); // 24h
 
     const fileUrl = urlData?.signedUrl ?? null;
