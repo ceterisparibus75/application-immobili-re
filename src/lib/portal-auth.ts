@@ -1,8 +1,9 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { env } from "@/lib/env";
 
 function getPortalSecret() {
-  const secret = process.env.AUTH_SECRET;
+  const secret = env.AUTH_SECRET;
   if (!secret) {
     throw new Error("AUTH_SECRET est requis pour l'authentification du portail");
   }

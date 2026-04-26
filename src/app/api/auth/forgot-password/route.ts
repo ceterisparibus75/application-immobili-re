@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getLoginRatelimit } from "@/lib/rate-limit";
+import { env } from "@/lib/env";
 import { randomBytes } from "crypto";
 
 export async function POST(request: NextRequest) {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Envoyer l'email
     const { sendPasswordResetEmail } = await import("@/lib/email");
-    const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+    const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
     await sendPasswordResetEmail({

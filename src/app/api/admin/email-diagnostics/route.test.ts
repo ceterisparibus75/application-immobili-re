@@ -19,6 +19,8 @@ vi.mock("resend", () => ({
   Resend,
 }));
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { GET, POST } from "./route";
 
 describe("/api/admin/email-diagnostics", () => {

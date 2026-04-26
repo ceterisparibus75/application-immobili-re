@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { requireSuperAdmin } from "@/lib/permissions";
+import { env } from "@/lib/env";
 import { Resend } from "resend";
 
 export async function GET() {
@@ -13,8 +14,8 @@ export async function GET() {
     return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM ?? "(non configure)";
+  const apiKey = env.RESEND_API_KEY;
+  const emailFrom = env.EMAIL_FROM ?? "(non configure)";
 
   if (!apiKey) {
     return NextResponse.json({
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Accès réservé aux super administrateurs" }, { status: 403 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = env.RESEND_API_KEY;
   if (!apiKey)
     return NextResponse.json({ error: "RESEND_API_KEY manquant" }, { status: 500 });
 
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const domains = (domainsData as any).data ?? domainsData ?? [];
-    const emailFrom = process.env.EMAIL_FROM ?? "";
+    const emailFrom = env.EMAIL_FROM ?? "";
     const senderDomain = emailFrom.replace(/.*@/, "");
 
     const toDelete = domains.filter(
@@ -165,8 +166,8 @@ export async function POST(request: Request) {
   // Action: test_send - envoie un email simple sans piece jointe
   if (body.action === "test_send" && body.to) {
     const resend = new Resend(apiKey);
-    const fromAddress = process.env.EMAIL_FROM ?? "noreply@mygestia.immo";
-    const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobiliere";
+    const fromAddress = env.EMAIL_FROM ?? "noreply@mygestia.immo";
+    const appName = env.NEXT_PUBLIC_APP_NAME ?? "Gestion Immobiliere";
     const { data, error } = await resend.emails.send({
       from: `"${appName}" <${fromAddress}>`,
       to: body.to as string,

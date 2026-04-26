@@ -11,6 +11,8 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn().mockResolvedValue(cookieStoreMock),
 }));
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { createPortalSession, getPortalSession, requirePortalAuth, clearPortalSession } from "./portal-auth";
 
 const AUTH_SECRET = "test-auth-secret-at-least-32-chars!!";
