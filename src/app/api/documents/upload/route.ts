@@ -3,6 +3,7 @@ import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import {
   isAiSupportedDocumentMimeType,
   validateDocumentUploadMetadata,
@@ -12,10 +13,10 @@ import {
 export const maxDuration = 60;
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export async function POST(req: NextRequest) {
@@ -71,8 +72,11 @@ export async function POST(req: NextRequest) {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 500 });
+    }
     const { error: uploadError } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .upload(resolvedStoragePath, fileBuffer, { contentType: metadataValidation.mimeType, upsert: false });
 
     if (uploadError) {
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: urlData } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .createSignedUrl(resolvedStoragePath, 24 * 3600); // 24h — re-generated on each access via /api/storage/view
 
     const fileUrl = urlData?.signedUrl ?? resolvedStoragePath;
@@ -116,10 +120,10 @@ export async function POST(req: NextRequest) {
 
     // Déclencher l analyse IA en arrière-plan pour les types supportés
     if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
-      const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+      const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
       void fetch(`${baseUrl}/api/documents/${doc.id}/analyze`, {
         method: "POST",
-        headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+        headers: { "x-cron-secret": env.CRON_SECRET ?? "" },
       }).catch(() => null);
     }
 

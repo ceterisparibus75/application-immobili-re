@@ -4,6 +4,7 @@ import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import {
   isAiSupportedDocumentMimeType,
   sanitizeDocumentStorageFolder,
@@ -17,10 +18,10 @@ export const maxDuration = 60;
 // à Supabase sans jamais être bufferisé en mémoire par Vercel.
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export async function POST(req: NextRequest) {
@@ -61,9 +62,12 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now();
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storagePath = "documents/" + context.societyId + "/" + entityFolder + "/" + timestamp + "_" + safeName;
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 500 });
+    }
 
     // Upload en streaming : le body de la requête (ReadableStream) est passé
     // directement à Supabase sans jamais être bufferisé sur Vercel.
@@ -109,9 +113,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
-      const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+      const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
       void fetch(baseUrl + "/api/documents/" + doc.id + "/analyze", {
-        method: "POST", headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+        method: "POST", headers: { "x-cron-secret": env.CRON_SECRET ?? "" },
       }).catch(() => null);
     }
 

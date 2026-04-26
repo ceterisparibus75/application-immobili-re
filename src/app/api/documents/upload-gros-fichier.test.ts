@@ -20,6 +20,7 @@ import { createAuditLog } from "@/lib/audit"
 vi.mock("next/headers", () => ({ cookies: vi.fn() }))
 vi.mock("@supabase/supabase-js", () => ({ createClient: vi.fn() }))
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }))
+vi.mock("@/lib/env", () => ({ env: process.env }))
 
 // ── Imports des routes (après les mocks) ─────────────────────────────────────
 

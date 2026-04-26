@@ -15,6 +15,8 @@ vi.mock("@/lib/audit", () => ({
   createAuditLog,
 }));
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 vi.mock("@supabase/supabase-js", () => ({
   createClient,
 }));

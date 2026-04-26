@@ -4,6 +4,7 @@ import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import {
   isAiSupportedDocumentMimeType,
   validateDocumentUploadMetadata,
@@ -47,11 +48,11 @@ export async function POST(req: NextRequest) {
 
     // Générer une URL signée longue durée pour la consultation
     let fileUrl = storagePath;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (supabaseUrl && supabaseKey) {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+      const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
       const { data } = await supabase.storage
         .from(bucket)
         .createSignedUrl(storagePath, 24 * 3600); // 24h
@@ -88,10 +89,10 @@ export async function POST(req: NextRequest) {
 
     // Déclencher l'analyse IA en arrière-plan
     if (isAiSupportedDocumentMimeType(metadataValidation.mimeType)) {
-      const baseUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+      const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
       void fetch(`${baseUrl}/api/documents/${doc.id}/analyze`, {
         method: "POST",
-        headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" },
+        headers: { "x-cron-secret": env.CRON_SECRET ?? "" },
       }).catch(() => null);
     }
 
