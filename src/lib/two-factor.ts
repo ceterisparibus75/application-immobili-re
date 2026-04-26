@@ -2,8 +2,9 @@ import * as OTPAuth from "otpauth";
 import { randomBytes } from "crypto";
 import QRCode from "qrcode";
 import { encrypt, decrypt } from "@/lib/encryption";
+import { env } from "@/lib/env";
 
-const ISSUER = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const ISSUER = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 /**
  * Genere un nouveau secret TOTP (base32).

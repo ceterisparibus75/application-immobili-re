@@ -17,6 +17,7 @@ import type { ActionResult } from "@/actions/society";
 import { compareSync } from "bcryptjs";
 import { createAuditLog } from "@/lib/audit";
 import { requiresTwoFactor } from "@/lib/plan-limits";
+import { env } from "@/lib/env";
 
 export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: string; secret: string }>> {
   try {
@@ -65,7 +66,7 @@ export async function confirmSetupTwoFactor(code: string): Promise<ActionResult<
     // Verifier le code avec le secret temporaire (dechiffre)
     const { TOTP, Secret } = await import("otpauth");
     const totp = new TOTP({
-      issuer: process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia",
+      issuer: env.NEXT_PUBLIC_APP_NAME ?? "MyGestia",
       label: "account",
       algorithm: "SHA1",
       digits: 6,

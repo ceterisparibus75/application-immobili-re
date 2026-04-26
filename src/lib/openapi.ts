@@ -2,7 +2,9 @@
  * OpenAPI 3.1 specification for MyGestia Public API
  */
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+import { env } from "@/lib/env";
+
+const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const openApiSpec = {
   openapi: "3.1.0",
