@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPortalSession } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
+import {
+  validateDocumentUploadMetadata,
+  verifyDocumentMagicBytes,
+} from "@/lib/document-upload-security";
+
+const PORTAL_ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 export async function POST(request: NextRequest) {
   const session = await getPortalSession();
@@ -31,14 +38,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const allowedExts = ["pdf", "jpg", "jpeg", "png"];
-  if (!allowedExts.includes(ext)) {
+  const metadataValidation = validateDocumentUploadMetadata({
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type,
+  });
+  if (!metadataValidation.ok || !PORTAL_ALLOWED_MIME_TYPES.has(metadataValidation.mimeType)) {
     return NextResponse.json(
       { error: { code: "BAD_REQUEST", message: "Format non autorisé" } },
       { status: 400 }
     );
   }
+
+  const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  if (!verifyDocumentMagicBytes(headerBytes, metadataValidation.mimeType)) {
+    return NextResponse.json(
+      { error: { code: "BAD_REQUEST", message: "Le contenu du fichier ne correspond pas au format déclaré" } },
+      { status: 400 }
+    );
+  }
+
+  const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   // Use the specific tenantId from the JWT session — never search across all societies
   const tenant = await prisma.tenant.findFirst({
@@ -58,18 +78,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const { createClient } = await import("@supabase/supabase-js");
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (supabaseUrl && supabaseKey) {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const path = `portal/${tenant.societyId}/${tenant.id}/${Date.now()}-${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `portal/${tenant.societyId}/${tenant.id}/${Date.now()}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(path, buffer, { contentType: file.type });
+        .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
+        .upload(path, fileBuffer, { contentType: metadataValidation.mimeType });
 
       if (!uploadError) {
         fileUrl = path;
@@ -82,12 +101,10 @@ export async function POST(request: NextRequest) {
   // AI analysis (if requested and Anthropic API available)
   let analysis: { category?: string; summary?: string; tags?: string[] } | null = null;
 
-  if (analyze && ext === "pdf") {
+  if (analyze && metadataValidation.mimeType === "application/pdf") {
     try {
       const { analyzeDocument } = await import("@/lib/document-ai");
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const result = await analyzeDocument(buffer, file.type, null);
+      const result = await analyzeDocument(fileBuffer, metadataValidation.mimeType, null);
       if (result) {
         analysis = {
           summary: result.summary,

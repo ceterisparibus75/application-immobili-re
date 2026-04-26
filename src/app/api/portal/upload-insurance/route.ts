@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePortalAuth } from "@/lib/portal-auth";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
+import {
+  validateDocumentUploadMetadata,
+  verifyDocumentMagicBytes,
+} from "@/lib/document-upload-security";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 500 });
+    }
+    const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
     const session = await requirePortalAuth();
 
     const formData = await req.formData();
@@ -15,12 +23,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    if (file.type !== "application/pdf") {
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)" }, { status: 400 });
+    }
+
+    const metadataValidation = validateDocumentUploadMetadata({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
+    if (!metadataValidation.ok || metadataValidation.mimeType !== "application/pdf") {
       return NextResponse.json({ error: "Seuls les fichiers PDF sont acceptés" }, { status: 400 });
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Fichier trop volumineux (max 10 Mo)" }, { status: 400 });
+    const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (!verifyDocumentMagicBytes(headerBytes, metadataValidation.mimeType)) {
+      return NextResponse.json({ error: "Le contenu du fichier ne correspond pas au type PDF" }, { status: 400 });
     }
 
     // Use the specific tenantId from the JWT session — never update across all societies
@@ -38,7 +56,7 @@ export async function POST(req: NextRequest) {
     const storagePath = `insurance/${session.tenantId}/${timestamp}_${safeName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .upload(storagePath, fileBuffer, { contentType: "application/pdf", upsert: false });
 
     if (uploadError) {
@@ -47,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: urlData } = await supabase.storage
-      .from(process.env.SUPABASE_STORAGE_BUCKET ?? "documents")
+      .from(env.SUPABASE_STORAGE_BUCKET ?? "documents")
       .createSignedUrl(storagePath, 24 * 3600); // 24h
 
     const fileUrl = urlData?.signedUrl ?? null;
