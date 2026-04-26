@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@/lib/env", () => ({
-  env: {
-    GOCARDLESS_SECRET_ID: "sandbox_id",
-    GOCARDLESS_SECRET_KEY: "sandbox_key",
-  },
-}));
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
+// Valeurs par défaut pour les tests qui n'en ont pas besoin
+process.env.GOCARDLESS_SECRET_ID = "sandbox_id";
+process.env.GOCARDLESS_SECRET_KEY = "sandbox_key";
 
 import { createHmac } from "crypto";
 import { validateGocardlessWebhook, createCustomer, createMandate, getMandate } from "./gocardless-sepa";

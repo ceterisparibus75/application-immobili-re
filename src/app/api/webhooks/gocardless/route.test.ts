@@ -1,6 +1,9 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "@/test/mocks/prisma";
+
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { POST } from "./route";
 
 const WEBHOOK_SECRET = "gc_webhook_secret";

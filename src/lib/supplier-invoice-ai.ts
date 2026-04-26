@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import { withRetry } from "@/lib/retryable";
+import { env } from "@/lib/env";
 
 export interface SupplierInvoiceAIResult {
   supplierName: string | null;
@@ -73,7 +74,7 @@ export async function analyzeSupplierInvoice(
   buffer: Buffer,
   mimeType: string
 ): Promise<SupplierInvoiceAIResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY manquante");
   }
 
@@ -106,7 +107,7 @@ Règles importantes :
 - Si une information n'est pas présente dans le document, utilise null
 - Ne devine pas : si tu n'es pas sûr, mets null`;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   try {
     const response = await withRetry(() =>

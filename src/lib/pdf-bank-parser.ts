@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
 import type { ImportRow } from "@/actions/bank";
 import { withRetry } from "@/lib/retryable";
+import { env } from "@/lib/env";
 
 const PROMPT = `Tu es un expert en analyse de relevés bancaires français.
 Analyse ce document PDF et extrait TOUTES les opérations bancaires.
@@ -39,7 +40,7 @@ type RawTransaction = {
 export async function parsePdfBankStatement(
   fileBuffer: Buffer
 ): Promise<ImportRow[]> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY non configurée");
   }

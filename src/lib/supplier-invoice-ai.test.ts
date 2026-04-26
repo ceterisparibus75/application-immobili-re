@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 const mockMessagesCreate = vi.hoisted(() => vi.fn());
 const mockJsonrepair = vi.hoisted(() => vi.fn());
 

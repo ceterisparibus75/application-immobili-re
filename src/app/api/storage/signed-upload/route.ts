@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 import * as nodePath from "path";
+import { env } from "@/lib/env";
+import { validateDocumentUploadMetadata } from "@/lib/document-upload-security";
 
 function sanitizeFolderPath(raw: string): string | null {
   let decoded = raw;
@@ -28,17 +30,19 @@ export async function POST(req: NextRequest) {
     const context = await requireAuthenticatedRouteContext();
     if (context instanceof NextResponse) return context;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY ?? "";
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: "Stockage non configure" }, { status: 503 });
     }
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { filename, contentType, societyId, entityFolder } = await req.json() as {
+    const { filename, contentType, mimeType, fileSize, societyId, entityFolder } = await req.json() as {
       filename: string;
       contentType?: string;
+      mimeType?: string;
+      fileSize?: number;
       societyId?: string;
       entityFolder?: string;
     };
@@ -51,12 +55,23 @@ export async function POST(req: NextRequest) {
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 
     let storagePath: string;
+    let normalizedContentType = contentType ?? mimeType ?? null;
 
     if (societyId && entityFolder !== undefined) {
       const cleanEntityFolder = sanitizeFolderPath(entityFolder);
       if (!cleanEntityFolder) {
         return NextResponse.json({ error: "Dossier cible invalide" }, { status: 400 });
       }
+
+      const metadataValidation = validateDocumentUploadMetadata({
+        fileName: filename,
+        fileSize,
+        mimeType: mimeType ?? contentType,
+      });
+      if (!metadataValidation.ok) {
+        return NextResponse.json({ error: metadataValidation.error }, { status: 400 });
+      }
+      normalizedContentType = metadataValidation.mimeType;
 
       const cookieStore = await cookies();
       const activeSocietyId = cookieStore.get("active-society-id")?.value;
@@ -72,7 +87,7 @@ export async function POST(req: NextRequest) {
       storagePath = `temp/${context.userId}/${timestamp}_${safeName}`;
     }
 
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     // Auto-creer le bucket s'il n'existe pas
     const { data: buckets } = await supabase.storage.listBuckets();
@@ -106,7 +121,7 @@ export async function POST(req: NextRequest) {
       token: data.token,
       storagePath,
       bucket,
-      contentType: contentType ?? null,
+      contentType: normalizedContentType,
       anonKey,
       supabaseUrl,
     });

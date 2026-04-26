@@ -14,16 +14,17 @@
 
 import { SignJWT, importPKCS8 } from "jose";
 import { createHmac, timingSafeEqual } from "crypto";
+import { env } from "@/lib/env";
 
 // ── Configuration ─────────────────────────────────────────────────
 
 function cfg() {
-  const apiKey = process.env.DOCUSIGN_API_KEY;
-  const accountId = process.env.DOCUSIGN_ACCOUNT_ID;
-  const userId = process.env.DOCUSIGN_USER_ID;
-  const privateKeyB64 = process.env.DOCUSIGN_PRIVATE_KEY;
-  const baseUrl = process.env.DOCUSIGN_BASE_URL ?? "https://demo.docusign.net/restapi/v2.1";
-  const authUrl = process.env.DOCUSIGN_AUTH_URL ?? "https://account-d.docusign.com";
+  const apiKey = env.DOCUSIGN_API_KEY;
+  const accountId = env.DOCUSIGN_ACCOUNT_ID;
+  const userId = env.DOCUSIGN_USER_ID;
+  const privateKeyB64 = env.DOCUSIGN_PRIVATE_KEY;
+  const baseUrl = env.DOCUSIGN_BASE_URL ?? "https://demo.docusign.net/restapi/v2.1";
+  const authUrl = env.DOCUSIGN_AUTH_URL ?? "https://account-d.docusign.com";
 
   if (!apiKey || !accountId || !userId || !privateKeyB64) {
     throw new Error(
@@ -266,7 +267,7 @@ export function validateWebhookSignature(
   rawBody: Buffer,
   signature: string
 ): boolean {
-  const secret = process.env.DOCUSIGN_WEBHOOK_SECRET;
+  const secret = env.DOCUSIGN_WEBHOOK_SECRET;
   if (!secret) throw new Error("DOCUSIGN_WEBHOOK_SECRET non defini");
 
   const expected = createHmac("sha256", secret)

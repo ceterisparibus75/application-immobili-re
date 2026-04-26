@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { Resend } from "resend";
 import { redirect } from "next/navigation";
+import { env } from "@/lib/env";
 
 const contactSchema = z.object({
   firstName: z.string().min(2, "Prénom requis"),
@@ -58,13 +59,13 @@ export async function sendContactEmail(
 
   const { firstName, name, email, society, portfolioSize, plan, message } = parsed.data;
 
-  if (!process.env.RESEND_API_KEY) {
+  if (!env.RESEND_API_KEY) {
     console.error("[sendContactEmail] RESEND_API_KEY manquant");
     return { success: false, error: "Service email non configuré. Réessayez plus tard." };
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = `"MyGestia Contact" <${process.env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
+  const resend = new Resend(env.RESEND_API_KEY);
+  const from = `"MyGestia Contact" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -112,7 +113,7 @@ export async function sendContactEmail(
 </html>`;
 
   try {
-    const to = process.env.EMAIL_CONTACT ?? process.env.EMAIL_FROM ?? "contact@mygestia.immo";
+    const to = env.EMAIL_CONTACT ?? env.EMAIL_FROM ?? "contact@mygestia.immo";
 
     await resend.emails.send({
       from,

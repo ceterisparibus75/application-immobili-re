@@ -1,11 +1,12 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { env } from "@/lib/env";
 
 let _redis: Redis | null = null;
 function getRedis(): Redis | null {
   if (!_redis) {
-    const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+    const url = env.UPSTASH_REDIS_REST_URL?.trim();
+    const token = env.UPSTASH_REDIS_REST_TOKEN?.trim();
     if (url && token) {
       _redis = new Redis({ url, token });
     } else {

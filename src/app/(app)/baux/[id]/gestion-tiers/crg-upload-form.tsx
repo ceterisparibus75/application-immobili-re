@@ -56,6 +56,7 @@ export function CRGUploadForm({ leaseId }: { leaseId: string }) {
         body: JSON.stringify({
           filename: file.name,
           contentType: file.type,
+          fileSize: file.size,
           societyId,
           entityFolder: `crg/${leaseId}`,
         }),

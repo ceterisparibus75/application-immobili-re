@@ -7,12 +7,14 @@
  *   GOCARDLESS_PAYMENTS_CREDITOR_ID — ID créditeur SEPA GoCardless
  */
 
-const BASE_URL = process.env.GOCARDLESS_PAYMENTS_ENV === "live"
+import { env } from "@/lib/env";
+
+const BASE_URL = env.GOCARDLESS_PAYMENTS_ENV === "live"
   ? "https://api.gocardless.com"
   : "https://api-sandbox.gocardless.com";
 
 function headers() {
-  const key = process.env.GOCARDLESS_PAYMENTS_KEY;
+  const key = env.GOCARDLESS_PAYMENTS_KEY;
   if (!key) throw new Error("GOCARDLESS_PAYMENTS_KEY non définie");
   return {
     "Authorization": `Bearer ${key}`,
@@ -134,7 +136,7 @@ export async function createMandate(input: {
   creditorId?: string;
   reference?: string;
 }): Promise<GcMandate> {
-  const creditorId = input.creditorId ?? process.env.GOCARDLESS_PAYMENTS_CREDITOR_ID;
+  const creditorId = input.creditorId ?? env.GOCARDLESS_PAYMENTS_CREDITOR_ID;
   const body: Record<string, unknown> = {
     scheme: "sepa_core",
     links: { customer_bank_account: input.customerBankAccountId },
@@ -230,7 +232,7 @@ export async function createSepaMandateForTenant(input: CreateMandateInput): Pro
 import { createHmac, timingSafeEqual } from "crypto";
 
 export function validateGocardlessWebhook(rawBody: Buffer, signature: string): boolean {
-  const secret = process.env.GOCARDLESS_PAYMENTS_WEBHOOK_SECRET;
+  const secret = env.GOCARDLESS_PAYMENTS_WEBHOOK_SECRET;
   if (!secret) throw new Error("GOCARDLESS_PAYMENTS_WEBHOOK_SECRET non définie");
 
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");

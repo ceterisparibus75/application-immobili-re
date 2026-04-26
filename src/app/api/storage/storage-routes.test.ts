@@ -59,6 +59,8 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(),
 }));
 
+vi.mock("@/lib/env", () => ({ env: process.env }));
+
 import { GET as viewFile } from "./view/route";
 import { POST as signedUpload } from "./signed-upload/route";
 
@@ -222,6 +224,8 @@ describe("storage routes", () => {
           method: "POST",
           body: JSON.stringify({
             filename: "piece.pdf",
+            contentType: "application/pdf",
+            fileSize: 1024,
             societyId: "society-1",
             entityFolder: "general",
           }),
@@ -238,6 +242,8 @@ describe("storage routes", () => {
           method: "POST",
           body: JSON.stringify({
             filename: "piece.pdf",
+            contentType: "application/pdf",
+            fileSize: 1024,
             societyId: "society-1",
             entityFolder: "crg/lease-1",
           }),
@@ -249,6 +255,27 @@ describe("storage routes", () => {
       expect(res.status).toBe(200);
       expect(requireSocietyAccess).toHaveBeenCalledWith("user-1", "society-1", "GESTIONNAIRE");
       expect(body.storagePath).toMatch(/^documents\/society-1\/crg\/lease-1\/\d+_piece\.pdf$/);
+      expect(body.contentType).toBe("application/pdf");
+    });
+
+    it("rejette un upload document si extension et type MIME divergent", async () => {
+      const res = await signedUpload(
+        new NextRequest("http://localhost/api/storage/signed-upload", {
+          method: "POST",
+          body: JSON.stringify({
+            filename: "piece.pdf",
+            contentType: "image/png",
+            fileSize: 1024,
+            societyId: "society-1",
+            entityFolder: "general",
+          }),
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(body.error).toContain("extension");
     });
 
     it("impose un accès ADMIN_SOCIETE pour l'upload de logo", async () => {

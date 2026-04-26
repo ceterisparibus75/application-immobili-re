@@ -1,10 +1,11 @@
 import { Resend } from "resend";
 import { withRetry } from "@/lib/retryable";
+import { env } from "@/lib/env";
 
-function getResend() { return new Resend(process.env.RESEND_API_KEY ?? ""); }
-const FROM = `"${process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${process.env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
-const SITE_URL = process.env.AUTH_URL ?? "https://app.mygestia.immo";
+function getResend() { return new Resend(env.RESEND_API_KEY ?? ""); }
+const FROM = `"${env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
+const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
 
 // ============================================================
 // DESIGN SYSTEM — LOGO 2.4
@@ -220,7 +221,7 @@ export async function sendMail(
   bcc?: string | string[]
 ): Promise<EmailResult> {
   try {
-    const fromAddress = process.env.EMAIL_FROM ?? "noreply@mygestia.immo";
+    const fromAddress = env.EMAIL_FROM ?? "noreply@mygestia.immo";
     const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]).filter(Boolean) : [];
     const { data, error } = await withRetry(() =>
       getResend().emails.send({
@@ -239,8 +240,6 @@ export async function sendMail(
       console.error("[sendMail] Resend error:", error);
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
     }
-    // eslint-disable-next-line no-console
-    console.log("[sendMail] Envoye OK, id:", data?.id, "| a:", to, "| sujet:", subject);
     return { success: true, emailId: data?.id };
   } catch (error) {
     console.error("[sendMail] exception:", error);

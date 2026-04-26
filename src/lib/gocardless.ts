@@ -2,6 +2,8 @@
 // Documentation : https://bankaccountdata.gocardless.com/api/v2/
 // Fournit l'accès Open Banking aux comptes bancaires européens
 
+import { env } from "@/lib/env";
+
 const BASE_URL = "https://bankaccountdata.gocardless.com/api/v2";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -110,8 +112,8 @@ async function getAccessToken(): Promise<string> {
 }
 
 async function fetchNewToken(refreshToken?: string, isRefresh = false): Promise<GocardlessToken> {
-  const secretId = process.env.GOCARDLESS_SECRET_ID;
-  const secretKey = process.env.GOCARDLESS_SECRET_KEY;
+  const secretId = env.GOCARDLESS_SECRET_ID;
+  const secretKey = env.GOCARDLESS_SECRET_KEY;
 
   if (!secretId || !secretKey) {
     throw new Error("GOCARDLESS_SECRET_ID et GOCARDLESS_SECRET_KEY sont requis");
