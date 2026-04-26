@@ -38,6 +38,7 @@ npm run test:coverage      # Avec rapport de couverture
 # Tests E2E (Playwright)
 npm run test:e2e           # Lancer les tests E2E (build + start automatiques)
 npm run test:e2e:a11y      # Audit accessibilité Axe des pages publiques + shell protégé
+npm run test:e2e:mobile    # Audit mobile Playwright : pages publiques, menu, routes protégées
 npm run test:e2e:ui        # Mode UI Playwright
 # Tests dans e2e/, uniquement Chromium, base URL http://localhost:3000
 # ⚠️ Couverture E2E minimale : seulement auth.spec.ts + navigation.spec.ts — ne pas s'y fier pour la non-régression
