@@ -4,14 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createClient } from "@supabase/supabase-js";
 import { chatWithDocument } from "@/lib/document-ai";
+import { env } from "@/lib/env";
 
 export const maxDuration = 60;
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export async function POST(
@@ -39,7 +40,10 @@ export async function POST(
       return NextResponse.json({ error: "Aucun message" }, { status: 400 });
 
     const supabase = getSupabase();
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    if (!supabase) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 500 });
+    }
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
     const { data: blob, error: dlError } = await supabase.storage.from(bucket).download(doc.storagePath);
     if (dlError || !blob)
       return NextResponse.json({ error: "Impossible de charger le document" }, { status: 500 });
