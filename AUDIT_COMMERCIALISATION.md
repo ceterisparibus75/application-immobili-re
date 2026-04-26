@@ -21,7 +21,7 @@
 | Composants UI | ~40 |
 | Templates email | 11 |
 | Cron jobs | 9 |
-| Tests unitaires | **208 suites passantes + 1 ignorée (4 254 cas passés, 16 ignorés)** |
+| Tests unitaires | **209 suites passantes + 1 ignorée (4 259 cas passés, 16 ignorés)** |
 | Tests E2E (Playwright) | 4 suites actives : auth, navigation, accessibilité, commercial readiness ; parcours métier staging opt-in |
 | Lignes schema Prisma | 2 138 |
 
@@ -305,7 +305,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 | Constat | Détail |
 |---------|--------|
-| Couverture actuelle | 208 suites Vitest passantes + 1 ignorée, 4 254 cas passés et 16 ignorés (état au 26 avril 2026) |
+| Couverture actuelle | 209 suites Vitest passantes + 1 ignorée, 4 259 cas passés et 16 ignorés (état au 26 avril 2026) |
 | Actions couvertes | Toutes les mutations critiques (facturation, baux, banque, comptabilité, RGPD…) |
 | Tests de composants React | 9 fichiers : LeaseTimeline, SubscriptionBanner, ActivityFeed, DashboardNotifications, ExportPdfButton, WidgetConfigurator, Breadcrumb, EcheancesPanel, TodayTasks |
 | Tests d'intégration | Webhooks externes Stripe, GoCardless et DocuSign couverts au niveau route |
@@ -315,7 +315,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 **Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier, avec en plus une couverture complète des composants React du dashboard, des utilitaires lib (normalize-label, pagination, rate-limit, two-factor, cron-auth, ai-logger, portal-auth, export-csv, sepa-credit-transfer) et des schémas de validation Zod (auth, sepa, maintenance, lot, diagnostic, contact, inspection, accounting, ticket, user, society, workflow, candidate).
 
 > **État initial (4 avril) :** 20 suites (382 cas), ~5% lignes. Point faible bloquant à l'époque — depuis résolu.  
-> **État au 26 avril :** 208 suites passantes + 1 ignorée, 4 254 cas passés — progression de +3 872 cas depuis l'audit initial.
+> **État au 26 avril :** 209 suites passantes + 1 ignorée, 4 259 cas passés — progression de +3 877 cas depuis l'audit initial.
 
 ### 5.2 Documentation utilisateur — ABSENTE
 
@@ -387,7 +387,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **Sécurité** | Excellente (toutes corrections appliquées) | OUI |
 | **Multi-tenancy** | Excellente | OUI |
 | **UI/UX** | Très bonne (onboarding + loading states) | OUI |
-| **Tests** | Excellente (4 254 tests + E2E Playwright + Axe) | OUI |
+| **Tests** | Excellente (4 259 tests + E2E Playwright + Axe) | OUI |
 | **Documentation utilisateur** | Complète (centre d'aide + FAQ) | OUI |
 | **Monétisation SaaS** | Complète (Stripe + plans + limites) | OUI |
 | **CI/CD** | Complète (GitHub Actions) | OUI |
@@ -429,7 +429,7 @@ L'application est **fonctionnellement très complète** et dispose de tous les �
 - ✅ Rate limiting sur les tokens dataroom
 
 #### Chantier 3 : Tests et CI/CD — COMPLÉTÉ
-- ✅ 4 254 tests unitaires passants (208 suites Vitest + 1 ignorée)
+- ✅ 4 259 tests unitaires passants (209 suites Vitest + 1 ignorée)
 - ✅ Tests E2E Playwright : auth, navigation, accessibilité, mobile, commercial readiness et parcours métier staging opt-in
 - ✅ GitHub Actions CI (lint + tests + build + e2e)
 - ✅ Couverture sur chemins critiques (facturation, banque, baux, charges)
@@ -492,7 +492,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Axe vérifié | Résultat | Commentaire |
 |-------------|----------|-------------|
 | TypeScript strict | OK | `npx tsc --noEmit --incremental false` passe. |
-| Tests unitaires | OK | `npm test` : 208 fichiers passés, 1 ignoré, 4 254 tests passés, 16 ignorés. |
+| Tests unitaires | OK | `npm test` : 209 fichiers passés, 1 ignoré, 4 259 tests passés, 16 ignorés. |
 | Couverture V8 | OK | `npm run test:coverage` : global 83,14% statements / 79,36% branches ; `actions` 92,76% statements / 91,03% branches. |
 | Lint | OK | `npm run lint` : 0 erreur, 0 avertissement. |
 | Build production | OK | `npm run build` : compilation Next.js 16 réussie, 228 routes générées. |

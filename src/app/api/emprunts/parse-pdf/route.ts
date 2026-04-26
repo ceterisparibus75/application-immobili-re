@@ -96,6 +96,16 @@ export interface ParsedLoan {
   }>;
 }
 
+function isLoanParsePdfDebugEnabled() {
+  return process.env.LOAN_PARSE_PDF_DEBUG === "1";
+}
+
+function logLoanParsePdfError(error: unknown) {
+  if (isLoanParsePdfDebugEnabled()) {
+    console.error("[emprunts/parse-pdf]", error);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -202,12 +212,18 @@ export async function POST(req: NextRequest) {
         : [],
     };
 
-    const allPrincipalZero = sanitized.schedule.length > 0 && sanitized.schedule.every(l => l.principal === 0);
-    const allBalanceConstant = sanitized.schedule.length > 1 && sanitized.schedule.every(l => l.balance === sanitized.schedule[0].balance);
+    const allPrincipalZero =
+      sanitized.schedule.length > 0 && sanitized.schedule.every((line) => line.principal === 0);
+    const allBalanceConstant =
+      sanitized.schedule.length > 1 &&
+      sanitized.schedule.every((line) => line.balance === sanitized.schedule[0].balance);
 
-    return NextResponse.json({
+    const response: { data: ParsedLoan; _debug?: Record<string, unknown> } = {
       data: sanitized,
-      _debug: {
+    };
+
+    if (isLoanParsePdfDebugEnabled()) {
+      response._debug = {
         rawColumns: (parsed as unknown as Record<string, unknown>)._rawColumns ?? null,
         rawFirstRow: (parsed as unknown as Record<string, unknown>)._rawFirstRow ?? null,
         rawTextLength: rawText.length,
@@ -215,11 +231,13 @@ export async function POST(req: NextRequest) {
         allPrincipalZero,
         allBalanceConstant,
         detectedLoanType: sanitized.loanType,
-      },
-    });
+      };
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[parse-pdf]", message);
+    logLoanParsePdfError(error);
     return NextResponse.json(
       { error: `Erreur lors de l'analyse du PDF : ${message}` },
       { status: 500 }
