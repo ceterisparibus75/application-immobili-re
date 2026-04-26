@@ -79,9 +79,15 @@ Limites : pas d'accès aux consoles Supabase/Vercel/Sentry, aux bases de product
 
 **Statut global après lot 5 :** 32 + 24 tests passent. TypeScript OK. Commit poussé.
 
+**Lot 6 (session 6) :**
+
+- F-005 : `prisma/migrations/20260426000000_baseline/migration.sql` créé (schéma complet, 3 775 lignes SQL) ; `prisma/migrations/migration_lock.toml` ajouté (provider postgresql) ; scripts npm `db:deploy` et `db:status` ajoutés dans `package.json` ; étape CI ajoutée dans `.github/workflows/ci.yml` : `prisma validate` + vérification présence `migration_lock.toml` + vérification présence de fichiers SQL — empêche désormais tout push d'un schéma sans migration correspondante.
+
+**Statut global après lot 6 :** TypeScript OK. Commit poussé. Aucun finding restant à traiter.
+
 **Restant à traiter (long terme) :**
 
-- F-005 : baseline Prisma Migrate (effort L)
+Aucun — tous les findings de l'audit ont été traités.
 
 ---
 
