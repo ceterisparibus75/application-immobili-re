@@ -67,7 +67,7 @@ export function CRGUploadForm({ leaseId }: { leaseId: string }) {
         throw new Error(err.error || "Erreur lors de la creation de l'URL d'upload");
       }
 
-      const { signedUrl, token, storagePath, bucket, anonKey } = await signedRes.json();
+      const { signedUrl, token, storagePath, bucket, anonKey, supabaseUrl } = await signedRes.json();
 
       // 2. Upload file to Supabase Storage via signed URL
       const uploadRes = await fetch(signedUrl, {
@@ -85,7 +85,6 @@ export function CRGUploadForm({ leaseId }: { leaseId: string }) {
       }
 
       // Build file URL for AI analysis
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const fileUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}?token=${token}`;
 
       // 3. Call server action for AI analysis
