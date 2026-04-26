@@ -18,16 +18,41 @@ function getRedis(): Redis | null {
 /**
  * Rate limiter en mémoire pour les environnements sans Redis.
  * Limite basique par IP avec fenêtre glissante.
+ * La Map est purgée périodiquement pour éviter une fuite mémoire en serverless.
  */
 class InMemoryRateLimiter {
   private store = new Map<string, { count: number; resetAt: number }>();
+  private callCount = 0;
+  private static readonly MAX_ENTRIES = 5_000;
+  private static readonly CLEANUP_INTERVAL = 500;
+
   constructor(
     private maxRequests: number,
     private windowMs: number
   ) {}
 
+  private evict(now: number): void {
+    for (const [k, v] of this.store) {
+      if (now > v.resetAt) this.store.delete(k);
+    }
+    // Si toujours trop grand (burst de nouvelles IPs), supprimer les plus anciens
+    if (this.store.size > InMemoryRateLimiter.MAX_ENTRIES) {
+      const toDelete = this.store.size - InMemoryRateLimiter.MAX_ENTRIES;
+      let deleted = 0;
+      for (const k of this.store.keys()) {
+        this.store.delete(k);
+        if (++deleted >= toDelete) break;
+      }
+    }
+  }
+
   async limit(key: string): Promise<{ success: boolean; reset: number }> {
     const now = Date.now();
+
+    if (++this.callCount % InMemoryRateLimiter.CLEANUP_INTERVAL === 0) {
+      this.evict(now);
+    }
+
     const entry = this.store.get(key);
 
     if (!entry || now > entry.resetAt) {
