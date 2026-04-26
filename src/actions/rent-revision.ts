@@ -17,23 +17,45 @@ import {
   type CreateManualRevisionInput,
 } from "@/validations/rent-revision";
 
+// Variation annuelle typique au-delà de laquelle une alerte de révision est émise.
+// Pas un plafond légal (le bouclier loyers IRL 2022-2023 est expiré) — sert à
+// détecter les données INSEE incohérentes ou les baux mal configurés.
+const INDEX_ALERT_THRESHOLD_PCT: Record<string, number> = {
+  IRL: 10,   // IRL varie rarement au-delà de 5-6% par an hors période exceptionnelle
+  ILC: 15,   // ILC suit davantage l'inflation des commerces
+  ILAT: 15,  // ILAT similaire à ILC
+  ICC: 20,   // ICC (coût construction) peut varier plus fortement
+};
+
 function calculateNewRent(
   currentRentHT: number,
   baseIndexValue: number,
-  newIndexValue: number
+  newIndexValue: number,
+  indexType?: string
 ): number {
   if (baseIndexValue <= 0) return currentRentHT;
   const newRent = currentRentHT * (newIndexValue / baseIndexValue);
   const rounded = Math.round(newRent * 100) / 100;
+
   // Guard anti-données-aberrantes : variation max ±50% sur une révision
   const maxRent = currentRentHT * 1.5;
   const minRent = Math.max(1, currentRentHT * 0.5);
   if (rounded > maxRent || rounded < minRent) {
     console.error(
-      `[calculateNewRent] Variation anormale détectée — loyer actuel: ${currentRentHT}, calculé: ${rounded}. Valeur plafonnée.`
+      `[calculateNewRent] Variation anormale (>${50}%) — type: ${indexType ?? "?"}, loyer actuel: ${currentRentHT}, calculé: ${rounded}. Plafonné.`
     );
     return rounded > maxRent ? Math.round(maxRent * 100) / 100 : Math.round(minRent * 100) / 100;
   }
+
+  // Alerte métier : variation au-delà du seuil habituel pour ce type d'indice
+  const alertPct = indexType ? (INDEX_ALERT_THRESHOLD_PCT[indexType] ?? 20) : 20;
+  const variationPct = ((newIndexValue - baseIndexValue) / baseIndexValue) * 100;
+  if (Math.abs(variationPct) > alertPct) {
+    console.warn(
+      `[calculateNewRent] Variation ${indexType ?? "indice"} inhabituelle : ${variationPct.toFixed(2)}% (seuil alerte: ${alertPct}%). Vérifier la cohérence des indices INSEE.`
+    );
+  }
+
   return rounded;
 }
 
@@ -326,10 +348,12 @@ export async function createManualRevision(
     const newRentHT = calculateNewRent(
       lease.currentRentHT,
       lease.baseIndexValue,
-      parsed.data.newIndexValue
+      parsed.data.newIndexValue,
+      lease.indexType ?? undefined
     );
 
-    const formula = `${lease.currentRentHT.toFixed(2)} × (${parsed.data.newIndexValue} / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)}`;
+    const variationPct = ((parsed.data.newIndexValue - lease.baseIndexValue) / lease.baseIndexValue) * 100;
+    const formula = `${lease.currentRentHT.toFixed(2)} × (${parsed.data.newIndexValue} / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)} [${variationPct >= 0 ? "+" : ""}${variationPct.toFixed(2)}%]`;
 
     const revision = await prisma.rentRevision.create({
       data: {
@@ -483,9 +507,10 @@ export async function detectPendingRevisions(): Promise<{
 
         if (newIndex.value === lease.baseIndexValue) continue;
 
-        const newRentHT = calculateNewRent(lease.currentRentHT, lease.baseIndexValue, newIndex.value);
+        const newRentHT = calculateNewRent(lease.currentRentHT, lease.baseIndexValue, newIndex.value, lease.indexType ?? undefined);
+        const variationPct = ((newIndex.value - lease.baseIndexValue) / lease.baseIndexValue) * 100;
         const quarterLabel = `T${newIndex.quarter} ${newIndex.year}`;
-        const formula = `${lease.currentRentHT.toFixed(2)} × (${newIndex.value} [${quarterLabel}] / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)}`;
+        const formula = `${lease.currentRentHT.toFixed(2)} × (${newIndex.value} [${quarterLabel}] / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)} [${variationPct >= 0 ? "+" : ""}${variationPct.toFixed(2)}%]`;
 
         await prisma.rentRevision.create({
           data: {
@@ -806,7 +831,7 @@ async function buildCatchUpPreview(
     effectiveDate = new Date(effectiveDate);
     effectiveDate.setMonth(effectiveDate.getMonth() + frequency);
 
-    const newRent = Math.round(currentRent * (yearIndex / prevIndex) * 100) / 100;
+    const newRent = calculateNewRent(currentRent, prevIndex, yearIndex, lease.indexType ?? undefined);
 
     steps.push({
       year,
