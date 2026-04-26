@@ -254,7 +254,7 @@ describe("personal-society actions", () => {
     } as never);
     prismaMock.society.create.mockResolvedValue({ id: "society-default", name: "Jean Dupont" } as never);
 
-    const result = await createPersonalSociety({});
+    const result = await createPersonalSociety();
 
     expect(result.success).toBe(true);
     expect(prismaMock.society.create).toHaveBeenCalledWith(

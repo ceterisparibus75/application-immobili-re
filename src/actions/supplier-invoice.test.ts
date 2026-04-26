@@ -363,7 +363,8 @@ describe("validateSupplierInvoice", () => {
     const mockAccount60 = { id: "acc-60" };
     const mockAccount401 = { id: "acc-401" };
     const mockAccount445 = { id: "acc-445" };
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         charge: { create: vi.fn().mockResolvedValue({ id: "charge-1" }) },
         accountingAccount: {
@@ -622,7 +623,8 @@ describe("markSupplierInvoicePaid", () => {
     );
     const mockAccount401 = { id: "acc-401" };
     const mockAccount512 = { id: "acc-512" };
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         accountingAccount: {
           findFirst: vi.fn()
@@ -762,7 +764,8 @@ describe("validateSupplierInvoice — branches transaction restantes", () => {
       description: null,
       invoiceNumber: null,
     }) as never);
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         accountingAccount: {
           findUnique: vi.fn().mockResolvedValue({ id: "acc-60" }),
@@ -791,7 +794,8 @@ describe("validateSupplierInvoice — branches transaction restantes", () => {
       description: "desc",
       invoiceNumber: null,
     }) as never);
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         charge: { create: vi.fn().mockResolvedValue({ id: "chg-1" }) },
         accountingAccount: {
@@ -819,7 +823,8 @@ describe("validateSupplierInvoice — branches transaction restantes", () => {
       accountingAccountId: ACCOUNT_ID,
       amountTTC: 1200,
     }) as never);
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         accountingAccount: {
           findUnique: vi.fn().mockResolvedValue(null),
@@ -847,7 +852,8 @@ describe("validateSupplierInvoice — branches transaction restantes", () => {
       supplierName: "Fournisseur SA",
       invoiceDate: new Date("2026-04-01"),
     }) as never);
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         charge: { create: vi.fn().mockResolvedValue({ id: "chg-vat" }) },
         accountingAccount: {
@@ -874,7 +880,8 @@ describe("markSupplierInvoicePaid — branches transaction restantes", () => {
     prismaMock.supplierInvoice.findFirst.mockResolvedValue(
       makeInvoice({ status: "VALIDATED", amountTTC: 1200, chargeId: null }) as never
     );
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         accountingAccount: { findFirst: vi.fn().mockResolvedValue(null) },
         supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
@@ -891,7 +898,8 @@ describe("markSupplierInvoicePaid — branches transaction restantes", () => {
     prismaMock.supplierInvoice.findFirst.mockResolvedValue(
       makeInvoice({ status: "VALIDATED", amountTTC: 1200, chargeId: null, supplierName: null, reference: "REF-X" }) as never
     );
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
       const tx = {
         accountingAccount: {
           findFirst: vi.fn()

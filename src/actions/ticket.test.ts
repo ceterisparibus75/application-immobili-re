@@ -124,7 +124,8 @@ describe("createTicketFromPortal", () => {
 
   it("utilise 'NORMALE' par défaut si priority absente → B2 arm1 L71", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue(buildTenant() as never);
-    const inputWithoutPriority = { subject: "Test", description: "Desc", category: "PLOMBERIE" as const };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inputWithoutPriority = { subject: "Test", description: "Desc", category: "PLOMBERIE" as const } as any;
     const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, inputWithoutPriority);
     expect(r.success).toBe(true);
     expect(prismaMock.ticket.create).toHaveBeenCalledWith(
@@ -353,7 +354,8 @@ describe("createTicketFromPortal — branches manquantes", () => {
 
   it("PERSONNE_MORALE sans nom ni email + sans priority/location → 'Locataire' + fallbacks (lignes 71/73 right, 79 right)", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue(buildTenant({ entityType: "PERSONNE_MORALE", companyName: null, email: null }) as never);
-    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, { subject: "Test", description: "Desc", category: "PLOMBERIE" as const });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await createTicketFromPortal(TENANT_ID, SOCIETY_ID, { subject: "Test", description: "Desc", category: "PLOMBERIE" as const } as any);
     expect(r.success).toBe(true);
     expect(prismaMock.ticket.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ priority: "NORMALE", location: null }) })

@@ -61,7 +61,7 @@ describe("createLeaseTemplate", () => {
   });
 
   it("retourne une erreur Zod si l'input est invalide (ligne 29)", async () => {
-    const result = await createLeaseTemplate(SOCIETY_ID, { name: "", leaseType: "HABITATION", content: "x", isDefault: false, isActive: true });
+    const result = await createLeaseTemplate(SOCIETY_ID, { name: "", leaseType: "HABITATION", isDefault: false });
     expect(result.success).toBe(false);
   });
 

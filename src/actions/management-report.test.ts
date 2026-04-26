@@ -490,8 +490,10 @@ describe("confirmManagementReport", () => {
     expect(result.success).toBe(true);
 
     const invoiceCreateCall = prismaMock.invoice.create.mock.calls[0][0];
-    expect(invoiceCreateCall.data.lines.create).toHaveLength(2);
-    expect(invoiceCreateCall.data.lines.create[1].label).toContain("Charges");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const linesCreate = (invoiceCreateCall.data.lines as any).create as any[];
+    expect(linesCreate).toHaveLength(2);
+    expect(linesCreate[1].label).toContain("Charges");
   });
 
   it("utilise le fallback vatRate=20 si vatRate est null dans le bail (B29 arm1)", async () => {
@@ -514,7 +516,8 @@ describe("confirmManagementReport", () => {
     const result = await confirmManagementReport(SOCIETY_ID, REPORT_ID);
     expect(result.success).toBe(true);
     const invoiceCreateCall = prismaMock.invoice.create.mock.calls[0][0];
-    expect(invoiceCreateCall.data.lines.create[0].vatRate).toBe(20);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((invoiceCreateCall.data.lines as any).create[0].vatRate).toBe(20);
   });
 
   it("applique yearChanged=true quand society.findUnique retourne null (B1 arm0, B2 arm1)", async () => {

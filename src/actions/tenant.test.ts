@@ -649,9 +649,9 @@ describe("getTenantsPaginated — computeTenantBalances avec AVOIR", () => {
       { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER" },
       { id: "inv-2", tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR" },
     ] as never);
-    prismaMock.payment.groupBy.mockResolvedValue([
+    prismaMock.payment.groupBy = vi.fn().mockResolvedValue([
       { invoiceId: "inv-1", _sum: { amount: 100 } },
-    ] as never);
+    ]) as never;
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
     expect(result.data[0].balance).toBe(500); // 800 - 100 payment - 200 avoir = 500
@@ -1390,9 +1390,9 @@ describe("computeTenantBalances — _sum.amount null (ligne 93 right branch ??)"
     prismaMock.invoice.findMany.mockResolvedValue([
       { id: "inv-null-pay", tenantId: TENANT_ID, totalTTC: 500, invoiceType: "APPEL_LOYER" },
     ] as never);
-    prismaMock.payment.groupBy.mockResolvedValue([
+    prismaMock.payment.groupBy = vi.fn().mockResolvedValue([
       { invoiceId: "inv-null-pay", _sum: { amount: null } },
-    ] as never);
+    ]) as never;
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
     expect(result.data[0].balance).toBe(500); // 500 - 0 (null → 0) = 500

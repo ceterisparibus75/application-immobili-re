@@ -24,6 +24,7 @@ export interface QontoBankAccount {
 }
 
 export interface QontoOrganization {
+  id?: string;
   slug: string;
   legal_name: string;
   bank_accounts: QontoBankAccount[];

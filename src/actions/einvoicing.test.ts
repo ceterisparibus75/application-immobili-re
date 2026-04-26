@@ -967,7 +967,7 @@ describe("einvoicing actions", () => {
       lease: null,
     } as never);
     getPAClient.mockReturnValue({
-      submitInvoice: vi.fn().mockRejectedValue(new PAClientError()),
+      submitInvoice: vi.fn().mockRejectedValue(new PAClientError(500, "/api", "error")),
     });
     const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(false);
@@ -999,7 +999,7 @@ describe("einvoicing actions", () => {
     mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
     prismaMock.invoice.findFirst.mockResolvedValue({ einvoiceXmlUrl: "flow-abc" } as never);
     getPAClient.mockReturnValue({
-      getFlowStatuses: vi.fn().mockRejectedValue(new PAClientError()),
+      getFlowStatuses: vi.fn().mockRejectedValue(new PAClientError(500, "/api", "error")),
     });
     const result = await getEInvoiceStatus(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(false);
@@ -1033,7 +1033,7 @@ describe("einvoicing actions", () => {
       id: SUPPLIER_INVOICE_ID, ppfInvoiceId: "flow-123", invoiceNumber: "F-001",
     } as never);
     getPAClient.mockReturnValue({
-      updateFlowStatus: vi.fn().mockRejectedValue(new PAClientError()),
+      updateFlowStatus: vi.fn().mockRejectedValue(new PAClientError(500, "/api", "error")),
     });
     const result = await acknowledgeInvoice(SOCIETY_ID, SUPPLIER_INVOICE_ID);
     expect(result.success).toBe(false);
@@ -1072,7 +1072,7 @@ describe("einvoicing actions", () => {
   it("lookupDirectory retourne une erreur PAClientError", async () => {
     mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
     getPAClient.mockReturnValue({
-      lookupBySiret: vi.fn().mockRejectedValue(new PAClientError()),
+      lookupBySiret: vi.fn().mockRejectedValue(new PAClientError(500, "/api", "error")),
     });
     const result = await lookupDirectory(SOCIETY_ID, "12345678901234");
     expect(result.success).toBe(false);
@@ -1144,7 +1144,7 @@ describe("einvoicing actions", () => {
     const saved = (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"];
     (env as never as Record<string, unknown>)["PA_MANDATAIRE_SIRET"] = undefined;
     prismaMock.society.findFirst.mockResolvedValue({ siret: "12345678901234", ppfRegisteredAt: null } as never);
-    getPAClient.mockReturnValue({ lookupBySiret: vi.fn().mockRejectedValue(new PAClientError()) });
+    getPAClient.mockReturnValue({ lookupBySiret: vi.fn().mockRejectedValue(new PAClientError(500, "/api", "error")) });
     try {
       const result = await registerSocietyInPPF(SOCIETY_ID);
       expect(result.success).toBe(false);
@@ -1186,7 +1186,7 @@ describe("einvoicing actions", () => {
       arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(1024)),
     }));
     getChorusProClient.mockReturnValue({
-      deposerFluxFacture: vi.fn().mockRejectedValue(new ChorusProError()),
+      deposerFluxFacture: vi.fn().mockRejectedValue(new ChorusProError(500, "error", "/api")),
       consulterCR: vi.fn(),
     });
     const result = await submitInvoiceToChorusPro(SOCIETY_ID, INVOICE_ID);
@@ -1232,7 +1232,7 @@ describe("einvoicing actions", () => {
     } as never);
     getChorusProClient.mockReturnValue({
       deposerFluxFacture: vi.fn(),
-      consulterCR: vi.fn().mockRejectedValue(new ChorusProError()),
+      consulterCR: vi.fn().mockRejectedValue(new ChorusProError(500, "error", "/api")),
     });
     const result = await checkChorusProStatus(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(false);

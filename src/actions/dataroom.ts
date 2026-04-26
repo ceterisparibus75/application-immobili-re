@@ -117,7 +117,7 @@ export async function createDataroom(
 export async function updateDataroom(
   societyId: string,
   dataroomId: string,
-  input: { name?: string; description?: string | null; expiresAt?: string | null; password?: string | null; purpose?: string | null; recipientEmail?: string | null; recipientName?: string | null }
+  input: { name?: string; description?: string | null; expiresAt?: string | null; password?: string | null; purpose?: string | null; recipientEmail?: string | null; recipientName?: string | null; status?: "BROUILLON" | "ACTIF" | "ARCHIVE" }
 ): Promise<ActionResult> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
