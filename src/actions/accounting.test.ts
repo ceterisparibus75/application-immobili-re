@@ -13,6 +13,7 @@ import {
   getBalance,
   getGrandLivre,
   createJournalEntry,
+  validateJournalEntry,
   bulkImportAccounts,
   bulkImportJournalEntries,
 } from "./accounting";
@@ -945,6 +946,124 @@ describe("bulkImportJournalEntries — erreur non-Error dans catch (ligne 566)",
     expect(result.success).toBe(true);
     expect(result.data?.errors.length).toBe(20);
     expect(result.data?.skipped).toBe(21);
+  });
+});
+
+// ─── Tests F-019 : validateJournalEntry + guard exercice clôturé ──────────────
+
+describe("validateJournalEntry", () => {
+  it("retourne une erreur si non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("retourne une erreur si l'écriture est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/introuvable/);
+  });
+
+  it("retourne une erreur si l'écriture est déjà validée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "VALIDEE",
+    } as never);
+
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/validée/);
+  });
+
+  it("retourne une erreur si l'écriture est clôturée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "CLOTUREE",
+    } as never);
+
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/clôturée/);
+  });
+
+  it("valide une écriture en brouillon et la passe à VALIDEE", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "BROUILLON",
+    } as never);
+    prismaMock.journalEntry.update.mockResolvedValue({} as never);
+
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "VALIDEE", isValidated: true }),
+      })
+    );
+  });
+
+  it("retourne une erreur si rôle insuffisant", async () => {
+    mockAuthSession("LECTURE", SOCIETY_ID);
+    const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+});
+
+describe("createJournalEntry — guard exercice clôturé", () => {
+  it("rejette si l'exercice fiscal est clôturé", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: true,
+    } as never);
+
+    const result = await createJournalEntry(SOCIETY_ID, {
+      ...validJournalInput,
+      fiscalYearId: FISCAL_YEAR_ID,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/clôturé/);
+  });
+
+  it("rejette si l'exercice fiscal est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await createJournalEntry(SOCIETY_ID, {
+      ...validJournalInput,
+      fiscalYearId: FISCAL_YEAR_ID,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Exercice fiscal introuvable/);
+  });
+
+  it("autorise la création si l'exercice est ouvert", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: false,
+    } as never);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1 },
+      { id: ACCOUNT_ID_2 },
+    ] as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await createJournalEntry(SOCIETY_ID, {
+      ...validJournalInput,
+      fiscalYearId: FISCAL_YEAR_ID,
+    });
+
+    expect(result.success).toBe(true);
   });
 });
 

@@ -361,6 +361,16 @@ export async function createJournalEntry(
       return { success: false, error: `L'écriture n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)` };
     }
 
+    // Vérifier que l'exercice fiscal n'est pas clôturé
+    if (parsed.data.fiscalYearId) {
+      const fy = await prisma.fiscalYear.findFirst({
+        where: { id: parsed.data.fiscalYearId, societyId },
+        select: { isClosed: true },
+      });
+      if (!fy) return { success: false, error: "Exercice fiscal introuvable" };
+      if (fy.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
+    }
+
     // Vérifier que chaque compte appartient à la société
     const accountIds = [...new Set(parsed.data.lines.map((l) => l.accountId))];
     const accounts = await prisma.accountingAccount.findMany({
@@ -407,6 +417,47 @@ export async function createJournalEntry(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createJournalEntry]", error);
     return { success: false, error: "Erreur lors de la création de l'écriture" };
+  }
+}
+
+export async function validateJournalEntry(
+  societyId: string,
+  entryId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const entry = await prisma.journalEntry.findFirst({
+      where: { id: entryId, societyId },
+      select: { id: true, status: true },
+    });
+    if (!entry) return { success: false, error: "Écriture introuvable" };
+    if (entry.status !== "BROUILLON") {
+      const label = entry.status === "VALIDEE" ? "validée" : "clôturée";
+      return { success: false, error: `Cette écriture est déjà ${label} et ne peut plus être modifiée` };
+    }
+
+    await prisma.journalEntry.update({
+      where: { id: entryId },
+      data: { status: "VALIDEE", isValidated: true, validatedById: context.userId },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "JournalEntry",
+      entityId: entryId,
+      details: { action: "validate", status: "VALIDEE" },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[validateJournalEntry]", error);
+    return { success: false, error: "Erreur lors de la validation de l'écriture" };
   }
 }
 
