@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 
 export const maxDuration = 120;
 
@@ -9,20 +10,16 @@ export const maxDuration = 120;
 // Le dernier chunk déclenche l'assemblage côté Supabase.
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const context = await requireActiveSocietyRouteContext({ minRole: "GESTIONNAIRE" });
     if (context instanceof NextResponse) return context;
-
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
-    }
 
     const body = (await req.json()) as {
       fileName: string;
@@ -37,8 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
     }
 
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
     const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    }
 
     if (totalChunks === 1) {
       // Fichier en un seul morceau (< 3 Mo)

@@ -75,9 +75,16 @@ Règles :
 - startDate au format ISO YYYY-MM-DD`;
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function isAllowedTemporaryPath(storagePath: string, context: { societyId: string; userId: string }) {
+  return (
+    storagePath.startsWith(`temp/${context.societyId}/import/`) ||
+    storagePath.startsWith(`temp/${context.userId}/`)
   );
 }
 
@@ -103,13 +110,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Vérifier que le chemin appartient à cette société
-    if (!storagePath.startsWith(`temp/`) && !storagePath.includes(context.societyId)) {
+    if (!isAllowedTemporaryPath(storagePath, context)) {
       return NextResponse.json({ error: "Accès non autorisé au fichier" }, { status: 403 });
     }
 
     // Télécharger le PDF depuis Supabase
     const supabase = getSupabase();
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    if (!supabase) {
+      return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+    }
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
     const { data: fileData, error: dlError } = await supabase.storage
       .from(bucket)
       .download(storagePath);
