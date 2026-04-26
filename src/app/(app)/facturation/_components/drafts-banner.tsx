@@ -16,7 +16,7 @@ import { validateInvoice } from "@/actions/invoice";
 
 type DraftInvoice = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: InvoiceType;
   dueDate: Date;
   totalTTC: number;
@@ -107,7 +107,7 @@ export function DraftsBanner({ drafts, societyId }: { drafts: DraftInvoice[]; so
                         href={`/facturation/${draft.id}`}
                         className="text-sm font-medium hover:underline text-[var(--color-status-caution)]"
                       >
-                        {draft.invoiceNumber}
+                        {draft.invoiceNumber ?? "Brouillon"}
                       </Link>
                       {building && (
                         <span className="text-xs text-[var(--color-status-caution)]/60 truncate">

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getNextInvoiceNumber } from "@/actions/invoice-shared";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -188,26 +187,22 @@ async function generateDraftInvoices() {
 
       const dueDate = lease.billingTerm === "A_ECHOIR" ? periodStart : new Date(periodEnd.getTime() + 86400000);
 
-      await prisma.$transaction(async (tx) => {
-        const invoiceNumber = await getNextInvoiceNumber(lease.societyId, tx);
-        return tx.invoice.create({
-          data: {
-            societyId: lease.societyId,
-            tenantId: lease.tenantId,
-            leaseId: lease.id,
-            invoiceNumber,
-            invoiceType: "APPEL_LOYER",
-            status: "BROUILLON",
-            issueDate: new Date(),
-            dueDate,
-            periodStart,
-            periodEnd,
-            totalHT,
-            totalVAT,
-            totalTTC,
-            lines: { create: invoiceLines },
-          },
-        });
+      await prisma.invoice.create({
+        data: {
+          societyId: lease.societyId,
+          tenantId: lease.tenantId,
+          leaseId: lease.id,
+          invoiceType: "APPEL_LOYER",
+          status: "BROUILLON",
+          issueDate: new Date(),
+          dueDate,
+          periodStart,
+          periodEnd,
+          totalHT,
+          totalVAT,
+          totalTTC,
+          lines: { create: invoiceLines },
+        },
       });
 
       created++;

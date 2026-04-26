@@ -940,7 +940,7 @@ describe("einvoicing actions", () => {
   it("submitInvoice retourne une erreur si SIRET manquant (ligne 308)", async () => {
     mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
     prismaMock.invoice.findFirst.mockResolvedValue({
-      id: INVOICE_ID, society: { siret: null },
+      id: INVOICE_ID, invoiceNumber: "F-001", society: { siret: null },
       tenant: { entityType: "PERSONNE_MORALE", siret: null, companyName: "Test" },
     } as never);
     const result = await submitInvoice(SOCIETY_ID, INVOICE_ID);

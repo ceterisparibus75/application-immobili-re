@@ -14,7 +14,7 @@ import type { InvoiceStatus, InvoiceType, TenantEntityType } from "@/generated/p
 
 type InvoiceItem = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: InvoiceType;
   status: InvoiceStatus;
   dueDate: Date;
@@ -278,7 +278,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                     onCheckedChange={() => toggleOne(invoice.id)}
                     disabled={!hasEmail(invoice) || sending}
                     title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : undefined}
-                    aria-label={`Sélectionner ${invoice.invoiceNumber}`}
+                    aria-label={`Sélectionner ${invoice.invoiceNumber ?? "brouillon"}`}
                   />
                   <Link
                     href={`/facturation/${invoice.id}`}
@@ -286,7 +286,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
+                        <p className="text-sm font-medium">{invoice.invoiceNumber ?? "Brouillon"}</p>
                         {isSent && delivery?.status && (
                           <DeliveryBadge status={delivery.status} label={delivery.label} />
                         )}

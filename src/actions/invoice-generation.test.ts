@@ -313,7 +313,8 @@ describe("generateInvoiceFromLease", () => {
       periodMonth: "2025-01",
     });
     expect(result.success).toBe(true);
-    expect(result.data?.invoiceNumber).toBe("FAC-2025-001");
+    // Le numéro est alloué à la validation, pas à la création du brouillon
+    expect(result.data?.id).toBeDefined();
   });
 
   it("applique le prorata si bail débuté en cours de mois (lignes 250-255)", async () => {
@@ -553,7 +554,7 @@ describe("generateBatchInvoices", () => {
     expect(result.error).toMatch(/insuffisantes|refus/i);
   });
 
-  it("capture l'erreur par bail si $transaction échoue (lignes 592-593)", async () => {
+  it("capture l'erreur par bail si invoice.create échoue (lignes 592-593)", async () => {
     prismaMock.lease.findMany.mockResolvedValue([
       {
         id: LEASE_ID,
@@ -572,7 +573,7 @@ describe("generateBatchInvoices", () => {
       },
     ] as never);
     prismaMock.invoice.findFirst.mockResolvedValue(null);
-    prismaMock.$transaction.mockRejectedValue(new Error("Transaction failed"));
+    prismaMock.invoice.create.mockRejectedValue(new Error("Transaction failed"));
 
     const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
     expect(result.success).toBe(true);
@@ -1121,7 +1122,7 @@ describe("generateBatchInvoices — branches restantes", () => {
   it("capture 'Erreur inconnue' si l'erreur n'est pas une instance de Error (B46 arm1)", async () => {
     prismaMock.lease.findMany.mockResolvedValue([makeBaseLease()] as never);
     prismaMock.invoice.findFirst.mockResolvedValue(null);
-    prismaMock.$transaction.mockRejectedValue("string-error");
+    prismaMock.invoice.create.mockRejectedValue("string-error");
 
     const result = await generateBatchInvoices(SOCIETY_ID, { periodMonth: "2025-01" });
     expect(result.success).toBe(true);

@@ -303,6 +303,7 @@ export async function submitInvoice(
       },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (!invoice.invoiceNumber) return { success: false, error: "Impossible de soumettre un brouillon non validé" };
 
     const soc = invoice.society;
     if (!soc?.siret) return { success: false, error: "SIRET de la société requis" };
@@ -714,6 +715,7 @@ export async function submitInvoiceToChorusPro(
       include: { society: true, tenant: true },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (!invoice.invoiceNumber) return { success: false, error: "Impossible de soumettre un brouillon non validé" };
 
     // Générer le PDF Factur-X
     const pdfRes = await fetch(`${env.AUTH_URL}/api/invoices/${invoiceId}/facturx`, {

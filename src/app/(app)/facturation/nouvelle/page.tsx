@@ -177,7 +177,7 @@ export default function NouvelleFacturePage() {
         periodMonth,
       });
       if (result.success && result.data) {
-        toast.success(`Facture ${result.data.invoiceNumber} créée`);
+        toast.success("Brouillon créé — validez-le pour lui attribuer un numéro.");
         router.push(`/facturation/${result.data.id}`);
       } else {
         toast.error(result.error ?? "Erreur lors de la génération");

@@ -84,7 +84,7 @@ type AmendmentDocument = {
 
 type InvoiceRow = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   dueDate: Date;
   totalHT: number;
   status: string;

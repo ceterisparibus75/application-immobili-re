@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
       const tenantName = inv.tenant.companyName ?? [inv.tenant.firstName, inv.tenant.lastName].filter(Boolean).join(" ");
       results.push({
         id: inv.id, type: "invoice",
-        title: inv.invoiceNumber,
+        title: inv.invoiceNumber ?? "Brouillon",
         subtitle: tenantName,
         href: `/facturation/${inv.id}`,
         meta: `${inv.totalTTC.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}`,

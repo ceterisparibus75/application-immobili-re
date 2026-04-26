@@ -365,15 +365,19 @@ describe("validateInvoice", () => {
     expect(result.error).toMatch(/introuvable|validée/);
   });
 
-  it("valide la facture avec succès", async () => {
+  it("valide la facture avec succès et lui attribue un numéro", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
-    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ status: "BROUILLON" }) as never);
-    prismaMock.invoice.update.mockResolvedValue({} as never);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ status: "BROUILLON", invoiceNumber: null }) as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2026, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.update.mockResolvedValue({ invoiceNumber: "FAC-2026-0001" } as never);
 
     const result = await validateInvoice(SOCIETY_ID, INVOICE_ID);
     expect(result.success).toBe(true);
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) })
+      expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE", invoiceNumber: "FAC-2026-0001" }) })
     );
   });
 
@@ -401,9 +405,18 @@ describe("validateBatchInvoices", () => {
     expect(result.success).toBe(false);
   });
 
-  it("valide en masse avec succès", async () => {
+  it("valide en masse avec succès et attribue un numéro à chaque facture", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
-    prismaMock.invoice.updateMany.mockResolvedValue({ count: 3 } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "id1", invoiceNumber: null },
+      { id: "id2", invoiceNumber: null },
+      { id: "id3", invoiceNumber: null },
+    ] as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
 
     const result = await validateBatchInvoices(SOCIETY_ID, ["id1", "id2", "id3"]);
     expect(result.success).toBe(true);
@@ -419,7 +432,7 @@ describe("validateBatchInvoices", () => {
 
   it("retourne une erreur générique si la BDD échoue dans validateBatchInvoices (lignes 499-500)", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
-    prismaMock.invoice.updateMany.mockRejectedValue(new Error("DB connection lost"));
+    prismaMock.invoice.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await validateBatchInvoices(SOCIETY_ID, [INVOICE_ID]);
     expect(result).toEqual({ success: false, error: "Erreur lors de la validation en masse" });
   });

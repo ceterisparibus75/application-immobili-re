@@ -58,7 +58,7 @@ interface Payment {
 
 interface AccountInvoice {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: string;
   status: string;
   issueDate: string;
@@ -160,7 +160,7 @@ function buildMovements(invoices: AccountInvoice[]) {
         type: "credit",
         amount: inv.totalTTC,
         invoiceId: inv.id,
-        invoiceNumber: inv.invoiceNumber,
+        invoiceNumber: inv.invoiceNumber ?? undefined,
         status: inv.status,
       });
     } else {
@@ -170,7 +170,7 @@ function buildMovements(invoices: AccountInvoice[]) {
         type: "debit",
         amount: inv.totalTTC,
         invoiceId: inv.id,
-        invoiceNumber: inv.invoiceNumber,
+        invoiceNumber: inv.invoiceNumber ?? undefined,
         status: inv.status,
       });
     }

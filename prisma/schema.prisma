@@ -1584,7 +1584,7 @@ model Invoice {
   leaseId   String?
   tenantId  String
 
-  invoiceNumber String // Numéro auto (ex: SCI1-2025-0001)
+  invoiceNumber String? // Numéro auto (ex: SCI1-2025-0001) — null tant que le brouillon n'est pas validé
   invoiceType   InvoiceType
   status        InvoiceStatus @default(EN_ATTENTE)
   issueDate     DateTime

@@ -18,6 +18,8 @@ import {
 } from "@/lib/action-society";
 import { getNextInvoiceNumber } from "./invoice-shared";
 
+// Numéro alloué à la validation, pas à la création du brouillon.
+
 export async function recordPayment(
   societyId: string,
   input: RecordPaymentInput
@@ -268,7 +270,7 @@ async function generateQuittancePdfAndSend(
     : tenant.personalAddress;
 
   const pdfData = {
-    invoiceNumber: quittance.invoiceNumber,
+    invoiceNumber: quittance.invoiceNumber!,
     invoiceType: "QUITTANCE",
     issueDate: quittance.issueDate.toISOString(),
     dueDate: quittance.dueDate.toISOString(),
@@ -308,13 +310,13 @@ async function generateQuittancePdfAndSend(
 
   const lotAddress = quittance.lease?.lot?.building?.addressLine1 ?? "";
   const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
-  const pdfFileName = [quittance.invoiceNumber, sanitize(lotAddress), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
+  const pdfFileName = [quittance.invoiceNumber!, sanitize(lotAddress), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
 
   const bcc = await getAllEmailCopyBcc(societyId);
   await sendReceiptEmail({
     to,
     tenantName,
-    invoiceRef: quittance.invoiceNumber,
+    invoiceRef: quittance.invoiceNumber!,
     amount: quittance.totalTTC,
     period,
     paidAt: quittance.payments[0]
@@ -398,7 +400,7 @@ export async function sendInvoiceToTenant(
     const result = await sendInvoiceEmail({
       to,
       tenantName,
-      invoiceRef: invoice.invoiceNumber,
+      invoiceRef: invoice.invoiceNumber ?? "",
       amount: invoice.totalTTC,
       dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
       period,
@@ -433,18 +435,23 @@ export async function sendInvoiceToTenant(
 export async function validateInvoice(
   societyId: string,
   invoiceId: string
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId, status: "BROUILLON" },
+      select: { id: true, invoiceNumber: true },
     });
     if (!invoice) return { success: false, error: "Facture introuvable ou déjà validée" };
 
-    await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { status: "VALIDEE", validatedAt: new Date() },
+    const { invoiceNumber } = await prisma.$transaction(async (tx) => {
+      const number = invoice.invoiceNumber ?? await getNextInvoiceNumber(societyId, tx);
+      return tx.invoice.update({
+        where: { id: invoiceId },
+        data: { status: "VALIDEE", validatedAt: new Date(), invoiceNumber: number },
+        select: { invoiceNumber: true },
+      });
     });
 
     await createAuditLog({
@@ -453,12 +460,12 @@ export async function validateInvoice(
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceId,
-      details: { transition: "BROUILLON → VALIDEE" },
+      details: { transition: "BROUILLON → VALIDEE", invoiceNumber },
     });
 
     revalidatePath("/facturation");
     revalidatePath(`/facturation/${invoiceId}`);
-    return { success: true, data: { id: invoiceId } };
+    return { success: true, data: { id: invoiceId, invoiceNumber: invoiceNumber! } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -477,10 +484,22 @@ export async function validateBatchInvoices(
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-    const result = await prisma.invoice.updateMany({
+    const drafts = await prisma.invoice.findMany({
       where: { id: { in: invoiceIds }, societyId, status: "BROUILLON" },
-      data: { status: "VALIDEE", validatedAt: new Date() },
+      select: { id: true, invoiceNumber: true },
     });
+
+    // Validation séquentielle — chaque facture reçoit un numéro unique dans l'ordre
+    const validatedAt = new Date();
+    for (const draft of drafts) {
+      await prisma.$transaction(async (tx) => {
+        const number = draft.invoiceNumber ?? await getNextInvoiceNumber(societyId, tx);
+        await tx.invoice.update({
+          where: { id: draft.id },
+          data: { status: "VALIDEE", validatedAt, invoiceNumber: number },
+        });
+      });
+    }
 
     await createAuditLog({
       societyId,
@@ -488,11 +507,11 @@ export async function validateBatchInvoices(
       action: "UPDATE",
       entity: "Invoice",
       entityId: invoiceIds.join(","),
-      details: { transition: "BROUILLON → VALIDEE", count: result.count },
+      details: { transition: "BROUILLON → VALIDEE", count: drafts.length },
     });
 
     revalidatePath("/facturation");
-    return { success: true, data: { validated: result.count } };
+    return { success: true, data: { validated: drafts.length } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

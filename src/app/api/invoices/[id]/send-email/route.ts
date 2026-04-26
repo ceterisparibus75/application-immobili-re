@@ -60,7 +60,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!invoice)
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Facture introuvable" } }, { status: 404 });
 
-    if (invoice.status === "BROUILLON")
+    if (invoice.status === "BROUILLON" || !invoice.invoiceNumber)
       return NextResponse.json({ error: { code: "INVALID_STATUS", message: "Impossible d'envoyer une facture en brouillon. Veuillez d'abord la valider." } }, { status: 400 });
 
     const to = invoice.tenant.billingEmail || invoice.tenant.email;

@@ -8,7 +8,7 @@ import { AlertTriangle } from "lucide-react";
 
 type OverdueInvoice = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   totalTTC: number;
   dueDate: string;
   status: string;
@@ -107,7 +107,7 @@ export function RelancesKanban({ overdueInvoices }: { overdueInvoices: OverdueIn
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mb-1.5">
-                        {inv.invoiceNumber}
+                        {inv.invoiceNumber ?? "—"}
                       </p>
                       <p className="text-sm font-semibold tabular-nums" style={{ color: col.color }}>
                         {fmt(remaining)}

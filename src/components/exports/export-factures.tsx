@@ -4,7 +4,7 @@ import { ExportButton } from "@/components/export-button";
 import type { CsvColumn } from "@/lib/export-csv";
 
 interface InvoiceRow {
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   status: string;
   tenantName: string;
   issueDate: string;
@@ -21,7 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const columns: CsvColumn<InvoiceRow>[] = [
-  { header: "N° Facture", accessor: (r) => r.invoiceNumber },
+  { header: "N° Facture", accessor: (r) => r.invoiceNumber ?? "Brouillon" },
   { header: "Statut", accessor: (r) => STATUS_LABELS[r.status] ?? r.status },
   { header: "Locataire", accessor: (r) => r.tenantName },
   { header: "Immeuble", accessor: (r) => r.building },

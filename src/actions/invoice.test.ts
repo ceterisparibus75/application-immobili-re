@@ -68,7 +68,18 @@ describe("generateInvoiceFromLease", () => {
 
 describe("validateInvoice", () => {
   it("erreur si non authentifie", async () => { mockUnauthenticated(); const r = await validateInvoice("society-1", VALID_CUID); expect(r.success).toBe(false); expect(r.error).toBe("Non authentifié") })
-  it("valide une facture brouillon", async () => { mockAuthSession(UserRole.GESTIONNAIRE); prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON }) as never); prismaMock.invoice.update.mockResolvedValue({} as never); const r = await validateInvoice("society-1", VALID_CUID); expect(r.success).toBe(true); expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) })) })
+  it("valide une facture brouillon", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, invoiceNumber: null }) as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
+    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.invoice.update.mockResolvedValue({ invoiceNumber: "FAC-2025-0001" } as never);
+    const r = await validateInvoice("society-1", VALID_CUID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.invoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VALIDEE" }) }));
+  })
 })
 
 describe("cancelInvoice", () => {

@@ -60,26 +60,22 @@ export async function createInvoice(
     const totalVAT = computedLines.reduce((s, l) => s + l.totalVAT, 0);
     const totalTTC = totalHT + totalVAT;
 
-    const invoice = await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
-      return tx.invoice.create({
-        data: {
-          societyId,
-          tenantId: parsed.data.tenantId,
-          leaseId: parsed.data.leaseId ?? null,
-          invoiceNumber,
-          invoiceType: parsed.data.invoiceType,
-          status: "BROUILLON",
-          issueDate: new Date(),
-          dueDate: new Date(parsed.data.dueDate),
-          periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
-          periodEnd: parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : null,
-          totalHT,
-          totalVAT,
-          totalTTC,
-          lines: { create: computedLines },
-        },
-      });
+    const invoice = await prisma.invoice.create({
+      data: {
+        societyId,
+        tenantId: parsed.data.tenantId,
+        leaseId: parsed.data.leaseId ?? null,
+        invoiceType: parsed.data.invoiceType,
+        status: "BROUILLON",
+        issueDate: new Date(),
+        dueDate: new Date(parsed.data.dueDate),
+        periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
+        periodEnd: parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : null,
+        totalHT,
+        totalVAT,
+        totalTTC,
+        lines: { create: computedLines },
+      },
     });
 
     await createAuditLog({
@@ -88,7 +84,7 @@ export async function createInvoice(
       action: "CREATE",
       entity: "Invoice",
       entityId: invoice.id,
-      details: { invoiceNumber: invoice.invoiceNumber, totalTTC, tenantId: parsed.data.tenantId },
+      details: { totalTTC, tenantId: parsed.data.tenantId },
     });
 
     revalidatePath("/facturation");
@@ -163,7 +159,7 @@ export async function previewBatchInvoices(
 export async function generateInvoiceFromLease(
   societyId: string,
   input: GenerateInvoiceFromLeaseInput
-): Promise<ActionResult<{ id: string; invoiceNumber: string }>> {
+): Promise<ActionResult<{ id: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
@@ -340,26 +336,22 @@ export async function generateInvoiceFromLease(
     const totalVAT = invoiceLines.reduce((s, l) => s + l.totalVAT, 0);
     const totalTTC = totalHT + totalVAT;
 
-    const invoice = await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
-      return tx.invoice.create({
-        data: {
-          societyId,
-          tenantId: lease.tenantId,
-          leaseId: lease.id,
-          invoiceNumber,
-          invoiceType: "APPEL_LOYER",
-          status: "BROUILLON",
-          issueDate,
-          dueDate,
-          periodStart,
-          periodEnd,
-          totalHT,
-          totalVAT,
-          totalTTC,
-          lines: { create: invoiceLines },
-        },
-      });
+    const invoice = await prisma.invoice.create({
+      data: {
+        societyId,
+        tenantId: lease.tenantId,
+        leaseId: lease.id,
+        invoiceType: "APPEL_LOYER",
+        status: "BROUILLON",
+        issueDate,
+        dueDate,
+        periodStart,
+        periodEnd,
+        totalHT,
+        totalVAT,
+        totalTTC,
+        lines: { create: invoiceLines },
+      },
     });
 
     if (lease.isThirdPartyManaged) {
@@ -389,7 +381,6 @@ export async function generateInvoiceFromLease(
       entity: "Invoice",
       entityId: invoice.id,
       details: {
-        invoiceNumber: invoice.invoiceNumber,
         totalTTC,
         leaseId: lease.id,
         periodMonth: parsed.data.periodMonth,
@@ -400,7 +391,7 @@ export async function generateInvoiceFromLease(
     revalidatePath("/facturation");
     revalidatePath(`/baux/${lease.id}`);
 
-    return { success: true, data: { id: invoice.id, invoiceNumber: invoice.invoiceNumber } };
+    return { success: true, data: { id: invoice.id } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError)
       return { success: false, error: error.message };
@@ -565,26 +556,22 @@ export async function generateBatchInvoices(
         const totalVAT = invoiceLines.reduce((s, l) => s + l.totalVAT, 0);
         const totalTTC = totalHT + totalVAT;
 
-        await prisma.$transaction(async (tx) => {
-          const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
-          await tx.invoice.create({
-            data: {
-              societyId,
-              tenantId: lease.tenantId,
-              leaseId: lease.id,
-              invoiceNumber,
-              invoiceType: "APPEL_LOYER",
-              status: "BROUILLON",
-              issueDate,
-              dueDate,
-              periodStart,
-              periodEnd,
-              totalHT,
-              totalVAT,
-              totalTTC,
-              lines: { create: invoiceLines },
-            },
-          });
+        await prisma.invoice.create({
+          data: {
+            societyId,
+            tenantId: lease.tenantId,
+            leaseId: lease.id,
+            invoiceType: "APPEL_LOYER",
+            status: "BROUILLON",
+            issueDate,
+            dueDate,
+            periodStart,
+            periodEnd,
+            totalHT,
+            totalVAT,
+            totalTTC,
+            lines: { create: invoiceLines },
+          },
         });
 
         created++;
@@ -707,7 +694,7 @@ export async function createCreditNote(
     revalidatePath("/facturation");
     revalidatePath(`/facturation/${original.id}`);
 
-    return { success: true, data: { id: creditNote.id, invoiceNumber: creditNote.invoiceNumber } };
+    return { success: true, data: { id: creditNote.id, invoiceNumber: creditNote.invoiceNumber! } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError)
       return { success: false, error: error.message };

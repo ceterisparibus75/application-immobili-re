@@ -428,7 +428,7 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
     const tn=inv.tenant.entityType==="PERSONNE_MORALE"?(inv.tenant.companyName??"-"):`${inv.tenant.firstName??""} ${inv.tenant.lastName??""}`.trim()||"-";
     const loc=inv.lease?.lot?`${inv.lease.lot.building.name} / ${inv.lease.lot.number}`:"-";
     const days=Math.max(0,Math.floor((today.getTime()-new Date(inv.dueDate).getTime())/86400000));
-    y=tr(p,reg,bold,y,[inv.invoiceNumber,tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),pdfCur(inv.totalTTC),`${days}j`],WS);
+    y=tr(p,reg,bold,y,[inv.invoiceNumber??"-",tn,loc,new Date(inv.dueDate).toLocaleDateString("fr-FR"),pdfCur(inv.totalTTC),`${days}j`],WS);
   }
   return {buffer:await save(),filename:`impayes-${today.toISOString().slice(0,10)}.pdf`,contentType:"application/pdf"};
 }

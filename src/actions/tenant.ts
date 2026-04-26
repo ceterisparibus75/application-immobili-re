@@ -705,13 +705,24 @@ export async function deleteTenant(
       return { success: false, error: "Impossible de supprimer un locataire ayant un bail actif. Résiliez d'abord ses baux." };
     }
 
-    // Supprimer les relations puis le locataire en transaction
+    // Bloquer si des factures comptables existent — elles doivent être conservées 10 ans (CGI Art. 102 B)
+    const accountingInvoices = await prisma.invoice.count({
+      where: { tenantId, status: { not: "BROUILLON" } },
+    });
+    if (accountingInvoices > 0) {
+      return {
+        success: false,
+        error: `Ce locataire a ${accountingInvoices} facture(s) comptable(s). Les documents fiscaux doivent être conservés 10 ans. Archivez le locataire plutôt que de le supprimer.`,
+      };
+    }
+
+    // Supprimer les relations puis le locataire en transaction (seuls les brouillons peuvent être supprimés)
     await prisma.$transaction([
       prisma.tenantContact.deleteMany({ where: { tenantId } }),
       prisma.tenantDocument.deleteMany({ where: { tenantId } }),
       prisma.guarantee.deleteMany({ where: { tenantId } }),
       prisma.tenantPortalAccess.deleteMany({ where: { tenantId } }),
-      prisma.invoice.deleteMany({ where: { tenantId } }),
+      prisma.invoice.deleteMany({ where: { tenantId, status: "BROUILLON" } }),
       prisma.document.updateMany({ where: { tenantId }, data: { tenantId: null } }),
       prisma.tenant.delete({ where: { id: tenantId } }),
     ]);

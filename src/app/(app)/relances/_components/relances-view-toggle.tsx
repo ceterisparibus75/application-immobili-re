@@ -14,7 +14,7 @@ import { RelancesKanban } from "./relances-kanban";
 
 type OverdueInvoice = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   totalTTC: number;
   dueDate: string;
   status: string;

@@ -70,10 +70,9 @@ export async function GET(
       },
     });
     if (!invoice)
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Facture introuvable" } },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: { code: "NOT_FOUND", message: "Facture introuvable" } }, { status: 404 });
+    if (!invoice.invoiceNumber)
+      return NextResponse.json({ error: { code: "DRAFT", message: "Impossible de générer un Factur-X pour un brouillon non validé" } }, { status: 400 });
 
     const soc = invoice.society;
 

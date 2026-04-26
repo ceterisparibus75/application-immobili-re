@@ -47,6 +47,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
     if (!invoice)
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Facture introuvable" } }, { status: 404 });
+    if (!invoice.invoiceNumber)
+      return NextResponse.json({ error: { code: "DRAFT", message: "Impossible de générer un PDF pour un brouillon non validé" } }, { status: 400 });
 
     const soc = invoice.society;
 

@@ -69,13 +69,11 @@ describe("GET /api/cron/generate-drafts", () => {
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ success: true, created: 1, skipped: 0, errors: [] });
-    expect(getNextInvoiceNumber).toHaveBeenCalledWith("society-1", prismaMock);
     expect(prismaMock.invoice.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         societyId: "society-1",
         tenantId: "tenant-1",
         leaseId: "lease-1",
-        invoiceNumber: "AJHOLD-2026-0007",
         invoiceType: "APPEL_LOYER",
         status: "BROUILLON",
         totalHT: 1000,

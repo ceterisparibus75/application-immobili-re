@@ -38,7 +38,7 @@ type Payment = {
 };
 type PendingInvoice = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: string;
   totalTTC: number;
   dueDate: Date;
