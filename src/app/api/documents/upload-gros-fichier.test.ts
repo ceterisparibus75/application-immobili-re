@@ -86,7 +86,7 @@ function chunkRequest(offset: number, size: number): NextRequest {
 describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY)("Upload fichier 12 Mo dans la GED", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co"
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key"
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "x".repeat(120)
     process.env.SUPABASE_STORAGE_BUCKET = "documents"
     process.env.AUTH_URL = "http://localhost:3000"
     process.env.CRON_SECRET = "test-cron"
@@ -122,7 +122,7 @@ describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_S
           entityFolder: "general",
         })
       )
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(400)
     })
 
     it("retourne 503 si Supabase n'est pas configuré", async () => {
@@ -215,6 +215,26 @@ describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_S
       })
       const res = await tusPatch(req)
       expect(res.status).toBe(400)
+    })
+
+    it("rejette une URL TUS hors domaine Supabase configuré", async () => {
+      mockAuthSession()
+      const req = new NextRequest("http://localhost/api/storage/tus-patch", {
+        method: "POST",
+        body: new Uint8Array(CHUNK_SIZE),
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "x-tus-url": "https://attacker.example/upload",
+          "x-upload-offset": "0",
+        },
+      })
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch")
+      const res = await tusPatch(req)
+
+      expect(res.status).toBe(400)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
     })
 
     it("upload chunk 1/4 (offset 0, 3,5 Mo) → retourne le nouvel offset", async () => {
@@ -458,7 +478,7 @@ describe.skipIf(!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_S
       }
       expect(storageFrom.createSignedUrl).toHaveBeenCalledWith(
         STORAGE_PATH,
-        365 * 24 * 3600
+        24 * 3600
       )
     })
   })

@@ -26,8 +26,8 @@ function makeUser(overrides = {}) {
 const validInput = {
   email: "jean@example.com",
   code: "123456",
-  password: "SecurePass1",
-  confirmPassword: "SecurePass1",
+  password: "SecurePass1!",
+  confirmPassword: "SecurePass1!",
 };
 
 describe("confirmSignup", () => {
@@ -42,7 +42,7 @@ describe("confirmSignup", () => {
   });
 
   it("retourne une erreur si les mots de passe ne correspondent pas", async () => {
-    const result = await confirmSignup({ ...validInput, confirmPassword: "DifferentPass1" });
+    const result = await confirmSignup({ ...validInput, confirmPassword: "DifferentPass1!" });
     expect(result.success).toBe(false);
   });
 

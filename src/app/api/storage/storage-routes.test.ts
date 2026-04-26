@@ -160,6 +160,22 @@ describe("storage routes", () => {
       expect(res.status).toBe(307);
       expect(res.headers.get("location")).toBe("https://signed.example/file");
     });
+
+    it("force le téléchargement des SVG au lieu de les servir inline", async () => {
+      downloadMock.mockResolvedValue({
+        data: new Blob(["<svg></svg>"], { type: "image/svg+xml" }),
+        error: null,
+      });
+
+      const res = await viewFile(
+        new NextRequest("http://localhost/api/storage/view?path=documents/society-1/logo.svg")
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("application/octet-stream");
+      expect(res.headers.get("content-disposition")).toContain("attachment");
+      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    });
   });
 
   describe("POST /api/storage/signed-upload", () => {
