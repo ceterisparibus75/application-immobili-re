@@ -7,6 +7,7 @@ const envSchema = z.object({
   AUTH_URL: z.string().url(),
   ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY doit contenir au moins 32 caractères (base64 de 256 bits)"),
   RESEND_API_KEY: z.string().min(1),
+  RESEND_WEBHOOK_SECRET: z.string().optional(),
   EMAIL_FROM: z.string().email(),
   CRON_SECRET: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
@@ -32,6 +33,11 @@ const envSchema = z.object({
   MISTRAL_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   NEXT_PUBLIC_ZENDESK_KEY: z.string().optional(),
+  SENTRY_DSN: z.preprocess(val => (val === "" ? undefined : val), z.string().url().optional()),
+  SENTRY_TRACES_SAMPLE_RATE: z.preprocess(
+    val => (val === "" ? undefined : val),
+    z.coerce.number().min(0).max(1).optional()
+  ),
   // Facturation électronique — PISTE OAuth2 (commun B2G et B2B)
   PISTE_CLIENT_ID: z.string().optional(),
   PISTE_CLIENT_SECRET: z.string().optional(),

@@ -5,15 +5,30 @@
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: "https://78c59210d2aac155c9997058d4f4a374@o4511207272808448.ingest.de.sentry.io/4511207273988176",
+  dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
+  enabled: process.env.NODE_ENV === "production" && Boolean(process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Echantillonnage faible côté serveur pour limiter coûts et données collectées.
+  tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.05"),
 
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+  enableLogs: false,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  // Ne jamais envoyer de PII (IPs, cookies, corps de requête) à Sentry
+  sendDefaultPii: false,
+
+  beforeSend(event) {
+    if (event.request) {
+      delete event.request.cookies;
+      delete event.request.data;
+      if (event.request.headers) {
+        delete event.request.headers["authorization"];
+        delete event.request.headers["cookie"];
+      }
+    }
+    if (event.user) {
+      delete event.user.ip_address;
+      delete event.user.email;
+    }
+    return event;
+  },
 });
