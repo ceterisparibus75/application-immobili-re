@@ -2,6 +2,33 @@
 
 import { prisma } from "@/lib/prisma";
 import { getOptionalSocietyActionContext } from "@/lib/action-society";
+import type { Prisma } from "@/generated/prisma/client";
+
+const INVOICE_INCLUDE = {
+  tenant: {
+    select: {
+      id: true,
+      entityType: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      billingEmail: true,
+    },
+  },
+  lease: {
+    include: {
+      lot: {
+        include: {
+          building: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    },
+  },
+  _count: { select: { payments: true } },
+} as const;
 
 export async function getInvoices(societyId: string) {
   const context = await getOptionalSocietyActionContext(societyId);
@@ -9,33 +36,47 @@ export async function getInvoices(societyId: string) {
 
   return prisma.invoice.findMany({
     where: { societyId },
-    include: {
-      tenant: {
-        select: {
-          id: true,
-          entityType: true,
-          companyName: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          billingEmail: true,
-        },
-      },
-      lease: {
-        include: {
-          lot: {
-            include: {
-              building: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-        },
-      },
-      _count: { select: { payments: true } },
-    },
+    include: INVOICE_INCLUDE,
     orderBy: [{ dueDate: "desc" }],
+    // Plafond défensif : au-delà de 500 factures, utiliser getInvoicesPaginated
+    take: 500,
   });
+}
+
+export async function getInvoicesPaginated(
+  societyId: string,
+  opts: { page?: number; pageSize?: number; status?: string; search?: string } = {}
+) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return { data: [], total: 0, page: 1, pageSize: 50 };
+
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 50));
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.InvoiceWhereInput = { societyId };
+  if (opts.status) where.status = opts.status as never;
+  if (opts.search) {
+    where.OR = [
+      { invoiceNumber: { contains: opts.search, mode: "insensitive" } },
+      { tenant: { firstName: { contains: opts.search, mode: "insensitive" } } },
+      { tenant: { lastName: { contains: opts.search, mode: "insensitive" } } },
+      { tenant: { companyName: { contains: opts.search, mode: "insensitive" } } },
+    ];
+  }
+
+  const [data, total] = await prisma.$transaction([
+    prisma.invoice.findMany({
+      where,
+      include: INVOICE_INCLUDE,
+      orderBy: [{ dueDate: "desc" }],
+      take: pageSize,
+      skip,
+    }),
+    prisma.invoice.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize };
 }
 
 export async function getInvoiceById(societyId: string, invoiceId: string) {

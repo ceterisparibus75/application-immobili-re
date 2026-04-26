@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { ForbiddenError } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { createAuditLog } from "@/lib/audit";
@@ -306,46 +307,86 @@ export async function deleteLease(
   }
 }
 
-export async function getLeases(societyId: string) {
-  const context = await getOptionalSocietyActionContext(societyId);
-  if (!context) return [];
-
-  return prisma.lease.findMany({
-    where: { societyId, deletedAt: null },
+const LEASE_INCLUDE = {
+  lot: {
+    include: {
+      building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
+    },
+  },
+  leaseLots: {
     include: {
       lot: {
         include: {
           building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
         },
       },
-      leaseLots: {
-        include: {
-          lot: {
-            include: {
-              building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
-            },
-          },
-        },
-        orderBy: { isPrimary: "desc" },
-      },
-      tenant: {
-        select: {
-          id: true,
-          entityType: true,
-          companyName: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
-      rentRevisions: {
-        where: { isValidated: true },
-        orderBy: { effectiveDate: "desc" },
-        take: 1,
-        select: { effectiveDate: true },
-      },
     },
+    orderBy: { isPrimary: "desc" as const },
+  },
+  tenant: {
+    select: {
+      id: true,
+      entityType: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+    },
+  },
+  rentRevisions: {
+    where: { isValidated: true },
+    orderBy: { effectiveDate: "desc" as const },
+    take: 1,
+    select: { effectiveDate: true },
+  },
+} as const;
+
+export async function getLeases(societyId: string) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
+
+  return prisma.lease.findMany({
+    where: { societyId, deletedAt: null },
+    include: LEASE_INCLUDE,
     orderBy: [{ status: "asc" }, { startDate: "desc" }],
+    // Plafond défensif : au-delà de 500 baux, utiliser getLeasesPaginated
+    take: 500,
   });
+}
+
+export async function getLeasesPaginated(
+  societyId: string,
+  opts: { page?: number; pageSize?: number; status?: string; search?: string } = {}
+) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return { data: [], total: 0, page: 1, pageSize: 50 };
+
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 50));
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.LeaseWhereInput = { societyId, deletedAt: null };
+  if (opts.status) where.status = opts.status as never;
+  if (opts.search) {
+    where.OR = [
+      { tenant: { firstName: { contains: opts.search, mode: "insensitive" } } },
+      { tenant: { lastName: { contains: opts.search, mode: "insensitive" } } },
+      { tenant: { companyName: { contains: opts.search, mode: "insensitive" } } },
+      { lot: { number: { contains: opts.search, mode: "insensitive" } } },
+    ];
+  }
+
+  const [data, total] = await prisma.$transaction([
+    prisma.lease.findMany({
+      where,
+      include: LEASE_INCLUDE,
+      orderBy: [{ status: "asc" }, { startDate: "desc" }],
+      take: pageSize,
+      skip,
+    }),
+    prisma.lease.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize };
 }
 
 /**

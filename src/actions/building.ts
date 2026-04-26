@@ -13,6 +13,7 @@ import {
 } from "@/validations/building";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   getOptionalSocietyActionContext,
   requireSocietyActionContext,
@@ -195,90 +196,112 @@ export async function deleteBuilding(
   }
 }
 
+const BUILDING_INCLUDE = {
+  lots: {
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      currentRent: true,
+      area: true,
+      leases: {
+        where: { status: "EN_COURS" as const },
+        select: { id: true, currentRentHT: true, paymentFrequency: true, endDate: true },
+        take: 1,
+      },
+    },
+  },
+  propertyValuations: {
+    where: { status: "COMPLETED" as const },
+    orderBy: { valuationDate: "desc" as const },
+    take: 1,
+    select: { estimatedValueMid: true, valuationDate: true },
+  },
+  _count: { select: { lots: true, diagnostics: true, maintenances: true } },
+  additionalAcquisitions: {
+    select: {
+      id: true,
+      label: true,
+      acquisitionPrice: true,
+      acquisitionFees: true,
+      acquisitionTaxes: true,
+      otherCosts: true,
+    },
+  },
+} as const;
+
+type BuildingWithInclude = Prisma.BuildingGetPayload<{ include: typeof BUILDING_INCLUDE }>;
+type BuildingWithMetrics = BuildingWithInclude & {
+  occupiedLots: number;
+  totalLots: number;
+  occupancyRate: number;
+  annualRent: number;
+  totalCost: number;
+  yieldRate: number | null;
+};
+
+function computeBuildingMetrics(
+  b: BuildingWithInclude
+): BuildingWithMetrics {
+  const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+  const occupiedLots = b.lots.filter((l) => l.status === "OCCUPE").length;
+  const totalLots = b.lots.length;
+  const occupancyRate = totalLots > 0 ? Math.round((occupiedLots / totalLots) * 100) : 0;
+  const annualRent = b.lots.reduce((sum, lot) => sum + lot.leases.reduce((s, lease) => s + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12), 0), 0);
+  const baseCost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
+  const additionalCost = b.additionalAcquisitions.reduce((sum, a) => sum + a.acquisitionPrice + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0), 0);
+  const totalCost = baseCost + additionalCost;
+  const yieldRate = totalCost > 0 ? (annualRent / totalCost) * 100 : null;
+  return { ...b, occupiedLots, totalLots, occupancyRate, annualRent, totalCost, yieldRate };
+}
+
 export async function getBuildings(societyId: string) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return [];
 
   const buildings = await prisma.building.findMany({
     where: { societyId },
-    include: {
-      lots: {
-        select: {
-          id: true,
-          number: true,
-          status: true,
-          currentRent: true,
-          area: true,
-          leases: {
-            where: { status: "EN_COURS" },
-            select: { id: true, currentRentHT: true, paymentFrequency: true, endDate: true },
-            take: 1,
-          },
-        },
-      },
-      propertyValuations: {
-        where: { status: "COMPLETED" },
-        orderBy: { valuationDate: "desc" },
-        take: 1,
-        select: { estimatedValueMid: true, valuationDate: true },
-      },
-      _count: { select: { lots: true, diagnostics: true, maintenances: true } },
-      additionalAcquisitions: {
-        select: {
-          id: true,
-          label: true,
-          acquisitionPrice: true,
-          acquisitionFees: true,
-          acquisitionTaxes: true,
-          otherCosts: true,
-        },
-      },
-    },
+    include: BUILDING_INCLUDE,
     orderBy: { name: "asc" },
+    // Plafond défensif : au-delà de 200 immeubles, utiliser getBuildingsPaginated
+    take: 200,
   });
 
-  // Calculs dérivés pour chaque immeuble
-  const FREQ_MULT: Record<string, number> = { MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1 };
+  return buildings.map(computeBuildingMetrics);
+}
 
-  return buildings.map((b) => {
-    const occupiedLots = b.lots.filter((l) => l.status === "OCCUPE").length;
-    const totalLots = b.lots.length;
-    const occupancyRate = totalLots > 0 ? Math.round((occupiedLots / totalLots) * 100) : 0;
+export async function getBuildingsPaginated(
+  societyId: string,
+  opts: { page?: number; pageSize?: number; search?: string } = {}
+) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return { data: [], total: 0, page: 1, pageSize: 50 };
 
-    // Loyers annuels = somme des loyers HT × fréquence
-    const annualRent = b.lots.reduce((sum, lot) => {
-      return sum + lot.leases.reduce((s, lease) => {
-        return s + lease.currentRentHT * (FREQ_MULT[lease.paymentFrequency] ?? 12);
-      }, 0);
-    }, 0);
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(50, Math.max(1, opts.pageSize ?? 20));
+  const skip = (page - 1) * pageSize;
 
-    // Coût complet = prix acquisition + frais + taxes + autres + travaux + acquisitions complémentaires
-    const baseCost =
-      (b.acquisitionPrice ?? 0) +
-      (b.acquisitionFees ?? 0) +
-      (b.acquisitionTaxes ?? 0) +
-      (b.acquisitionOtherCosts ?? 0) +
-      (b.worksCost ?? 0);
+  const where: Prisma.BuildingWhereInput = { societyId };
+  if (opts.search) {
+    where.OR = [
+      { name: { contains: opts.search, mode: "insensitive" } },
+      { city: { contains: opts.search, mode: "insensitive" } },
+      { addressLine1: { contains: opts.search, mode: "insensitive" } },
+    ];
+  }
 
-    const additionalCost = b.additionalAcquisitions.reduce((sum, a) => {
-      return sum + a.acquisitionPrice + (a.acquisitionFees ?? 0) + (a.acquisitionTaxes ?? 0) + (a.otherCosts ?? 0);
-    }, 0);
+  const [buildings, total] = await prisma.$transaction([
+    prisma.building.findMany({
+      where,
+      include: BUILDING_INCLUDE,
+      orderBy: { name: "asc" },
+      take: pageSize,
+      skip,
+    }),
+    prisma.building.count({ where }),
+  ]);
 
-    const totalCost = baseCost + additionalCost;
-
-    // Rendement = loyers annuels / coût complet
-    const yieldRate = totalCost > 0 ? (annualRent / totalCost) * 100 : null;
-
-    return {
-      ...b,
-      occupiedLots,
-      totalLots,
-      occupancyRate,
-      annualRent,
-      totalCost,
-      yieldRate,
-    };
-  });
+  return { data: buildings.map(computeBuildingMetrics), total, page, pageSize };
 }
 
 export async function getBuildingById(societyId: string, buildingId: string) {
