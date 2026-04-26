@@ -21,8 +21,8 @@
 | Composants UI | ~40 |
 | Templates email | 11 |
 | Cron jobs | 9 |
-| Tests unitaires | **206 suites passantes + 1 ignorée (4 245 cas passés, 16 ignorés)** |
-| Tests E2E (Playwright) | 3 suites : auth + navigation locales, parcours métier staging opt-in |
+| Tests unitaires | **207 suites passantes + 1 ignorée (4 248 cas passés, 16 ignorés)** |
+| Tests E2E (Playwright) | 4 suites actives : auth, navigation, accessibilité, commercial readiness ; parcours métier staging opt-in |
 | Lignes schema Prisma | 2 138 |
 
 ### Description fonctionnelle
@@ -305,17 +305,17 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 
 | Constat | Détail |
 |---------|--------|
-| Couverture actuelle | 206 suites Vitest passantes + 1 ignorée, 4 245 cas passés et 16 ignorés (état au 26 avril 2026) |
+| Couverture actuelle | 207 suites Vitest passantes + 1 ignorée, 4 248 cas passés et 16 ignorés (état au 26 avril 2026) |
 | Actions couvertes | Toutes les mutations critiques (facturation, baux, banque, comptabilité, RGPD…) |
 | Tests de composants React | 9 fichiers : LeaseTimeline, SubscriptionBanner, ActivityFeed, DashboardNotifications, ExportPdfButton, WidgetConfigurator, Breadcrumb, EcheancesPanel, TodayTasks |
 | Tests d'intégration | Webhooks externes Stripe, GoCardless et DocuSign couverts au niveau route |
-| Tests end-to-end (E2E) | 2 suites Playwright (auth + navigation, 16 routes) |
+| Tests end-to-end (E2E) | Auth, navigation, accessibilité, commercial readiness, mobile audit et parcours métier staging opt-in |
 | Tests des API routes | Rapports, RGPD, Storage, Rapprochement, webhooks Stripe/GoCardless/DocuSign |
 
 **Verdict :** La couverture atteint les chemins critiques sur l'ensemble des modules métier, avec en plus une couverture complète des composants React du dashboard, des utilitaires lib (normalize-label, pagination, rate-limit, two-factor, cron-auth, ai-logger, portal-auth, export-csv, sepa-credit-transfer) et des schémas de validation Zod (auth, sepa, maintenance, lot, diagnostic, contact, inspection, accounting, ticket, user, society, workflow, candidate).
 
 > **État initial (4 avril) :** 20 suites (382 cas), ~5% lignes. Point faible bloquant à l'époque — depuis résolu.  
-> **État au 26 avril :** 206 suites passantes + 1 ignorée, 4 245 cas passés — progression de +3 863 cas depuis l'audit initial.
+> **État au 26 avril :** 207 suites passantes + 1 ignorée, 4 248 cas passés — progression de +3 866 cas depuis l'audit initial.
 
 ### 5.2 Documentation utilisateur — ABSENTE
 
@@ -387,7 +387,7 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 | **Sécurité** | Excellente (toutes corrections appliquées) | OUI |
 | **Multi-tenancy** | Excellente | OUI |
 | **UI/UX** | Très bonne (onboarding + loading states) | OUI |
-| **Tests** | Excellente (4 245 tests + E2E Playwright + Axe) | OUI |
+| **Tests** | Excellente (4 248 tests + E2E Playwright + Axe) | OUI |
 | **Documentation utilisateur** | Complète (centre d'aide + FAQ) | OUI |
 | **Monétisation SaaS** | Complète (Stripe + plans + limites) | OUI |
 | **CI/CD** | Complète (GitHub Actions) | OUI |
@@ -429,13 +429,13 @@ L'application est **fonctionnellement très complète** et dispose de tous les �
 - ✅ Rate limiting sur les tokens dataroom
 
 #### Chantier 3 : Tests et CI/CD — COMPLÉTÉ
-- ✅ 382 tests unitaires (20 suites Vitest)
-- ✅ Tests E2E Playwright (auth + navigation, 16 routes)
+- ✅ 4 248 tests unitaires passants (207 suites Vitest + 1 ignorée)
+- ✅ Tests E2E Playwright : auth, navigation, accessibilité, mobile, commercial readiness et parcours métier staging opt-in
 - ✅ GitHub Actions CI (lint + tests + build + e2e)
 - ✅ Couverture sur chemins critiques (facturation, banque, baux, charges)
 
 #### Chantier 4 : Documentation et onboarding — COMPLÉTÉ
-- ✅ Centre d'aide / FAQ (/aide) avec guides par module
+- ✅ Centre d'aide / FAQ public (/aide) avec guides par module
 - ✅ Checklist d'onboarding interactive sur le dashboard
 - ✅ CGU du service SaaS (/cgu)
 - ✅ CGV avec description des offres (/cgv)
@@ -492,11 +492,11 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 | Axe vérifié | Résultat | Commentaire |
 |-------------|----------|-------------|
 | TypeScript strict | OK | `npx tsc --noEmit --incremental false` passe. |
-| Tests unitaires | OK | `npm test` : 206 fichiers passés, 1 ignoré, 4 245 tests passés, 16 ignorés. |
+| Tests unitaires | OK | `npm test` : 207 fichiers passés, 1 ignoré, 4 248 tests passés, 16 ignorés. |
 | Couverture V8 | OK | `npm run test:coverage` : global 83,14% statements / 79,36% branches ; `actions` 92,76% statements / 91,03% branches. |
 | Lint | OK | `npm run lint` : 0 erreur, 0 avertissement. |
 | Build production | OK | `npm run build` : compilation Next.js 16 réussie, 228 routes générées. |
-| E2E Playwright | OK + chantier P0 lancé | `npm run test:e2e` : 25/25 tests passés, auth, pages publiques, portail login, gardes de routes et API auth. `npm run test:e2e:business` ajoute le parcours staging opt-in immeuble → lot → locataire → bail → facture, lançable aussi via le workflow manuel `Business E2E`. |
+| E2E Playwright | OK + chantier P0 lancé | `npx playwright test e2e/commercial-readiness.spec.ts` : 8/8 tests passés, pages commerciales/légales publiques et protection des PDF sans session. `npm run test:e2e:business` ajoute le parcours staging opt-in immeuble → lot → locataire → bail → facture, lançable aussi via le workflow manuel `Business E2E`. |
 | Service worker/offline | OK | `/sw.js` et `/offline.html` sont maintenant publics, sans redirection login. |
 | Navigation desktop/mobile | OK | Topnav desktop simplifiée, topnav masquée sur mobile, menu mobile complet et structuré. |
 
@@ -521,6 +521,7 @@ Cette passe complète remplace les constats purement déclaratifs par des vérif
 - **Crons métier vérifiés** : `ai-retry`, `invoice-reminder`, `lease-alerts` et `send-reports` couvrent maintenant secret manquant, accès non autorisé, cas nominal vide, exécution utile et erreur serveur.
 - **Business E2E fiabilisé** : le workflow staging est planifié, vérifie les secrets en préflight et le spec refuse de s'exécuter sans `E2E_BASE_URL`, `E2E_EMAIL` et `E2E_PASSWORD`.
 - **Webhooks externes vérifiés** : les routes Stripe, GoCardless et DocuSign couvrent maintenant signature invalide/manquante, mapping des statuts, mutations Prisma, notification gestionnaire et audit de signature.
+- **Préconisations audit module clôturées** : commercial readiness E2E ajouté, `/aide` rendu réellement public, cycle PA reçu complet couvert et rendu PDF réel vérifié via `@react-pdf/renderer`.
 
 ### 9.3 Constat fonctionnel par parcours utilisateur
 

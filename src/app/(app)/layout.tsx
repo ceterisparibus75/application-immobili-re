@@ -21,14 +21,19 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+
+  if (pathname.startsWith("/aide")) {
+    return <>{children}</>;
+  }
+
   const session = await auth();
   if (!session?.user) {
     redirect("/login");
   }
 
   // Verifier si le 2FA est obligatoire (plan Enterprise) mais pas encore active
-  const h = await headers();
-  const pathname = h.get("x-pathname") ?? "";
   const isSecurityPage = pathname.startsWith("/settings/security");
 
   if (!isSecurityPage) {

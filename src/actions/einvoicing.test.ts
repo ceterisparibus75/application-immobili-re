@@ -83,6 +83,7 @@ const SUPPLIER_INVOICE_ID = "supplier-invoice-1";
 describe("einvoicing actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(createClient).mockReset();
     isEInvoicingConfigured.mockReturnValue(true);
     isChorusProConfigured.mockReturnValue(true);
     getPAClient.mockReturnValue({
@@ -505,6 +506,104 @@ describe("einvoicing actions", () => {
     expect(result).toEqual({ success: true, data: { created: 0, updated: 0 } });
     expect(paClient.searchFlows).toHaveBeenCalledWith(
       expect.objectContaining({ siret: "12345678901234", page: 0, pageSize: 50 })
+    );
+  });
+
+  it("couvre un cycle PA reçu complet : sync CII, stockage XML/PDF puis mise en paiement", async () => {
+    mockAuthSession(UserRole.COMPTABLE, SOCIETY_ID);
+    prismaMock.society.findFirst.mockResolvedValue({
+      siret: "12345678901234",
+      ppfRegisteredAt: new Date("2026-04-01T00:00:00.000Z"),
+    } as never);
+
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const from = vi.fn().mockReturnValue({ upload });
+    vi.mocked(createClient).mockReturnValue({ storage: { from } } as never);
+
+    const paClient = {
+      lookupBySiret: vi.fn().mockResolvedValue(null),
+      searchFlows: vi.fn().mockResolvedValueOnce({
+        flows: [
+          {
+            flowId: "FLOW-CII-001",
+            status: "MISE_A_DISPOSITION",
+            issueDate: "2026-04-01",
+            dueDate: "2026-04-30",
+            invoiceNumber: "FA/2026 001",
+            format: "CII",
+            totalTTC: 1200,
+            currency: "EUR",
+            seller: { name: "Fournisseur PA", siret: "55566677700012" },
+          },
+        ],
+      }),
+      downloadFlowDocument: vi.fn()
+        .mockResolvedValueOnce(Buffer.from("<cii>facture</cii>"))
+        .mockResolvedValueOnce(Buffer.from("%PDF-readable")),
+      updateFlowStatus: vi.fn().mockResolvedValue(undefined),
+    };
+    getPAClient.mockReturnValue(paClient);
+    prismaMock.supplierInvoice.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: SUPPLIER_INVOICE_ID,
+        ppfInvoiceId: "FLOW-CII-001",
+        invoiceNumber: "FA/2026 001",
+      } as never);
+    prismaMock.supplierInvoice.create.mockResolvedValue({ id: SUPPLIER_INVOICE_ID } as never);
+    prismaMock.supplierInvoice.update.mockResolvedValue({} as never);
+
+    const syncResult = await syncReceivedInvoices(SOCIETY_ID);
+    const paymentResult = await markInvoiceInPayment(
+      SOCIETY_ID,
+      SUPPLIER_INVOICE_ID,
+      "2026-04-30",
+      1200
+    );
+
+    expect(syncResult).toEqual({ success: true, data: { created: 1, updated: 0 } });
+    expect(upload).toHaveBeenNthCalledWith(
+      1,
+      "supplier-invoices/society-1/2026/FA_2026_001_FLOW-CII-001.xml",
+      Buffer.from("<cii>facture</cii>"),
+      { contentType: "application/xml", upsert: false }
+    );
+    expect(upload).toHaveBeenNthCalledWith(
+      2,
+      "supplier-invoices/society-1/2026/FA_2026_001_FLOW-CII-001.pdf",
+      Buffer.from("%PDF-readable"),
+      { contentType: "application/pdf", upsert: false }
+    );
+    expect(prismaMock.supplierInvoice.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        societyId: SOCIETY_ID,
+        invoiceNumber: "FA/2026 001",
+        storagePath: "supplier-invoices/society-1/2026/FA_2026_001_FLOW-CII-001.pdf",
+        xmlStoragePath: "supplier-invoices/society-1/2026/FA_2026_001_FLOW-CII-001.xml",
+        source: "ppf_einvoice",
+        ppfInvoiceId: "FLOW-CII-001",
+        ppfStatus: "MISE_A_DISPOSITION",
+        status: "PENDING_REVIEW",
+      }),
+    });
+    expect(paymentResult).toEqual({ success: true });
+    expect(paClient.updateFlowStatus).toHaveBeenCalledWith(
+      "FLOW-CII-001",
+      expect.objectContaining({
+        status: "EN_COURS_DE_PAIEMENT",
+        paymentDate: "2026-04-30",
+        paymentAmount: 1200,
+      })
+    );
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: SUPPLIER_INVOICE_ID },
+        data: expect.objectContaining({
+          ppfStatus: "EN_COURS_DE_PAIEMENT",
+          status: "VALIDATED",
+        }),
+      })
     );
   });
 

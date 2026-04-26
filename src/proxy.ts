@@ -59,6 +59,11 @@ export default auth(async (req) => {
     pathname.startsWith("/favicon") ||
     pathname === "/"
   ) {
+    if (pathname.startsWith("/aide")) {
+      const requestHeaders = new Headers(req.headers);
+      requestHeaders.set("x-pathname", pathname);
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
     return NextResponse.next();
   }
 
