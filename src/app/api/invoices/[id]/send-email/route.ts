@@ -9,6 +9,7 @@ import { createAuditLog } from "@/lib/audit";
 import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
 import * as nodePath from "path";
 import { getAllEmailCopyBcc } from "@/lib/email-copy";
+import { env } from "@/lib/env";
 import React from "react";
 
 export const maxDuration = 60;
@@ -16,8 +17,8 @@ export const maxDuration = 60;
 const STORAGE_BUCKET = "documents";
 
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
 }
@@ -80,7 +81,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // Logo societe (base64)
     let logoSignedUrl: string | null = null;
     const supabase = getSupabaseClient();
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     if (soc?.logoUrl) {
       try {
         // Sanitize path: decode URL-encoded chars, normalize with posix to collapse all traversals
@@ -224,7 +225,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // Dépôt automatique du PDF dans le module documents
     if (supabase) {
       try {
-        const bucketName = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+        const bucketName = env.SUPABASE_STORAGE_BUCKET ?? "documents";
         const year = new Date(invoice.issueDate).getFullYear();
         const folder = isQuittance ? "quittances" : "invoices";
         const docStoragePath = `${folder}/${context.societyId}/${year}/${pdfFileName}`;

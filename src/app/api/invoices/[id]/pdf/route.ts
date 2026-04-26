@@ -63,7 +63,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // 6. Logo société (base64 pour intégration dans le PDF)
     let logoSignedUrl: string | null = null;
     const supabase = getSupabaseClient();
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     if (soc?.logoUrl) {
       // Sanitize path: decode URL-encoded chars, normalize with posix to collapse all traversals
       let decoded = soc.logoUrl;

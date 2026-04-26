@@ -87,7 +87,7 @@ export async function GET(
     // 6. Logo société (base64)
     let logoSignedUrl: string | null = null;
     const supabase = getSupabaseClient();
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? STORAGE_BUCKET;
     if (soc?.logoUrl) {
       let decoded = soc.logoUrl;
       try {

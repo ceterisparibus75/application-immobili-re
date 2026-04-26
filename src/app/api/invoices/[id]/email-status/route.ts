@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { env } from "@/lib/env";
 
 const STATUS_LABELS: Record<string, string> = {
   delivered: "Livré",
@@ -28,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!invoice) return NextResponse.json({ error: "Facture introuvable" }, { status: 404 });
     if (!invoice.resendEmailId) return NextResponse.json({ status: null, label: null });
 
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = env.RESEND_API_KEY;
     if (!apiKey) return NextResponse.json({ status: null, label: null });
 
     const resend = new Resend(apiKey);

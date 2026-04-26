@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePortalAuth } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,12 +25,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return new NextResponse(null, { status: 404 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) return new NextResponse(null, { status: 503 });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "documents";
+    const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
 
     const { data: blob, error } = await supabase.storage.from(bucket).download(invoice.fileUrl);
     if (error || !blob) return new NextResponse(null, { status: 404 });

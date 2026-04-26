@@ -14,6 +14,7 @@ import {
   sendInvoiceReminderEmail,
   sendPasswordResetEmail,
 } from "@/lib/email";
+import { env } from "@/lib/env";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   }
 
   const TO = "maxime.langet@gmail.com";
-  const baseUrl = process.env.AUTH_URL ?? "https://app.mygestia.immo";
+  const baseUrl = env.AUTH_URL ?? "https://app.mygestia.immo";
   const results: Record<string, { success: boolean; error?: string }> = {};
 
   // 1. Relance niveau 1 (Rappel amiable)
