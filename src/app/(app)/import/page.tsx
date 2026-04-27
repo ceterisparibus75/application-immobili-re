@@ -1087,9 +1087,9 @@ export default function ImportPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Import par PDF</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Migration guidée par PDF</h1>
           <p className="text-muted-foreground text-sm">
-            Importez un bail PDF — l&apos;IA extrait automatiquement les données
+            Reprenez un bail existant : l&apos;IA extrait les données, vous vérifiez, puis MyGestia crée immeuble, lot, locataire et bail.
           </p>
         </div>
       </div>
@@ -1121,6 +1121,25 @@ export default function ImportPage() {
       {/* ── Step 1: Upload ── */}
       {step === "upload" && (
         <Card>
+          <CardHeader className="pb-0">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-border/60 bg-muted/35 p-4">
+                <Building2 className="mb-3 h-5 w-5 text-primary" />
+                <p className="text-sm font-medium">Structure reprise</p>
+                <p className="mt-1 text-xs text-muted-foreground">Immeuble, lot et locataire sont préparés ensemble.</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/35 p-4">
+                <Bot className="mb-3 h-5 w-5 text-primary" />
+                <p className="text-sm font-medium">Extraction vérifiable</p>
+                <p className="mt-1 text-xs text-muted-foreground">Aucune donnée n'est créée avant votre validation.</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/35 p-4">
+                <ScrollText className="mb-3 h-5 w-5 text-primary" />
+                <p className="text-sm font-medium">Premier bail opérationnel</p>
+                <p className="mt-1 text-xs text-muted-foreground">Le bail débloque facturation, portail et reporting.</p>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="pt-6">
             <div
               className={cn(

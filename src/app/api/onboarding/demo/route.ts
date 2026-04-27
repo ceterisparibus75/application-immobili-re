@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { encrypt } from "@/lib/encryption";
 
 /**
  * POST /api/onboarding/demo
@@ -70,7 +71,7 @@ export async function POST() {
   const startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
   const endDate = new Date(now.getFullYear() + 2, now.getMonth() - 6, 1);
 
-  await prisma.lease.create({
+  const lease = await prisma.lease.create({
     data: {
       societyId,
       lotId: lot1.id,
@@ -85,12 +86,102 @@ export async function POST() {
     },
   });
 
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dueDate = new Date(now.getFullYear(), now.getMonth(), 5);
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      societyId,
+      leaseId: lease.id,
+      tenantId: tenant.id,
+      invoiceNumber: `DEMO-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
+      invoiceType: "QUITTANCE",
+      status: "PAYE",
+      issueDate: periodStart,
+      dueDate,
+      periodStart,
+      periodEnd,
+      totalHT: 850,
+      totalVAT: 0,
+      totalTTC: 850,
+      validatedAt: periodStart,
+      sentAt: periodStart,
+      sentBy: tenant.email,
+      lines: {
+        create: [
+          {
+            label: "Loyer mensuel - données démo",
+            quantity: 1,
+            unitPrice: 850,
+            vatRate: 0,
+            totalHT: 850,
+            totalVAT: 0,
+            totalTTC: 850,
+            accountingAccountCode: "706000",
+          },
+        ],
+      },
+    },
+  });
+
+  const payment = await prisma.payment.create({
+    data: {
+      invoiceId: invoice.id,
+      amount: 850,
+      paidAt: dueDate,
+      method: "virement",
+      reference: "VIR-DEMO-LOYER-850",
+      notes: "Paiement de démonstration rapproché automatiquement",
+      isReconciled: true,
+    },
+  });
+
+  const bankAccount = await prisma.bankAccount.create({
+    data: {
+      societyId,
+      bankName: "Banque Démo",
+      accountName: "Compte loyers - démo",
+      ibanEncrypted: encrypt("FR7612345123451234567890138"),
+      initialBalance: 12500,
+      currentBalance: 13350,
+    },
+  });
+
+  const transaction = await prisma.bankTransaction.create({
+    data: {
+      bankAccountId: bankAccount.id,
+      transactionDate: dueDate,
+      valueDate: dueDate,
+      amount: 850,
+      label: "VIR SEPA MARIE DUPONT LOYER DEMO",
+      reference: "VIR-DEMO-LOYER-850",
+      category: "LOYERS",
+      isReconciled: true,
+      importBatch: "demo-onboarding",
+      externalId: `demo-${societyId}-${now.getFullYear()}-${now.getMonth() + 1}`,
+    },
+  });
+
+  await prisma.bankReconciliation.create({
+    data: {
+      transactionId: transaction.id,
+      paymentId: payment.id,
+      isValidated: true,
+      validatedAt: dueDate,
+      notes: "Rapprochement de démonstration",
+    },
+  });
+
   return NextResponse.json({
     data: {
       message: "Données de démonstration créées",
       buildingId: building.id,
       lotIds: [lot1.id, lot2.id],
       tenantId: tenant.id,
+      leaseId: lease.id,
+      invoiceId: invoice.id,
+      bankAccountId: bankAccount.id,
     },
   });
 }

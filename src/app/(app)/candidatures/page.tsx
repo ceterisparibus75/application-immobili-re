@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { UserPlus, Users } from "lucide-react";
+import { Plus, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ export default async function CandidaturesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6 text-[var(--color-brand-blue)]" />
@@ -69,12 +69,26 @@ export default async function CandidaturesPage() {
             {avgScore > 0 && ` · Score moyen : ${avgScore}/100`}
           </p>
         </div>
-        <Button asChild className="gap-1.5 bg-brand-gradient-soft text-white hover:opacity-90">
-          <Link href="/locataires/nouveau">
-            <UserPlus className="h-4 w-4" />
-            Créer un locataire
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/location/mise-en-location">
+              <Users className="h-4 w-4" />
+              Parcours complet
+            </Link>
+          </Button>
+          <Button asChild className="gap-1.5 bg-brand-gradient-soft text-white hover:opacity-90">
+            <Link href="/candidatures/nouvelle">
+              <Plus className="h-4 w-4" />
+              Nouvelle candidature
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/locataires/nouveau">
+              <UserPlus className="h-4 w-4" />
+              Créer un locataire
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {totalActive === 0 ? (

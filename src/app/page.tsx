@@ -25,31 +25,31 @@ import {
 } from "@/components/landing/data";
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+  title: `${APP_NAME} — Pilotage immobilier multi-sociétés pour SCI et foncières`,
   description:
-    "Pilotez votre patrimoine immobilier avec rigueur. Baux, facturation, comptabilité FEC, rapprochement bancaire, reporting consolidé. Conforme RGPD, hébergement européen, chiffrement AES-256.",
+    "Unifiez gestion locative, banque, comptabilité FEC, documents et reporting propriétaire pour vos SCI, holdings patrimoniales et foncières privées.",
   alternates: {
     canonical: "https://mygestia.immo",
   },
   openGraph: {
-    title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+    title: `${APP_NAME} — Pilotage immobilier multi-sociétés pour SCI et foncières`,
     description:
-      "Plateforme sécurisée de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
+      "Plateforme sécurisée pour patrimoines immobiliers multi-sociétés : location, comptabilité, banque, conformité et reporting consolidé.",
     type: "website",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: `${APP_NAME} — Logiciel de gestion immobilière`,
+        alt: `${APP_NAME} — Pilotage immobilier multi-sociétés`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} — Logiciel de gestion immobilière pour foncières et gestionnaires`,
+    title: `${APP_NAME} — Pilotage immobilier multi-sociétés pour SCI et foncières`,
     description:
-      "Plateforme sécurisée de gestion d'actifs immobiliers. Pilotage, conformité, reporting — conçue pour les foncières privées et les cabinets de gestion.",
+      "Plateforme sécurisée pour patrimoines immobiliers multi-sociétés : location, comptabilité, banque, conformité et reporting consolidé.",
     images: ["/og-image.png"],
   },
 };

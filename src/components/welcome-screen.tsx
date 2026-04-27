@@ -23,31 +23,31 @@ interface ProfileOption {
 const PROFILES: ProfileOption[] = [
   {
     id: "sci",
-    title: "SCI familiale",
-    description: "Vous gérez un patrimoine personnel ou familial (1 à 30 lots)",
+    title: "SCI / patrimoine direct",
+    description: "Vous gérez un patrimoine personnel ou familial, avec une ou plusieurs sociétés",
     icon: Home,
-    features: ["Facturation automatique", "Suivi des loyers", "Export FEC"],
+    features: ["Baux et loyers", "Trésorerie", "Export FEC"],
   },
   {
     id: "cabinet",
-    title: "Cabinet de gestion",
-    description: "Vous gérez le patrimoine de vos clients (20 à 200 lots)",
+    title: "Gestionnaire de portefeuille",
+    description: "Vous gérez plusieurs propriétaires, lots ou sociétés avec des processus récurrents",
     icon: Briefcase,
-    features: ["Multi-propriétaire", "Rapprochement bancaire", "Rapports personnalisés"],
+    features: ["Multi-propriétaire", "Rapprochement", "Rapports"],
   },
   {
     id: "fonciere",
-    title: "Foncière / Family office",
-    description: "Vous gérez un portefeuille conséquent (50+ lots, multi-sociétés)",
+    title: "Foncière / family office",
+    description: "Vous pilotez un portefeuille conséquent, multi-sociétés et orienté performance",
     icon: Building2,
-    features: ["Multi-sociétés", "Évaluation patrimoniale IA", "API et intégrations"],
+    features: ["Consolidation", "Dette et LTV", "API"],
   },
   {
     id: "syndic",
-    title: "Syndic / Administrateur de biens",
-    description: "Vous gérez des copropriétés et mandats de gestion",
+    title: "Administrateur / équipe",
+    description: "Vous travaillez à plusieurs avec droits, audit, documents et relation locataire",
     icon: Users,
-    features: ["Portail locataire", "Gestion des tickets", "Signature électronique"],
+    features: ["RBAC", "Portail", "Tickets"],
   },
 ];
 

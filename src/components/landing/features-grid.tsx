@@ -5,12 +5,12 @@ export function FeaturesGrid() {
     <section id="fonctionnalites" className="py-24 sm:py-32 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Plateforme</p>
+          <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Portefeuille</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-            Capacités clés
+            Les briques qui remplacent les tableurs parallèles
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Une infrastructure complète pour structurer, piloter et sécuriser la gestion de votre patrimoine immobilier.
+            Une plateforme complète pour structurer chaque entité, automatiser la gestion courante et consolider les indicateurs qui comptent.
           </p>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

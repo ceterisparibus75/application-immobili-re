@@ -29,6 +29,8 @@ import {
   EyeOff,
   FileText,
   LucideIcon,
+  Sparkles,
+  Upload,
   UserPlus,
   Users,
   X,
@@ -284,6 +286,45 @@ export function OnboardingChecklist() {
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Button
+            variant="outline"
+            className="h-auto justify-start gap-3 rounded-xl bg-background px-4 py-3 text-left"
+            onClick={async () => {
+              await fetch("/api/onboarding/demo", { method: "POST" });
+              router.refresh();
+            }}
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>
+              <span className="block text-sm font-medium">Charger une démo</span>
+              <span className="block text-xs font-normal text-muted-foreground">Voir un portefeuille complet</span>
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto justify-start gap-3 rounded-xl bg-background px-4 py-3 text-left"
+            onClick={() => router.push("/import")}
+          >
+            <Upload className="h-4 w-4 text-primary" />
+            <span>
+              <span className="block text-sm font-medium">Importer un bail</span>
+              <span className="block text-xs font-normal text-muted-foreground">Reprendre l'existant par PDF</span>
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto justify-start gap-3 rounded-xl bg-background px-4 py-3 text-left"
+            onClick={() => router.push("/societes/nouvelle")}
+          >
+            <Building2 className="h-4 w-4 text-primary" />
+            <span>
+              <span className="block text-sm font-medium">Partir de zéro</span>
+              <span className="block text-xs font-normal text-muted-foreground">Créer votre première société</span>
+            </span>
+          </Button>
+        </div>
+
         {spotlightStep && (
           <div className="rounded-2xl border border-primary/20 bg-background/90 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

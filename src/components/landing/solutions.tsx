@@ -5,24 +5,24 @@ import { Button } from "@/components/ui/button";
 const solutionCards = [
   {
     icon: Landmark,
-    title: "Pour les Foncières & Family Offices",
-    description: "Pilotez le rendement de vos actifs avec une vision consolidée, multi-sociétés et multi-structures juridiques.",
+    title: "Pour les SCI, holdings et family offices",
+    description: "Passez d'une gestion par entité à une lecture consolidée de votre patrimoine, sans sacrifier la comptabilité de chaque société.",
     items: [
       "Vision consolidée du patrimoine et de la trésorerie",
       "Rendement brut, LTV et taux d'occupation en temps réel",
       "Reporting propriétaire multi-sociétés",
-      "Copropriété et location saisonnière intégrées",
-      "Assistant IA : prédiction des impayés et génération de courriers",
+      "Comptabilité, FEC et justificatifs par société",
+      "Facturation électronique B2B 2026 pour les entités concernées",
       "Gestion des emprunts et de l'amortissement",
     ],
   },
   {
     icon: Users,
-    title: "Pour les Professionnels de la Gestion",
-    description: "Automatisez vos flux opérationnels et structurez la relation locataire avec rigueur et traçabilité.",
+    title: "Pour les gestionnaires de portefeuilles",
+    description: "Structurez les flux récurrents, les relances, les documents et la relation locataire dans un outil pensé pour les équipes.",
     items: [
       "Facturation et quittancement automatisés",
-      "Workflows & automatisations personnalisables",
+      "Relances, alertes et rapports planifiés",
       "CRM & gestion des candidatures locataires",
       "Portail locataire sécurisé avec documents",
       "Comptabilité intégrée et export FEC conforme",
@@ -61,9 +61,9 @@ export function Solutions() {
                 ))}
               </ul>
               <div className="mt-8">
-                <Link href="/signup">
+                <Link href="/contact">
                   <Button className="w-full bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg">
-                    Évaluer la solution <ChevronRight className="h-4 w-4 ml-1" />
+                    Planifier une démo <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </Link>
               </div>

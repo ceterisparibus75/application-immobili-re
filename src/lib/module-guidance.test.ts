@@ -13,6 +13,10 @@ describe("module guidance", () => {
 
     expect(steps).toEqual([
       expect.objectContaining({
+        title: "Ouvrir le parcours de mise en location",
+        href: "/location/mise-en-location",
+      }),
+      expect.objectContaining({
         title: "Ajouter le premier locataire",
         href: "/locataires/nouveau",
       }),

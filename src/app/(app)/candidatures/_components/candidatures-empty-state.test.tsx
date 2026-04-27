@@ -8,9 +8,13 @@ describe("CandidaturesEmptyState", () => {
     render(<CandidaturesEmptyState />);
 
     expect(screen.getByRole("heading", { name: "Aucune candidature" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Créer un locataire/i })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Ajouter une candidature/i })[0]).toHaveAttribute(
       "href",
-      "/locataires/nouveau",
+      "/candidatures/nouvelle",
+    );
+    expect(screen.getByRole("link", { name: /Ouvrir le parcours/i })).toHaveAttribute(
+      "href",
+      "/location/mise-en-location",
     );
     expect(screen.getByRole("link", { name: /Créer le bail complet/i })).toHaveAttribute(
       "href",

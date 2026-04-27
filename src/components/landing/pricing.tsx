@@ -15,10 +15,10 @@ export function Pricing() {
         <div className="text-center mb-12">
           <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Offres</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-            Une tarification lisible et prévisible
+            Des offres pensées pour les patrimoines structurés
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            14 jours d&apos;évaluation complète sur toutes les offres. Sans engagement, sans carte bancaire.
+            MyGestia devient vraiment utile quand vous devez consolider plusieurs lots, sociétés, flux bancaires et obligations comptables. 14 jours d&apos;évaluation complète, sans carte bancaire.
           </p>
 
           {/* Toggle mensuel / annuel */}
@@ -135,7 +135,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-10">
-          Tous les plans incluent un accès complet pendant 14 jours — aucune carte bancaire requise.
+          Pour un seul logement, un outil bailleur léger peut suffire. MyGestia est conçu pour reprendre la main quand la gestion devient multi-lots, multi-sociétés et comptable.
         </p>
       </div>
     </section>

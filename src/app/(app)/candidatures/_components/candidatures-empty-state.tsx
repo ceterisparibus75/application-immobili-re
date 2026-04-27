@@ -5,10 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const NEXT_ACTIONS = [
   {
-    href: "/locataires/nouveau",
-    label: "Créer un locataire",
-    description: "Ouvrir directement le dossier quand le candidat est retenu.",
+    href: "/candidatures/nouvelle",
+    label: "Ajouter une candidature",
+    description: "Qualifier le premier contact avant de créer le locataire.",
     icon: UserPlus,
+  },
+  {
+    href: "/location/mise-en-location",
+    label: "Ouvrir le parcours",
+    description: "Suivre la séquence lot vacant, candidat, locataire, bail.",
+    icon: Users,
   },
   {
     href: "/baux/nouveau/complet",
@@ -34,16 +40,16 @@ export function CandidaturesEmptyState() {
           </div>
           <h3 className="mb-1 text-lg font-semibold">Aucune candidature</h3>
           <p className="mb-5 max-w-lg text-sm text-muted-foreground">
-            Le pipeline est vide. Orientez-vous vers le dossier locataire, le bail complet ou le guide métier selon l'avancement du dossier.
+            Le pipeline est vide. Commencez par une candidature si le locataire n'est pas encore retenu, ou ouvrez directement le parcours complet de mise en location.
           </p>
           <Button asChild>
-            <Link href="/locataires/nouveau">
+            <Link href="/candidatures/nouvelle">
               <UserPlus className="h-4 w-4" />
-              Créer un locataire
+              Ajouter une candidature
             </Link>
           </Button>
 
-          <div className="mt-8 grid w-full gap-3 text-left sm:grid-cols-3">
+          <div className="mt-8 grid w-full gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
             {NEXT_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (

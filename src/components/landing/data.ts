@@ -72,10 +72,10 @@ export interface Faq {
 /* ─── Data ──────────────────────────────────────────────────────────── */
 
 export const stats: Stat[] = [
-  { value: "Multi-entités", label: "consolidation en temps réel" },
-  { value: "AES-256", label: "chiffrement des données" },
-  { value: "99,9%", label: "de disponibilité" },
-  { value: "RGPD", label: "conformité native" },
+  { value: "20-300 lots", label: "cible portefeuille idéale" },
+  { value: "Multi-sociétés", label: "SCI, holdings et entités dédiées" },
+  { value: "FEC + PA 2026", label: "comptabilité et e-facturation" },
+  { value: "Banque", label: "rapprochement et trésorerie" },
 ];
 
 export const features: Feature[] = [
@@ -83,13 +83,13 @@ export const features: Feature[] = [
     icon: Building2,
     title: "Vision multi-entités",
     description:
-      "Suivi des immeubles, traçabilité des diagnostics, structuration par société et portefeuille. Consolidation transversale de l\u2019ensemble des actifs.",
+      "Structurez chaque SCI, SARL ou entité dédiée sans perdre la vision propriétaire : actifs, loyers, dette, trésorerie et alertes consolidés.",
   },
   {
     icon: FileText,
     title: "Rigueur comptable",
     description:
-      "Plan comptable immobilier intégré, export FEC conforme, rapprochement bancaire automatisé. Chaque écriture est tracée et auditable.",
+      "Plan comptable immobilier, écritures validées, export FEC, pièces justificatives et rapprochement bancaire dans un même référentiel exploitable par l'expert-comptable.",
   },
   {
     icon: Users,
@@ -101,19 +101,19 @@ export const features: Feature[] = [
     icon: Banknote,
     title: "Gestion locative complète",
     description:
-      "Tous types de baux français, facturation automatique, révisions indicielles IRL/ILC/ILAT, relances programmées.",
+      "Tous types de baux français, facturation automatique, révisions indicielles IRL/ILC/ILAT, relances et portail locataire pour la gestion courante.",
   },
   {
     icon: Building,
-    title: "Copropriété",
+    title: "Charges et copropriété",
     description:
-      "Gestion des copropriétés, suivi des charges et appels de fonds, répartition par tantièmes et pilotage des assemblées générales.",
+      "Suivi des charges récupérables, provisions, clés de répartition, appels et justificatifs pour fiabiliser les régularisations.",
   },
   {
     icon: CalendarRange,
-    title: "Location saisonnière",
+    title: "Locations spécifiques",
     description:
-      "Module dédié à la gestion des locations courte durée : calendrier de disponibilité, tarification dynamique et suivi des réservations.",
+      "Baux commerciaux, professionnels, habitation, parkings et usages particuliers : un modèle assez souple pour les portefeuilles mixtes.",
   },
   {
     icon: Bot,
@@ -123,9 +123,9 @@ export const features: Feature[] = [
   },
   {
     icon: Workflow,
-    title: "Automatisation par workflows",
+    title: "Automatisation opérationnelle",
     description:
-      "Créez des workflows personnalisés pour automatiser vos processus récurrents : relances, notifications, affectations et validations.",
+      "Crons métier, relances, alertes diagnostics, assurances, baux, rapports et révisions pour réduire les tâches récurrentes.",
   },
   {
     icon: UserSearch,
@@ -137,7 +137,7 @@ export const features: Feature[] = [
     icon: BarChart3,
     title: "Reporting et KPI consolidés",
     description:
-      "Tableaux de bord par entité, KPI consolidés (rendement, occupation, LTV), suivi en temps réel de la performance du portefeuille.",
+      "Tableaux de bord par entité et au niveau propriétaire : rendement, occupation, impayés, LTV, dette, trésorerie et échéances.",
   },
   {
     icon: Shield,
@@ -168,18 +168,18 @@ export const highlights: Highlight[] = [
 export const steps: Step[] = [
   {
     step: "1",
-    title: "Paramétrage initial",
-    description: "Créez vos sociétés, importez votre patrimoine via CSV/Excel. Aucune carte bancaire requise.",
+    title: "Diagnostic du portefeuille",
+    description: "Identifiez vos sociétés, lots, baux, comptes bancaires et priorités de reprise. Un compte démo permet de tester sans partir de zéro.",
   },
   {
     step: "2",
-    title: "Structuration des données",
-    description: "Baux, locataires, charges, comptes bancaires — configurez votre environnement de gestion.",
+    title: "Migration guidée",
+    description: "Importez un bail PDF avec l'IA ou saisissez progressivement immeubles, lots, locataires et soldes d'ouverture.",
   },
   {
     step: "3",
-    title: "Pilotage opérationnel",
-    description: "Facturation automatique, rapprochement bancaire, reporting consolidé — votre gestion est en place.",
+    title: "Pilotage consolidé",
+    description: "Activez facturation, banque, comptabilité et reporting propriétaire pour piloter chaque entité sans tableur parallèle.",
   },
 ];
 
@@ -213,7 +213,7 @@ export const caseStudies: CaseStudy[] = [
 export const plans: Plan[] = [
   {
     name: "Essentiel",
-    description: "Patrimoine en gestion directe",
+    description: "SCI et patrimoine en gestion directe",
     price: 19,
     priceYearly: 190,
     limits: "20 lots · 1 société · 2 utilisateurs",
@@ -221,9 +221,9 @@ export const plans: Plan[] = [
       "Pilotage du patrimoine",
       "Gestion des baux et locataires",
       "Facturation et quittances PDF",
-      "Copropriété",
-      "Location saisonnière",
-      "CRM & Candidatures",
+      "Charges et régularisations",
+      "Dossier documentaire",
+      "Import guidé du premier bail",
       "Tableau de bord analytique",
       "Support par email",
     ],
@@ -231,7 +231,7 @@ export const plans: Plan[] = [
   },
   {
     name: "Professionnel",
-    description: "Cabinets et multi-sociétés",
+    description: "Multi-sociétés et portefeuilles structurés",
     price: 79,
     priceYearly: 790,
     limits: "50 lots · 3 sociétés · 5 utilisateurs",
@@ -241,14 +241,14 @@ export const plans: Plan[] = [
       "Rapprochement bancaire automatique",
       "Recouvrement par relances progressives",
       "Portail locataire sécurisé",
-      "Workflows & automatisations",
+      "Reporting propriétaire consolidé",
       "Support prioritaire",
     ],
     highlighted: true,
   },
   {
     name: "Institutionnel",
-    description: "Foncières et grands portefeuilles",
+    description: "Foncières, family offices et grands portefeuilles",
     price: 199,
     priceYearly: 1990,
     limits: "Lots et sociétés illimités",
@@ -258,6 +258,7 @@ export const plans: Plan[] = [
       "Assistant IA (chatbot, courriers, prédiction)",
       "Signature électronique",
       "Import documentaire assisté par IA",
+      "Facturation électronique B2B 2026",
       "Accès API & intégrations",
       "Support dédié & SLA 99,9%",
     ],
@@ -272,7 +273,7 @@ export const faqs: Faq[] = [
   },
   {
     q: "Est-il possible de migrer nos données existantes ?",
-    a: "MyGestia permet l'import structuré via CSV et Excel : immeubles, lots, locataires, baux et écritures comptables. Le plan Institutionnel propose un import assisté par intelligence artificielle.",
+    a: "Oui. Vous pouvez explorer un compte démo, importer un bail PDF avec vérification assistée par IA, puis compléter progressivement immeubles, lots, locataires, soldes d'ouverture et comptes bancaires.",
   },
   {
     q: "Quelle est la politique de sécurité des données ?",
@@ -295,8 +296,8 @@ export const faqs: Faq[] = [
     a: "Le plan Institutionnel inclut : lots et sociétés illimités, assistant IA (chatbot, génération de courriers, prédiction des impayés), signature électronique, import documentaire assisté par IA, accès API et support dédié avec SLA 99,9%.",
   },
   {
-    q: "La copropriété et la location saisonnière sont-elles incluses ?",
-    a: "Oui. Les modules Copropriété et Location saisonnière sont inclus dans tous les plans dès l'offre Essentiel. Le module Workflows & automatisations est disponible à partir du plan Professionnel.",
+    q: "À partir de quand MyGestia est-il pertinent ?",
+    a: "Pour un seul logement, un outil bailleur léger peut suffire. MyGestia vise surtout les SCI, holdings, foncières privées et gestionnaires qui doivent consolider plusieurs lots, sociétés, flux bancaires et obligations comptables.",
   },
 ];
 
@@ -309,7 +310,7 @@ export const jsonLdOrganization = {
   brand: { "@type": "Brand", name: APP_NAME },
   url: SITE_URL,
   logo: `${SITE_URL}/logo-mygestia.svg`,
-  description: "Plateforme sécurisée de gestion d'actifs immobiliers pour les foncières privées, les cabinets de gestion et les family offices.",
+  description: "Plateforme sécurisée de pilotage immobilier multi-sociétés pour SCI, holdings patrimoniales, foncières privées et family offices.",
   address: { "@type": "PostalAddress", addressCountry: "FR" },
 };
 

@@ -46,7 +46,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const HISTORY_KEY = "mygestia-search-history";
 const MAX_HISTORY = 8;
-const INITIAL_QUICK_ACTION_LIMIT = 12;
+const INITIAL_QUICK_ACTION_LIMIT = 14;
 
 const QUICK_ACTIONS = [
   {
@@ -69,6 +69,20 @@ const QUICK_ACTIONS = [
     icon: Building2,
     color: TYPE_COLORS.building,
     keywords: ["patrimoine", "batiment", "bien"],
+  },
+  {
+    label: "Mise en location",
+    href: "/location/mise-en-location",
+    icon: ClipboardCheck,
+    color: "bg-sky-500/10 text-sky-600",
+    keywords: ["candidat", "dossier", "vacant", "location", "mise"],
+  },
+  {
+    label: "Nouvelle candidature",
+    href: "/candidatures/nouvelle",
+    icon: UserCircle,
+    color: "bg-sky-500/10 text-sky-600",
+    keywords: ["candidat", "dossier", "pipeline", "locataire"],
   },
   {
     label: "Créer un locataire",

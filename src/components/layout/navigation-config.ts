@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   Building,
   Building2,
+  ClipboardCheck,
   Code,
   Contact,
   FileBarChart,
@@ -69,6 +70,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
     title: "Location",
     items: [
       { name: "Vue d'ensemble", href: "/location", icon: Home },
+      { name: "Mise en location", href: "/location/mise-en-location", icon: ClipboardCheck },
       { name: "Baux", href: "/baux", icon: FileText },
       { name: "Nouveau bail", href: "/baux/nouveau", icon: FileText },
       { name: "Import bail PDF", href: "/baux/import", icon: Upload },
@@ -142,6 +144,7 @@ export const TOP_NAV_GROUPS: NavGroup[] = [
   ]),
   pickTopNavGroup("Location", [
     "Vue d'ensemble",
+    "Mise en location",
     "Baux",
     "Nouveau bail",
     "Locataires",

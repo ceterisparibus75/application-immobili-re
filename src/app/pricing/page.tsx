@@ -6,22 +6,22 @@ import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
   title: `Tarifs | ${APP_NAME}`,
-  description: "Découvrez nos offres de gestion immobilière SaaS. 14 jours d'essai gratuit.",
+  description: "Offres MyGestia pour SCI, holdings patrimoniales, foncières privées et portefeuilles immobiliers multi-sociétés.",
 };
 
 const plans = [
   {
     name: "Starter",
-    description: "Pour les petits patrimoines",
+    description: "SCI et patrimoine en gestion directe",
     price: { monthly: 19, yearly: 190 },
     limits: "20 lots · 1 société · 2 utilisateurs",
     features: [
       "Gestion de patrimoine",
       "Baux et locataires",
       "Facturation et quittances PDF",
-      "Copropriété",
-      "Location saisonnière",
-      "CRM & Candidatures",
+      "Charges et régularisations",
+      "Dossier documentaire",
+      "Import guidé du premier bail",
       "Tableau de bord analytique",
       "Support par email",
     ],
@@ -30,7 +30,7 @@ const plans = [
   },
   {
     name: "Pro",
-    description: "Pour les gestionnaires professionnels",
+    description: "Multi-sociétés et portefeuilles structurés",
     price: { monthly: 79, yearly: 790 },
     limits: "50 lots · 3 sociétés · 5 utilisateurs",
     features: [
@@ -39,7 +39,7 @@ const plans = [
       "Connexion bancaire automatique",
       "Relances automatiques",
       "Portail locataire",
-      "Workflows & automatisations",
+      "Reporting propriétaire consolidé",
       "Support prioritaire",
     ],
     cta: "Démarrer l\u2019essai gratuit",
@@ -47,7 +47,7 @@ const plans = [
   },
   {
     name: "Enterprise",
-    description: "Pour les grands portefeuilles",
+    description: "Foncières, family offices et grands portefeuilles",
     price: { monthly: 199, yearly: 1990 },
     limits: "Lots et sociétés illimités",
     features: [
@@ -56,6 +56,7 @@ const plans = [
       "Assistant IA (chatbot, courriers, prédiction)",
       "Signature électronique",
       "Import IA de documents",
+      "Facturation électronique B2B 2026",
       "Accès API & intégrations",
       "Support dédié & SLA 99,9%",
     ],
@@ -109,10 +110,10 @@ export default function PricingPage() {
         <div className="text-center mb-16">
           <p className="text-primary font-semibold text-sm tracking-wide uppercase mb-3">Tarifs</p>
           <h1 className="text-4xl sm:text-5xl font-extrabold mb-5">
-            Des tarifs simples et transparents
+            Des offres pensées pour les patrimoines structurés
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            14 jours d&apos;essai gratuit sur toutes les offres. Sans engagement, sans carte bancaire.
+            MyGestia devient vraiment utile quand la gestion devient multi-lots, multi-sociétés et comptable. 14 jours d&apos;essai gratuit, sans carte bancaire.
           </p>
         </div>
 
@@ -205,11 +206,11 @@ export default function PricingPage() {
             </div>
             <div className="border-b pb-5">
               <p className="font-bold text-base">Puis-je importer mes données existantes ?</p>
-              <p className="text-muted-foreground mt-2">Oui. Vous pouvez importer vos immeubles, lots, locataires et baux depuis des fichiers Excel ou CSV. Le plan Enterprise propose un import assisté par intelligence artificielle qui détecte et mappe automatiquement vos données.</p>
+              <p className="text-muted-foreground mt-2">Oui. Vous pouvez commencer par un compte démo, importer un bail PDF avec vérification assistée par IA, puis compléter progressivement immeubles, lots, locataires, soldes et comptes bancaires.</p>
             </div>
             <div className="border-b pb-5">
-              <p className="font-bold text-base">La copropriété et la location saisonnière sont-elles incluses ?</p>
-              <p className="text-muted-foreground mt-2">Oui. Les modules Copropriété et Location saisonnière sont disponibles dans tous les plans, dès l&apos;offre Starter. Le module Workflows & automatisations est inclus à partir du plan Pro.</p>
+              <p className="font-bold text-base">À partir de quand MyGestia est-il pertinent ?</p>
+              <p className="text-muted-foreground mt-2">Pour un seul logement, un outil bailleur léger peut suffire. MyGestia vise surtout les portefeuilles multi-lots, SCI, holdings, foncières privées et équipes qui doivent consolider location, banque, comptabilité et reporting.</p>
             </div>
             <div>
               <p className="font-bold text-base">Comment fonctionne l&apos;assistant IA ?</p>

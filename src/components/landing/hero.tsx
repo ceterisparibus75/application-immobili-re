@@ -26,27 +26,18 @@ function DashboardMockup() {
 
         {/* Interface app */}
         <div className="flex h-[340px] sm:h-[400px]">
-          {/* Sidebar */}
-          <div className="hidden sm:flex flex-col w-[52px] bg-[#1B4F8A] py-4 items-center gap-4">
-            {["M", "P", "B", "F", "C"].map((l, i) => (
-              <div
-                key={l}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold cursor-default ${
-                  i === 0 ? "bg-white/20 text-white" : "text-white/50"
-                }`}
-              >
-                {l}
-              </div>
-            ))}
-          </div>
-
-          {/* Contenu principal */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#F9FAFB]">
             {/* Header interne */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-border/60">
               <div>
-                <p className="text-xs text-muted-foreground">Tableau de bord</p>
+                <p className="text-xs text-muted-foreground">Portefeuille consolidé</p>
                 <p className="text-sm font-semibold text-[var(--color-brand-deep)]">SCI Dupont & Associés</p>
+              </div>
+              <div className="hidden items-center gap-3 text-[10px] font-medium text-muted-foreground sm:flex">
+                <span className="text-[var(--color-brand-deep)]">Dashboard</span>
+                <span>Patrimoine</span>
+                <span>Location</span>
+                <span>Finances</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded-full bg-brand-gradient-soft text-white flex items-center justify-center text-[10px] font-bold">
@@ -126,17 +117,17 @@ export function Hero() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-[var(--color-brand-light)] text-[var(--color-brand-blue)] text-sm font-semibold px-5 py-2 rounded-full mb-8 ring-1 ring-[var(--color-brand-cyan)]/20">
             <Shield className="h-4 w-4" />
-            Plateforme sécurisée de gestion d&apos;actifs immobiliers
+            Pour SCI, holdings patrimoniales, family offices et foncières privées
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 text-[var(--color-brand-deep)]">
-            La maîtrise de votre
+            Pilotez vos sociétés
             <br />
-            <span className="text-brand-gradient">patrimoine immobilier.</span>
+            <span className="text-brand-gradient">comme un portefeuille.</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-            Plateforme unifiée pour la consolidation, l&apos;analyse et la sécurisation des actifs immobiliers. Conçue pour les environnements multi-entités exigeants.
+            MyGestia unifie gestion locative, banque, comptabilité, documents et reporting pour les patrimoines immobiliers multi-sociétés qui dépassent les limites des tableurs et des outils par bien.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
@@ -153,7 +144,7 @@ export function Hero() {
             </Link>
           </div>
           <p className="text-sm text-muted-foreground">
-            Déploiement accompagné pour les multipropriétaires
+            Démo réaliste, import guidé et déploiement accompagné pour les portefeuilles structurés
           </p>
         </div>
 

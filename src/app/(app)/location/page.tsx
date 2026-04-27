@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
+  ClipboardCheck,
   FileText,
   Mail,
   Plus,
@@ -53,6 +54,13 @@ export default async function LocationPage() {
 
   const workflows = [
     {
+      title: "Mettre en location",
+      description: "Préparer le lot, qualifier les candidatures, créer le locataire puis contractualiser.",
+      href: "/location/mise-en-location",
+      action: "Ouvrir le parcours",
+      icon: ClipboardCheck,
+    },
+    {
       title: "Contractualiser",
       description: "Créer un bail, importer un PDF signé ou vérifier les baux actifs.",
       href: "/baux",
@@ -93,6 +101,12 @@ export default async function LocationPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/location/mise-en-location">
+              <ClipboardCheck className="h-4 w-4" />
+              Mise en location
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/locataires/nouveau">
               <UserPlus className="h-4 w-4" />
@@ -153,7 +167,7 @@ export default async function LocationPage() {
         </section>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
         {workflows.map((workflow) => (
           <Card key={workflow.title}>
             <CardContent className="flex h-full flex-col gap-4 p-5">

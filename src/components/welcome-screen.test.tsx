@@ -21,14 +21,14 @@ describe("WelcomeScreen", () => {
 
     expect(screen.getByRole("dialog", { name: "Bonjour Maxime !" })).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: "Type de gestionnaire" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /SCI familiale/i })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /SCI \/ patrimoine direct/i })).toHaveAttribute("aria-checked", "false");
     expect(screen.getByRole("button", { name: "Continuer" })).toBeDisabled();
   });
 
   it("mémorise le profil choisi et envoie vers le dashboard", () => {
     render(<WelcomeScreen userName="Maxime" />);
 
-    fireEvent.click(screen.getByRole("radio", { name: /Cabinet de gestion/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /Gestionnaire de portefeuille/i }));
     fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
 
     expect(localStorage.getItem("mygestia-welcome-seen")).toBe("true");

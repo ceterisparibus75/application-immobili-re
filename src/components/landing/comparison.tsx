@@ -6,22 +6,23 @@ interface CompRow {
   feature: string;
   mygestia: Status;
   excel: Status;
-  generic: Status;
+  landlordTool: Status;
+  proSuite: Status;
   note?: string;
 }
 
 const rows: CompRow[] = [
-  { feature: "Gestion multi-sociétés consolidée", mygestia: "yes", excel: "no", generic: "partial" },
-  { feature: "Facturation automatique & quittances PDF", mygestia: "yes", excel: "no", generic: "yes" },
-  { feature: "Comptabilité intégrée & export FEC", mygestia: "yes", excel: "partial", generic: "no" },
-  { feature: "Rapprochement bancaire automatique", mygestia: "yes", excel: "no", generic: "partial" },
-  { feature: "Révisions IRL/ILC/ILAT automatiques (INSEE)", mygestia: "yes", excel: "no", generic: "partial" },
-  { feature: "Portail locataire sécurisé", mygestia: "yes", excel: "no", generic: "partial" },
-  { feature: "Assistant IA & prédiction des impayés", mygestia: "yes", excel: "no", generic: "no" },
-  { feature: "Signature électronique intégrée", mygestia: "yes", excel: "no", generic: "no" },
-  { feature: "Conformité RGPD native + audit logs", mygestia: "yes", excel: "no", generic: "partial" },
-  { feature: "Chiffrement AES-256 des données bancaires", mygestia: "yes", excel: "no", generic: "no" },
-  { feature: "Copropriété & location saisonnière", mygestia: "yes", excel: "no", generic: "no" },
+  { feature: "Gestion multi-sociétés consolidée", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Facturation automatique & quittances PDF", mygestia: "yes", excel: "no", landlordTool: "yes", proSuite: "yes" },
+  { feature: "Comptabilité intégrée & export FEC", mygestia: "yes", excel: "partial", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Rapprochement bancaire automatique", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Reporting propriétaire multi-entités", mygestia: "yes", excel: "partial", landlordTool: "no", proSuite: "partial" },
+  { feature: "Révisions IRL/ILC/ILAT automatiques (INSEE)", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Portail locataire, documents et tickets", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Facturation électronique B2B 2026", mygestia: "yes", excel: "no", landlordTool: "no", proSuite: "partial" },
+  { feature: "Assistant IA contextualisé au portefeuille", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "partial" },
+  { feature: "Audit logs, RBAC et 2FA", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "yes" },
+  { feature: "Import guidé et compte démo exploitable", mygestia: "yes", excel: "no", landlordTool: "partial", proSuite: "partial" },
 ];
 
 function StatusIcon({ status }: { status: Status }) {
@@ -60,7 +61,7 @@ export function Comparison() {
             Pourquoi MyGestia ?
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Un outil métier complet, là où les solutions généralistes s&apos;arrêtent à mi-chemin.
+            MyGestia n&apos;essaie pas de remplacer un outil simple pour un seul bien : il couvre le moment où le patrimoine devient multi-entités, financier et contrôlable.
           </p>
         </div>
 
@@ -68,7 +69,7 @@ export function Comparison() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/60">
-                <th className="text-left px-6 py-4 text-[var(--color-brand-deep)] font-semibold w-1/2">
+                <th className="text-left px-6 py-4 text-[var(--color-brand-deep)] font-semibold w-[38%]">
                   Fonctionnalité
                 </th>
                 <th className="px-4 py-4 text-center">
@@ -82,7 +83,10 @@ export function Comparison() {
                   <span className="text-xs font-semibold text-muted-foreground">Tableur Excel</span>
                 </th>
                 <th className="px-4 py-4 text-center">
-                  <span className="text-xs font-semibold text-muted-foreground">Logiciel généraliste</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Outil bailleur</span>
+                </th>
+                <th className="px-4 py-4 text-center">
+                  <span className="text-xs font-semibold text-muted-foreground">Suite pro historique</span>
                 </th>
               </tr>
             </thead>
@@ -102,7 +106,10 @@ export function Comparison() {
                     <StatusIcon status={row.excel} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusIcon status={row.generic} />
+                    <StatusIcon status={row.landlordTool} />
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <StatusIcon status={row.proSuite} />
                   </td>
                 </tr>
               ))}

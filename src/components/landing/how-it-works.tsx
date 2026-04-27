@@ -10,10 +10,10 @@ export function HowItWorks() {
         <div className="text-center mb-16">
           <p className="text-[var(--color-brand-cyan)] font-semibold text-sm tracking-wide uppercase mb-3">Déploiement</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--color-brand-deep)] mb-5">
-            Opérationnel en 3 étapes
+            De votre existant au pilotage consolidé
           </h2>
           <p className="text-lg text-muted-foreground">
-            Un déploiement progressif et structuré, adapté à la complexité de votre patrimoine.
+            Le démarrage privilégie la reprise de données et la preuve métier, pas une page blanche.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">

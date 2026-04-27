@@ -26,6 +26,15 @@ export function getLocationGuidance({
 }: LocationGuidanceInput): GuidanceStep[] {
   const steps: GuidanceStep[] = [];
 
+  if (activeTenants === 0 || activeLeases === 0) {
+    steps.push({
+      title: "Ouvrir le parcours de mise en location",
+      description: "Passez du lot vacant à la candidature, puis au locataire et au bail.",
+      href: "/location/mise-en-location",
+      action: "Suivre le parcours",
+    });
+  }
+
   if (activeTenants === 0) {
     steps.push({
       title: "Ajouter le premier locataire",

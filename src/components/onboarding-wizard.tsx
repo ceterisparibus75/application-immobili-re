@@ -40,12 +40,12 @@ const WIZARD_STEPS: WizardStep[] = [
     title: "Créez votre société",
     subtitle: "Étape 1 sur 5",
     description:
-      "Chaque patrimoine est géré au sein d'une société (SCI, SARL, nom propre…). C'est le socle de toute votre gestion : baux, factures et comptabilité s'y rattachent.",
+      "Choisissez votre mode de démarrage : démo réaliste, import d'un bail PDF ou saisie progressive. Chaque patrimoine reste ensuite structuré par société (SCI, SARL, nom propre…).",
     icon: Building2,
     tips: [
-      "Renseignez la raison sociale et le SIRET",
-      "Ajoutez l'adresse du siège social",
-      "Vous pourrez ajouter d'autres sociétés plus tard",
+      "Utilisez la démo pour comprendre le produit avant de saisir vos vraies données",
+      "Importez un bail PDF si vous voulez reprendre rapidement l'existant",
+      "Créez d'abord la société si vous préférez une saisie contrôlée",
     ],
     href: "/societes/nouvelle",
     videoPlaceholder: "Créer une société en 30 secondes",
@@ -247,6 +247,44 @@ export function OnboardingWizard() {
               </div>
             </div>
 
+            {isFirst && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={loadDemoData}
+                  className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/10"
+                >
+                  <Sparkles className="mb-3 h-5 w-5 text-primary" />
+                  <p className="text-sm font-medium text-foreground">Explorer une démo</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Chargez un mini-portefeuille avec bail, facture et banque.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToStep("/import")}
+                  className="rounded-xl border border-border/60 bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                >
+                  <FileText className="mb-3 h-5 w-5 text-primary" />
+                  <p className="text-sm font-medium text-foreground">Importer un bail PDF</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    L'IA prépare immeuble, lot, locataire et bail à vérifier.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToStep(step.href)}
+                  className="rounded-xl border border-border/60 bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                >
+                  <Building2 className="mb-3 h-5 w-5 text-primary" />
+                  <p className="text-sm font-medium text-foreground">Saisir progressivement</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Créez la première société puis complétez le socle.
+                  </p>
+                </button>
+              </div>
+            )}
+
             {/* Tips */}
             <div className="mt-5 space-y-2 rounded-xl bg-muted/40 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -284,6 +322,12 @@ export function OnboardingWizard() {
                 <Button variant="outline" size="sm" onClick={loadDemoData} className="gap-1.5 text-xs">
                   <Sparkles className="h-3.5 w-3.5" />
                   Charger les données démo
+                </Button>
+              )}
+              {isFirst && (
+                <Button variant="outline" size="sm" onClick={() => goToStep("/import")} className="gap-1.5 text-xs">
+                  <FileText className="h-3.5 w-3.5" />
+                  Importer un bail PDF
                 </Button>
               )}
               {!isFirst && (
