@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useTransition, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -64,6 +65,12 @@ export default function ImportPage() {
     tenants: "Locataires",
     buildings: "Immeubles",
     lots: "Lots",
+  };
+
+  const entityListHref: Record<ImportEntityType, string> = {
+    tenants: "/locataires",
+    buildings: "/patrimoine/immeubles",
+    lots: "/patrimoine/lots",
   };
 
   const templateRows: Record<ImportEntityType, string[][]> = {
@@ -405,9 +412,16 @@ export default function ImportPage() {
               </div>
             )}
 
-            <Button variant="outline" onClick={resetState}>
-              Nouvel import
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild>
+                <Link href={entityListHref[entityType]}>
+                  Voir les {entityLabels[entityType].toLowerCase()}
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={resetState}>
+                Nouvel import
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
