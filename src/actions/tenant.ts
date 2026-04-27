@@ -224,7 +224,7 @@ export async function createTenant(
         token,
         isActive: false,
         activationCode: hashedCode,
-        activationCodeExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
     });
 
@@ -805,11 +805,11 @@ export async function inviteOrReinviteTenant(
         token,
         isActive: false,
         activationCode: hashedCode,
-        activationCodeExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
       update: {
         activationCode: hashedCode,
-        activationCodeExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        activationCodeExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         invitedAt: new Date(),
       },
     });
