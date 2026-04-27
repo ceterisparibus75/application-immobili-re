@@ -224,6 +224,27 @@ describe("importEntities — locataires", () => {
     );
   });
 
+  it("importe une société dont la raison sociale est placée dans Nom", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "tenants", [{
+      Type: "Société",
+      Nom: "Gamma SCI",
+      Email: "contact@gamma.fr",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entityType: "PERSONNE_MORALE",
+          companyName: "Gamma SCI",
+          email: "contact@gamma.fr",
+        }),
+      })
+    );
+  });
+
   it("collecte les erreurs de validation sans interrompre le traitement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const rows = [

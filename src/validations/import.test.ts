@@ -29,6 +29,20 @@ describe("importTenantRowSchema", () => {
     if (result.success) expect(result.data.entityType).toBe("PERSONNE_MORALE");
   });
 
+  it("utilise le nom comme raison sociale si le type indique une société", () => {
+    const result = importTenantRowSchema.safeParse({
+      entityType: "Société",
+      nom: "ACME SAS",
+      email: "contact@acme.fr",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.entityType).toBe("PERSONNE_MORALE");
+      expect(result.data.companyName).toBe("ACME SAS");
+    }
+  });
+
   it("déduit une personne morale quand une raison sociale est fournie", () => {
     const result = importTenantRowSchema.safeParse({
       companyName: "Beta SARL",

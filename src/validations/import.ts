@@ -30,10 +30,16 @@ export const importTenantRowSchema = z
     companyLegalForm: z.string().optional().default(""),
     siret: z.string().optional().default(""),
   })
-  .transform((data) => ({
-    ...data,
-    entityType: normalizeTenantEntityType(data.entityType) ?? (data.companyName.trim() ? "PERSONNE_MORALE" : "PERSONNE_PHYSIQUE"),
-  }))
+  .transform((data) => {
+    const entityType = normalizeTenantEntityType(data.entityType) ?? (data.companyName.trim() ? "PERSONNE_MORALE" : "PERSONNE_PHYSIQUE");
+    return {
+      ...data,
+      entityType,
+      companyName: entityType === "PERSONNE_MORALE" && !data.companyName.trim() && data.nom.trim()
+        ? data.nom
+        : data.companyName,
+    };
+  })
   .superRefine((data, ctx) => {
     if (data.entityType === "PERSONNE_MORALE") {
       if (!data.companyName.trim()) {
