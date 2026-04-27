@@ -14,6 +14,19 @@ import { ExportFactures } from "@/components/exports/export-factures";
 
 export const metadata = { title: "Facturation" };
 
+type FacturationTab = "factures" | "en-retard" | "relances";
+
+interface PageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function parseFacturationTab(value: string | string[] | undefined): FacturationTab {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "en-retard" || raw === "retard") return "en-retard";
+  if (raw === "relances") return "relances";
+  return "factures";
+}
+
 async function getOverdueInvoices(societyId: string) {
   return prisma.invoice.findMany({
     where: {
@@ -73,7 +86,7 @@ async function getRecentReminders(societyId: string) {
   });
 }
 
-export default async function FacturationPage() {
+export default async function FacturationPage({ searchParams }: PageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
   if (!societyId) redirect("/societes");
@@ -97,6 +110,8 @@ export default async function FacturationPage() {
   const totalImpaye = [...enAttente, ...enRetard].reduce((s, i) => s + i.totalTTC, 0);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
   const remindersCount = reminders.filter((r) => r.isSent).length;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const initialTab = parseFacturationTab(resolvedSearchParams.tab);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -186,6 +201,7 @@ export default async function FacturationPage() {
       {/* Tabs: Factures | En retard | Relances */}
       <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" />}>
         <FacturationTabs
+          initialTab={initialTab}
           invoices={invoices}
           brouillons={brouillons}
           overdueInvoices={overdueInvoices}

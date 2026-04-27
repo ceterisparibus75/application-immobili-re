@@ -8,7 +8,7 @@ import { AlertTriangle, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
 import { RelancesClient } from "./overdue-tab";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import Link from "next/link";
 
@@ -89,6 +89,7 @@ type Reminder = {
 };
 
 interface FacturationTabsProps {
+  initialTab: "factures" | "en-retard" | "relances";
   invoices: Invoice[];
   brouillons: Invoice[];
   overdueInvoices: OverdueInvoice[];
@@ -99,6 +100,7 @@ interface FacturationTabsProps {
 }
 
 export function FacturationTabs({
+  initialTab,
   invoices,
   brouillons,
   overdueInvoices,
@@ -107,9 +109,7 @@ export function FacturationTabs({
   overdueCount,
   remindersCount,
 }: FacturationTabsProps) {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const currentTab = searchParams.get("tab") ?? "factures";
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -126,7 +126,7 @@ export function FacturationTabs({
   );
 
   return (
-    <Tabs value={currentTab} onValueChange={handleTabChange}>
+    <Tabs value={initialTab} onValueChange={handleTabChange}>
       <TabsList className="max-w-full justify-start overflow-x-auto">
         <TabsTrigger value="factures">Factures</TabsTrigger>
         <TabsTrigger value="en-retard" className="gap-1.5">
