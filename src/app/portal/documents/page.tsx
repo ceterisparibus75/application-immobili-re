@@ -6,19 +6,10 @@ import { FileText, Download, Receipt, FolderOpen } from "lucide-react";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-const STATUS_LABELS: Record<string, string> = {
-  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
-  EN_ATTENTE: "En attente", PAYE: "Payé", PARTIELLEMENT_PAYE: "Partiel",
-  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
-  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
-};
-
-const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive" | "secondary" | "default" | "outline"> = {
-  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
-  EN_ATTENTE: "warning", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
-  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
-};
+function portalInvoiceStatus(status: string): { label: string; variant: "success" | "destructive" } {
+  if (status === "PAYE") return { label: "Payé", variant: "success" };
+  return { label: "En retard", variant: "destructive" };
+}
 
 export default async function PortalDocumentsPage() {
   let session;
@@ -212,8 +203,8 @@ export default async function PortalDocumentsPage() {
                     <span className="text-sm font-medium tabular-nums">
                       {formatCurrency(inv.totalTTC ?? inv.totalHT)}
                     </span>
-                    <Badge variant={STATUS_VARIANTS[inv.status] ?? "default"}>
-                      {STATUS_LABELS[inv.status] ?? inv.status}
+                    <Badge variant={portalInvoiceStatus(inv.status).variant}>
+                      {portalInvoiceStatus(inv.status).label}
                     </Badge>
                     {inv.fileUrl && (
                       <a href={`/api/portal/invoices/${inv.id}/pdf`} target="_blank" rel="noopener noreferrer">
