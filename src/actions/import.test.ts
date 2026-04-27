@@ -355,6 +355,52 @@ describe("importEntities — contacts", () => {
     expect(prismaMock.contact.create).toHaveBeenCalledTimes(1);
   });
 
+  it("bloque les contacts sans email déjà présents avec le même nom", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.contact.findFirst.mockResolvedValue({ id: "contact-existing" } as never);
+
+    const r = await importEntities(SOCIETY_ID, "contacts", [{
+      Type: "Prestataire",
+      Nom: "Jean Martin",
+      Société: "Martin Plomberie",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 2,
+      message: "Un contact existe déjà avec ce nom",
+    });
+    expect(prismaMock.contact.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          contactType: "PRESTATAIRE",
+          name: expect.objectContaining({ equals: "Jean Martin", mode: "insensitive" }),
+          company: expect.objectContaining({ equals: "Martin Plomberie", mode: "insensitive" }),
+        }),
+      })
+    );
+    expect(prismaMock.contact.create).not.toHaveBeenCalled();
+  });
+
+  it("bloque les contacts sans email dupliqués dans le fichier importé", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      { Type: "Prestataire", Nom: "Jean Martin", Société: "Martin Plomberie" },
+      { Type: "Prestataire", Nom: "JEAN MARTIN", Société: "MARTIN PLOMBERIE" },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "contacts", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 3,
+      message: "Contact dupliqué dans le fichier",
+    });
+    expect(prismaMock.contact.create).toHaveBeenCalledTimes(1);
+  });
+
   it("collecte les erreurs de validation sans interrompre le traitement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const rows = [

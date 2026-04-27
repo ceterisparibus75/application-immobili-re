@@ -886,6 +886,7 @@ export async function importEntities(
       }
     } else if (entityType === "contacts") {
       const seenContactEmails = new Set<string>();
+      const seenContactNames = new Set<string>();
 
       for (let i = 0; i < data.length; i++) {
         const row = normalizeBulkImportRow(entityType, data[i]);
@@ -899,6 +900,8 @@ export async function importEntities(
         }
 
         const email = (parsed.data.email ?? "").trim();
+        const contactName = parsed.data.name.trim();
+        const company = parsed.data.company.trim();
         if (email) {
           const emailKey = email.toLowerCase();
           if (seenContactEmails.has(emailKey)) {
@@ -926,14 +929,43 @@ export async function importEntities(
             continue;
           }
         }
+        if (!email) {
+          const contactKey = `${parsed.data.contactType}::${contactName.toLowerCase()}::${company.toLowerCase()}`;
+          if (seenContactNames.has(contactKey)) {
+            errors.push({
+              row: i + 2,
+              message: "Contact dupliqué dans le fichier",
+            });
+            continue;
+          }
+          seenContactNames.add(contactKey);
+
+          const existingContact = await prisma.contact.findFirst({
+            where: {
+              societyId,
+              isActive: true,
+              contactType: parsed.data.contactType,
+              name: { equals: contactName, mode: "insensitive" },
+              company: company ? { equals: company, mode: "insensitive" } : null,
+            },
+            select: { id: true },
+          });
+          if (existingContact) {
+            errors.push({
+              row: i + 2,
+              message: "Un contact existe déjà avec ce nom",
+            });
+            continue;
+          }
+        }
 
         try {
           await prisma.contact.create({
             data: {
               societyId,
               contactType: parsed.data.contactType,
-              name: parsed.data.name,
-              company: parsed.data.company || null,
+              name: contactName,
+              company: company || null,
               specialty: parsed.data.specialty || null,
               email: email || null,
               phone: parsed.data.phone || null,
