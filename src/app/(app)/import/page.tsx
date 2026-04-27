@@ -1226,7 +1226,7 @@ export default function ImportPage() {
               <div>
                 <p className="text-sm font-medium">Migration par tableur</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Importez en masse des locataires, immeubles ou lots depuis un fichier CSV ou Excel.
+                  Importez en masse des locataires, contacts, immeubles ou lots depuis un fichier CSV ou Excel.
                 </p>
               </div>
             </div>

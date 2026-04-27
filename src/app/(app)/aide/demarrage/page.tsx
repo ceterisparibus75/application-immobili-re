@@ -113,7 +113,7 @@ export default function DemarragePage() {
           <p>Uploadez un fichier CSV, Excel (.xlsx) ou un PDF de bail. L'assistant affiche un aperçu avant création pour que vous puissiez corriger les données.</p>
         </HelpStep>
         <HelpStep number={3} title="Vérifiez et validez">
-          <p>Vérifiez la correspondance des colonnes, corrigez si nécessaire, puis lancez l'import. Les immeubles, lots, locataires et baux sont créés automatiquement.</p>
+          <p>Vérifiez les colonnes détectées, corrigez si nécessaire, puis lancez l'import. Le tableur peut créer les immeubles, lots, locataires et contacts ; le PDF de bail prépare aussi le bail.</p>
         </HelpStep>
         <InfoBox type="tip">
           <strong>Import IA (Enterprise) :</strong> Uploadez directement un PDF de bail — l'IA extrait automatiquement les informations (locataire, lot, loyer, dates) et pré-remplit le formulaire de création.
@@ -121,7 +121,7 @@ export default function DemarragePage() {
         <div className="rounded-lg border p-4 bg-muted/20">
           <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
           <p className="text-sm">
-            Vous avez un fichier Excel avec 15 locataires et 20 lots. Uploadez-le dans Import : l'application détecte les colonnes &laquo; Nom &raquo;, &laquo; Prénom &raquo;, &laquo; Adresse lot &raquo;, &laquo; Loyer &raquo;. Validez le mappage, cliquez sur Importer — en quelques secondes, vos 15 locataires et 20 lots sont créés avec les baux associés.
+            Vous avez un fichier Excel avec 15 locataires, 12 prestataires et 20 lots. Uploadez-le dans Import : l'application détecte les colonnes &laquo; Nom &raquo;, &laquo; Prénom &raquo;, &laquo; Immeuble &raquo; ou &laquo; Spécialité &raquo;. Validez, cliquez sur Importer — les fiches sont créées en quelques secondes.
           </p>
         </div>
       </HelpSection>
