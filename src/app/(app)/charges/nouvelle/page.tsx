@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createCharge } from "@/actions/charge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,6 @@ type ParsedCharge = {
 
 export default function NouvelleChargePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { activeSociety } = useSociety();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +42,7 @@ export default function NouvelleChargePage() {
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState(
-    searchParams.get("buildingId") ?? ""
+    () => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("buildingId") ?? "" : ""
   );
 
   // PDF AI pre-fill

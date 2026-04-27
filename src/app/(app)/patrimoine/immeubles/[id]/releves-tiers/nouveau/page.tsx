@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createStatement } from "@/actions/third-party-statement";
 import { useSociety } from "@/providers/society-provider";
@@ -61,18 +61,17 @@ const NATURE_OPTIONS = [
 export default function NouveauReleveTiersPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
   const { activeSociety } = useSociety();
-
-  const defaultType = searchParams.get("type") === "DECOMPTE_CHARGES"
-    ? "DECOMPTE_CHARGES"
-    : "APPEL_FONDS";
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Champs du formulaire
-  const [type, setType] = useState<"APPEL_FONDS" | "DECOMPTE_CHARGES">(defaultType);
+  const [type, setType] = useState<"APPEL_FONDS" | "DECOMPTE_CHARGES">(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("type") === "DECOMPTE_CHARGES"
+      ? "DECOMPTE_CHARGES"
+      : "APPEL_FONDS"
+  );
   const [thirdPartyName, setThirdPartyName] = useState("");
   const [reference, setReference] = useState("");
   const [periodStart, setPeriodStart] = useState("");

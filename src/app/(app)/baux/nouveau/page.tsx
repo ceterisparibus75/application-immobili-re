@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -21,14 +20,14 @@ import {
 } from "lucide-react";
 
 export default function NouveauBailPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   // Rétro-compatibilité : rediriger les anciens liens ?mode=workflow / ?mode=existing
   useEffect(() => {
-    const mode = searchParams.get("mode");
-    const lotId = searchParams.get("lotId");
-    const tenantId = searchParams.get("tenantId");
+    const sp = new URLSearchParams(window.location.search);
+    const mode = sp.get("mode");
+    const lotId = sp.get("lotId");
+    const tenantId = sp.get("tenantId");
 
     if (mode === "workflow" || mode === "existing") {
       const params = new URLSearchParams();
@@ -46,7 +45,7 @@ export default function NouveauBailPage() {
       if (tenantId) params.set("tenantId", tenantId);
       router.replace(`/baux/nouveau/rapide?${params.toString()}`);
     }
-  }, [searchParams, router]);
+  }, [router]);
 
   return (
     <div className="space-y-6 max-w-4xl">

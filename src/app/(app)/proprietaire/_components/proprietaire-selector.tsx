@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Plus, ChevronDown, User, Building2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import type { ProprietaireEntityType } from "@/generated/prisma/client";
@@ -19,7 +19,6 @@ type Props = {
 
 export function ProprietaireSelector({ proprietaires, activeId }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +35,7 @@ export function ProprietaireSelector({ proprietaires, activeId }: Props) {
   }, []);
 
   function selectProprietaire(id: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set("pid", id);
     router.push(`/proprietaire?${params.toString()}`);
     setOpen(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,12 +92,11 @@ export default function AbonnementPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
     if (!activeSociety?.id) return;
-    const isSuccess = searchParams.get("success") === "true";
+    const isSuccess = new URLSearchParams(window.location.search).get("success") === "true";
     if (isSuccess) {
       // Synchroniser automatiquement depuis Stripe après retour du checkout
       syncAfterCheckout();

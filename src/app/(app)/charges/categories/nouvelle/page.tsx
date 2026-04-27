@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createChargeCategory } from "@/actions/charge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,6 @@ type LibraryCat = { id: string; name: string; nature: string; allocationMethod: 
 
 export default function NouvelleCategorieChargePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { activeSociety } = useSociety();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +46,9 @@ export default function NouvelleCategorieChargePage() {
   const [nature, setNature] = useState("RECUPERABLE");
   const [selectedLibCatId, setSelectedLibCatId] = useState("");
 
-  const defaultBuildingId = searchParams.get("buildingId") ?? "";
+  const [defaultBuildingId] = useState(
+    () => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("buildingId") ?? "" : ""
+  );
 
   useEffect(() => {
     async function fetchData() {

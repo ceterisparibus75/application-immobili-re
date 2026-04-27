@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createLease } from "@/actions/lease";
 import { getActiveTenants } from "@/actions/tenant";
@@ -168,7 +168,6 @@ function tenantLabel(tenant: TenantOption) {
 
 export default function BailRapidePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { activeSociety } = useSociety();
 
   // ── État ──
@@ -178,8 +177,14 @@ export default function BailRapidePage() {
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [selectedLotIds, setSelectedLotIds] = useState<string[]>([]);
-  const [tenantId, setTenantId] = useState("");
+  const [selectedLotIds, setSelectedLotIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const lotId = new URLSearchParams(window.location.search).get("lotId");
+    return lotId ? [lotId] : [];
+  });
+  const [tenantId, setTenantId] = useState<string>(
+    () => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenantId") ?? "" : ""
+  );
   const [leaseType, setLeaseType] = useState<LeaseType>("HABITATION");
   const [destination, setDestination] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -207,19 +212,7 @@ export default function BailRapidePage() {
   const [managementFeeBasis, setManagementFeeBasis] = useState<"LOYER_HT" | "LOYER_CHARGES_HT" | "TOTAL_TTC">("LOYER_HT");
   const [managementFeeVatRate, setManagementFeeVatRate] = useState<number>(20);
 
-  const defaultLotId = searchParams.get("lotId") ?? "";
-  const defaultTenantId = searchParams.get("tenantId") ?? "";
-
   // ── Effets ──
-  useEffect(() => {
-    if (defaultLotId && selectedLotIds.length === 0) setSelectedLotIds([defaultLotId]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultLotId]);
-
-  useEffect(() => {
-    if (defaultTenantId && !tenantId) setTenantId(defaultTenantId);
-  }, [defaultTenantId, tenantId]);
-
   useEffect(() => {
     if (!activeSociety) return;
     const sid = activeSociety.id;

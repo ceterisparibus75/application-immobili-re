@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createSociety } from "@/actions/society";
 import { createPersonalSociety } from "@/actions/personal-society";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,12 @@ interface SiretResult {
 
 export default function NouvelleSocietePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isPhysique = searchParams.get("type") === "physique";
-  const proprietaireIdParam = searchParams.get("proprietaireId");
+  const [isPhysique] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("type") === "physique"
+  );
+  const [proprietaireIdParam] = useState<string | null>(
+    () => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("proprietaireId") : null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 

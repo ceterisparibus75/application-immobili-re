@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
 import { Badge } from "@/components/ui/badge";
@@ -89,7 +89,7 @@ function DetailView({ details }: { details: Record<string, unknown> }) {
   );
 }
 
-export default function AuditPage() {
+function AuditContent() {
   const { activeSociety } = useSociety();
   const router = useRouter();
   const pathname = usePathname();
@@ -114,14 +114,14 @@ export default function AuditPage() {
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       for (const [k, v] of Object.entries(updates)) {
         if (v === null || v === "") params.delete(k);
         else params.set(k, v);
       }
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [router, pathname, searchParams]
+    [router, pathname]
   );
 
   const buildQueryString = useCallback(() => {
@@ -434,5 +434,13 @@ export default function AuditPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AuditPage() {
+  return (
+    <Suspense>
+      <AuditContent />
+    </Suspense>
   );
 }
