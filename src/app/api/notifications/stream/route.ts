@@ -5,6 +5,10 @@ import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const STREAM_TTL_MS = 240_000;
+const HEARTBEAT_MS = 15_000;
+const POLL_MS = 30_000;
+
 export async function GET(req: NextRequest) {
   const context = await requireActiveSocietyRouteContext();
   if (context instanceof NextResponse) return context;
@@ -13,12 +17,33 @@ export async function GET(req: NextRequest) {
 
   const encoder = new TextEncoder();
   let lastId: string | null = null;
+  let cleanup: (() => void) | undefined;
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: unknown) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      let closed = false;
+
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        cleanup?.();
+        try {
+          controller.close();
+        } catch {
+          // Le client a deja ferme la connexion.
+        }
       };
+
+      const send = (data: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        } catch {
+          close();
+        }
+      };
+
+      controller.enqueue(encoder.encode("retry: 10000\n\n"));
 
       // Envoyer le compte non-lu initial
       const count = await prisma.notification.count({
@@ -49,25 +74,36 @@ export async function GET(req: NextRequest) {
             send({ type: "update", notifications: newNotifs, unreadCount: total });
           }
         } catch {
-          clearInterval(interval);
-          controller.close();
+          close();
         }
-      }, 30000);
+      }, POLL_MS);
 
       // Heartbeat toutes les 15s
       const heartbeat = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         } catch {
-          clearInterval(heartbeat);
+          close();
         }
-      }, 15000);
+      }, HEARTBEAT_MS);
 
-      req.signal.addEventListener("abort", () => {
+      // Vercel coupe les fonctions longues a 300s: on ferme proprement avant.
+      const ttl = setTimeout(() => {
+        send({ type: "reconnect" });
+        close();
+      }, STREAM_TTL_MS);
+
+      cleanup = () => {
         clearInterval(interval);
         clearInterval(heartbeat);
-        controller.close();
-      });
+        clearTimeout(ttl);
+        req.signal.removeEventListener("abort", close);
+      };
+
+      req.signal.addEventListener("abort", close);
+    },
+    cancel() {
+      cleanup?.();
     },
   });
 

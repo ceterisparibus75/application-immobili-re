@@ -126,7 +126,9 @@ export function NotificationBell() {
         });
       }
     };
-    es.onerror = () => es.close();
+    // Le serveur ferme volontairement le flux avant la limite Vercel;
+    // EventSource reconnecte automatiquement avec le retry transmis.
+    es.onerror = () => {};
 
     const fallback = setInterval(fetchNotifications, 30000);
     return () => { es.close(); clearInterval(fallback); };
