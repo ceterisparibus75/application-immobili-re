@@ -20,7 +20,7 @@ export function InvoicePrefixForm({ societyId, initialPrefix }: InvoicePrefixFor
 
   function handleSave() {
     startTransition(async () => {
-      const result = await updateSociety({ id: societyId, invoicePrefix: prefix || null });
+      const result = await updateSociety({ id: societyId, invoicePrefix: prefix });
       if (result.success) {
         toast.success("Préfixe mis à jour");
       } else {

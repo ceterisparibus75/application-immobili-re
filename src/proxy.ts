@@ -1,15 +1,12 @@
 import { auth } from "@/lib/auth";
-import { isInternalAnalyzeRequest } from "@/lib/internal-route-auth";
+import { isAnalyzeApiRoute } from "@/lib/internal-route-auth";
 import { NextResponse } from "next/server";
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const isDebugRoute = pathname.startsWith("/api/debug");
   const allowDebugRoute = process.env.NODE_ENV === "development";
-  const isInternalAnalyzeRoute = isInternalAnalyzeRequest(
-    pathname,
-    (name) => req.headers.get(name)
-  );
+  const isAnalyzeRoute = isAnalyzeApiRoute(pathname);
 
   // Pages auth (signup, login, forgot-password, reset-password)
   // Si l'utilisateur est déjà connecté → rediriger vers /dashboard
@@ -53,7 +50,7 @@ export default auth(async (req) => {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/webhooks") ||
     (isDebugRoute && allowDebugRoute) ||
-    isInternalAnalyzeRoute ||
+    isAnalyzeRoute ||
     pathname.startsWith("/dataroom/share") ||
     pathname.startsWith("/api/admin/migrate") ||
     pathname.startsWith("/api/dataroom") ||
