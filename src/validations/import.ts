@@ -9,7 +9,23 @@ function normalizeTenantEntityType(value: string): "PERSONNE_PHYSIQUE" | "PERSON
     .replace(/[^a-z0-9]+/g, "");
 
   if (!normalized) return null;
-  if (["personnemorale", "morale", "societe", "society", "company", "entreprise", "pro"].includes(normalized)) {
+  if ([
+    "personnemorale",
+    "morale",
+    "societe",
+    "society",
+    "company",
+    "entreprise",
+    "pro",
+    "professionnel",
+    "sci",
+    "sas",
+    "sasu",
+    "sarl",
+    "eurl",
+    "sa",
+    "snc",
+  ].includes(normalized)) {
     return "PERSONNE_MORALE";
   }
   if (["personnephysique", "physique", "particulier", "individual", "personne"].includes(normalized)) {

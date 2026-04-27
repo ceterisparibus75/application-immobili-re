@@ -43,6 +43,20 @@ describe("importTenantRowSchema", () => {
     }
   });
 
+  it("reconnaît les formes juridiques courantes comme personnes morales", () => {
+    const result = importTenantRowSchema.safeParse({
+      entityType: "SCI",
+      nom: "SCI des Lilas",
+      email: "contact@sci-lilas.fr",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.entityType).toBe("PERSONNE_MORALE");
+      expect(result.data.companyName).toBe("SCI des Lilas");
+    }
+  });
+
   it("déduit une personne morale quand une raison sociale est fournie", () => {
     const result = importTenantRowSchema.safeParse({
       companyName: "Beta SARL",
