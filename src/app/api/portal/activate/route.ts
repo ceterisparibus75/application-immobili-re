@@ -23,8 +23,12 @@ export async function POST(req: NextRequest) {
       include: { portalAccess: true },
     });
 
-    // Trouver celui qui a un portalAccess avec un code d’activation
-    const tenant = tenants.find((t) => t.portalAccess?.activationCode) ?? tenants.find((t) => t.portalAccess);
+    // Priorité : code valide non expiré > code quelconque > portail sans code
+    const now = new Date();
+    const tenant =
+      tenants.find((t) => t.portalAccess?.activationCode && t.portalAccess.activationCodeExpiresAt && now <= t.portalAccess.activationCodeExpiresAt) ??
+      tenants.find((t) => t.portalAccess?.activationCode) ??
+      tenants.find((t) => t.portalAccess);
 
     if (!tenant || !tenant.portalAccess) {
       return NextResponse.json(
