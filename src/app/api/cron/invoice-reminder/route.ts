@@ -15,10 +15,20 @@ export async function GET(req: NextRequest) {
   try {
     const now = new Date();
 
-    // 1. Passer en EN_RETARD les factures dont l'échéance est dépassée
+    // 0. Corriger les quittances incorrectement marquées EN_RETARD/RELANCEE
+    await prisma.invoice.updateMany({
+      where: {
+        invoiceType: "QUITTANCE",
+        status: { in: ["EN_RETARD", "RELANCEE"] },
+      },
+      data: { status: "VALIDEE" },
+    });
+
+    // 1. Passer en EN_RETARD les factures dont l'échéance est dépassée (hors quittances)
     const overdueResult = await prisma.invoice.updateMany({
       where: {
         status: { in: ["ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] },
+        invoiceType: { not: "QUITTANCE" },
         dueDate: { lt: now },
       },
       data: { status: "EN_RETARD" },
@@ -30,6 +40,7 @@ export async function GET(req: NextRequest) {
     const overdueInvoices = await prisma.invoice.findMany({
       where: {
         status: { in: ["EN_RETARD", "RELANCEE"] },
+        invoiceType: { not: "QUITTANCE" },
         dueDate: { lt: now },
       },
       include: {
