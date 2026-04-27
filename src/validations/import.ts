@@ -56,6 +56,51 @@ export const importTenantRowSchema = z
 
 export type ImportTenantRow = z.infer<typeof importTenantRowSchema>;
 
+function normalizeContactType(value: string): string {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  const mapping: Record<string, string> = {
+    locataire: "LOCATAIRE",
+    prestataire: "PRESTATAIRE",
+    fournisseur: "PRESTATAIRE",
+    artisan: "PRESTATAIRE",
+    notaire: "NOTAIRE",
+    expert: "EXPERT",
+    syndic: "SYNDIC",
+    agence: "AGENCE",
+    agent: "AGENCE",
+    autre: "AUTRE",
+  };
+
+  return mapping[normalized] ?? (value || "PRESTATAIRE");
+}
+
+// ---- Bulk import: Contacts ----
+export const importContactRowSchema = z.object({
+  contactType: z
+    .string()
+    .optional()
+    .default("")
+    .transform((value) => normalizeContactType(value || "PRESTATAIRE"))
+    .pipe(z.enum(["LOCATAIRE", "PRESTATAIRE", "NOTAIRE", "EXPERT", "SYNDIC", "AGENCE", "AUTRE"])),
+  name: z.string().min(1, "Le nom est requis"),
+  company: z.string().optional().default(""),
+  specialty: z.string().optional().default(""),
+  email: z.string().email("Email invalide").optional().nullable().or(z.literal("")).default(""),
+  phone: z.string().optional().default(""),
+  mobile: z.string().optional().default(""),
+  addressLine1: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  postalCode: z.string().optional().default(""),
+  notes: z.string().optional().default(""),
+});
+
+export type ImportContactRow = z.infer<typeof importContactRowSchema>;
+
 // ---- Bulk import: Buildings ----
 export const importBuildingRowSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caracteres"),
@@ -104,5 +149,5 @@ export const importLotRowSchema = z
 export type ImportLotRow = z.infer<typeof importLotRowSchema>;
 
 // ---- Entity type union ----
-export const importEntityTypeSchema = z.enum(["tenants", "lots", "buildings"]);
+export const importEntityTypeSchema = z.enum(["tenants", "lots", "buildings", "contacts"]);
 export type ImportEntityType = z.infer<typeof importEntityTypeSchema>;

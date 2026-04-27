@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   importTenantRowSchema,
+  importContactRowSchema,
   importBuildingRowSchema,
   importLotRowSchema,
   importEntityTypeSchema,
@@ -80,6 +81,45 @@ describe("importTenantRowSchema", () => {
     const result = importTenantRowSchema.safeParse({ ...validTenant, telephone: "0612345678" });
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.telephone).toBe("0612345678");
+  });
+});
+
+describe("importContactRowSchema", () => {
+  const validContact = {
+    contactType: "Prestataire",
+    name: "Jean Martin",
+    email: "contact@martin.fr",
+  };
+
+  it("accepte une ligne contact valide", () => {
+    const result = importContactRowSchema.safeParse(validContact);
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.contactType).toBe("PRESTATAIRE");
+  });
+
+  it("met PRESTATAIRE par défaut quand le type est absent", () => {
+    const result = importContactRowSchema.safeParse({
+      name: "Claire Durand",
+      email: "claire.durand@notaires.fr",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.contactType).toBe("PRESTATAIRE");
+  });
+
+  it("rejette un nom vide", () => {
+    const result = importContactRowSchema.safeParse({ ...validContact, name: "" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toMatch(/nom est requis/);
+  });
+
+  it("rejette un email invalide", () => {
+    const result = importContactRowSchema.safeParse({ ...validContact, email: "bad@" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toMatch(/Email invalide/);
   });
 });
 
@@ -208,7 +248,11 @@ describe("importEntityTypeSchema", () => {
     expect(importEntityTypeSchema.safeParse("buildings").success).toBe(true);
   });
 
+  it("accepte 'contacts'", () => {
+    expect(importEntityTypeSchema.safeParse("contacts").success).toBe(true);
+  });
+
   it("rejette un type inconnu", () => {
-    expect(importEntityTypeSchema.safeParse("contacts").success).toBe(false);
+    expect(importEntityTypeSchema.safeParse("unknown").success).toBe(false);
   });
 });

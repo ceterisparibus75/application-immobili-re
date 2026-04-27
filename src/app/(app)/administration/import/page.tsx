@@ -59,18 +59,21 @@ export default function ImportPage() {
     tenants: ["Type", "Nom", "Prénom", "Raison sociale", "Email", "Téléphone", "SIRET"],
     buildings: ["Nom", "Adresse", "Code postal", "Ville", "Type"],
     lots: ["Numéro lot", "Type lot", "Surface m²", "Étage", "Immeuble"],
+    contacts: ["Type", "Nom", "Société", "Spécialité", "Email", "Téléphone"],
   };
 
   const entityLabels: Record<ImportEntityType, string> = {
     tenants: "Locataires",
     buildings: "Immeubles",
     lots: "Lots",
+    contacts: "Contacts",
   };
 
   const entityListHref: Record<ImportEntityType, string> = {
     tenants: "/locataires",
     buildings: "/patrimoine/immeubles",
     lots: "/patrimoine/lots",
+    contacts: "/contacts",
   };
 
   const templateRows: Record<ImportEntityType, string[][]> = {
@@ -86,6 +89,11 @@ export default function ImportPage() {
     lots: [
       ["Numéro lot", "Type lot", "Surface m²", "Étage", "Immeuble"],
       ["A1", "BUREAUX", "50", "2", "Immeuble Haussmann"],
+    ],
+    contacts: [
+      ["Type", "Nom", "Société", "Spécialité", "Email", "Téléphone"],
+      ["Prestataire", "Jean Martin", "Martin Plomberie", "Plomberie", "contact@martin.fr", "0601020304"],
+      ["Notaire", "Claire Durand", "Étude Durand", "Actes", "claire.durand@notaires.fr", "0142000000"],
     ],
   };
 
@@ -170,7 +178,7 @@ export default function ImportPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Import en masse</h1>
         <p className="text-muted-foreground mt-1">
-          Importez des locataires, immeubles ou lots depuis un fichier CSV ou Excel.
+          Importez des locataires, contacts, immeubles ou lots depuis un fichier CSV ou Excel.
         </p>
       </div>
 
@@ -195,6 +203,7 @@ export default function ImportPage() {
                 }}
                 options={[
                   { value: "tenants", label: "Locataires" },
+                  { value: "contacts", label: "Contacts" },
                   { value: "lots", label: "Lots" },
                   { value: "buildings", label: "Immeubles" },
                 ]}

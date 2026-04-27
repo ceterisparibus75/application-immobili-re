@@ -459,6 +459,7 @@ import {
   importTenantRowSchema,
   importBuildingRowSchema,
   importLotRowSchema,
+  importContactRowSchema,
   type ImportEntityType,
 } from "@/validations/import";
 import { checkSubscriptionActive, checkLotLimit } from "@/lib/plan-limits";
@@ -592,6 +593,36 @@ const IMPORT_COLUMN_ALIASES: Record<ImportEntityType, Record<string, string>> = 
     nomimmeuble: "buildingName",
     batiment: "buildingName",
     nombatiment: "buildingName",
+  },
+  contacts: {
+    type: "contactType",
+    typecontact: "contactType",
+    contacttype: "contactType",
+    nature: "contactType",
+    nom: "name",
+    name: "name",
+    contact: "name",
+    societe: "company",
+    entreprise: "company",
+    company: "company",
+    specialite: "specialty",
+    specialty: "specialty",
+    metier: "specialty",
+    email: "email",
+    mail: "email",
+    telephone: "phone",
+    tel: "phone",
+    phone: "phone",
+    mobile: "mobile",
+    adresse: "addressLine1",
+    address: "addressLine1",
+    ville: "city",
+    city: "city",
+    codepostal: "postalCode",
+    postalcode: "postalCode",
+    cp: "postalCode",
+    notes: "notes",
+    note: "notes",
   },
 };
 
@@ -843,6 +874,74 @@ export async function importEntities(
               area: parsed.data.surface,
               floor: parsed.data.etage || null,
               status: "VACANT",
+            },
+          });
+          imported++;
+        } catch (err) {
+          errors.push({
+            row: i + 2,
+            message: err instanceof Error ? err.message : "Erreur d'insertion",
+          });
+        }
+      }
+    } else if (entityType === "contacts") {
+      const seenContactEmails = new Set<string>();
+
+      for (let i = 0; i < data.length; i++) {
+        const row = normalizeBulkImportRow(entityType, data[i]);
+        const parsed = importContactRowSchema.safeParse(row);
+        if (!parsed.success) {
+          errors.push({
+            row: i + 2,
+            message: parsed.error.errors.map((e) => e.message).join(", "),
+          });
+          continue;
+        }
+
+        const email = (parsed.data.email ?? "").trim();
+        if (email) {
+          const emailKey = email.toLowerCase();
+          if (seenContactEmails.has(emailKey)) {
+            errors.push({
+              row: i + 2,
+              message: "Email dupliqué dans le fichier",
+            });
+            continue;
+          }
+          seenContactEmails.add(emailKey);
+
+          const existingContact = await prisma.contact.findFirst({
+            where: {
+              societyId,
+              isActive: true,
+              email: { equals: email, mode: "insensitive" },
+            },
+            select: { id: true },
+          });
+          if (existingContact) {
+            errors.push({
+              row: i + 2,
+              message: "Un contact existe déjà avec cet email",
+            });
+            continue;
+          }
+        }
+
+        try {
+          await prisma.contact.create({
+            data: {
+              societyId,
+              contactType: parsed.data.contactType,
+              name: parsed.data.name,
+              company: parsed.data.company || null,
+              specialty: parsed.data.specialty || null,
+              email: email || null,
+              phone: parsed.data.phone || null,
+              mobile: parsed.data.mobile || null,
+              addressLine1: parsed.data.addressLine1 || null,
+              city: parsed.data.city || null,
+              postalCode: parsed.data.postalCode || null,
+              notes: parsed.data.notes || null,
             },
           });
           imported++;

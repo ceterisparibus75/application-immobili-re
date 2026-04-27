@@ -284,6 +284,93 @@ describe("importEntities — locataires", () => {
   });
 });
 
+describe("importEntities — contacts", () => {
+  const validRow = {
+    Type: "Prestataire",
+    Nom: "Jean Martin",
+    Société: "Martin Plomberie",
+    Spécialité: "Plomberie",
+    Email: "contact@martin.fr",
+    Téléphone: "0601020304",
+  };
+
+  beforeEach(() => {
+    prismaMock.contact.findFirst.mockResolvedValue(null);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-1" } as never);
+  });
+
+  it("importe les contacts avec des colonnes françaises courantes", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+
+    const r = await importEntities(SOCIETY_ID, "contacts", [validRow]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors).toHaveLength(0);
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          contactType: "PRESTATAIRE",
+          name: "Jean Martin",
+          company: "Martin Plomberie",
+          specialty: "Plomberie",
+          email: "contact@martin.fr",
+          phone: "0601020304",
+        }),
+      })
+    );
+  });
+
+  it("bloque les contacts déjà présents avec le même email", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.contact.findFirst.mockResolvedValue({ id: "contact-existing" } as never);
+
+    const r = await importEntities(SOCIETY_ID, "contacts", [validRow]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 2,
+      message: "Un contact existe déjà avec cet email",
+    });
+    expect(prismaMock.contact.create).not.toHaveBeenCalled();
+  });
+
+  it("bloque les emails dupliqués dans le fichier importé", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      validRow,
+      { ...validRow, Nom: "Jean Martin 2", Email: "CONTACT@martin.fr" },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "contacts", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 3,
+      message: "Email dupliqué dans le fichier",
+    });
+    expect(prismaMock.contact.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("collecte les erreurs de validation sans interrompre le traitement", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      validRow,
+      { Type: "Notaire", Nom: "", Email: "notaire@example.com" },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "contacts", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({ row: 3 });
+    expect(r.data?.errors[0].message).toContain("Le nom est requis");
+  });
+});
+
 describe("importEntities — immeubles", () => {
   const validRow = {
     name: "Immeuble Haussmann",
