@@ -102,40 +102,112 @@ export const importContactRowSchema = z.object({
 export type ImportContactRow = z.infer<typeof importContactRowSchema>;
 
 // ---- Bulk import: Buildings ----
+function normalizeBuildingType(value: string): string {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  const mapping: Record<string, string> = {
+    bureau: "BUREAU",
+    bureaux: "BUREAU",
+    tertiaire: "BUREAU",
+    commerce: "COMMERCE",
+    commercial: "COMMERCE",
+    localcommercial: "COMMERCE",
+    boutique: "COMMERCE",
+    mixte: "MIXTE",
+    entrepot: "ENTREPOT",
+    stockage: "ENTREPOT",
+    logistique: "ENTREPOT",
+  };
+
+  return mapping[normalized] ?? (value || "MIXTE");
+}
+
 export const importBuildingRowSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caracteres"),
   address: z.string().min(5, "L'adresse est requise"),
   postalCode: z.string().regex(/^\d{5}$/, "Code postal invalide (5 chiffres)"),
   city: z.string().min(2, "La ville est requise"),
   type: z
-    .enum(["BUREAU", "COMMERCE", "MIXTE", "ENTREPOT"])
+    .string()
+    .optional()
     .default("MIXTE"),
-});
+}).transform((data) => ({ ...data, type: normalizeBuildingType(data.type) }))
+  .pipe(z.object({
+    name: z.string(),
+    address: z.string(),
+    postalCode: z.string(),
+    city: z.string(),
+    type: z.enum(["BUREAU", "COMMERCE", "MIXTE", "ENTREPOT"]),
+  }));
 
 export type ImportBuildingRow = z.infer<typeof importBuildingRowSchema>;
 
 // ---- Bulk import: Lots ----
+function normalizeLotType(value: string): string {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  const mapping: Record<string, string> = {
+    localcommercial: "LOCAL_COMMERCIAL",
+    commerce: "LOCAL_COMMERCIAL",
+    boutique: "LOCAL_COMMERCIAL",
+    bureaux: "BUREAUX",
+    bureau: "BUREAUX",
+    localactivite: "LOCAL_ACTIVITE",
+    localdactivite: "LOCAL_ACTIVITE",
+    activite: "LOCAL_ACTIVITE",
+    atelier: "LOCAL_ACTIVITE",
+    reserve: "RESERVE",
+    parking: "PARKING",
+    cave: "CAVE",
+    terrasse: "TERRASSE",
+    entrepot: "ENTREPOT",
+    stockage: "ENTREPOT",
+    appartement: "APPARTEMENT",
+    logement: "APPARTEMENT",
+  };
+
+  return mapping[normalized] ?? (value || "BUREAUX");
+}
+
 export const importLotRowSchema = z
   .object({
     reference: z.string().min(1, "La reference du lot est requise"),
     type: z
-      .enum([
-        "LOCAL_COMMERCIAL",
-        "BUREAUX",
-        "LOCAL_ACTIVITE",
-        "RESERVE",
-        "PARKING",
-        "CAVE",
-        "TERRASSE",
-        "ENTREPOT",
-        "APPARTEMENT",
-      ])
+      .string()
+      .optional()
       .default("BUREAUX"),
     surface: z.coerce.number().positive("La surface doit etre positive"),
     etage: z.string().optional().default(""),
     buildingId: z.string().optional().default(""),
     buildingName: z.string().optional().default(""),
   })
+  .transform((data) => ({ ...data, type: normalizeLotType(data.type) }))
+  .pipe(z.object({
+    reference: z.string(),
+    type: z.enum([
+      "LOCAL_COMMERCIAL",
+      "BUREAUX",
+      "LOCAL_ACTIVITE",
+      "RESERVE",
+      "PARKING",
+      "CAVE",
+      "TERRASSE",
+      "ENTREPOT",
+      "APPARTEMENT",
+    ]),
+    surface: z.number(),
+    etage: z.string(),
+    buildingId: z.string(),
+    buildingName: z.string(),
+  }))
   .superRefine((data, ctx) => {
     if (!data.buildingId.trim() && !data.buildingName.trim()) {
       ctx.addIssue({

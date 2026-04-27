@@ -141,6 +141,16 @@ describe("importBuildingRowSchema", () => {
     if (result.success) expect(result.data.type).toBe("MIXTE");
   });
 
+  it("normalise les types d'immeuble issus d'Excel", () => {
+    const bureaux = importBuildingRowSchema.safeParse({ ...validBuilding, type: "Bureaux" });
+    const entrepot = importBuildingRowSchema.safeParse({ ...validBuilding, type: "Entrepôt" });
+
+    expect(bureaux.success).toBe(true);
+    expect(entrepot.success).toBe(true);
+    if (bureaux.success) expect(bureaux.data.type).toBe("BUREAU");
+    if (entrepot.success) expect(entrepot.data.type).toBe("ENTREPOT");
+  });
+
   it("rejette un nom trop court (< 2 chars)", () => {
     const result = importBuildingRowSchema.safeParse({ ...validBuilding, name: "A" });
     expect(result.success).toBe(false);
@@ -199,6 +209,16 @@ describe("importLotRowSchema", () => {
     const result = importLotRowSchema.safeParse(validLot);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.type).toBe("BUREAUX");
+  });
+
+  it("normalise les types de lots issus d'Excel", () => {
+    const activite = importLotRowSchema.safeParse({ ...validLot, type: "Local d'activité" });
+    const appartement = importLotRowSchema.safeParse({ ...validLot, type: "Appartement" });
+
+    expect(activite.success).toBe(true);
+    expect(appartement.success).toBe(true);
+    if (activite.success) expect(activite.data.type).toBe("LOCAL_ACTIVITE");
+    if (appartement.success) expect(appartement.data.type).toBe("APPARTEMENT");
   });
 
   it("etage vaut chaîne vide par défaut", () => {
