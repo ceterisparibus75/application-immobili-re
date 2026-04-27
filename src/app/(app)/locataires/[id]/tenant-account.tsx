@@ -146,7 +146,7 @@ function buildMovements(invoices: AccountInvoice[]) {
   }> = [];
 
   for (const inv of invoices) {
-    if (inv.status === "ANNULEE") continue;
+    if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
     if (inv.invoiceType === "QUITTANCE") continue;
 
     const typeLabel = INVOICE_TYPE_LABELS[inv.invoiceType] ?? inv.invoiceType;
@@ -214,13 +214,13 @@ export function TenantAccount({
 
   // Résumé
   const totalFacture = invoices
-    .filter((i) => i.status !== "ANNULEE" && i.invoiceType !== "AVOIR" && i.invoiceType !== "QUITTANCE")
+    .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "AVOIR" && i.invoiceType !== "QUITTANCE")
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalAvoir = invoices
-    .filter((i) => i.status !== "ANNULEE" && i.invoiceType === "AVOIR")
+    .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType === "AVOIR")
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalPaiements = invoices
-    .filter((i) => i.status !== "ANNULEE" && i.invoiceType !== "QUITTANCE")
+    .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
     .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0);
 
   // Saisie de sommes dues
