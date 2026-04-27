@@ -1,6 +1,5 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +7,9 @@ import { AlertTriangle, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
 import { RelancesClient } from "./overdue-tab";
-import { useRouter } from "next/navigation";
-import { useCallback } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 const LEVEL_LABELS: Record<string, string> = {
   RELANCE_1: "1ère relance",
@@ -89,7 +88,7 @@ type Reminder = {
 };
 
 interface FacturationTabsProps {
-  initialTab: "factures" | "en-retard" | "relances";
+  initialTab: FacturationTab;
   invoices: Invoice[];
   brouillons: Invoice[];
   overdueInvoices: OverdueInvoice[];
@@ -97,6 +96,38 @@ interface FacturationTabsProps {
   societyId: string;
   overdueCount: number;
   remindersCount: number;
+}
+
+type FacturationTab = "factures" | "en-retard" | "relances";
+
+function tabHref(tab: FacturationTab): string {
+  return tab === "factures" ? "/facturation" : `/facturation?tab=${tab}`;
+}
+
+function FacturationTabLink({
+  value,
+  active,
+  children,
+}: {
+  value: FacturationTab;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={tabHref(value)}
+      scroll={false}
+      className={cn(
+        "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-all",
+        active
+          ? "bg-background text-foreground shadow"
+          : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
+    </Link>
+  );
 }
 
 export function FacturationTabs({
@@ -109,80 +140,69 @@ export function FacturationTabs({
   overdueCount,
   remindersCount,
 }: FacturationTabsProps) {
-  const router = useRouter();
-
-  const handleTabChange = useCallback(
-    (value: string) => {
-      const params = new URLSearchParams(window.location.search);
-      if (value === "factures") {
-        params.delete("tab");
-      } else {
-        params.set("tab", value);
-      }
-      const qs = params.toString();
-      router.push(`/facturation${qs ? `?${qs}` : ""}`, { scroll: false });
-    },
-    [router],
-  );
-
   return (
-    <Tabs value={initialTab} onValueChange={handleTabChange}>
-      <TabsList className="max-w-full justify-start overflow-x-auto">
-        <TabsTrigger value="factures">Factures</TabsTrigger>
-        <TabsTrigger value="en-retard" className="gap-1.5">
+    <div>
+      <div className="inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground">
+        <FacturationTabLink value="factures" active={initialTab === "factures"}>
+          Factures
+        </FacturationTabLink>
+        <FacturationTabLink value="en-retard" active={initialTab === "en-retard"}>
           En retard
           {overdueCount > 0 && (
             <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">
               {overdueCount}
             </Badge>
           )}
-        </TabsTrigger>
-        <TabsTrigger value="relances" className="gap-1.5">
+        </FacturationTabLink>
+        <FacturationTabLink value="relances" active={initialTab === "relances"}>
           Relances
           {remindersCount > 0 && (
             <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
               {remindersCount}
             </Badge>
           )}
-        </TabsTrigger>
-      </TabsList>
+        </FacturationTabLink>
+      </div>
 
       {/* Onglet Factures */}
-      <TabsContent value="factures" className="space-y-6 mt-6">
-        <DraftsBanner drafts={brouillons} societyId={societyId} />
-        {invoices.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Receipt className="h-7 w-7" />
-              </div>
-              <h3 className="text-lg font-semibold">Aucune facture</h3>
-              <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                Générez les appels de loyers depuis les baux actifs ou créez une facture ponctuelle.
-              </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <Button asChild>
-                  <Link href="/facturation/generer">
-                    <Zap className="h-4 w-4" />
-                    Générer les appels
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/facturation/nouvelle">
-                    <Plus className="h-4 w-4" />
-                    Nouvelle facture
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <InvoicesList invoices={invoices} />
-        )}
-      </TabsContent>
+      {initialTab === "factures" && (
+        <div className="space-y-6 mt-6">
+          <DraftsBanner drafts={brouillons} societyId={societyId} />
+          {invoices.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Receipt className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-semibold">Aucune facture</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Générez les appels de loyers depuis les baux actifs ou créez une facture ponctuelle.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Button asChild>
+                    <Link href="/facturation/generer">
+                      <Zap className="h-4 w-4" />
+                      Générer les appels
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/facturation/nouvelle">
+                      <Plus className="h-4 w-4" />
+                      Nouvelle facture
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <InvoicesList invoices={invoices} />
+          )}
+        </div>
+      )}
 
       {/* Onglet En retard */}
-      <TabsContent value="en-retard" className="space-y-6 mt-6">
+      {initialTab === "en-retard" && (
+      <div className="space-y-6 mt-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -197,10 +217,12 @@ export function FacturationTabs({
             />
           </CardContent>
         </Card>
-      </TabsContent>
+      </div>
+      )}
 
       {/* Onglet Relances (historique) */}
-      <TabsContent value="relances" className="space-y-6 mt-6">
+      {initialTab === "relances" && (
+      <div className="space-y-6 mt-6">
         <Card>
           <CardHeader>
             <CardTitle>Historique des relances</CardTitle>
@@ -247,7 +269,8 @@ export function FacturationTabs({
             )}
           </CardContent>
         </Card>
-      </TabsContent>
-    </Tabs>
+      </div>
+      )}
+    </div>
   );
 }
