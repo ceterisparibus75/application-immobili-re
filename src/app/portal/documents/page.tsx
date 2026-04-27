@@ -11,6 +11,12 @@ function portalInvoiceStatus(status: string): { label: string; variant: "success
   return { label: "En retard", variant: "destructive" };
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  bail: "Bail", avenant: "Avenant", diagnostic: "Diagnostic",
+  assurance: "Assurance", titre_propriete: "Titre de propriété",
+  contrat: "Contrat", etat_des_lieux: "État des lieux",
+};
+
 export default async function PortalDocumentsPage() {
   let session;
   try {
@@ -112,40 +118,48 @@ export default async function PortalDocumentsPage() {
             <p className="text-sm text-muted-foreground">Aucun bail</p>
           ) : (
             <div className="divide-y">
-              {leases.map((lease) => (
-                <div key={lease.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {lease.lot.building.name} — Lot {lease.lot.number}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Depuis le {formatDate(lease.startDate)}
-                      {lease.society && <> &middot; {lease.society.name}</>}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={lease.status === "EN_COURS" ? "success" : "secondary"}>
-                      {lease.status === "EN_COURS" ? "Actif" : lease.status}
-                    </Badge>
-                    {lease.leaseFileUrl && (
-                      <a href={lease.leaseFileUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-primary hover:underline">
-                        <Download className="h-4 w-4" />
-                        Bail
-                      </a>
+              {leases.map((lease) => {
+                const leaseDocs = gedDocuments.filter(
+                  (d) => d.leaseId === lease.id && !["facture", "quittance"].includes(d.category ?? "")
+                );
+                const hasDownloads = lease.leaseFileUrl || leaseDocs.length > 0;
+                return (
+                  <div key={lease.id} className="py-3 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">
+                          {lease.lot.building.name} — Lot {lease.lot.number}
+                        </p>
+                        <Badge variant={lease.status === "EN_COURS" ? "success" : "secondary"} className="shrink-0">
+                          {lease.status === "EN_COURS" ? "Actif" : lease.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Depuis le {formatDate(lease.startDate)}
+                        {lease.society && <> &middot; {lease.society.name}</>}
+                      </p>
+                    </div>
+                    {hasDownloads && (
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        {lease.leaseFileUrl && (
+                          <a href={lease.leaseFileUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:bg-accent transition-colors">
+                            <Download className="h-3 w-3" />
+                            Bail
+                          </a>
+                        )}
+                        {leaseDocs.map((doc) => (
+                          <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:bg-accent transition-colors">
+                            <Download className="h-3 w-3" />
+                            {CATEGORY_LABELS[doc.category ?? ""] ?? doc.fileName}
+                          </a>
+                        ))}
+                      </div>
                     )}
-                    {gedDocuments
-                      .filter((d) => d.leaseId === lease.id)
-                      .map((doc) => (
-                        <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-primary hover:underline">
-                          <Download className="h-4 w-4" />
-                          {doc.description ?? doc.fileName}
-                        </a>
-                      ))}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
