@@ -118,8 +118,9 @@ export default async function CandidaturesPage() {
                     {stageCards.map((candidate) => {
                       const tags = (candidate.tags as string[]) ?? [];
                       return (
-                        <div
+                        <Link
                           key={candidate.id}
+                          href={`/candidatures/${candidate.id}`}
                           className="rounded-lg border bg-card p-3 shadow-sm hover:shadow-brand transition-shadow cursor-pointer"
                         >
                           <div className="flex items-start justify-between">
@@ -164,7 +165,7 @@ export default async function CandidaturesPage() {
                               ))}
                             </div>
                           )}
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>

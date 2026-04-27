@@ -201,6 +201,12 @@ export default async function LocataireDetailPage({
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <InviteTenantButton tenantId={id} />
+          <Link href={`/baux/nouveau?tenantId=${id}`}>
+            <Button variant="outline" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Créer un bail
+            </Button>
+          </Link>
           <Link href={`/locataires/${id}/modifier`}>
             <Button variant="outline" className="gap-1.5">
               <Pencil className="h-4 w-4" />

@@ -5,6 +5,7 @@ import { UserRole } from "@/generated/prisma/client";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/plan-limits", () => ({ checkSubscriptionActive: vi.fn().mockResolvedValue({ active: true }) }));
 
 import {
   createCandidate,
@@ -12,6 +13,7 @@ import {
   deleteCandidate,
   addActivity,
   createPipeline,
+  convertCandidateToTenant,
 } from "./candidate";
 import { createAuditLog } from "@/lib/audit";
 
@@ -286,6 +288,76 @@ describe("deleteCandidate", () => {
     prismaMock.candidate.delete.mockRejectedValue(new Error("DB error"));
     const r = await deleteCandidate(SOCIETY_ID, CANDIDATE_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
+  });
+});
+
+// ─── convertCandidateToTenant ────────────────────────────────────────────────
+
+describe("convertCandidateToTenant", () => {
+  const candidate = {
+    id: CANDIDATE_ID,
+    societyId: SOCIETY_ID,
+    firstName: "Marie",
+    lastName: "Dupont",
+    email: "marie.dupont@example.com",
+    phone: "0612345678",
+    company: null,
+    status: "DOSSIER_VALIDATED",
+    score: 82,
+    source: "SeLoger",
+    monthlyIncome: 3600,
+    guarantorName: "Paul Dupont",
+    notes: "Dossier complet",
+  };
+
+  beforeEach(() => {
+    prismaMock.candidate.findFirst.mockResolvedValue(candidate as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(null as never);
+    prismaMock.tenant.create.mockResolvedValue({ id: "tenant-1" } as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-1" } as never);
+    prismaMock.candidate.update.mockResolvedValue({ id: CANDIDATE_ID } as never);
+    prismaMock.candidateActivity.create.mockResolvedValue({ id: "act-convert" } as never);
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock) as never);
+  });
+
+  it("crée un locataire depuis une candidature validée", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+
+    const r = await convertCandidateToTenant(SOCIETY_ID, CANDIDATE_ID);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.tenantId).toBe("tenant-1");
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          entityType: "PERSONNE_PHYSIQUE",
+          firstName: "Marie",
+          lastName: "Dupont",
+          email: "marie.dupont@example.com",
+          riskIndicator: "VERT",
+        }),
+      })
+    );
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ contactType: "LOCATAIRE", tenantId: "tenant-1" }),
+      })
+    );
+    expect(prismaMock.candidate.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "ACCEPTED" } })
+    );
+  });
+
+  it("bloque la conversion si l'email est absent", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.candidate.findFirst.mockResolvedValue({ ...candidate, email: null } as never);
+
+    const r = await convertCandidateToTenant(SOCIETY_ID, CANDIDATE_ID);
+
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Email requis pour créer le locataire");
+    expect(prismaMock.tenant.create).not.toHaveBeenCalled();
   });
 });
 

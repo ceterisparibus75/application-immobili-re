@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
+import { checkSubscriptionActive } from "@/lib/plan-limits";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import {
@@ -19,6 +20,29 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+
+function candidateRiskIndicator(score?: number | null): "VERT" | "ORANGE" | "ROUGE" {
+  if (score === null || score === undefined) return "VERT";
+  if (score < 40) return "ROUGE";
+  if (score < 70) return "ORANGE";
+  return "VERT";
+}
+
+function candidateTenantNotes(candidate: {
+  notes?: string | null;
+  source?: string | null;
+  monthlyIncome?: number | null;
+  guarantorName?: string | null;
+}) {
+  const details = [
+    candidate.source ? `Source candidature : ${candidate.source}` : null,
+    candidate.monthlyIncome ? `Revenus déclarés : ${candidate.monthlyIncome.toLocaleString("fr-FR")} €/mois` : null,
+    candidate.guarantorName ? `Garant : ${candidate.guarantorName}` : null,
+    candidate.notes ? `Notes candidature : ${candidate.notes}` : null,
+  ].filter(Boolean);
+
+  return details.length > 0 ? details.join("\n") : null;
+}
 
 /* ─── Pipeline ──────────────────────────────────────────────────────── */
 
@@ -173,6 +197,129 @@ export async function deleteCandidate(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[deleteCandidate]", error);
     return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+export async function convertCandidateToTenant(
+  societyId: string,
+  candidateId: string
+): Promise<ActionResult<{ tenantId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const subscription = await checkSubscriptionActive(societyId);
+    if (!subscription.active) {
+      return {
+        success: false,
+        error: subscription.message ?? "Abonnement inactif. Souscrivez un plan pour continuer.",
+      };
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { id: candidateId, societyId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        company: true,
+        status: true,
+        score: true,
+        source: true,
+        monthlyIncome: true,
+        guarantorName: true,
+        notes: true,
+      },
+    });
+
+    if (!candidate) return { success: false, error: "Candidature introuvable" };
+    if (!candidate.email) return { success: false, error: "Email requis pour créer le locataire" };
+
+    const existingTenant = await prisma.tenant.findFirst({
+      where: { societyId, email: candidate.email, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (existingTenant) {
+      return {
+        success: false,
+        error: "Un locataire existe déjà avec cet email",
+      };
+    }
+
+    const fullName = `${candidate.firstName} ${candidate.lastName}`.trim();
+    const tenant = await prisma.$transaction(async (tx) => {
+      const createdTenant = await tx.tenant.create({
+        data: {
+          societyId,
+          entityType: "PERSONNE_PHYSIQUE",
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          email: candidate.email!,
+          phone: candidate.phone,
+          riskIndicator: candidateRiskIndicator(candidate.score),
+          notes: candidateTenantNotes(candidate),
+        },
+        select: { id: true },
+      });
+
+      await tx.contact.create({
+        data: {
+          societyId,
+          tenantId: createdTenant.id,
+          contactType: "LOCATAIRE",
+          name: fullName,
+          company: candidate.company,
+          email: candidate.email,
+          phone: candidate.phone,
+          notes: "Créé depuis une candidature",
+        },
+      });
+
+      await tx.candidate.update({
+        where: { id: candidate.id },
+        data: { status: "ACCEPTED" },
+      });
+
+      await tx.candidateActivity.create({
+        data: {
+          candidateId: candidate.id,
+          type: "STATUS_CHANGE",
+          content: `Candidature convertie en locataire : ${fullName}`,
+          userId: context.userId,
+        },
+      });
+
+      return createdTenant;
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Tenant",
+      entityId: tenant.id,
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Candidate",
+      entityId: candidate.id,
+    });
+
+    revalidatePath("/candidatures");
+    revalidatePath(`/candidatures/${candidate.id}`);
+    revalidatePath("/locataires");
+    revalidatePath("/location/mise-en-location");
+    return { success: true, data: { tenantId: tenant.id } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[convertCandidateToTenant]", error);
+    return { success: false, error: "Erreur lors de la conversion" };
   }
 }
 
