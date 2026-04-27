@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 import { env } from "@/lib/env";
 import { isChorusProConfigured } from "@/lib/chorus-pro-client";
+import { Suspense } from "react";
 import { InboxConfigForm } from "./_components/inbox-config-form";
 import { PPFActivationCard } from "./_components/ppf-activation-card";
 import { ChorusProCard } from "./_components/chorus-pro-card";
@@ -65,15 +66,17 @@ export default async function ParametresFacturationPage() {
       <ChorusProCard isConfigured={isChorusProConfigured()} />
 
       {/* PA B2B — Réforme facturation électronique sept. 2026 */}
-      <PPFActivationCard
-        societyId={societyId}
-        ppfRegisteredAt={society?.ppfRegisteredAt ?? null}
-        hasSiret={!!society?.siret}
-        isConfigured={isEInvoicingConfigured()}
-        isMandataireMode={!!env.PA_MANDATAIRE_SIRET}
-        paConnected={!!society?.paOAuthAccessToken}
-        oauthConfigured={!!env.PA_OAUTH_AUTHORIZE_URL}
-      />
+      <Suspense fallback={null}>
+        <PPFActivationCard
+          societyId={societyId}
+          ppfRegisteredAt={society?.ppfRegisteredAt ?? null}
+          hasSiret={!!society?.siret}
+          isConfigured={isEInvoicingConfigured()}
+          isMandataireMode={!!env.PA_MANDATAIRE_SIRET}
+          paConnected={!!society?.paOAuthAccessToken}
+          oauthConfigured={!!env.PA_OAUTH_AUTHORIZE_URL}
+        />
+      </Suspense>
 
       {/* Formulaire de configuration inbox */}
       <InboxConfigForm societyId={societyId} initialConfig={config} />

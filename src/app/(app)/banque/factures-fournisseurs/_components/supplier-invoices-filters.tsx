@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,10 @@ const STATUSES = [
 export function SupplierInvoicesFilters({ currentSearch, currentStatus }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const createQueryString = useCallback(
     (updates: Record<string, string | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       for (const [key, value] of Object.entries(updates)) {
         if (value) {
           params.set(key, value);
@@ -38,7 +37,7 @@ export function SupplierInvoicesFilters({ currentSearch, currentStatus }: Props)
       params.delete("page");
       return params.toString();
     },
-    [searchParams]
+    []
   );
 
   function handleSearch(e: React.FormEvent<HTMLFormElement>) {

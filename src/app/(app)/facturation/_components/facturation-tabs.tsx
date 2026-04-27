@@ -113,7 +113,7 @@ export function FacturationTabs({
 
   const handleTabChange = useCallback(
     (value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       if (value === "factures") {
         params.delete("tab");
       } else {
@@ -122,7 +122,7 @@ export function FacturationTabs({
       const qs = params.toString();
       router.push(`/facturation${qs ? `?${qs}` : ""}`, { scroll: false });
     },
-    [searchParams, router],
+    [router],
   );
 
   return (

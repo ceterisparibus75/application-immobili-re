@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useRef, useState, useMemo, type ReactNode } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -122,7 +122,6 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(search ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -182,14 +181,14 @@ export function DataTable<T>({
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       for (const [k, v] of Object.entries(updates)) {
         if (v === null || v === "") params.delete(k);
         else params.set(k, v);
       }
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [router, pathname, searchParams]
+    [router, pathname]
   );
 
   const handleSearch = useCallback(
