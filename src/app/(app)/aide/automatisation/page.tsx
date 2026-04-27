@@ -17,7 +17,7 @@ export default function AutomatisationPage() {
     >
       <HelpSection id="workflows" title="Workflows automatisés">
         <p>
-          Le module <strong>Workflows</strong> permet de suivre les automatisations configurées pour votre gestion locative. Le moteur technique est disponible, mais l'écran de création sur mesure n'est pas encore exposé dans l'interface. Utilisez cette page pour contrôler les workflows existants et préparer vos scénarios avant leur activation.
+          Le module <strong>Workflows</strong> permet de créer, activer, exécuter et suivre des automatisations simples pour votre gestion locative. Depuis la navigation <strong>Automatisation &gt; Workflows</strong>, vous pouvez configurer un déclencheur, une première étape opérationnelle et consulter l'historique d'exécution.
         </p>
         <p className="font-semibold text-foreground mt-4 mb-2">Types de déclencheurs :</p>
         <ul className="list-disc pl-5 space-y-1">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight, BookOpen, Mail, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +25,7 @@ const NEXT_ACTIONS = [
   },
 ];
 
-export function WorkflowsEmptyState() {
+export function WorkflowsEmptyState({ createAction }: { createAction?: ReactNode }) {
   return (
     <Card>
       <CardContent className="py-12">
@@ -34,14 +35,16 @@ export function WorkflowsEmptyState() {
           </div>
           <h3 className="mb-1 text-lg font-semibold">Aucun workflow</h3>
           <p className="mb-5 max-w-lg text-sm text-muted-foreground">
-            Le moteur existe, mais l'écran de création n'est pas encore exposé. Utilisez les parcours déjà disponibles pour préparer les automatisations utiles.
+            Créez un premier scénario manuel, planifié ou déclenché par événement, puis lancez-le depuis cette page.
           </p>
-          <Button asChild>
-            <Link href="/aide/automatisation">
-              <BookOpen className="h-4 w-4" />
-              Lire le guide workflows
-            </Link>
-          </Button>
+          {createAction ?? (
+            <Button asChild>
+              <Link href="/aide/automatisation">
+                <BookOpen className="h-4 w-4" />
+                Lire le guide workflows
+              </Link>
+            </Button>
+          )}
 
           <div className="mt-8 grid w-full gap-3 text-left sm:grid-cols-3">
             {NEXT_ACTIONS.map((action) => {

@@ -16,6 +16,8 @@ import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { WorkflowStep, WorkflowTrigger } from "@/validations/workflow";
 import { WorkflowsEmptyState } from "./_components/workflows-empty-state";
+import { WorkflowActions } from "./_components/workflow-actions";
+import { WorkflowCreateDialog } from "./_components/workflow-create-dialog";
 
 const TRIGGER_LABELS: Record<string, { label: string; icon: typeof Zap }> = {
   event: { label: "Événement", icon: Zap },
@@ -36,6 +38,23 @@ const STEP_ICONS: Record<string, typeof Mail> = {
 };
 
 export const metadata: Metadata = { title: "Workflows" };
+
+function normalizeTrigger(value: unknown): WorkflowTrigger {
+  if (value && typeof value === "object" && "type" in value) {
+    const trigger = value as WorkflowTrigger;
+    if (trigger.type === "event" || trigger.type === "schedule" || trigger.type === "manual") {
+      return trigger;
+    }
+  }
+  return { type: "manual", config: {} };
+}
+
+function normalizeSteps(value: unknown): WorkflowStep[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((step): step is WorkflowStep => {
+    return Boolean(step && typeof step === "object" && "id" in step && "type" in step);
+  });
+}
 
 export default async function WorkflowsPage() {
   const session = await auth();
@@ -62,7 +81,7 @@ export default async function WorkflowsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Workflow className="h-6 w-6 text-[var(--color-brand-blue)]" />
@@ -74,21 +93,24 @@ export default async function WorkflowsPage() {
             {totalRuns > 0 && ` · ${totalRuns} exécution${totalRuns > 1 ? "s" : ""}`}
           </p>
         </div>
-        <Button asChild className="gap-1.5 bg-brand-gradient-soft text-white hover:opacity-90">
-          <Link href="/aide/automatisation">
-            <BookOpen className="h-4 w-4" />
-            Guide workflows
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/aide/automatisation">
+              <BookOpen className="h-4 w-4" />
+              Guide workflows
+            </Link>
+          </Button>
+          {workflows.length > 0 && <WorkflowCreateDialog societyId={societyId} />}
+        </div>
       </div>
 
       {workflows.length === 0 ? (
-        <WorkflowsEmptyState />
+        <WorkflowsEmptyState createAction={<WorkflowCreateDialog societyId={societyId} />} />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {workflows.map((wf) => {
-            const trigger = wf.trigger as unknown as WorkflowTrigger;
-            const steps = wf.steps as unknown as WorkflowStep[];
+            const trigger = normalizeTrigger(wf.trigger);
+            const steps = normalizeSteps(wf.steps);
             const triggerConfig = TRIGGER_LABELS[trigger.type] ?? TRIGGER_LABELS.manual;
             const TriggerIcon = triggerConfig.icon;
 
@@ -168,6 +190,13 @@ export default async function WorkflowsPage() {
                       ))}
                     </div>
                   )}
+
+                  <WorkflowActions
+                    societyId={societyId}
+                    workflowId={wf.id}
+                    workflowName={wf.name}
+                    isActive={wf.isActive}
+                  />
                 </CardContent>
               </Card>
             );

@@ -24,4 +24,13 @@ describe("navigation-config", () => {
     expect(itemsForGroup(MOBILE_NAV_GROUPS, "Location").map((item) => item.href)).toContain("/location");
     expect(itemsForGroup(MOBILE_NAV_GROUPS, "Finances").map((item) => item.href)).toContain("/finances");
   });
+
+  it("expose les workflows dans la navigation desktop et mobile", () => {
+    expect(itemsForGroup(TOP_NAV_GROUPS, "Automatisation")).toContainEqual(
+      expect.objectContaining({ name: "Workflows", href: "/workflows" }),
+    );
+    expect(itemsForGroup(MOBILE_NAV_GROUPS, "Automatisation")).toContainEqual(
+      expect.objectContaining({ name: "Workflows", href: "/workflows" }),
+    );
+  });
 });
