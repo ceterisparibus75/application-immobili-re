@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { UserRole, BuildingType, LeaseStatus, LeaseType, LeaseDestination, LoanStatus } from "@/generated/prisma/client";
+import { Suspense } from "react";
 import { ClaimSocietyDialog } from "./_components/claim-society-dialog";
 import { ProprietaireTabs } from "./_components/proprietaire-tabs";
 import { ProprietaireSelector } from "./_components/proprietaire-selector";
@@ -1107,15 +1108,17 @@ export default async function ProprietaireDashboardPage({
               {ownerData?.totalSocieties ?? 0} société{(ownerData?.totalSocieties ?? 0) > 1 ? "s" : ""} · {ownerData?.totalBuildings ?? 0} immeuble{(ownerData?.totalBuildings ?? 0) > 1 ? "s" : ""} · {ownerData?.totalLots ?? 0} lots
             </p>
           </div>
-          <ProprietaireSelector
-            proprietaires={proprietaires.map((p) => ({
-              id: p.id,
-              label: p.label,
-              entityType: p.entityType,
-              societyCount: p.societyCount,
-            }))}
-            activeId={activePid}
-          />
+          <Suspense fallback={null}>
+            <ProprietaireSelector
+              proprietaires={proprietaires.map((p) => ({
+                id: p.id,
+                label: p.label,
+                entityType: p.entityType,
+                societyCount: p.societyCount,
+              }))}
+              activeId={activePid}
+            />
+          </Suspense>
         </div>
         <div className="flex items-center gap-2">
           <RerunValuationsButton />
