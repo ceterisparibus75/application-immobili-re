@@ -43,6 +43,15 @@ function csvCell(value: string | number): string {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
+function normalizeImportHeader(header: string): string {
+  return header
+    .normalize("NFD")
+    .replace(/²/g, "2")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 function parseEntityType(value: string | null): ImportEntityType | null {
   if (value === "tenants" || value === "contacts" || value === "buildings" || value === "lots") {
     return value;
@@ -84,6 +93,32 @@ export default function ImportPage() {
     lots: [
       "Type lot : LOCAL_COMMERCIAL, BUREAUX, LOCAL_ACTIVITE, RESERVE, PARKING, CAVE, TERRASSE, ENTREPOT ou APPARTEMENT.",
       "Renseignez le nom exact de l'immeuble déjà importé dans la colonne Immeuble.",
+    ],
+  };
+
+  const recognizedHeaders: Record<ImportEntityType, string[]> = {
+    tenants: [
+      "nom", "name", "lastname", "prenom", "firstname", "email", "mail", "telephone",
+      "tel", "phone", "mobile", "type", "typelocataire", "entitytype", "nature",
+      "raisonsociale", "societe", "entreprise", "company", "companyname",
+      "companylegalform", "formejuridique", "siret",
+    ],
+    contacts: [
+      "type", "typecontact", "contacttype", "nature", "nom", "name", "contact",
+      "societe", "entreprise", "company", "specialite", "specialty", "metier",
+      "email", "mail", "telephone", "tel", "phone", "mobile", "adresse",
+      "address", "ville", "city", "codepostal", "postalcode", "cp", "notes", "note",
+    ],
+    buildings: [
+      "name", "nom", "immeuble", "batiment", "address", "adresse", "adresseligne1",
+      "rue", "postalcode", "codepostal", "cp", "city", "ville", "commune", "type",
+      "buildingtype", "typeimmeuble",
+    ],
+    lots: [
+      "reference", "ref", "numero", "numerolot", "lot", "type", "typelot", "surface",
+      "surfacem2", "m2", "area", "etage", "floor", "buildingid", "immeubleid",
+      "idimmeuble", "building", "buildingname", "immeuble", "nomimmeuble", "batiment",
+      "nombatiment",
     ],
   };
 
@@ -201,6 +236,10 @@ export default function ImportPage() {
 
   const previewRows = parsedData?.rows.slice(0, 5) ?? [];
   const previewHeaders = parsedData?.headers ?? [];
+  const recognizedHeaderSet = new Set(recognizedHeaders[entityType]);
+  const ignoredHeaders = previewHeaders.filter(
+    (header) => !recognizedHeaderSet.has(normalizeImportHeader(header))
+  );
   const errorCsv = result?.errors.length
     ? [
         ["ligne", "erreur"].map(csvCell).join(";"),
@@ -367,6 +406,16 @@ export default function ImportPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {ignoredHeaders.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md bg-[var(--color-status-caution-bg)] p-3 text-sm text-[var(--color-status-caution)]">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">Colonnes ignorées</p>
+                  <p>{ignoredHeaders.join(", ")}</p>
+                </div>
+              </div>
+            )}
 
             <Button onClick={handleImport} disabled={isImporting}>
               {isImporting ? (
