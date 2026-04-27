@@ -307,6 +307,34 @@ describe("importEntities — lots", () => {
     );
   });
 
+  it("résout l'immeuble par nom pour importer des lots sans identifiant technique", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+
+    const r = await importEntities(SOCIETY_ID, "lots", [{
+      "Numéro lot": "C3",
+      "Type lot": "BUREAUX",
+      "Surface m²": "64",
+      Immeuble: "Résidence Victor Hugo",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.building.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          name: expect.objectContaining({ equals: "Résidence Victor Hugo", mode: "insensitive" }),
+        }),
+      })
+    );
+    expect(prismaMock.lot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ buildingId: BUILDING_ID, number: "C3" }),
+      })
+    );
+  });
+
   it("collecte les erreurs Zod pour les lots invalides (référence vide)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const rows = [

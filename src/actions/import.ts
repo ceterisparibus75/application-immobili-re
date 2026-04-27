@@ -574,6 +574,12 @@ const IMPORT_COLUMN_ALIASES: Record<ImportEntityType, Record<string, string>> = 
     buildingid: "buildingId",
     immeubleid: "buildingId",
     idimmeuble: "buildingId",
+    building: "buildingName",
+    buildingname: "buildingName",
+    immeuble: "buildingName",
+    nomimmeuble: "buildingName",
+    batiment: "buildingName",
+    nombatiment: "buildingName",
   },
 };
 
@@ -688,10 +694,20 @@ export async function importEntities(
           });
           continue;
         }
-        // Verify building belongs to this society
-        const building = await prisma.building.findFirst({
-          where: { id: parsed.data.buildingId, societyId },
-        });
+        // Verify building belongs to this society. Prefer the technical id when present,
+        // but accept the building name to match real-world Excel exports.
+        const building = parsed.data.buildingId.trim()
+          ? await prisma.building.findFirst({
+              where: { id: parsed.data.buildingId, societyId },
+              select: { id: true },
+            })
+          : await prisma.building.findFirst({
+              where: {
+                societyId,
+                name: { equals: parsed.data.buildingName.trim(), mode: "insensitive" },
+              },
+              select: { id: true },
+            });
         if (!building) {
           errors.push({ row: i + 2, message: "Immeuble introuvable dans cette societe" });
           continue;
@@ -699,7 +715,7 @@ export async function importEntities(
         try {
           await prisma.lot.create({
             data: {
-              buildingId: parsed.data.buildingId,
+              buildingId: building.id,
               number: parsed.data.reference,
               lotType: parsed.data.type,
               area: parsed.data.surface,

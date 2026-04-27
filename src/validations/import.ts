@@ -24,25 +24,36 @@ export const importBuildingRowSchema = z.object({
 export type ImportBuildingRow = z.infer<typeof importBuildingRowSchema>;
 
 // ---- Bulk import: Lots ----
-export const importLotRowSchema = z.object({
-  reference: z.string().min(1, "La reference du lot est requise"),
-  type: z
-    .enum([
-      "LOCAL_COMMERCIAL",
-      "BUREAUX",
-      "LOCAL_ACTIVITE",
-      "RESERVE",
-      "PARKING",
-      "CAVE",
-      "TERRASSE",
-      "ENTREPOT",
-      "APPARTEMENT",
-    ])
-    .default("BUREAUX"),
-  surface: z.coerce.number().positive("La surface doit etre positive"),
-  etage: z.string().optional().default(""),
-  buildingId: z.string().min(1, "L'identifiant de l'immeuble est requis"),
-});
+export const importLotRowSchema = z
+  .object({
+    reference: z.string().min(1, "La reference du lot est requise"),
+    type: z
+      .enum([
+        "LOCAL_COMMERCIAL",
+        "BUREAUX",
+        "LOCAL_ACTIVITE",
+        "RESERVE",
+        "PARKING",
+        "CAVE",
+        "TERRASSE",
+        "ENTREPOT",
+        "APPARTEMENT",
+      ])
+      .default("BUREAUX"),
+    surface: z.coerce.number().positive("La surface doit etre positive"),
+    etage: z.string().optional().default(""),
+    buildingId: z.string().optional().default(""),
+    buildingName: z.string().optional().default(""),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.buildingId.trim() && !data.buildingName.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["buildingId"],
+        message: "L'identifiant ou le nom de l'immeuble est requis",
+      });
+    }
+  });
 
 export type ImportLotRow = z.infer<typeof importLotRowSchema>;
 

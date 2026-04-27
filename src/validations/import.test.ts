@@ -116,6 +116,16 @@ describe("importLotRowSchema", () => {
     expect(importLotRowSchema.safeParse(validLot).success).toBe(true);
   });
 
+  it("accepte une ligne lot avec nom d'immeuble sans identifiant technique", () => {
+    const result = importLotRowSchema.safeParse({
+      reference: "LOT-102",
+      surface: 42,
+      buildingName: "Résidence Les Pins",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.buildingName).toBe("Résidence Les Pins");
+  });
+
   it("type vaut BUREAUX par défaut", () => {
     const result = importLotRowSchema.safeParse(validLot);
     expect(result.success).toBe(true);
@@ -150,8 +160,8 @@ describe("importLotRowSchema", () => {
     if (result.success) expect(result.data.surface).toBe(75.5);
   });
 
-  it("rejette buildingId vide", () => {
-    const result = importLotRowSchema.safeParse({ ...validLot, buildingId: "" });
+  it("rejette une ligne sans identifiant ni nom d'immeuble", () => {
+    const result = importLotRowSchema.safeParse({ ...validLot, buildingId: "", buildingName: "" });
     expect(result.success).toBe(false);
   });
 });

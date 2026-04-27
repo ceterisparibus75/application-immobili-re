@@ -53,7 +53,7 @@ export default function ImportPage() {
   const expectedColumns: Record<ImportEntityType, string[]> = {
     tenants: ["Nom", "Prénom", "Email", "Téléphone"],
     buildings: ["Nom", "Adresse", "Code postal", "Ville", "Type"],
-    lots: ["Numéro lot", "Type lot", "Surface m²", "Étage", "ID immeuble"],
+    lots: ["Numéro lot", "Type lot", "Surface m²", "Étage", "Immeuble"],
   };
 
   const entityLabels: Record<ImportEntityType, string> = {
@@ -72,8 +72,8 @@ export default function ImportPage() {
       ["Immeuble Haussmann", "12 boulevard Haussmann", "75008", "Paris", "BUREAU"],
     ],
     lots: [
-      ["Numéro lot", "Type lot", "Surface m²", "Étage", "ID immeuble"],
-      ["A1", "BUREAUX", "50", "2", "ID_IMMEUBLE"],
+      ["Numéro lot", "Type lot", "Surface m²", "Étage", "Immeuble"],
+      ["A1", "BUREAUX", "50", "2", "Immeuble Haussmann"],
     ],
   };
 
@@ -202,7 +202,7 @@ export default function ImportPage() {
               </Button>
               {entityType === "lots" && (
                 <p className="text-xs text-muted-foreground">
-                  Pour les lots, importez d&apos;abord les immeubles puis renseignez l&apos;identifiant de l&apos;immeuble dans la colonne buildingId.
+                  Pour les lots, importez d&apos;abord les immeubles puis renseignez leur nom exact dans la colonne Immeuble. La colonne buildingId reste acceptée pour les exports techniques.
                 </p>
               )}
             </div>
