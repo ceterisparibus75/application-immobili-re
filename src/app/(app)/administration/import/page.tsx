@@ -69,6 +69,24 @@ export default function ImportPage() {
     contacts: ["Type", "Nom", "Société", "Spécialité", "Email", "Téléphone"],
   };
 
+  const entityHints: Record<ImportEntityType, string[]> = {
+    tenants: [
+      "Type : Particulier ou Société. Pour une société, renseignez surtout Raison sociale et Email.",
+    ],
+    contacts: [
+      "Type : Prestataire, Notaire, Expert, Syndic, Agence, Locataire ou Autre.",
+      "L'email est optionnel, mais il sert à éviter les doublons.",
+    ],
+    buildings: [
+      "Type : BUREAU, COMMERCE, MIXTE ou ENTREPOT.",
+      "Le couple Nom + Code postal sert à éviter les doublons.",
+    ],
+    lots: [
+      "Type lot : LOCAL_COMMERCIAL, BUREAUX, LOCAL_ACTIVITE, RESERVE, PARKING, CAVE, TERRASSE, ENTREPOT ou APPARTEMENT.",
+      "Renseignez le nom exact de l'immeuble déjà importé dans la colonne Immeuble.",
+    ],
+  };
+
   const entityLabels: Record<ImportEntityType, string> = {
     tenants: "Locataires",
     buildings: "Immeubles",
@@ -244,11 +262,11 @@ export default function ImportPage() {
                   Télécharger le modèle CSV
                 </a>
               </Button>
-              {entityType === "lots" && (
-                <p className="text-xs text-muted-foreground">
-                  Pour les lots, importez d&apos;abord les immeubles puis renseignez leur nom exact dans la colonne Immeuble. La colonne buildingId reste acceptée pour les exports techniques.
-                </p>
-              )}
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {entityHints[entityType].map((hint) => (
+                  <p key={hint}>{hint}</p>
+                ))}
+              </div>
             </div>
           </div>
 
