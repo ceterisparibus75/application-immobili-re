@@ -5,7 +5,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { Plus, Phone, Mail, Building2 } from "lucide-react";
+import { Plus, Phone, Mail, Building2, Upload } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SyncTenantsButton } from "./_components/sync-tenants-button";
@@ -64,7 +64,7 @@ export default async function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Contacts</h1>
           <p className="text-muted-foreground text-sm">
@@ -72,8 +72,14 @@ export default async function ContactsPage() {
             {contacts.length > 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportContacts data={contacts} />
+          <Link href="/import/en-masse">
+            <Button variant="outline" className="gap-1.5">
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+          </Link>
           <SyncTenantsButton societyId={societyId} />
           <Link href="/contacts/nouveau">
             <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">

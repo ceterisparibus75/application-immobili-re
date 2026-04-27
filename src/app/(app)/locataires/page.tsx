@@ -1,6 +1,6 @@
 import { getTenantsPaginated } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { ExportLocataires } from "@/components/exports/export-locataires";
 import { headers } from "next/headers";
@@ -112,6 +112,12 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportLocataires data={serialized} />
+          <Link href="/import/en-masse">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+          </Link>
           <Link href="/locataires/nouveau">
             <Button>
               <Plus className="h-4 w-4" />

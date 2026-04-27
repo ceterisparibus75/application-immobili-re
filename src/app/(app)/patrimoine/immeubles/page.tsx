@@ -1,6 +1,6 @@
 import { getBuildings } from "@/actions/building";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -79,16 +79,24 @@ export default async function ImmeublesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Immeubles</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {buildings.length} immeuble{buildings.length !== 1 ? "s" : ""} — {totalLots} lots — Occupation {globalOccupancy}%
           </p>
         </div>
-        <Link href="/patrimoine/immeubles/nouveau">
-          <Button><Plus className="h-4 w-4" />Nouvel immeuble</Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/import/en-masse">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+          </Link>
+          <Link href="/patrimoine/immeubles/nouveau">
+            <Button><Plus className="h-4 w-4" />Nouvel immeuble</Button>
+          </Link>
+        </div>
       </div>
 
       {/* KPIs synthèse */}

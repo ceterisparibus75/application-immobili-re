@@ -1,5 +1,6 @@
 import { getLots } from "@/actions/lot";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +12,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
 import { LotsEmptyState } from "./_components/lots-empty-state";
+import { Upload } from "lucide-react";
 
 const FREQUENCY_SHORT: Record<PaymentFrequency, string> = {
   MENSUEL: "€/mois",
@@ -74,13 +76,19 @@ export default async function LotsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Lots</h1>
           <p className="text-muted-foreground">
             {lots.length} lot{lots.length !== 1 ? "s" : ""} au total
           </p>
         </div>
+        <Link href="/import/en-masse">
+          <Button variant="outline">
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </Button>
+        </Link>
       </div>
 
       {lots.length === 0 ? (
