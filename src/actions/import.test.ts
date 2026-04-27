@@ -342,6 +342,7 @@ describe("importEntities — lots", () => {
 
   beforeEach(() => {
     prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+    prismaMock.lot.findFirst.mockResolvedValue(null);
     prismaMock.lot.create.mockResolvedValue({ id: LOT_ID } as never);
   });
 
@@ -425,6 +426,39 @@ describe("importEntities — lots", () => {
     expect(r.success).toBe(true);
     expect(r.data?.imported).toBe(1);
     expect(r.data?.errors).toHaveLength(1);
+  });
+
+  it("bloque les numéros de lots déjà présents dans le même immeuble", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lot.findFirst.mockResolvedValue({ id: LOT_ID } as never);
+
+    const r = await importEntities(SOCIETY_ID, "lots", [validRow]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 2,
+      message: 'Le lot "A1" existe déjà dans cet immeuble',
+    });
+    expect(prismaMock.lot.create).not.toHaveBeenCalled();
+  });
+
+  it("bloque les numéros de lots dupliqués dans le fichier pour un même immeuble", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      { reference: "A1", type: "BUREAUX", surface: "50", buildingId: BUILDING_ID },
+      { reference: "a1", type: "BUREAUX", surface: "52", buildingId: BUILDING_ID },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "lots", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 3,
+      message: "Numéro de lot dupliqué dans le fichier pour cet immeuble",
+    });
+    expect(prismaMock.lot.create).toHaveBeenCalledTimes(1);
   });
 
   it("collecte les erreurs d'insertion lot quand prisma.lot.create échoue", async () => {

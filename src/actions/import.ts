@@ -735,6 +735,7 @@ export async function importEntities(
     } else if (entityType === "lots") {
       const lotCheck = await checkLotLimit(societyId);
       if (!lotCheck.allowed) return { success: false, error: lotCheck.message };
+      const seenLots = new Set<string>();
 
       for (let i = 0; i < data.length; i++) {
         const row = normalizeBulkImportRow(entityType, data[i]);
@@ -764,6 +765,29 @@ export async function importEntities(
           errors.push({ row: i + 2, message: "Immeuble introuvable dans cette societe" });
           continue;
         }
+
+        const lotKey = `${building.id}::${parsed.data.reference.trim().toLowerCase()}`;
+        if (seenLots.has(lotKey)) {
+          errors.push({
+            row: i + 2,
+            message: "Numéro de lot dupliqué dans le fichier pour cet immeuble",
+          });
+          continue;
+        }
+        seenLots.add(lotKey);
+
+        const existingLot = await prisma.lot.findFirst({
+          where: { buildingId: building.id, number: parsed.data.reference },
+          select: { id: true },
+        });
+        if (existingLot) {
+          errors.push({
+            row: i + 2,
+            message: `Le lot "${parsed.data.reference}" existe déjà dans cet immeuble`,
+          });
+          continue;
+        }
+
         try {
           await prisma.lot.create({
             data: {
