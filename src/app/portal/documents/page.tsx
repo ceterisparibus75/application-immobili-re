@@ -79,7 +79,7 @@ export default async function PortalDocumentsPage() {
 
   // 3. Factures de tous les locataires
   const invoices = await prisma.invoice.findMany({
-    where: { tenantId: { in: tenantIds } },
+    where: { tenantId: { in: tenantIds }, status: { not: "BROUILLON" } },
     select: {
       id: true,
       invoiceNumber: true,
