@@ -205,9 +205,9 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
           {soc?.legalMentions ? <Text style={{ marginTop: 3 }}>{soc.legalMentions}</Text> : null}
         </View>
 
-        <View style={{ alignItems: "flex-end", marginTop: 12, marginBottom: 10 }}>
+        <View style={{ alignItems: "flex-end", flexDirection: "column", marginTop: 12, marginBottom: 10 }}>
           <Text style={{ fontSize: 8.5 }}>Fait à {soc?.city ?? "---"}, le {fmtDate(data.issueDate)}</Text>
-          {soc?.signatoryName ? <Text style={{ fontSize: 8.5 }}>{soc.signatoryName}, pour {soc?.name}</Text> : null}
+          {soc?.signatoryName ? <Text style={{ fontSize: 8.5, marginTop: 2 }}>{soc.signatoryName}, pour {soc?.name}</Text> : null}
         </View>
 
         {(soc?.bankName || soc?.iban || soc?.bic) ? (
