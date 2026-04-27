@@ -11,6 +11,7 @@ import { Suspense } from "react";
 import { InboxConfigForm } from "./_components/inbox-config-form";
 import { PPFActivationCard } from "./_components/ppf-activation-card";
 import { ChorusProCard } from "./_components/chorus-pro-card";
+import { InvoicePrefixForm } from "./_components/invoice-prefix-form";
 
 export const metadata = { title: "Paramètres de facturation" };
 
@@ -23,7 +24,7 @@ export default async function ParametresFacturationPage() {
     getSupplierInboxConfig(societyId),
     prisma.society.findFirst({
       where: { id: societyId },
-      select: { ppfRegisteredAt: true, siret: true, paOAuthAccessToken: true },
+      select: { ppfRegisteredAt: true, siret: true, paOAuthAccessToken: true, invoicePrefix: true },
     }),
   ]);
 
@@ -61,6 +62,9 @@ export default async function ParametresFacturationPage() {
           Configurez la réception automatique des factures fournisseurs par email.
         </p>
       </div>
+
+      {/* Numérotation des factures */}
+      <InvoicePrefixForm societyId={societyId} initialPrefix={society?.invoicePrefix ?? ""} />
 
       {/* Chorus Pro — Facturation B2G (secteur public) */}
       <ChorusProCard isConfigured={isChorusProConfigured()} />

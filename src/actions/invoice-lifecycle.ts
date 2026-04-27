@@ -455,7 +455,7 @@ export async function validateInvoice(
     if (!invoice) return { success: false, error: "Facture introuvable ou déjà validée" };
 
     const { invoiceNumber } = await prisma.$transaction(async (tx) => {
-      const number = invoice.invoiceNumber ?? await getNextInvoiceNumber(societyId, tx);
+      const number = await getNextInvoiceNumber(societyId, tx);
       return tx.invoice.update({
         where: { id: invoiceId },
         data: { status: "VALIDEE", validatedAt: new Date(), invoiceNumber: number },
@@ -502,7 +502,7 @@ export async function validateBatchInvoices(
     const validatedAt = new Date();
     for (const draft of drafts) {
       await prisma.$transaction(async (tx) => {
-        const number = draft.invoiceNumber ?? await getNextInvoiceNumber(societyId, tx);
+        const number = await getNextInvoiceNumber(societyId, tx);
         await tx.invoice.update({
           where: { id: draft.id },
           data: { status: "VALIDEE", validatedAt, invoiceNumber: number },

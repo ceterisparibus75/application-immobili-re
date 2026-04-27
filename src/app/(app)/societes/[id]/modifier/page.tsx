@@ -64,7 +64,6 @@ export default function ModifierSocietePage() {
         accountantEmail: s.accountantEmail ?? "",
         accountantPhone: s.accountantPhone ?? "",
         logoUrl: s.logoUrl ?? "",
-        invoicePrefix: s.invoicePrefix ?? "",
         legalMentions: s.legalMentions ?? "",
         phone: s.phone ?? "",
         email: s.email ?? "",
@@ -349,10 +348,6 @@ export default function ModifierSocietePage() {
                   }}
                 />
               </label>
-            </div>
-            <div className="space-y-2 max-w-xs">
-              <Label htmlFor="invoicePrefix">Préfixe des factures</Label>
-              <Input id="invoicePrefix" value={form.invoicePrefix} onChange={(e) => set("invoicePrefix", e.target.value)} maxLength={10} placeholder="FAC" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
