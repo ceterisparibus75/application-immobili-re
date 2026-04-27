@@ -48,7 +48,7 @@ export default async function RelancesPage() {
     where: {
       societyId,
       status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] },
-      invoiceType: { not: "QUITTANCE" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: new Date() },
     },
     select: {

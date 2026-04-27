@@ -32,7 +32,7 @@ async function getOverdueInvoices(societyId: string) {
     where: {
       societyId,
       status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] },
-      invoiceType: { not: "QUITTANCE" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: new Date() },
     },
     select: {

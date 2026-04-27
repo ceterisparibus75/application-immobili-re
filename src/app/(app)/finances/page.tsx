@@ -35,7 +35,7 @@ export default async function FinancesPage() {
     prisma.bankAccount.count({ where: { societyId, isActive: true } }),
     prisma.loan.count({ where: { societyId, status: "EN_COURS" } }),
     prisma.journalEntry.count({ where: { societyId, status: "BROUILLON" } }),
-    prisma.invoice.count({ where: { societyId, status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] } } }),
+    prisma.invoice.count({ where: { societyId, status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] }, invoiceType: { notIn: ["AVOIR", "QUITTANCE"] } } }),
     prisma.bankAccount.aggregate({
       where: { societyId, isActive: true },
       _sum: { currentBalance: true },
