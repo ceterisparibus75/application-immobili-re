@@ -88,6 +88,7 @@ describe("importEntities — locataires", () => {
   const validRow = { nom: "Dupont", prenom: "Marie", email: "marie.dupont@example.com" };
 
   beforeEach(() => {
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
     prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
   });
 
@@ -212,6 +213,39 @@ describe("importEntities — locataires", () => {
     expect(r.data?.imported).toBe(2);
     expect(r.data?.errors).toHaveLength(1);
     expect(r.data?.errors[0].row).toBe(3); // ligne 2 du fichier = index 1 + 2
+  });
+
+  it("bloque les locataires déjà présents avec le même email", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+
+    const r = await importEntities(SOCIETY_ID, "tenants", [validRow]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 2,
+      message: "Un locataire existe déjà avec cet email",
+    });
+    expect(prismaMock.tenant.create).not.toHaveBeenCalled();
+  });
+
+  it("bloque les emails dupliqués dans le fichier importé", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      { nom: "Dupont", prenom: "Marie", email: "marie.dupont@example.com" },
+      { nom: "Dupont", prenom: "Marie 2", email: "MARIE.DUPONT@example.com" },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "tenants", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 3,
+      message: "Email dupliqué dans le fichier",
+    });
+    expect(prismaMock.tenant.create).toHaveBeenCalledTimes(1);
   });
 
   it("collecte l'erreur DB si tenant.create échoue (catch inner ligne 561)", async () => {

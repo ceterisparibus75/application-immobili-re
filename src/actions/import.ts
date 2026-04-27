@@ -633,6 +633,8 @@ export async function importEntities(
     const errors: { row: number; message: string }[] = [];
 
     if (entityType === "tenants") {
+      const seenTenantEmails = new Set<string>();
+
       for (let i = 0; i < data.length; i++) {
         const row = normalizeBulkImportRow(entityType, data[i]);
         const parsed = importTenantRowSchema.safeParse(row);
@@ -643,6 +645,33 @@ export async function importEntities(
           });
           continue;
         }
+
+        const emailKey = parsed.data.email.trim().toLowerCase();
+        if (seenTenantEmails.has(emailKey)) {
+          errors.push({
+            row: i + 2,
+            message: "Email dupliqué dans le fichier",
+          });
+          continue;
+        }
+        seenTenantEmails.add(emailKey);
+
+        const existingTenant = await prisma.tenant.findFirst({
+          where: {
+            societyId,
+            deletedAt: null,
+            email: { equals: parsed.data.email, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (existingTenant) {
+          errors.push({
+            row: i + 2,
+            message: "Un locataire existe déjà avec cet email",
+          });
+          continue;
+        }
+
         try {
           const tenantData = parsed.data.entityType === "PERSONNE_MORALE"
             ? {
