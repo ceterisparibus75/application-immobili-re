@@ -1,6 +1,4 @@
-import { env } from "@/lib/env";
-
-export const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 
 export const LEGAL_FORMS = [
   { value: "SCI", label: "SCI" },
