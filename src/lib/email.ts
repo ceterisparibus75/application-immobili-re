@@ -3,8 +3,9 @@ import { withRetry } from "@/lib/retryable";
 import { env } from "@/lib/env";
 
 function getResend() { return new Resend(env.RESEND_API_KEY ?? ""); }
-const FROM = `"${env.NEXT_PUBLIC_APP_NAME ?? "MyGestia"}" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
-const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const _rawName = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const APP_NAME = _rawName.toLowerCase() === "mygestia" ? "MyGestia" : _rawName;
+const FROM = `"${APP_NAME}" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
 const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
 
 // ============================================================

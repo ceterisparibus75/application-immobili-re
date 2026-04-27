@@ -1,4 +1,5 @@
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+const _rawAppName = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+export const APP_NAME = _rawAppName.toLowerCase() === "mygestia" ? "MyGestia" : _rawAppName;
 
 export const LEGAL_FORMS = [
   { value: "SCI", label: "SCI" },
