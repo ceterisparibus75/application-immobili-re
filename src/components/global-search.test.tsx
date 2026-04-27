@@ -33,6 +33,7 @@ describe("GlobalSearch", () => {
     expect(screen.getByRole("button", { name: /Ouvrir Location/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ouvrir Finances/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Importer un bail PDF/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Importer CSV \/ Excel/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ajouter un compte bancaire/i })).toBeInTheDocument();
   });
 

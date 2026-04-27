@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Download,
 } from "lucide-react";
 import { useSociety } from "@/providers/society-provider";
 import {
@@ -60,6 +61,25 @@ export default function ImportPage() {
     buildings: "Immeubles",
     lots: "Lots",
   };
+
+  const templateRows: Record<ImportEntityType, string[][]> = {
+    tenants: [
+      ["nom", "prenom", "email", "telephone"],
+      ["Dupont", "Marie", "marie.dupont@example.com", "0612345678"],
+    ],
+    buildings: [
+      ["name", "address", "postalCode", "city", "type"],
+      ["Immeuble Haussmann", "12 boulevard Haussmann", "75008", "Paris", "BUREAU"],
+    ],
+    lots: [
+      ["reference", "type", "surface", "etage", "buildingId"],
+      ["A1", "BUREAUX", "50", "2", "ID_IMMEUBLE"],
+    ],
+  };
+
+  const templateCsv = templateRows[entityType]
+    .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(";"))
+    .join("\r\n");
 
   const resetState = useCallback(() => {
     setFileName(null);
@@ -171,6 +191,20 @@ export default function ImportPage() {
                   </Badge>
                 ))}
               </div>
+              <Button asChild variant="outline" size="sm" className="mt-2 gap-1.5">
+                <a
+                  href={`data:text/csv;charset=utf-8,${encodeURIComponent(templateCsv)}`}
+                  download={`modele-${entityType}-mygestia.csv`}
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger le modèle CSV
+                </a>
+              </Button>
+              {entityType === "lots" && (
+                <p className="text-xs text-muted-foreground">
+                  Pour les lots, importez d&apos;abord les immeubles puis renseignez l&apos;identifiant de l&apos;immeuble dans la colonne buildingId.
+                </p>
+              )}
             </div>
           </div>
 

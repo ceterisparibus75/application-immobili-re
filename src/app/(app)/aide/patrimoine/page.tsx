@@ -162,7 +162,7 @@ export default function PatrimoinePage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment importer plusieurs lots en même temps ?</p>
-            <p>Rendez-vous dans <strong>Administration &gt; Import</strong> et uploadez un fichier CSV ou Excel contenant les colonnes suivantes : numéro, type, étage, surface et loyer. L'application vérifiera les données et créera les lots automatiquement.</p>
+            <p>Rendez-vous dans <strong>Import données &gt; Import CSV / Excel</strong> et uploadez un fichier contenant les colonnes suivantes : référence, type, surface, étage et identifiant immeuble. L'application vérifie les données et crée les lots automatiquement.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment voir tous les lots vacants ?</p>

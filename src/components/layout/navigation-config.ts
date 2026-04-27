@@ -166,6 +166,7 @@ export const TOP_NAV_GROUPS: NavGroup[] = [
     "Dataroom",
     "Courriers",
     "Décomptes gestion",
+    "Import données",
   ]),
   pickTopNavGroup("Automatisation", [
     "Assistant IA",

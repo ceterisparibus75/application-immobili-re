@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Upload,
   FileText,
+  FileSpreadsheet,
   CheckCircle2,
   Building2,
   Layers,
@@ -1082,7 +1083,8 @@ export default function ImportPage() {
       />
 
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -1092,6 +1094,13 @@ export default function ImportPage() {
             Reprenez un bail existant : l&apos;IA extrait les données, vous vérifiez, puis MyGestia crée immeuble, lot, locataire et bail.
           </p>
         </div>
+        </div>
+        <Button asChild variant="outline" className="gap-1.5 sm:mt-1">
+          <Link href="/import/en-masse">
+            <FileSpreadsheet className="h-4 w-4" />
+            Import CSV / Excel
+          </Link>
+        </Button>
       </div>
 
       {/* Steps indicator */}
@@ -1120,6 +1129,7 @@ export default function ImportPage() {
 
       {/* ── Step 1: Upload ── */}
       {step === "upload" && (
+        <div className="space-y-4">
         <Card>
           <CardHeader className="pb-0">
             <div className="grid gap-3 md:grid-cols-3">
@@ -1207,6 +1217,28 @@ export default function ImportPage() {
             </div>
           </CardContent>
         </Card>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Migration par tableur</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Importez en masse des locataires, immeubles ou lots depuis un fichier CSV ou Excel.
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline" className="gap-1.5">
+              <Link href="/import/en-masse">
+                Ouvrir l&apos;import en masse
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+        </div>
       )}
 
       {/* ── Step 2: Review ── */}

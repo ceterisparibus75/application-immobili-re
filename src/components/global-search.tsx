@@ -7,6 +7,7 @@ import {
   Landmark, Upload, BookOpen, BarChart3, Briefcase,
   Mail, FolderLock, MessageSquare, ClipboardCheck,
   CalendarClock, Send, ChartNoAxesCombined,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,13 @@ const QUICK_ACTIONS = [
     icon: Upload,
     color: TYPE_COLORS.lease,
     keywords: ["pdf", "upload", "location", "contrat"],
+  },
+  {
+    label: "Importer CSV / Excel",
+    href: "/import/en-masse",
+    icon: FileSpreadsheet,
+    color: "bg-emerald-500/10 text-emerald-600",
+    keywords: ["excel", "csv", "tableur", "migration", "import"],
   },
   {
     label: "Créer une facture",

@@ -107,10 +107,10 @@ export default function DemarragePage() {
           Si vous avez déjà un patrimoine géré ailleurs (Excel, autre logiciel, PDF de baux), le module Import vous permet de migrer rapidement vos données.
         </p>
         <HelpStep number={1} title="Accédez au module Import">
-          <p>Allez dans <strong>Import</strong> depuis le menu Modules, ou dans <strong>Administration &gt; Import</strong>.</p>
+          <p>Allez dans <strong>Import données</strong> depuis le menu Documents, puis choisissez <strong>Migration par PDF</strong> ou <strong>Import CSV / Excel</strong>.</p>
         </HelpStep>
         <HelpStep number={2} title="Choisissez votre source">
-          <p>Uploadez un fichier CSV, Excel (.xlsx) ou PDF. L'assistant détecte automatiquement les colonnes et propose un mappage vers les champs de {APP_NAME}.</p>
+          <p>Uploadez un fichier CSV, Excel (.xlsx) ou un PDF de bail. L'assistant affiche un aperçu avant création pour que vous puissiez corriger les données.</p>
         </HelpStep>
         <HelpStep number={3} title="Vérifiez et validez">
           <p>Vérifiez la correspondance des colonnes, corrigez si nécessaire, puis lancez l'import. Les immeubles, lots, locataires et baux sont créés automatiquement.</p>
