@@ -87,7 +87,7 @@ export default async function ImmeublesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/import/en-masse">
+          <Link href="/import/en-masse?type=buildings">
             <Button variant="outline">
               <Upload className="h-4 w-4" />
               Import CSV

@@ -74,7 +74,7 @@ export default async function ContactsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportContacts data={contacts} />
-          <Link href="/import/en-masse">
+          <Link href="/import/en-masse?type=contacts">
             <Button variant="outline" className="gap-1.5">
               <Upload className="h-4 w-4" />
               Import CSV

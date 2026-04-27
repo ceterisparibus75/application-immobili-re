@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition, useRef } from "react";
+import { useState, useCallback, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,13 @@ import type { ImportEntityType } from "@/validations/import";
 
 function csvCell(value: string | number): string {
   return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+function parseEntityType(value: string | null): ImportEntityType | null {
+  if (value === "tenants" || value === "contacts" || value === "buildings" || value === "lots") {
+    return value;
+  }
+  return null;
 }
 
 export default function ImportPage() {
@@ -107,6 +114,16 @@ export default function ImportPage() {
     setError(null);
     setResult(null);
   }, []);
+
+  useEffect(() => {
+    const requestedType = parseEntityType(new URLSearchParams(window.location.search).get("type"));
+    if (!requestedType) return;
+
+    queueMicrotask(() => {
+      setEntityType(requestedType);
+      resetState();
+    });
+  }, [resetState]);
 
   const handleFile = useCallback(
     (selectedFile: File) => {

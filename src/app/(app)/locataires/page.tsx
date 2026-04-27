@@ -112,7 +112,7 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportLocataires data={serialized} />
-          <Link href="/import/en-masse">
+          <Link href="/import/en-masse?type=tenants">
             <Button variant="outline">
               <Upload className="h-4 w-4" />
               Import CSV

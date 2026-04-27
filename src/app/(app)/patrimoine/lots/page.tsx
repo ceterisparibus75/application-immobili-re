@@ -83,7 +83,7 @@ export default async function LotsPage() {
             {lots.length} lot{lots.length !== 1 ? "s" : ""} au total
           </p>
         </div>
-        <Link href="/import/en-masse">
+        <Link href="/import/en-masse?type=lots">
           <Button variant="outline">
             <Upload className="h-4 w-4" />
             Import CSV
