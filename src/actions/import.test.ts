@@ -269,6 +269,7 @@ describe("importEntities — immeubles", () => {
   };
 
   beforeEach(() => {
+    prismaMock.building.findFirst.mockResolvedValue(null);
     prismaMock.building.create.mockResolvedValue({ id: BUILDING_ID } as never);
   });
 
@@ -319,6 +320,39 @@ describe("importEntities — immeubles", () => {
     expect(r.success).toBe(true);
     expect(r.data?.imported).toBe(0);
     expect(r.data?.errors).toHaveLength(1);
+  });
+
+  it("bloque les immeubles déjà présents avec même nom et code postal", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.building.findFirst.mockResolvedValue({ id: BUILDING_ID } as never);
+
+    const r = await importEntities(SOCIETY_ID, "buildings", [validRow]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(0);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 2,
+      message: "Un immeuble existe déjà avec ce nom et ce code postal",
+    });
+    expect(prismaMock.building.create).not.toHaveBeenCalled();
+  });
+
+  it("bloque les immeubles dupliqués dans le fichier", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const rows = [
+      validRow,
+      { ...validRow, name: "IMMEUBLE HAUSSMANN" },
+    ];
+
+    const r = await importEntities(SOCIETY_ID, "buildings", rows);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(r.data?.errors[0]).toMatchObject({
+      row: 3,
+      message: "Immeuble dupliqué dans le fichier",
+    });
+    expect(prismaMock.building.create).toHaveBeenCalledTimes(1);
   });
 
   it("collecte l'erreur DB si building.create échoue (catch inner ligne 590)", async () => {

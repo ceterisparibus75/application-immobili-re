@@ -703,6 +703,8 @@ export async function importEntities(
         }
       }
     } else if (entityType === "buildings") {
+      const seenBuildings = new Set<string>();
+
       for (let i = 0; i < data.length; i++) {
         const row = normalizeBulkImportRow(entityType, data[i]);
         const parsed = importBuildingRowSchema.safeParse(row);
@@ -713,6 +715,33 @@ export async function importEntities(
           });
           continue;
         }
+
+        const buildingKey = `${parsed.data.name.trim().toLowerCase()}::${parsed.data.postalCode}`;
+        if (seenBuildings.has(buildingKey)) {
+          errors.push({
+            row: i + 2,
+            message: "Immeuble dupliqué dans le fichier",
+          });
+          continue;
+        }
+        seenBuildings.add(buildingKey);
+
+        const existingBuilding = await prisma.building.findFirst({
+          where: {
+            societyId,
+            postalCode: parsed.data.postalCode,
+            name: { equals: parsed.data.name, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (existingBuilding) {
+          errors.push({
+            row: i + 2,
+            message: "Un immeuble existe déjà avec ce nom et ce code postal",
+          });
+          continue;
+        }
+
         try {
           await prisma.building.create({
             data: {
