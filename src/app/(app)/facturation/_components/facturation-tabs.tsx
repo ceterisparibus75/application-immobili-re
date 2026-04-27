@@ -195,7 +195,7 @@ export function FacturationTabs({
               </CardContent>
             </Card>
           ) : (
-            <InvoicesList invoices={invoices} />
+            <InvoicesList invoices={invoices.filter((i) => i.status !== "BROUILLON")} />
           )}
         </div>
       )}
