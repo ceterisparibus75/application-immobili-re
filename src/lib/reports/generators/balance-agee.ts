@@ -29,7 +29,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const invoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { not: "AVOIR" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: today },
       status: { notIn: ["PAYE"] },
     },

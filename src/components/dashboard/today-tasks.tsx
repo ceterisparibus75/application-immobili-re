@@ -44,6 +44,7 @@ async function getTodayTasks(societyId: string | string[]) {
     prisma.invoice.findMany({
       where: {
         societyId: societyFilter,
+        invoiceType: { not: "QUITTANCE" },
         status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] },
         dueDate: { lt: ago30days },
       },

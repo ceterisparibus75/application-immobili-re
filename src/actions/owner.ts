@@ -166,6 +166,7 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
       by: ["societyId"],
       where: {
         societyId: { in: ids },
+        invoiceType: { not: "QUITTANCE" },
         status: { in: ["EN_ATTENTE", "PARTIELLEMENT_PAYE", "EN_RETARD"] },
         dueDate: { lt: now },
       },
@@ -196,6 +197,7 @@ export async function getOwnerAnalytics(proprietaireId?: string): Promise<Action
     prisma.invoice.findMany({
       where: {
         societyId: { in: ids },
+        invoiceType: { not: "QUITTANCE" },
         status: { in: ["EN_ATTENTE", "PARTIELLEMENT_PAYE", "EN_RETARD"] },
         dueDate: { lt: now },
       },

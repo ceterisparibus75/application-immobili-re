@@ -363,7 +363,7 @@ async function generateEtatImpayes(opts: ReportOptions): Promise<ReportResult> {
   const invoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { not: "AVOIR" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: today },
       status: { notIn: ["PAYE"] },
     },
