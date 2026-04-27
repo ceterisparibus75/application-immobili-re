@@ -1,12 +1,58 @@
 import { z } from "zod";
 
 // ---- Bulk import: Tenants ----
-export const importTenantRowSchema = z.object({
-  nom: z.string().min(1, "Le nom est requis"),
-  prenom: z.string().min(1, "Le prenom est requis"),
-  email: z.string().email("Email invalide"),
-  telephone: z.string().optional().default(""),
-});
+function normalizeTenantEntityType(value: string): "PERSONNE_PHYSIQUE" | "PERSONNE_MORALE" | null {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  if (!normalized) return null;
+  if (["personnemorale", "morale", "societe", "society", "company", "entreprise", "pro"].includes(normalized)) {
+    return "PERSONNE_MORALE";
+  }
+  if (["personnephysique", "physique", "particulier", "individual", "personne"].includes(normalized)) {
+    return "PERSONNE_PHYSIQUE";
+  }
+  if (normalized === "personnemoral") return "PERSONNE_MORALE";
+  return null;
+}
+
+export const importTenantRowSchema = z
+  .object({
+    nom: z.string().optional().default(""),
+    prenom: z.string().optional().default(""),
+    email: z.string().email("Email invalide"),
+    telephone: z.string().optional().default(""),
+    entityType: z.string().optional().default(""),
+    companyName: z.string().optional().default(""),
+    companyLegalForm: z.string().optional().default(""),
+    siret: z.string().optional().default(""),
+  })
+  .transform((data) => ({
+    ...data,
+    entityType: normalizeTenantEntityType(data.entityType) ?? (data.companyName.trim() ? "PERSONNE_MORALE" : "PERSONNE_PHYSIQUE"),
+  }))
+  .superRefine((data, ctx) => {
+    if (data.entityType === "PERSONNE_MORALE") {
+      if (!data.companyName.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["companyName"],
+          message: "La raison sociale est requise",
+        });
+      }
+      return;
+    }
+
+    if (!data.nom.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["nom"], message: "Le nom est requis" });
+    }
+    if (!data.prenom.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["prenom"], message: "Le prenom est requis" });
+    }
+  });
 
 export type ImportTenantRow = z.infer<typeof importTenantRowSchema>;
 

@@ -17,6 +17,26 @@ describe("importTenantRowSchema", () => {
     expect(importTenantRowSchema.safeParse(validTenant).success).toBe(true);
   });
 
+  it("accepte une personne morale avec raison sociale", () => {
+    const result = importTenantRowSchema.safeParse({
+      entityType: "Société",
+      companyName: "ACME SAS",
+      email: "contact@acme.fr",
+      siret: "12345678901234",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.entityType).toBe("PERSONNE_MORALE");
+  });
+
+  it("déduit une personne morale quand une raison sociale est fournie", () => {
+    const result = importTenantRowSchema.safeParse({
+      companyName: "Beta SARL",
+      email: "contact@beta.fr",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.entityType).toBe("PERSONNE_MORALE");
+  });
+
   it("telephone vaut chaîne vide par défaut", () => {
     const result = importTenantRowSchema.safeParse(validTenant);
     expect(result.success).toBe(true);
@@ -29,6 +49,15 @@ describe("importTenantRowSchema", () => {
     if (!result.success) {
       expect(result.error.issues[0].message).toMatch(/nom est requis/);
     }
+  });
+
+  it("rejette une personne morale sans raison sociale", () => {
+    const result = importTenantRowSchema.safeParse({
+      entityType: "PERSONNE_MORALE",
+      email: "contact@example.com",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toMatch(/raison sociale/);
   });
 
   it("rejette prenom vide", () => {

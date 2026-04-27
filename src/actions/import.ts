@@ -537,6 +537,18 @@ const IMPORT_COLUMN_ALIASES: Record<ImportEntityType, Record<string, string>> = 
     tel: "telephone",
     phone: "telephone",
     mobile: "telephone",
+    type: "entityType",
+    typelocataire: "entityType",
+    entitytype: "entityType",
+    nature: "entityType",
+    raisonsociale: "companyName",
+    societe: "companyName",
+    entreprise: "companyName",
+    company: "companyName",
+    companyname: "companyName",
+    companylegalform: "companyLegalForm",
+    formejuridique: "companyLegalForm",
+    siret: "siret",
   },
   buildings: {
     name: "name",
@@ -632,14 +644,25 @@ export async function importEntities(
           continue;
         }
         try {
+          const tenantData = parsed.data.entityType === "PERSONNE_MORALE"
+            ? {
+                entityType: "PERSONNE_MORALE" as const,
+                companyName: parsed.data.companyName.trim(),
+                companyLegalForm: parsed.data.companyLegalForm.trim() || null,
+                siret: parsed.data.siret.trim() || null,
+              }
+            : {
+                entityType: "PERSONNE_PHYSIQUE" as const,
+                lastName: parsed.data.nom,
+                firstName: parsed.data.prenom,
+              };
+
           await prisma.tenant.create({
             data: {
               societyId,
-              entityType: "PERSONNE_PHYSIQUE",
-              lastName: parsed.data.nom,
-              firstName: parsed.data.prenom,
               email: parsed.data.email,
               phone: parsed.data.telephone || null,
+              ...tenantData,
             },
           });
           imported++;

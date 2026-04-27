@@ -153,6 +153,51 @@ describe("importEntities — locataires", () => {
     );
   });
 
+  it("importe les locataires professionnels en personne morale", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "tenants", [{
+      Type: "Société",
+      "Raison sociale": "ACME SAS",
+      Email: "contact@acme.fr",
+      Téléphone: "0142000000",
+      SIRET: "12345678901234",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          entityType: "PERSONNE_MORALE",
+          companyName: "ACME SAS",
+          siret: "12345678901234",
+          email: "contact@acme.fr",
+          phone: "0142000000",
+        }),
+      })
+    );
+  });
+
+  it("déduit une personne morale si la raison sociale est fournie", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "tenants", [{
+      "Raison sociale": "Beta SARL",
+      Email: "contact@beta.fr",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entityType: "PERSONNE_MORALE",
+          companyName: "Beta SARL",
+        }),
+      })
+    );
+  });
+
   it("collecte les erreurs de validation sans interrompre le traitement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const rows = [
