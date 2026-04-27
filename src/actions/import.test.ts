@@ -130,6 +130,29 @@ describe("importEntities — locataires", () => {
     );
   });
 
+  it("importe les locataires avec des colonnes françaises courantes", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "tenants", [{
+      Nom: "Bernard",
+      "Prénom": "Lucie",
+      Email: "lucie.bernard@example.com",
+      "Téléphone": "0601020304",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lastName: "Bernard",
+          firstName: "Lucie",
+          email: "lucie.bernard@example.com",
+          phone: "0601020304",
+        }),
+      })
+    );
+  });
+
   it("collecte les erreurs de validation sans interrompre le traitement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const rows = [
@@ -186,6 +209,31 @@ describe("importEntities — immeubles", () => {
     );
   });
 
+  it("importe les immeubles avec des intitulés Excel français", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "buildings", [{
+      Nom: "Résidence Victor Hugo",
+      Adresse: "45 avenue Victor Hugo",
+      "Code postal": "69006",
+      Ville: "Lyon",
+      Type: "MIXTE",
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.building.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "Résidence Victor Hugo",
+          addressLine1: "45 avenue Victor Hugo",
+          postalCode: "69006",
+          city: "Lyon",
+          buildingType: "MIXTE",
+        }),
+      })
+    );
+  });
+
   it("erreur si code postal invalide (pas 5 chiffres)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
     const r = await importEntities(SOCIETY_ID, "buildings", [{ ...validRow, postalCode: "750" }]);
@@ -233,6 +281,30 @@ describe("importEntities — lots", () => {
     const r = await importEntities(SOCIETY_ID, "lots", [validRow]);
     expect(r.success).toBe(true);
     expect(r.data?.imported).toBe(1);
+  });
+
+  it("importe les lots avec des colonnes de tableur françaises", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    const r = await importEntities(SOCIETY_ID, "lots", [{
+      "Numéro lot": "B2",
+      "Type lot": "APPARTEMENT",
+      "Surface m²": "72",
+      "Étage": "1",
+      "ID immeuble": BUILDING_ID,
+    }]);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.imported).toBe(1);
+    expect(prismaMock.lot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          number: "B2",
+          lotType: "APPARTEMENT",
+          area: 72,
+          floor: "1",
+        }),
+      })
+    );
   });
 
   it("collecte les erreurs Zod pour les lots invalides (référence vide)", async () => {

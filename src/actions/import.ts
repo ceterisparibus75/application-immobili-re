@@ -515,6 +515,85 @@ export type BulkImportResult = {
   errors: { row: number; message: string }[];
 };
 
+function normalizeImportHeader(header: string): string {
+  return header
+    .normalize("NFD")
+    .replace(/²/g, "2")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+const IMPORT_COLUMN_ALIASES: Record<ImportEntityType, Record<string, string>> = {
+  tenants: {
+    nom: "nom",
+    lastname: "nom",
+    name: "nom",
+    prenom: "prenom",
+    firstname: "prenom",
+    email: "email",
+    mail: "email",
+    telephone: "telephone",
+    tel: "telephone",
+    phone: "telephone",
+    mobile: "telephone",
+  },
+  buildings: {
+    name: "name",
+    nom: "name",
+    immeuble: "name",
+    batiment: "name",
+    address: "address",
+    adresse: "address",
+    adresseligne1: "address",
+    rue: "address",
+    postalcode: "postalCode",
+    codepostal: "postalCode",
+    cp: "postalCode",
+    city: "city",
+    ville: "city",
+    commune: "city",
+    type: "type",
+    buildingtype: "type",
+    typeimmeuble: "type",
+  },
+  lots: {
+    reference: "reference",
+    ref: "reference",
+    numero: "reference",
+    numerolot: "reference",
+    lot: "reference",
+    type: "type",
+    typelot: "type",
+    surface: "surface",
+    surfacem2: "surface",
+    m2: "surface",
+    area: "surface",
+    etage: "etage",
+    floor: "etage",
+    buildingid: "buildingId",
+    immeubleid: "buildingId",
+    idimmeuble: "buildingId",
+  },
+};
+
+function normalizeBulkImportRow(
+  entityType: ImportEntityType,
+  row: Record<string, string>
+): Record<string, string> {
+  const aliases = IMPORT_COLUMN_ALIASES[entityType];
+  const normalized: Record<string, string> = {};
+
+  for (const [header, value] of Object.entries(row)) {
+    const canonical = aliases[normalizeImportHeader(header)];
+    if (canonical && normalized[canonical] === undefined) {
+      normalized[canonical] = value;
+    }
+  }
+
+  return { ...row, ...normalized };
+}
+
 /**
  * Bulk import entities from parsed CSV/Excel rows.
  * Each row is validated and inserted individually; failures are collected, not thrown.
@@ -537,7 +616,8 @@ export async function importEntities(
 
     if (entityType === "tenants") {
       for (let i = 0; i < data.length; i++) {
-        const parsed = importTenantRowSchema.safeParse(data[i]);
+        const row = normalizeBulkImportRow(entityType, data[i]);
+        const parsed = importTenantRowSchema.safeParse(row);
         if (!parsed.success) {
           errors.push({
             row: i + 2,
@@ -566,7 +646,8 @@ export async function importEntities(
       }
     } else if (entityType === "buildings") {
       for (let i = 0; i < data.length; i++) {
-        const parsed = importBuildingRowSchema.safeParse(data[i]);
+        const row = normalizeBulkImportRow(entityType, data[i]);
+        const parsed = importBuildingRowSchema.safeParse(row);
         if (!parsed.success) {
           errors.push({
             row: i + 2,
@@ -598,7 +679,8 @@ export async function importEntities(
       if (!lotCheck.allowed) return { success: false, error: lotCheck.message };
 
       for (let i = 0; i < data.length; i++) {
-        const parsed = importLotRowSchema.safeParse(data[i]);
+        const row = normalizeBulkImportRow(entityType, data[i]);
+        const parsed = importLotRowSchema.safeParse(row);
         if (!parsed.success) {
           errors.push({
             row: i + 2,

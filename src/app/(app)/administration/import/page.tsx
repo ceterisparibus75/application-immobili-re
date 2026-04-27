@@ -51,9 +51,9 @@ export default function ImportPage() {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const expectedColumns: Record<ImportEntityType, string[]> = {
-    tenants: ["nom", "prenom", "email", "telephone"],
-    buildings: ["name", "address", "postalCode", "city", "type"],
-    lots: ["reference", "type", "surface", "etage", "buildingId"],
+    tenants: ["Nom", "Prénom", "Email", "Téléphone"],
+    buildings: ["Nom", "Adresse", "Code postal", "Ville", "Type"],
+    lots: ["Numéro lot", "Type lot", "Surface m²", "Étage", "ID immeuble"],
   };
 
   const entityLabels: Record<ImportEntityType, string> = {
@@ -64,15 +64,15 @@ export default function ImportPage() {
 
   const templateRows: Record<ImportEntityType, string[][]> = {
     tenants: [
-      ["nom", "prenom", "email", "telephone"],
+      ["Nom", "Prénom", "Email", "Téléphone"],
       ["Dupont", "Marie", "marie.dupont@example.com", "0612345678"],
     ],
     buildings: [
-      ["name", "address", "postalCode", "city", "type"],
+      ["Nom", "Adresse", "Code postal", "Ville", "Type"],
       ["Immeuble Haussmann", "12 boulevard Haussmann", "75008", "Paris", "BUREAU"],
     ],
     lots: [
-      ["reference", "type", "surface", "etage", "buildingId"],
+      ["Numéro lot", "Type lot", "Surface m²", "Étage", "ID immeuble"],
       ["A1", "BUREAUX", "50", "2", "ID_IMMEUBLE"],
     ],
   };
