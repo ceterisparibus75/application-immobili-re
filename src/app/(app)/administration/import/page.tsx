@@ -38,6 +38,10 @@ import {
 } from "@/actions/import";
 import type { ImportEntityType } from "@/validations/import";
 
+function csvCell(value: string | number): string {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
 export default function ImportPage() {
   const { activeSociety } = useSociety();
   const [entityType, setEntityType] = useState<ImportEntityType>("tenants");
@@ -147,6 +151,12 @@ export default function ImportPage() {
 
   const previewRows = parsedData?.rows.slice(0, 5) ?? [];
   const previewHeaders = parsedData?.headers ?? [];
+  const errorCsv = result?.errors.length
+    ? [
+        ["ligne", "erreur"].map(csvCell).join(";"),
+        ...result.errors.map((err) => [err.row, err.message].map(csvCell).join(";")),
+      ].join("\r\n")
+    : "";
 
   return (
     <div className="space-y-6">
@@ -358,7 +368,18 @@ export default function ImportPage() {
 
             {result.errors.length > 0 && (
               <div className="space-y-2">
-                <h4 className="font-medium">Detail des erreurs</h4>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h4 className="font-medium">Detail des erreurs</h4>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a
+                      href={`data:text/csv;charset=utf-8,${encodeURIComponent(errorCsv)}`}
+                      download={`erreurs-import-${entityType}.csv`}
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger les erreurs
+                    </a>
+                  </Button>
+                </div>
                 <div className="max-h-60 overflow-auto rounded-md border">
                   <Table>
                     <TableHeader>
