@@ -686,13 +686,30 @@ export async function importEntities(
                 firstName: parsed.data.prenom,
               };
 
-          await prisma.tenant.create({
-            data: {
-              societyId,
-              email: parsed.data.email,
-              phone: parsed.data.telephone || null,
-              ...tenantData,
-            },
+          await prisma.$transaction(async (tx) => {
+            const tenant = await tx.tenant.create({
+              data: {
+                societyId,
+                email: parsed.data.email,
+                phone: parsed.data.telephone || null,
+                ...tenantData,
+              },
+              select: { id: true },
+            });
+
+            await tx.contact.create({
+              data: {
+                societyId,
+                tenantId: tenant.id,
+                contactType: "LOCATAIRE",
+                name: parsed.data.entityType === "PERSONNE_MORALE"
+                  ? parsed.data.companyName.trim()
+                  : `${parsed.data.prenom} ${parsed.data.nom}`.trim(),
+                company: null,
+                email: parsed.data.email,
+                phone: parsed.data.telephone || null,
+              },
+            });
           });
           imported++;
         } catch (err) {
@@ -856,6 +873,7 @@ export async function importEntities(
     revalidatePath("/patrimoine/immeubles");
     revalidatePath("/patrimoine/lots");
     revalidatePath("/locataires");
+    revalidatePath("/contacts");
     revalidatePath("/dashboard");
 
     return { success: true, data: { imported, errors } };

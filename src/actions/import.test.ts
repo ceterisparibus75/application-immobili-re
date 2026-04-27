@@ -88,8 +88,12 @@ describe("importEntities — locataires", () => {
   const validRow = { nom: "Dupont", prenom: "Marie", email: "marie.dupont@example.com" };
 
   beforeEach(() => {
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
     prismaMock.tenant.findFirst.mockResolvedValue(null);
     prismaMock.tenant.create.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.contact.create.mockResolvedValue({ id: "contact-1" } as never);
   });
 
   it("erreur si non authentifié", async () => {
@@ -122,6 +126,17 @@ describe("importEntities — locataires", () => {
           societyId: SOCIETY_ID,
           lastName: "Dupont",
           firstName: "Marie",
+          email: "marie.dupont@example.com",
+        }),
+      })
+    );
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          tenantId: TENANT_ID,
+          contactType: "LOCATAIRE",
+          name: "Marie Dupont",
           email: "marie.dupont@example.com",
         }),
       })
@@ -175,6 +190,16 @@ describe("importEntities — locataires", () => {
           siret: "12345678901234",
           email: "contact@acme.fr",
           phone: "0142000000",
+        }),
+      })
+    );
+    expect(prismaMock.contact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenantId: TENANT_ID,
+          contactType: "LOCATAIRE",
+          name: "ACME SAS",
+          email: "contact@acme.fr",
         }),
       })
     );
@@ -1077,6 +1102,10 @@ describe("analyzePdfAction — branches restantes", () => {
 describe("importEntities — branches internes restantes", () => {
   it("collecte 'Erreur d\\'insertion' si tenant.create lève un non-Error (B66 arm1)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.tenant.findFirst.mockResolvedValue(null);
     prismaMock.tenant.create.mockRejectedValue("string error");
     const r = await importEntities(SOCIETY_ID, "tenants", [{ nom: "X", prenom: "Y", email: "x@y.fr" }]);
     expect(r.success).toBe(true);
