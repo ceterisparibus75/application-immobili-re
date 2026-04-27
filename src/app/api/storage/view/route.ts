@@ -47,6 +47,7 @@ async function hasAccessToStoragePath(userId: string, cleanPath: string): Promis
     "documents",
     "logos",
     "invoices",
+    "quittances",
     "leases",
     "diagnostics",
     "portal",

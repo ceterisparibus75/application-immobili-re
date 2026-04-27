@@ -12,6 +12,7 @@ import type { ActionResult } from "@/actions/society";
 import type { InvoiceStatus } from "@/generated/prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { sendInvoiceEmail } from "@/lib/email";
+import { buildStorageFileName } from "@/lib/storage-path";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -310,8 +311,11 @@ async function generateQuittancePdfAndSend(
     : new Date(quittance.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   const lotAddress = quittance.lease?.lot?.building?.addressLine1 ?? "";
-  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
-  const pdfFileName = [quittance.invoiceNumber!, sanitize(lotAddress), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
+  const pdfFileName = buildStorageFileName(
+    [quittance.invoiceNumber, lotAddress, tenantName],
+    "pdf",
+    "quittance"
+  );
 
   const bcc = await getAllEmailCopyBcc(societyId);
   await sendReceiptEmail({
@@ -332,10 +336,14 @@ async function generateQuittancePdfAndSend(
     const year = new Date(quittance.issueDate).getFullYear();
     const docStoragePath = `quittances/${societyId}/${year}/${pdfFileName}`;
 
-    await supabase.storage.from(bucket).upload(docStoragePath, pdfBuffer, {
+    const { error: uploadError } = await supabase.storage.from(bucket).upload(docStoragePath, pdfBuffer, {
       contentType: "application/pdf",
       upsert: true,
     });
+    if (uploadError) {
+      console.error("[generateQuittancePdfAndSend] Upload quittance échoué:", uploadError.message);
+      return;
+    }
 
     await prisma.invoice.update({
       where: { id: quittanceId },

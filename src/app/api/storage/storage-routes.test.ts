@@ -150,6 +150,15 @@ describe("storage routes", () => {
       expect(requireSocietyAccess).toHaveBeenCalledWith("user-1", "society-1");
     });
 
+    it("contrôle l'accès société pour les quittances générées", async () => {
+      const res = await viewFile(
+        new NextRequest("http://localhost/api/storage/view?path=quittances/society-1/2026/quittance.pdf")
+      );
+
+      expect(res.status).toBe(200);
+      expect(requireSocietyAccess).toHaveBeenCalledWith("user-1", "society-1");
+    });
+
     it("bascule sur une URL signée si le download direct échoue", async () => {
       downloadMock.mockResolvedValue({
         data: null,

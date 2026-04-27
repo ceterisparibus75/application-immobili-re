@@ -10,6 +10,7 @@ import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
 import * as nodePath from "path";
 import { getAllEmailCopyBcc } from "@/lib/email-copy";
 import { env } from "@/lib/env";
+import { buildStorageFileName } from "@/lib/storage-path";
 import React from "react";
 
 export const maxDuration = 60;
@@ -179,14 +180,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     const typeLabel = TYPE_LABELS[invoice.invoiceType as string] ?? "votre facture";
 
-    // Nom de fichier enrichi : numéro_adresse_locataire
     const lotAddress = invoice.lease?.lot?.building?.addressLine1 ?? "";
-    const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
-    const pdfFileName = [
+    const pdfFileName = buildStorageFileName([
       invoice.invoiceNumber,
-      sanitize(lotAddress),
-      sanitize(tenantName),
-    ].filter(Boolean).join("_") + ".pdf";
+      lotAddress,
+      tenantName,
+    ], "pdf", "facture");
 
     const isQuittance = invoice.invoiceType === "QUITTANCE";
     const bcc = await getAllEmailCopyBcc(context.societyId);
@@ -230,9 +229,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         const folder = isQuittance ? "quittances" : "invoices";
         const docStoragePath = `${folder}/${context.societyId}/${year}/${pdfFileName}`;
 
-        await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from(bucketName)
           .upload(docStoragePath, pdfBuffer, { contentType: "application/pdf", upsert: true });
+        if (uploadError) {
+          console.error("[send-email] Upload document échoué:", uploadError.message, "path:", docStoragePath);
+          throw uploadError;
+        }
 
         await prisma.invoice.update({
           where: { id },

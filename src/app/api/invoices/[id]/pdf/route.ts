@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
 import * as nodePath from "path";
 import { env } from "@/lib/env";
+import { buildStorageFileName } from "@/lib/storage-path";
 import React from "react";
 
 const STORAGE_BUCKET = "documents";
@@ -207,18 +208,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const pdfBuffer = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
 
     // 10. Upload dans Supabase Storage (si configuré)
-    const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ _-]/g, "").replace(/\s+/g, "_").slice(0, 60);
     const lotAddr = lot?.building?.addressLine1 ?? "";
-    const pdfFileName = [invoice.invoiceNumber, sanitize(lotAddr), sanitize(tenantName)].filter(Boolean).join("_") + ".pdf";
+    const pdfFileName = buildStorageFileName(
+      [invoice.invoiceNumber, lotAddr, tenantName],
+      "pdf",
+      "facture"
+    );
     const year = new Date(invoice.issueDate).getFullYear();
     const pdfPath = `invoices/${context.societyId}/${year}/${pdfFileName}`;
     if (supabase) {
       try {
-        await supabase.storage.from(STORAGE_BUCKET).upload(pdfPath, pdfBuffer, {
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(pdfPath, pdfBuffer, {
           contentType: "application/pdf",
           upsert: true,
         });
-        await prisma.invoice.update({ where: { id }, data: { fileUrl: pdfPath } });
+        if (uploadError) {
+          console.error("[pdf] Échec upload Supabase:", uploadError.message, "| path:", pdfPath, "| bucket:", bucket);
+        } else {
+          await prisma.invoice.update({ where: { id }, data: { fileUrl: pdfPath } });
+        }
       } catch (uploadError) {
         console.error("[pdf] Échec upload Supabase:", uploadError);
         // On continue quand même — le PDF sera renvoyé au client
