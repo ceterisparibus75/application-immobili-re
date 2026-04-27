@@ -41,7 +41,11 @@ export default async function PortalDashboardPage() {
   const tenantIds = tenants.map((t: { id: string }) => t.id);
 
   const unpaidInvoices = await prisma.invoice.findMany({
-    where: { tenantId: { in: tenantIds }, status: { in: ["EN_ATTENTE", "EN_RETARD"] } },
+    where: {
+      tenantId: { in: tenantIds },
+      status: { in: ["EN_ATTENTE", "EN_RETARD", "VALIDEE", "ENVOYEE"] },
+      invoiceType: { not: "QUITTANCE" },
+    },
     orderBy: { dueDate: "asc" },
     take: 10,
   });

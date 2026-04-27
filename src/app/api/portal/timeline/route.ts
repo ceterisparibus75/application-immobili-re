@@ -33,7 +33,7 @@ export async function GET() {
         tenantId: { in: tenantIds },
         issueDate: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
       },
-      select: { id: true, invoiceNumber: true, totalTTC: true, status: true, issueDate: true, dueDate: true },
+      select: { id: true, invoiceNumber: true, invoiceType: true, totalTTC: true, status: true, issueDate: true, dueDate: true },
       orderBy: { issueDate: "desc" },
       take: 20,
     }),
@@ -61,6 +61,16 @@ export async function GET() {
 
   // Invoice events
   for (const inv of invoices) {
+    if (inv.invoiceType === "QUITTANCE") {
+      events.push({
+        id: `invoice-${inv.id}`,
+        type: "payment",
+        title: `Quittance ${inv.invoiceNumber ?? ""} — ${inv.totalTTC.toFixed(2)} €`,
+        date: inv.issueDate.toISOString(),
+        status: "success",
+      });
+      continue;
+    }
     const statusMap: Record<string, TimelineEvent["status"]> = {
       PAYE: "success",
       PARTIELLEMENT_PAYE: "success",
