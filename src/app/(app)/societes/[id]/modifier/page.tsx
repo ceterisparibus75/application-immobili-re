@@ -20,18 +20,7 @@ import { ArrowLeft, Loader2, Save, Upload, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getLogoProxyUrl } from "@/lib/utils";
-
-const LEGAL_FORMS = [
-  { value: "SCI", label: "SCI" },
-  { value: "SARL", label: "SARL" },
-  { value: "SAS", label: "SAS" },
-  { value: "SA", label: "SA" },
-  { value: "EURL", label: "EURL" },
-  { value: "SASU", label: "SASU" },
-  { value: "SNC", label: "SNC" },
-  { value: "AUTRE", label: "Autre" },
-  { value: "PERSONNE_PHYSIQUE", label: "Personne physique (nom propre)" },
-];
+import { LEGAL_FORMS } from "@/lib/constants";
 
 export default function ModifierSocietePage() {
   const router = useRouter();

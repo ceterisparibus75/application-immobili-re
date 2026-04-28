@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
+import { LEGAL_FORMS } from "@/lib/constants";
 
 const RISK_OPTIONS = [
   { value: "VERT", label: "Vert — Aucun risque" },
@@ -176,7 +177,7 @@ export default function ModifierLocatairePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="companyLegalForm">Forme juridique</Label>
-                    <Input id="companyLegalForm" name="companyLegalForm" defaultValue={tenant.companyLegalForm ?? ""} placeholder="SARL, SAS, SCI..." />
+                    <NativeSelect id="companyLegalForm" name="companyLegalForm" options={[...LEGAL_FORMS]} defaultValue={tenant.companyLegalForm ?? ""} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="siret">SIRET</Label>

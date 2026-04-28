@@ -6,7 +6,7 @@ import { useSociety } from "@/providers/society-provider";
 import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck, RefreshCw } from "lucide-react";
+import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -91,6 +91,7 @@ export default function AbonnementPage() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const router = useRouter();
 
@@ -136,11 +137,14 @@ export default function AbonnementPage() {
   async function handleUpgrade(planId: "STARTER" | "PRO" | "ENTERPRISE") {
     if (!activeSociety?.id) return;
     setActionLoading(true);
+    setUpgradeError(null);
     const result = await createCheckout(activeSociety.id, planId, billingPeriod);
     if (result.success && result.data?.url) {
       window.location.href = result.data.url;
     } else {
-      toast.error(result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.");
+      const msg = result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.";
+      setUpgradeError(msg);
+      toast.error(msg);
     }
     setActionLoading(false);
   }
@@ -403,14 +407,22 @@ if (loading) {
                       ))}
                     </ul>
 
+                    {upgradeError && (
+                      <p className="text-xs text-destructive mb-3 flex items-start gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        {upgradeError}
+                      </p>
+                    )}
                     <Button
                       className={`w-full ${plan.popular ? "shadow-lg shadow-primary/25" : ""}`}
                       variant={plan.popular ? "default" : "outline"}
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={actionLoading}
                     >
-                      Passer au plan {plan.name}
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      {actionLoading
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <>Passer au plan {plan.name}<ChevronRight className="h-4 w-4 ml-1" /></>
+                      }
                     </Button>
                   </CardContent>
                 </Card>

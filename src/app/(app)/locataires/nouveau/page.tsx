@@ -20,6 +20,7 @@ import { ArrowLeft, Building2, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { cn } from "@/lib/utils";
+import { LEGAL_FORMS } from "@/lib/constants";
 
 const RISK_OPTIONS = [
   { value: "VERT", label: "Vert — Aucun risque" },
@@ -27,17 +28,6 @@ const RISK_OPTIONS = [
   { value: "ROUGE", label: "Rouge — Risque élevé" },
 ];
 
-const LEGAL_FORM_OPTIONS = [
-  { value: "SAS", label: "SAS" },
-  { value: "SARL", label: "SARL" },
-  { value: "SA", label: "SA" },
-  { value: "SCI", label: "SCI" },
-  { value: "EURL", label: "EURL" },
-  { value: "SASU", label: "SASU" },
-  { value: "SNC", label: "SNC" },
-  { value: "EI", label: "Entreprise individuelle" },
-  { value: "AUTRE", label: "Autre" },
-];
 
 export default function NouveauLocatairePage() {
   const router = useRouter();
@@ -186,7 +176,7 @@ export default function NouveauLocatairePage() {
                     <NativeSelect
                       id="companyLegalForm"
                       name="companyLegalForm"
-                      options={LEGAL_FORM_OPTIONS}
+                      options={[...LEGAL_FORMS]}
                       placeholder="Choisir..."
                     />
                   </div>

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LEGAL_FORMS, TAX_REGIMES, VAT_REGIMES, FISCAL_REGIMES } from "@/lib/constants";
+import type { CreateSocietyInput } from "@/validations/society";
 import { ArrowLeft, Loader2, Check, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -310,7 +311,7 @@ export default function NouvelleSocietePage() {
 
     const result = await createSociety({
       name: data.name,
-      legalForm: data.legalForm as "SCI" | "SARL" | "SAS" | "SA" | "EURL" | "SASU" | "SNC" | "AUTRE",
+      legalForm: data.legalForm as CreateSocietyInput["legalForm"],
       siret: data.siret,
       vatNumber: data.vatNumber,
       addressLine1: data.addressLine1,

@@ -22,6 +22,11 @@ export type InvoicePdfData = {
   creditNoteForNumber?: string | null;
 };
 
+function splitAddress(addr: string): [string, string] | null {
+  const m = addr.match(/^(.*?)\s+(\d{5}\s*.+)$/);
+  return m ? [m[1].trim(), m[2].trim()] : null;
+}
+
 const GRAY = "#6b7280";
 const DARK = "#111827";
 const BORDER = "#e5e7eb";
@@ -86,6 +91,17 @@ function typeTitle(invoiceType: string, isAvoir: boolean): string {
   return "FACTURE";
 }
 
+function TenantAddress({ address }: { address: string }) {
+  const parts = splitAddress(address);
+  if (!parts) return <Text style={{ fontSize: 8.5, color: GRAY }}>{address}</Text>;
+  return (
+    <>
+      <Text style={{ fontSize: 8.5, color: GRAY }}>{parts[0]}</Text>
+      <Text style={{ fontSize: 8.5, color: GRAY }}>{parts[1]}</Text>
+    </>
+  );
+}
+
 export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   const soc = data.society;
   const paid = data.payments.reduce((sum, p) => sum + p.amount, 0);
@@ -138,7 +154,7 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             <Text style={[s.recipientCorner, { bottom: 2, right: 2 }]}>+</Text>
             <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", marginBottom: 3 }}>{data.tenant.name}</Text>
             {data.tenant.address
-              ? <Text style={{ fontSize: 8.5, color: GRAY }}>{data.tenant.address}</Text>
+              ? <TenantAddress address={data.tenant.address} />
               : <Text style={{ fontSize: 8, color: "#9ca3af" }}>{data.tenant.email ?? "Adresse non renseignée"}</Text>
             }
           </View>

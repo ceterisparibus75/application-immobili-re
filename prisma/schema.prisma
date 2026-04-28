@@ -26,15 +26,27 @@ enum UserRole {
 }
 
 enum LegalForm {
-  SCI
+  PERSONNE_PHYSIQUE
+  EI
+  EURL
+  SASU
   SARL
   SAS
   SA
-  EURL
-  SASU
   SNC
+  SCS
+  SCA
+  SCI
+  SCM
+  SCP
+  SCPI
+  SCCV
+  SELARL
+  SELAS
+  SPFPL
+  GIE
+  GFA
   AUTRE
-  PERSONNE_PHYSIQUE
 }
 
 enum TaxRegime {
