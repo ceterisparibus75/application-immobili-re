@@ -103,8 +103,8 @@ export default async function FacturationPage({ searchParams }: PageProps) {
     getRecentReminders(societyId),
   ]);
 
-  const enAttente = invoices.filter((i) => i.status === "EN_ATTENTE");
-  const enRetard = invoices.filter((i) => i.status === "EN_RETARD");
+  const enAttente = invoices.filter((i) => i.status === "EN_ATTENTE" && i.invoiceType !== "QUITTANCE");
+  const enRetard = invoices.filter((i) => i.status === "EN_RETARD" && i.invoiceType !== "QUITTANCE");
   const totalTTC = invoices
     .filter((i) => i.invoiceType !== "AVOIR")
     .reduce((s, i) => s + i.totalTTC, 0);
