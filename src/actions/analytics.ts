@@ -37,24 +37,39 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
+  // Revenus groupés par période de facturation (periodStart si renseigné, sinon issueDate)
   const monthlyRevenuePromise = prisma.$queryRaw<Array<{ month: Date; revenue: number }>>`
     SELECT
-      DATE_TRUNC('month', "issueDate") AS month,
+      DATE_TRUNC('month', COALESCE("periodStart", "issueDate")) AS month,
       COALESCE(SUM("totalTTC"), 0)::float AS revenue
     FROM "Invoice"
     WHERE "societyId" = ANY(${societyIds})
-      AND "invoiceType" != 'AVOIR'
-      AND "issueDate" >= ${twelveMonthsAgo}
-    GROUP BY DATE_TRUNC('month', "issueDate")
+      AND "invoiceType" NOT IN ('AVOIR', 'QUITTANCE')
+      AND COALESCE("periodStart", "issueDate") >= ${twelveMonthsAgo}
+    GROUP BY DATE_TRUNC('month', COALESCE("periodStart", "issueDate"))
     ORDER BY month ASC
   `;
   const revenueAggPromise = Promise.all([
     prisma.invoice.aggregate({
-      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: currentMonthStart } },
+      where: {
+        societyId: { in: societyIds },
+        invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+        OR: [
+          { periodStart: { gte: currentMonthStart } },
+          { periodStart: null, issueDate: { gte: currentMonthStart } },
+        ],
+      },
       _sum: { totalTTC: true },
     }),
     prisma.invoice.aggregate({
-      where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, issueDate: { gte: prevMonthStart, lte: prevMonthEnd } },
+      where: {
+        societyId: { in: societyIds },
+        invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+        OR: [
+          { periodStart: { gte: prevMonthStart, lte: prevMonthEnd } },
+          { periodStart: null, issueDate: { gte: prevMonthStart, lte: prevMonthEnd } },
+        ],
+      },
       _sum: { totalTTC: true },
     }),
   ]);
@@ -65,7 +80,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const overdueInvoicesPromise = prisma.invoice.findMany({
     where: {
       societyId: { in: societyIds },
-      invoiceType: { not: "AVOIR" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       OR: [
         { status: "EN_RETARD" },
         { status: "EN_ATTENTE", dueDate: { lt: now } },

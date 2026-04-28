@@ -43,14 +43,17 @@ export async function getDashboardStats(societyId: string) {
     prisma.invoice.aggregate({
       where: {
         societyId,
-        issueDate: { gte: startOfMonth, lte: endOfMonth },
-        invoiceType: { not: "AVOIR" },
+        invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+        OR: [
+          { periodStart: { gte: startOfMonth, lte: endOfMonth } },
+          { periodStart: null, issueDate: { gte: startOfMonth, lte: endOfMonth } },
+        ],
       },
       _sum: { totalTTC: true },
       _count: true,
     }),
     prisma.invoice.count({
-      where: { societyId, status: "EN_RETARD" },
+      where: { societyId, status: "EN_RETARD", invoiceType: { notIn: ["AVOIR", "QUITTANCE"] } },
     }),
     prisma.lease.findMany({
       where: {
@@ -269,7 +272,7 @@ export async function getDashboardAlerts(societyId: string): Promise<DashboardAl
   const overdueInvoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { not: "AVOIR" },
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       OR: [
         { status: "EN_RETARD" },
         { status: "RELANCEE" },
