@@ -176,7 +176,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     prisma.lease.count({ where: { societyId: { in: societyIds }, status: "EN_COURS" } }),
     prisma.diagnostic.count({ where: { building: { societyId: { in: societyIds } }, expiresAt: { lte: in90Days, gte: now } } }),
     prisma.maintenance.count({ where: { building: { societyId: { in: societyIds } }, completedAt: null } }),
-    prisma.invoice.count({ where: { societyId: { in: societyIds }, invoiceType: { not: "AVOIR" }, status: { in: ["EN_RETARD", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] }, dueDate: { lt: now } } }),
+    prisma.invoice.count({ where: { societyId: { in: societyIds }, invoiceType: { notIn: ["AVOIR", "QUITTANCE"] }, status: { in: ["EN_RETARD", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] }, dueDate: { lt: now } } }),
   ]);
   const managementFeesAggPromise = prisma.invoice.aggregate({
     where: {
