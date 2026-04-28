@@ -18,12 +18,14 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { ChargeProvisions } from "./charge-provisions";
+import { LeaseIndexationPanel } from "./lease-indexation-panel";
 import { RentRevisions } from "./rent-revisions";
 import { RentSteps } from "./rent-steps";
 import { LeaseAmendments } from "./lease-amendments";
 import { LeasePdfUpload } from "@/components/lease-pdf-upload";
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
 import type { PaymentFrequency, IndexType } from "@/generated/prisma/client";
+import type { LeaseIndexationOverview } from "@/actions/rent-revision";
 
 // ─── Types inline (miroirs des types internes des sous-composants) ─────────────
 
@@ -187,6 +189,7 @@ export type LeaseDetailTabsProps = {
   loyer: LoyerData;
   facturation: FacturationData;
   documents: DocumentsData;
+  indexation: LeaseIndexationOverview | null;
   rentValuationSlot: React.ReactNode;
 };
 
@@ -231,6 +234,7 @@ export function LeaseDetailTabs({
   loyer,
   facturation,
   documents,
+  indexation,
   rentValuationSlot,
 }: LeaseDetailTabsProps) {
   return (
@@ -403,6 +407,13 @@ export function LeaseDetailTabs({
 
       {/* ── Onglet Loyer ───────────────────────────────────────────────────── */}
       <TabsContent value="loyer" className="space-y-4 mt-0">
+        <LeaseIndexationPanel
+          leaseId={leaseId}
+          societyId={societyId}
+          indexation={indexation}
+          isActive={isActive}
+        />
+
         {/* Paliers de loyer */}
         <Card>
           <CardHeader className="pb-3">

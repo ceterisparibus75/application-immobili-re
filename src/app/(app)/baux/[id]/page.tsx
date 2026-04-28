@@ -1,4 +1,5 @@
 import { getLeaseById, getLeaseFinancialSummary, getLeaseDocuments } from "@/actions/lease";
+import { getLeaseIndexationOverview } from "@/actions/rent-revision";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -134,10 +135,11 @@ export default async function BailDetailPage({
 
   if (!societyId) redirect("/societes");
 
-  const [lease, financialSummary, leaseDocuments] = await Promise.all([
+  const [lease, financialSummary, leaseDocuments, indexationResult] = await Promise.all([
     getLeaseById(societyId, id),
     getLeaseFinancialSummary(societyId, id),
     getLeaseDocuments(societyId, id),
+    getLeaseIndexationOverview(societyId, id),
   ]);
   if (!lease) notFound();
 
@@ -302,6 +304,7 @@ export default async function BailDetailPage({
               amendmentsCount: lease._count.amendments,
               leaseDocuments,
             }}
+            indexation={indexationResult.success && indexationResult.data ? indexationResult.data : null}
             rentValuationSlot={
               <RentValuationPanelWrapper leaseId={lease.id} societyId={societyId} />
             }

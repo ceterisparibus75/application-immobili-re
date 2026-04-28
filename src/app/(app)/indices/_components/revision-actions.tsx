@@ -105,7 +105,7 @@ export function RevisionActions({
       l.missedYears <= 1
   );
 
-  // Baux nécessitant un rattrapage multi-années
+  // Baux avec plusieurs échéances de révision à vérifier.
   const needsCatchUp = leases.filter(
     (l) =>
       !l.pendingRevisionId &&
@@ -368,16 +368,16 @@ export function RevisionActions({
         </div>
       )}
 
-      {/* Bandeau rattrapage multi-années */}
+      {/* Bandeau révisions en retard */}
       {needsCatchUp.length > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 mb-4">
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-              {needsCatchUp.length} {needsCatchUp.length > 1 ? "baux nécessitent" : "bail nécessite"} un rattrapage multi-années
+              {needsCatchUp.length} {needsCatchUp.length > 1 ? "baux ont" : "bail a"} plusieurs révisions en retard
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              Les révisions seront chaînées année par année avec arrondi intermédiaire
+              Les baux d'habitation ne récupèrent que les révisions encore dans le délai légal d'un an.
             </p>
           </div>
         </div>
@@ -834,13 +834,13 @@ export function RevisionActions({
             <>
               <DialogHeader>
                 <DialogTitle>
-                  Rattraper les revisions de loyer
+                  Traiter les revisions de loyer en retard
                 </DialogTitle>
                 <DialogDescription>
                   <strong>{confirmDialog.lease.tenantName}</strong> &mdash;{" "}
                   {confirmDialog.lease.lotLabel}
                   <br />
-                  {catchUpPreview.steps.length} année{catchUpPreview.steps.length > 1 ? "s" : ""} de révision chaînée{catchUpPreview.steps.length > 1 ? "s" : ""}
+                  {catchUpPreview.steps.length} révision{catchUpPreview.steps.length > 1 ? "s" : ""} récupérable{catchUpPreview.steps.length > 1 ? "s" : ""}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-2 max-h-[400px] overflow-y-auto">
@@ -883,7 +883,7 @@ export function RevisionActions({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Toutes les révisions intermédiaires seront créées et validées automatiquement.
+                Les révisions affichées seront créées et validées automatiquement.
                 Le loyer et l&apos;indice de base du bail seront mis à jour.
               </p>
               <DialogFooter>

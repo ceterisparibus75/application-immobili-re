@@ -652,6 +652,238 @@ export interface CatchUpResult {
   formulaSummary: string;
 }
 
+export interface LeaseIndexationOverview {
+  isIndexed: boolean;
+  indexType: IndexType | null;
+  currentRentHT: number;
+  baseIndexValue: number | null;
+  baseIndexQuarter: string | null;
+  revisionFrequency: number | null;
+  nextRevisionDate: string | null;
+  statusLabel: string;
+  statusVariant: "destructive" | "warning" | "default" | "secondary" | "outline";
+  missedRevisions: number;
+  pendingRevision: {
+    id: string;
+    effectiveDate: string;
+    newRentHT: number;
+    formula: string | null;
+  } | null;
+  lastValidatedRevisionDate: string | null;
+  referenceIndexValue: number | null;
+  referenceIndexQuarter: string | null;
+  referenceIndexYear: number | null;
+  estimatedNewRentHT: number | null;
+  formula: string | null;
+  canGenerateRevision: boolean;
+  canCatchUp: boolean;
+  blockReason: string | null;
+  legalNote: string | null;
+}
+
+function getMissedRevisionsCount(
+  startDate: Date,
+  revisionFrequency: number,
+  lastRevisionDate?: Date | null,
+  entryDate?: Date | null,
+  revisionDateBasis?: string | null,
+  customMonth?: number | null,
+  customDay?: number | null,
+): number {
+  const now = new Date();
+  const nextDate = getNextRevisionDate(
+    startDate,
+    revisionFrequency,
+    lastRevisionDate ?? undefined,
+    entryDate,
+    revisionDateBasis,
+    customMonth,
+    customDay,
+  );
+  if (nextDate > now) return 0;
+
+  let count = 0;
+  const cursor = new Date(nextDate);
+  while (cursor <= now) {
+    count++;
+    cursor.setMonth(cursor.getMonth() + revisionFrequency);
+  }
+  return count;
+}
+
+function getRevisionStatus(nextDate: Date): {
+  label: string;
+  variant: "destructive" | "warning" | "default" | "secondary";
+} {
+  const now = new Date();
+  const diffDays = Math.ceil((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return { label: `En retard de ${Math.abs(diffDays)} j`, variant: "destructive" };
+  if (diffDays <= 30) return { label: `Dans ${diffDays} j`, variant: "warning" };
+  if (diffDays <= 90) return { label: `Dans ${diffDays} j`, variant: "secondary" };
+  return { label: `Dans ${diffDays} j`, variant: "default" };
+}
+
+export async function getLeaseIndexationOverview(
+  societyId: string,
+  leaseId: string
+): Promise<ActionResult<LeaseIndexationOverview>> {
+  try {
+    await requireSocietyActionContext(societyId, "LECTURE");
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId, deletedAt: null },
+      select: {
+        id: true,
+        leaseType: true,
+        status: true,
+        startDate: true,
+        entryDate: true,
+        currentRentHT: true,
+        indexType: true,
+        baseIndexValue: true,
+        baseIndexQuarter: true,
+        revisionFrequency: true,
+        revisionDateBasis: true,
+        revisionCustomMonth: true,
+        revisionCustomDay: true,
+        rentRevisions: {
+          orderBy: { effectiveDate: "desc" },
+          take: 20,
+          select: {
+            id: true,
+            effectiveDate: true,
+            newRentHT: true,
+            newIndexValue: true,
+            isValidated: true,
+            formula: true,
+          },
+        },
+      },
+    });
+
+    if (!lease) return { success: false, error: "Bail introuvable" };
+
+    const baseOverview = {
+      isIndexed: Boolean(lease.indexType),
+      indexType: lease.indexType,
+      currentRentHT: lease.currentRentHT,
+      baseIndexValue: lease.baseIndexValue,
+      baseIndexQuarter: lease.baseIndexQuarter,
+      revisionFrequency: lease.revisionFrequency ?? 12,
+      nextRevisionDate: null,
+      statusLabel: lease.indexType ? "À vérifier" : "Sans indexation",
+      statusVariant: lease.indexType ? "secondary" : "outline",
+      missedRevisions: 0,
+      pendingRevision: null,
+      lastValidatedRevisionDate: null,
+      referenceIndexValue: null,
+      referenceIndexQuarter: null,
+      referenceIndexYear: null,
+      estimatedNewRentHT: null,
+      formula: null,
+      canGenerateRevision: false,
+      canCatchUp: false,
+      blockReason: lease.indexType ? null : "Aucune clause d'indexation n'est configurée sur ce bail.",
+      legalNote: isHabitationLeaseType(lease.leaseType)
+        ? "Bail d'habitation : une révision oubliée depuis plus d'un an n'est pas récupérable."
+        : null,
+    } satisfies LeaseIndexationOverview;
+
+    if (!lease.indexType) return { success: true, data: baseOverview };
+    if (!lease.baseIndexValue) {
+      return {
+        success: true,
+        data: {
+          ...baseOverview,
+          blockReason: "Indice de référence manquant : complétez le bail avant de calculer une révision.",
+        },
+      };
+    }
+
+    const lastValidated = lease.rentRevisions.find((r) => r.isValidated);
+    const pendingRevision = lease.rentRevisions.find((r) => !r.isValidated);
+    const revisionFrequency = lease.revisionFrequency ?? 12;
+    const nextRevisionDate = getNextRevisionDate(
+      lease.startDate,
+      revisionFrequency,
+      lastValidated?.effectiveDate,
+      lease.entryDate,
+      lease.revisionDateBasis,
+      lease.revisionCustomMonth,
+      lease.revisionCustomDay,
+    );
+    const missedRevisions = getMissedRevisionsCount(
+      lease.startDate,
+      revisionFrequency,
+      lastValidated?.effectiveDate,
+      lease.entryDate,
+      lease.revisionDateBasis,
+      lease.revisionCustomMonth,
+      lease.revisionCustomDay,
+    );
+    const status = getRevisionStatus(nextRevisionDate);
+
+    const baseQuarter = parseBaseIndexQuarter(lease.baseIndexQuarter);
+    let referenceIndex: { value: number; year: number; quarter: number } | null = null;
+    if (baseQuarter) {
+      referenceIndex =
+        (await getIndexForReferenceQuarter(lease.indexType, baseQuarter.quarter, nextRevisionDate.getFullYear())) ??
+        (await getIndexForReferenceQuarter(lease.indexType, baseQuarter.quarter, nextRevisionDate.getFullYear() - 1));
+    }
+    referenceIndex ??= await getLatestIndex(lease.indexType);
+
+    const estimatedNewRentHT = referenceIndex
+      ? calculateNewRent(lease.currentRentHT, lease.baseIndexValue, referenceIndex.value, lease.indexType)
+      : null;
+    const referenceLabel = referenceIndex ? `T${referenceIndex.quarter} ${referenceIndex.year}` : null;
+    const formula =
+      referenceIndex && estimatedNewRentHT !== null
+        ? `${lease.currentRentHT.toFixed(2)} × (${referenceIndex.value} [${referenceLabel}] / ${lease.baseIndexValue}) = ${estimatedNewRentHT.toFixed(2)}`
+        : null;
+
+    const blockReason = !referenceIndex
+      ? `Aucun indice ${lease.indexType} disponible. Synchronisez les indices INSEE.`
+      : pendingRevision
+        ? "Une révision est déjà en attente de validation."
+        : null;
+
+    return {
+      success: true,
+      data: {
+        ...baseOverview,
+        nextRevisionDate: nextRevisionDate.toISOString(),
+        statusLabel: pendingRevision ? "Révision en attente" : status.label,
+        statusVariant: pendingRevision ? "warning" : status.variant,
+        missedRevisions,
+        pendingRevision: pendingRevision
+          ? {
+              id: pendingRevision.id,
+              effectiveDate: pendingRevision.effectiveDate.toISOString(),
+              newRentHT: pendingRevision.newRentHT,
+              formula: pendingRevision.formula,
+            }
+          : null,
+        lastValidatedRevisionDate: lastValidated?.effectiveDate.toISOString() ?? null,
+        referenceIndexValue: referenceIndex?.value ?? null,
+        referenceIndexQuarter: referenceIndex ? `T${referenceIndex.quarter}` : null,
+        referenceIndexYear: referenceIndex?.year ?? null,
+        estimatedNewRentHT,
+        formula,
+        canGenerateRevision: !pendingRevision && missedRevisions > 0 && missedRevisions <= 1 && Boolean(referenceIndex),
+        canCatchUp: !pendingRevision && missedRevisions > 1,
+        blockReason,
+      },
+    };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getLeaseIndexationOverview]", error);
+    return { success: false, error: "Erreur lors de la récupération de l'indexation" };
+  }
+}
+
 /**
  * Trouve l'indice INSEE le plus proche de baseIndexValue.
  * Si un trimestre de référence est connu, cherche d'abord dans ce trimestre.

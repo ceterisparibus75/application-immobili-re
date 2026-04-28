@@ -14,6 +14,7 @@ import {
   rejectRevision,
   createManualRevision,
   detectPendingRevisions,
+  getLeaseIndexationOverview,
   previewCatchUpRevisions,
   applyCatchUpRevisions,
 } from "./rent-revision"
@@ -498,6 +499,73 @@ describe("previewCatchUpRevisions", () => {
 
     expect(r.success).toBe(false)
     expect(r.error).toContain("délai légal d'un an")
+
+    vi.useRealTimers()
+  })
+})
+
+// ─── getLeaseIndexationOverview ───────────────────────────────────────────────
+
+describe("getLeaseIndexationOverview", () => {
+  it("retourne un résumé sans indexation si le bail n'a pas d'indice", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID,
+      leaseType: "HABITATION",
+      status: "EN_COURS",
+      startDate: new Date("2025-01-01"),
+      entryDate: null,
+      currentRentHT: 800,
+      indexType: null,
+      baseIndexValue: null,
+      baseIndexQuarter: null,
+      revisionFrequency: 12,
+      revisionDateBasis: "DATE_SIGNATURE",
+      revisionCustomMonth: null,
+      revisionCustomDay: null,
+      rentRevisions: [],
+    } as never)
+
+    const r = await getLeaseIndexationOverview(SOCIETY_ID, VALID_CUID)
+
+    expect(r.success).toBe(true)
+    expect(r.data?.isIndexed).toBe(false)
+    expect(r.data?.blockReason).toContain("Aucune clause")
+  })
+
+  it("retourne le prochain calcul d'indexation depuis la fiche bail", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-04-28T12:00:00.000Z"))
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID,
+      leaseType: "HABITATION",
+      status: "EN_COURS",
+      startDate: new Date("2025-01-01"),
+      entryDate: null,
+      currentRentHT: 800,
+      indexType: "IRL",
+      baseIndexValue: 140,
+      baseIndexQuarter: "T1 2025",
+      revisionFrequency: 12,
+      revisionDateBasis: "DATE_SIGNATURE",
+      revisionCustomMonth: null,
+      revisionCustomDay: null,
+      rentRevisions: [],
+    } as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValueOnce({
+      value: 145,
+      year: 2026,
+      quarter: 1,
+    } as never)
+
+    const r = await getLeaseIndexationOverview(SOCIETY_ID, VALID_CUID)
+
+    expect(r.success).toBe(true)
+    expect(r.data?.missedRevisions).toBe(1)
+    expect(r.data?.estimatedNewRentHT).toBe(828.57)
+    expect(r.data?.canGenerateRevision).toBe(true)
+    expect(r.data?.canCatchUp).toBe(false)
 
     vi.useRealTimers()
   })
