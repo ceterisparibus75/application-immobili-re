@@ -171,7 +171,7 @@ export default function ModifierSocietePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="legalForm">Forme juridique *</Label>
-                <NativeSelect id="legalForm" name="legalForm" options={LEGAL_FORMS} value={form.legalForm} onChange={(e) => set("legalForm", e.target.value)} required />
+                <NativeSelect id="legalForm" name="legalForm" options={[...LEGAL_FORMS]} value={form.legalForm} onChange={(e) => set("legalForm", e.target.value)} required />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">

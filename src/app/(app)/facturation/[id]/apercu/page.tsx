@@ -8,20 +8,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { formatCurrency, formatDate, getLogoProxyUrl } from "@/lib/utils";
 import { decrypt } from "@/lib/encryption";
-import type { TenantEntityType, LegalForm } from "@/generated/prisma/client";
+import type { TenantEntityType } from "@/generated/prisma/client";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 import { PrintButton } from "./_components/print-button";
-
-const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
-  SCI:   "Societe Civile Immobiliere (SCI)",
-  SARL:  "SARL",
-  SAS:   "SAS",
-  SA:    "SA",
-  EURL:  "EURL",
-  SASU:  "SASU",
-  SNC:   "SNC",
-  AUTRE: "Société",
-  PERSONNE_PHYSIQUE: "Personne physique",
-};
 
 function tenantName(t: {
   entityType: TenantEntityType;
