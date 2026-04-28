@@ -19,10 +19,12 @@ import { getChecklistScore, getDataroomTemplate, PERMISSION_LABELS, type Dataroo
 import {
   ArrowLeft, Share2, FileText, Eye, Trash2, Lock, Calendar,
   Plus, Copy, Check, Archive, Send, ExternalLink, ChevronUp, ChevronDown, Mail, User, ShieldCheck, ListChecks, Users,
+  MessageSquare, Palette, BarChart3, FileCog,
 } from "lucide-react";
 import {
   updateDataroom, deleteDataroom, activateDataroom, archiveDataroom,
   addDocumentToDataroom, removeDocumentFromDataroom, reorderDocument,
+  updateDataroomDocumentSettings, addDataroomQuestion, answerDataroomQuestion,
 } from "@/actions/dataroom";
 
 const PURPOSE_OPTIONS = [
@@ -63,11 +65,19 @@ type DataroomFull = {
   ndaRequired: boolean;
   groups: unknown;
   checklist: unknown;
+  qnaEnabled: boolean;
+  qna: unknown;
+  branding: unknown;
+  reportSettings: unknown;
   creator: { name: string | null; email: string | null } | null;
   documents: {
     id: string;
     sortOrder: number;
     section: string | null;
+    accessLevel: string;
+    allowDownload: boolean | null;
+    watermarkEnabled: boolean | null;
+    visibleToGroups: unknown;
     document: {
       id: string;
       fileName: string;
@@ -86,6 +96,31 @@ type DataroomFull = {
     ipAddress: string | null;
   }[];
   _count: { documents: number; accesses: number };
+};
+
+type DataroomQuestion = {
+  id: string;
+  category: string;
+  question: string;
+  askedBy: string;
+  askedAt: string;
+  status: "OUVERTE" | "REPONDUE" | "CLOTUREE";
+  answer?: string;
+  answeredBy?: string;
+  answeredAt?: string;
+};
+
+type BrandingSettings = {
+  logoUrl?: string;
+  accentColor?: string;
+  welcomeTitle?: string;
+  welcomeMessage?: string;
+};
+
+type ReportSettings = {
+  enabled?: boolean;
+  frequency?: "DAILY" | "WEEKLY" | "MONTHLY";
+  recipients?: string;
 };
 
 type AllDoc = {
@@ -119,6 +154,18 @@ function readChecklist(value: unknown, templateKey: string | null): DataroomChec
   return getDataroomTemplate(templateKey).checklist;
 }
 
+function readQna(value: unknown): DataroomQuestion[] {
+  return Array.isArray(value) ? value as DataroomQuestion[] : [];
+}
+
+function readBranding(value: unknown): BrandingSettings {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as BrandingSettings : {};
+}
+
+function readReportSettings(value: unknown): ReportSettings {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as ReportSettings : {};
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " o";
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " Ko";
@@ -148,6 +195,26 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
   const [detailChecklist, setDetailChecklist] = useState<DataroomChecklistItem[]>(readChecklist(dataroom.checklist, dataroom.templateKey));
 
   const [selectedDocId, setSelectedDocId] = useState("");
+  const [docSettingsOpen, setDocSettingsOpen] = useState(false);
+  const [settingsDoc, setSettingsDoc] = useState<DataroomFull["documents"][number] | null>(null);
+  const [docAccessLevel, setDocAccessLevel] = useState<"INHERIT" | "VISIBLE" | "HIDDEN">("INHERIT");
+  const [docAllowDownload, setDocAllowDownload] = useState<"INHERIT" | "ALLOW" | "BLOCK">("INHERIT");
+  const [docWatermark, setDocWatermark] = useState<"INHERIT" | "ON" | "OFF">("INHERIT");
+  const [docSection, setDocSection] = useState("");
+  const [qnaQuestion, setQnaQuestion] = useState("");
+  const [qnaCategory, setQnaCategory] = useState("Général");
+  const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState("");
+  const initialBranding = readBranding(dataroom.branding);
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState(initialBranding.logoUrl ?? "");
+  const [brandingAccentColor, setBrandingAccentColor] = useState(initialBranding.accentColor ?? "#1B4F8A");
+  const [brandingTitle, setBrandingTitle] = useState(initialBranding.welcomeTitle ?? "");
+  const [brandingMessage, setBrandingMessage] = useState(initialBranding.welcomeMessage ?? "");
+  const initialReportSettings = readReportSettings(dataroom.reportSettings);
+  const [reportEnabled, setReportEnabled] = useState(initialReportSettings.enabled === true);
+  const [reportFrequency, setReportFrequency] = useState<"DAILY" | "WEEKLY" | "MONTHLY">(initialReportSettings.frequency ?? "WEEKLY");
+  const [reportRecipients, setReportRecipients] = useState(initialReportSettings.recipients ?? "");
+  const [analyticsReferenceTime] = useState(() => Date.now());
 
   const existingDocIds = new Set(dataroom.documents.map((d) => d.document.id));
   const availableDocs = allDocuments.filter((d) => !existingDocIds.has(d.id));
@@ -156,6 +223,11 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
   const groups = readGroups(dataroom.groups, dataroom.templateKey);
   const template = getDataroomTemplate(dataroom.templateKey);
   const checklistScore = getChecklistScore(detailChecklist);
+  const qna = readQna(dataroom.qna);
+  const uniqueVisitorKeys = new Set(dataroom.accesses.map((access) => access.viewerEmail || access.ipAddress).filter(Boolean));
+  const sevenDaysAgo = analyticsReferenceTime - 7 * 24 * 60 * 60 * 1000;
+  const accessesLast7Days = dataroom.accesses.filter((access) => new Date(access.createdAt).getTime() >= sevenDaysAgo).length;
+  const restrictedDocuments = dataroom.documents.filter((doc) => doc.accessLevel === "HIDDEN" || doc.allowDownload === false || doc.watermarkEnabled === true).length;
 
   function copyLink() {
     if (!shareUrl) return;
@@ -266,6 +338,91 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
     startTransition(async () => {
       const result = await reorderDocument(societyId, dataroom.id, documentId, direction);
       if (!result.success) toast.error(result.error ?? "Erreur");
+    });
+  }
+
+  function openDocumentSettings(doc: DataroomFull["documents"][number]) {
+    setSettingsDoc(doc);
+    setDocAccessLevel((doc.accessLevel === "VISIBLE" || doc.accessLevel === "HIDDEN") ? doc.accessLevel : "INHERIT");
+    setDocAllowDownload(doc.allowDownload === null ? "INHERIT" : doc.allowDownload ? "ALLOW" : "BLOCK");
+    setDocWatermark(doc.watermarkEnabled === null ? "INHERIT" : doc.watermarkEnabled ? "ON" : "OFF");
+    setDocSection(doc.section ?? "");
+    setDocSettingsOpen(true);
+  }
+
+  function handleSaveDocumentSettings() {
+    if (!settingsDoc) return;
+    startTransition(async () => {
+      const result = await updateDataroomDocumentSettings(societyId, dataroom.id, settingsDoc.document.id, {
+        accessLevel: docAccessLevel,
+        allowDownload: docAllowDownload === "INHERIT" ? null : docAllowDownload === "ALLOW",
+        watermarkEnabled: docWatermark === "INHERIT" ? null : docWatermark === "ON",
+        section: docSection.trim() || null,
+      });
+      if (result.success) {
+        toast.success("Permissions document mises à jour");
+        setDocSettingsOpen(false);
+      } else {
+        toast.error(result.error ?? "Erreur");
+      }
+    });
+  }
+
+  function handleAddQuestion() {
+    startTransition(async () => {
+      const result = await addDataroomQuestion(societyId, dataroom.id, {
+        question: qnaQuestion,
+        category: qnaCategory,
+        askedBy: "Interne",
+      });
+      if (result.success) {
+        toast.success("Question ajoutée");
+        setQnaQuestion("");
+      } else {
+        toast.error(result.error ?? "Erreur");
+      }
+    });
+  }
+
+  function handleAnswerQuestion(questionId: string) {
+    startTransition(async () => {
+      const result = await answerDataroomQuestion(societyId, dataroom.id, questionId, answerText);
+      if (result.success) {
+        toast.success("Réponse enregistrée");
+        setAnsweringQuestionId(null);
+        setAnswerText("");
+      } else {
+        toast.error(result.error ?? "Erreur");
+      }
+    });
+  }
+
+  function handleSaveBranding() {
+    startTransition(async () => {
+      const result = await updateDataroom(societyId, dataroom.id, {
+        branding: {
+          logoUrl: brandingLogoUrl.trim() || undefined,
+          accentColor: brandingAccentColor.trim() || undefined,
+          welcomeTitle: brandingTitle.trim() || undefined,
+          welcomeMessage: brandingMessage.trim() || undefined,
+        },
+      });
+      if (result.success) toast.success("Branding externe mis à jour");
+      else toast.error(result.error ?? "Erreur");
+    });
+  }
+
+  function handleSaveReportSettings() {
+    startTransition(async () => {
+      const result = await updateDataroom(societyId, dataroom.id, {
+        reportSettings: {
+          enabled: reportEnabled,
+          frequency: reportFrequency,
+          recipients: reportRecipients.trim(),
+        },
+      });
+      if (result.success) toast.success("Rapports programmés mis à jour");
+      else toast.error(result.error ?? "Erreur");
     });
   }
 
@@ -539,6 +696,78 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-md border p-3">
+              <p className="text-2xl font-semibold">{uniqueVisitorKeys.size}</p>
+              <p className="text-xs text-muted-foreground">Visiteurs identifiés</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-2xl font-semibold">{accessesLast7Days}</p>
+              <p className="text-xs text-muted-foreground">Accès 7 jours</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-2xl font-semibold">{restrictedDocuments}</p>
+              <p className="text-xs text-muted-foreground">Docs restreints</p>
+            </div>
+            <div className="rounded-md border p-3">
+              <p className="text-2xl font-semibold">{qna.filter((item) => item.status === "OUVERTE").length}</p>
+              <p className="text-xs text-muted-foreground">Questions ouvertes</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Palette className="h-4 w-4" />
+              Branding externe
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-[1fr_92px] gap-2">
+              <Input value={brandingLogoUrl} onChange={(e) => setBrandingLogoUrl(e.target.value)} placeholder="URL logo externe" />
+              <Input value={brandingAccentColor} onChange={(e) => setBrandingAccentColor(e.target.value)} placeholder="#1B4F8A" />
+            </div>
+            <Input value={brandingTitle} onChange={(e) => setBrandingTitle(e.target.value)} placeholder="Titre d'accueil personnalisé" />
+            <Textarea value={brandingMessage} onChange={(e) => setBrandingMessage(e.target.value)} rows={2} placeholder="Message visible sur la page externe" />
+            <Button size="sm" onClick={handleSaveBranding} disabled={pending}>Enregistrer le branding</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-4 w-4" />
+              Rapports programmés
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={reportEnabled} onCheckedChange={(checked) => setReportEnabled(checked === true)} />
+              Activer l'envoi automatique
+            </label>
+            <Select value={reportFrequency} onValueChange={(value) => setReportFrequency(value as "DAILY" | "WEEKLY" | "MONTHLY")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DAILY">Quotidien</SelectItem>
+                <SelectItem value="WEEKLY">Hebdomadaire</SelectItem>
+                <SelectItem value="MONTHLY">Mensuel</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={reportRecipients} onChange={(e) => setReportRecipients(e.target.value)} placeholder="emails séparés par des virgules" />
+            <Button size="sm" onClick={handleSaveReportSettings} disabled={pending}>Enregistrer les rapports</Button>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Destinataire externe */}
       {(dataroom.recipientEmail || dataroom.recipientName) && (
         <Card>
@@ -640,6 +869,14 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                           </Button>
                         </a>
                         <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => openDocumentSettings(dd)}
+                          disabled={pending}
+                          title="Permissions"
+                        >
+                          <FileCog className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
                           variant="ghost" size="icon" className="h-7 w-7 text-destructive"
                           onClick={() => handleRemoveDoc(dd.document.id)}
                           disabled={pending}
@@ -653,6 +890,123 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={docSettingsOpen} onOpenChange={setDocSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Permissions du document</DialogTitle>
+            <DialogDescription>{settingsDoc?.document.fileName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Section</Label>
+              <Input value={docSection} onChange={(e) => setDocSection(e.target.value)} placeholder="Ex : Finances" />
+            </div>
+            <div>
+              <Label>Visibilité externe</Label>
+              <Select value={docAccessLevel} onValueChange={(value) => setDocAccessLevel(value as "INHERIT" | "VISIBLE" | "HIDDEN")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INHERIT">Hériter de la dataroom</SelectItem>
+                  <SelectItem value="VISIBLE">Forcer visible</SelectItem>
+                  <SelectItem value="HIDDEN">Masquer sur le lien externe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Téléchargement</Label>
+              <Select value={docAllowDownload} onValueChange={(value) => setDocAllowDownload(value as "INHERIT" | "ALLOW" | "BLOCK")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INHERIT">Hériter de la dataroom</SelectItem>
+                  <SelectItem value="ALLOW">Autoriser pour ce document</SelectItem>
+                  <SelectItem value="BLOCK">Bloquer pour ce document</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Filigrane</Label>
+              <Select value={docWatermark} onValueChange={(value) => setDocWatermark(value as "INHERIT" | "ON" | "OFF")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INHERIT">Hériter de la dataroom</SelectItem>
+                  <SelectItem value="ON">Activer pour ce document</SelectItem>
+                  <SelectItem value="OFF">Désactiver pour ce document</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDocSettingsOpen(false)}>Annuler</Button>
+            <Button onClick={handleSaveDocumentSettings} disabled={pending}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MessageSquare className="h-5 w-5" />
+            Q&A
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-[180px_1fr_auto]">
+            <Select value={qnaCategory} onValueChange={setQnaCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Général">Général</SelectItem>
+                <SelectItem value="Juridique">Juridique</SelectItem>
+                <SelectItem value="Financier">Financier</SelectItem>
+                <SelectItem value="Technique">Technique</SelectItem>
+                <SelectItem value="Fiscal">Fiscal</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={qnaQuestion} onChange={(e) => setQnaQuestion(e.target.value)} placeholder="Ajouter une question ou un point à traiter" />
+            <Button onClick={handleAddQuestion} disabled={pending || qnaQuestion.trim().length < 3}>Ajouter</Button>
+          </div>
+          {qna.length === 0 ? (
+            <p className="rounded-md border p-4 text-sm text-muted-foreground">Aucune question pour l'instant.</p>
+          ) : (
+            <div className="space-y-3">
+              {qna.map((item) => (
+                <div key={item.id} className="rounded-md border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2">
+                        <Badge variant={item.status === "REPONDUE" ? "default" : "secondary"}>{item.status === "REPONDUE" ? "Répondue" : item.status === "CLOTUREE" ? "Clôturée" : "Ouverte"}</Badge>
+                        <Badge variant="outline">{item.category}</Badge>
+                      </div>
+                      <p className="font-medium">{item.question}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Par {item.askedBy} · {formatDate(new Date(item.askedAt))}</p>
+                    </div>
+                    {item.status !== "REPONDUE" && (
+                      <Button variant="outline" size="sm" onClick={() => { setAnsweringQuestionId(item.id); setAnswerText(""); }}>
+                        Répondre
+                      </Button>
+                    )}
+                  </div>
+                  {item.answer && (
+                    <div className="mt-3 rounded-md bg-muted p-3 text-sm">
+                      <p>{item.answer}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Répondu par {item.answeredBy ?? "Utilisateur"}</p>
+                    </div>
+                  )}
+                  {answeringQuestionId === item.id && (
+                    <div className="mt-3 space-y-2">
+                      <Textarea value={answerText} onChange={(e) => setAnswerText(e.target.value)} rows={3} placeholder="Réponse" />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setAnsweringQuestionId(null)}>Annuler</Button>
+                        <Button size="sm" onClick={() => handleAnswerQuestion(item.id)} disabled={pending || answerText.trim().length < 2}>Enregistrer</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

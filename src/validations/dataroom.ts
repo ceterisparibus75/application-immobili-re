@@ -16,6 +16,10 @@ export const createDataroomSchema = z.object({
   ndaRequired: z.boolean().optional(),
   groups: z.unknown().optional().nullable(),
   checklist: z.unknown().optional().nullable(),
+  qnaEnabled: z.boolean().optional(),
+  qna: z.unknown().optional().nullable(),
+  branding: z.unknown().optional().nullable(),
+  reportSettings: z.unknown().optional().nullable(),
 });
 
 export const updateDataroomSchema = createDataroomSchema.partial().extend({

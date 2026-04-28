@@ -28,6 +28,8 @@ type Meta = {
   allowDownload: boolean;
   watermarkEnabled: boolean;
   ndaRequired: boolean;
+  qnaEnabled: boolean;
+  branding: unknown;
   society: { name: string; logoUrl: string | null };
 };
 
@@ -40,7 +42,20 @@ type ApiDocument = {
   description: string | null;
   signedUrl: string | null;
   sortOrder: number;
+  allowDownload: boolean;
+  watermarkEnabled: boolean;
 };
+
+type Branding = {
+  logoUrl?: string;
+  accentColor?: string;
+  welcomeTitle?: string;
+  welcomeMessage?: string;
+};
+
+function readBranding(value: unknown): Branding {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Branding : {};
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " o";
@@ -58,6 +73,8 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
   const [documents, setDocuments] = useState<ApiDocument[]>([]);
   const [allowDownload, setAllowDownload] = useState(meta.allowDownload);
   const [watermarkEnabled, setWatermarkEnabled] = useState(meta.watermarkEnabled);
+  const branding = readBranding(meta.branding);
+  const logoUrl = branding.logoUrl || meta.society.logoUrl;
 
   async function handleAccess() {
     setPhase("loading");
@@ -95,9 +112,9 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* En-tête */}
         <div className="text-center mb-8">
-          {meta.society.logoUrl && (
+          {logoUrl && (
             <Image
-              src={meta.society.logoUrl}
+              src={logoUrl}
               alt=""
               width={160}
               height={48}
@@ -105,10 +122,10 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
               className="h-12 w-auto mx-auto mb-4 object-contain"
             />
           )}
-          <h1 className="text-2xl font-bold tracking-tight">{meta.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{branding.welcomeTitle || meta.name}</h1>
           <p className="text-muted-foreground text-sm mt-1">{meta.society.name}</p>
-          {meta.description && (
-            <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{meta.description}</p>
+          {(branding.welcomeMessage || meta.description) && (
+            <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto">{branding.welcomeMessage || meta.description}</p>
           )}
           <div className="flex items-center justify-center gap-3 mt-3">
             {purposeLabel && <Badge variant="secondary" className="text-xs">{purposeLabel}</Badge>}
@@ -180,6 +197,7 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
               <Button
                 onClick={handleAccess}
                 className="w-full"
+                style={branding.accentColor ? { backgroundColor: branding.accentColor } : undefined}
                 disabled={(meta.hasPassword && !password) || (meta.accessMode === "EMAIL_REQUIRED" && !viewerEmail.trim()) || (meta.ndaRequired && !ndaAccepted)}
               >
                 Accéder aux documents
@@ -203,7 +221,7 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
               <p className="text-sm text-muted-foreground">
                 {documents.length} document{documents.length !== 1 ? "s" : ""}
               </p>
-              {watermarkEnabled && (
+              {(watermarkEnabled || documents.some((doc) => doc.watermarkEnabled)) && (
                 <Badge variant="outline" className="text-xs">Filigrane activé</Badge>
               )}
             </div>
@@ -238,7 +256,7 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
                             <span className="hidden sm:inline">Voir</span>
                           </Button>
                         </a>
-                        {allowDownload && (
+                        {allowDownload && doc.allowDownload && (
                           <a href={doc.signedUrl} download={doc.fileName}>
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="Télécharger">
                               <Download className="h-3.5 w-3.5" />

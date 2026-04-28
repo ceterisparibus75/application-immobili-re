@@ -2658,6 +2658,10 @@ model Dataroom {
   groups         Json?
   /// Checklist de preparation issue du modele
   checklist      Json?
+  qnaEnabled     Boolean   @default(false)
+  qna            Json?
+  branding       Json?
+  reportSettings Json?
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   creator    User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)
@@ -2677,6 +2681,10 @@ model DataroomDocument {
   documentId String
   sortOrder  Int      @default(0)
   section    String?
+  accessLevel String   @default("INHERIT")
+  allowDownload Boolean?
+  watermarkEnabled Boolean?
+  visibleToGroups Json?
 
   dataroom   Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)

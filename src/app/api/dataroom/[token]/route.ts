@@ -85,9 +85,11 @@ export async function GET(
   const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
   const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
+  const visibleDataroomDocuments = dataroom.documents.filter((dd) => dd.accessLevel !== "HIDDEN");
   const documents = await Promise.all(
-    dataroom.documents.map(async (dd) => {
+    visibleDataroomDocuments.map(async (dd) => {
       let signedUrl: string | null = null;
+      const documentAllowsDownload = dd.allowDownload ?? dataroom.allowDownload;
 
       if (dd.document.storagePath && supabase) {
         const { data } = await supabase.storage
@@ -105,6 +107,8 @@ export async function GET(
         description: dd.document.description,
         signedUrl,
         sortOrder: dd.sortOrder,
+        allowDownload: documentAllowsDownload,
+        watermarkEnabled: dd.watermarkEnabled ?? dataroom.watermarkEnabled,
       };
     })
   );

@@ -88,6 +88,10 @@ export async function createDataroom(
     ndaRequired?: boolean;
     groups?: unknown;
     checklist?: unknown;
+    qnaEnabled?: boolean;
+    qna?: unknown;
+    branding?: unknown;
+    reportSettings?: unknown;
   }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
@@ -118,6 +122,10 @@ export async function createDataroom(
         ndaRequired: parsed.data.ndaRequired ?? false,
         groups: parsed.data.groups === undefined ? undefined : (parsed.data.groups as Prisma.InputJsonValue),
         checklist: parsed.data.checklist === undefined ? undefined : (parsed.data.checklist as Prisma.InputJsonValue),
+        qnaEnabled: parsed.data.qnaEnabled ?? false,
+        qna: parsed.data.qna === undefined ? undefined : (parsed.data.qna as Prisma.InputJsonValue),
+        branding: parsed.data.branding === undefined ? undefined : (parsed.data.branding as Prisma.InputJsonValue),
+        reportSettings: parsed.data.reportSettings === undefined ? undefined : (parsed.data.reportSettings as Prisma.InputJsonValue),
       },
     });
 
@@ -160,6 +168,10 @@ export async function updateDataroom(
     ndaRequired?: boolean;
     groups?: unknown;
     checklist?: unknown;
+    qnaEnabled?: boolean;
+    qna?: unknown;
+    branding?: unknown;
+    reportSettings?: unknown;
   }
 ): Promise<ActionResult> {
   try {
@@ -197,6 +209,10 @@ export async function updateDataroom(
         ...(parsed.data.ndaRequired !== undefined && { ndaRequired: parsed.data.ndaRequired }),
         ...(parsed.data.groups !== undefined && { groups: parsed.data.groups as Prisma.InputJsonValue }),
         ...(parsed.data.checklist !== undefined && { checklist: parsed.data.checklist as Prisma.InputJsonValue }),
+        ...(parsed.data.qnaEnabled !== undefined && { qnaEnabled: parsed.data.qnaEnabled }),
+        ...(parsed.data.qna !== undefined && { qna: parsed.data.qna as Prisma.InputJsonValue }),
+        ...(parsed.data.branding !== undefined && { branding: parsed.data.branding as Prisma.InputJsonValue }),
+        ...(parsed.data.reportSettings !== undefined && { reportSettings: parsed.data.reportSettings as Prisma.InputJsonValue }),
         ...(passwordHashUpdate !== undefined && passwordHashUpdate),
         expiresAt:
           parsed.data.expiresAt !== undefined
@@ -367,6 +383,172 @@ export async function removeDocumentFromDataroom(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[removeDocumentFromDataroom]", error);
     return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+export async function updateDataroomDocumentSettings(
+  societyId: string,
+  dataroomId: string,
+  documentId: string,
+  input: {
+    accessLevel?: "INHERIT" | "VISIBLE" | "HIDDEN";
+    allowDownload?: boolean | null;
+    watermarkEnabled?: boolean | null;
+    visibleToGroups?: unknown;
+    section?: string | null;
+  }
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    await prisma.dataroomDocument.updateMany({
+      where: { dataroomId, documentId },
+      data: {
+        ...(input.accessLevel !== undefined && { accessLevel: input.accessLevel }),
+        ...(input.allowDownload !== undefined && { allowDownload: input.allowDownload }),
+        ...(input.watermarkEnabled !== undefined && { watermarkEnabled: input.watermarkEnabled }),
+        ...(input.visibleToGroups !== undefined && { visibleToGroups: input.visibleToGroups as Prisma.InputJsonValue }),
+        ...(input.section !== undefined && { section: input.section }),
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "DataroomDocument",
+      entityId: documentId,
+      details: { dataroomId, ...input },
+    });
+
+    revalidatePath(`/dataroom/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateDataroomDocumentSettings]", error);
+    return { success: false, error: "Erreur lors de la mise à jour du document" };
+  }
+}
+
+type DataroomQuestion = {
+  id: string;
+  category: string;
+  question: string;
+  askedBy: string;
+  askedAt: string;
+  status: "OUVERTE" | "REPONDUE" | "CLOTUREE";
+  answer?: string;
+  answeredBy?: string;
+  answeredAt?: string;
+};
+
+function readQna(value: unknown): DataroomQuestion[] {
+  return Array.isArray(value) ? value as DataroomQuestion[] : [];
+}
+
+export async function addDataroomQuestion(
+  societyId: string,
+  dataroomId: string,
+  input: { question: string; category?: string; askedBy?: string }
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+    const dr = await prisma.dataroom.findFirst({ where: { id: dataroomId, societyId }, select: { qna: true } });
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    const question = input.question.trim();
+    if (question.length < 3) return { success: false, error: "Question trop courte" };
+
+    const qna = readQna(dr.qna);
+    const next: DataroomQuestion[] = [
+      {
+        id: `q_${Date.now()}`,
+        category: input.category?.trim() || "Général",
+        question,
+        askedBy: input.askedBy?.trim() || "Interne",
+        askedAt: new Date().toISOString(),
+        status: "OUVERTE",
+      },
+      ...qna,
+    ];
+
+    await prisma.dataroom.update({
+      where: { id: dataroomId },
+      data: { qnaEnabled: true, qna: next as Prisma.InputJsonValue },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "DataroomQuestion",
+      entityId: dataroomId,
+      details: { question },
+    });
+
+    revalidatePath(`/dataroom/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[addDataroomQuestion]", error);
+    return { success: false, error: "Erreur lors de l'ajout de la question" };
+  }
+}
+
+export async function answerDataroomQuestion(
+  societyId: string,
+  dataroomId: string,
+  questionId: string,
+  answer: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+    const [dr, user] = await Promise.all([
+      prisma.dataroom.findFirst({ where: { id: dataroomId, societyId }, select: { qna: true } }),
+      prisma.user.findUnique({ where: { id: context.userId }, select: { name: true, email: true } }),
+    ]);
+    if (!dr) return { success: false, error: "Dataroom introuvable" };
+
+    const cleanAnswer = answer.trim();
+    if (cleanAnswer.length < 2) return { success: false, error: "Réponse trop courte" };
+
+    const qna = readQna(dr.qna);
+    const next = qna.map((item) => item.id === questionId
+      ? {
+        ...item,
+        status: "REPONDUE" as const,
+        answer: cleanAnswer,
+        answeredBy: user?.name ?? user?.email ?? "Utilisateur",
+        answeredAt: new Date().toISOString(),
+      }
+      : item);
+
+    await prisma.dataroom.update({
+      where: { id: dataroomId },
+      data: { qna: next as Prisma.InputJsonValue },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "DataroomQuestion",
+      entityId: questionId,
+      details: { action: "answer" },
+    });
+
+    revalidatePath(`/dataroom/${dataroomId}`);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[answerDataroomQuestion]", error);
+    return { success: false, error: "Erreur lors de la réponse" };
   }
 }
 
@@ -555,6 +737,8 @@ export async function getDataroomMeta(token: string) {
       allowDownload: true,
       watermarkEnabled: true,
       ndaRequired: true,
+      qnaEnabled: true,
+      branding: true,
       society: { select: { name: true, logoUrl: true } },
     },
   });
@@ -573,5 +757,7 @@ export async function getDataroomMeta(token: string) {
     allowDownload: dataroom.allowDownload,
     watermarkEnabled: dataroom.watermarkEnabled,
     ndaRequired: dataroom.ndaRequired,
+    qnaEnabled: dataroom.qnaEnabled,
+    branding: dataroom.branding,
   };
 }
