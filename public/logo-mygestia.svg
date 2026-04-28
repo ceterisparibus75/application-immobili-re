@@ -65,6 +65,6 @@
 
   <!-- ─── Texte : mygestia.immo ─── -->
   <text y="64" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="38" letter-spacing="-0.5">
-    <tspan x="100" fill="#8BA4BD" font-weight="400">My</tspan><tspan fill="#0C2340" font-weight="600">gestia</tspan><tspan fill="#7B9BB5" font-weight="400">.immo</tspan>
+    <tspan x="100" fill="#8BA4BD" font-weight="400">My</tspan><tspan fill="#0C2340" font-weight="600">Gestia</tspan><tspan fill="#7B9BB5" font-weight="400">.immo</tspan>
   </text>
 </svg>
