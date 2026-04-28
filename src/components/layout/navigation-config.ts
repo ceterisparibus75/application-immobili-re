@@ -1,4 +1,5 @@
 import {
+  Activity,
   BarChart,
   BarChart3,
   BookOpen,
@@ -180,6 +181,7 @@ export const SECONDARY_NAV_GROUPS: NavGroup[] = [
     title: "Compte et administration",
     items: [
       { name: "Paramètres", href: "/parametres", icon: Settings },
+      { name: "Supervision", href: "/administration/supervision", icon: Activity },
       { name: "RGPD", href: "/rgpd", icon: Shield },
       { name: "Contacts", href: "/contacts", icon: Contact },
       { name: "Centre d'aide", href: "/aide", icon: HelpCircle },

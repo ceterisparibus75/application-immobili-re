@@ -1,10 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, ScrollText, Merge, Upload } from "lucide-react";
+import { Activity, Shield, ScrollText, Merge, Upload } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Administration" };
 
 const modules = [
+  {
+    title: "Supervision",
+    description: "Vue globale des comptes, connexions et sociétés",
+    href: "/administration/supervision",
+    icon: Activity,
+  },
   {
     title: "Utilisateurs",
     description: "Gérer les utilisateurs et les rôles d'accès",
@@ -39,7 +45,7 @@ export default function AdministrationPage() {
         <p className="text-muted-foreground">Gestion des utilisateurs, audit et outils avancés</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {modules.map((mod) => (
           <Link key={mod.href} href={mod.href}>
             <Card className="border-0 shadow-brand bg-white rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer h-full">

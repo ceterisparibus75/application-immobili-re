@@ -6,7 +6,7 @@ import {
   Building2, Crown, LayoutDashboard, FileText, Users,
   Receipt, TrendingUp, Landmark, BookOpen, Contact,
   FolderOpen, Settings, Shield, ScrollText, Banknote,
-  BarChart3, FileBarChart, Upload, Merge,
+  Activity, BarChart3, FileBarChart, Upload, Merge,
   Layers, Wallet, Mail, Bell, Bot, HelpCircle,
   Building, UmbrellaOff, UserSearch, Workflow, Code, Sparkles,
 } from "lucide-react";
@@ -86,6 +86,7 @@ const navigation = [
   {
     title: "Administration",
     items: [
+      { name: "Supervision", href: "/administration/supervision", icon: Activity },
       { name: "Utilisateurs", href: "/administration/utilisateurs", icon: Shield },
       { name: "Fusions", href: "/administration/fusions", icon: Merge },
       { name: "Audit", href: "/administration/audit", icon: ScrollText },
