@@ -8,6 +8,7 @@ import type { ActionResult } from "./society";
 import { generateLetterSchema, saveCustomTemplateSchema } from "@/validations/letter-template";
 import { BUILTIN_TEMPLATES, interpolateTemplate } from "@/lib/letter-templates";
 import { generateLetterPdf } from "@/lib/letter-pdf";
+import { getTenantDisplayName, getTenantMailingAddress } from "@/lib/tenant-format";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   requireSocietyActionContext,
@@ -18,6 +19,7 @@ import {
 
 interface TenantForLetter {
   id: string;
+  name: string;
   firstName: string;
   lastName: string;
   leaseId?: string;
@@ -30,25 +32,28 @@ export async function getTenantsWithLease(
     await requireSocietyActionContext(societyId, "LECTURE");
 
     const tenants = await prisma.tenant.findMany({
-      where: { societyId, isActive: true },
+      where: { societyId, isActive: true, deletedAt: null },
       select: {
         id: true,
+        entityType: true,
+        companyName: true,
         firstName: true,
         lastName: true,
         leases: {
-          where: { status: "EN_COURS" },
+          where: { status: "EN_COURS", deletedAt: null },
           select: { id: true },
           take: 1,
           orderBy: { startDate: "desc" },
         },
       },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      orderBy: [{ companyName: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
     });
 
     return {
       success: true,
       data: tenants.map((t) => ({
         id: t.id,
+        name: getTenantDisplayName(t),
         firstName: t.firstName ?? "",
         lastName: t.lastName ?? "",
         leaseId: t.leases[0]?.id,
@@ -83,7 +88,7 @@ export async function getBuildingsWithTenants(
         lots: {
           select: {
             leases: {
-              where: { status: "EN_COURS" },
+              where: { status: "EN_COURS", deletedAt: null },
               select: {
                 id: true,
                 tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
@@ -108,9 +113,7 @@ export async function getBuildingsWithTenants(
             .map((l) => {
               const lease = l.leases[0];
               const t = lease.tenant;
-              const name = t.entityType === "PERSONNE_MORALE"
-                ? (t.companyName ?? "—")
-                : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || "—";
+              const name = getTenantDisplayName(t);
               return { id: t.id, name, leaseId: lease.id };
             }),
         }))
@@ -212,15 +215,25 @@ export async function getAutoFillData(
         where: { id: leaseId, societyId },
         select: {
           startDate: true, endDate: true, currentRentHT: true,
-          tenant: { select: { firstName: true, lastName: true, email: true, personalAddress: true } },
+          tenant: {
+            select: {
+              entityType: true,
+              companyName: true,
+              companyAddress: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              personalAddress: true,
+            },
+          },
           lot: { select: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },
           chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
         },
       });
 
       if (lease) {
-        data.tenantName = [lease.tenant.firstName, lease.tenant.lastName].filter(Boolean).join(" ");
-        data.tenantAddress = lease.tenant.personalAddress ?? "";
+        data.tenantName = getTenantDisplayName(lease.tenant, "");
+        data.tenantAddress = getTenantMailingAddress(lease.tenant);
         data.lotAddress = [lease.lot.building.addressLine1, [lease.lot.building.postalCode, lease.lot.building.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
         data.leaseStart = formatDate(lease.startDate);
         data.leaseEnd = lease.endDate ? formatDate(lease.endDate) : "";
@@ -230,17 +243,24 @@ export async function getAutoFillData(
       }
     } else if (tenantId) {
       const tenant = await prisma.tenant.findFirst({
-        where: { id: tenantId, societyId },
-        select: { firstName: true, lastName: true, personalAddress: true },
+        where: { id: tenantId, societyId, deletedAt: null },
+        select: {
+          entityType: true,
+          companyName: true,
+          companyAddress: true,
+          firstName: true,
+          lastName: true,
+          personalAddress: true,
+        },
       });
       if (tenant) {
-        data.tenantName = [tenant.firstName, tenant.lastName].filter(Boolean).join(" ");
-        data.tenantAddress = tenant.personalAddress ?? "";
+        data.tenantName = getTenantDisplayName(tenant, "");
+        data.tenantAddress = getTenantMailingAddress(tenant);
       }
 
       // Chercher le bail actif du locataire
       const activeLease = await prisma.lease.findFirst({
-        where: { tenantId, societyId, status: "EN_COURS" },
+        where: { tenantId, societyId, status: "EN_COURS", deletedAt: null },
         select: {
           startDate: true, endDate: true, currentRentHT: true,
           lot: { select: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },

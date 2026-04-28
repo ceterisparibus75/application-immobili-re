@@ -5,7 +5,7 @@ import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
-import type { IndexType } from "@/generated/prisma/client";
+import type { IndexType, LeaseType } from "@/generated/prisma/client";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -26,6 +26,28 @@ const INDEX_ALERT_THRESHOLD_PCT: Record<string, number> = {
   ILAT: 15,  // ILAT similaire à ILC
   ICC: 20,   // ICC (coût construction) peut varier plus fortement
 };
+
+const HABITATION_LEASE_TYPES: ReadonlySet<LeaseType> = new Set([
+  "HABITATION",
+  "MEUBLE",
+  "ETUDIANT",
+  "MOBILITE",
+  "COLOCATION",
+]);
+
+function isHabitationLeaseType(leaseType: LeaseType | string | null | undefined): boolean {
+  return Boolean(leaseType && HABITATION_LEASE_TYPES.has(leaseType as LeaseType));
+}
+
+function addYears(date: Date, years: number): Date {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + years);
+  return next;
+}
+
+function isRecoverableHabitationRevision(effectiveDate: Date, today = new Date()): boolean {
+  return effectiveDate <= today && addYears(effectiveDate, 1) >= today;
+}
 
 function calculateNewRent(
   currentRentHT: number,
@@ -758,7 +780,7 @@ export async function previewCatchUpRevisions(
 
 /** Construit le preview de rattrapage chaîné à partir d'une année de base déterminée */
 async function buildCatchUpPreview(
-  lease: { id: string; indexType: string | null; baseIndexValue: number | null; currentRentHT: number; revisionFrequency: number | null; startDate: Date },
+  lease: { id: string; indexType: string | null; baseIndexValue: number | null; currentRentHT: number; revisionFrequency: number | null; startDate: Date; leaseType?: LeaseType | string | null },
   refQuarter: number,
   baseYear: number,
   leaseId: string
@@ -800,11 +822,15 @@ async function buildCatchUpPreview(
     indexMap.set(baseYear, lease.baseIndexValue);
   }
 
-  // Chaîner année par année
+  // Chaîner année par année. Pour les baux d'habitation, les révisions
+  // demandées plus d'un an après leur date d'effet sont perdues : on ne
+  // les capitalise pas dans le loyer.
   const steps: ChainStep[] = [];
   let currentRent = lease.currentRentHT;
   let prevIndex = lease.baseIndexValue;
   const frequency = lease.revisionFrequency ?? 12;
+  const isHabitation = isHabitationLeaseType(lease.leaseType);
+  let expiredHabitationSteps = 0;
 
   // Calculer la date d'effet de la première révision manquée
   const lastRevision = await prisma.rentRevision.findFirst({
@@ -831,6 +857,18 @@ async function buildCatchUpPreview(
     effectiveDate = new Date(effectiveDate);
     effectiveDate.setMonth(effectiveDate.getMonth() + frequency);
 
+    if (isHabitation) {
+      if (!isRecoverableHabitationRevision(effectiveDate)) {
+        expiredHabitationSteps++;
+        prevIndex = yearIndex;
+        continue;
+      }
+
+      const previousAnnualIndex = indexMap.get(year - 1);
+      if (!previousAnnualIndex) continue;
+      prevIndex = previousAnnualIndex;
+    }
+
     const newRent = calculateNewRent(currentRent, prevIndex, yearIndex, lease.indexType ?? undefined);
 
     steps.push({
@@ -848,6 +886,12 @@ async function buildCatchUpPreview(
   }
 
   if (steps.length === 0) {
+    if (isHabitation && expiredHabitationSteps > 0) {
+      return {
+        success: false,
+        error: `Aucune révision d'habitation récupérable : ${expiredHabitationSteps} révision(s) dépassent le délai légal d'un an et ne doivent pas être rattrapées.`,
+      };
+    }
     return { success: false, error: `Aucune année de rattrapage trouvée. Indices ${lease.indexType} T${refQuarter} manquants entre ${baseYear + 1} et ${targetYear}.` };
   }
 

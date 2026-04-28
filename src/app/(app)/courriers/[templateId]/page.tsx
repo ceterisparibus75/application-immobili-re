@@ -45,6 +45,8 @@ export default function GenerateLetterPage() {
   const [tenants, setTenants] = useState<{ id: string; name: string; leaseId?: string }[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [autoFilling, setAutoFilling] = useState(false);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
+  const [recipientsError, setRecipientsError] = useState<string | null>(null);
 
   // Mode d'envoi
   const [sendMode, setSendMode] = useState<SendMode>("individual");
@@ -53,56 +55,101 @@ export default function GenerateLetterPage() {
 
   // Charger la liste des locataires et des immeubles
   useEffect(() => {
-    if (!societyId) return;
-    getTenantsWithLease(societyId).then((result) => {
-      if (result.success && result.data) {
-        setTenants(
-          result.data.map((t) => ({
-            id: t.id,
-            name: `${t.firstName} ${t.lastName}`.trim() || "—",
-            leaseId: t.leaseId,
-          }))
-        );
-      }
-    });
-    getBuildingsWithTenants(societyId).then((result) => {
-      if (result.success && result.data) {
-        setBuildings(result.data);
-      }
-    });
+    if (!societyId) {
+      setTenants([]);
+      setBuildings([]);
+      setRecipientsLoading(false);
+      setRecipientsError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRecipientsLoading(true);
+    setRecipientsError(null);
+
+    Promise.all([getTenantsWithLease(societyId), getBuildingsWithTenants(societyId)])
+      .then(([tenantsResult, buildingsResult]) => {
+        if (cancelled) return;
+
+        const errors: string[] = [];
+
+        if (tenantsResult.success && tenantsResult.data) {
+          setTenants(
+            tenantsResult.data.map((t) => ({
+              id: t.id,
+              name: t.name,
+              leaseId: t.leaseId,
+            }))
+          );
+        } else {
+          setTenants([]);
+          errors.push(tenantsResult.error ?? "Erreur lors du chargement des locataires");
+        }
+
+        if (buildingsResult.success && buildingsResult.data) {
+          setBuildings(buildingsResult.data);
+        } else {
+          setBuildings([]);
+          errors.push(buildingsResult.error ?? "Erreur lors du chargement des immeubles");
+        }
+
+        setRecipientsError(errors.length > 0 ? errors.join("\n") : null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTenants([]);
+        setBuildings([]);
+        setRecipientsError("Erreur lors du chargement des destinataires");
+      })
+      .finally(() => {
+        if (!cancelled) setRecipientsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [societyId]);
 
   // Auto-remplir les variables
   const handleAutoFill = useCallback(async (tenantId: string) => {
     if (!societyId || !tenantId) return;
     setAutoFilling(true);
-    const tenant = tenants.find((t) => t.id === tenantId);
-    const result = await getAutoFillData(societyId, tenantId, tenant?.leaseId);
-    if (result.success && result.data) {
-      const d = result.data;
-      const today = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
-      const newValues: Record<string, string> = { ...values };
+    setError(null);
 
-      if (!template) { setAutoFilling(false); return; }
+    try {
+      const tenant = tenants.find((t) => t.id === tenantId);
+      const result = await getAutoFillData(societyId, tenantId, tenant?.leaseId);
+      if (result.success && result.data) {
+        const d = result.data;
+        const today = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
+        const newValues: Record<string, string> = { ...values };
 
-      for (const v of template.variables) {
-        switch (v.autoFill) {
-          case "society_name": newValues[v.key] = d.societyName; break;
-          case "society_address": newValues[v.key] = d.societyAddress; break;
-          case "society_siret": newValues[v.key] = d.societySiret; break;
-          case "today": newValues[v.key] = today; break;
-          case "tenant_name": if (d.tenantName) newValues[v.key] = d.tenantName; break;
-          case "tenant_address": if (d.tenantAddress) newValues[v.key] = d.tenantAddress; break;
-          case "lot_address": if (d.lotAddress) newValues[v.key] = d.lotAddress; break;
-          case "lease_start": if (d.leaseStart) newValues[v.key] = d.leaseStart; break;
-          case "lease_end": if (d.leaseEnd) newValues[v.key] = d.leaseEnd; break;
-          case "rent_amount": if (d.rentAmount) newValues[v.key] = d.rentAmount; break;
-          case "charges_amount": if (d.chargesAmount) newValues[v.key] = d.chargesAmount; break;
+        if (!template) return;
+
+        for (const v of template.variables) {
+          switch (v.autoFill) {
+            case "society_name": newValues[v.key] = d.societyName; break;
+            case "society_address": newValues[v.key] = d.societyAddress; break;
+            case "society_siret": newValues[v.key] = d.societySiret; break;
+            case "today": newValues[v.key] = today; break;
+            case "tenant_name": if (d.tenantName) newValues[v.key] = d.tenantName; break;
+            case "tenant_address": if (d.tenantAddress) newValues[v.key] = d.tenantAddress; break;
+            case "lot_address": if (d.lotAddress) newValues[v.key] = d.lotAddress; break;
+            case "lease_start": if (d.leaseStart) newValues[v.key] = d.leaseStart; break;
+            case "lease_end": if (d.leaseEnd) newValues[v.key] = d.leaseEnd; break;
+            case "rent_amount": if (d.rentAmount) newValues[v.key] = d.rentAmount; break;
+            case "charges_amount": if (d.chargesAmount) newValues[v.key] = d.chargesAmount; break;
+          }
         }
+        setValues(newValues);
+      } else {
+        setError(result.error ?? "Erreur lors du pré-remplissage");
       }
-      setValues(newValues);
+    } catch {
+      setError("Erreur lors du pré-remplissage");
+    } finally {
+      setAutoFilling(false);
     }
-    setAutoFilling(false);
   }, [societyId, tenants, values, template]);
 
   // Quand un locataire est sélectionné
@@ -119,6 +166,7 @@ export default function GenerateLetterPage() {
     if (!societyId || !buildingId) return;
 
     // Auto-remplir les champs société (pas les champs locataire)
+    setError(null);
     const result = await getAutoFillData(societyId);
     if (result.success && result.data && template) {
       const d = result.data;
@@ -133,6 +181,8 @@ export default function GenerateLetterPage() {
         }
       }
       setValues(newValues);
+    } else if (!result.success) {
+      setError(result.error ?? "Erreur lors du pré-remplissage");
     }
   }, [societyId, values, template]);
 
@@ -316,8 +366,24 @@ export default function GenerateLetterPage() {
                   ]}
                   value={selectedTenantId}
                   onChange={(e) => handleTenantChange(e.target.value)}
-                  disabled={autoFilling}
+                  disabled={autoFilling || recipientsLoading}
                 />
+                {recipientsLoading && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Chargement des destinataires...
+                  </p>
+                )}
+                {recipientsError && (
+                  <p className="text-xs text-destructive mt-2 flex items-start gap-1">
+                    <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span className="whitespace-pre-line">{recipientsError}</span>
+                  </p>
+                )}
+                {!recipientsLoading && !recipientsError && tenants.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Aucun locataire actif pour cette société.
+                  </p>
+                )}
                 {autoFilling && (
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" /> Chargement des données...
@@ -347,7 +413,24 @@ export default function GenerateLetterPage() {
                   ]}
                   value={selectedBuildingId}
                   onChange={(e) => handleBuildingSelect(e.target.value)}
+                  disabled={recipientsLoading}
                 />
+                {recipientsLoading && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Chargement des destinataires...
+                  </p>
+                )}
+                {recipientsError && (
+                  <p className="text-xs text-destructive flex items-start gap-1">
+                    <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span className="whitespace-pre-line">{recipientsError}</span>
+                  </p>
+                )}
+                {!recipientsLoading && !recipientsError && buildings.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun immeuble avec locataire actif pour cette société.
+                  </p>
+                )}
                 {selectedBuilding && (
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
                     <p className="text-xs font-semibold flex items-center gap-1.5">

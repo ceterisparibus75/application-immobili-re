@@ -127,6 +127,44 @@ describe("letter-template-email actions", () => {
     );
   });
 
+  it("utilise la raison sociale d'une personne morale pour l'email de courrier", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      email: "contact@bl-associes.test",
+      entityType: "PERSONNE_MORALE",
+      companyName: "BL & Associes",
+      firstName: null,
+      lastName: null,
+    } as never);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société",
+      siret: "12345678900011",
+    } as never);
+
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      tenantId: TENANT_ID,
+      values: {
+        BAILLEUR_NOM: "Ma Société",
+        BAILLEUR_ADRESSE: "1 rue de Paris",
+        LOCATAIRE_NOM: "BL & Associes",
+        LOCATAIRE_ADRESSE: "3 bis rue des Archives",
+        DATE: "20/04/2026",
+        LIEU: "Paris",
+        OBJET: "Information",
+        CORPS: "Bonjour",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(sendLetterEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "contact@bl-associes.test",
+        tenantName: "BL & Associes",
+      })
+    );
+  });
+
   it("retourne une erreur si l'immeuble n'existe pas", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.building.findFirst.mockResolvedValue(null);

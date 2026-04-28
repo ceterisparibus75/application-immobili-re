@@ -8,6 +8,7 @@ import { generateLetterSchema } from "@/validations/letter-template";
 import { BUILTIN_TEMPLATES, interpolateTemplate } from "@/lib/letter-templates";
 import { generateLetterPdf } from "@/lib/letter-pdf";
 import { sendLetterEmail } from "@/lib/email";
+import { getTenantDisplayName } from "@/lib/tenant-format";
 import { getAutoFillData } from "./letter-template";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -96,8 +97,8 @@ export async function sendLetterByEmail(
 
     // Récupérer l'email du locataire
     const tenant = await prisma.tenant.findFirst({
-      where: { id: input.tenantId, societyId },
-      select: { email: true, firstName: true, lastName: true },
+      where: { id: input.tenantId, societyId, deletedAt: null },
+      select: { email: true, entityType: true, companyName: true, firstName: true, lastName: true },
     });
     if (!tenant?.email) return { success: false, error: "Le locataire n'a pas d'adresse email" };
 
@@ -127,7 +128,7 @@ export async function sendLetterByEmail(
     const filename = `courrier-${slug}-${ds}.pdf`;
 
     // Envoyer l'email avec le template HTML professionnel
-    const tenantName = `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
+    const tenantName = getTenantDisplayName(tenant, "");
     await sendLetterEmail({
       to: tenant.email,
       tenantName,
@@ -197,10 +198,10 @@ export async function sendLetterToBuilding(
         lots: {
           select: {
             leases: {
-              where: { status: "EN_COURS" },
+              where: { status: "EN_COURS", deletedAt: null },
               select: {
                 id: true,
-                tenant: { select: { id: true, firstName: true, lastName: true, email: true } },
+                tenant: { select: { id: true, entityType: true, companyName: true, firstName: true, lastName: true, email: true } },
               },
               take: 1,
             },
@@ -274,7 +275,7 @@ export async function sendLetterToBuilding(
         const slug = input.templateId.replace(/_/g, "-");
         const filename = `courrier-${slug}-${ds}.pdf`;
 
-        const tenantName = `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
+        const tenantName = getTenantDisplayName(tenant, "");
         await sendLetterEmail({
           to: tenant.email!,
           tenantName,
@@ -288,7 +289,7 @@ export async function sendLetterToBuilding(
 
         sent++;
       } catch (e) {
-        const tenantName = `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
+        const tenantName = getTenantDisplayName(tenant, "");
         errors.push(`${tenantName}: ${e instanceof Error ? e.message : "Erreur inconnue"}`);
       }
     }

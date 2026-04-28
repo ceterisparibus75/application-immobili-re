@@ -381,6 +381,7 @@ describe("detectPendingRevisions", () => {
 
 const BASE_LEASE = {
   id: VALID_CUID,
+  leaseType: "COMMERCIAL_369",
   indexType: "IRL",
   baseIndexValue: 131.31,
   baseIndexQuarter: "T1 2021",
@@ -393,6 +394,9 @@ const BASE_LEASE = {
 const IDX_2021 = { value: 131.31, year: 2021, quarter: 1 }
 const IDX_2022 = { value: 136.0, year: 2022, quarter: 1 }
 const IDX_2023 = { value: 142.0, year: 2023, quarter: 1 }
+const IDX_2024 = { value: 140.0, year: 2024, quarter: 1 }
+const IDX_2025 = { value: 145.0, year: 2025, quarter: 1 }
+const IDX_2026 = { value: 150.0, year: 2026, quarter: 1 }
 
 describe("previewCatchUpRevisions", () => {
   it("erreur si non authentifié", async () => {
@@ -437,6 +441,65 @@ describe("previewCatchUpRevisions", () => {
     expect(r.data?.steps).toHaveLength(2) // 2022 + 2023
     expect(r.data?.finalRent).toBeGreaterThan(800)
     expect(r.data?.finalIndexValue).toBe(142.0)
+  })
+
+  it("ne capitalise pas les années perdues pour un bail d'habitation", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-04-28T12:00:00.000Z"))
+    mockAuthSession(UserRole.GESTIONNAIRE)
+
+    const habitationLease = {
+      ...BASE_LEASE,
+      leaseType: "HABITATION",
+      baseIndexValue: IDX_2023.value,
+      baseIndexQuarter: "T1 2023",
+      startDate: new Date("2023-01-01"),
+    }
+
+    prismaMock.lease.findFirst.mockResolvedValue(habitationLease as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2023] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2026 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2023, IDX_2024, IDX_2025, IDX_2026] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+
+    expect(r.success).toBe(true)
+    expect(r.data?.steps).toHaveLength(1)
+    expect(r.data?.steps[0]).toEqual(
+      expect.objectContaining({
+        year: 2026,
+        fromIndex: IDX_2025.value,
+        toIndex: IDX_2026.value,
+        rentBefore: 800,
+        rentAfter: 827.59,
+      })
+    )
+    expect(r.data?.finalRent).toBe(827.59)
+
+    vi.useRealTimers()
+  })
+
+  it("retourne une erreur quand toutes les révisions d'habitation sont expirées", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-04-28T12:00:00.000Z"))
+    mockAuthSession(UserRole.GESTIONNAIRE)
+
+    prismaMock.lease.findFirst.mockResolvedValue({
+      ...BASE_LEASE,
+      leaseType: "HABITATION",
+    } as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021] as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(IDX_2023 as never)
+    prismaMock.inseeIndex.findMany.mockResolvedValueOnce([IDX_2021, IDX_2022, IDX_2023] as never)
+    prismaMock.rentRevision.findFirst.mockResolvedValue(null as never)
+
+    const r = await previewCatchUpRevisions(SOCIETY_ID, VALID_CUID)
+
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("délai légal d'un an")
+
+    vi.useRealTimers()
   })
 })
 

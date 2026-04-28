@@ -49,8 +49,38 @@ describe("letter-template actions", () => {
 
     expect(result.success).toBe(true);
     expect(result.data).toHaveLength(2);
-    expect(result.data![0]).toMatchObject({ id: "t-1", leaseId: LEASE_ID });
-    expect(result.data![1]).toMatchObject({ id: "t-2", leaseId: undefined });
+    expect(result.data![0]).toMatchObject({ id: "t-1", name: "Alice Durand", leaseId: LEASE_ID });
+    expect(result.data![1]).toMatchObject({ id: "t-2", name: "Bob Martin", leaseId: undefined });
+  });
+
+  it("retourne les personnes morales avec leur raison sociale pour les courriers", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.tenant.findMany.mockResolvedValue([
+      {
+        id: "t-pm",
+        entityType: "PERSONNE_MORALE",
+        companyName: "BL & Associes",
+        firstName: null,
+        lastName: null,
+        leases: [{ id: LEASE_ID }],
+      },
+    ] as never);
+
+    const result = await getTenantsWithLease(SOCIETY_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.[0]).toMatchObject({
+      id: "t-pm",
+      name: "BL & Associes",
+      firstName: "",
+      lastName: "",
+      leaseId: LEASE_ID,
+    });
+    expect(prismaMock.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deletedAt: null, isActive: true, societyId: SOCIETY_ID }),
+      })
+    );
   });
 
   it("retourne les modèles built-in et personnalisés", async () => {
@@ -113,6 +143,49 @@ describe("letter-template actions", () => {
       lotAddress: "10 rue des Lilas, 75011 Paris",
       rentAmount: expect.stringContaining("900,00"),
       chargesAmount: expect.stringContaining("60,00"),
+    });
+  });
+
+  it("auto-remplit les personnes morales avec raison sociale et adresse de siege", async () => {
+    mockAuthSession(UserRole.LECTURE, SOCIETY_ID);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société",
+      addressLine1: "1 rue de Paris",
+      addressLine2: null,
+      city: "Paris",
+      postalCode: "75001",
+      siret: "12345678900011",
+    } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({
+      startDate: new Date("2026-01-01T00:00:00.000Z"),
+      endDate: null,
+      currentRentHT: 900,
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        companyName: "BL & Associes",
+        companyAddress: "3 bis rue des Archives",
+        firstName: null,
+        lastName: null,
+        email: "contact@example.com",
+        personalAddress: null,
+      },
+      lot: {
+        building: {
+          addressLine1: "10 rue des Lilas",
+          city: "Paris",
+          postalCode: "75011",
+        },
+      },
+      chargeProvisions: [],
+    } as never);
+
+    const result = await getAutoFillData(SOCIETY_ID, undefined, LEASE_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({
+      tenantName: "BL & Associes",
+      tenantAddress: "3 bis rue des Archives",
+      lotAddress: "10 rue des Lilas, 75011 Paris",
     });
   });
 
