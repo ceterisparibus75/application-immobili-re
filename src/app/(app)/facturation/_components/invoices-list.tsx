@@ -271,6 +271,11 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
               {invs.map((invoice) => {
                 const isSent = !!(invoice.sentAt) || localSentIds.has(invoice.id);
                 const delivery = deliveryStatuses[invoice.id] ?? null;
+                const displayStatus: InvoiceStatus =
+                  invoice.invoiceType === "QUITTANCE" &&
+                  (invoice.status === "EN_RETARD" || invoice.status === "RELANCEE")
+                    ? "ENVOYEE"
+                    : invoice.status;
                 return (
                   <div key={invoice.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors">
                   <Checkbox
@@ -310,7 +315,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                         <p className="text-xs text-muted-foreground">{formatCurrency(invoice.totalHT)} HT</p>
                       </div>
                       <Badge variant="outline" className="text-xs hidden md:flex">{TYPE_LABELS[invoice.invoiceType]}</Badge>
-                      <Badge variant={STATUS_VARIANTS[invoice.status]} className="text-xs">{STATUS_LABELS[invoice.status]}</Badge>
+                      <Badge variant={STATUS_VARIANTS[displayStatus]} className="text-xs">{STATUS_LABELS[displayStatus]}</Badge>
                     </div>
                   </Link>
                   </div>
