@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { SeasonalPropertyActions } from "../_components/seasonal-property-actions";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -61,6 +62,14 @@ export default async function SeasonalPropertyDetailPage({ params }: PageProps) 
   const totalRevenue = yearBookings.reduce((s, b) => s + b.netRevenue, 0);
   const totalNights = yearBookings.reduce((s, b) => s + b.nights, 0);
   const avgNightRate = totalNights > 0 ? totalRevenue / totalNights : 0;
+  const cancellableBookings = property.bookings
+    .filter((booking) => booking.status === "PENDING" || booking.status === "CONFIRMED")
+    .slice(0, 6)
+    .map((booking) => ({
+      id: booking.id,
+      guestName: booking.guestName,
+      status: STATUS_LABELS[booking.status] ?? booking.status,
+    }));
 
   return (
     <div className="space-y-6">
@@ -132,6 +141,14 @@ export default async function SeasonalPropertyDetailPage({ params }: PageProps) 
           ))}
         </div>
       )}
+
+      <SeasonalPropertyActions
+        societyId={societyId}
+        propertyId={property.id}
+        capacity={property.capacity}
+        minStay={property.minStay}
+        bookings={cancellableBookings}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Bookings */}

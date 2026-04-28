@@ -125,7 +125,9 @@ describe("createBooking", () => {
   };
 
   beforeEach(() => {
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
     prismaMock.seasonalBooking.findFirst.mockResolvedValue(null); // pas de chevauchement
+    prismaMock.seasonalBlockedDate.findFirst.mockResolvedValue(null);
     prismaMock.seasonalBooking.create.mockResolvedValue({ id: BOOKING_ID } as never);
   });
 
@@ -195,6 +197,7 @@ describe("cancelBooking", () => {
 
   it("passe le statut à CANCELLED", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalBooking.findFirst.mockResolvedValue({ id: BOOKING_ID } as never);
     prismaMock.seasonalBooking.update.mockResolvedValue({} as never);
 
     const r = await cancelBooking(SOCIETY_ID, BOOKING_ID);
@@ -227,6 +230,7 @@ describe("createPricing", () => {
 
   it("crée le tarif avec conversion des dates", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
     prismaMock.seasonalPricing.create.mockResolvedValue({ id: PRICING_ID } as never);
 
     const r = await createPricing(SOCIETY_ID, validInput);
@@ -246,6 +250,7 @@ describe("createPricing", () => {
 describe("deletePricing", () => {
   it("supprime le tarif", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalPricing.findFirst.mockResolvedValue({ id: PRICING_ID } as never);
     prismaMock.seasonalPricing.delete.mockResolvedValue({} as never);
 
     const r = await deletePricing(SOCIETY_ID, PRICING_ID);
@@ -261,6 +266,7 @@ describe("deletePricing", () => {
 
   it("retourne une erreur générique si la BDD échoue", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalPricing.findFirst.mockResolvedValue({ id: PRICING_ID } as never);
     prismaMock.seasonalPricing.delete.mockRejectedValue(new Error("DB error"));
     const r = await deletePricing(SOCIETY_ID, PRICING_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors de la suppression" });
@@ -277,6 +283,7 @@ describe("cancelBooking — erreurs", () => {
 
   it("retourne une erreur générique si la BDD échoue", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalBooking.findFirst.mockResolvedValue({ id: BOOKING_ID } as never);
     prismaMock.seasonalBooking.update.mockRejectedValue(new Error("DB error"));
     const r = await cancelBooking(SOCIETY_ID, BOOKING_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors de l'annulation" });
@@ -301,6 +308,9 @@ describe("createBlockedDate", () => {
 
   it("bloque les dates avec conversion en objets Date", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
+    prismaMock.seasonalBooking.findFirst.mockResolvedValue(null);
+    prismaMock.seasonalBlockedDate.findFirst.mockResolvedValue(null);
     prismaMock.seasonalBlockedDate.create.mockResolvedValue({ id: "cblocked0123" } as never);
 
     const r = await createBlockedDate(SOCIETY_ID, validInput);
@@ -325,6 +335,9 @@ describe("createBlockedDate", () => {
 
   it("retourne une erreur générique si la BDD échoue", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
+    prismaMock.seasonalBooking.findFirst.mockResolvedValue(null);
+    prismaMock.seasonalBlockedDate.findFirst.mockResolvedValue(null);
     prismaMock.seasonalBlockedDate.create.mockRejectedValue(new Error("DB error"));
     const r = await createBlockedDate(SOCIETY_ID, validInput);
     expect(r).toEqual({ success: false, error: "Erreur lors du blocage des dates" });
@@ -402,7 +415,9 @@ describe("createBooking — erreur Zod et DB (lignes 127, 172-173)", () => {
 
   it("retourne une erreur générique si la BDD échoue (lignes 172-173)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
     prismaMock.seasonalBooking.findFirst.mockResolvedValue(null);
+    prismaMock.seasonalBlockedDate.findFirst.mockResolvedValue(null);
     prismaMock.seasonalBooking.create.mockRejectedValue(new Error("DB error"));
     const r = await createBooking(SOCIETY_ID, {
       propertyId: PROP_ID, guestName: "Jean", checkIn: "2026-07-01", checkOut: "2026-07-08",
@@ -433,6 +448,7 @@ describe("createPricing — erreur Zod, ForbiddenError et DB (lignes 217, 231-23
 
   it("retourne une erreur générique si la BDD échoue (lignes 232-233)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.seasonalProperty.findUnique.mockResolvedValue({ id: PROP_ID, capacity: 4, minStay: 1 } as never);
     prismaMock.seasonalPricing.create.mockRejectedValue(new Error("DB error"));
     const r = await createPricing(SOCIETY_ID, {
       propertyId: PROP_ID, name: "Été", startDate: "2026-07-01", endDate: "2026-08-31", pricePerNight: 100,

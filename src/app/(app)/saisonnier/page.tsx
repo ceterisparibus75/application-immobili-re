@@ -6,11 +6,11 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 export const metadata: Metadata = { title: "Location saisonnière" };
-import { Home, Plus, Calendar, TrendingUp, BedDouble } from "lucide-react";
+import { Home, Plus, Calendar, TrendingUp, BedDouble, LogIn, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   APARTMENT: "Appartement",
@@ -62,6 +62,23 @@ export default async function SaisonnierPage() {
     (s, p) => s + p.bookings.filter((b) => b.status === "CONFIRMED" || b.status === "CHECKED_IN").length,
     0
   );
+  const today = new Date();
+  const in14Days = new Date();
+  in14Days.setDate(today.getDate() + 14);
+  const upcomingArrivals = properties
+    .flatMap((property) =>
+      property.bookings
+        .filter((booking) =>
+          booking.status !== "CANCELLED" &&
+          booking.status !== "NO_SHOW" &&
+          booking.checkIn >= today &&
+          booking.checkIn <= in14Days
+        )
+        .map((booking) => ({ ...booking, propertyName: property.name }))
+    )
+    .sort((a, b) => a.checkIn.getTime() - b.checkIn.getTime())
+    .slice(0, 5);
+  const propertiesWithoutPricing = properties.filter((property) => property.pricing.length === 0);
 
   return (
     <div className="space-y-6">
@@ -85,7 +102,7 @@ export default async function SaisonnierPage() {
 
       {/* Stats */}
       {properties.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-4 pb-3 px-4 text-center">
               <p className="text-2xl font-bold tabular-nums">{properties.length}</p>
@@ -106,8 +123,69 @@ export default async function SaisonnierPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3 px-4 text-center">
+              <p className="text-2xl font-bold tabular-nums">{upcomingArrivals.length}</p>
+              <p className="text-xs text-muted-foreground">Arrivées 14 jours</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 px-4 text-center">
               <p className="text-2xl font-bold tabular-nums text-brand-gradient">{formatCurrency(totalRevenue)}</p>
               <p className="text-xs text-muted-foreground">Revenus nets (année)</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {properties.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <LogIn className="h-4 w-4" />
+                Prochaines arrivées
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {upcomingArrivals.length === 0 ? (
+                <p className="py-5 text-center text-sm text-muted-foreground">Aucune arrivée dans les 14 prochains jours</p>
+              ) : (
+                upcomingArrivals.map((booking) => (
+                  <div key={booking.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                    <div>
+                      <p className="text-sm font-medium">{booking.propertyName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{booking.status}</Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-4 w-4" />
+                Points à compléter
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {propertiesWithoutPricing.length === 0 ? (
+                <p className="py-5 text-center text-sm text-muted-foreground">Tous les biens ont une grille tarifaire</p>
+              ) : (
+                propertiesWithoutPricing.slice(0, 5).map((property) => (
+                  <Link
+                    key={property.id}
+                    href={`/saisonnier/${property.id}`}
+                    className="flex items-center justify-between rounded-md border p-3 text-sm hover:bg-accent/30"
+                  >
+                    <span className="font-medium">{property.name}</span>
+                    <span className="text-xs text-muted-foreground">Tarif manquant</span>
+                  </Link>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
