@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { getChecklistScore, getDataroomTemplate, PERMISSION_LABELS, type DataroomChecklistItem, type DataroomGroupPreset } from "@/lib/dataroom-templates";
 import {
   ArrowLeft, Share2, FileText, Eye, Trash2, Lock, Calendar,
-  Plus, Copy, Check, Archive, Send, ExternalLink, ChevronUp, ChevronDown, Mail, User,
+  Plus, Copy, Check, Archive, Send, ExternalLink, ChevronUp, ChevronDown, Mail, User, ShieldCheck, ListChecks, Users,
 } from "lucide-react";
 import {
   updateDataroom, deleteDataroom, activateDataroom, archiveDataroom,
@@ -30,6 +32,8 @@ const PURPOSE_OPTIONS = [
   { value: "DUE_DILIGENCE", label: "Due diligence" },
   { value: "AUTRE", label: "Autre" },
 ];
+
+const NO_PURPOSE_VALUE = "__NO_PURPOSE__";
 
 function getPurposeLabel(value: string | null): string {
   if (!value) return "";
@@ -51,6 +55,14 @@ type DataroomFull = {
   createdBy: string | null;
   recipientEmail: string | null;
   recipientName: string | null;
+  templateKey: string | null;
+  accessMode: string;
+  allowDownload: boolean;
+  allowPrint: boolean;
+  watermarkEnabled: boolean;
+  ndaRequired: boolean;
+  groups: unknown;
+  checklist: unknown;
   creator: { name: string | null; email: string | null } | null;
   documents: {
     id: string;
@@ -97,6 +109,16 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant={c.variant}>{c.label}</Badge>;
 }
 
+function readGroups(value: unknown, templateKey: string | null): DataroomGroupPreset[] {
+  if (Array.isArray(value)) return value as DataroomGroupPreset[];
+  return getDataroomTemplate(templateKey).groups;
+}
+
+function readChecklist(value: unknown, templateKey: string | null): DataroomChecklistItem[] {
+  if (Array.isArray(value)) return value as DataroomChecklistItem[];
+  return getDataroomTemplate(templateKey).checklist;
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " o";
   if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " Ko";
@@ -113,11 +135,17 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
 
   const [editName, setEditName] = useState(dataroom.name);
   const [editDesc, setEditDesc] = useState(dataroom.description ?? "");
-  const [editPurpose, setEditPurpose] = useState(dataroom.purpose ?? "");
+  const [editPurpose, setEditPurpose] = useState(dataroom.purpose ?? NO_PURPOSE_VALUE);
   const [editPassword, setEditPassword] = useState("");
   const [editExpires, setEditExpires] = useState(dataroom.expiresAt ? new Date(dataroom.expiresAt).toISOString().split("T")[0] : "");
   const [editRecipientEmail, setEditRecipientEmail] = useState(dataroom.recipientEmail ?? "");
   const [editRecipientName, setEditRecipientName] = useState(dataroom.recipientName ?? "");
+  const [editAccessMode, setEditAccessMode] = useState<"LINK" | "EMAIL_REQUIRED">(dataroom.accessMode === "EMAIL_REQUIRED" ? "EMAIL_REQUIRED" : "LINK");
+  const [editAllowDownload, setEditAllowDownload] = useState(dataroom.allowDownload);
+  const [editAllowPrint, setEditAllowPrint] = useState(dataroom.allowPrint);
+  const [editWatermarkEnabled, setEditWatermarkEnabled] = useState(dataroom.watermarkEnabled);
+  const [editNdaRequired, setEditNdaRequired] = useState(dataroom.ndaRequired);
+  const [detailChecklist, setDetailChecklist] = useState<DataroomChecklistItem[]>(readChecklist(dataroom.checklist, dataroom.templateKey));
 
   const [selectedDocId, setSelectedDocId] = useState("");
 
@@ -125,6 +153,9 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
   const availableDocs = allDocuments.filter((d) => !existingDocIds.has(d.id));
 
   const shareUrl = dataroom.shareToken ? (typeof window !== "undefined" ? window.location.origin : "") + "/dataroom/share/" + dataroom.shareToken : null;
+  const groups = readGroups(dataroom.groups, dataroom.templateKey);
+  const template = getDataroomTemplate(dataroom.templateKey);
+  const checklistScore = getChecklistScore(detailChecklist);
 
   function copyLink() {
     if (!shareUrl) return;
@@ -139,11 +170,16 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
       const result = await updateDataroom(societyId, dataroom.id, {
         name: editName.trim(),
         description: editDesc.trim() || null,
-        purpose: (editPurpose || null) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | null,
+        purpose: editPurpose === NO_PURPOSE_VALUE ? null : (editPurpose as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE"),
         password: editPassword || null,
         expiresAt: editExpires || null,
         recipientEmail: editRecipientEmail.trim() || null,
         recipientName: editRecipientName.trim() || null,
+        accessMode: editAccessMode,
+        allowDownload: editAllowDownload,
+        allowPrint: editAllowPrint,
+        watermarkEnabled: editWatermarkEnabled,
+        ndaRequired: editNdaRequired,
       });
       if (result.success) {
         toast.success("Dataroom mise à jour");
@@ -152,6 +188,15 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
       } else {
         toast.error(result.error ?? "Erreur");
       }
+    });
+  }
+
+  function handleChecklistToggle(itemId: string) {
+    const next = detailChecklist.map((item) => item.id === itemId ? { ...item, done: !item.done } : item);
+    setDetailChecklist(next);
+    startTransition(async () => {
+      const result = await updateDataroom(societyId, dataroom.id, { checklist: next });
+      if (!result.success) toast.error(result.error ?? "Erreur");
     });
   }
 
@@ -263,8 +308,8 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner un objectif..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Aucun</SelectItem>
+                  <SelectContent>
+                      <SelectItem value={NO_PURPOSE_VALUE}>Aucun</SelectItem>
                       {PURPOSE_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                       ))}
@@ -305,6 +350,29 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                 <div>
                   <Label>Date d'expiration</Label>
                   <Input type="date" value={editExpires} onChange={(e) => setEditExpires(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Mode d'accès</Label>
+                  <Select value={editAccessMode} onValueChange={(value) => setEditAccessMode(value as "LINK" | "EMAIL_REQUIRED")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LINK">Lien simple</SelectItem>
+                      <SelectItem value="EMAIL_REQUIRED">Email visiteur obligatoire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    { label: "Téléchargement autorisé", checked: editAllowDownload, onChange: setEditAllowDownload },
+                    { label: "Impression autorisée", checked: editAllowPrint, onChange: setEditAllowPrint },
+                    { label: "Filigrane dynamique", checked: editWatermarkEnabled, onChange: setEditWatermarkEnabled },
+                    { label: "Confidentialité à accepter", checked: editNdaRequired, onChange: setEditNdaRequired },
+                  ].map((option) => (
+                    <label key={option.label} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                      <Checkbox checked={option.checked} onCheckedChange={(checked) => option.onChange(checked === true)} />
+                      {option.label}
+                    </label>
+                  ))}
                 </div>
               </div>
               <DialogFooter>
@@ -382,6 +450,91 @@ export function DataroomDetail({ societyId, dataroom, allDocuments }: { societyI
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ListChecks className="h-4 w-4" />
+              Préparation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{template.label}</span>
+                <span className="font-semibold">{checklistScore}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-primary" style={{ width: `${checklistScore}%` }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              {detailChecklist.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune checklist sur ce modèle.</p>
+              ) : (
+                detailChecklist.slice(0, 6).map((item) => (
+                  <label key={item.id} className="flex items-start gap-2 text-sm">
+                    <Checkbox checked={item.done === true} onCheckedChange={() => handleChecklistToggle(item.id)} disabled={pending} />
+                    <span className={item.done ? "text-muted-foreground line-through" : ""}>
+                      {item.label}
+                      <span className="ml-1 text-xs text-muted-foreground">· {item.section}</span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4" />
+              Sécurité
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Accès</span>
+              <Badge variant="outline">{dataroom.accessMode === "EMAIL_REQUIRED" ? "Email requis" : "Lien simple"}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Téléchargement</span>
+              <Badge variant={dataroom.allowDownload ? "default" : "secondary"}>{dataroom.allowDownload ? "Autorisé" : "Bloqué"}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Impression</span>
+              <Badge variant={dataroom.allowPrint ? "default" : "secondary"}>{dataroom.allowPrint ? "Autorisée" : "Bloquée"}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Filigrane</span>
+              <Badge variant={dataroom.watermarkEnabled ? "default" : "secondary"}>{dataroom.watermarkEnabled ? "Actif" : "Inactif"}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Confidentialité</span>
+              <Badge variant={dataroom.ndaRequired ? "default" : "secondary"}>{dataroom.ndaRequired ? "Acceptation requise" : "Simple"}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" />
+              Groupes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {groups.map((group) => (
+              <div key={group.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate">{group.name}</span>
+                <Badge variant="outline" className="shrink-0">{PERMISSION_LABELS[group.permission]}</Badge>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>

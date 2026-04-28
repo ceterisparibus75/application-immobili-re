@@ -8,6 +8,14 @@ export const createDataroomSchema = z.object({
   recipientEmail: z.string().email("Email invalide").optional().nullable(),
   recipientName: z.string().max(100).optional().nullable(),
   purpose: z.string().max(100).optional().nullable(),
+  templateKey: z.string().max(100).optional().nullable(),
+  accessMode: z.enum(["LINK", "EMAIL_REQUIRED"]).optional(),
+  allowDownload: z.boolean().optional(),
+  allowPrint: z.boolean().optional(),
+  watermarkEnabled: z.boolean().optional(),
+  ndaRequired: z.boolean().optional(),
+  groups: z.unknown().optional().nullable(),
+  checklist: z.unknown().optional().nullable(),
 });
 
 export const updateDataroomSchema = createDataroomSchema.partial().extend({

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, ExternalLink, Lock, Loader2, Download } from "lucide-react";
@@ -23,6 +24,10 @@ type Meta = {
   purpose: string | null;
   expiresAt: Date | null;
   hasPassword: boolean;
+  accessMode: string;
+  allowDownload: boolean;
+  watermarkEnabled: boolean;
+  ndaRequired: boolean;
   society: { name: string; logoUrl: string | null };
 };
 
@@ -48,8 +53,11 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
   const [password, setPassword] = useState("");
   const [viewerName, setViewerName] = useState("");
   const [viewerEmail, setViewerEmail] = useState("");
+  const [ndaAccepted, setNdaAccepted] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [documents, setDocuments] = useState<ApiDocument[]>([]);
+  const [allowDownload, setAllowDownload] = useState(meta.allowDownload);
+  const [watermarkEnabled, setWatermarkEnabled] = useState(meta.watermarkEnabled);
 
   async function handleAccess() {
     setPhase("loading");
@@ -71,6 +79,8 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
       }
 
       setDocuments(data.documents ?? []);
+      setAllowDownload(data.allowDownload ?? meta.allowDownload);
+      setWatermarkEnabled(data.watermarkEnabled ?? meta.watermarkEnabled);
       setPhase("documents");
     } catch {
       setErrorMsg("Erreur réseau. Veuillez réessayer.");
@@ -130,7 +140,7 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
               )}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Identifiez-vous <span className="font-normal">(optionnel)</span>
+                  Identifiez-vous {meta.accessMode === "EMAIL_REQUIRED" ? <span>*</span> : <span className="font-normal">(optionnel)</span>}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -156,13 +166,21 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
                   </div>
                 </div>
               </div>
+              {meta.ndaRequired && (
+                <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                  <Checkbox checked={ndaAccepted} onCheckedChange={(checked) => setNdaAccepted(checked === true)} />
+                  <span>
+                    Je confirme accéder à cette dataroom à titre confidentiel et m'engage à ne pas diffuser les documents sans autorisation.
+                  </span>
+                </label>
+              )}
               {errorMsg && (
                 <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">{errorMsg}</p>
               )}
               <Button
                 onClick={handleAccess}
                 className="w-full"
-                disabled={meta.hasPassword && !password}
+                disabled={(meta.hasPassword && !password) || (meta.accessMode === "EMAIL_REQUIRED" && !viewerEmail.trim()) || (meta.ndaRequired && !ndaAccepted)}
               >
                 Accéder aux documents
               </Button>
@@ -185,6 +203,9 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
               <p className="text-sm text-muted-foreground">
                 {documents.length} document{documents.length !== 1 ? "s" : ""}
               </p>
+              {watermarkEnabled && (
+                <Badge variant="outline" className="text-xs">Filigrane activé</Badge>
+              )}
             </div>
             {documents.length === 0 ? (
               <Card>
@@ -217,11 +238,13 @@ export function DataroomShareClient({ token, meta }: { token: string; meta: Meta
                             <span className="hidden sm:inline">Voir</span>
                           </Button>
                         </a>
-                        <a href={doc.signedUrl} download={doc.fileName}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Télécharger">
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                        </a>
+                        {allowDownload && (
+                          <a href={doc.signedUrl} download={doc.fileName}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Télécharger">
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                        )}
                       </div>
                     ) : (
                       <span className="text-xs text-muted-foreground shrink-0">Indisponible</span>

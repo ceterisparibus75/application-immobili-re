@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@/generated/prisma/client";
 import type { ActionResult } from "@/actions/society";
 import { createDataroomSchema, updateDataroomSchema } from "@/validations/dataroom";
 import bcrypt from "bcryptjs";
@@ -71,7 +72,23 @@ export async function getDataroom(societyId: string, dataroomId: string) {
 
 export async function createDataroom(
   societyId: string,
-  input: { name: string; description?: string | null; expiresAt?: string | null; password?: string | null; recipientEmail?: string | null; recipientName?: string | null; purpose?: string | null }
+  input: {
+    name: string;
+    description?: string | null;
+    expiresAt?: string | null;
+    password?: string | null;
+    recipientEmail?: string | null;
+    recipientName?: string | null;
+    purpose?: string | null;
+    templateKey?: string | null;
+    accessMode?: "LINK" | "EMAIL_REQUIRED";
+    allowDownload?: boolean;
+    allowPrint?: boolean;
+    watermarkEnabled?: boolean;
+    ndaRequired?: boolean;
+    groups?: unknown;
+    checklist?: unknown;
+  }
 ): Promise<ActionResult<{ id: string; token: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
@@ -93,6 +110,14 @@ export async function createDataroom(
         purpose: parsed.data.purpose ?? null,
         recipientEmail: parsed.data.recipientEmail ?? null,
         recipientName: parsed.data.recipientName ?? null,
+        templateKey: parsed.data.templateKey ?? null,
+        accessMode: parsed.data.accessMode ?? "LINK",
+        allowDownload: parsed.data.allowDownload ?? true,
+        allowPrint: parsed.data.allowPrint ?? false,
+        watermarkEnabled: parsed.data.watermarkEnabled ?? false,
+        ndaRequired: parsed.data.ndaRequired ?? false,
+        groups: parsed.data.groups === undefined ? undefined : (parsed.data.groups as Prisma.InputJsonValue),
+        checklist: parsed.data.checklist === undefined ? undefined : (parsed.data.checklist as Prisma.InputJsonValue),
       },
     });
 
@@ -118,7 +143,24 @@ export async function createDataroom(
 export async function updateDataroom(
   societyId: string,
   dataroomId: string,
-  input: { name?: string; description?: string | null; expiresAt?: string | null; password?: string | null; purpose?: string | null; recipientEmail?: string | null; recipientName?: string | null; status?: "BROUILLON" | "ACTIF" | "ARCHIVE" }
+  input: {
+    name?: string;
+    description?: string | null;
+    expiresAt?: string | null;
+    password?: string | null;
+    purpose?: string | null;
+    recipientEmail?: string | null;
+    recipientName?: string | null;
+    status?: "BROUILLON" | "ACTIF" | "ARCHIVE";
+    templateKey?: string | null;
+    accessMode?: "LINK" | "EMAIL_REQUIRED";
+    allowDownload?: boolean;
+    allowPrint?: boolean;
+    watermarkEnabled?: boolean;
+    ndaRequired?: boolean;
+    groups?: unknown;
+    checklist?: unknown;
+  }
 ): Promise<ActionResult> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
@@ -147,6 +189,14 @@ export async function updateDataroom(
         ...(parsed.data.purpose !== undefined && { purpose: parsed.data.purpose }),
         ...(parsed.data.recipientEmail !== undefined && { recipientEmail: parsed.data.recipientEmail }),
         ...(parsed.data.recipientName !== undefined && { recipientName: parsed.data.recipientName }),
+        ...(parsed.data.templateKey !== undefined && { templateKey: parsed.data.templateKey }),
+        ...(parsed.data.accessMode !== undefined && { accessMode: parsed.data.accessMode }),
+        ...(parsed.data.allowDownload !== undefined && { allowDownload: parsed.data.allowDownload }),
+        ...(parsed.data.allowPrint !== undefined && { allowPrint: parsed.data.allowPrint }),
+        ...(parsed.data.watermarkEnabled !== undefined && { watermarkEnabled: parsed.data.watermarkEnabled }),
+        ...(parsed.data.ndaRequired !== undefined && { ndaRequired: parsed.data.ndaRequired }),
+        ...(parsed.data.groups !== undefined && { groups: parsed.data.groups as Prisma.InputJsonValue }),
+        ...(parsed.data.checklist !== undefined && { checklist: parsed.data.checklist as Prisma.InputJsonValue }),
         ...(passwordHashUpdate !== undefined && passwordHashUpdate),
         expiresAt:
           parsed.data.expiresAt !== undefined
@@ -501,6 +551,10 @@ export async function getDataroomMeta(token: string) {
       expiresAt: true,
       status: true,
       password: true,
+      accessMode: true,
+      allowDownload: true,
+      watermarkEnabled: true,
+      ndaRequired: true,
       society: { select: { name: true, logoUrl: true } },
     },
   });
@@ -515,5 +569,9 @@ export async function getDataroomMeta(token: string) {
     expiresAt: dataroom.expiresAt,
     society: dataroom.society,
     hasPassword: !!dataroom.password,
+    accessMode: dataroom.accessMode,
+    allowDownload: dataroom.allowDownload,
+    watermarkEnabled: dataroom.watermarkEnabled,
+    ndaRequired: dataroom.ndaRequired,
   };
 }

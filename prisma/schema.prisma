@@ -2646,6 +2646,18 @@ model Dataroom {
   recipientEmail String?
   recipientName  String?
   purpose        String?
+  /// Modele applique a la creation (vente, financement, audit...)
+  templateKey    String?
+  /// LINK = lien simple, EMAIL_REQUIRED = email visiteur obligatoire
+  accessMode     String    @default("LINK")
+  allowDownload  Boolean   @default(true)
+  allowPrint     Boolean   @default(false)
+  watermarkEnabled Boolean @default(false)
+  ndaRequired    Boolean   @default(false)
+  /// Groupes et permissions globales, volontairement simples en Lot 1
+  groups         Json?
+  /// Checklist de preparation issue du modele
+  checklist      Json?
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   creator    User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)

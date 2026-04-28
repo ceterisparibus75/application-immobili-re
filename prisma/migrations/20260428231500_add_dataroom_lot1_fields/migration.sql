@@ -1,0 +1,10 @@
+ALTER TABLE "Dataroom"
+  ADD COLUMN "templateKey" TEXT,
+  ADD COLUMN "accessMode" TEXT NOT NULL DEFAULT 'LINK',
+  ADD COLUMN "allowDownload" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "allowPrint" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "watermarkEnabled" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "ndaRequired" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN "groups" JSONB,
+  ADD COLUMN "checklist" JSONB;
+

@@ -62,6 +62,11 @@ export async function GET(
     return NextResponse.json({ error: "Cette dataroom a expiré" }, { status: 410 });
   }
 
+  const viewerEmail = req.headers.get("x-viewer-email") ?? null;
+  if (dataroom.accessMode === "EMAIL_REQUIRED" && !viewerEmail) {
+    return NextResponse.json({ error: "Votre email est requis pour accéder à cette dataroom" }, { status: 401 });
+  }
+
   // Vérification du mot de passe si protégée
   if (dataroom.password) {
     const authHeader = req.headers.get("x-dataroom-password");
@@ -110,7 +115,6 @@ export async function GET(
     req.headers.get("x-real-ip") ??
     null;
   const viewerName = req.headers.get("x-viewer-name") ?? null;
-  const viewerEmail = req.headers.get("x-viewer-email") ?? null;
 
   await Promise.all([
     prisma.dataroomAccess.create({
@@ -148,6 +152,8 @@ export async function GET(
     name: dataroom.name,
     description: dataroom.description,
     expiresAt: dataroom.expiresAt,
+    allowDownload: dataroom.allowDownload,
+    watermarkEnabled: dataroom.watermarkEnabled,
     documents,
   });
 }
