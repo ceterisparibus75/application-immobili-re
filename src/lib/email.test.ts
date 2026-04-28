@@ -430,13 +430,16 @@ describe("sendDataroomDocumentAddedEmail", () => {
       documentCount: 5,
       dataroomUrl: "https://app.example.com/dataroom/dr-1",
       societyName: "SCI Patrimoine",
+      sharedByName: "Maxime Langet",
+      sharedByEmail: "maxime@example.com",
     });
     expect(result.success).toBe(true);
-    expect(mockEmailsSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: expect.stringContaining("Nouveau document"),
-      })
-    );
+    const lastEmail = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0];
+    expect(lastEmail.subject).toContain("nouveau document");
+    const html: string = lastEmail.html;
+    expect(html).toContain("SCI Patrimoine — Due Diligence");
+    expect(html).toContain("Maxime Langet");
+    expect(html).toContain("maxime@example.com");
   });
 
   it("fonctionne sans recipientName (null)", async () => {

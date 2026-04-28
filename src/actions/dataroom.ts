@@ -211,14 +211,18 @@ export async function addDocumentToDataroom(
   documentId: string
 ): Promise<ActionResult> {
   try {
-    await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
-    const [dr, doc] = await Promise.all([
+    const [dr, doc, sharedBy] = await Promise.all([
       prisma.dataroom.findFirst({
         where: { id: dataroomId, societyId },
         include: { society: { select: { name: true } } },
       }),
       prisma.document.findFirst({ where: { id: documentId, societyId } }),
+      prisma.user.findUnique({
+        where: { id: context.userId },
+        select: { name: true, email: true },
+      }),
     ]);
     if (!dr) return { success: false, error: "Dataroom introuvable" };
     if (!doc) return { success: false, error: "Document introuvable" };
@@ -243,6 +247,8 @@ export async function addDocumentToDataroom(
         documentCount: newCount,
         dataroomUrl: `${appUrl}/dataroom/share/${dr.shareToken}`,
         societyName: dr.society.name,
+        sharedByName: sharedBy?.name ?? null,
+        sharedByEmail: sharedBy?.email ?? null,
       }).catch((err) => console.error("[addDocumentToDataroom] email failed:", err));
     }
 

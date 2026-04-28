@@ -678,12 +678,21 @@ describe("addDocumentToDataroom — branches manquantes", () => {
       buildDataroom({ recipientEmail: "contact@example.com", shareToken: SHARE_TOKEN }) as never
     );
     prismaMock.document.findFirst.mockResolvedValue({ id: DOC_ID, fileName: "contrat.pdf" } as never);
+    prismaMock.user.findUnique.mockResolvedValue({ name: "Maxime Langet", email: "maxime@example.com" } as never);
     prismaMock.dataroomDocument.count.mockResolvedValue(1 as never);
     prismaMock.dataroomDocument.upsert.mockResolvedValue({} as never);
     const { sendDataroomDocumentAddedEmail } = await import("@/lib/email");
     const r = await addDocumentToDataroom(SOCIETY_ID, DATAROOM_ID, DOC_ID);
     expect(r.success).toBe(true);
-    expect(sendDataroomDocumentAddedEmail).toHaveBeenCalled();
+    expect(sendDataroomDocumentAddedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataroomName: "Dossier Vente Immeuble A",
+        documentName: "contrat.pdf",
+        sharedByName: "Maxime Langet",
+        sharedByEmail: "maxime@example.com",
+        societyName: "Ma Société",
+      })
+    );
   });
 
   it("log l'erreur si l'envoi d'email échoue silencieusement (ligne 245 catch)", async () => {

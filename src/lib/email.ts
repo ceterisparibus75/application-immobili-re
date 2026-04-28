@@ -609,15 +609,25 @@ interface DataroomDocumentAddedEmailParams {
   documentCount: number;
   dataroomUrl: string;
   societyName: string;
+  sharedByName?: string | null;
+  sharedByEmail?: string | null;
 }
 
 export async function sendDataroomDocumentAddedEmail(params: DataroomDocumentAddedEmailParams): Promise<EmailResult> {
   const greeting = params.recipientName ? `Bonjour <strong>${params.recipientName}</strong>,` : "Bonjour,";
+  const sharedBy = params.sharedByName?.trim() || params.sharedByEmail?.trim() || params.societyName;
+  const sharedByWithEmail = params.sharedByEmail?.trim()
+    ? `${sharedBy} (${params.sharedByEmail.trim()})`
+    : sharedBy;
   const content = `
     ${heading("Nouveau document disponible")}
     ${para(greeting)}
-    ${para(`Un nouveau document a été ajouté à la dataroom <strong>${params.dataroomName}</strong> qui vous a été partagée.`)}
+    ${para(`<strong>${sharedBy}</strong> vous partage un nouveau document dans la dataroom <strong>${params.dataroomName}</strong>.`)}
+    ${infoBox(`Cette dataroom est partagée par <strong>${sharedByWithEmail}</strong> pour le compte de <strong>${params.societyName}</strong>.`)}
     ${infoTable([
+      { label: "Dataroom", value: params.dataroomName, bold: true },
+      { label: "Partagé par", value: sharedByWithEmail },
+      { label: "Société", value: params.societyName },
       { label: "Document ajouté", value: params.documentName },
       { label: "Total documents", value: String(params.documentCount) },
     ])}
@@ -627,7 +637,7 @@ export async function sendDataroomDocumentAddedEmail(params: DataroomDocumentAdd
 
   return sendMail(
     params.to,
-    `[${params.dataroomName}] Nouveau document disponible`,
+    `[${params.societyName}] ${params.dataroomName} — nouveau document disponible`,
     baseTemplate("Nouveau document disponible", content, { societyName: params.societyName })
   );
 }
