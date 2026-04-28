@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/audit", () => ({
+  createAuditLogsForUserSocieties: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn().mockResolvedValue(null),
   update: vi.fn().mockResolvedValue(undefined),

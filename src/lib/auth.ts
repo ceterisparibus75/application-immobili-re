@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
 import { prisma } from "./prisma";
+import { createAuditLogsForUserSocieties } from "./audit";
 
 export const { handlers, auth, signIn, signOut, unstable_update: update } = NextAuth({
   trustHost: true,
@@ -66,6 +67,18 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
                   : {}),
               },
             });
+            await createAuditLogsForUserSocieties({
+              societyIds: user.userSocieties.map((membership) => membership.societyId),
+              userId: user.id,
+              action: "LOGIN",
+              entity: "User",
+              entityId: user.id,
+              details: {
+                event: newAttempts >= 5 ? "ACCOUNT_LOCKED" : "LOGIN_FAILED",
+                email: user.email,
+                failedLoginAttempts: newAttempts,
+              },
+            });
           } catch (err) {
             console.error("[auth] update failedLoginAttempts error:", err);
           }
@@ -82,6 +95,19 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
               lockedUntil: null,
             },
           });
+          if (!user.twoFactorEnabled) {
+            await createAuditLogsForUserSocieties({
+              societyIds: user.userSocieties.map((membership) => membership.societyId),
+              userId: user.id,
+              action: "LOGIN",
+              entity: "User",
+              entityId: user.id,
+              details: {
+                event: "LOGIN_SUCCESS",
+                email: user.email,
+              },
+            });
+          }
         } catch (err) {
           console.error("[auth] update lastLoginAt error:", err);
         }

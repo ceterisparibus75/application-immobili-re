@@ -5,7 +5,7 @@ import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { verifyTOTP, decryptRecoveryCodes } from "@/lib/two-factor";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/actions/society";
-import { createAuditLog } from "@/lib/audit";
+import { createAuditLogsForUserSocieties } from "@/lib/audit";
 import { timingSafeEqual } from "crypto";
 import { UnauthenticatedActionError } from "@/lib/action-society";
 
@@ -54,8 +54,7 @@ export async function completeTwoFactorLogin(code: string): Promise<ActionResult
     }
 
     await update({ requires2FA: false, twoFactorVerified: true });
-    await createAuditLog({
-      societyId: "system",
+    await createAuditLogsForUserSocieties({
       userId: context.userId,
       action: "LOGIN",
       entity: "User",

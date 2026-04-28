@@ -157,6 +157,9 @@ export default async function UtilisateursPage() {
                     <th className="text-left p-3 font-medium">Email</th>
                     <th className="text-left p-3 font-medium">Rôle</th>
                     <th className="text-left p-3 font-medium">
+                      Créé le
+                    </th>
+                    <th className="text-left p-3 font-medium">
                       Dernière connexion
                     </th>
                     <th className="p-3 w-28" />
@@ -189,6 +192,9 @@ export default async function UtilisateursPage() {
                             {ROLE_LABELS[user.role as UserRole]}
                           </Badge>
                         )}
+                      </td>
+                      <td className="p-3 text-muted-foreground text-xs">
+                        {formatDateTime(user.createdAt)}
                       </td>
                       <td className="p-3 text-muted-foreground text-xs">
                         {user.lastLoginAt

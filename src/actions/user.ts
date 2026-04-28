@@ -104,15 +104,6 @@ export async function createUser(
       },
     });
 
-    await createAuditLog({
-      societyId: "system",
-      userId: user.id,
-      action: "CREATE",
-      entity: "User",
-      entityId: user.id,
-      details: { email: user.email, createdBy: context.userId },
-    });
-
     revalidatePath("/administration/utilisateurs");
 
     // Envoi de l'email d'invitation avec lien de création de mot de passe
@@ -226,6 +217,19 @@ export async function assignUserToSociety(
       await requireSuperAdmin(context.userId);
     }
 
+    const [existingMembership, targetUser] = await Promise.all([
+      prisma.userSociety.findUnique({
+        where: {
+          userId_societyId: { userId, societyId },
+        },
+        select: { id: true, role: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true, firstName: true },
+      }),
+    ]);
+
     await prisma.userSociety.upsert({
       where: {
         userId_societyId: { userId, societyId },
@@ -237,10 +241,16 @@ export async function assignUserToSociety(
     await createAuditLog({
       societyId,
       userId: context.userId,
-      action: "UPDATE",
+      action: existingMembership ? "UPDATE" : "CREATE",
       entity: "UserSociety",
       entityId: `${userId}-${societyId}`,
-      details: { targetUserId: userId, role },
+      details: {
+        targetUserId: userId,
+        targetEmail: targetUser?.email,
+        targetName: [targetUser?.firstName, targetUser?.name].filter(Boolean).join(" ") || undefined,
+        previousRole: existingMembership?.role,
+        role,
+      },
     });
 
     revalidatePath("/administration/utilisateurs");

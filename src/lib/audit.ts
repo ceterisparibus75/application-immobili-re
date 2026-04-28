@@ -11,6 +11,11 @@ interface AuditLogParams {
   ipAddress?: string;
 }
 
+type UserSocietyAuditLogParams = Omit<AuditLogParams, "societyId"> & {
+  userId: string;
+  societyIds?: string[];
+};
+
 /**
  * Enregistre une action dans le journal d'audit.
  * Appeler cette fonction après chaque action sensible (CRUD, export, envoi email, etc.)
@@ -31,6 +36,37 @@ export async function createAuditLog(params: AuditLogParams) {
   } catch (error) {
     // L'audit ne doit pas bloquer l'action principale
     console.error("[AUDIT] Failed to create audit log:", error);
+  }
+}
+
+/**
+ * Enregistre une action utilisateur sur toutes les sociétés auxquelles il est rattaché.
+ * Utile pour les événements d'authentification, car le login n'a pas encore de société active.
+ */
+export async function createAuditLogsForUserSocieties(params: UserSocietyAuditLogParams) {
+  try {
+    const societyIds =
+      params.societyIds ??
+      (
+        await prisma.userSociety.findMany({
+          where: { userId: params.userId },
+          select: { societyId: true },
+        })
+      ).map((membership) => membership.societyId);
+
+    const uniqueSocietyIds = [...new Set(societyIds)].filter(Boolean);
+    if (uniqueSocietyIds.length === 0) return;
+
+    await Promise.allSettled(
+      uniqueSocietyIds.map((societyId) =>
+        createAuditLog({
+          ...params,
+          societyId,
+        })
+      )
+    );
+  } catch (error) {
+    console.error("[AUDIT] Failed to create user society audit logs:", error);
   }
 }
 
