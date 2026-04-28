@@ -261,7 +261,7 @@ export default async function UtilisateursPage() {
               Votre plan {plan.name} permet {maxUsers} utilisateur{maxUsers > 1 ? "s" : ""}.
               Passez au plan supérieur pour en ajouter davantage.
             </p>
-            <Link href="/parametres/facturation">
+            <Link href="/compte/abonnement">
               <button className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors">
                 Passer au plan supérieur <ArrowUpRight className="h-4 w-4" />
               </button>
