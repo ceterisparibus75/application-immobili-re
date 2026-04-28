@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     if (result.daysLeft <= 5) {
       return NextResponse.json({
         type: "trial_warning",
-        message: `Votre essai gratuit expire dans ${result.daysLeft} jour${result.daysLeft > 1 ? "s" : ""}. Souscrivez un abonnement pour ne pas perdre l'accès.`,
+        message: `Votre essai gratuit expire dans ${result.daysLeft} jour${result.daysLeft > 1 ? "s" : ""}. Passez à l'abonnement payant pour conserver l'accès.`,
         daysLeft: result.daysLeft,
       });
     }

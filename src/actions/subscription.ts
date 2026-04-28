@@ -309,16 +309,14 @@ export async function syncAllAdminSubscriptions(): Promise<ActionResult<{ synced
     const societyIds = memberships.map((m) => m.societyId);
     if (societyIds.length === 0) return { success: true, data: { synced: 0 } };
 
-    // Récupérer les abonnements ayant un ID Stripe
-    const subscriptions = await prisma.subscription.findMany({
-      where: {
-        societyId: { in: societyIds },
-        stripeSubscriptionId: { not: null },
-      },
+    const allSubscriptions = await prisma.subscription.findMany({
+      where: { societyId: { in: societyIds } },
     });
 
     let synced = 0;
-    for (const subscription of subscriptions) {
+
+    // 1. Sync des abonnements déjà liés à Stripe
+    for (const subscription of allSubscriptions) {
       if (!subscription.stripeSubscriptionId) continue;
       try {
         await syncFromStripeIfNeeded({
@@ -332,6 +330,61 @@ export async function syncAllAdminSubscriptions(): Promise<ActionResult<{ synced
         synced++;
       } catch {
         // Continuer même si une société échoue
+      }
+    }
+
+    // 2. Récupérer le lien Stripe manquant pour les sociétés sans stripeSubscriptionId
+    //    (webhook non reçu ou clé webhook non configurée)
+    const unlinked = allSubscriptions
+      .filter((s) => !s.stripeSubscriptionId)
+      .map((s) => s.societyId);
+
+    for (const societyId of unlinked) {
+      try {
+        const result = await getStripe().subscriptions.search({
+          query: `metadata['societyId']:'${societyId}'`,
+          limit: 1,
+          expand: ["data.customer"],
+        });
+        const stripeSub = result.data[0];
+        if (!stripeSub) continue;
+
+        const priceId = stripeSub.items.data[0]?.price?.id ?? null;
+        const planId = (priceId ? planIdFromPriceId(priceId) : null)
+          ?? (stripeSub.metadata?.planId as PlanId | undefined)
+          ?? "STARTER";
+
+        const statusMap: Record<string, string> = {
+          trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+          canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+          incomplete_expired: "CANCELED", paused: "CANCELED",
+        };
+        const newStatus = statusMap[stripeSub.status] ?? "INCOMPLETE";
+        const customerId = typeof stripeSub.customer === "string"
+          ? stripeSub.customer
+          : (stripeSub.customer as { id: string } | null)?.id ?? null;
+
+        const item = stripeSub.items?.data?.[0];
+        const rawItem = item as unknown as Record<string, unknown>;
+        const periodEnd = typeof rawItem?.current_period_end === "number"
+          ? new Date(rawItem.current_period_end * 1000) : null;
+
+        await prisma.subscription.updateMany({
+          where: { societyId, stripeSubscriptionId: null },
+          data: {
+            stripeSubscriptionId: stripeSub.id,
+            ...(customerId ? { stripeCustomerId: customerId } : {}),
+            stripePriceId: priceId,
+            planId: planId as "STARTER" | "PRO" | "ENTERPRISE",
+            status: newStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+            currentPeriodEnd: periodEnd,
+            trialEnd: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : undefined,
+            ...(stripeSub.trial_end ? { trialUsed: true } : {}),
+          },
+        });
+        synced++;
+      } catch {
+        // Stripe non configuré ou société sans abonnement Stripe → ignorer
       }
     }
 
