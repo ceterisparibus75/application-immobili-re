@@ -21,7 +21,11 @@ const PURPOSE_OPTIONS = [
   { value: "FINANCEMENT", label: "Financement" },
   { value: "DUE_DILIGENCE", label: "Due diligence" },
   { value: "AUTRE", label: "Autre" },
-];
+] as const;
+
+const NO_PURPOSE_VALUE = "__NO_PURPOSE__";
+
+type PurposeValue = (typeof PURPOSE_OPTIONS)[number]["value"];
 
 function getPurposeLabel(value: string | null): string {
   if (!value) return "";
@@ -60,14 +64,14 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [purpose, setPurpose] = useState("");
+  const [purpose, setPurpose] = useState<string>(NO_PURPOSE_VALUE);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
 
   function resetForm() {
     setName("");
     setDescription("");
-    setPurpose("");
+    setPurpose(NO_PURPOSE_VALUE);
     setRecipientEmail("");
     setRecipientName("");
   }
@@ -78,7 +82,7 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
       const result = await createDataroom(societyId, {
         name: name.trim(),
         description: description.trim() || null,
-        purpose: (purpose || null) as "VENTE" | "AUDIT" | "FINANCEMENT" | "DUE_DILIGENCE" | "AUTRE" | null,
+        purpose: purpose === NO_PURPOSE_VALUE ? null : (purpose as PurposeValue),
         recipientEmail: recipientEmail.trim() || null,
         recipientName: recipientName.trim() || null,
       });
@@ -143,7 +147,7 @@ export function DataroomList({ societyId, datarooms }: { societyId: string; data
                     <SelectValue placeholder="Sélectionner un objectif..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucun</SelectItem>
+                    <SelectItem value={NO_PURPOSE_VALUE}>Aucun</SelectItem>
                     {PURPOSE_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                     ))}
