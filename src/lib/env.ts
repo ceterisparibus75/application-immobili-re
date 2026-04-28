@@ -28,6 +28,13 @@ const envSchema = z.object({
   STRIPE_PRICE_PRO_YEARLY: z.string().optional(),
   STRIPE_PRICE_ENTERPRISE_MONTHLY: z.string().optional(),
   STRIPE_PRICE_ENTERPRISE_YEARLY: z.string().optional(),
+  // Aliases avec _ID_ (nommage alternatif dans certains environnements Vercel)
+  STRIPE_PRICE_ID_STARTER_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_ID_STARTER_YEARLY: z.string().optional(),
+  STRIPE_PRICE_ID_PRO_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_ID_PRO_YEARLY: z.string().optional(),
+  STRIPE_PRICE_ID_ENTERPRISE_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_ID_ENTERPRISE_YEARLY: z.string().optional(),
   BRAINTRUST_API_KEY: z.string().optional(),
   BRAINTRUST_PROJECT_ID: z.string().optional(),
   GOOGLE_AI_API_KEY: z.string().optional(),
