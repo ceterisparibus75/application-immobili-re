@@ -71,7 +71,7 @@ function OccupancyBadge({
 
 function TableView({ buildings }: { buildings: BuildingSummary[] }) {
   return (
-    <div className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+    <div className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
       {/* Header */}
       <div className="hidden md:grid md:grid-cols-[1fr_80px_75px_120px_120px_120px_90px_80px_28px] gap-2 px-5 py-3 border-b bg-muted/30">
         {[
@@ -260,10 +260,10 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
           <Link
             key={b.id}
             href={`/patrimoine/immeubles/${b.id}`}
-            className="group block rounded-xl bg-white shadow-brand hover:shadow-md transition-shadow"
+            className="group block rounded-xl bg-card shadow-brand hover:shadow-md transition-shadow"
           >
             {/* Card header */}
-            <div className="p-4 border-b border-gray-50">
+            <div className="p-4 border-b border-border/50">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 group-hover:from-primary/20 transition-colors">
                   <Building2 className="h-5 w-5 text-primary" />
@@ -297,7 +297,7 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
                   {b.occupiedLots}/{b.totalLots} lots · {b.occupancyPct}%
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
@@ -309,14 +309,14 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
             </div>
 
             {/* Métriques */}
-            <div className="grid grid-cols-2 gap-px bg-gray-100 border-t border-gray-100">
-              <div className="bg-white px-3 py-2.5">
+            <div className="grid grid-cols-2 gap-px bg-border/30 border-t border-border/50">
+              <div className="bg-card px-3 py-2.5">
                 <p className="text-[10px] text-muted-foreground mb-0.5">Loyers/an</p>
                 <p className="text-sm font-semibold tabular-nums">
                   {b.annualRent > 0 ? formatCurrency(b.annualRent) : "—"}
                 </p>
               </div>
-              <div className="bg-white px-3 py-2.5">
+              <div className="bg-card px-3 py-2.5">
                 <p className="text-[10px] text-muted-foreground mb-0.5">Rendement</p>
                 <p
                   className="text-sm font-semibold tabular-nums"
@@ -335,7 +335,7 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
                 </p>
               </div>
               {b.venalValue !== null && (
-                <div className="bg-white px-3 py-2.5">
+                <div className="bg-card px-3 py-2.5">
                   <p className="text-[10px] text-muted-foreground mb-0.5">Val. vénale</p>
                   <p className="text-sm font-semibold tabular-nums">
                     {formatCurrency(b.venalValue)}
@@ -343,7 +343,7 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
                 </div>
               )}
               {b.variation !== null && (
-                <div className="bg-white px-3 py-2.5">
+                <div className="bg-card px-3 py-2.5">
                   <p className="text-[10px] text-muted-foreground mb-0.5">Variation</p>
                   <p
                     className="text-sm font-semibold tabular-nums"
@@ -363,7 +363,7 @@ function CardView({ buildings }: { buildings: BuildingSummary[] }) {
 
             {/* Surface */}
             {b.totalArea > 0 && (
-              <div className="px-4 py-2 border-t border-gray-50">
+              <div className="px-4 py-2 border-t border-border/50">
                 <p className="text-xs text-muted-foreground">
                   {b.totalArea.toLocaleString("fr-FR")} m²{" "}
                   {b.expiringSoon && (
