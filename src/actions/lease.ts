@@ -561,7 +561,12 @@ export async function getLeaseFinancialSummary(societyId: string, leaseId: strin
   if (!context) return null;
 
   const invoices = await prisma.invoice.findMany({
-    where: { leaseId, societyId, invoiceType: { not: "QUITTANCE" } },
+    where: {
+      leaseId,
+      societyId,
+      invoiceType: { not: "QUITTANCE" },
+      status: { not: "BROUILLON" },
+    },
     select: {
       id: true,
       totalHT: true,
