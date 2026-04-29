@@ -4,6 +4,44 @@ import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
+
+const PLAN_RANK: Record<string, number> = { STARTER: 0, PRO: 1, ENTERPRISE: 2 };
+
+async function checkDowngradeAllowed(
+  societyId: string,
+  targetPlanId: PlanId,
+  currentPlanId: PlanId
+): Promise<{ allowed: boolean; message?: string }> {
+  if ((PLAN_RANK[targetPlanId] ?? 0) >= (PLAN_RANK[currentPlanId] ?? 0)) {
+    return { allowed: true }; // upgrade ou même plan : toujours autorisé
+  }
+
+  const targetLimits = PLANS[targetPlanId];
+
+  // Vérifier les utilisateurs
+  if (targetLimits.maxUsers !== -1) {
+    const userCount = await prisma.userSociety.count({ where: { societyId } });
+    if (userCount > targetLimits.maxUsers) {
+      return {
+        allowed: false,
+        message: `Impossible de passer au plan ${targetLimits.name} : vous avez ${userCount} utilisateurs (limite : ${targetLimits.maxUsers}). Supprimez des utilisateurs avant de rétrograder.`,
+      };
+    }
+  }
+
+  // Vérifier les lots
+  if (targetLimits.maxLots !== -1) {
+    const lotCount = await prisma.lot.count({ where: { building: { societyId } } });
+    if (lotCount > targetLimits.maxLots) {
+      return {
+        allowed: false,
+        message: `Impossible de passer au plan ${targetLimits.name} : vous avez ${lotCount} lots (limite : ${targetLimits.maxLots}). Archivez des lots avant de rétrograder.`,
+      };
+    }
+  }
+
+  return { allowed: true };
+}
 import type { ActionResult } from "@/actions/society";
 import type { PlanId } from "@/lib/stripe";
 import { env } from "@/lib/env";
@@ -254,6 +292,12 @@ export async function changeSubscriptionPlan(
 
     if (currentItem.price.id === priceId) {
       return { success: false, error: "Vous êtes déjà sur ce plan avec cette fréquence de facturation." };
+    }
+
+    // Vérifier que le downgrade est possible (usage actuel ≤ limites du plan cible)
+    const downgradeCheck = await checkDowngradeAllowed(societyId, planId, existingSub.planId as PlanId);
+    if (!downgradeCheck.allowed) {
+      return { success: false, error: downgradeCheck.message };
     }
 
     // always_invoice : Stripe émet immédiatement une facture proratisée
