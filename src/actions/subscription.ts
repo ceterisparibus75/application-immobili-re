@@ -198,6 +198,7 @@ export async function createCheckout(
       successUrl: `${baseUrl}/compte/abonnement?success=true`,
       cancelUrl: `${baseUrl}/compte/abonnement?canceled=true`,
       trialDays,
+      stripeCustomerId: existingSub?.stripeCustomerId ?? null,
     });
 
     return { success: true, data: { url } };
@@ -206,6 +207,123 @@ export async function createCheckout(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createCheckout]", error);
     return { success: false, error: "Erreur lors de la creation du checkout" };
+  }
+}
+
+// ─── Changer de plan (upgrade ou downgrade avec prorata) ───────────────────
+
+export async function changeSubscriptionPlan(
+  societyId: string,
+  planId: PlanId,
+  billingPeriod: "monthly" | "yearly"
+): Promise<ActionResult<{ url?: string; updated?: boolean }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const priceId = PRICE_IDS[planId]?.[billingPeriod];
+    if (!priceId || priceId.trim() === "") {
+      return { success: false, error: `L'offre ${planId} (${billingPeriod}) n'est pas encore configurée. Contactez le support.` };
+    }
+
+    const existingSub = await prisma.subscription.findUnique({ where: { societyId } });
+
+    // Pas d'abonnement Stripe actif → Checkout (première souscription)
+    if (!existingSub?.stripeSubscriptionId) {
+      const trialDays = existingSub?.trialUsed ? 0 : 14;
+      const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
+      const url = await createCheckoutSession({
+        societyId,
+        userId: context.userId,
+        priceId,
+        planId,
+        successUrl: `${baseUrl}/compte/abonnement?success=true`,
+        cancelUrl: `${baseUrl}/compte/abonnement?canceled=true`,
+        trialDays,
+        stripeCustomerId: existingSub?.stripeCustomerId ?? null,
+      });
+      return { success: true, data: { url } };
+    }
+
+    // Abonnement Stripe existant → mise à jour directe avec prorata
+    const stripeSub = await getStripe().subscriptions.retrieve(existingSub.stripeSubscriptionId);
+    const currentItem = stripeSub.items.data[0];
+
+    if (!currentItem) {
+      return { success: false, error: "Abonnement Stripe invalide. Contactez le support." };
+    }
+
+    if (currentItem.price.id === priceId) {
+      return { success: false, error: "Vous êtes déjà sur ce plan avec cette fréquence de facturation." };
+    }
+
+    // always_invoice : Stripe émet immédiatement une facture proratisée
+    // → upgrade : tente de débiter la différence immédiatement (peut nécessiter 3DS)
+    // → downgrade : émet un avoir créditeur appliqué à la prochaine facture (pas de débit)
+    await getStripe().subscriptions.update(existingSub.stripeSubscriptionId, {
+      items: [{ id: currentItem.id, price: priceId }],
+      proration_behavior: "always_invoice",
+      metadata: { societyId, planId },
+    });
+
+    // Vérifier le statut de la facture de prorata pour détecter un besoin d'authentification 3DS
+    const updatedSub = await getStripe().subscriptions.retrieve(existingSub.stripeSubscriptionId, {
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    type InvoiceWithPI = {
+      id: string;
+      status: string | null;
+      amount_due: number;
+      hosted_invoice_url: string | null;
+      payment_intent: {
+        status: string;
+        next_action?: { redirect_to_url?: { url?: string } } | null;
+      } | null;
+    };
+    const latestInvoice = updatedSub.latest_invoice as InvoiceWithPI | null;
+    const pi = latestInvoice?.payment_intent;
+
+    // Si la facture nécessite une authentification (3DS / SCA) → rediriger vers Stripe
+    if (pi && (pi.status === "requires_action" || pi.status === "requires_payment_method")) {
+      const paymentUrl = pi.next_action?.redirect_to_url?.url ?? latestInvoice?.hosted_invoice_url ?? null;
+      if (paymentUrl) {
+        return { success: true, data: { url: paymentUrl } };
+      }
+      return { success: false, error: "Une authentification bancaire est requise. Accédez à votre portail de facturation pour finaliser." };
+    }
+
+    // Paiement réussi (ou downgrade sans débit) → mettre à jour la DB
+    const updatedPriceId = updatedSub.items.data[0]?.price?.id ?? null;
+    const resolvedPlanId = (updatedPriceId ? planIdFromPriceId(updatedPriceId) : null) ?? planId;
+
+    const statusMap: Record<string, string> = {
+      trialing: "TRIALING", active: "ACTIVE", past_due: "PAST_DUE",
+      canceled: "CANCELED", unpaid: "UNPAID", incomplete: "INCOMPLETE",
+      incomplete_expired: "CANCELED", paused: "CANCELED",
+    };
+    const newStatus = statusMap[updatedSub.status] ?? "ACTIVE";
+
+    const item = updatedSub.items?.data?.[0];
+    const rawItem = item as unknown as Record<string, unknown>;
+    const periodEnd = typeof rawItem?.current_period_end === "number"
+      ? new Date(rawItem.current_period_end * 1000) : null;
+
+    await prisma.subscription.update({
+      where: { societyId },
+      data: {
+        planId: resolvedPlanId as "STARTER" | "PRO" | "ENTERPRISE",
+        stripePriceId: updatedPriceId,
+        status: newStatus as "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "UNPAID" | "INCOMPLETE",
+        currentPeriodEnd: periodEnd,
+      },
+    });
+
+    return { success: true, data: { updated: true } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[changeSubscriptionPlan]", error);
+    return { success: false, error: "Erreur lors du changement de plan" };
   }
 }
 

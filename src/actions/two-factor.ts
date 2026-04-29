@@ -19,6 +19,19 @@ import { createAuditLog } from "@/lib/audit";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { env } from "@/lib/env";
 
+export async function getTwoFactorStatus(): Promise<ActionResult<{ enabled: boolean }>> {
+  try {
+    const context = await requireAuthenticatedActionContext();
+    const user = await prisma.user.findUnique({
+      where: { id: context.userId },
+      select: { twoFactorEnabled: true },
+    });
+    return { success: true, data: { enabled: user?.twoFactorEnabled ?? false } };
+  } catch {
+    return { success: false, error: "Non authentifie" };
+  }
+}
+
 export async function initSetupTwoFactor(): Promise<ActionResult<{ qrCode: string; secret: string }>> {
   try {
     const context = await requireAuthenticatedActionContext();

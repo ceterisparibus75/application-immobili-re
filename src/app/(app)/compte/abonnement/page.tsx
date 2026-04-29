@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
-import { getSubscription, createCheckout, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
+import { getSubscription, changeSubscriptionPlan, openBillingPortal, cancelCurrentSubscription, forceSyncSubscription } from "@/actions/subscription";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, Star, ShieldCheck, RefreshCw, Loader2 } from "lucide-react";
+import { CreditCard, ExternalLink, AlertTriangle, Check, Crown, Building2, Users, Layers, ChevronRight, ChevronDown, Star, ShieldCheck, RefreshCw, Loader2, ArrowRight } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const PLAN_LABELS: Record<string, string> = {
@@ -93,6 +94,7 @@ export default function AbonnementPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [confirmPlan, setConfirmPlan] = useState<{ id: "STARTER" | "PRO" | "ENTERPRISE"; isUpgrade: boolean } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -134,15 +136,32 @@ export default function AbonnementPage() {
     setLoading(false);
   }
 
-  async function handleUpgrade(planId: "STARTER" | "PRO" | "ENTERPRISE") {
+  function handleChangePlan(planId: "STARTER" | "PRO" | "ENTERPRISE") {
+    const isUpgrade = (PLAN_ORDER[planId] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0);
+    // Si abonnement Stripe actif → demander confirmation avant d'appeler l'API
+    if (subscription?.hasStripeCustomer) {
+      setConfirmPlan({ id: planId, isUpgrade });
+    } else {
+      executeChangePlan(planId);
+    }
+  }
+
+  async function executeChangePlan(planId: "STARTER" | "PRO" | "ENTERPRISE") {
     if (!activeSociety?.id) return;
+    setConfirmPlan(null);
     setActionLoading(true);
     setUpgradeError(null);
-    const result = await createCheckout(activeSociety.id, planId, billingPeriod);
-    if (result.success && result.data?.url) {
-      window.location.href = result.data.url;
+    const result = await changeSubscriptionPlan(activeSociety.id, planId, billingPeriod);
+    if (result.success) {
+      if (result.data?.url) {
+        // Checkout ou authentification 3DS requise → redirection Stripe
+        window.location.href = result.data.url;
+      } else if (result.data?.updated) {
+        toast.success("Plan mis à jour avec succès ! Le prorata a été appliqué.");
+        await loadSubscription();
+      }
     } else {
-      const msg = result.error ?? "Erreur lors de la création du paiement. Vérifiez la configuration Stripe.";
+      const msg = result.error ?? "Erreur lors du changement de plan. Vérifiez la configuration Stripe.";
       setUpgradeError(msg);
       toast.error(msg);
     }
@@ -198,9 +217,66 @@ if (loading) {
   const isTrialing = subscription?.status === "TRIALING";
   const isCanceled = subscription?.status === "CANCELED";
   const currentPlanInfo = PLANS_INFO.find((p) => p.id === currentPlanId);
-  const hasHigherPlan = currentPlanId !== "ENTERPRISE";
+  const hasStripeSubscription = subscription?.hasStripeCustomer ?? false;
+  const PLAN_ORDER: Record<string, number> = { STARTER: 0, PRO: 1, ENTERPRISE: 2 };
+  // Afficher tous les autres plans si abonnement Stripe actif (upgrade + downgrade)
+  // Sinon, afficher seulement les plans supérieurs (première souscription)
+  const plansToShow = PLANS_INFO.filter((plan) => {
+    if (plan.id === currentPlanId) return false;
+    if (!hasStripeSubscription) {
+      return PLAN_ORDER[plan.id] > (PLAN_ORDER[currentPlanId] ?? 0);
+    }
+    return true;
+  });
+  const showPlanSection = plansToShow.length > 0 || (!hasStripeSubscription && currentPlanId !== "ENTERPRISE");
+
+  const confirmPlanInfo = confirmPlan ? PLANS_INFO.find((p) => p.id === confirmPlan.id) : null;
 
   return (
+    <>
+    {/* Modale de confirmation changement de plan */}
+    <Dialog open={!!confirmPlan} onOpenChange={(open) => { if (!open) setConfirmPlan(null); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {confirmPlan?.isUpgrade ? "Confirmer l'upgrade" : "Confirmer le downgrade"}
+          </DialogTitle>
+          <DialogDescription asChild>
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3 text-sm font-medium">
+                <span className="px-2 py-1 rounded bg-muted">{PLAN_LABELS[currentPlanId]}</span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <span className="px-2 py-1 rounded bg-primary/10 text-primary font-semibold">{confirmPlanInfo?.name}</span>
+              </div>
+              {confirmPlan?.isUpgrade ? (
+                <p className="text-sm text-muted-foreground">
+                  Stripe calculera automatiquement le <strong>prorata du mois en cours</strong> et débitera la différence sur votre moyen de paiement enregistré. Si une authentification bancaire (3D Secure) est requise, vous serez redirigé vers Stripe.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Stripe calculera automatiquement un <strong>avoir pour les jours restants</strong> sur votre plan actuel. Ce crédit sera déduit de votre prochaine facture. Le changement prend effet immédiatement.
+                </p>
+              )}
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => setConfirmPlan(null)} disabled={actionLoading}>
+            Annuler
+          </Button>
+          <Button
+            variant={confirmPlan?.isUpgrade ? "default" : "outline"}
+            onClick={() => confirmPlan && executeChangePlan(confirmPlan.id)}
+            disabled={actionLoading}
+          >
+            {actionLoading
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : confirmPlan?.isUpgrade ? "Confirmer l'upgrade" : "Confirmer le downgrade"
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <div className="space-y-8">
       {/* Plan actuel */}
       <Card className={isActive ? "border-[var(--color-status-positive)]/30" : ""}>
@@ -317,17 +393,17 @@ if (loading) {
         </CardContent>
       </Card>
 
-      {/* Section upgrade — uniquement si pas Enterprise */}
-      {hasHigherPlan && (
+      {/* Section changement de plan */}
+      {showPlanSection && (
         <div>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-semibold">
-                {isActive ? "Passer au plan supérieur" : "Choisir un plan"}
+                {hasStripeSubscription ? "Changer de plan" : isActive ? "Passer au plan supérieur" : "Choisir un plan"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {isActive
-                  ? "Débloquez plus de fonctionnalités et augmentez vos limites."
+                {hasStripeSubscription
+                  ? "Le changement est immédiat avec prorata. Upgrade : différence débitée aujourd'hui. Downgrade : avoir crédité sur votre prochaine facture."
                   : isTrialing
                     ? "14 jours d'essai gratuit. Sans engagement, sans carte bancaire."
                     : "Souscrivez un plan pour accéder à toutes les fonctionnalités."
@@ -355,25 +431,32 @@ if (loading) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-            {PLANS_INFO.filter((plan) => {
-              const planIndex = PLANS_INFO.findIndex((p) => p.id === plan.id);
-              const currentIndex = PLANS_INFO.findIndex((p) => p.id === currentPlanId);
-              return planIndex > currentIndex;
-            }).map((plan) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plansToShow.map((plan) => {
               const price = billingPeriod === "monthly" ? plan.priceMonthly : plan.priceYearly;
               const priceLabel = billingPeriod === "monthly" ? "/mois" : "/an";
+              const isUpgrade = (PLAN_ORDER[plan.id] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0);
+              const isDowngrade = (PLAN_ORDER[plan.id] ?? 0) < (PLAN_ORDER[currentPlanId] ?? 0);
 
               return (
                 <Card
                   key={plan.id}
                   className={`relative flex flex-col transition-all hover:shadow-lg ${
-                    plan.popular ? "border-primary shadow-lg ring-1 ring-primary" : "hover:border-primary/20"
+                    isDowngrade
+                      ? "border-muted opacity-90 hover:opacity-100"
+                      : plan.popular
+                        ? "border-primary shadow-lg ring-1 ring-primary"
+                        : "hover:border-primary/20"
                   }`}
                 >
-                  {plan.popular && (
+                  {plan.popular && !isDowngrade && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
                       <Star className="h-3 w-3" /> Recommandé
+                    </div>
+                  )}
+                  {isDowngrade && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-muted text-muted-foreground text-xs font-medium px-3 py-1 rounded-full border">
+                      Rétrograder
                     </div>
                   )}
                   <CardHeader className="pb-4">
@@ -401,7 +484,7 @@ if (loading) {
                     <ul className="space-y-2.5 flex-1 mb-6">
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          <Check className={`h-4 w-4 mt-0.5 shrink-0 ${isDowngrade ? "text-muted-foreground" : "text-primary"}`} />
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -414,14 +497,18 @@ if (loading) {
                       </p>
                     )}
                     <Button
-                      className={`w-full ${plan.popular ? "shadow-lg shadow-primary/25" : ""}`}
-                      variant={plan.popular ? "default" : "outline"}
-                      onClick={() => handleUpgrade(plan.id)}
+                      className={`w-full ${isDowngrade ? "" : plan.popular ? "shadow-lg shadow-primary/25" : ""}`}
+                      variant={isDowngrade ? "outline" : plan.popular ? "default" : "outline"}
+                      onClick={() => handleChangePlan(plan.id)}
                       disabled={actionLoading}
                     >
                       {actionLoading
                         ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <>Passer au plan {plan.name}<ChevronRight className="h-4 w-4 ml-1" /></>
+                        : isDowngrade
+                          ? <><ChevronDown className="h-4 w-4 mr-1" />Rétrograder vers {plan.name}</>
+                          : isUpgrade
+                            ? <>Passer au plan {plan.name}<ChevronRight className="h-4 w-4 ml-1" /></>
+                            : <>Souscrire au plan {plan.name}<ChevronRight className="h-4 w-4 ml-1" /></>
                       }
                     </Button>
                   </CardContent>
@@ -432,8 +519,8 @@ if (loading) {
         </div>
       )}
 
-      {/* Plan maximum atteint */}
-      {!hasHigherPlan && isActive && (
+      {/* Plan maximum atteint sans abonnement Stripe (pas de downgrade possible) */}
+      {currentPlanId === "ENTERPRISE" && !hasStripeSubscription && isActive && (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center">
             <Crown className="h-10 w-10 text-primary mx-auto mb-3" />
@@ -445,5 +532,6 @@ if (loading) {
         </Card>
       )}
     </div>
+    </>
   );
 }
