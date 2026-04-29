@@ -10,9 +10,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Plus, Loader2, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ArrowLeft, BookOpen, Check, Loader2, Plus, Upload } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useSociety } from "@/providers/society-provider";
+import { initDefaultChartOfAccounts } from "@/actions/accounting";
 
 type Account = {
   id: string;
@@ -39,6 +49,8 @@ export default function PlanComptablePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [showInitDialog, setShowInitDialog] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
     fetch("/api/comptabilite/accounts")
@@ -49,6 +61,21 @@ export default function PlanComptablePage() {
       })
       .catch(() => setIsLoading(false));
   }, []);
+
+  async function handleInitDefault() {
+    if (!activeSociety) return;
+    setIsInitializing(true);
+    const result = await initDefaultChartOfAccounts(activeSociety.id);
+    if (result.success && result.data) {
+      toast.success(`${result.data.created} comptes créés avec succès`);
+      const refreshed = await fetch("/api/comptabilite/accounts").then((r) => r.json());
+      setAccounts(Array.isArray(refreshed) ? refreshed : []);
+      setShowInitDialog(false);
+    } else {
+      toast.error(result.error ?? "Erreur lors de l'initialisation");
+    }
+    setIsInitializing(false);
+  }
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -176,13 +203,50 @@ export default function PlanComptablePage() {
           Chargement...
         </div>
       ) : accounts.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              Aucun compte dans le plan comptable.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-0 shadow-brand rounded-xl">
+            <CardContent className="py-12 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 mx-auto mb-4">
+                <BookOpen className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-base font-semibold mb-1">Aucun compte dans le plan comptable</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+                Commencez par initialiser un plan comptable pré-rempli adapté aux sociétés immobilières françaises (PCG), ou importez votre propre plan.
+              </p>
+              <div className="flex items-center justify-center gap-3 flex-wrap">
+                <Button onClick={() => setShowInitDialog(true)} className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white">
+                  <Check className="h-4 w-4" />
+                  Initialiser le plan comptable immobilier
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/comptabilite/plan-comptable/importer" className="gap-2">
+                    <Upload className="h-4 w-4" />
+                    Importer mon plan existant
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Le plan par défaut comprend 67 comptes :</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Classe 1 — Capitaux (capital, réserves, emprunts…)",
+                "Classe 2 — Immobilisations (terrains, bâtiments, amortissements…)",
+                "Classe 4 — Tiers (locataires, fournisseurs, TVA…)",
+                "Classe 5 — Financiers (banque, caisse)",
+                "Classe 6 — Charges (entretien, assurance, taxe foncière, intérêts…)",
+                "Classe 7 — Produits (loyers hab., commerciaux, parkings, APL…)",
+              ].map((item) => (
+                <span key={item} className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="space-y-4">
           {Object.keys(grouped)
@@ -212,6 +276,29 @@ export default function PlanComptablePage() {
             ))}
         </div>
       )}
+
+      <Dialog open={showInitDialog} onOpenChange={setShowInitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Initialiser le plan comptable immobilier</DialogTitle>
+            <DialogDescription>
+              67 comptes du Plan Comptable Général adaptés aux sociétés immobilières françaises vont être créés (classes 1, 2, 4, 5, 6 et 7).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
+            Cette action ne s&apos;applique qu&apos;aux plans vides. Si vous avez déjà un plan comptable propre, utilisez plutôt la fonction <strong>Importer</strong>.
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInitDialog(false)} disabled={isInitializing}>
+              Annuler
+            </Button>
+            <Button onClick={handleInitDefault} disabled={isInitializing} className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white">
+              {isInitializing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {isInitializing ? "Initialisation…" : "Confirmer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

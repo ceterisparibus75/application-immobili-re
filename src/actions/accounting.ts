@@ -637,3 +637,126 @@ export async function bulkImportJournalEntries(
     return { success: false, error: "Erreur lors de l'import" };
   }
 }
+
+// ─── Plan comptable immobilier par défaut ────────────────────────────────────
+
+const DEFAULT_REAL_ESTATE_ACCOUNTS: Array<{ code: string; label: string; type: string; accountType: string; sensNormal: string }> = [
+  // Classe 1 — Capitaux
+  { code: "101000", label: "Capital social", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "104000", label: "Primes liées au capital social", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "106000", label: "Réserves", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "110000", label: "Report à nouveau (solde créditeur)", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "119000", label: "Report à nouveau (solde débiteur)", type: "1", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "120000", label: "Résultat de l'exercice (bénéfice)", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "129000", label: "Résultat de l'exercice (perte)", type: "1", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "164000", label: "Emprunts auprès des établissements de crédit", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "165000", label: "Dépôts et cautionnements reçus", type: "1", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  // Classe 2 — Immobilisations
+  { code: "211000", label: "Terrains nus", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "212000", label: "Terrains aménagés", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "213100", label: "Immeubles d'habitation", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "213200", label: "Immeubles commerciaux", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "215700", label: "Équipements ménagers et électroménager", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "218000", label: "Matériel et mobilier", type: "2", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "281310", label: "Amortissements — Immeubles d'habitation", type: "2", accountType: "BILAN_ACTIF", sensNormal: "C" },
+  { code: "281320", label: "Amortissements — Immeubles commerciaux", type: "2", accountType: "BILAN_ACTIF", sensNormal: "C" },
+  // Classe 4 — Tiers
+  { code: "401000", label: "Fournisseurs", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "408000", label: "Fournisseurs — Factures non parvenues", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "411000", label: "Locataires", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "416000", label: "Locataires douteux ou litigieux", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "421000", label: "Personnel — Rémunérations dues", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "431000", label: "Sécurité sociale", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "441000", label: "État — Impôts sur bénéfices", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "445510", label: "TVA à décaisser", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "445620", label: "TVA déductible sur immobilisations", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "445660", label: "TVA déductible sur autres biens et services", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "445710", label: "TVA collectée", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "455000", label: "Associés — Comptes courants", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  { code: "467000", label: "Autres comptes débiteurs ou créditeurs", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "486000", label: "Charges constatées d'avance", type: "4", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "487000", label: "Produits constatés d'avance", type: "4", accountType: "BILAN_PASSIF", sensNormal: "C" },
+  // Classe 5 — Financiers
+  { code: "512000", label: "Banques", type: "5", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  { code: "530000", label: "Caisse", type: "5", accountType: "BILAN_ACTIF", sensNormal: "D" },
+  // Classe 6 — Charges
+  { code: "606100", label: "Énergie — Électricité parties communes", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "606120", label: "Eau — Parties communes", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "606130", label: "Gaz — Parties communes", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "606400", label: "Fournitures administratives et de bureau", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "611000", label: "Sous-traitance générale", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "613200", label: "Locations immobilières", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "614000", label: "Charges locatives récupérables", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "615100", label: "Entretien et réparations des bâtiments", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "615200", label: "Entretien et réparations du matériel", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "616100", label: "Assurance multirisque immeuble", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "616200", label: "Assurance loyers impayés", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "622600", label: "Honoraires (syndic, gestionnaire, expert-comptable)", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "622700", label: "Frais d'actes et de contentieux", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "623100", label: "Annonces et insertions (publicité location)", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "626000", label: "Frais postaux et de télécommunications", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "627000", label: "Services bancaires et assimilés", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "631000", label: "Impôts et taxes divers", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "635100", label: "Taxe foncière", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "635200", label: "Contribution économique territoriale (CET)", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "641000", label: "Rémunérations du personnel", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "645000", label: "Charges de sécurité sociale et de prévoyance", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "661100", label: "Intérêts des emprunts et dettes", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "671000", label: "Charges exceptionnelles sur opérations de gestion", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  { code: "681100", label: "Dotations aux amortissements des immobilisations", type: "6", accountType: "CHARGE", sensNormal: "D" },
+  // Classe 7 — Produits
+  { code: "706100", label: "Loyers — Locaux d'habitation", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "706200", label: "Loyers — Locaux commerciaux", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "706300", label: "Loyers — Parkings et garages", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "706400", label: "Loyers — Terrains et locaux divers", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "706500", label: "Refacturation de charges locatives", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "708500", label: "Pénalités et intérêts de retard locataires", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "754000", label: "Subventions et aides au logement (APL, ALS…)", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "762000", label: "Produits des participations financières", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "775000", label: "Produits des cessions d'éléments d'actif", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "781100", label: "Reprises sur amortissements des immobilisations", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+  { code: "791000", label: "Transferts de charges d'exploitation", type: "7", accountType: "PRODUIT", sensNormal: "C" },
+];
+
+export async function initDefaultChartOfAccounts(
+  societyId: string
+): Promise<ActionResult<{ created: number }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const existing = await prisma.accountingAccount.count({ where: { societyId } });
+    if (existing > 0) {
+      return { success: false, error: `Le plan comptable contient déjà ${existing} compte(s). Utilisez l'import pour ajouter des comptes.` };
+    }
+
+    const result = await prisma.accountingAccount.createMany({
+      data: DEFAULT_REAL_ESTATE_ACCOUNTS.map((a) => ({
+        societyId,
+        code: a.code,
+        label: a.label,
+        type: a.type,
+        accountType: a.accountType as never,
+        sensNormal: a.sensNormal as never,
+        isActive: true,
+      })),
+      skipDuplicates: true,
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "AccountingAccount",
+      entityId: societyId,
+      details: { action: "INIT_DEFAULT_CHART", created: result.count },
+    });
+
+    revalidatePath("/comptabilite/plan-comptable");
+    return { success: true, data: { created: result.count } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[initDefaultChartOfAccounts]", error);
+    return { success: false, error: "Erreur lors de l'initialisation du plan comptable" };
+  }
+}
