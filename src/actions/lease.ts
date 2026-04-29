@@ -580,7 +580,7 @@ export async function getLeaseFinancialSummary(societyId: string, leaseId: strin
     0
   );
   const totalImpaye = invoices
-    .filter((inv) => ["EN_RETARD", "RELANCEE", "LITIGIEUX", "EN_ATTENTE", "ENVOYEE", "PARTIELLEMENT_PAYE"].includes(inv.status))
+    .filter((inv) => ["VALIDEE", "EN_RETARD", "RELANCEE", "LITIGIEUX", "EN_ATTENTE", "ENVOYEE", "PARTIELLEMENT_PAYE"].includes(inv.status))
     .reduce((sum, inv) => {
       const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
       return sum + Math.max(0, inv.totalTTC - paid);
