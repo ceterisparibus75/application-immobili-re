@@ -325,7 +325,7 @@ export function TenantAccount({
                     />
                   </div>
                   <div>
-                    <Label>Montant du solde (€)</Label>
+                    <Label>Montant TTC du solde (€)</Label>
                     <Input
                       type="text"
                       inputMode="decimal"

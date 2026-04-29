@@ -686,6 +686,22 @@ describe("createManualDebit", () => {
       })
     );
   });
+
+  it("convertit l'ancien formulaire HT + TVA en solde TTC", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: "lease-1" } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 1780.38 } as never);
+
+    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, amount: "1483,65", vatRate: "20" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 1780.38,
+        }),
+      })
+    );
+  });
 });
 
 

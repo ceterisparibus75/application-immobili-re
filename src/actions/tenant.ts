@@ -971,18 +971,21 @@ export async function getTenantsForSelect(): Promise<{ id: string; name: string 
 // IMPORT DE SOLDE LOCATAIRE
 // ============================================================
 
-const frenchDecimal = z.preprocess(
-  (value) => typeof value === "string"
-    ? value.trim().replace(/\s/g, "").replace(",", ".")
-    : value,
-  z.coerce.number().finite("Le montant doit être un nombre valide")
-);
+function frenchDecimal(schema = z.coerce.number().finite("Le montant doit être un nombre valide")) {
+  return z.preprocess(
+    (value) => typeof value === "string"
+      ? value.trim().replace(/\s/g, "").replace(",", ".")
+      : value,
+    schema
+  );
+}
 
 const tenantBalanceAdjustmentSchema = z.object({
   tenantId: z.string().cuid(),
   label: z.string().min(1, "Le libellé est requis"),
-  amount: frenchDecimal.refine((amount) => amount !== 0, "Le montant doit être différent de zéro"),
+  amount: frenchDecimal().refine((amount) => amount !== 0, "Le montant doit être différent de zéro"),
   dueDate: z.string().min(1, "La date du solde est requise"),
+  vatRate: frenchDecimal(z.coerce.number().finite().min(0).max(100)).optional(),
   notes: z.string().optional(),
 });
 
@@ -1016,13 +1019,17 @@ export async function createTenantBalanceAdjustment(
       select: { id: true },
     });
 
+    const amount = parsed.data.vatRate === undefined
+      ? parsed.data.amount
+      : parsed.data.amount * (1 + parsed.data.vatRate / 100);
+
     const adjustment = await prisma.tenantBalanceAdjustment.create({
       data: {
         societyId,
         tenantId: parsed.data.tenantId,
         leaseId: activeLease?.id ?? null,
         label: parsed.data.label,
-        amount: Math.round(parsed.data.amount * 100) / 100,
+        amount: Math.round(amount * 100) / 100,
         dueDate: new Date(parsed.data.dueDate),
         notes: parsed.data.notes || null,
       },
