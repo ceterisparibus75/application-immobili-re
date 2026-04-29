@@ -11,6 +11,11 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
 import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { ExportFactures } from "@/components/exports/export-factures";
+import {
+  formatCurrencyAmountFr,
+  isIssuedInvoiceForBillingKpi,
+  sumInvoiceTotalTTC,
+} from "@/lib/invoice-kpis";
 
 export const metadata = { title: "Facturation" };
 
@@ -103,12 +108,11 @@ export default async function FacturationPage({ searchParams }: PageProps) {
     getRecentReminders(societyId),
   ]);
 
-  const enAttente = invoices.filter((i) => i.status === "EN_ATTENTE" && i.invoiceType !== "QUITTANCE");
-  const enRetard = invoices.filter((i) => i.status === "EN_RETARD" && i.invoiceType !== "QUITTANCE");
-  const totalTTC = invoices
-    .filter((i) => i.invoiceType !== "AVOIR")
-    .reduce((s, i) => s + i.totalTTC, 0);
-  const totalImpaye = [...enAttente, ...enRetard].reduce((s, i) => s + i.totalTTC, 0);
+  const issuedInvoices = invoices.filter(isIssuedInvoiceForBillingKpi);
+  const enAttente = issuedInvoices.filter((i) => i.status === "EN_ATTENTE");
+  const enRetard = issuedInvoices.filter((i) => i.status === "EN_RETARD");
+  const totalTTC = sumInvoiceTotalTTC(issuedInvoices);
+  const totalImpaye = sumInvoiceTotalTTC([...enAttente, ...enRetard]);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
   const remindersCount = reminders.filter((r) => r.isSent).length;
   const resolvedSearchParams = (await searchParams) ?? {};
@@ -159,8 +163,8 @@ export default async function FacturationPage({ searchParams }: PageProps) {
               <Euro className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums">{totalTTC.toLocaleString("fr-FR")} &euro;</p>
-              <p className="text-xs text-muted-foreground">Total TTC</p>
+              <p className="text-2xl font-bold tabular-nums">{formatCurrencyAmountFr(totalTTC)}</p>
+              <p className="text-xs text-muted-foreground">Total TTC facturé</p>
             </div>
           </div>
         </div>
@@ -170,7 +174,7 @@ export default async function FacturationPage({ searchParams }: PageProps) {
               <AlertTriangle className="h-5 w-5 text-[var(--color-status-caution)]" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{totalImpaye.toLocaleString("fr-FR")} &euro;</p>
+              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{formatCurrencyAmountFr(totalImpaye)}</p>
               <p className="text-xs text-muted-foreground">Impayés ({enAttente.length + enRetard.length})</p>
             </div>
           </div>
