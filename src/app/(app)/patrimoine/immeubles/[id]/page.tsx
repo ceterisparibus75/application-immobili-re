@@ -368,9 +368,9 @@ export default async function ImmeubleDetailPage({
                           {lot.number}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold">Lot {lot.number}</span>
-                            <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{LOT_TYPE_LABELS[lot.lotType]}</span>
+                          <div className="flex items-center gap-2 flex-nowrap">
+                            <span className="text-sm font-semibold whitespace-nowrap">Lot {lot.number}</span>
+                            <span className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted whitespace-nowrap">{LOT_TYPE_LABELS[lot.lotType]}</span>
                           </div>
                           {tenantName ? (
                             <div className="flex items-center gap-1.5 mt-0.5">
