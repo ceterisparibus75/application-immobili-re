@@ -49,12 +49,12 @@ const PERIODS = [
 ] as const;
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #E2E8F0",
+  backgroundColor: "var(--popover)",
+  border: "1px solid var(--border)",
   borderRadius: "12px",
   fontSize: "12px",
-  color: "#0C2340",
-  boxShadow: "0 8px 24px rgba(12, 35, 64, 0.10)",
+  color: "var(--popover-foreground)",
+  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
   padding: "12px 16px",
 };
 
@@ -120,7 +120,7 @@ export default function CashflowPage() {
                 onClick={() => setPeriod(p.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   period === p.value
-                    ? "bg-white text-[var(--color-brand-deep)] shadow-sm"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -147,7 +147,7 @@ export default function CashflowPage() {
       )}
 
       {!isPending && !data && !error && (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
+        <Card className="border-0 shadow-brand bg-card rounded-xl">
           <CardContent className="py-16 text-center">
             <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-muted-foreground">
@@ -161,7 +161,7 @@ export default function CashflowPage() {
         <>
           {/* ── KPIs ──────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-5 shadow-brand">
+            <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
                   <Landmark className="h-4 w-4 text-blue-600" />
@@ -178,7 +178,7 @@ export default function CashflowPage() {
               </Link>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-brand">
+            <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
                   <TrendingUp className="h-4 w-4 text-[var(--color-status-positive)]" />
@@ -191,7 +191,7 @@ export default function CashflowPage() {
               <p className="text-[10px] text-muted-foreground mt-1">sur 12 mois glissants</p>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-brand">
+            <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
                   <TrendingDown className="h-4 w-4 text-[var(--color-status-negative)]" />
@@ -204,7 +204,7 @@ export default function CashflowPage() {
               <p className="text-[10px] text-muted-foreground mt-1">sur 12 mois glissants</p>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-brand">
+            <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                   <Wallet className="h-4 w-4 text-indigo-600" />
@@ -254,7 +254,7 @@ export default function CashflowPage() {
           )}
 
           {/* ── Graphique évolution mensuelle ──────────────────────────── */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
                 Évolution mensuelle
@@ -273,9 +273,9 @@ export default function CashflowPage() {
                       <stop offset="100%" stopColor="#FCA5A5" />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} width={64} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={64} />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v, name) => {
@@ -287,7 +287,7 @@ export default function CashflowPage() {
                       };
                       return [formatCurrency(Number(v)), labels[String(name)] ?? String(name)];
                     }}
-                    cursor={{ fill: "#F0F9FF", opacity: 0.5 }}
+                    cursor={{ fill: "var(--accent)", opacity: 0.5 }}
                   />
                   <Legend formatter={(value: string) => {
                     const labels: Record<string, string> = {
@@ -351,7 +351,7 @@ function BreakdownCard({ title, subtitle, data, total, emptyMessage, monthCount,
   type: "expense" | "income";
 }) {
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
@@ -440,7 +440,7 @@ function MonthlyDetail({ data }: { data: CashflowDashboard }) {
   if (pastMonths.length === 0) return null;
 
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
           Détail mensuel
@@ -596,7 +596,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
 
   if (loading) {
     return (
-      <Card className="border-0 shadow-brand bg-white rounded-xl">
+      <Card className="border-0 shadow-brand bg-card rounded-xl">
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">Chargement…</span>
@@ -607,7 +607,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
 
   if (transactions.length === 0) {
     return (
-      <Card className="border-0 shadow-brand bg-white rounded-xl">
+      <Card className="border-0 shadow-brand bg-card rounded-xl">
         <CardContent className="py-12 text-center">
           <Check className="h-10 w-10 text-[var(--color-status-positive)] mx-auto mb-3" />
           <p className="font-semibold text-[var(--color-brand-deep)]">Toutes les transactions sont catégorisées</p>
@@ -618,7 +618,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
   }
 
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">

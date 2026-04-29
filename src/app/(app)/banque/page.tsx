@@ -56,7 +56,7 @@ export default async function BanquePage() {
       </div>
 
       {accounts.length === 0 ? (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
+        <Card className="border-0 shadow-brand bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
               <Landmark className="h-7 w-7 text-[var(--color-brand-blue)]" />
@@ -85,7 +85,7 @@ export default async function BanquePage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account) => (
             <Link key={account.id} href={`/banque/${account.id}`}>
-              <Card className="border-0 shadow-brand bg-white rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
+              <Card className="border-0 shadow-brand bg-card rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">{account.accountName}</CardTitle>

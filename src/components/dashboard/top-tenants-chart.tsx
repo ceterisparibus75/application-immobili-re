@@ -6,12 +6,12 @@ import {
 import type { TopTenant } from "@/actions/analytics";
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #E2E8F0",
+  backgroundColor: "var(--popover)",
+  border: "1px solid var(--border)",
   borderRadius: "8px",
   fontSize: "12px",
-  color: "#0C2340",
-  boxShadow: "0 4px 16px rgba(12, 35, 64, 0.08)",
+  color: "var(--popover-foreground)",
+  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
 };
 
 export function TopTenantsChart({ data }: { data: TopTenant[] }) {
@@ -36,11 +36,11 @@ export function TopTenantsChart({ data }: { data: TopTenant[] }) {
             <stop offset="100%" stopColor="#22B8CF" />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
         <XAxis
           type="number"
           tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)}
-          tick={{ fontSize: 11, fill: "#64748B" }}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           tickLine={false}
           axisLine={false}
         />
@@ -48,7 +48,7 @@ export function TopTenantsChart({ data }: { data: TopTenant[] }) {
           type="category"
           dataKey="name"
           width={100}
-          tick={{ fontSize: 11, fill: "#0C2340" }}
+          tick={{ fontSize: 11, fill: "var(--foreground)" }}
           tickLine={false}
           axisLine={false}
         />
@@ -58,7 +58,7 @@ export function TopTenantsChart({ data }: { data: TopTenant[] }) {
             `${Number(v ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} \u20AC`,
             "CA Total",
           ]}
-          cursor={{ fill: "#F0F9FF", opacity: 0.5 }}
+          cursor={{ fill: "var(--accent)", opacity: 0.5 }}
         />
         <Bar dataKey="total" fill="url(#tenantGrad)" radius={[0, 4, 4, 0]} maxBarSize={28} />
       </BarChart>

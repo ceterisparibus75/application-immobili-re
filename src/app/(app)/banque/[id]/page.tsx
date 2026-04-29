@@ -126,7 +126,7 @@ export default async function BankAccountDetailPage({
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-xs text-muted-foreground mb-1">Solde actuel</p>
           <p className={`text-2xl font-bold tabular-nums ${
             account.currentBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"
@@ -134,7 +134,7 @@ export default async function BankAccountDetailPage({
             {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
             <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-positive-bg)]">
               <TrendingUp className="h-3 w-3 text-[var(--color-status-positive)]" />
@@ -145,7 +145,7 @@ export default async function BankAccountDetailPage({
             +{credits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
             <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-negative-bg)]">
               <TrendingDown className="h-3 w-3 text-[var(--color-status-negative)]" />
@@ -156,7 +156,7 @@ export default async function BankAccountDetailPage({
             {debits.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <div className="flex items-center gap-2 mb-1">
             <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--color-status-caution-bg)]">
               <Clock className="h-3 w-3 text-[var(--color-status-caution)]" />
@@ -172,7 +172,7 @@ export default async function BankAccountDetailPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Transactions */}
         <div className="lg:col-span-2">
-          <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+          <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
                 Transactions récentes ({account.transactions.length})
@@ -184,13 +184,13 @@ export default async function BankAccountDetailPage({
                   Aucune transaction enregistrée
                 </p>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border/50">
                   {account.transactions.map((transaction) => {
                     const isCredit = transaction.amount >= 0;
                     return (
                       <div
                         key={transaction.id}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/50 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
                       >
                         {/* Icône direction */}
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
@@ -219,7 +219,7 @@ export default async function BankAccountDetailPage({
                               </span>
                             )}
                             {transaction.category && (
-                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-muted-foreground">
+                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                 {transaction.category}
                               </span>
                             )}
@@ -241,7 +241,7 @@ export default async function BankAccountDetailPage({
                         <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
                           {transaction.isReconciled
                             ? <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
-                            : <Clock className="h-4 w-4 text-gray-300" />
+                            : <Clock className="h-4 w-4 text-muted-foreground/40" />
                           }
                         </div>
                       </div>
@@ -255,7 +255,7 @@ export default async function BankAccountDetailPage({
 
         {/* Panneau latéral */}
         <div className="space-y-6">
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
                 <Plus className="h-4 w-4" />
@@ -272,7 +272,7 @@ export default async function BankAccountDetailPage({
 
           <ImportStatement bankAccountId={account.id} societyId={societyId} />
 
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
                 <Info className="h-4 w-4 text-[var(--color-brand-blue)]" />
@@ -280,15 +280,15 @@ export default async function BankAccountDetailPage({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
+              <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Banque</p>
                 <p className="text-sm font-medium text-[var(--color-brand-deep)]">{account.bankName}</p>
               </div>
-              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
+              <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">IBAN (masqué)</p>
                 <p className="text-sm font-mono text-[var(--color-brand-deep)]">{account.ibanMasked}</p>
               </div>
-              <div className="py-2 px-3 rounded-lg bg-gray-50/80">
+              <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Solde initial</p>
                 <p className="text-sm text-[var(--color-brand-deep)]">
                   {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
