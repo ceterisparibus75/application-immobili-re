@@ -21,6 +21,7 @@ import { getLogoProxyUrl } from "@/lib/utils";
 import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
+import { RefreshDraftButton } from "./_components/refresh-draft-button";
 import { SepaButton } from "./_components/sepa-button";
 import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
@@ -170,6 +171,9 @@ export default async function FactureDetailPage({
               missingSiret={!invoice.society?.siret}
               missingEmail={!invoice.society?.email}
             />
+          )}
+          {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
+            <RefreshDraftButton invoiceId={invoice.id} societyId={societyId} />
           )}
           {invoice.status !== "BROUILLON" && (
             <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />

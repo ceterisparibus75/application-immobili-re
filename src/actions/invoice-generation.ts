@@ -625,6 +625,211 @@ export async function generateBatchInvoices(
 }
 
 /**
+ * Actualise un brouillon d'appel de loyer avec les paramètres actuels du bail.
+ * Supprime et recrée les lignes ; met à jour les totaux.
+ */
+export async function refreshDraftInvoice(
+  societyId: string,
+  invoiceId: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: {
+        id: true,
+        status: true,
+        invoiceType: true,
+        leaseId: true,
+        periodStart: true,
+        periodEnd: true,
+      },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.status !== "BROUILLON") return { success: false, error: "Seuls les brouillons peuvent être actualisés" };
+    if (invoice.invoiceType !== "APPEL_LOYER") return { success: false, error: "Seuls les appels de loyer peuvent être actualisés" };
+    if (!invoice.leaseId) return { success: false, error: "Ce brouillon n'est pas associé à un bail" };
+    if (!invoice.periodStart) return { success: false, error: "Période de facturation manquante" };
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: invoice.leaseId, societyId },
+      select: {
+        id: true,
+        tenantId: true,
+        startDate: true,
+        paymentFrequency: true,
+        billingTerm: true,
+        currentRentHT: true,
+        vatApplicable: true,
+        vatRate: true,
+        rentFreeMonths: true,
+        progressiveRent: true,
+        rentSteps: {
+          orderBy: { position: "asc" as const },
+          select: { startDate: true, endDate: true, rentHT: true },
+        },
+        isThirdPartyManaged: true,
+        managementFeeType: true,
+        managementFeeValue: true,
+        managementFeeBasis: true,
+        managementFeeVatRate: true,
+        chargeProvisions: {
+          where: { isActive: true },
+          select: { monthlyAmount: true, vatRate: true, label: true },
+        },
+        lot: {
+          select: { number: true, building: { select: { name: true } } },
+        },
+      },
+    });
+    if (!lease) return { success: false, error: "Bail introuvable" };
+
+    const periodStart = new Date(invoice.periodStart);
+    const periodEnd = computePeriodDates(
+      `${periodStart.getFullYear()}-${String(periodStart.getMonth() + 1).padStart(2, "0")}`,
+      lease.paymentFrequency,
+    ).periodEnd;
+
+    let rentHT = computeRentForPeriod(
+      lease.startDate,
+      lease.currentRentHT,
+      lease.progressiveRent,
+      lease.rentFreeMonths ?? 0,
+      lease.rentSteps,
+    );
+
+    let prorataLabel = "";
+    const leaseStartDay = new Date(lease.startDate).getDate();
+    const isFirstPeriod =
+      periodStart.getFullYear() === new Date(lease.startDate).getFullYear() &&
+      periodStart.getMonth() === new Date(lease.startDate).getMonth();
+    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
+      const y = new Date(lease.startDate).getFullYear();
+      const m = new Date(lease.startDate).getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const daysRemaining = daysInMonth - leaseStartDay + 1;
+      rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
+      prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
+    }
+
+    const rfm = lease.rentFreeMonths ?? 0;
+    const rfmFrac = rfm - Math.floor(rfm);
+    if (rfmFrac > 0 && rentHT > 0) {
+      const leaseStartNorm = new Date(lease.startDate);
+      leaseStartNorm.setDate(1);
+      const monthsSinceLease =
+        (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
+        (periodStart.getMonth() - leaseStartNorm.getMonth());
+      if (monthsSinceLease === Math.floor(rfm)) {
+        const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
+        const freeDays = Math.round(rfmFrac * daysInMonth);
+        const paidDays = daysInMonth - freeDays;
+        rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
+        prorataLabel = prorataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+      }
+    }
+
+    const vatRate = lease.vatApplicable ? lease.vatRate : 0;
+    const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
+    const lotLabel = lease.lot ? `${lease.lot.building.name} – Lot ${lease.lot.number}` : "Lot non précisé";
+    const periodLabel = periodStart.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const freqMultiplier: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
+    const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
+
+    const revisionProrata = await buildRevisionProrataLines(lease.id, periodStart, periodEnd, vatRate, lotLabel, periodLabel);
+
+    const invoiceLines: Array<{
+      label: string; quantity: number; unitPrice: number;
+      vatRate: number; totalHT: number; totalVAT: number; totalTTC: number;
+    }> = [];
+
+    if (revisionProrata) {
+      invoiceLines.push(...revisionProrata.lines);
+      rentHT = revisionProrata.rentHT;
+    } else {
+      const rentVAT = rentHT * (vatRate / 100);
+      invoiceLines.push({
+        label: `Loyer ${lotLabel} — ${periodLabel}${prorataLabel}`,
+        quantity: 1, unitPrice: rentHT, vatRate,
+        totalHT: rentHT, totalVAT: rentVAT, totalTTC: rentHT + rentVAT,
+      });
+    }
+
+    for (const cp of lease.chargeProvisions) {
+      const ht = cp.monthlyAmount * mult;
+      const cpVatRate = cp.vatRate;
+      const vat = ht * (cpVatRate / 100);
+      invoiceLines.push({
+        label: `${cp.label} — ${periodLabel}`,
+        quantity: 1, unitPrice: ht, vatRate: cpVatRate,
+        totalHT: ht, totalVAT: vat, totalTTC: ht + vat,
+      });
+    }
+
+    const totalHT = invoiceLines.reduce((s, l) => s + l.totalHT, 0);
+    const totalVAT = invoiceLines.reduce((s, l) => s + l.totalVAT, 0);
+    const totalTTC = totalHT + totalVAT;
+
+    let managementFeeData: {
+      isThirdPartyManaged: boolean;
+      managementFeeHT?: number;
+      managementFeeVAT?: number;
+      managementFeeTTC?: number;
+      expectedNetAmount?: number;
+    } = { isThirdPartyManaged: false };
+
+    if (lease.isThirdPartyManaged) {
+      const chargesHT = lease.chargeProvisions.reduce((s, cp) => s + cp.monthlyAmount * mult, 0);
+      const fee = computeManagementFee(lease, rentHT, chargesHT, totalTTC);
+      if (fee.feeTTC > 0) {
+        managementFeeData = {
+          isThirdPartyManaged: true,
+          managementFeeHT: fee.feeHT,
+          managementFeeVAT: fee.feeVAT,
+          managementFeeTTC: fee.feeTTC,
+          expectedNetAmount: Math.round((totalTTC - fee.feeTTC) * 100) / 100,
+        };
+      }
+    }
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        issueDate,
+        dueDate,
+        periodEnd,
+        totalHT,
+        totalVAT,
+        totalTTC,
+        ...managementFeeData,
+        lines: { deleteMany: {}, create: invoiceLines },
+      },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { refreshed: true, totalTTC, leaseId: lease.id },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    revalidatePath(`/baux/${lease.id}`);
+
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[refreshDraftInvoice]", error);
+    return { success: false, error: "Erreur lors de l'actualisation du brouillon" };
+  }
+}
+
+/**
  * Émet un avoir annulant intégralement une facture d'origine.
  */
 export async function createCreditNote(
