@@ -40,8 +40,8 @@ export function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
         const y = CHART.top + plotHeight - (tick / max) * plotHeight;
         return (
           <g key={tick}>
-            <line x1={CHART.left} x2={CHART.width - CHART.right} y1={y} y2={y} stroke="#E2E8F0" strokeDasharray="3 3" />
-            <text x={CHART.left - 10} y={y + 4} textAnchor="end" className="fill-slate-500 text-[11px]">
+            <line x1={CHART.left} x2={CHART.width - CHART.right} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 3" />
+            <text x={CHART.left - 10} y={y + 4} textAnchor="end" fill="currentColor" className="text-muted-foreground text-[11px]">
               {formatAmount(tick)}
             </text>
           </g>
@@ -55,7 +55,7 @@ export function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
           <g key={item.month}>
             <title>{`${item.month}: ${item.revenue.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} \u20AC TTC`}</title>
             <rect x={x} y={y} width={barWidth} height={height} rx={4} fill="url(#revenueGrad)" />
-            <text x={x + barWidth / 2} y={CHART.height - 12} textAnchor="middle" className="fill-slate-500 text-[11px]">
+            <text x={x + barWidth / 2} y={CHART.height - 12} textAnchor="middle" fill="currentColor" className="text-muted-foreground text-[11px]">
               {item.month}
             </text>
           </g>

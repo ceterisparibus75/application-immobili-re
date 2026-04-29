@@ -33,7 +33,7 @@ function Row({
   badge?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50/80">
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/50">
       <span className="text-sm text-[var(--color-brand-deep)]">{label}</span>
       <div className="flex items-center gap-2">
         {typeof value === "string" || typeof value === "number" ? (
@@ -89,9 +89,9 @@ function Section({
   return (
     <details
       open
-      className="group border-t border-gray-100 first:border-t-0 pt-3 first:pt-0"
+      className="group border-t border-border first:border-t-0 pt-3 first:pt-0"
     >
-      <summary className="flex items-center justify-between cursor-pointer list-none select-none rounded px-0.5 py-1 -mx-0.5 hover:bg-gray-50/60 transition-colors">
+      <summary className="flex items-center justify-between cursor-pointer list-none select-none rounded px-0.5 py-1 -mx-0.5 hover:bg-accent/40 transition-colors">
         <div className="flex items-center gap-2">
           <h4
             className="text-[11px] font-semibold uppercase tracking-[0.1em] flex items-center gap-1.5"
@@ -144,7 +144,7 @@ export type TrackingKpis = {
 
 export function TrackingPanel({ kpis }: { kpis: TrackingKpis }) {
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader className="pb-3">
         <CardTitle
           className="text-base font-semibold"

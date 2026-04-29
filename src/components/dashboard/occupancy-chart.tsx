@@ -35,7 +35,7 @@ export function OccupancyChart({ data, globalRate }: Props) {
             <circle
               cx="48" cy="48" r={radius}
               fill="none"
-              stroke="#F1F5F9"
+              stroke="var(--border)"
               strokeWidth="8"
             />
             <circle
@@ -50,7 +50,7 @@ export function OccupancyChart({ data, globalRate }: Props) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-lg font-semibold tabular-nums leading-none text-[#0C2340]">{globalRate}%</span>
+            <span className="text-lg font-semibold tabular-nums leading-none text-foreground">{globalRate}%</span>
           </div>
         </div>
 
@@ -71,18 +71,18 @@ export function OccupancyChart({ data, globalRate }: Props) {
 
       {/* Détail par immeuble */}
       {data.length > 0 && (
-        <div className="space-y-2.5 pt-2 border-t border-gray-100">
+        <div className="space-y-2.5 pt-2 border-t border-border">
           {data.map((b) => {
             const total = b.occupied + b.vacant;
             return (
               <div key={b.name} className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium truncate max-w-[65%] text-[#0C2340]">{b.name}</span>
+                  <span className="text-xs font-medium truncate max-w-[65%] text-foreground">{b.name}</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {b.occupied}/{total} — <span className={b.rate >= 80 ? "text-[var(--color-status-positive)] font-semibold" : b.rate >= 50 ? "text-[var(--color-status-caution)] font-semibold" : "text-[var(--color-status-negative)] font-semibold"}>{b.rate}%</span>
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden flex">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex">
                   {b.occupied > 0 && (
                     <div
                       className="h-full bg-[var(--color-status-positive)] transition-all duration-300"

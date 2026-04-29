@@ -130,7 +130,7 @@ export async function TodayTasks({ societyId, societyIds }: { societyId?: string
   if (totalTasks === 0) return null;
 
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
@@ -152,13 +152,13 @@ export async function TodayTasks({ societyId, societyIds }: { societyId?: string
               <Link
                 key={inv.id}
                 href={`/facturation/${inv.id}`}
-                className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
+                className="flex items-center gap-3 text-sm hover:bg-accent/30 rounded-lg p-2.5 -mx-1 transition-colors group"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
                   <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-[#0C2340]">{tenantName(inv.lease?.tenant ?? null)}</p>
+                  <p className="font-medium truncate text-foreground">{tenantName(inv.lease?.tenant ?? null)}</p>
                   <p className="text-xs text-muted-foreground">
                     {inv.invoiceNumber} · {fmt(inv.totalTTC)}
                   </p>
@@ -185,13 +185,13 @@ export async function TodayTasks({ societyId, societyIds }: { societyId?: string
                 <Link
                   key={r.id}
                   href={`/baux/${r.lease.id}#loyer`}
-                  className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
+                  className="flex items-center gap-3 text-sm hover:bg-accent/30 rounded-lg p-2.5 -mx-1 transition-colors group"
                 >
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-50">
                     <TrendingUp className="h-3.5 w-3.5 text-purple-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-[#0C2340]">{tenantName(r.lease.tenant)}</p>
+                    <p className="font-medium truncate text-foreground">{tenantName(r.lease.tenant)}</p>
                     <p className="text-xs text-muted-foreground">
                       Nouveau loyer : {fmt(r.newRentHT)} HT · {isPast ? "depuis le" : "le"} {new Date(r.effectiveDate).toLocaleDateString("fr-FR")}
                     </p>
@@ -216,19 +216,19 @@ export async function TodayTasks({ societyId, societyIds }: { societyId?: string
               <Link
                 key={l.id}
                 href={`/baux/${l.id}`}
-                className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
+                className="flex items-center gap-3 text-sm hover:bg-accent/30 rounded-lg p-2.5 -mx-1 transition-colors group"
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F0F9FF]">
-                  <Calendar className="h-3.5 w-3.5 text-[#1B4F8A]" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-[#0C2340]">{tenantName(l.tenant)}</p>
+                  <p className="font-medium truncate text-foreground">{tenantName(l.tenant)}</p>
                   <p className="text-xs text-muted-foreground">
                     {l.lot?.building?.name ?? ""} · Lot {l.lot?.number} · Fin {new Date(l.endDate).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${daysUntil(l.endDate) <= 30 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-[#F0F9FF] text-[#1B4F8A]"}`}>
+                  <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${daysUntil(l.endDate) <= 30 ? "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]" : "bg-primary/10 text-primary"}`}>
                     J-{daysUntil(l.endDate)}
                   </span>
                   <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -246,13 +246,13 @@ export async function TodayTasks({ societyId, societyIds }: { societyId?: string
               <Link
                 key={d.id}
                 href={`/patrimoine/immeubles/${d.building.id}`}
-                className="flex items-center gap-3 text-sm hover:bg-gray-50 rounded-lg p-2.5 -mx-1 transition-colors group"
+                className="flex items-center gap-3 text-sm hover:bg-accent/30 rounded-lg p-2.5 -mx-1 transition-colors group"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-status-caution-bg)]">
                   <FileWarning className="h-3.5 w-3.5 text-[var(--color-status-caution)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-[#0C2340]">Diagnostic {d.type}</p>
+                  <p className="font-medium truncate text-foreground">Diagnostic {d.type}</p>
                   <p className="text-xs text-muted-foreground">{d.building.name} · dans {daysUntil(d.expiresAt!)} jour{daysUntil(d.expiresAt!) > 1 ? "s" : ""}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">

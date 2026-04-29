@@ -5,7 +5,7 @@ function DaysBadge({ days }: { days: number }) {
   if (days <= 0) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">Expiré</span>;
   if (days <= 30) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]">J-{days}</span>;
   if (days <= 90) return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">J-{days}</span>;
-  return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F0F9FF] text-[#1B4F8A]">J-{days}</span>;
+  return <span className="inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">J-{days}</span>;
 }
 
 export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
@@ -27,7 +27,7 @@ export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
         >
           <div className="flex items-center justify-between mb-1">
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate text-[#0C2340] group-hover:text-[#1B4F8A] transition-colors">
+              <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
                 {lease.tenantName}
               </p>
               <p className="text-xs text-muted-foreground truncate">{lease.lotRef}</p>
@@ -35,7 +35,7 @@ export function LeaseTimeline({ data }: { data: LeaseTimelineItem[] }) {
             <DaysBadge days={lease.daysRemaining} />
           </div>
           {/* Barre de progression du bail */}
-          <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
             <div
               className="absolute left-0 top-0 h-full rounded-full transition-all"
               style={{

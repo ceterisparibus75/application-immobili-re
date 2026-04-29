@@ -54,8 +54,8 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
         const y = CHART.top + plotHeight - ((tick - min) / range) * plotHeight;
         return (
           <g key={tick}>
-            <line x1={CHART.left} x2={CHART.width - CHART.right} y1={y} y2={y} stroke="#E2E8F0" strokeDasharray="3 3" />
-            <text x={CHART.left - 8} y={y + 4} textAnchor="end" className="fill-slate-500 text-[11px]">
+            <line x1={CHART.left} x2={CHART.width - CHART.right} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 3" />
+            <text x={CHART.left - 8} y={y + 4} textAnchor="end" fill="currentColor" className="text-muted-foreground text-[11px]">
               {formatValue(tick)}
             </text>
           </g>
@@ -67,7 +67,7 @@ export function PatrimonyChart({ data }: { data: PatrimonyPoint[] }) {
         <g key={point.date}>
           <title>{`${point.date}: ${formatValue(point.value)}`}</title>
           <circle cx={point.x} cy={point.y} r="3" fill="#1B4F8A" />
-          <text x={point.x} y={CHART.height - 10} textAnchor="middle" className="fill-slate-500 text-[11px]">
+          <text x={point.x} y={CHART.height - 10} textAnchor="middle" fill="currentColor" className="text-muted-foreground text-[11px]">
             {point.date}
           </text>
         </g>
