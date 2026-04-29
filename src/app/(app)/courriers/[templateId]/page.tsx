@@ -37,7 +37,12 @@ export default function GenerateLetterPage() {
 
   const template = BUILTIN_TEMPLATES.find((t) => t.id === templateId);
 
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    if (!template) return {};
+    return Object.fromEntries(
+      template.variables.filter((v) => v.defaultValue).map((v) => [v.key, v.defaultValue!])
+    );
+  });
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +144,7 @@ export default function GenerateLetterPage() {
             case "lease_end": if (d.leaseEnd) newValues[v.key] = d.leaseEnd; break;
             case "rent_amount": if (d.rentAmount) newValues[v.key] = d.rentAmount; break;
             case "charges_amount": if (d.chargesAmount) newValues[v.key] = d.chargesAmount; break;
+            case "destination_bien": newValues[v.key] = d.destinationBien ?? "logement"; break;
           }
         }
         setValues(newValues);
@@ -460,7 +466,7 @@ export default function GenerateLetterPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {template.variables.map((v) => {
-                const isTenantField = ["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount"].includes(v.autoFill ?? "");
+                const isTenantField = ["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount", "destination_bien"].includes(v.autoFill ?? "");
                 const disabledInBuilding = sendMode === "building" && isTenantField;
 
                 return (
@@ -636,7 +642,7 @@ export default function GenerateLetterPage() {
 
 /** Prévisualise le HTML en remplaçant les variables par les valeurs saisies ou des placeholders */
 function previewHtml(bodyHtml: string, values: Record<string, string>, isBuildingMode: boolean): string {
-  const tenantKeys = ["LOCATAIRE_NOM", "LOCATAIRE_ADRESSE", "ADRESSE_LOT", "DATE_DEBUT_BAIL", "DATE_FIN_BAIL", "MONTANT_LOYER", "MONTANT_CHARGES"];
+  const tenantKeys = ["LOCATAIRE_NOM", "LOCATAIRE_ADRESSE", "ADRESSE_LOT", "DATE_DEBUT_BAIL", "DATE_FIN_BAIL", "MONTANT_LOYER", "MONTANT_CHARGES", "DESTINATION_BIEN"];
   return bodyHtml.replace(/\{\{(\w+)\}\}/g, (_, key) => {
     if (isBuildingMode && tenantKeys.includes(key)) {
       return `<span class="text-muted-foreground italic">[par locataire]</span>`;

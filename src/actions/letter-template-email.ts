@@ -237,7 +237,7 @@ export async function sendLetterToBuilding(
         const values: Record<string, string> = { ...input.commonValues };
         if (autoFillData) {
           for (const v of templateVariables) {
-            if (values[v.key] && !["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount"].includes(v.autoFill ?? "")) {
+            if (values[v.key] && !["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount", "destination_bien"].includes(v.autoFill ?? "")) {
               continue; // Garder les valeurs communes déjà saisies (bailleur, date, lieu…)
             }
             switch (v.autoFill) {
@@ -252,6 +252,7 @@ export async function sendLetterToBuilding(
               case "lease_end": if (autoFillData.leaseEnd) values[v.key] = autoFillData.leaseEnd; break;
               case "rent_amount": if (autoFillData.rentAmount) values[v.key] = autoFillData.rentAmount; break;
               case "charges_amount": if (autoFillData.chargesAmount) values[v.key] = autoFillData.chargesAmount; break;
+              case "destination_bien": values[v.key] = autoFillData.destinationBien ?? "logement"; break;
             }
           }
         }

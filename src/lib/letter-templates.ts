@@ -18,8 +18,9 @@ export interface LetterVariable {
   label: string;
   type: "text" | "date" | "currency" | "number" | "textarea";
   required: boolean;
-  autoFill?: "society_name" | "society_address" | "society_siret" | "today" | "tenant_name" | "tenant_address" | "lot_address" | "lease_start" | "lease_end" | "rent_amount" | "charges_amount";
+  autoFill?: "society_name" | "society_address" | "society_siret" | "today" | "tenant_name" | "tenant_address" | "lot_address" | "lease_start" | "lease_end" | "rent_amount" | "charges_amount" | "destination_bien";
   placeholder?: string;
+  defaultValue?: string;
 }
 
 export type LetterCategory =
@@ -48,6 +49,7 @@ const VAR_LOCATAIRE_ADRESSE: LetterVariable = { key: "LOCATAIRE_ADRESSE", label:
 const VAR_BIEN_ADRESSE: LetterVariable = { key: "BIEN_ADRESSE", label: "Adresse du bien", type: "text", required: true, autoFill: "lot_address" };
 const VAR_DATE: LetterVariable = { key: "DATE", label: "Date du courrier", type: "date", required: true, autoFill: "today" };
 const VAR_LIEU: LetterVariable = { key: "LIEU", label: "Lieu", type: "text", required: true, placeholder: "Paris" };
+const VAR_DESTINATION_BIEN: LetterVariable = { key: "DESTINATION_BIEN", label: "Type de bien", type: "text", required: false, autoFill: "destination_bien", defaultValue: "logement", placeholder: "logement" };
 
 // ── Modèles prédéfinis ──────────────────────────────────────────
 
@@ -60,7 +62,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "loyer",
     subject: "Quittance de loyer",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "PERIODE", label: "Période (ex: mars 2026)", type: "text", required: true, placeholder: "mars 2026" },
       { key: "LOYER_MONTANT", label: "Montant du loyer (hors charges)", type: "currency", required: true, autoFill: "rent_amount" },
       { key: "CHARGES_MONTANT", label: "Montant des charges", type: "currency", required: true, autoFill: "charges_amount" },
@@ -68,7 +70,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
       { key: "DATE_PAIEMENT", label: "Date du paiement", type: "date", required: true },
     ],
     bodyHtml: `<p><strong>QUITTANCE DE LOYER</strong></p>
-<p>Je soussigné(e) {{BAILLEUR_NOM}}, bailleur du logement situé au {{BIEN_ADRESSE}}, déclare avoir reçu de {{LOCATAIRE_NOM}} la somme de {{TOTAL_MONTANT}} au titre du loyer et des charges pour la période de {{PERIODE}}, et lui en donne quittance, sous réserve de tous mes droits.</p>
+<p>Je soussigné(e) {{BAILLEUR_NOM}}, bailleur du {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}}, déclare avoir reçu de {{LOCATAIRE_NOM}} la somme de {{TOTAL_MONTANT}} au titre du loyer et des charges pour la période de {{PERIODE}}, et lui en donne quittance, sous réserve de tous mes droits.</p>
 <p><strong>Détail du règlement :</strong></p>
 <ul>
 <li>Loyer : {{LOYER_MONTANT}}</li>
@@ -85,14 +87,14 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "loyer",
     subject: "Rappel amiable - Loyer impayé",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "PERIODE_IMPAYEE", label: "Période impayée", type: "text", required: true, placeholder: "mars 2026" },
       { key: "MONTANT_DU", label: "Montant dû", type: "currency", required: true },
       { key: "DATE_ECHEANCE", label: "Date d'échéance initiale", type: "date", required: true },
     ],
     bodyHtml: `<p>Objet : Rappel amiable — Loyer impayé</p>
 <p>Madame, Monsieur,</p>
-<p>Sauf erreur de ma part, je constate que le loyer de {{PERIODE_IMPAYEE}} d'un montant de {{MONTANT_DU}}, exigible au {{DATE_ECHEANCE}}, n'a pas été réglé à ce jour pour le logement situé au {{BIEN_ADRESSE}}.</p>
+<p>Sauf erreur de ma part, je constate que le loyer de {{PERIODE_IMPAYEE}} d'un montant de {{MONTANT_DU}}, exigible au {{DATE_ECHEANCE}}, n'a pas été réglé à ce jour pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}}.</p>
 <p>Il s'agit certainement d'un oubli de votre part. Je vous serais reconnaissant(e) de bien vouloir procéder au règlement de cette somme dans les plus brefs délais.</p>
 <p>Si toutefois vous rencontrez des difficultés passagères, je vous invite à prendre contact avec moi afin que nous puissions trouver ensemble une solution amiable.</p>
 <p>Si ce règlement a été effectué entre-temps, je vous prie de ne pas tenir compte de ce courrier.</p>
@@ -105,7 +107,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "loyer",
     subject: "Relance formelle - Loyer impayé",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "MONTANT_TOTAL_DU", label: "Montant total dû", type: "currency", required: true },
       { key: "PERIODES_IMPAYEES", label: "Périodes impayées", type: "text", required: true, placeholder: "février et mars 2026" },
       { key: "DELAI_JOURS", label: "Délai accordé (jours)", type: "number", required: true, placeholder: "8" },
@@ -113,7 +115,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     bodyHtml: `<p>Objet : Relance formelle — Loyer impayé</p>
 <p><strong>Lettre recommandée avec accusé de réception</strong></p>
 <p>Madame, Monsieur,</p>
-<p>Malgré mon précédent courrier, je constate que votre dette locative pour le logement situé au {{BIEN_ADRESSE}} reste impayée.</p>
+<p>Malgré mon précédent courrier, je constate que votre dette locative pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}} reste impayée.</p>
 <p>À ce jour, le montant total de votre dette s'élève à {{MONTANT_TOTAL_DU}} correspondant aux loyers et charges de {{PERIODES_IMPAYEES}}.</p>
 <p>Je vous demande de régulariser cette situation dans un délai de {{DELAI_JOURS}} jours à compter de la réception de ce courrier.</p>
 <p>À défaut de règlement dans le délai imparti, je me verrai dans l'obligation d'engager une procédure de mise en demeure, conformément aux dispositions légales en vigueur.</p>
@@ -126,7 +128,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "loyer",
     subject: "Mise en demeure de payer",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "MONTANT_TOTAL_DU", label: "Montant total dû", type: "currency", required: true },
       { key: "PERIODES_IMPAYEES", label: "Détail des périodes", type: "textarea", required: true, placeholder: "Janvier 2026 : 850 EUR\nFévrier 2026 : 850 EUR" },
       { key: "DELAI_JOURS", label: "Délai ultime (jours)", type: "number", required: true, placeholder: "8" },
@@ -134,7 +136,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     bodyHtml: `<p>Objet : <strong>MISE EN DEMEURE DE PAYER</strong></p>
 <p><strong>Lettre recommandée avec accusé de réception</strong></p>
 <p>Madame, Monsieur,</p>
-<p>Par la présente, je vous mets en demeure de régler, dans un délai de {{DELAI_JOURS}} jours à compter de la réception de ce courrier, la somme de {{MONTANT_TOTAL_DU}} au titre des loyers et charges impayés pour le logement situé au {{BIEN_ADRESSE}}.</p>
+<p>Par la présente, je vous mets en demeure de régler, dans un délai de {{DELAI_JOURS}} jours à compter de la réception de ce courrier, la somme de {{MONTANT_TOTAL_DU}} au titre des loyers et charges impayés pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}}.</p>
 <p><strong>Détail de la dette :</strong></p>
 <p>{{PERIODES_IMPAYEES}}</p>
 <p>Je vous rappelle que conformément aux articles 7 et 24 de la loi n°89-462 du 6 juillet 1989, le paiement du loyer et des charges constitue une obligation essentielle du locataire.</p>
@@ -151,7 +153,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "bail",
     subject: "Révision annuelle du loyer",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "DATE_BAIL", label: "Date de signature du bail", type: "date", required: true, autoFill: "lease_start" },
       { key: "ANCIEN_LOYER", label: "Ancien loyer mensuel", type: "currency", required: true },
       { key: "NOUVEAU_LOYER", label: "Nouveau loyer mensuel", type: "currency", required: true },
@@ -161,7 +163,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     ],
     bodyHtml: `<p>Objet : Notification de révision de loyer</p>
 <p>Madame, Monsieur,</p>
-<p>Conformément à l'article 17-1 de la loi n°89-462 du 6 juillet 1989 et aux stipulations de votre contrat de location signé le {{DATE_BAIL}} pour le logement situé au {{BIEN_ADRESSE}}, j'ai l'honneur de vous informer de la révision annuelle de votre loyer.</p>
+<p>Conformément à l'article 17-1 de la loi n°89-462 du 6 juillet 1989 et aux stipulations de votre contrat de location signé le {{DATE_BAIL}} pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}}, j'ai l'honneur de vous informer de la révision annuelle de votre loyer.</p>
 <p><strong>Calcul de la révision :</strong></p>
 <ul>
 <li>Loyer actuel : {{ANCIEN_LOYER}}</li>
@@ -180,7 +182,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "bail",
     subject: "Congé pour vente",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "DATE_FIN_BAIL", label: "Date de fin du bail", type: "date", required: true, autoFill: "lease_end" },
       { key: "PRIX_VENTE", label: "Prix de vente proposé", type: "currency", required: true },
       { key: "SURFACE", label: "Surface du bien (m2)", type: "number", required: true },
@@ -189,7 +191,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     bodyHtml: `<p>Objet : <strong>Congé pour vente — Article 15-II de la loi du 6 juillet 1989</strong></p>
 <p><strong>Lettre recommandée avec accusé de réception</strong></p>
 <p>Madame, Monsieur,</p>
-<p>Par la présente, je vous notifie mon intention de vendre le logement que vous occupez situé au {{BIEN_ADRESSE}}, conformément à l'article 15-II de la loi n°89-462 du 6 juillet 1989.</p>
+<p>Par la présente, je vous notifie mon intention de vendre le {{DESTINATION_BIEN}} que vous occupez situé au {{BIEN_ADRESSE}}, conformément à l'article 15-II de la loi n°89-462 du 6 juillet 1989.</p>
 <p>Votre bail arrivant à échéance le {{DATE_FIN_BAIL}}, le présent congé prendra effet à cette date.</p>
 <p><strong>Description du bien :</strong></p>
 <ul>
@@ -198,7 +200,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
 <li>Nombre de pièces principales : {{NOMBRE_PIECES}}</li>
 </ul>
 <p><strong>Conformément à la loi, vous bénéficiez d'un droit de préemption.</strong> Le prix de vente proposé est de {{PRIX_VENTE}}. Vous disposez d'un délai de deux mois à compter de la réception de ce congé pour vous porter acquéreur aux conditions indiquées.</p>
-<p>Si vous ne souhaitez pas acquérir le logement, vous devrez le libérer au plus tard le {{DATE_FIN_BAIL}}.</p>
+<p>Si vous ne souhaitez pas acquérir le {{DESTINATION_BIEN}}, vous devrez le libérer au plus tard le {{DATE_FIN_BAIL}}.</p>
 <p>Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.</p>`,
   },
   {
@@ -208,7 +210,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "bail",
     subject: "Congé pour reprise personnelle",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "DATE_FIN_BAIL", label: "Date de fin du bail", type: "date", required: true, autoFill: "lease_end" },
       { key: "BENEFICIAIRE_NOM", label: "Nom du bénéficiaire de la reprise", type: "text", required: true },
       { key: "BENEFICIAIRE_LIEN", label: "Lien de parenté", type: "text", required: true, placeholder: "fils, conjoint, etc." },
@@ -216,8 +218,8 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     bodyHtml: `<p>Objet : <strong>Congé pour reprise — Article 15-I de la loi du 6 juillet 1989</strong></p>
 <p><strong>Lettre recommandée avec accusé de réception</strong></p>
 <p>Madame, Monsieur,</p>
-<p>Par la présente, je vous notifie mon intention de reprendre le logement que vous occupez situé au {{BIEN_ADRESSE}}, conformément à l'article 15-I de la loi n°89-462 du 6 juillet 1989.</p>
-<p>Le logement est destiné à l'usage d'habitation principale de {{BENEFICIAIRE_NOM}} ({{BENEFICIAIRE_LIEN}}).</p>
+<p>Par la présente, je vous notifie mon intention de reprendre le {{DESTINATION_BIEN}} que vous occupez situé au {{BIEN_ADRESSE}}, conformément à l'article 15-I de la loi n°89-462 du 6 juillet 1989.</p>
+<p>Le {{DESTINATION_BIEN}} est destiné à l'usage de {{BENEFICIAIRE_NOM}} ({{BENEFICIAIRE_LIEN}}).</p>
 <p>Votre bail arrivant à échéance le {{DATE_FIN_BAIL}}, le présent congé prendra effet à cette date. Vous devrez libérer les lieux au plus tard à cette date.</p>
 <p>Conformément à la loi, ce congé vous est notifié au moins six mois avant la date d'échéance de votre bail.</p>
 <p>Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.</p>`,
@@ -229,14 +231,14 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "bail",
     subject: "Renouvellement du bail de location",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "DATE_FIN_BAIL", label: "Date de fin du bail actuel", type: "date", required: true, autoFill: "lease_end" },
       { key: "DUREE_RENOUVELLEMENT", label: "Durée du renouvellement (années)", type: "number", required: true, placeholder: "3" },
       { key: "NOUVEAU_LOYER", label: "Nouveau loyer proposé", type: "currency", required: false },
     ],
     bodyHtml: `<p>Objet : Proposition de renouvellement du bail</p>
 <p>Madame, Monsieur,</p>
-<p>Votre bail de location pour le logement situé au {{BIEN_ADRESSE}} arrive à échéance le {{DATE_FIN_BAIL}}.</p>
+<p>Votre bail de location pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}} arrive à échéance le {{DATE_FIN_BAIL}}.</p>
 <p>J'ai le plaisir de vous proposer le renouvellement de votre bail pour une durée de {{DUREE_RENOUVELLEMENT}} an(s) à compter de la date d'échéance.</p>
 <p>Les conditions du bail restent inchangées, à l'exception le cas échéant du montant du loyer qui serait fixé à {{NOUVEAU_LOYER}} conformément aux dispositions légales en vigueur.</p>
 <p>Je vous serais reconnaissant(e) de bien vouloir me faire part de votre décision dans les meilleurs délais.</p>
@@ -251,7 +253,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "charges",
     subject: "Régularisation annuelle des charges locatives",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "ANNEE", label: "Année de régularisation", type: "text", required: true, placeholder: "2025" },
       { key: "PROVISIONS_VERSEES", label: "Total des provisions versées", type: "currency", required: true },
       { key: "CHARGES_REELLES", label: "Total des charges réelles", type: "currency", required: true },
@@ -259,7 +261,7 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     ],
     bodyHtml: `<p>Objet : Régularisation des charges locatives — Année {{ANNEE}}</p>
 <p>Madame, Monsieur,</p>
-<p>Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, je procède à la régularisation annuelle des charges locatives pour le logement situé au {{BIEN_ADRESSE}}.</p>
+<p>Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, je procède à la régularisation annuelle des charges locatives pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}}.</p>
 <p><strong>Récapitulatif :</strong></p>
 <ul>
 <li>Total des provisions versées : {{PROVISIONS_VERSEES}}</li>
@@ -278,14 +280,14 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "travaux",
     subject: "Avis de travaux",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "NATURE_TRAVAUX", label: "Nature des travaux", type: "textarea", required: true, placeholder: "Remplacement de la chaudière collective" },
       { key: "DATE_DEBUT", label: "Date de début des travaux", type: "date", required: true },
       { key: "DUREE_ESTIMEE", label: "Durée estimée", type: "text", required: true, placeholder: "2 semaines" },
     ],
     bodyHtml: `<p>Objet : Avis de travaux</p>
 <p>Madame, Monsieur,</p>
-<p>Je vous informe que des travaux vont être réalisés dans le logement/l'immeuble situé au {{BIEN_ADRESSE}}.</p>
+<p>Je vous informe que des travaux vont être réalisés dans le {{DESTINATION_BIEN}}/l'immeuble situé au {{BIEN_ADRESSE}}.</p>
 <p><strong>Nature des travaux :</strong> {{NATURE_TRAVAUX}}</p>
 <p><strong>Date de début :</strong> {{DATE_DEBUT}}</p>
 <p><strong>Durée estimée :</strong> {{DUREE_ESTIMEE}}</p>
@@ -320,13 +322,13 @@ export const BUILTIN_TEMPLATES: LetterTemplateDefinition[] = [
     category: "assurance",
     subject: "Demande d'attestation d'assurance habitation",
     variables: [
-      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DATE, VAR_LIEU,
+      VAR_BAILLEUR_NOM, VAR_BAILLEUR_ADRESSE, VAR_LOCATAIRE_NOM, VAR_LOCATAIRE_ADRESSE, VAR_BIEN_ADRESSE, VAR_DESTINATION_BIEN, VAR_DATE, VAR_LIEU,
       { key: "DATE_LIMITE", label: "Date limite de transmission", type: "date", required: true },
     ],
     bodyHtml: `<p>Objet : Demande d'attestation d'assurance habitation</p>
 <p>Madame, Monsieur,</p>
 <p>Conformément à l'article 7g de la loi n°89-462 du 6 juillet 1989, le locataire est tenu de s'assurer contre les risques locatifs (incendie, dégât des eaux, explosion) et de justifier de cette assurance lors de la remise des clés puis chaque année à la demande du bailleur.</p>
-<p>Je vous demande de bien vouloir me transmettre votre attestation d'assurance habitation en cours de validité pour le logement situé au {{BIEN_ADRESSE}} avant le {{DATE_LIMITE}}.</p>
+<p>Je vous demande de bien vouloir me transmettre votre attestation d'assurance habitation en cours de validité pour le {{DESTINATION_BIEN}} situé au {{BIEN_ADRESSE}} avant le {{DATE_LIMITE}}.</p>
 <p>À défaut de justification dans un délai d'un mois suivant la réception de ce courrier, je me réserve le droit de résilier le bail conformément aux dispositions légales, ou de souscrire une assurance pour votre compte dont le montant vous sera refacturé.</p>
 <p>Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.</p>`,
   },
@@ -399,5 +401,7 @@ export function interpolateTemplate(bodyHtml: string, values: Record<string, str
   for (const [key, value] of Object.entries(values)) {
     result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }
+  // Remplacer les variables non renseignées par leur valeur par défaut connue
+  result = result.replace(/\{\{DESTINATION_BIEN\}\}/g, "logement");
   return result;
 }

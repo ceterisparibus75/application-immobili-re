@@ -175,6 +175,23 @@ export async function getLetterTemplates(
 
 // ── Auto-remplissage des variables depuis les données ───────────
 
+const DESTINATION_LABELS: Record<string, string> = {
+  HABITATION: "logement",
+  BUREAU: "bureau",
+  COMMERCE: "local commercial",
+  ACTIVITE: "local d'activité",
+  ENTREPOT: "entrepôt",
+  INDUSTRIEL: "local industriel",
+  PROFESSIONNEL: "local professionnel",
+  MIXTE: "locaux mixtes",
+  PARKING: "parking/garage",
+  TERRAIN: "terrain",
+  AGRICOLE: "exploitation agricole",
+  HOTELLERIE: "local hôtelier",
+  EQUIPEMENT: "local d'équipement",
+  AUTRE: "bien immobilier",
+};
+
 interface AutoFillData {
   societyName: string;
   societyAddress: string;
@@ -186,6 +203,7 @@ interface AutoFillData {
   leaseEnd?: string;
   rentAmount?: string;
   chargesAmount?: string;
+  destinationBien?: string;
 }
 
 export async function getAutoFillData(
@@ -214,7 +232,7 @@ export async function getAutoFillData(
       const lease = await prisma.lease.findFirst({
         where: { id: leaseId, societyId },
         select: {
-          startDate: true, endDate: true, currentRentHT: true,
+          startDate: true, endDate: true, currentRentHT: true, destination: true,
           tenant: {
             select: {
               entityType: true,
@@ -240,6 +258,7 @@ export async function getAutoFillData(
         data.rentAmount = formatCurrency(lease.currentRentHT);
         const totalCharges = lease.chargeProvisions.reduce((sum, cp) => sum + cp.monthlyAmount, 0);
         data.chargesAmount = formatCurrency(totalCharges);
+        if (lease.destination) data.destinationBien = DESTINATION_LABELS[lease.destination] ?? "logement";
       }
     } else if (tenantId) {
       const tenant = await prisma.tenant.findFirst({
@@ -262,7 +281,7 @@ export async function getAutoFillData(
       const activeLease = await prisma.lease.findFirst({
         where: { tenantId, societyId, status: "EN_COURS", deletedAt: null },
         select: {
-          startDate: true, endDate: true, currentRentHT: true,
+          startDate: true, endDate: true, currentRentHT: true, destination: true,
           lot: { select: { building: { select: { addressLine1: true, city: true, postalCode: true } } } },
           chargeProvisions: { where: { isActive: true }, select: { monthlyAmount: true } },
         },
@@ -275,6 +294,7 @@ export async function getAutoFillData(
         data.rentAmount = formatCurrency(activeLease.currentRentHT);
         const totalCharges = activeLease.chargeProvisions.reduce((sum, cp) => sum + cp.monthlyAmount, 0);
         data.chargesAmount = formatCurrency(totalCharges);
+        if (activeLease.destination) data.destinationBien = DESTINATION_LABELS[activeLease.destination] ?? "logement";
       }
     }
 
