@@ -26,6 +26,22 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  beforeSend(event, hint) {
+    const message =
+      hint.originalException instanceof Error
+        ? hint.originalException.message
+        : event.exception?.values?.[0]?.value ?? event.message;
+    const frames = event.exception?.values?.flatMap((exception) => exception.stacktrace?.frames ?? []) ?? [];
+    const isNextAuthSessionFetchFailure =
+      message === "Failed to fetch" &&
+      frames.some((frame) => frame.filename?.includes("next-auth/react"));
+
+    // Browser/network interruptions during NextAuth session refresh are non-actionable.
+    if (isNextAuthSessionFetchFailure) return null;
+
+    return event;
+  },
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
