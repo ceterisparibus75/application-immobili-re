@@ -56,6 +56,7 @@ const INVOICE_TYPES = [
   { value: "APPEL_LOYER", label: "Appel de loyer" },
   { value: "QUITTANCE", label: "Quittance de loyer" },
   { value: "REGULARISATION_CHARGES", label: "Régularisation de charges" },
+  { value: "DEPOT_DE_GARANTIE", label: "Dépôt de garantie" },
   { value: "REFACTURATION", label: "Refacturation" },
   { value: "AVOIR", label: "Avoir" },
 ];
@@ -223,7 +224,7 @@ export default function NouvelleFacturePage() {
     const result = await createInvoice(activeSociety.id, {
       tenantId: data.tenantId!,
       leaseId: data.leaseId || null,
-      invoiceType: data.invoiceType as "APPEL_LOYER" | "QUITTANCE" | "REGULARISATION_CHARGES" | "REFACTURATION" | "AVOIR",
+      invoiceType: data.invoiceType as "APPEL_LOYER" | "QUITTANCE" | "REGULARISATION_CHARGES" | "REFACTURATION" | "AVOIR" | "DEPOT_DE_GARANTIE",
       dueDate: data.dueDate!,
       periodStart: data.periodStart || null,
       periodEnd: data.periodEnd || null,

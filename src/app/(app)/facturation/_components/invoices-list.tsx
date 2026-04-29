@@ -54,7 +54,7 @@ const STATUS_VARIANTS: Record<InvoiceStatus, "default"|"success"|"warning"|"dest
 
 const TYPE_LABELS: Record<InvoiceType, string> = {
   APPEL_LOYER: "Appel loyer", QUITTANCE: "Quittance",
-  REGULARISATION_CHARGES: "Régul. charges", REFACTURATION: "Refacturation", AVOIR: "Avoir",
+  REGULARISATION_CHARGES: "Régul. charges", DEPOT_DE_GARANTIE: "Dépôt garantie", REFACTURATION: "Refacturation", AVOIR: "Avoir",
 };
 
 const DELIVERY_LABELS: Record<string, string> = {

@@ -213,6 +213,7 @@ enum InvoiceType {
   REGULARISATION_CHARGES
   REFACTURATION
   AVOIR
+  DEPOT_DE_GARANTIE
 }
 
 enum GuaranteeType {

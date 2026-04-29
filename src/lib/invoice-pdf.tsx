@@ -87,6 +87,7 @@ function typeTitle(invoiceType: string, isAvoir: boolean): string {
   if (invoiceType === "APPEL_LOYER") return "APPEL DE LOYER ET CHARGES";
   if (invoiceType === "QUITTANCE") return "QUITTANCE DE LOYER";
   if (invoiceType === "REGULARISATION_CHARGES") return "RÉGULARISATION DE CHARGES";
+  if (invoiceType === "DEPOT_DE_GARANTIE") return "DÉPÔT DE GARANTIE";
   if (invoiceType === "REFACTURATION") return "REFACTURATION";
   return "FACTURE";
 }

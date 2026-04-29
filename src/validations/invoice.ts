@@ -9,6 +9,7 @@ export const createInvoiceSchema = z.object({
     "REGULARISATION_CHARGES",
     "REFACTURATION",
     "AVOIR",
+    "DEPOT_DE_GARANTIE",
   ]),
   dueDate: z.string().min(1, "La date d'échéance est requise"),
   periodStart: z.string().optional().nullable(),

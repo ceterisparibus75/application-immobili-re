@@ -45,6 +45,7 @@ const TYPE_LABELS: Record<InvoiceType, string> = {
   APPEL_LOYER: "Appel de loyer",
   QUITTANCE: "Quittance de loyer",
   REGULARISATION_CHARGES: "Régularisation de charges",
+  DEPOT_DE_GARANTIE: "Dépôt de garantie",
   REFACTURATION: "Refacturation",
   AVOIR: "Avoir",
 };
