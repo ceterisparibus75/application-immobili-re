@@ -150,6 +150,7 @@ export async function getSubscription(
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
   hasStripeCustomer: boolean;
+  usage: { users: number; lots: number };
 }>> {
   try {
     await requireSocietyActionContext(societyId, "LECTURE");
@@ -183,6 +184,11 @@ export async function getSubscription(
 
     const plan = PLANS[planId];
 
+    const [userCount, lotCount] = await Promise.all([
+      prisma.userSociety.count({ where: { societyId } }),
+      prisma.lot.count({ where: { building: { societyId } } }),
+    ]);
+
     return {
       success: true,
       data: {
@@ -198,6 +204,7 @@ export async function getSubscription(
           maxUsers: plan.maxUsers,
         },
         hasStripeCustomer: !!subscription?.stripeCustomerId,
+        usage: { users: userCount, lots: lotCount },
       },
     };
   } catch (error) {

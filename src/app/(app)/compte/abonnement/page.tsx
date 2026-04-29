@@ -85,6 +85,7 @@ interface SubscriptionData {
   features: readonly string[];
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
   hasStripeCustomer: boolean;
+  usage: { users: number; lots: number };
 }
 
 export default function AbonnementPage() {
@@ -253,9 +254,14 @@ if (loading) {
                   Stripe calculera automatiquement le <strong>prorata du mois en cours</strong> et débitera la différence sur votre moyen de paiement enregistré. Si une authentification bancaire (3D Secure) est requise, vous serez redirigé vers Stripe.
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Stripe calculera automatiquement un <strong>avoir pour les jours restants</strong> sur votre plan actuel. Ce crédit sera déduit de votre prochaine facture. Le changement prend effet immédiatement.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Stripe calculera automatiquement un <strong>avoir pour les jours restants</strong> sur votre plan actuel. Ce crédit sera déduit de votre prochaine facture. Le changement prend effet immédiatement.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    ⚠️ Si votre utilisation actuelle dépasse les limites du plan {confirmPlanInfo?.name} (utilisateurs, lots), le downgrade sera <strong>refusé</strong>. Réduisez votre utilisation avant de confirmer.
+                  </p>
+                </div>
               )}
             </div>
           </DialogDescription>
@@ -437,6 +443,19 @@ if (loading) {
               const priceLabel = billingPeriod === "monthly" ? "/mois" : "/an";
               const isUpgrade = (PLAN_ORDER[plan.id] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0);
               const isDowngrade = (PLAN_ORDER[plan.id] ?? 0) < (PLAN_ORDER[currentPlanId] ?? 0);
+              const currentUsage = subscription?.usage ?? { users: 0, lots: 0 };
+
+              // Vérifier si l'utilisation actuelle dépasse les limites du plan cible
+              const downgradeBlockReasons: string[] = [];
+              if (isDowngrade) {
+                if (plan.limits.users !== -1 && currentUsage.users > plan.limits.users) {
+                  downgradeBlockReasons.push(`${currentUsage.users} utilisateurs (limite : ${plan.limits.users})`);
+                }
+                if (plan.limits.lots !== -1 && currentUsage.lots > plan.limits.lots) {
+                  downgradeBlockReasons.push(`${currentUsage.lots} lots (limite : ${plan.limits.lots})`);
+                }
+              }
+              const isDowngradeBlocked = downgradeBlockReasons.length > 0;
 
               return (
                 <Card
@@ -490,7 +509,19 @@ if (loading) {
                       ))}
                     </ul>
 
-                    {upgradeError && (
+                    {isDowngradeBlocked && (
+                      <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 mb-3 text-xs text-destructive space-y-1">
+                        <p className="font-medium flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          Rétrogradation impossible
+                        </p>
+                        <p>Vous devez d&apos;abord réduire votre utilisation :</p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          {downgradeBlockReasons.map((r) => <li key={r}>{r}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {upgradeError && !isDowngradeBlocked && (
                       <p className="text-xs text-destructive mb-3 flex items-start gap-1.5">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                         {upgradeError}
@@ -500,7 +531,7 @@ if (loading) {
                       className={`w-full ${isDowngrade ? "" : plan.popular ? "shadow-lg shadow-primary/25" : ""}`}
                       variant={isDowngrade ? "outline" : plan.popular ? "default" : "outline"}
                       onClick={() => handleChangePlan(plan.id)}
-                      disabled={actionLoading}
+                      disabled={actionLoading || isDowngradeBlocked}
                     >
                       {actionLoading
                         ? <Loader2 className="h-4 w-4 animate-spin" />
