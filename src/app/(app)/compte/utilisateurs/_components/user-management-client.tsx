@@ -477,7 +477,7 @@ function CreateUserDialog({
     }
 
     startTransition(async () => {
-      // 1. Créer l'utilisateur
+      // 1. Créer l'utilisateur (ou récupérer l'existant)
       const createResult = await createUser({ name, firstName, email });
       if (!createResult.success || !createResult.data) {
         toast.error(createResult.error ?? "Erreur lors de la création");
@@ -492,7 +492,11 @@ function CreateUserDialog({
       });
 
       if (assignResult.success) {
-        toast.success("Utilisateur créé et invité par email");
+        if (createResult.data.alreadyActive) {
+          toast.success("Utilisateur existant ajouté à la société");
+        } else {
+          toast.success("Utilisateur créé et invité par email");
+        }
         onClose();
       } else {
         toast.error(assignResult.error ?? "Créé mais erreur d'assignation");

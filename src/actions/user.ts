@@ -33,7 +33,7 @@ import type { ActionResult } from "./society";
 
 export async function createUser(
   input: CreateUserInput
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; alreadyActive?: boolean }>> {
   try {
     const context = await requireAuthenticatedActionContext();
 
@@ -64,7 +64,8 @@ export async function createUser(
     });
     if (existing) {
       if (existing.lastLoginAt) {
-        return { success: false, error: "Cet email est déjà utilisé par un compte actif" };
+        // Compte déjà actif : retourner son id pour que l'appelant puisse l'assigner à la société
+        return { success: true, data: { id: existing.id, alreadyActive: true } };
       }
       // Compte non activé : renvoyer l'invitation et retourner l'id existant
       const resetToken = randomBytes(32).toString("hex");
