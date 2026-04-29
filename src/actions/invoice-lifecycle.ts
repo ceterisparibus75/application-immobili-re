@@ -702,3 +702,54 @@ export async function markAsIrrecoverable(
     return { success: false, error: "Erreur lors du passage en irrécouvrable" };
   }
 }
+
+/**
+ * Rattache une facture à un immeuble (pour les factures sans bail).
+ * Passe null pour supprimer le rattachement.
+ */
+export async function linkInvoiceToBuilding(
+  societyId: string,
+  invoiceId: string,
+  buildingId: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: { id: true, buildingId: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+
+    if (buildingId) {
+      const building = await prisma.building.findFirst({
+        where: { id: buildingId, societyId },
+        select: { id: true },
+      });
+      if (!building) return { success: false, error: "Immeuble introuvable" };
+    }
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { buildingId },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { buildingId, previousBuildingId: invoice.buildingId },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[linkInvoiceToBuilding]", error);
+    return { success: false, error: "Erreur lors du rattachement à l'immeuble" };
+  }
+}

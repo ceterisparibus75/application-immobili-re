@@ -25,6 +25,7 @@ import { RefreshDraftButton } from "./_components/refresh-draft-button";
 import { SepaButton } from "./_components/sepa-button";
 import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
+import { LinkBuildingButton } from "./_components/link-building-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -78,6 +79,15 @@ export default async function FactureDetailPage({
   const totalPaid = invoice.payments.reduce((s, p) => s + p.amount, 0);
   const remaining = invoice.totalTTC - totalPaid;
   const isPaid = invoice.status === "PAYE";
+
+  // Immeubles disponibles pour rattachement (seulement si la facture n'est pas déjà liée via un bail)
+  const buildingsForLink = !invoice.leaseId
+    ? await prisma.building.findMany({
+        where: { societyId },
+        select: { id: true, name: true, addressLine1: true, postalCode: true, city: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   let previousBalance = 0;
   if (invoice.lease?.id) {
@@ -175,6 +185,14 @@ export default async function FactureDetailPage({
           )}
           {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
             <RefreshDraftButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+          {!invoice.leaseId && buildingsForLink.length > 0 && (
+            <LinkBuildingButton
+              invoiceId={invoice.id}
+              societyId={societyId}
+              buildings={buildingsForLink}
+              currentBuildingId={invoice.building?.id ?? null}
+            />
           )}
           {invoice.status !== "BROUILLON" && (
             <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />

@@ -27,6 +27,7 @@ const INVOICE_INCLUDE = {
       },
     },
   },
+  building: { select: { id: true, name: true } },
   _count: { select: { payments: true } },
 } as const;
 
@@ -137,6 +138,7 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           },
         },
       },
+      building: { select: { id: true, name: true, addressLine1: true, postalCode: true, city: true } },
       lines: true,
       payments: { orderBy: { paidAt: "desc" } },
       creditNoteFor: { select: { id: true, invoiceNumber: true } },

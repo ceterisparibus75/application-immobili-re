@@ -33,6 +33,7 @@ type InvoiceItem = {
     billingEmail?: string | null;
   };
   lease?: { lot?: { building?: { id: string; name: string } | null } | null } | null;
+  building?: { id: string; name: string } | null;
   _count: { payments: number };
 };
 
@@ -69,7 +70,7 @@ function getTenantName(t: InvoiceItem["tenant"]): string {
 }
 
 function getBuildingName(invoice: InvoiceItem): string {
-  return invoice.lease?.lot?.building?.name ?? "Sans immeuble";
+  return invoice.lease?.lot?.building?.name ?? invoice.building?.name ?? "Sans immeuble";
 }
 
 function hasEmail(invoice: InvoiceItem): boolean {

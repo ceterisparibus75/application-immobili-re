@@ -839,6 +839,7 @@ model Building {
   copropriete               Copropriete?             @relation(fields: [coproprieteId], references: [id], onDelete: SetNull)
   thirdPartyStatements      ThirdPartyStatement[]
   supplierInvoices          SupplierInvoice[]
+  invoices                  Invoice[]
 
   @@index([societyId])
   @@index([societyId, city])
@@ -1688,9 +1689,10 @@ model Invoice {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  societyId String
-  leaseId   String?
-  tenantId  String
+  societyId  String
+  leaseId    String?
+  tenantId   String
+  buildingId String?  // Rattachement explicite à un immeuble (pour les factures sans bail)
 
   invoiceNumber String? // Numéro auto (ex: SCI1-2025-0001) — null tant que le brouillon n'est pas validé
   invoiceType   InvoiceType
@@ -1734,6 +1736,7 @@ model Invoice {
   society       Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lease         Lease?        @relation(fields: [leaseId], references: [id], onDelete: SetNull)
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  building      Building?     @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   lines         InvoiceLine[]
   payments      Payment[]
   creditNoteFor Invoice?      @relation("CreditNoteFor", fields: [creditNoteForId], references: [id], onDelete: SetNull)
@@ -1747,6 +1750,7 @@ model Invoice {
   @@index([societyId, issueDate])
   @@index([tenantId])
   @@index([leaseId])
+  @@index([buildingId])
   @@index([dueDate])
   @@index([creditNoteForId])
 }
