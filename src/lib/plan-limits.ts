@@ -3,11 +3,44 @@ import { PLANS, getStripe, planIdFromPriceId } from "@/lib/stripe";
 import type { PlanId } from "@/lib/stripe";
 
 /**
+ * Retourne le plan effectif d'une société en tenant compte de la couverture
+ * par un abonnement propriétaire (multi-société).
+ */
+async function getEffectivePlan(societyId: string): Promise<PlanId> {
+  const ownPlan = await getSocietyPlan(societyId);
+  const ownLimits = PLANS[ownPlan];
+  // Si le plan propre est illimité, pas besoin d'aller plus loin
+  if (ownLimits.maxLots === -1 && ownLimits.maxUsers === -1) return ownPlan;
+
+  const coverage = await checkCoveredByOwnerSubscription(societyId);
+  if (!coverage.covered || coverage.overLimit) return ownPlan;
+
+  // Trouver le meilleur plan actif parmi toutes les sociétés des admins
+  const admins = await prisma.userSociety.findMany({
+    where: { societyId, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
+    select: { userId: true },
+  });
+  const adminUserIds = admins.map((a) => a.userId);
+  const allMemberships = await prisma.userSociety.findMany({
+    where: { userId: { in: adminUserIds }, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
+    select: { societyId: true },
+  });
+  const allSocietyIds = [...new Set(allMemberships.map((m) => m.societyId))];
+  const activeSubs = await prisma.subscription.findMany({
+    where: { societyId: { in: allSocietyIds }, status: "ACTIVE" },
+    select: { planId: true },
+  });
+  const planRank: Record<string, number> = { ENTERPRISE: 3, PRO: 2, STARTER: 1 };
+  const bestPlanId = activeSubs.sort((a, b) => (planRank[b.planId] ?? 0) - (planRank[a.planId] ?? 0))[0]?.planId as PlanId | undefined;
+  return bestPlanId ?? ownPlan;
+}
+
+/**
  * Verifie si une societe a atteint la limite de lots de son plan.
  * Retourne { allowed: true } ou { allowed: false, message: string }.
  */
 export async function checkLotLimit(societyId: string): Promise<{ allowed: boolean; message?: string }> {
-  const plan = await getSocietyPlan(societyId);
+  const plan = await getEffectivePlan(societyId);
   const limits = PLANS[plan];
 
   if (limits.maxLots === -1) return { allowed: true };
@@ -56,7 +89,7 @@ export async function checkSocietyLimit(userId: string): Promise<{ allowed: bool
  * Verifie si une societe a atteint la limite d'utilisateurs de son plan.
  */
 export async function checkUserLimit(societyId: string): Promise<{ allowed: boolean; message?: string }> {
-  const plan = await getSocietyPlan(societyId);
+  const plan = await getEffectivePlan(societyId);
   const limits = PLANS[plan];
 
   if (limits.maxUsers === -1) return { allowed: true };
