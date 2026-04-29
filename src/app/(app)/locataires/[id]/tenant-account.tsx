@@ -272,7 +272,8 @@ export function TenantAccount({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `releve-locatif-${tenantName.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    const dateStr = new Date().toLocaleDateString("fr-FR").replace(/\//g, "-");
+    a.download = `releve-locatif-${tenantName.replace(/\s+/g, "-").toLowerCase()}-${dateStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

@@ -34,8 +34,8 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-white p-3 shadow-lg text-xs space-y-1.5">
-      <p className="font-semibold text-[#0C2340] mb-1">{label}</p>
+    <div className="rounded-lg border bg-popover text-popover-foreground p-3 shadow-lg text-xs space-y-1.5">
+      <p className="font-semibold mb-1">{label}</p>
       {payload.map((p) => (
         <div key={p.name} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">
@@ -62,11 +62,11 @@ export function TenantPaymentChart({ data }: { data: PaymentMonthData[] }) {
   const tauxRecouvrement = totalFacture > 0 ? Math.round((totalPaye / totalFacture) * 100) : 0;
 
   return (
-    <Card className="border-0 shadow-brand bg-white rounded-xl">
+    <Card className="border-0 shadow-brand rounded-xl">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F0F9FF]">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <TrendingUp className="h-4 w-4 text-[#1B4F8A]" />
             </div>
             Historique des paiements
@@ -92,7 +92,7 @@ export function TenantPaymentChart({ data }: { data: PaymentMonthData[] }) {
       <CardContent>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data} barSize={14} barGap={3}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.6} vertical={false} />
             <XAxis
               dataKey="month"
               tick={{ fontSize: 10, fill: "#9ca3af" }}
