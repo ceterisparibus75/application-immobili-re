@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { z } from "zod";
 import { hash } from "bcryptjs";
-import { randomInt } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 import { sendPortalActivationEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
@@ -618,6 +618,12 @@ export async function getTenantAccountStatement(
         amount: true,
         dueDate: true,
         notes: true,
+        reference: true,
+        periodLabel: true,
+        periodStart: true,
+        periodEnd: true,
+        balanceAfter: true,
+        source: true,
       },
       orderBy: { dueDate: "desc" },
     }),
@@ -989,6 +995,24 @@ const tenantBalanceAdjustmentSchema = z.object({
   notes: z.string().optional(),
 });
 
+const tenantLedgerImportLineSchema = z.object({
+  date: z.string().min(1, "La date est requise"),
+  label: z.string().min(1, "Le libellé est requis"),
+  debit: frenchDecimal().optional().default(0),
+  credit: frenchDecimal().optional().default(0),
+  balanceAfter: frenchDecimal().optional(),
+  reference: z.string().optional(),
+  periodLabel: z.string().optional(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+});
+
+const tenantLedgerImportSchema = z.object({
+  tenantId: z.string().cuid(),
+  leaseId: z.string().cuid().optional().nullable(),
+  lines: z.array(tenantLedgerImportLineSchema).min(1, "Aucune ligne à importer").max(1000, "Import limité à 1000 lignes"),
+});
+
 /**
  * Importe un solde précédent dans le compte locataire.
  * Ce mouvement n'est pas une facture : il ne génère aucun numéro de facture.
@@ -1058,6 +1082,97 @@ export async function createTenantBalanceAdjustment(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createTenantBalanceAdjustment]", error);
     return { success: false, error: "Erreur lors de l'import du solde précédent" };
+  }
+}
+
+/**
+ * Importe un relevé locataire historique exporté d'un ancien logiciel.
+ * Les lignes restent hors facture et ne génèrent aucun numéro.
+ */
+export async function importTenantLedgerStatement(
+  societyId: string,
+  input: unknown
+): Promise<ActionResult<{ imported: number; batchId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const subCheck = await checkSubscriptionActive(societyId);
+    if (!subCheck.active) return { success: false, error: subCheck.message };
+
+    const parsed = tenantLedgerImportSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: parsed.data.tenantId, societyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    let leaseId = parsed.data.leaseId ?? null;
+    if (leaseId) {
+      const lease = await prisma.lease.findFirst({
+        where: { id: leaseId, societyId, tenantId: parsed.data.tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!lease) return { success: false, error: "Bail introuvable pour ce locataire" };
+    } else {
+      const activeLease = await prisma.lease.findFirst({
+        where: { societyId, tenantId: parsed.data.tenantId, status: "EN_COURS", deletedAt: null },
+        select: { id: true },
+      });
+      leaseId = activeLease?.id ?? null;
+    }
+
+    const batchId = randomUUID();
+    const rows = parsed.data.lines.map((line) => {
+      const amount = Math.round((line.debit - line.credit) * 100) / 100;
+      return {
+        societyId,
+        tenantId: parsed.data.tenantId,
+        leaseId,
+        label: line.label,
+        amount,
+        dueDate: new Date(line.date),
+        notes: null,
+        reference: line.reference || null,
+        periodLabel: line.periodLabel || null,
+        periodStart: line.periodStart ? new Date(line.periodStart) : null,
+        periodEnd: line.periodEnd ? new Date(line.periodEnd) : null,
+        balanceAfter: line.balanceAfter ?? null,
+        source: "LEDGER_IMPORT",
+        importBatchId: batchId,
+      };
+    }).filter((line) => line.amount !== 0);
+
+    if (rows.length === 0) return { success: false, error: "Aucune ligne avec débit ou crédit à importer" };
+
+    await prisma.tenantBalanceAdjustment.createMany({ data: rows });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "TenantBalanceAdjustment",
+      entityId: batchId,
+      details: {
+        type: "TENANT_LEDGER_IMPORT",
+        tenantId: parsed.data.tenantId,
+        imported: rows.length,
+        batchId,
+      },
+    });
+
+    revalidatePath(`/locataires/${parsed.data.tenantId}`);
+    revalidatePath("/facturation");
+
+    return { success: true, data: { imported: rows.length, batchId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[importTenantLedgerStatement]", error);
+    return { success: false, error: "Erreur lors de l'import du relevé locataire" };
   }
 }
 

@@ -36,6 +36,7 @@ import {
   inviteOrReinviteTenant,
   syncTenantsToContacts,
   createManualDebit,
+  importTenantLedgerStatement,
   getTenantsForSelect,
 } from "./tenant";
 
@@ -701,6 +702,59 @@ describe("createManualDebit", () => {
         }),
       })
     );
+  });
+});
+
+describe("importTenantLedgerStatement", () => {
+  it("importe un relevé historique hors facture", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: "lease-1" } as never);
+    prismaMock.tenantBalanceAdjustment.createMany.mockResolvedValue({ count: 2 } as never);
+
+    const result = await importTenantLedgerStatement(SOCIETY_ID, {
+      tenantId: TENANT_ID,
+      lines: [
+        { date: "2026-01-01", label: "Loyer janvier", debit: 1200, credit: 0, balanceAfter: 1200, reference: "FAC-001", periodLabel: "01/2026" },
+        { date: "2026-01-05", label: "Paiement", debit: 0, credit: 500, balanceAfter: 700, reference: "VIR-001" },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(2);
+    expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    expect(prismaMock.tenantBalanceAdjustment.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            leaseId: "lease-1",
+            amount: 1200,
+            balanceAfter: 1200,
+            reference: "FAC-001",
+            source: "LEDGER_IMPORT",
+            importBatchId: expect.any(String),
+          }),
+          expect.objectContaining({
+            amount: -500,
+            balanceAfter: 700,
+            reference: "VIR-001",
+          }),
+        ]),
+      })
+    );
+  });
+
+  it("rejette un relevé sans mouvement débit/crédit", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue(null);
+
+    const result = await importTenantLedgerStatement(SOCIETY_ID, {
+      tenantId: TENANT_ID,
+      lines: [{ date: "2026-01-01", label: "Ligne informative", debit: 0, credit: 0 }],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Aucune ligne");
+    expect(prismaMock.tenantBalanceAdjustment.createMany).not.toHaveBeenCalled();
   });
 });
 

@@ -1658,6 +1658,13 @@ model TenantBalanceAdjustment {
   amount  Float // Positif = dû par le locataire, négatif = crédit locataire
   dueDate DateTime
   notes   String? @db.Text
+  reference String?
+  periodLabel String?
+  periodStart DateTime?
+  periodEnd DateTime?
+  balanceAfter Float?
+  source String @default("MANUAL")
+  importBatchId String?
 
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1668,6 +1675,7 @@ model TenantBalanceAdjustment {
   @@index([leaseId])
   @@index([societyId, tenantId])
   @@index([societyId, dueDate])
+  @@index([importBatchId])
 }
 
 // ============================================================

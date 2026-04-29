@@ -32,12 +32,14 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Download,
+  FileSpreadsheet,
   Plus,
   Receipt,
+  Upload,
   Wallet,
 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { createTenantBalanceAdjustment } from "@/actions/tenant";
+import { createTenantBalanceAdjustment, importTenantLedgerStatement } from "@/actions/tenant";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -70,6 +72,24 @@ interface BalanceAdjustment {
   amount: number;
   dueDate: string;
   notes: string | null;
+  reference: string | null;
+  periodLabel: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  balanceAfter: number | null;
+  source: string;
+}
+
+interface LedgerImportLine {
+  date: string;
+  label: string;
+  debit: number;
+  credit: number;
+  balanceAfter?: number;
+  reference?: string;
+  periodLabel?: string;
+  periodStart?: string;
+  periodEnd?: string;
 }
 
 interface TenantAccountProps {
@@ -132,6 +152,69 @@ function formatPeriod(start: string | null, end: string | null): string {
   return `${s.toLocaleDateString("fr-FR", { month: "short" })} - ${e.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}`;
 }
 
+function normalizeHeader(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function findCell(row: Record<string, unknown>, aliases: string[]): string {
+  const normalizedAliases = aliases.map(normalizeHeader);
+  for (const [key, value] of Object.entries(row)) {
+    if (normalizedAliases.includes(normalizeHeader(key))) {
+      return String(value ?? "").trim();
+    }
+  }
+  return "";
+}
+
+function parseMoney(value: string): number | null {
+  const cleaned = value
+    .replace(/\u00a0/g, " ")
+    .replace(/\s/g, "")
+    .replace(/[€$]/g, "")
+    .replace(",", ".")
+    .trim();
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDateValue(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const french = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (french) {
+    const year = french[3].length === 2 ? `20${french[3]}` : french[3];
+    return `${year}-${french[2].padStart(2, "0")}-${french[1].padStart(2, "0")}`;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function parsePeriod(value: string): { periodLabel?: string; periodStart?: string; periodEnd?: string } {
+  const periodLabel = value.trim() || undefined;
+  if (!periodLabel) return {};
+  const monthYear = periodLabel.match(/^(\d{1,2})[/-](\d{4})$/);
+  if (monthYear) {
+    const year = Number(monthYear[2]);
+    const month = Number(monthYear[1]);
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+    return {
+      periodLabel,
+      periodStart: start.toISOString().slice(0, 10),
+      periodEnd: end.toISOString().slice(0, 10),
+    };
+  }
+  return { periodLabel };
+}
+
 /**
  * Construit les mouvements chronologiques pour le relevé locatif.
  * Chaque facture = débit (ou crédit si avoir), chaque paiement = crédit.
@@ -145,14 +228,22 @@ function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustme
     invoiceId?: string;
     invoiceNumber?: string;
     status?: string;
+    balanceAfter?: number | null;
   }> = [];
 
   for (const adjustment of adjustments) {
+    const period = adjustment.periodLabel || formatPeriod(adjustment.periodStart, adjustment.periodEnd);
+    const suffix = [
+      period ? `Période ${period}` : null,
+      adjustment.reference ? `Réf. ${adjustment.reference}` : null,
+      adjustment.notes,
+    ].filter(Boolean).join(" · ");
     movements.push({
       date: adjustment.dueDate,
-      label: adjustment.notes ? `${adjustment.label} — ${adjustment.notes}` : adjustment.label,
+      label: suffix ? `${adjustment.label} — ${suffix}` : adjustment.label,
       type: adjustment.amount >= 0 ? "debit" : "credit",
       amount: Math.abs(adjustment.amount),
+      balanceAfter: adjustment.balanceAfter,
     });
   }
 
@@ -203,7 +294,9 @@ function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustme
   // Calculer le solde courant
   let runningBalance = 0;
   return movements.map((m) => {
-    if (m.type === "debit") {
+    if (typeof m.balanceAfter === "number") {
+      runningBalance = m.balanceAfter;
+    } else if (m.type === "debit") {
       runningBalance += m.amount;
     } else {
       runningBalance -= m.amount;
@@ -243,6 +336,10 @@ export function TenantAccount({
     dueDate: new Date().toISOString().slice(0, 10),
     notes: "",
   });
+  const [showLedgerImportDialog, setShowLedgerImportDialog] = useState(false);
+  const [ledgerFileName, setLedgerFileName] = useState("");
+  const [ledgerImportLines, setLedgerImportLines] = useState<LedgerImportLine[]>([]);
+  const [ledgerImportErrors, setLedgerImportErrors] = useState<string[]>([]);
 
   async function handleCreateDebit() {
     if (!debitForm.label || !debitForm.amount) return;
@@ -258,6 +355,84 @@ export function TenantAccount({
         toast.success("Solde précédent importé");
         setShowDebitDialog(false);
         setDebitForm({ label: "", amount: "", dueDate: new Date().toISOString().slice(0, 10), notes: "" });
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Erreur");
+      }
+    });
+  }
+
+  async function handleLedgerFile(file: File) {
+    setLedgerFileName(file.name);
+    setLedgerImportLines([]);
+    setLedgerImportErrors([]);
+
+    const text = await file.text();
+    const Papa = await import("papaparse");
+    const parsed = Papa.parse<Record<string, unknown>>(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim(),
+    });
+
+    const errors: string[] = parsed.errors.map((error) => `Ligne ${error.row ?? "?"} : ${error.message}`);
+    const lines: LedgerImportLine[] = [];
+
+    parsed.data.forEach((row, index) => {
+      const rowNumber = index + 2;
+      const date = parseDateValue(findCell(row, ["date", "date mouvement", "date opération", "date operation", "echeance", "échéance"]));
+      const label = findCell(row, ["libellé", "libelle", "label", "description", "opération", "operation", "intitulé", "intitule"]);
+      const debit = parseMoney(findCell(row, ["débit", "debit", "doit", "montant débit", "montant debit"])) ?? 0;
+      const credit = parseMoney(findCell(row, ["crédit", "credit", "avoir", "paiement", "montant crédit", "montant credit"])) ?? 0;
+      const balanceAfter = parseMoney(findCell(row, ["solde", "solde après", "solde apres", "balance", "balance after"])) ?? undefined;
+      const reference = findCell(row, ["référence", "reference", "ref", "pièce", "piece"]);
+      const period = parsePeriod(findCell(row, ["période", "periode", "period", "mois", "terme"]));
+      const periodStart = parseDateValue(findCell(row, ["début période", "debut periode", "period start", "date début", "date debut"])) ?? period.periodStart;
+      const periodEnd = parseDateValue(findCell(row, ["fin période", "fin periode", "period end", "date fin"])) ?? period.periodEnd;
+
+      if (!date) {
+        errors.push(`Ligne ${rowNumber} : date absente ou invalide`);
+        return;
+      }
+      if (!label) {
+        errors.push(`Ligne ${rowNumber} : libellé absent`);
+        return;
+      }
+      if (debit === 0 && credit === 0) {
+        errors.push(`Ligne ${rowNumber} : débit ou crédit requis`);
+        return;
+      }
+
+      lines.push({
+        date,
+        label,
+        debit: Math.abs(debit),
+        credit: Math.abs(credit),
+        balanceAfter,
+        reference: reference || undefined,
+        periodLabel: period.periodLabel,
+        periodStart,
+        periodEnd,
+      });
+    });
+
+    setLedgerImportLines(lines);
+    setLedgerImportErrors(errors.slice(0, 20));
+  }
+
+  async function handleImportLedgerStatement() {
+    if (ledgerImportLines.length === 0) return;
+    startTransition(async () => {
+      const result = await importTenantLedgerStatement(societyId, {
+        tenantId,
+        lines: ledgerImportLines,
+      });
+      if (result.success) {
+        toast.success(`${result.data?.imported ?? ledgerImportLines.length} ligne(s) importée(s)`);
+        setShowLedgerImportDialog(false);
+        setLedgerFileName("");
+        setLedgerImportLines([]);
+        setLedgerImportErrors([]);
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur");
@@ -301,6 +476,93 @@ export function TenantAccount({
               <Download className="h-4 w-4" />
               Relevé CSV
             </Button>
+            <Dialog open={showLedgerImportDialog} onOpenChange={setShowLedgerImportDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Upload className="h-4 w-4" />
+                  Importer un relevé
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Importer un relevé locataire</DialogTitle>
+                  <DialogDescription>
+                    Importer un export CSV ou TSV d&apos;un ancien logiciel, sans créer de factures.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Fichier CSV ou TSV</Label>
+                    <Input
+                      type="file"
+                      accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleLedgerFile(file);
+                      }}
+                    />
+                  </div>
+                  {ledgerFileName && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      {ledgerFileName}
+                    </div>
+                  )}
+                  {ledgerImportErrors.length > 0 && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                      {ledgerImportErrors.map((error) => (
+                        <p key={error}>{error}</p>
+                      ))}
+                    </div>
+                  )}
+                  {ledgerImportLines.length > 0 && (
+                    <div className="rounded-md border overflow-auto max-h-[260px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Libellé</TableHead>
+                            <TableHead className="text-right">Débit</TableHead>
+                            <TableHead className="text-right">Crédit</TableHead>
+                            <TableHead className="text-right">Solde</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ledgerImportLines.slice(0, 8).map((line, index) => (
+                            <TableRow key={`${line.date}-${index}`}>
+                              <TableCell className="text-xs">{formatDate(line.date)}</TableCell>
+                              <TableCell className="text-xs">{line.label}</TableCell>
+                              <TableCell className="text-right text-xs tabular-nums text-destructive">
+                                {line.debit ? `${formatCurrency(line.debit)} €` : ""}
+                              </TableCell>
+                              <TableCell className="text-right text-xs tabular-nums text-emerald-600">
+                                {line.credit ? `${formatCurrency(line.credit)} €` : ""}
+                              </TableCell>
+                              <TableCell className="text-right text-xs tabular-nums">
+                                {typeof line.balanceAfter === "number" ? `${formatCurrency(line.balanceAfter)} €` : ""}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {ledgerImportLines.length > 8 && (
+                    <p className="text-xs text-muted-foreground">
+                      {ledgerImportLines.length - 8} ligne(s) supplémentaire(s) seront aussi importées.
+                    </p>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowLedgerImportDialog(false)}>
+                    Annuler
+                  </Button>
+                  <Button onClick={handleImportLedgerStatement} disabled={isPending || ledgerImportLines.length === 0}>
+                    {isPending ? "Import..." : `Importer ${ledgerImportLines.length} ligne(s)`}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={showDebitDialog} onOpenChange={setShowDebitDialog}>
               <DialogTrigger asChild>
                 <Button size="sm">

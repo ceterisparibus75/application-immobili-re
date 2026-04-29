@@ -357,6 +357,8 @@ export default async function LocataireDetailPage({
               adjustments={accountData.adjustments.map((adjustment) => ({
                 ...adjustment,
                 dueDate: adjustment.dueDate.toISOString(),
+                periodStart: adjustment.periodStart?.toISOString() ?? null,
+                periodEnd: adjustment.periodEnd?.toISOString() ?? null,
               }))}
               balance={accountData.balance}
               tenantName={name}
