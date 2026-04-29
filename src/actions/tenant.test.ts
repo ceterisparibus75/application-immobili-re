@@ -45,6 +45,7 @@ const CONTACT_ID = "clh3x2z4k0003qh8g7z1y2v3t";
 
 beforeEach(() => {
   mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+  prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
 });
 
 // ── createTenant ──────────────────────────────────────────────────
@@ -627,7 +628,6 @@ const validDebitInput = {
   label: "Reprise de solde",
   amount: 500,
   dueDate: "2025-06-01",
-  vatRate: 0,
 };
 
 describe("createManualDebit", () => {
@@ -638,9 +638,9 @@ describe("createManualDebit", () => {
   });
 
   it("retourne une erreur si le montant est invalide", async () => {
-    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, amount: -100 });
+    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, amount: 0 });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("positif");
+    expect(result.error).toContain("différent de zéro");
   });
 
   it("retourne une erreur si le locataire est introuvable", async () => {
@@ -653,12 +653,38 @@ describe("createManualDebit", () => {
   it("crée la facture manuelle avec succès", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
     prismaMock.lease.findFirst.mockResolvedValue(null);
-    prismaMock.$transaction.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 500 } as never);
 
     const result = await createManualDebit(SOCIETY_ID, validDebitInput);
     expect(result.success).toBe(true);
     expect(result.data?.id).toBe(INVOICE_ID);
-    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    expect(prismaMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          tenantId: TENANT_ID,
+          amount: 500,
+        }),
+      })
+    );
+  });
+
+  it("accepte un montant au format français sans le tronquer", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: "lease-1" } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 1483.65 } as never);
+
+    const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, amount: "1483,65" });
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leaseId: "lease-1",
+          amount: 1483.65,
+        }),
+      })
+    );
   });
 });
 
@@ -1036,35 +1062,33 @@ describe("createManualDebit — subscription inactive (ligne 934)", () => {
   });
 });
 
-// --- createManualDebit — transaction callback (lignes 958-976) ---
+// --- createManualDebit — reprise de solde hors facture ---
 
-describe("createManualDebit — transaction callback (lignes 958-976)", () => {
-  it("execute le callback avec annee courante (yearChanged=false)", async () => {
+describe("createManualDebit — reprise de solde hors facture", () => {
+  it("enregistre le solde précédent sans transaction de numérotation", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
     prismaMock.lease.findFirst.mockResolvedValue(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock));
-    const currentYear = new Date().getFullYear();
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: currentYear, nextInvoiceNumber: 5, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ invoicePrefix: "FAC", nextInvoiceNumber: 6 } as never);
-    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 500 } as never);
 
     const result = await createManualDebit(SOCIETY_ID, validDebitInput);
     expect(result.success).toBe(true);
     expect(result.data?.id).toBe(INVOICE_ID);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.society.update).not.toHaveBeenCalled();
   });
 
-  it("execute le callback avec annee precedente (yearChanged=true, prefix null)", async () => {
+  it("associe la reprise au bail actif si présent", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
-    prismaMock.lease.findFirst.mockResolvedValue(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2020, nextInvoiceNumber: 99, invoicePrefix: null } as never);
-    prismaMock.society.update.mockResolvedValue({ invoicePrefix: null, nextInvoiceNumber: 2 } as never);
-    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.lease.findFirst.mockResolvedValue({ id: "lease-1" } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 500 } as never);
 
     const result = await createManualDebit(SOCIETY_ID, validDebitInput);
     expect(result.success).toBe(true);
+    expect(prismaMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ leaseId: "lease-1" }),
+      })
+    );
   });
 });
 
@@ -1085,7 +1109,7 @@ describe("createManualDebit — erreur generique BDD (lignes 1027-1028)", () => 
     prismaMock.tenant.findFirst.mockRejectedValue(new Error("DB error"));
     const result = await createManualDebit(SOCIETY_ID, validDebitInput);
     expect(result.success).toBe(false);
-    expect(result.error).toContain("somme due");
+    expect(result.error).toContain("solde précédent");
   });
 });
 
@@ -1153,29 +1177,21 @@ describe("getTenantsForSelect — PERSONNE_MORALE companyName null (ligne 923 ri
   });
 });
 
-// --- createManualDebit — avec notes (ligne 1010 TRUE branch) ---
+// --- createManualDebit — avec notes ---
 
-describe("createManualDebit — label avec notes (ligne 1010 TRUE branch)", () => {
-  it("concatène label et notes dans la ligne de facture", async () => {
+describe("createManualDebit — notes", () => {
+  it("enregistre les notes sur l'ajustement de solde", async () => {
     prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
     prismaMock.lease.findFirst.mockResolvedValue(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock));
-    const currentYear = new Date().getFullYear();
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: currentYear, nextInvoiceNumber: 3, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ invoicePrefix: "FAC", nextInvoiceNumber: 4 } as never);
-    prismaMock.invoice.create.mockResolvedValue({ id: INVOICE_ID } as never);
+    prismaMock.tenantBalanceAdjustment.create.mockResolvedValue({ id: INVOICE_ID, amount: 500 } as never);
 
     const result = await createManualDebit(SOCIETY_ID, { ...validDebitInput, notes: "Détails arriéré 2024" });
     expect(result.success).toBe(true);
-    expect(prismaMock.invoice.create).toHaveBeenCalledWith(
+    expect(prismaMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          lines: expect.objectContaining({
-            create: expect.arrayContaining([
-              expect.objectContaining({ label: "Reprise de solde — Détails arriéré 2024" }),
-            ]),
-          }),
+          label: "Reprise de solde",
+          notes: "Détails arriéré 2024",
         }),
       })
     );

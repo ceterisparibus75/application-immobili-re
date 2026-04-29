@@ -97,22 +97,33 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    // 7. Calcul du solde précédent (factures impayées du même bail)
+    // 7. Calcul du solde précédent (factures impayées + reprises de solde hors facture)
     let previousBalance = 0;
     if (invoice.lease?.id) {
-      const unpaid = await prisma.invoice.findMany({
-        where: {
-          societyId: context.societyId,
-          leaseId: invoice.lease.id,
-          id: { not: invoice.id },
-          status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
-        },
-        select: { totalTTC: true, payments: { select: { amount: true } } },
-      });
+      const [unpaid, adjustments] = await Promise.all([
+        prisma.invoice.findMany({
+          where: {
+            societyId: context.societyId,
+            leaseId: invoice.lease.id,
+            id: { not: invoice.id },
+            status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+          },
+          select: { totalTTC: true, payments: { select: { amount: true } } },
+        }),
+        prisma.tenantBalanceAdjustment.findMany({
+          where: {
+            societyId: context.societyId,
+            tenantId: invoice.tenantId,
+            dueDate: { lte: invoice.issueDate },
+            OR: [{ leaseId: invoice.lease.id }, { leaseId: null }],
+          },
+          select: { amount: true },
+        }),
+      ]);
       previousBalance = unpaid.reduce((sum, inv) => {
         const paid = inv.payments.reduce((a, pp) => a + pp.amount, 0);
         return sum + (inv.totalTTC - paid);
-      }, 0);
+      }, adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0));
     }
 
     // 8. Construction des données pour le PDF

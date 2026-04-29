@@ -516,6 +516,7 @@ model Society {
   tenants                 Tenant[]
   leases                  Lease[]
   invoices                Invoice[]
+  tenantBalanceAdjustments TenantBalanceAdjustment[]
   bankAccounts            BankAccount[]
   bankConnections         BankConnection[]
   accountingAccounts      AccountingAccount[]
@@ -1034,6 +1035,7 @@ model Lease {
   inspections           Inspection[]
   rentRevisions         RentRevision[]
   invoices              Invoice[]
+  balanceAdjustments    TenantBalanceAdjustment[]
   chargeProvisions      ChargeProvision[]
   chargeRegularizations ChargeRegularization[]
   documents             Document[]
@@ -1308,6 +1310,7 @@ model Tenant {
   portalAccess      TenantPortalAccess?
   documents         Document[]
   invoices          Invoice[]
+  balanceAdjustments TenantBalanceAdjustment[]
   sepaMandates      SepaMandate[]
   contact           Contact?
   tickets           Ticket[]
@@ -1639,6 +1642,32 @@ model MeterReading {
 
   @@index([lotId])
   @@index([lotId, meterType, readAt])
+}
+
+/// Ajustement manuel du compte locataire (reprise de solde, arriéré importé, avoir hors facture).
+/// Ce mouvement n'est pas une facture et ne porte donc aucun numéro de facture.
+model TenantBalanceAdjustment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+  tenantId  String
+  leaseId   String?
+
+  label   String
+  amount  Float // Positif = dû par le locataire, négatif = crédit locataire
+  dueDate DateTime
+  notes   String? @db.Text
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
+  @@index([societyId])
+  @@index([tenantId])
+  @@index([leaseId])
+  @@index([societyId, tenantId])
+  @@index([societyId, dueDate])
 }
 
 // ============================================================

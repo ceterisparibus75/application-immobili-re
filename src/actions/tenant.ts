@@ -31,27 +31,33 @@ import {
 
 /**
  * Calcule le solde d'un locataire (montant dû).
- * Solde = somme des factures TTC (hors annulées) - somme des paiements - somme des avoirs
+ * Solde = ajustements manuels + factures TTC (hors annulées) - paiements - avoirs.
  * Un solde positif = le locataire doit de l'argent.
  */
 export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
   await requireSocietyActionContext(societyId);
 
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      societyId,
-      tenantId,
-      status: { notIn: ["ANNULEE", "BROUILLON"] },
-      invoiceType: { not: "QUITTANCE" },
-    },
-    select: {
-      totalTTC: true,
-      invoiceType: true,
-      payments: { select: { amount: true } },
-    },
-  });
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        tenantId,
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+        invoiceType: { not: "QUITTANCE" },
+      },
+      select: {
+        totalTTC: true,
+        invoiceType: true,
+        payments: { select: { amount: true } },
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId },
+      select: { amount: true },
+    }),
+  ]);
 
-  let balance = 0;
+  let balance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
   for (const inv of invoices) {
     const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
@@ -71,30 +77,40 @@ export async function computeTenantBalance(societyId: string, tenantId: string):
 async function computeTenantBalances(societyId: string, tenantIds: string[]): Promise<Map<string, number>> {
   if (tenantIds.length === 0) return new Map();
 
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      societyId,
-      tenantId: { in: tenantIds },
-      status: { notIn: ["ANNULEE", "BROUILLON"] },
-      invoiceType: { not: "QUITTANCE" },
-    },
-    select: {
-      id: true,
-      tenantId: true,
-      totalTTC: true,
-      invoiceType: true,
-    },
-  });
-  if (invoices.length === 0) return new Map();
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        tenantId: { in: tenantIds },
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+        invoiceType: { not: "QUITTANCE" },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        totalTTC: true,
+        invoiceType: true,
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId: { in: tenantIds } },
+      select: { tenantId: true, amount: true },
+    }),
+  ]);
 
-  const paymentTotals = await prisma.payment.groupBy({
-    by: ["invoiceId"],
-    where: { invoiceId: { in: invoices.map((inv) => inv.id) } },
-    _sum: { amount: true },
-  });
+  const paymentTotals = invoices.length > 0
+    ? await prisma.payment.groupBy({
+        by: ["invoiceId"],
+        where: { invoiceId: { in: invoices.map((inv) => inv.id) } },
+        _sum: { amount: true },
+      })
+    : [];
   const paidByInvoice = new Map(paymentTotals.map((p) => [p.invoiceId, p._sum.amount ?? 0]));
 
   const balances = new Map<string, number>();
+  for (const adjustment of adjustments) {
+    balances.set(adjustment.tenantId, (balances.get(adjustment.tenantId) ?? 0) + adjustment.amount);
+  }
   for (const inv of invoices) {
     const current = balances.get(inv.tenantId) ?? 0;
     const paid = paidByInvoice.get(inv.id) ?? 0;
@@ -566,36 +582,49 @@ export async function getTenantAccountStatement(
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return null;
 
-  const invoices = await prisma.invoice.findMany({
-    where: { societyId, tenantId },
-    select: {
-      id: true,
-      invoiceNumber: true,
-      invoiceType: true,
-      status: true,
-      issueDate: true,
-      dueDate: true,
-      periodStart: true,
-      periodEnd: true,
-      totalHT: true,
-      totalVAT: true,
-      totalTTC: true,
-      payments: {
-        select: {
-          id: true,
-          amount: true,
-          paidAt: true,
-          method: true,
-          reference: true,
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { societyId, tenantId },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        invoiceType: true,
+        status: true,
+        issueDate: true,
+        dueDate: true,
+        periodStart: true,
+        periodEnd: true,
+        totalHT: true,
+        totalVAT: true,
+        totalTTC: true,
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            paidAt: true,
+            method: true,
+            reference: true,
+          },
+          orderBy: { paidAt: "asc" },
         },
-        orderBy: { paidAt: "asc" },
       },
-    },
-    orderBy: { issueDate: "desc" },
-  });
+      orderBy: { issueDate: "desc" },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId },
+      select: {
+        id: true,
+        label: true,
+        amount: true,
+        dueDate: true,
+        notes: true,
+      },
+      orderBy: { dueDate: "desc" },
+    }),
+  ]);
 
   // Calculer le solde courant
-  let balance = 0;
+  let balance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
   for (const inv of invoices) {
     if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
     if (inv.invoiceType === "QUITTANCE") continue;
@@ -609,6 +638,7 @@ export async function getTenantAccountStatement(
 
   return {
     invoices,
+    adjustments,
     balance: Math.round(balance * 100) / 100,
   };
 }
@@ -938,23 +968,29 @@ export async function getTenantsForSelect(): Promise<{ id: string; name: string 
 }
 
 // ============================================================
-// SAISIE MANUELLE DE SOMMES DUES
+// IMPORT DE SOLDE LOCATAIRE
 // ============================================================
 
-const manualDebitSchema = z.object({
+const frenchDecimal = z.preprocess(
+  (value) => typeof value === "string"
+    ? value.trim().replace(/\s/g, "").replace(",", ".")
+    : value,
+  z.coerce.number().finite("Le montant doit être un nombre valide")
+);
+
+const tenantBalanceAdjustmentSchema = z.object({
   tenantId: z.string().cuid(),
   label: z.string().min(1, "Le libellé est requis"),
-  amount: z.coerce.number().positive("Le montant doit être positif"),
-  dueDate: z.string().min(1, "La date d'échéance est requise"),
-  vatRate: z.coerce.number().min(0).max(100).default(20),
+  amount: frenchDecimal.refine((amount) => amount !== 0, "Le montant doit être différent de zéro"),
+  dueDate: z.string().min(1, "La date du solde est requise"),
   notes: z.string().optional(),
 });
 
 /**
- * Crée une facture manuelle (type REFACTURATION) pour enregistrer
- * des sommes dues par le locataire : reprise de solde, arriéré, etc.
+ * Importe un solde précédent dans le compte locataire.
+ * Ce mouvement n'est pas une facture : il ne génère aucun numéro de facture.
  */
-export async function createManualDebit(
+export async function createTenantBalanceAdjustment(
   societyId: string,
   input: unknown
 ): Promise<ActionResult<{ id: string }>> {
@@ -964,7 +1000,7 @@ export async function createManualDebit(
     const subCheck = await checkSubscriptionActive(societyId);
     if (!subCheck.active) return { success: false, error: subCheck.message };
 
-    const parsed = manualDebitSchema.safeParse(input);
+    const parsed = tenantBalanceAdjustmentSchema.safeParse(input);
     if (!parsed.success) {
       return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
     }
@@ -980,82 +1016,47 @@ export async function createManualDebit(
       select: { id: true },
     });
 
-    const totalHT = parsed.data.amount;
-    const totalVAT = Math.round(totalHT * parsed.data.vatRate / 100 * 100) / 100;
-    const totalTTC = Math.round((totalHT + totalVAT) * 100) / 100;
-
-    const invoice = await prisma.$transaction(async (tx) => {
-      // Numérotation atomique
-      const currentYear = new Date().getFullYear();
-      const current = await tx.society.findUnique({
-        where: { id: societyId },
-        select: { invoiceNumberYear: true, nextInvoiceNumber: true, invoicePrefix: true },
-      });
-      const yearChanged = !current || current.invoiceNumberYear !== currentYear;
-      const society = await tx.society.update({
-        where: { id: societyId },
-        data: {
-          invoiceNumberYear: currentYear,
-          nextInvoiceNumber: yearChanged ? 2 : { increment: 1 },
-        },
-        select: { invoicePrefix: true, nextInvoiceNumber: true },
-      });
-      const seq = yearChanged ? 1 : (society.nextInvoiceNumber - 1);
-      const prefix = society.invoicePrefix || "FAC";
-      const invoiceNumber = `${prefix}-${currentYear}-${String(seq).padStart(4, "0")}`;
-
-      return tx.invoice.create({
-        data: {
-          societyId,
-          tenantId: parsed.data.tenantId,
-          leaseId: activeLease?.id ?? null,
-          invoiceNumber,
-          invoiceType: "REFACTURATION",
-          status: "VALIDEE",
-          issueDate: new Date(),
-          dueDate: new Date(parsed.data.dueDate),
-          totalHT,
-          totalVAT,
-          totalTTC,
-          lines: {
-            create: [{
-              label: parsed.data.notes
-                ? `${parsed.data.label} — ${parsed.data.notes}`
-                : parsed.data.label,
-              quantity: 1,
-              unitPrice: totalHT,
-              vatRate: parsed.data.vatRate,
-              totalHT,
-              totalVAT,
-              totalTTC,
-            }],
-          },
-        },
-      });
+    const adjustment = await prisma.tenantBalanceAdjustment.create({
+      data: {
+        societyId,
+        tenantId: parsed.data.tenantId,
+        leaseId: activeLease?.id ?? null,
+        label: parsed.data.label,
+        amount: Math.round(parsed.data.amount * 100) / 100,
+        dueDate: new Date(parsed.data.dueDate),
+        notes: parsed.data.notes || null,
+      },
     });
 
     await createAuditLog({
       societyId,
       userId: context.userId,
       action: "CREATE",
-      entity: "Invoice",
-      entityId: invoice.id,
+      entity: "TenantBalanceAdjustment",
+      entityId: adjustment.id,
       details: {
-        type: "MANUAL_DEBIT",
+        type: "OPENING_BALANCE_IMPORT",
         tenantId: parsed.data.tenantId,
         label: parsed.data.label,
-        totalTTC,
+        amount: adjustment.amount,
       },
     });
 
     revalidatePath(`/locataires/${parsed.data.tenantId}`);
     revalidatePath("/facturation");
 
-    return { success: true, data: { id: invoice.id } };
+    return { success: true, data: { id: adjustment.id } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    console.error("[createManualDebit]", error);
-    return { success: false, error: "Erreur lors de la création de la somme due" };
+    console.error("[createTenantBalanceAdjustment]", error);
+    return { success: false, error: "Erreur lors de l'import du solde précédent" };
   }
+}
+
+export async function createManualDebit(
+  societyId: string,
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  return createTenantBalanceAdjustment(societyId, input);
 }

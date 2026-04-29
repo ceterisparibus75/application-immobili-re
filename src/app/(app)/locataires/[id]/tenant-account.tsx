@@ -21,13 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -44,7 +37,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { createManualDebit } from "@/actions/tenant";
+import { createTenantBalanceAdjustment } from "@/actions/tenant";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -71,10 +64,19 @@ interface AccountInvoice {
   payments: Payment[];
 }
 
+interface BalanceAdjustment {
+  id: string;
+  label: string;
+  amount: number;
+  dueDate: string;
+  notes: string | null;
+}
+
 interface TenantAccountProps {
   tenantId: string;
   societyId: string;
   invoices: AccountInvoice[];
+  adjustments: BalanceAdjustment[];
   balance: number;
   tenantName: string;
 }
@@ -134,7 +136,7 @@ function formatPeriod(start: string | null, end: string | null): string {
  * Construit les mouvements chronologiques pour le relevé locatif.
  * Chaque facture = débit (ou crédit si avoir), chaque paiement = crédit.
  */
-function buildMovements(invoices: AccountInvoice[]) {
+function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustment[]) {
   const movements: Array<{
     date: string;
     label: string;
@@ -144,6 +146,15 @@ function buildMovements(invoices: AccountInvoice[]) {
     invoiceNumber?: string;
     status?: string;
   }> = [];
+
+  for (const adjustment of adjustments) {
+    movements.push({
+      date: adjustment.dueDate,
+      label: adjustment.notes ? `${adjustment.label} — ${adjustment.notes}` : adjustment.label,
+      type: adjustment.amount >= 0 ? "debit" : "credit",
+      amount: Math.abs(adjustment.amount),
+    });
+  }
 
   for (const inv of invoices) {
     if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
@@ -205,10 +216,11 @@ export function TenantAccount({
   tenantId,
   societyId,
   invoices,
+  adjustments,
   balance,
   tenantName,
 }: TenantAccountProps) {
-  const movements = buildMovements(invoices);
+  const movements = buildMovements(invoices, adjustments);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -223,31 +235,29 @@ export function TenantAccount({
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
     .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0);
 
-  // Saisie de sommes dues
+  // Import de solde précédent
   const [showDebitDialog, setShowDebitDialog] = useState(false);
   const [debitForm, setDebitForm] = useState({
     label: "",
     amount: "",
     dueDate: new Date().toISOString().slice(0, 10),
-    vatRate: "20",
     notes: "",
   });
 
   async function handleCreateDebit() {
     if (!debitForm.label || !debitForm.amount) return;
     startTransition(async () => {
-      const result = await createManualDebit(societyId, {
+      const result = await createTenantBalanceAdjustment(societyId, {
         tenantId,
         label: debitForm.label,
-        amount: parseFloat(debitForm.amount),
+        amount: debitForm.amount,
         dueDate: debitForm.dueDate,
-        vatRate: parseFloat(debitForm.vatRate),
         notes: debitForm.notes || undefined,
       });
       if (result.success) {
-        toast.success("Somme due enregistrée");
+        toast.success("Solde précédent importé");
         setShowDebitDialog(false);
-        setDebitForm({ label: "", amount: "", dueDate: new Date().toISOString().slice(0, 10), vatRate: "20", notes: "" });
+        setDebitForm({ label: "", amount: "", dueDate: new Date().toISOString().slice(0, 10), notes: "" });
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur");
@@ -295,57 +305,37 @@ export function TenantAccount({
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="h-4 w-4" />
-                  Saisir des sommes dues
+                  Importer un solde précédent
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Saisir des sommes dues</DialogTitle>
+                  <DialogTitle>Importer un solde précédent</DialogTitle>
                   <DialogDescription>
-                    Enregistrer un montant dû par le locataire (reprise de solde, arriéré, etc.)
+                    Reprendre un solde existant sans générer de facture ni de numéro.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
                     <Label>Libellé</Label>
                     <Input
-                      placeholder="Ex: Reprise de solde antérieur, Arriéré de loyer..."
+                      placeholder="Ex: Solde antérieur au démarrage"
                       value={debitForm.label}
                       onChange={(e) => setDebitForm({ ...debitForm, label: e.target.value })}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Montant HT (€)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0,00"
-                        value={debitForm.amount}
-                        onChange={(e) => setDebitForm({ ...debitForm, amount: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>TVA (%)</Label>
-                      <Select
-                        value={debitForm.vatRate}
-                        onValueChange={(v) => setDebitForm({ ...debitForm, vatRate: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">0 %</SelectItem>
-                          <SelectItem value="5.5">5,5 %</SelectItem>
-                          <SelectItem value="10">10 %</SelectItem>
-                          <SelectItem value="20">20 %</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label>Montant du solde (€)</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={debitForm.amount}
+                      onChange={(e) => setDebitForm({ ...debitForm, amount: e.target.value })}
+                    />
                   </div>
                   <div>
-                    <Label>Date d&apos;échéance</Label>
+                    <Label>Date de reprise</Label>
                     <Input
                       type="date"
                       value={debitForm.dueDate}

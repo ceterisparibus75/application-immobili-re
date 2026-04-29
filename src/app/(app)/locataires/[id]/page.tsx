@@ -354,6 +354,10 @@ export default async function LocataireDetailPage({
                   paidAt: p.paidAt.toISOString(),
                 })),
               }))}
+              adjustments={accountData.adjustments.map((adjustment) => ({
+                ...adjustment,
+                dueDate: adjustment.dueDate.toISOString(),
+              }))}
               balance={accountData.balance}
               tenantName={name}
             />

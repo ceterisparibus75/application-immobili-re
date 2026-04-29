@@ -56,7 +56,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         lines: true,
         payments: { orderBy: { paidAt: "asc" } },
         creditNoteFor: { select: { invoiceNumber: true } },
-        lease: { select: { lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
+        lease: { select: { id: true, lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
       },
     });
     if (!invoice)
@@ -118,6 +118,34 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         ? invoice.tenant.companyAddress
         : invoice.tenant.personalAddress;
 
+    let previousBalance = 0;
+    if (invoice.lease?.id) {
+      const [unpaid, adjustments] = await Promise.all([
+        prisma.invoice.findMany({
+          where: {
+            societyId: context.societyId,
+            leaseId: invoice.lease.id,
+            id: { not: invoice.id },
+            status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+          },
+          select: { totalTTC: true, payments: { select: { amount: true } } },
+        }),
+        prisma.tenantBalanceAdjustment.findMany({
+          where: {
+            societyId: context.societyId,
+            tenantId: invoice.tenantId,
+            dueDate: { lte: invoice.issueDate },
+            OR: [{ leaseId: invoice.lease.id }, { leaseId: null }],
+          },
+          select: { amount: true },
+        }),
+      ]);
+      previousBalance = unpaid.reduce((sum, inv) => {
+        const paid = inv.payments.reduce((a, pp) => a + pp.amount, 0);
+        return sum + (inv.totalTTC - paid);
+      }, adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0));
+    }
+
     const pdfData = {
       invoiceNumber: invoice.invoiceNumber,
       invoiceType: invoice.invoiceType,
@@ -128,7 +156,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       totalHT: invoice.totalHT,
       totalVAT: invoice.totalVAT,
       totalTTC: invoice.totalTTC,
-      previousBalance: 0,
+      previousBalance,
       isAvoir: invoice.invoiceType === "AVOIR",
       society: soc ? {
         name: soc.name,
