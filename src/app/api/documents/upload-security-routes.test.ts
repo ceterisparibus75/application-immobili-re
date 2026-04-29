@@ -138,4 +138,42 @@ describe("document upload route security", () => {
       })
     );
   });
+
+  it("rattache un PDF de bail déposé sur un locataire à son bail actif", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { id: "lease-1", lotId: "lot-1", tenantId: "tenant-1", leaseFileUrl: null },
+    ] as never);
+    prismaMock.document.create.mockResolvedValue({ id: "doc-1" } as never);
+    prismaMock.lease.update.mockResolvedValue({ id: "lease-1" } as never);
+
+    const response = await registerDocument(
+      jsonRequest("http://localhost/api/documents/register", {
+        fileName: "bail.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+        storagePath: "documents/society-1/tenants/tenant-1/1_bail.pdf",
+        category: "bail",
+        tenantId: "tenant-1",
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: "bail",
+          tenantId: "tenant-1",
+          leaseId: "lease-1",
+          lotId: "lot-1",
+        }),
+      })
+    );
+    expect(prismaMock.lease.update).toHaveBeenCalledWith({
+      where: { id: "lease-1" },
+      data: {
+        leaseFileUrl: "https://signed.example/document.pdf",
+        leaseFileStoragePath: "documents/society-1/tenants/tenant-1/1_bail.pdf",
+      },
+    });
+  });
 });

@@ -601,8 +601,25 @@ export async function getLeaseDocuments(societyId: string, leaseId: string) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return [];
 
+  const lease = await prisma.lease.findFirst({
+    where: { id: leaseId, societyId, deletedAt: null },
+    select: { tenantId: true },
+  });
+  if (!lease) return [];
+
   return prisma.document.findMany({
-    where: { leaseId, societyId, deletedAt: null },
+    where: {
+      societyId,
+      deletedAt: null,
+      OR: [
+        { leaseId },
+        {
+          leaseId: null,
+          tenantId: lease.tenantId,
+          category: "bail",
+        },
+      ],
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
     select: {

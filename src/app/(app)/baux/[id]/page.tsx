@@ -149,6 +149,12 @@ export default async function BailDetailPage({
 
   const primaryLotId =
     lease.leaseLots.find((ll) => ll.isPrimary)?.lot.id ?? lease.lot.id;
+  const attachedLeasePdf = leaseDocuments.find((doc) => doc.category === "bail");
+  const leaseFileUrl =
+    lease.leaseFileUrl ??
+    (attachedLeasePdf?.storagePath
+      ? `/api/storage/view?path=${encodeURIComponent(attachedLeasePdf.storagePath)}`
+      : attachedLeasePdf?.fileUrl ?? null);
 
   return (
     <div className="space-y-6">
@@ -273,7 +279,7 @@ export default async function BailDetailPage({
               inspectionsCount: lease._count.inspections,
             }}
             documents={{
-              leaseFileUrl: lease.leaseFileUrl ?? null,
+              leaseFileUrl,
               signatureRequests: (lease.signatureRequests ?? []).map((sr) => ({
                 ...sr,
                 createdAt:

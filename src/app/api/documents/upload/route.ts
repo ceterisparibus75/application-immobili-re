@@ -9,6 +9,7 @@ import {
   validateDocumentUploadMetadata,
   verifyDocumentMagicBytes,
 } from "@/lib/document-upload-security";
+import { resolveDocumentLeaseAssociation } from "@/lib/document-lease-association";
 
 export const maxDuration = 60;
 
@@ -90,6 +91,16 @@ export async function POST(req: NextRequest) {
 
     const fileUrl = urlData?.signedUrl ?? resolvedStoragePath;
 
+    const association = await resolveDocumentLeaseAssociation({
+      societyId: context.societyId,
+      category,
+      mimeType: metadataValidation.mimeType,
+      buildingId,
+      lotId,
+      leaseId,
+      tenantId,
+    });
+
     const doc = await prisma.document.create({
       data: {
         societyId: context.societyId,
@@ -100,14 +111,21 @@ export async function POST(req: NextRequest) {
         category: category ?? "autre",
         description: description || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        buildingId: buildingId || null,
-        lotId: lotId || null,
-        leaseId: leaseId || null,
-        tenantId: tenantId || null,
+        buildingId: association.buildingId,
+        lotId: association.lotId,
+        leaseId: association.leaseId,
+        tenantId: association.tenantId,
         storagePath: resolvedStoragePath,
         aiStatus: isAiSupportedDocumentMimeType(metadataValidation.mimeType) ? "pending" : null,
       },
     });
+
+    if (association.shouldSyncLeasePdf && association.leaseId) {
+      await prisma.lease.update({
+        where: { id: association.leaseId },
+        data: { leaseFileUrl: fileUrl, leaseFileStoragePath: resolvedStoragePath },
+      });
+    }
 
     await createAuditLog({
       societyId: context.societyId,
@@ -115,7 +133,14 @@ export async function POST(req: NextRequest) {
       action: "CREATE",
       entity: "Document",
       entityId: doc.id,
-      details: { fileName: file.name, category, buildingId, lotId, leaseId, tenantId },
+      details: {
+        fileName: file.name,
+        category,
+        buildingId: association.buildingId,
+        lotId: association.lotId,
+        leaseId: association.leaseId,
+        tenantId: association.tenantId,
+      },
     });
 
     // Déclencher l analyse IA en arrière-plan pour les types supportés

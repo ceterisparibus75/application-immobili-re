@@ -102,6 +102,7 @@ type InspectionRow = {
 type LeaseDocument = {
   id: string;
   fileName: string;
+  fileUrl: string;
   category: string | null;
   createdAt: Date;
   fileSize: number | null;
