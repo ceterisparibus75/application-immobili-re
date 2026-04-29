@@ -187,7 +187,12 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
         message: "Votre période d'essai est terminée. Souscrivez un abonnement pour continuer.",
       };
     }
-    // Trial encore actif
+    // Trial encore actif — vérifier si couvert par un abonnement ACTIVE d'une autre société
+    const trialOwnerCoverage = await checkCoveredByOwnerSubscription(societyId);
+    if (trialOwnerCoverage.covered) {
+      return { active: true, status: "ACTIVE" };
+    }
+    // Non couvert : afficher le warning d'essai
     const daysLeft = subscription.trialEnd
       ? Math.max(0, Math.ceil((subscription.trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
       : null;
