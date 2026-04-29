@@ -54,6 +54,7 @@ function makeSubscription(overrides: Partial<Subscription> = {}): Subscription {
 describe("checkLotLimit", () => {
   beforeEach(() => {
     prismaMock.subscription.findUnique.mockResolvedValue(makeSubscription());
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
   });
 
   it("autorise si sous la limite (plan STARTER, 19 lots)", async () => {
@@ -81,6 +82,7 @@ describe("checkLotLimit", () => {
 describe("checkUserLimit", () => {
   beforeEach(() => {
     prismaMock.subscription.findUnique.mockResolvedValue(makeSubscription());
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
   });
 
   it("autorise si sous la limite (plan STARTER, 1 utilisateur)", async () => {
@@ -105,6 +107,10 @@ describe("checkUserLimit", () => {
 });
 
 describe("checkSubscriptionActive", () => {
+  beforeEach(() => {
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
+  });
+
   it("retourne active=false si aucun abonnement", async () => {
     prismaMock.subscription.findUnique.mockResolvedValue(null);
     const result = await checkSubscriptionActive(SOCIETY_ID);
@@ -274,6 +280,10 @@ describe("checkSocietyLimit", () => {
 // ── checkCoveredByOwnerSubscription (via checkSubscriptionActive) ─
 
 describe("checkSubscriptionActive — couverture par abonnement admin croisé", () => {
+  beforeEach(() => {
+    prismaMock.userSociety.findMany.mockResolvedValue([] as never);
+  });
+
   it("retourne active=true si l'admin a un plan PRO ACTIVE sur une autre société couvrant celle-ci", async () => {
     // La société cible a un abonnement CANCELED
     prismaMock.subscription.findUnique.mockResolvedValue(

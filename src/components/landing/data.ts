@@ -15,10 +15,9 @@ import {
   UserSearch,
 } from "lucide-react";
 import type { ElementType } from "react";
-import { env } from "@/lib/env";
 
-export const APP_NAME = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
-export const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.mygestia.immo";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 

@@ -22,6 +22,7 @@ function getSupabaseClient() {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const isPreview = _req.nextUrl.searchParams.get("preview") === "1";
     const routeContext = await requireActiveSocietyRouteContext({ minRole: "COMPTABLE" });
     if (routeContext instanceof NextResponse) {
       if (routeContext.status === 400)
@@ -48,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
     if (!invoice)
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Facture introuvable" } }, { status: 404 });
-    if (!invoice.invoiceNumber)
+    if (!invoice.invoiceNumber && !isPreview)
       return NextResponse.json({ error: { code: "DRAFT", message: "Impossible de générer un PDF pour un brouillon non validé" } }, { status: 400 });
 
     const soc = invoice.society;
@@ -131,7 +132,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         : invoice.tenant.personalAddress;
 
     const pdfData = {
-      invoiceNumber: invoice.invoiceNumber,
+      invoiceNumber: invoice.invoiceNumber ?? "Prévisualisation",
       invoiceType: invoice.invoiceType,
       issueDate: invoice.issueDate.toISOString(),
       dueDate: invoice.dueDate.toISOString(),
@@ -188,7 +189,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // 8b. Correction de la date d'émission si elle est dans le futur (bug historique)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (invoice.issueDate > today && ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(invoice.status)) {
+    if (!isPreview && invoice.issueDate > today && ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(invoice.status)) {
       const newIssueDate = new Date();
       newIssueDate.setHours(0, 0, 0, 0);
       await prisma.invoice.update({ where: { id }, data: { issueDate: newIssueDate } });
@@ -212,13 +213,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const periodDate = invoice.periodStart ? new Date(invoice.periodStart) : new Date(invoice.dueDate);
     const period = `${String(periodDate.getMonth() + 1).padStart(2, "0")}-${periodDate.getFullYear()}`;
     const pdfFileName = buildStorageFileName(
-      [invoice.invoiceNumber, buildingName, tenantName, period],
+      [invoice.invoiceNumber ?? "previsualisation", buildingName, tenantName, period],
       "pdf",
       "facture"
     );
     const year = new Date(invoice.issueDate).getFullYear();
     const pdfPath = `invoices/${context.societyId}/${year}/${pdfFileName}`;
-    if (supabase) {
+    if (!isPreview && supabase) {
       try {
         const { error: uploadError } = await supabase.storage.from(bucket).upload(pdfPath, pdfBuffer, {
           contentType: "application/pdf",
@@ -236,14 +237,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // 11. Audit log
-    await createAuditLog({
-      societyId: context.societyId,
-      userId: context.userId,
-      action: "GENERATE_PDF",
-      entity: "Invoice",
-      entityId: id,
-      details: { invoiceNumber: invoice.invoiceNumber },
-    });
+    if (!isPreview) {
+      await createAuditLog({
+        societyId: context.societyId,
+        userId: context.userId,
+        action: "GENERATE_PDF",
+        entity: "Invoice",
+        entityId: id,
+        details: { invoiceNumber: invoice.invoiceNumber },
+      });
+    }
 
     // 12. Réponse
     const filename = pdfFileName;
@@ -252,7 +255,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${filename}"`,
         "Content-Length": String(pdfBuffer.length),
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": isPreview ? "private, no-store" : "private, max-age=300",
       },
     });
   } catch (error) {

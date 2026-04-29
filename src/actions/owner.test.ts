@@ -9,7 +9,10 @@ type GroupByMock = {
   mockResolvedValueOnce: (value: unknown) => GroupByMock;
 };
 
-vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/cache", () => ({
+  revalidatePath,
+  unstable_cache: (fn: unknown) => fn,
+}));
 
 import {
   claimSociety,

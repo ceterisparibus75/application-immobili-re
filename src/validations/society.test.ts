@@ -33,12 +33,34 @@ describe("createSocietySchema", () => {
   });
 
   it("rejette une forme juridique invalide", () => {
-    const result = createSocietySchema.safeParse({ ...validSociety, legalForm: "GIE" });
+    const result = createSocietySchema.safeParse({ ...validSociety, legalForm: "ASSOCIATION" });
     expect(result.success).toBe(false);
   });
 
   it("accepte toutes les formes juridiques valides", () => {
-    const forms = ["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "AUTRE", "PERSONNE_PHYSIQUE"];
+    const forms = [
+      "PERSONNE_PHYSIQUE",
+      "EI",
+      "EURL",
+      "SASU",
+      "SARL",
+      "SAS",
+      "SA",
+      "SNC",
+      "SCS",
+      "SCA",
+      "SCI",
+      "SCM",
+      "SCP",
+      "SCPI",
+      "SCCV",
+      "SELARL",
+      "SELAS",
+      "SPFPL",
+      "GIE",
+      "GFA",
+      "AUTRE",
+    ];
     for (const legalForm of forms) {
       expect(createSocietySchema.safeParse({ ...validSociety, legalForm }).success).toBe(true);
     }

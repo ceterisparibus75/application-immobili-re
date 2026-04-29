@@ -679,7 +679,7 @@ describe("createUser", () => {
     );
   });
 
-  it("retourne une erreur si l'email est déjà actif", async () => {
+  it("retourne l'utilisateur existant si l'email est déjà actif", async () => {
     prismaMock.userSociety.findFirst.mockResolvedValue({ role: "ADMIN_SOCIETE" } as never);
     prismaMock.user.findUnique.mockResolvedValue({
       id: USER_ID, email: "alice@example.com", lastLoginAt: new Date(),
@@ -687,8 +687,9 @@ describe("createUser", () => {
 
     const r = await createUser({ name: "Alice", email: "alice@example.com" });
 
-    expect(r.success).toBe(false);
-    expect(r.error).toContain("déjà utilisé");
+    expect(r).toEqual({ success: true, data: { id: USER_ID, alreadyActive: true } });
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
   it("crée un nouvel utilisateur et envoie l'email d'invitation", async () => {

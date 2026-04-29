@@ -23,6 +23,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.AUTH_URL ?? "https://mygestia.immo"),
   title: {
     default: "MyGestia — Gestion immobiliere SaaS",
     template: "%s | MyGestia",

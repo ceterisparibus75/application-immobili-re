@@ -15,6 +15,7 @@ import Link from "next/link";
 import type { ComponentType } from "react";
 
 export const metadata = { title: "Supervision admin" };
+export const dynamic = "force-dynamic";
 
 const EVENT_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: "Connexion réussie",

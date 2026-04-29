@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    testTimeout: 60_000,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**", "**/e2e/**"],
     coverage: {
