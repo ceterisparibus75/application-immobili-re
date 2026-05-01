@@ -834,7 +834,7 @@ function ReCategorizeSection({ societyId, onDone }: { societyId: string; onDone:
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selections, setSelections] = useState<Map<string, string>>(new Map());
-  const [txPeriod, setTxPeriod] = useState(3);
+  const [txPeriod, setTxPeriod] = useState(12);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {

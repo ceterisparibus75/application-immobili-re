@@ -913,7 +913,7 @@ export async function getRecentTransactions(
         seen.set(key, tx);
       }
     }
-    const deduped = Array.from(seen.values()).slice(0, 300);
+    const deduped = Array.from(seen.values()).slice(0, 1000);
 
     return {
       success: true,
