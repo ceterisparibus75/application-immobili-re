@@ -441,6 +441,29 @@ export async function getTenantsPaginated(
   else if (params.filters?.status === "inactive") where.isActive = false;
 
   if (params.filters?.entityType) where.entityType = params.filters.entityType;
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  if (params.filters?.portal === "active") {
+    where.portalAccess = { is: { isActive: true } };
+  } else if (params.filters?.portal === "no_access") {
+    where.OR = [
+      { portalAccess: { is: null } },
+      { portalAccess: { is: { isActive: false } } },
+    ];
+  } else if (params.filters?.portal === "pending") {
+    where.portalAccess = { is: { isActive: true, activationCode: { not: null } } };
+  } else if (params.filters?.portal === "never_connected") {
+    where.portalAccess = { is: { isActive: true, lastLoginAt: null } };
+  } else if (params.filters?.portal === "recent") {
+    where.portalAccess = { is: { isActive: true, lastLoginAt: { gte: thirtyDaysAgo } } };
+  } else if (params.filters?.portal === "inactive_30") {
+    where.portalAccess = { is: { isActive: true, lastLoginAt: { lt: thirtyDaysAgo } } };
+  } else if (params.filters?.portal === "inactive_90") {
+    where.portalAccess = { is: { isActive: true, lastLoginAt: { lt: ninetyDaysAgo } } };
+  }
+
   if (params.filters?.dossier === "complete") {
     andClauses.push({
       NOT: { email: { contains: "a-renseigner", mode: "insensitive" } },
@@ -558,6 +581,14 @@ export async function getTenantsPaginated(
         insuranceExpiresAt: true,
         riskIndicator: true,
         isActive: true,
+        portalAccess: {
+          select: {
+            isActive: true,
+            invitedAt: true,
+            lastLoginAt: true,
+            activationCode: true,
+          },
+        },
         _count: { select: { leases: true } },
         leases: {
           where: { status: "EN_COURS", deletedAt: null },

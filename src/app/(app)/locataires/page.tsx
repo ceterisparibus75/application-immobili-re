@@ -122,6 +122,7 @@ const TENANT_VIEW_SORTS = new Set<TenantViewSort>([
   "rent-desc",
   "risk",
   "dossier",
+  "last-login-desc",
 ]);
 
 const TENANT_GROUPS = new Set<TenantGroupBy>(["none", "building", "risk", "dossier", "insurance"]);
@@ -140,6 +141,11 @@ function formatDate(value?: Date | null) {
   return value
     ? value.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
     : null;
+}
+
+function daysSince(value?: Date | null) {
+  if (!value) return null;
+  return Math.floor((Date.now() - value.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 interface PageProps {
@@ -196,6 +202,17 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
       lotLabel,
       entryDate: primaryLease?.startDate.toISOString() ?? null,
       entryDateLabel: formatDate(primaryLease?.startDate ?? null),
+      portal: t.portalAccess
+        ? {
+            isActive: t.portalAccess.isActive,
+            invitedAt: t.portalAccess.invitedAt.toISOString(),
+            invitedAtLabel: formatDate(t.portalAccess.invitedAt),
+            lastLoginAt: t.portalAccess.lastLoginAt?.toISOString() ?? null,
+            lastLoginAtLabel: formatDate(t.portalAccess.lastLoginAt ?? null),
+            daysSinceLastLogin: daysSince(t.portalAccess.lastLoginAt ?? null),
+            activationPending: !!t.portalAccess.activationCode,
+          }
+        : null,
     };
   });
 

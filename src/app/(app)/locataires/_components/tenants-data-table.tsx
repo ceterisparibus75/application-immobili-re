@@ -15,7 +15,8 @@ export type TenantViewSort =
   | "balance-desc"
   | "rent-desc"
   | "risk"
-  | "dossier";
+  | "dossier"
+  | "last-login-desc";
 
 export type TenantGroupBy = "none" | "building" | "risk" | "dossier" | "insurance";
 
@@ -44,6 +45,15 @@ interface TenantRow {
   lotLabel: string | null;
   entryDate: string | null;
   entryDateLabel: string | null;
+  portal: {
+    isActive: boolean;
+    invitedAt: string;
+    invitedAtLabel: string | null;
+    lastLoginAt: string | null;
+    lastLoginAtLabel: string | null;
+    daysSinceLastLogin: number | null;
+    activationPending: boolean;
+  } | null;
 }
 
 interface Props {
@@ -68,6 +78,7 @@ const SORT_OPTIONS: { value: TenantViewSort; label: string }[] = [
   { value: "rent-desc", label: "Loyer décroissant" },
   { value: "risk", label: "Risque" },
   { value: "dossier", label: "Dossier incomplet" },
+  { value: "last-login-desc", label: "Dernière connexion" },
 ];
 
 const GROUP_OPTIONS: { value: TenantGroupBy; label: string }[] = [
@@ -100,6 +111,33 @@ function compareDate(a?: string | null, b?: string | null) {
   return left - right;
 }
 
+function portalStatus(row: TenantRow): {
+  label: string;
+  detail: string;
+  variant: "success" | "warning" | "destructive" | "secondary";
+} {
+  if (!row.portal || !row.portal.isActive) {
+    return { label: "Sans accès", detail: "Portail non activé", variant: "secondary" };
+  }
+  if (row.portal.activationPending) {
+    return {
+      label: "Invitation en attente",
+      detail: row.portal.invitedAtLabel ? `Invitée le ${row.portal.invitedAtLabel}` : "Code d'activation envoyé",
+      variant: "warning",
+    };
+  }
+  if (!row.portal.lastLoginAt) {
+    return { label: "Jamais connecté", detail: "Accès actif", variant: "warning" };
+  }
+  if ((row.portal.daysSinceLastLogin ?? 0) >= 90) {
+    return { label: "Inactif 90j", detail: `Dernière connexion ${row.portal.lastLoginAtLabel}`, variant: "destructive" };
+  }
+  if ((row.portal.daysSinceLastLogin ?? 0) >= 30) {
+    return { label: "Inactif 30j", detail: `Dernière connexion ${row.portal.lastLoginAtLabel}`, variant: "warning" };
+  }
+  return { label: "Accès actif", detail: `Dernière connexion ${row.portal.lastLoginAtLabel}`, variant: "success" };
+}
+
 function sortTenants(tenants: TenantRow[], viewSort: TenantViewSort, groupBy: TenantGroupBy) {
   return [...tenants].sort((a, b) => {
     const groupCompare = groupBy === "none" ? 0 : compareGroup(a, b, groupBy);
@@ -120,6 +158,8 @@ function sortTenants(tenants: TenantRow[], viewSort: TenantViewSort, groupBy: Te
         return RISK_ORDER[a.riskVariant] - RISK_ORDER[b.riskVariant] || compareText(a.name, b.name);
       case "dossier":
         return DOSSIER_ORDER[a.dossier.status] - DOSSIER_ORDER[b.dossier.status] || compareText(a.name, b.name);
+      case "last-login-desc":
+        return compareDate(b.portal?.lastLoginAt, a.portal?.lastLoginAt) || compareText(a.name, b.name);
       case "alpha":
       default:
         return compareText(a.name, b.name);
@@ -223,6 +263,21 @@ function buildColumns(groupBy: TenantGroupBy): DataTableColumn<TenantRow>[] {
     },
   },
   {
+    key: "portal",
+    label: "Portail",
+    render: (row) => {
+      const status = portalStatus(row);
+      return (
+        <div className="max-w-[190px]">
+          <Badge variant={status.variant} className="text-[11px]">
+            {status.label}
+          </Badge>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{status.detail}</p>
+        </div>
+      );
+    },
+  },
+  {
     key: "insurance",
     label: "Assurance",
     align: "center",
@@ -298,6 +353,19 @@ const FILTERS: FilterOption[] = [
     options: [
       { value: "PERSONNE_PHYSIQUE", label: "Particulier" },
       { value: "PERSONNE_MORALE", label: "Société" },
+    ],
+  },
+  {
+    key: "portal",
+    label: "Portail",
+    options: [
+      { value: "active", label: "Accès activé" },
+      { value: "no_access", label: "Sans accès" },
+      { value: "pending", label: "Invitation en attente" },
+      { value: "never_connected", label: "Jamais connecté" },
+      { value: "recent", label: "Connecté récemment" },
+      { value: "inactive_30", label: "Inactif 30 jours" },
+      { value: "inactive_90", label: "Inactif 90 jours" },
     ],
   },
 ];
