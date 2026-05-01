@@ -10,7 +10,9 @@ import {
   INCOME_CATEGORIES,
   NEUTRAL_CATEGORIES,
   ALL_CATEGORIES,
-  isNeutralCategory,
+  isRecurringCategory,
+  isFinancementCategory,
+  isVirementInterne,
 } from "@/lib/cashflow-categories";
 import { normalizeLabel } from "@/lib/normalize-label";
 import {
@@ -40,6 +42,14 @@ export type CashflowMonthDetail = {
   actualIncome: number;
   actualExpenses: number;
   actualNet: number;
+  // Ventilation par section
+  operationalIncome: number;
+  operationalExpenses: number;
+  operationalNet: number;
+  exceptionalIncome: number;
+  exceptionalExpenses: number;
+  exceptionalNet: number;
+  financementNet: number;
   // Ventilation réelle par catégorie
   expenseBreakdown: CategoryBreakdown[];
   incomeBreakdown: CategoryBreakdown[];
@@ -56,11 +66,18 @@ export type CashflowDashboard = {
   // Ventilation globale sur la période
   globalExpenseBreakdown: CategoryBreakdown[];
   globalIncomeBreakdown: CategoryBreakdown[];
-  // Totaux
+  // Totaux globaux
   totalActualIncome: number;
   totalActualExpenses: number;
   totalProjectedIncome: number;
   totalProjectedExpenses: number;
+  // Totaux par section
+  totalOperationalIncome: number;
+  totalOperationalExpenses: number;
+  totalExceptionalIncome: number;
+  totalExceptionalExpenses: number;
+  totalFinancementIn: number;
+  totalFinancementOut: number;
 };
 
 export type UncategorizedTransaction = {
@@ -129,29 +146,58 @@ export async function getCashflowDashboard(
     }
 
     // Regrouper par mois
-    const actualByMonth = new Map<string, { income: number; expenses: number; expenseCats: Map<string, number>; incomeCats: Map<string, number> }>();
+    type MonthBucket = {
+      income: number; expenses: number;
+      expenseCats: Map<string, number>; incomeCats: Map<string, number>;
+      operationalIncome: number; operationalExpenses: number;
+      exceptionalIncome: number; exceptionalExpenses: number;
+      financementIn: number; financementOut: number;
+    };
+    const actualByMonth = new Map<string, MonthBucket>();
     let uncategorizedCount = 0;
 
     for (const tx of bankTransactions) {
       // Compter toutes les transactions non catégorisées (dépenses + revenus)
       if (!tx.category) uncategorizedCount++;
 
-      // Les virements internes sont neutres : ils ne comptent ni en revenu ni en dépense
-      if (isNeutralCategory(tx.category ?? "")) continue;
+      // Virement interne : exclu de tout calcul
+      if (isVirementInterne(tx.category ?? "")) continue;
 
       const d = new Date(tx.transactionDate);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
       if (!actualByMonth.has(key)) {
-        actualByMonth.set(key, { income: 0, expenses: 0, expenseCats: new Map(), incomeCats: new Map() });
+        actualByMonth.set(key, {
+          income: 0, expenses: 0,
+          expenseCats: new Map(), incomeCats: new Map(),
+          operationalIncome: 0, operationalExpenses: 0,
+          exceptionalIncome: 0, exceptionalExpenses: 0,
+          financementIn: 0, financementOut: 0,
+        });
       }
       const bucket = actualByMonth.get(key)!;
 
+      // Flux de financement (CCA) : section dedicee, non inclus dans revenu/depense
+      if (isFinancementCategory(tx.category ?? "")) {
+        if (tx.amount >= 0) {
+          bucket.financementIn += tx.amount;
+        } else {
+          bucket.financementOut += Math.abs(tx.amount);
+        }
+        continue;
+      }
+
       const cat = tx.category || (tx.amount < 0 ? "divers_depense" : "autres_revenus");
+      const recurring = isRecurringCategory(cat);
 
       if (tx.amount >= 0) {
         bucket.income += tx.amount;
         bucket.incomeCats.set(cat, (bucket.incomeCats.get(cat) ?? 0) + tx.amount);
+        if (recurring) {
+          bucket.operationalIncome += tx.amount;
+        } else {
+          bucket.exceptionalIncome += tx.amount;
+        }
       } else {
         const absAmount = Math.abs(tx.amount);
 
@@ -167,12 +213,18 @@ export async function getCashflowDashboard(
             bucket.expenses += absAmount;
             bucket.expenseCats.set("interets_emprunt", (bucket.expenseCats.get("interets_emprunt") ?? 0) + interestPart);
             bucket.expenseCats.set("remboursement_emprunt", (bucket.expenseCats.get("remboursement_emprunt") ?? 0) + capitalPart);
-            continue; // Ne pas ajouter une 2e fois ci-dessous
+            bucket.operationalExpenses += absAmount;
+            continue;
           }
         }
 
         bucket.expenses += absAmount;
         bucket.expenseCats.set(cat, (bucket.expenseCats.get(cat) ?? 0) + absAmount);
+        if (recurring) {
+          bucket.operationalExpenses += absAmount;
+        } else {
+          bucket.exceptionalExpenses += absAmount;
+        }
       }
     }
 
@@ -281,6 +333,13 @@ export async function getCashflowDashboard(
         actualIncome: round(actual?.income ?? 0),
         actualExpenses: round(actual?.expenses ?? 0),
         actualNet: round((actual?.income ?? 0) - (actual?.expenses ?? 0)),
+        operationalIncome: round(actual?.operationalIncome ?? 0),
+        operationalExpenses: round(actual?.operationalExpenses ?? 0),
+        operationalNet: round((actual?.operationalIncome ?? 0) - (actual?.operationalExpenses ?? 0)),
+        exceptionalIncome: round(actual?.exceptionalIncome ?? 0),
+        exceptionalExpenses: round(actual?.exceptionalExpenses ?? 0),
+        exceptionalNet: round((actual?.exceptionalIncome ?? 0) - (actual?.exceptionalExpenses ?? 0)),
+        financementNet: round((actual?.financementIn ?? 0) - (actual?.financementOut ?? 0)),
         expenseBreakdown,
         incomeBreakdown,
         projectedIncome: round(monthlyProjectedIncome),
@@ -305,6 +364,13 @@ export async function getCashflowDashboard(
         actualIncome: 0,
         actualExpenses: 0,
         actualNet: 0,
+        operationalIncome: 0,
+        operationalExpenses: 0,
+        operationalNet: 0,
+        exceptionalIncome: 0,
+        exceptionalExpenses: 0,
+        exceptionalNet: 0,
+        financementNet: 0,
         expenseBreakdown: [],
         incomeBreakdown: [],
         projectedIncome: round(monthlyProjectedIncome),
@@ -361,6 +427,12 @@ export async function getCashflowDashboard(
         totalActualExpenses: round(pastMonths.reduce((s, m) => s + m.actualExpenses, 0)),
         totalProjectedIncome: round(result.filter((m) => !m.isPast).reduce((s, m) => s + m.projectedIncome, 0)),
         totalProjectedExpenses: round(result.filter((m) => !m.isPast).reduce((s, m) => s + m.projectedExpenses, 0)),
+        totalOperationalIncome: round(pastMonths.reduce((s, m) => s + m.operationalIncome, 0)),
+        totalOperationalExpenses: round(pastMonths.reduce((s, m) => s + m.operationalExpenses, 0)),
+        totalExceptionalIncome: round(pastMonths.reduce((s, m) => s + m.exceptionalIncome, 0)),
+        totalExceptionalExpenses: round(pastMonths.reduce((s, m) => s + m.exceptionalExpenses, 0)),
+        totalFinancementIn: round(Array.from(actualByMonth.values()).reduce((s, b) => s + b.financementIn, 0)),
+        totalFinancementOut: round(Array.from(actualByMonth.values()).reduce((s, b) => s + b.financementOut, 0)),
       },
     };
   } catch (error) {

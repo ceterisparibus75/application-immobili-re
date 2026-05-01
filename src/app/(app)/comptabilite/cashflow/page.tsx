@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue, SelectSeparator,
 } from "@/components/ui/select";
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -72,6 +72,7 @@ export default function CashflowPage() {
   const societyId = activeSociety?.id;
 
   const [period, setPeriod] = useState<number>(12);
+  const [chartView, setChartView] = useState<"all" | "operational" | "exceptional">("all");
   const [data, setData] = useState<CashflowDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -183,25 +184,35 @@ export default function CashflowPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
                   <TrendingUp className="h-4 w-4 text-[var(--color-status-positive)]" />
                 </div>
-                <p className="text-xs text-muted-foreground">Encaissements</p>
+                <p className="text-xs text-muted-foreground">Opérationnel net</p>
               </div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-positive)]">
-                {formatCurrency(data.totalActualIncome)}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">sur 12 mois glissants</p>
+              {(() => {
+                const net = data.totalOperationalIncome - data.totalOperationalExpenses;
+                return (
+                  <p className={`text-2xl font-bold tabular-nums ${net >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
+                    {net >= 0 ? "+" : ""}{formatCurrency(net)}
+                  </p>
+                );
+              })()}
+              <p className="text-[10px] text-muted-foreground mt-1">récurrent · 12 mois glissants</p>
             </div>
 
             <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
-                  <TrendingDown className="h-4 w-4 text-[var(--color-status-negative)]" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
+                  <TrendingDown className="h-4 w-4 text-amber-600" />
                 </div>
-                <p className="text-xs text-muted-foreground">Décaissements</p>
+                <p className="text-xs text-muted-foreground">Exceptionnel net</p>
               </div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-negative)]">
-                {formatCurrency(data.totalActualExpenses)}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">sur 12 mois glissants</p>
+              {(() => {
+                const net = data.totalExceptionalIncome - data.totalExceptionalExpenses;
+                return (
+                  <p className={`text-2xl font-bold tabular-nums ${net >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
+                    {net >= 0 ? "+" : ""}{formatCurrency(net)}
+                  </p>
+                );
+              })()}
+              <p className="text-[10px] text-muted-foreground mt-1">travaux, cessions · 12 mois</p>
             </div>
 
             <div className="bg-card rounded-xl p-5 shadow-brand">
@@ -209,19 +220,17 @@ export default function CashflowPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                   <Wallet className="h-4 w-4 text-indigo-600" />
                 </div>
-                <p className="text-xs text-muted-foreground">Cash-flow net</p>
+                <p className="text-xs text-muted-foreground">Financement net</p>
               </div>
               {(() => {
-                const net = data.totalActualIncome - data.totalActualExpenses;
+                const net = data.totalFinancementIn - data.totalFinancementOut;
                 return (
-                  <p className={`text-2xl font-bold tabular-nums ${
-                    net >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"
-                  }`}>
+                  <p className={`text-2xl font-bold tabular-nums ${net >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>
                     {net >= 0 ? "+" : ""}{formatCurrency(net)}
                   </p>
                 );
               })()}
-              <p className="text-[10px] text-muted-foreground mt-1">sur 12 mois glissants</p>
+              <p className="text-[10px] text-muted-foreground mt-1">apports / remb. CCA</p>
             </div>
           </div>
 
@@ -256,54 +265,76 @@ export default function CashflowPage() {
           {/* ── Graphique évolution mensuelle ──────────────────────────── */}
           <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
-                Évolution mensuelle
-              </CardTitle>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+                  Évolution mensuelle
+                </CardTitle>
+                <div className="flex bg-muted rounded-lg p-0.5">
+                  {(["all", "operational", "exceptional"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setChartView(v)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                        chartView === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {v === "all" ? "Tout" : v === "operational" ? "Opérationnel" : "Exceptionnel"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={data.months} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#22C55E" />
-                      <stop offset="100%" stopColor="#86EFAC" />
-                    </linearGradient>
-                    <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#A04040" />
-                      <stop offset="100%" stopColor="#FCA5A5" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={64} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(v, name) => {
-                      const labels: Record<string, string> = {
-                        actualIncome: "Encaissements réels",
-                        actualExpenses: "Décaissements réels",
-                        actualNet: "Cash-flow net réel",
-                        projectedNet: "Cash-flow net projeté",
-                      };
-                      return [formatCurrency(Number(v)), labels[String(name)] ?? String(name)];
-                    }}
-                    cursor={{ fill: "var(--accent)", opacity: 0.5 }}
-                  />
-                  <Legend formatter={(value: string) => {
-                    const labels: Record<string, string> = {
-                      actualIncome: "Encaissements",
-                      actualExpenses: "Décaissements",
-                      projectedNet: "Projection nette",
-                      actualNet: "Cash-flow net",
-                    };
-                    return labels[value] ?? value;
-                  }} />
-                  <Bar dataKey="actualIncome" fill="url(#incGrad)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  <Bar dataKey="actualExpenses" fill="url(#expGrad)" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  <Line type="monotone" dataKey="actualNet" stroke="#1B4F8A" strokeWidth={2} dot={{ r: 2 }} />
-                  <Line type="monotone" dataKey="projectedNet" stroke="#1B4F8A" strokeWidth={1.5} strokeDasharray="6 3" dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
+              {(() => {
+                const incKey = chartView === "operational" ? "operationalIncome" : chartView === "exceptional" ? "exceptionalIncome" : "actualIncome";
+                const expKey = chartView === "operational" ? "operationalExpenses" : chartView === "exceptional" ? "exceptionalExpenses" : "actualExpenses";
+                const netKey = chartView === "operational" ? "operationalNet" : chartView === "exceptional" ? "exceptionalNet" : "actualNet";
+                return (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <ComposedChart data={data.months} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#22C55E" />
+                          <stop offset="100%" stopColor="#86EFAC" />
+                        </linearGradient>
+                        <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#A04040" />
+                          <stop offset="100%" stopColor="#FCA5A5" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+                      <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={64} />
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(v, name) => {
+                          const lmap: Record<string, string> = {
+                            actualIncome: "Encaissements réels", operationalIncome: "Encaissements récurrents", exceptionalIncome: "Encaissements exceptionnels",
+                            actualExpenses: "Décaissements réels", operationalExpenses: "Décaissements récurrents", exceptionalExpenses: "Décaissements exceptionnels",
+                            actualNet: "Cash-flow net", operationalNet: "Net opérationnel", exceptionalNet: "Net exceptionnel",
+                            projectedNet: "Cash-flow net projeté",
+                          };
+                          return [formatCurrency(Number(v)), lmap[String(name)] ?? String(name)];
+                        }}
+                        cursor={{ fill: "var(--accent)", opacity: 0.5 }}
+                      />
+                      <Legend formatter={(value: string) => {
+                        const lmap: Record<string, string> = {
+                          actualIncome: "Encaissements", operationalIncome: "Encaissements", exceptionalIncome: "Encaissements",
+                          actualExpenses: "Décaissements", operationalExpenses: "Décaissements", exceptionalExpenses: "Décaissements",
+                          actualNet: "Cash-flow net", operationalNet: "Net opérationnel", exceptionalNet: "Net exceptionnel",
+                          projectedNet: "Projection nette",
+                        };
+                        return lmap[value] ?? value;
+                      }} />
+                      <Bar dataKey={incKey} fill="url(#incGrad)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                      <Bar dataKey={expKey} fill="url(#expGrad)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                      <Line type="monotone" dataKey={netKey} stroke="#1B4F8A" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line type="monotone" dataKey="projectedNet" stroke="#1B4F8A" strokeWidth={1.5} strokeDasharray="6 3" dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -689,23 +720,42 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
                       <SelectValue placeholder="Catégorie…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                            {cat.label}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px]">Courant</SelectLabel>
+                        {categories.filter((cat) => (cat as { recurring?: boolean }).recurring !== false).map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                              {cat.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      {categories.some((cat) => (cat as { recurring?: boolean }).recurring === false) && (
+                        <SelectGroup>
+                          <SelectLabel className="text-[10px]">Exceptionnel</SelectLabel>
+                          {categories.filter((cat) => (cat as { recurring?: boolean }).recurring === false).map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                                {cat.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
                       <SelectSeparator />
-                      {NEUTRAL_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <div className="flex items-center gap-2">
-                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                            {cat.label}
-                          </div>
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        <SelectLabel className="text-[10px]">Neutre / Financement</SelectLabel>
+                        {NEUTRAL_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                              {cat.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
