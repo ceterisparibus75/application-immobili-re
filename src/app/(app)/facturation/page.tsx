@@ -18,7 +18,6 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
-import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { ExportFactures } from "@/components/exports/export-factures";
 import {
   formatCurrencyAmountFr,
@@ -110,7 +109,6 @@ export default async function FacturationPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <GestionLocativeNav />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facturation</h1>

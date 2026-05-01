@@ -21,7 +21,6 @@ import {
   Mail,
   Users,
 } from "lucide-react";
-import { GestionLocativeNav } from "@/components/layout/gestion-locative-nav";
 import { RelancesViewToggle } from "./_components/relances-view-toggle";
 import { RelancesHistory } from "./_components/relances-history";
 
@@ -227,8 +226,6 @@ export default async function RelancesPage() {
 
   return (
     <div className="space-y-6">
-      <GestionLocativeNav />
-
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Relances</h1>
         <p className="text-muted-foreground">
