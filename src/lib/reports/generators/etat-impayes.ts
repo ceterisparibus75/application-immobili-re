@@ -40,6 +40,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     },
     include: {
       tenant: true,
+      building: { select: { name: true } },
       lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
       payments: { select: { amount: true } },
     },
@@ -72,7 +73,9 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
       const tn = inv.tenant.entityType === "PERSONNE_MORALE"
         ? (inv.tenant.companyName ?? "-")
         : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
-      const loc = inv.lease?.lot ? `${inv.lease.lot.building.name} / ${inv.lease.lot.number}` : "-";
+      const loc = inv.lease?.lot
+        ? `${inv.lease.lot.building.name} / ${inv.lease.lot.number}`
+        : inv.building?.name ?? "-";
       const days = Math.max(0, Math.floor((today.getTime() - new Date(inv.dueDate).getTime()) / 86400000));
       total += inv.outstandingAmount;
       const row = ws.addRow([inv.invoiceNumber, tn, loc, new Date(inv.dueDate).toLocaleDateString("fr-FR"), inv.outstandingAmount, days, ageBucket(new Date(inv.dueDate), today), inv.status]);
@@ -133,7 +136,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   // Group by building→tenant
   const grouped = new Map<string, Map<string, { name: string; loc: string; buckets: Record<string, number> }>>();
   for (const inv of invoices) {
-    const bName = inv.lease?.lot?.building?.name ?? "Autre";
+    const bName = inv.lease?.lot?.building?.name ?? inv.building?.name ?? "Autre";
     const tn = inv.tenant.entityType === "PERSONNE_MORALE"
       ? (inv.tenant.companyName ?? "-")
       : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
@@ -141,7 +144,11 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     if (!grouped.has(bName)) grouped.set(bName, new Map());
     const bMap = grouped.get(bName)!;
     if (!bMap.has(tid)) {
-      bMap.set(tid, { name: tn, loc: inv.lease?.lot ? `${bName} / ${inv.lease.lot.number}` : "-", buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])) });
+      bMap.set(tid, {
+        name: tn,
+        loc: inv.lease?.lot ? `${bName} / ${inv.lease.lot.number}` : inv.building?.name ?? "-",
+        buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])),
+      });
     }
     bMap.get(tid)!.buckets[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }

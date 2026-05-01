@@ -40,6 +40,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
     },
     include: {
       tenant: true,
+      building: { select: { name: true } },
       lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
       payments: { select: { amount: true } },
     },
@@ -89,7 +90,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   // Group by building
   const byBuilding = new Map<string, { name: string; loc: string; buckets: Record<string, number>; total: number }[]>();
   for (const inv of invoices) {
-    const bName = inv.lease?.lot?.building?.name ?? "Autre";
+    const bName = inv.lease?.lot?.building?.name ?? inv.building?.name ?? "Autre";
     if (!byBuilding.has(bName)) byBuilding.set(bName, []);
     const arr = byBuilding.get(bName)!;
     const tn = inv.tenant.entityType === "PERSONNE_MORALE"
@@ -97,7 +98,12 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
       : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
     let entry = arr.find((e) => e.name === tn);
     if (!entry) {
-      entry = { name: tn, loc: inv.lease?.lot ? `${bName}/${inv.lease.lot.number}` : "-", buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])), total: 0 };
+      entry = {
+        name: tn,
+        loc: inv.lease?.lot ? `${bName}/${inv.lease.lot.number}` : inv.building?.name ?? "-",
+        buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])),
+        total: 0,
+      };
       arr.push(entry);
     }
     const bucket = ageBucket(new Date(inv.dueDate), today);

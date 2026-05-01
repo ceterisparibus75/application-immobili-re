@@ -341,6 +341,52 @@ describe("generateEtatImpayes", () => {
     );
   });
 
+  it("rattache une facture sans bail à son immeuble explicite en PDF et XLSX", async () => {
+    const today = new Date();
+    const invoice = {
+      tenantId: "t1",
+      invoiceNumber: "INV-DIRECT",
+      dueDate: new Date(today.getTime() - 10 * 86400000),
+      totalTTC: 600,
+      payments: [],
+      status: "VALIDEE",
+      building: { name: "Immeuble Direct" },
+      tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Marc", lastName: "Alain", companyName: null },
+      lease: null,
+    };
+    prismaMock.invoice.findMany.mockResolvedValue([invoice] as never);
+
+    const pdfResult = await generateEtatImpayes({ societyId: "society-1", type: "ETAT_IMPAYES" });
+
+    expect(pdfResult.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      pageMock,
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Marc Alain", "Immeuble Direct"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+
+    vi.clearAllMocks();
+    helperMocks.initPdf.mockResolvedValue(pdfCtx);
+    pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
+    pdfCtx.np.mockReturnValue(pageMock);
+    prismaMock.invoice.findMany.mockResolvedValue([invoice] as never);
+
+    const xlsxResult = await generateEtatImpayes({
+      societyId: "society-1",
+      type: "ETAT_IMPAYES",
+      format: "xlsx",
+    });
+
+    expect(xlsxResult.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["INV-DIRECT", "Marc Alain", "Immeuble Direct"])
+    );
+  });
+
   it("xlsx — affiche '-' pour PERSONNE_MORALE sans companyName, PERSONNE_PHYSIQUE sans nom et lease.lot null (lignes 63-66)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([

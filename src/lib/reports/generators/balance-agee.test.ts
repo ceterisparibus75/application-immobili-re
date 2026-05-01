@@ -224,6 +224,38 @@ describe("generateBalanceAgee", () => {
     );
   });
 
+  it("rattache une facture sans bail à son immeuble explicite", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        totalTTC: 600,
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Paul", lastName: "Vidal", companyName: null },
+        building: { name: "Immeuble Direct" },
+        lease: null,
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawSectionHeader).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.serifBold,
+      expect.any(Number),
+      "Immeuble Direct"
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Paul Vidal", "Immeuble Direct"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+  });
+
   it("affiche '-' pour PERSONNE_MORALE avec companyName null (ligne 87) et nom vide (ligne 88)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([
