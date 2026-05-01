@@ -892,6 +892,7 @@ export async function getRecentTransactions(
       },
       select: {
         id: true,
+        bankAccountId: true,
         transactionDate: true,
         label: true,
         amount: true,
@@ -900,12 +901,23 @@ export async function getRecentTransactions(
         bankAccount: { select: { accountName: true } },
       },
       orderBy: { transactionDate: "desc" },
-      take: 300,
+      take: 500,
     });
+
+    // Dédoublonnage : même compte + même date + même montant → garder la version catégorisée
+    const seen = new Map<string, (typeof transactions)[0]>();
+    for (const tx of transactions) {
+      const key = `${tx.bankAccountId}|${tx.transactionDate.toISOString().slice(0, 10)}|${tx.amount}`;
+      const existing = seen.get(key);
+      if (!existing || (!existing.category && tx.category)) {
+        seen.set(key, tx);
+      }
+    }
+    const deduped = Array.from(seen.values()).slice(0, 300);
 
     return {
       success: true,
-      data: transactions.map((tx) => ({
+      data: deduped.map((tx) => ({
         id: tx.id,
         transactionDate: tx.transactionDate.toISOString(),
         label: tx.label,
