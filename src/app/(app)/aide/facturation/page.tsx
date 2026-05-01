@@ -23,7 +23,7 @@ export default function FacturationPage() {
           Les factures sont organisées en onglets : <strong>Toutes</strong>, <strong>Brouillons</strong>, <strong>En retard</strong> et <strong>Relances</strong>. Chaque onglet affiche un tableau filtrable et triable.
         </p>
         <p>
-          Pour le suivi d'un locataire précis, ouvrez sa fiche : la section <strong>Facturation</strong> affiche ses factures MyGestia, puis la <strong>Situation du compte locataire</strong> détaille le solde, les paiements, les avoirs et les mouvements historiques.
+          Pour le suivi d'un locataire précis, ouvrez sa fiche : l'onglet <strong>Facturation</strong> affiche ses factures MyGestia, puis l'onglet <strong>Compte locataire</strong> détaille le solde, les paiements, les avoirs et les mouvements historiques.
         </p>
       </HelpSection>
 
@@ -90,15 +90,15 @@ export default function FacturationPage() {
         </HelpStep>
       </HelpSection>
 
-      <HelpSection id="compte-locataire" title="Facturation et compte locataire">
+      <HelpSection id="compte-locataire" title="Onglets Facturation et Compte locataire">
         <p>
-          La fiche locataire regroupe les informations utiles pour piloter la relation financière avec un titulaire : factures, paiements, avoirs, reprises de soldes et relevés importés.
+          La fiche locataire sépare les informations financières en deux onglets pour éviter de mélanger les factures MyGestia et les mouvements de compte.
         </p>
         <HelpStep number={1} title="Consulter les factures du locataire">
-          <p>Depuis <strong>Locataires</strong>, ouvrez la fiche du locataire. La section <strong>Facturation</strong> affiche les factures avec leur date, numéro, statut, montant TTC, montant payé et solde restant.</p>
+          <p>Depuis <strong>Locataires</strong>, ouvrez la fiche du locataire. L'onglet <strong>Facturation</strong> affiche les factures avec leur date, numéro, statut, montant TTC, montant payé et solde restant.</p>
         </HelpStep>
         <HelpStep number={2} title="Suivre la situation du compte">
-          <p>La section <strong>Situation du compte locataire</strong> présente les indicateurs : total facturé, total avoirs, total paiements et solde dû. Le tableau des mouvements déroule les débits et crédits dans l'ordre chronologique.</p>
+          <p>L'onglet <strong>Compte locataire</strong> présente les indicateurs : total facturé, total avoirs, total paiements et solde dû. Le tableau des mouvements déroule les débits et crédits dans l'ordre chronologique.</p>
         </HelpStep>
         <HelpStep number={3} title="Importer un historique">
           <p>Utilisez <strong>Importer un relevé</strong> pour reprendre un export CSV/TSV d'un ancien logiciel : date, libellé, débit, crédit, solde après mouvement, référence et période concernée. Ces lignes restent des mouvements historiques, sans numéro de facture MyGestia.</p>
@@ -202,7 +202,7 @@ export default function FacturationPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Où voir la facturation d'un seul locataire ?</p>
-            <p>Ouvrez la fiche du locataire. La section <strong>Facturation</strong> liste ses factures, puis la section <strong>Situation du compte locataire</strong> affiche le solde détaillé avec paiements, avoirs et imports historiques.</p>
+            <p>Ouvrez la fiche du locataire. L'onglet <strong>Facturation</strong> liste ses factures, puis l'onglet <strong>Compte locataire</strong> affiche le solde détaillé avec paiements, avoirs et imports historiques.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Un import de relevé crée-t-il des factures ?</p>

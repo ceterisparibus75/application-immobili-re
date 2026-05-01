@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -470,169 +471,28 @@ export function TenantAccount({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
-            Facturation et compte locataire
+            Suivi financier locataire
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={exportCsv}>
-              <Download className="h-4 w-4" />
-              Relevé CSV
-            </Button>
-            <Dialog open={showLedgerImportDialog} onOpenChange={setShowLedgerImportDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4" />
-                  Importer un relevé
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                  <DialogTitle>Importer un relevé locataire</DialogTitle>
-                  <DialogDescription>
-                    Importer un export CSV ou TSV d&apos;un ancien logiciel, sans créer de factures.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Fichier CSV ou TSV</Label>
-                    <Input
-                      type="file"
-                      accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleLedgerFile(file);
-                      }}
-                    />
-                  </div>
-                  {ledgerFileName && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileSpreadsheet className="h-4 w-4" />
-                      {ledgerFileName}
-                    </div>
-                  )}
-                  {ledgerImportErrors.length > 0 && (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-                      {ledgerImportErrors.map((error) => (
-                        <p key={error}>{error}</p>
-                      ))}
-                    </div>
-                  )}
-                  {ledgerImportLines.length > 0 && (
-                    <div className="rounded-md border overflow-auto max-h-[260px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Libellé</TableHead>
-                            <TableHead className="text-right">Débit</TableHead>
-                            <TableHead className="text-right">Crédit</TableHead>
-                            <TableHead className="text-right">Solde</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {ledgerImportLines.slice(0, 8).map((line, index) => (
-                            <TableRow key={`${line.date}-${index}`}>
-                              <TableCell className="text-xs">{formatDate(line.date)}</TableCell>
-                              <TableCell className="text-xs">{line.label}</TableCell>
-                              <TableCell className="text-right text-xs tabular-nums text-destructive">
-                                {line.debit ? `${formatCurrency(line.debit)} €` : ""}
-                              </TableCell>
-                              <TableCell className="text-right text-xs tabular-nums text-emerald-600">
-                                {line.credit ? `${formatCurrency(line.credit)} €` : ""}
-                              </TableCell>
-                              <TableCell className="text-right text-xs tabular-nums">
-                                {typeof line.balanceAfter === "number" ? `${formatCurrency(line.balanceAfter)} €` : ""}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                  {ledgerImportLines.length > 8 && (
-                    <p className="text-xs text-muted-foreground">
-                      {ledgerImportLines.length - 8} ligne(s) supplémentaire(s) seront aussi importées.
-                    </p>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowLedgerImportDialog(false)}>
-                    Annuler
-                  </Button>
-                  <Button onClick={handleImportLedgerStatement} disabled={isPending || ledgerImportLines.length === 0}>
-                    {isPending ? "Import..." : `Importer ${ledgerImportLines.length} ligne(s)`}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={showDebitDialog} onOpenChange={setShowDebitDialog}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4" />
-                  Importer un solde précédent
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Importer un solde précédent</DialogTitle>
-                  <DialogDescription>
-                    Reprendre un solde existant sans générer de facture ni de numéro.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Libellé</Label>
-                    <Input
-                      placeholder="Ex: Solde antérieur au démarrage"
-                      value={debitForm.label}
-                      onChange={(e) => setDebitForm({ ...debitForm, label: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Montant TTC du solde (€)</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={debitForm.amount}
-                      onChange={(e) => setDebitForm({ ...debitForm, amount: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Date de reprise</Label>
-                    <Input
-                      type="date"
-                      value={debitForm.dueDate}
-                      onChange={(e) => setDebitForm({ ...debitForm, dueDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Notes (optionnel)</Label>
-                    <Textarea
-                      placeholder="Détail ou contexte..."
-                      value={debitForm.notes}
-                      onChange={(e) => setDebitForm({ ...debitForm, notes: e.target.value })}
-                      rows={2}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowDebitDialog(false)}>
-                    Annuler
-                  </Button>
-                  <Button onClick={handleCreateDebit} disabled={isPending || !debitForm.label || !debitForm.amount}>
-                    {isPending ? "Enregistrement..." : "Enregistrer"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <section id="facturation" className="space-y-3 scroll-mt-24">
+      <CardContent>
+        <Tabs defaultValue="facturation" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 sm:w-[520px]">
+            <TabsTrigger value="facturation" className="gap-2">
+              <Receipt className="h-4 w-4" />
+              Facturation
+            </TabsTrigger>
+            <TabsTrigger value="compte" className="gap-2">
+              <Wallet className="h-4 w-4" />
+              Compte locataire
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="facturation" className="mt-0">
+            <section id="facturation" className="space-y-3 scroll-mt-24">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -718,18 +578,176 @@ export function TenantAccount({
               </Table>
             </div>
           )}
-        </section>
+            </section>
+          </TabsContent>
 
-        <section id="compte-locataire" className="space-y-6 scroll-mt-24">
-          <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-muted-foreground" />
-              Situation du compte locataire
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Mouvements facturés, paiements, avoirs et reprises de soldes.
-            </p>
-          </div>
+          <TabsContent value="compte" className="mt-0">
+            <section id="compte-locataire" className="space-y-6 scroll-mt-24">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-muted-foreground" />
+                    Situation du compte locataire
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Mouvements facturés, paiements, avoirs et reprises de soldes.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={exportCsv}>
+                    <Download className="h-4 w-4" />
+                    Relevé CSV
+                  </Button>
+                  <Dialog open={showLedgerImportDialog} onOpenChange={setShowLedgerImportDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Upload className="h-4 w-4" />
+                        Importer un relevé
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl">
+                      <DialogHeader>
+                        <DialogTitle>Importer un relevé locataire</DialogTitle>
+                        <DialogDescription>
+                          Importer un export CSV ou TSV d&apos;un ancien logiciel, sans créer de factures.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Fichier CSV ou TSV</Label>
+                          <Input
+                            type="file"
+                            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) void handleLedgerFile(file);
+                            }}
+                          />
+                        </div>
+                        {ledgerFileName && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <FileSpreadsheet className="h-4 w-4" />
+                            {ledgerFileName}
+                          </div>
+                        )}
+                        {ledgerImportErrors.length > 0 && (
+                          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                            {ledgerImportErrors.map((error) => (
+                              <p key={error}>{error}</p>
+                            ))}
+                          </div>
+                        )}
+                        {ledgerImportLines.length > 0 && (
+                          <div className="rounded-md border overflow-auto max-h-[260px]">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Date</TableHead>
+                                  <TableHead>Libellé</TableHead>
+                                  <TableHead className="text-right">Débit</TableHead>
+                                  <TableHead className="text-right">Crédit</TableHead>
+                                  <TableHead className="text-right">Solde</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {ledgerImportLines.slice(0, 8).map((line, index) => (
+                                  <TableRow key={`${line.date}-${index}`}>
+                                    <TableCell className="text-xs">{formatDate(line.date)}</TableCell>
+                                    <TableCell className="text-xs">{line.label}</TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums text-destructive">
+                                      {line.debit ? `${formatCurrency(line.debit)} €` : ""}
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums text-emerald-600">
+                                      {line.credit ? `${formatCurrency(line.credit)} €` : ""}
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs tabular-nums">
+                                      {typeof line.balanceAfter === "number" ? `${formatCurrency(line.balanceAfter)} €` : ""}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                        {ledgerImportLines.length > 8 && (
+                          <p className="text-xs text-muted-foreground">
+                            {ledgerImportLines.length - 8} ligne(s) supplémentaire(s) seront aussi importées.
+                          </p>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowLedgerImportDialog(false)}>
+                          Annuler
+                        </Button>
+                        <Button onClick={handleImportLedgerStatement} disabled={isPending || ledgerImportLines.length === 0}>
+                          {isPending ? "Import..." : `Importer ${ledgerImportLines.length} ligne(s)`}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={showDebitDialog} onOpenChange={setShowDebitDialog}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4" />
+                        Importer un solde précédent
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Importer un solde précédent</DialogTitle>
+                        <DialogDescription>
+                          Reprendre un solde existant sans générer de facture ni de numéro.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Libellé</Label>
+                          <Input
+                            placeholder="Ex: Solde antérieur au démarrage"
+                            value={debitForm.label}
+                            onChange={(e) => setDebitForm({ ...debitForm, label: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Montant TTC du solde (€)</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={debitForm.amount}
+                            onChange={(e) => setDebitForm({ ...debitForm, amount: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Date de reprise</Label>
+                          <Input
+                            type="date"
+                            value={debitForm.dueDate}
+                            onChange={(e) => setDebitForm({ ...debitForm, dueDate: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Notes (optionnel)</Label>
+                          <Textarea
+                            placeholder="Détail ou contexte..."
+                            value={debitForm.notes}
+                            onChange={(e) => setDebitForm({ ...debitForm, notes: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDebitDialog(false)}>
+                          Annuler
+                        </Button>
+                        <Button onClick={handleCreateDebit} disabled={isPending || !debitForm.label || !debitForm.amount}>
+                          {isPending ? "Enregistrement..." : "Enregistrer"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
         {/* KPIs */}
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="rounded-lg border p-3 text-center">
@@ -820,7 +838,9 @@ export function TenantAccount({
             </Table>
           </div>
         )}
-        </section>
+            </section>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
