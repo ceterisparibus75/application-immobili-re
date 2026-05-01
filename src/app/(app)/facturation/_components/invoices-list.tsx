@@ -196,15 +196,19 @@ function StatBlock({ label, value, detail }: { label: string; value: string; det
 type InvoicesListProps = {
   invoices: InvoiceItem[];
   title?: string;
+  listTitle?: string;
   itemLabel?: string;
   itemLabelPlural?: string;
+  enableBulkSend?: boolean;
 };
 
 export function InvoicesList({
   invoices,
   title = "Console des factures",
+  listTitle,
   itemLabel = "facture",
   itemLabelPlural = "factures",
+  enableBulkSend = false,
 }: InvoicesListProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -403,23 +407,25 @@ export function InvoicesList({
                 {visibleInvoices.length} {visibleInvoices.length > 1 ? itemLabelPlural : itemLabel} affichée{visibleInvoices.length > 1 ? "s" : ""} sur {invoices.length}
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[30rem]">
-              <StatBlock
-                label="Total affiché"
-                value={formatCurrency(totalVisible)}
-                detail={`${visibleSendableIds.length} envoyable${visibleSendableIds.length > 1 ? "s" : ""}`}
-              />
-              <StatBlock
-                label="Déjà envoyées"
-                value={String(sentCount)}
-                detail="emails ou dépôt PDF"
-              />
-              <StatBlock
-                label="Emails manquants"
-                value={String(missingEmailCount)}
-                detail="dans la vue filtrée"
-              />
-            </div>
+            {enableBulkSend && (
+              <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[30rem]">
+                <StatBlock
+                  label="Total affiché"
+                  value={formatCurrency(totalVisible)}
+                  detail={`${visibleSendableIds.length} envoyable${visibleSendableIds.length > 1 ? "s" : ""}`}
+                />
+                <StatBlock
+                  label="Déjà envoyées"
+                  value={String(sentCount)}
+                  detail="emails ou dépôt PDF"
+                />
+                <StatBlock
+                  label="Emails manquants"
+                  value={String(missingEmailCount)}
+                  detail="dans la vue filtrée"
+                />
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -457,40 +463,42 @@ export function InvoicesList({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
-            <Checkbox
-              checked={allVisibleSelected}
-              onCheckedChange={toggleAllVisible}
-              disabled={visibleSendableIds.length === 0 || sending}
-              id="select-visible-invoices"
-              aria-label={`Sélectionner les ${itemLabelPlural} envoyables affichées`}
-            />
-            <label htmlFor="select-visible-invoices" className="cursor-pointer select-none text-sm">
-              Sélectionner les envoyables affichées
-            </label>
-            <span className="text-xs text-muted-foreground">
-              {visibleSendableIds.length} disponible{visibleSendableIds.length > 1 ? "s" : ""}
-            </span>
-            {selectedCount > 0 && (
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {selectedCount} sélectionnée{selectedCount > 1 ? "s" : ""}
-                </Badge>
-                <span className="text-sm font-medium tabular-nums">{formatCurrency(selectedTotal)}</span>
-                <Button size="sm" onClick={sendBulk} disabled={sending}>
-                  {sending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  {sending ? "Envoi..." : "Envoyer"}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending}>
-                  Annuler
-                </Button>
-              </div>
-            )}
-          </div>
+          {enableBulkSend && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+              <Checkbox
+                checked={allVisibleSelected}
+                onCheckedChange={toggleAllVisible}
+                disabled={visibleSendableIds.length === 0 || sending}
+                id="select-visible-invoices"
+                aria-label={`Sélectionner les ${itemLabelPlural} envoyables affichées`}
+              />
+              <label htmlFor="select-visible-invoices" className="cursor-pointer select-none text-sm">
+                Sélectionner les factures envoyables
+              </label>
+              <span className="text-xs text-muted-foreground">
+                {visibleSendableIds.length} disponible{visibleSendableIds.length > 1 ? "s" : ""}
+              </span>
+              {selectedCount > 0 && (
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">
+                    {selectedCount} sélectionnée{selectedCount > 1 ? "s" : ""}
+                  </Badge>
+                  <span className="text-sm font-medium tabular-nums">{formatCurrency(selectedTotal)}</span>
+                  <Button size="sm" onClick={sendBulk} disabled={sending}>
+                    {sending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                    {sending ? "Envoi..." : "Envoyer"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending}>
+                    Annuler
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -517,7 +525,7 @@ export function InvoicesList({
           <CardHeader className="border-b bg-muted/30 px-4 py-3">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <FileText className="size-4 text-muted-foreground" />
-              Liste de travail
+              {listTitle ?? `Registre des ${itemLabelPlural}`}
               <Badge variant="outline" className="ml-auto">
                 {sortedInvoices.length} {sortedInvoices.length > 1 ? itemLabelPlural : itemLabel}
               </Badge>
@@ -535,16 +543,22 @@ export function InvoicesList({
                 return (
                   <div
                     key={invoice.id}
-                    className="grid gap-3 px-4 py-3 transition-colors hover:bg-accent/30 md:grid-cols-[auto_minmax(0,1fr)_auto]"
+                    className={`grid gap-3 px-4 py-3 transition-colors hover:bg-accent/30 ${
+                      enableBulkSend
+                        ? "md:grid-cols-[auto_minmax(0,1fr)_auto]"
+                        : "md:grid-cols-[minmax(0,1fr)_auto]"
+                    }`}
                   >
-                    <Checkbox
-                      checked={selected.has(invoice.id)}
-                      onCheckedChange={() => toggleOne(invoice.id)}
-                      disabled={!sendable || sending}
-                      title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
-                      aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
-                      className="mt-1"
-                    />
+                    {enableBulkSend && (
+                      <Checkbox
+                        checked={selected.has(invoice.id)}
+                        onCheckedChange={() => toggleOne(invoice.id)}
+                        disabled={!sendable || sending}
+                        title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
+                        aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
+                        className="mt-1"
+                      />
+                    )}
                     <Link href={`/facturation/${invoice.id}`} className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold">{invoice.invoiceNumber ?? "Sans numéro"}</p>

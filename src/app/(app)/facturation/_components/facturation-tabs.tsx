@@ -45,7 +45,7 @@ interface FacturationTabsProps {
   overdueCount: number;
 }
 
-type FacturationTab = "a-traiter" | "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard";
+type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances";
 
 function tabHref(tab: FacturationTab): string {
   return tab === "a-traiter" ? "/facturation" : `/facturation?tab=${tab}`;
@@ -132,7 +132,7 @@ export function FacturationTabs({
   overdueCount,
 }: FacturationTabsProps) {
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
-  const quittances = issuedInvoices.filter((i) => i.invoiceType === "QUITTANCE");
+  const billingRegister = issuedInvoices;
   const billingInvoices = issuedInvoices.filter((i) => i.invoiceType !== "QUITTANCE");
   const invoicesToSend = billingInvoices.filter(
     (i) => (i.status === "VALIDEE" || i.status === "EN_ATTENTE") && !i.sentAt
@@ -154,17 +154,6 @@ export function FacturationTabs({
             </Badge>
           )}
         </FacturationTabLink>
-        <FacturationTabLink value="factures" active={initialTab === "factures"}>
-          Factures
-        </FacturationTabLink>
-        <FacturationTabLink value="quittances" active={initialTab === "quittances"}>
-          Quittances
-          {quittances.length > 0 && (
-            <Badge variant="outline" className="h-5 min-w-5 px-1.5 text-[10px]">
-              {quittances.length}
-            </Badge>
-          )}
-        </FacturationTabLink>
         <FacturationTabLink value="brouillons" active={initialTab === "brouillons"}>
           Brouillons
           {brouillons.length > 0 && (
@@ -173,16 +162,11 @@ export function FacturationTabs({
             </Badge>
           )}
         </FacturationTabLink>
-        <FacturationTabLink value="a-envoyer" active={initialTab === "a-envoyer"}>
-          À envoyer
-          {invoicesToSend.length > 0 && (
-            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
-              {invoicesToSend.length}
-            </Badge>
-          )}
+        <FacturationTabLink value="factures" active={initialTab === "factures"}>
+          Factures
         </FacturationTabLink>
-        <FacturationTabLink value="en-retard" active={initialTab === "en-retard"}>
-          En retard
+        <FacturationTabLink value="relances" active={initialTab === "relances"}>
+          Relances
           {overdueCount > 0 && (
             <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">
               {overdueCount}
@@ -207,14 +191,14 @@ export function FacturationTabs({
               title="À envoyer"
               count={invoicesToSend.length}
               detail="Validées mais pas encore transmises"
-              href="/facturation?tab=a-envoyer"
+              href="/facturation#a-envoyer"
               icon={<Mail className="size-4" />}
             />
             <QueueCard
               title="Retards"
               count={overdueCount}
               detail={`${fmt(overdueTotal)} restant dû`}
-              href="/relances"
+              href="/facturation?tab=relances"
               icon={<AlertTriangle className="size-4" />}
               tone={overdueCount > 0 ? "danger" : "default"}
             />
@@ -243,7 +227,14 @@ export function FacturationTabs({
             <div className="space-y-6">
               {brouillons.length > 0 && <DraftsBanner drafts={brouillons} societyId={societyId} />}
               {invoicesToSend.length > 0 && (
-                <InvoicesList invoices={invoicesToSend} title="Factures à envoyer" />
+                <section id="a-envoyer" className="scroll-mt-24">
+                  <InvoicesList
+                    invoices={invoicesToSend}
+                    title="Factures à envoyer"
+                    listTitle="Liste d’envoi"
+                    enableBulkSend
+                  />
+                </section>
               )}
               {overdueCount > 0 && (
                 <Card className="border-[var(--color-status-negative)]/25">
@@ -267,67 +258,6 @@ export function FacturationTabs({
                 </Card>
               )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Onglet Factures */}
-      {initialTab === "factures" && (
-        <div className="space-y-6 mt-6">
-          {billingInvoices.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Receipt className="h-7 w-7" />
-                </div>
-                <h3 className="text-lg font-semibold">Aucune facture</h3>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Générez les appels de loyers depuis les baux actifs ou créez une facture ponctuelle.
-                </p>
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  <Button asChild>
-                    <Link href="/facturation/generer">
-                      <Zap className="h-4 w-4" />
-                      Générer les appels
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/facturation/nouvelle">
-                      <Plus className="h-4 w-4" />
-                      Facture ponctuelle
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <InvoicesList invoices={billingInvoices} />
-          )}
-        </div>
-      )}
-
-      {/* Onglet Quittances */}
-      {initialTab === "quittances" && (
-        <div className="space-y-6 mt-6">
-          {quittances.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Receipt className="h-7 w-7" />
-                </div>
-                <h3 className="text-lg font-semibold">Aucune quittance</h3>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Les quittances générées après paiement apparaîtront ici pour consultation ou envoi.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <InvoicesList
-              invoices={quittances}
-              title="Console des quittances"
-              itemLabel="quittance"
-              itemLabelPlural="quittances"
-            />
           )}
         </div>
       )}
@@ -367,76 +297,81 @@ export function FacturationTabs({
         </div>
       )}
 
-      {/* Onglet À envoyer */}
-      {initialTab === "a-envoyer" && (
+      {/* Onglet Factures */}
+      {initialTab === "factures" && (
         <div className="space-y-6 mt-6">
-          {invoicesToSend.length === 0 ? (
+          {billingRegister.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600">
-                  <Mail className="h-7 w-7" />
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Receipt className="h-7 w-7" />
                 </div>
-                <h3 className="text-lg font-semibold">Aucune facture à envoyer</h3>
+                <h3 className="text-lg font-semibold">Aucune pièce de facturation</h3>
                 <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Les factures validées apparaîtront ici tant qu’elles n’ont pas été transmises au locataire.
+                  Les factures, avoirs et quittances validés apparaîtront ici en consultation.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
                   <Button asChild>
-                    <Link href="/facturation?tab=brouillons">
-                      <FileClock className="h-4 w-4" />
-                      Voir les brouillons
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
                     <Link href="/facturation/generer">
                       <Zap className="h-4 w-4" />
                       Générer les appels
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/facturation/nouvelle">
+                      <Plus className="h-4 w-4" />
+                      Facture ponctuelle
                     </Link>
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <InvoicesList invoices={invoicesToSend} title="Factures à envoyer" />
+            <InvoicesList
+              invoices={billingRegister}
+              title="Registre de facturation"
+              itemLabel="pièce"
+              itemLabelPlural="pièces"
+            />
           )}
         </div>
       )}
 
-      {/* Onglet En retard */}
-      {initialTab === "en-retard" && (
-      <div className="space-y-6 mt-6">
-        <Card className="border-[var(--color-status-negative)]/25">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--color-status-negative)]" />
-              Factures en retard
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-md border bg-background p-4">
-                <p className="text-xs text-muted-foreground">Factures concernées</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">{overdueCount}</p>
+      {/* Onglet Relances */}
+      {initialTab === "relances" && (
+        <div className="space-y-6 mt-6">
+          <Card className="border-[var(--color-status-negative)]/25">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-[var(--color-status-negative)]" />
+                Factures en retard
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Factures concernées</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{overdueCount}</p>
+                </div>
+                <div className="rounded-md border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Restant dû</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{fmt(overdueTotal)}</p>
+                </div>
               </div>
-              <div className="rounded-md border bg-background p-4">
-                <p className="text-xs text-muted-foreground">Restant dû</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">{fmt(overdueTotal)}</p>
+              <div className="flex flex-col gap-3 rounded-md bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  L’envoi et l’historique des relances sont centralisés dans le module dédié.
+                </p>
+                <Button asChild>
+                  <Link href="/relances">
+                    Ouvrir les relances
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
-            </div>
-            <div className="flex flex-col gap-3 rounded-md bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                L’envoi et l’historique des relances sont centralisés dans le module dédié.
-              </p>
-              <Button asChild>
-                <Link href="/relances">
-                  Ouvrir les relances
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
