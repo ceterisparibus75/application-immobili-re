@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Bell, Loader2, Mail, MailX } from "lucide-react";
+import { AlertTriangle, Bell, FilterX, Loader2, Mail, MailX, Search } from "lucide-react";
 import { sendManualReminder, sendBulkReminders } from "@/actions/reminder";
 import { toast } from "sonner";
 import type { ReminderLevel } from "@/generated/prisma/client";
@@ -59,6 +60,33 @@ export function RelancesOverdue({
   const [sending, setSending] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
+  const [query, setQuery] = useState("");
+
+  const filteredInvoices = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("fr-FR");
+    if (!normalized) return overdueInvoices;
+
+    return overdueInvoices.filter((invoice) => {
+      const haystack = [
+        invoice.invoiceNumber ?? "",
+        invoice.tenantName,
+        invoice.tenantEmail ?? "",
+      ].join(" ").toLocaleLowerCase("fr-FR");
+      return haystack.includes(normalized);
+    });
+  }, [overdueInvoices, query]);
+
+  const sendableIds = useMemo(
+    () => filteredInvoices.filter((invoice) => invoice.tenantEmail).map((invoice) => invoice.id),
+    [filteredInvoices]
+  );
+
+  const selectedInvoices = useMemo(
+    () => filteredInvoices.filter((invoice) => selectedIds.has(invoice.id)),
+    [filteredInvoices, selectedIds]
+  );
+
+  const selectedTotal = selectedInvoices.reduce((sum, invoice) => sum + invoice.totalTTC - invoice.paid, 0);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -70,19 +98,24 @@ export function RelancesOverdue({
   }
 
   function toggleAll() {
-    if (selectedIds.size === overdueInvoices.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(overdueInvoices.map((inv) => inv.id)));
-    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (sendableIds.every((id) => next.has(id))) {
+        sendableIds.forEach((id) => next.delete(id));
+      } else {
+        sendableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
   }
 
   async function handleBulkSend() {
-    if (selectedIds.size === 0) return;
+    const ids = selectedInvoices.map((invoice) => invoice.id);
+    if (ids.length === 0) return;
     setSending(true);
     const result = await sendBulkReminders(
       societyId,
-      Array.from(selectedIds),
+      ids,
       bulkLevel
     );
     setSending(false);
@@ -121,9 +154,9 @@ export function RelancesOverdue({
   }
 
   const allSelected =
-    selectedIds.size === overdueInvoices.length &&
-    overdueInvoices.length > 0;
-  const someSelected = selectedIds.size > 0;
+    sendableIds.length > 0 &&
+    sendableIds.every((id) => selectedIds.has(id));
+  const someSelected = selectedInvoices.length > 0;
 
   if (overdueInvoices.length === 0) {
     return (
@@ -139,19 +172,36 @@ export function RelancesOverdue({
 
   return (
     <div className="space-y-3">
+      <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_auto]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Rechercher locataire, facture, email..."
+            className="h-9 pl-9"
+          />
+        </div>
+        <Button variant="outline" onClick={() => setQuery("")} disabled={!query}>
+          <FilterX className="h-4 w-4" />
+          Réinitialiser
+        </Button>
+      </div>
+
       {/* Barre d'actions groupées */}
       <div className="flex items-center gap-3 flex-wrap bg-muted/30 rounded-lg px-3 py-2">
         <div className="flex items-center gap-2">
           <Checkbox
             checked={allSelected}
             onCheckedChange={toggleAll}
+            disabled={sendableIds.length === 0 || sending}
             aria-label="Tout sélectionner"
             className="h-4 w-4"
           />
           <span className="text-xs text-muted-foreground">
             {someSelected
-              ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}`
-              : "Tout sélectionner"}
+              ? `${selectedInvoices.length} sélectionné${selectedInvoices.length > 1 ? "s" : ""} · ${fmt(selectedTotal)}`
+              : `Sélectionner les relançables (${sendableIds.length})`}
           </span>
         </div>
 
@@ -187,8 +237,8 @@ export function RelancesOverdue({
               ) : (
                 <Mail className="h-3.5 w-3.5" />
               )}
-              Envoyer {selectedIds.size} relance
-              {selectedIds.size > 1 ? "s" : ""}
+              Envoyer {selectedInvoices.length} relance
+              {selectedInvoices.length > 1 ? "s" : ""}
             </Button>
             <Button
               variant="ghost"
@@ -205,7 +255,7 @@ export function RelancesOverdue({
 
       {/* Liste des factures */}
       <div className="divide-y">
-        {overdueInvoices.map((inv) => {
+        {filteredInvoices.map((inv) => {
           const daysLate = Math.floor(
             (now - new Date(inv.dueDate).getTime()) / 86400000
           );
@@ -222,6 +272,8 @@ export function RelancesOverdue({
               <Checkbox
                 checked={isSelected}
                 onCheckedChange={() => toggleSelect(inv.id)}
+                disabled={!hasEmail || sending}
+                aria-label={`Sélectionner ${inv.invoiceNumber ?? inv.id}`}
                 className="h-4 w-4 shrink-0"
               />
               <div className="flex-1 min-w-0">
@@ -287,7 +339,13 @@ export function RelancesOverdue({
         })}
       </div>
 
-      {overdueInvoices.length > 1 && !someSelected && (
+      {filteredInvoices.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-6">
+          Aucune facture en retard ne correspond à cette recherche.
+        </p>
+      )}
+
+      {filteredInvoices.length > 1 && !someSelected && (
         <p className="text-xs text-muted-foreground text-center pt-1 flex items-center justify-center gap-1">
           <AlertTriangle className="h-3 w-3" />
           Cochez plusieurs factures pour les relancer en masse

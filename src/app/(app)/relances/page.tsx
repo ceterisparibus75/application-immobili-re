@@ -70,6 +70,7 @@ export default async function RelancesPage() {
               firstName: true,
               lastName: true,
               email: true,
+              billingEmail: true,
             },
           },
         },
@@ -204,7 +205,8 @@ export default async function RelancesPage() {
         : [inv.lease?.tenant?.firstName, inv.lease?.tenant?.lastName]
             .filter(Boolean)
             .join(" ") || "—",
-    tenantEmail: inv.lease?.tenant?.email ?? null,
+    tenantEmail:
+      inv.lease?.tenant?.billingEmail ?? inv.lease?.tenant?.email ?? null,
   }));
 
   // KPIs

@@ -1,7 +1,16 @@
 import { Suspense } from "react";
 import { getInvoices } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
-import { Euro, FileText, Plus, Zap, AlertTriangle, Clock } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Clock,
+  Euro,
+  FilePlus2,
+  FileText,
+  Plus,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,6 +25,14 @@ import {
   isIssuedInvoiceForBillingKpi,
   sumInvoiceTotalTTC,
 } from "@/lib/invoice-kpis";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const metadata = { title: "Facturation" };
 
@@ -149,12 +166,31 @@ export default async function FacturationPage({ searchParams }: PageProps) {
               totalTTC: inv.totalTTC,
             };
           })} />
-          <Link href="/facturation/generer">
-            <Button variant="outline"><Zap className="h-4 w-4" />Générer les appels</Button>
-          </Link>
-          <Link href="/facturation/nouvelle">
-            <Button><Plus className="h-4 w-4" />Facture ponctuelle</Button>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4" />
+                Créer
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Création de factures</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/facturation/generer">
+                  <Zap className="h-4 w-4" />
+                  Générer les appels de loyers
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/facturation/nouvelle">
+                  <FilePlus2 className="h-4 w-4" />
+                  Facture ponctuelle
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

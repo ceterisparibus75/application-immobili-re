@@ -29,6 +29,7 @@ function makeInvoice(overrides = {}) {
       tenant: {
         id: TENANT_ID,
         email: "locataire@example.com",
+        billingEmail: null,
         entityType: "PERSONNE_PHYSIQUE",
         companyName: null,
         firstName: "Jean",
@@ -82,7 +83,7 @@ describe("sendManualReminder", () => {
     prismaMock.invoice.findFirst.mockResolvedValue(
       makeInvoice({
         lease: {
-          tenant: { id: TENANT_ID, email: null, entityType: "PERSONNE_PHYSIQUE", firstName: "Jean", lastName: "Dupont", companyName: null },
+          tenant: { id: TENANT_ID, email: null, billingEmail: null, entityType: "PERSONNE_PHYSIQUE", firstName: "Jean", lastName: "Dupont", companyName: null },
           society: { id: SOCIETY_ID, name: "Ma SCI" },
         },
       }) as never
@@ -109,7 +110,37 @@ describe("sendManualReminder", () => {
     );
   });
 
-  it("met la facture en EN_RETARD si elle était EN_ATTENTE", async () => {
+  it("utilise l'email de facturation du locataire en priorité", async () => {
+    const { sendReminderEmail } = await import("@/lib/email");
+
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        lease: {
+          tenant: {
+            id: TENANT_ID,
+            email: "contact@example.com",
+            billingEmail: "factures@example.com",
+            entityType: "PERSONNE_PHYSIQUE",
+            companyName: null,
+            firstName: "Jean",
+            lastName: "Dupont",
+          },
+          society: { id: SOCIETY_ID, name: "Ma SCI" },
+        },
+      }) as never
+    );
+    prismaMock.reminder.create.mockResolvedValue({ id: REMINDER_ID } as never);
+    prismaMock.reminder.update.mockResolvedValue({} as never);
+
+    await sendManualReminder(SOCIETY_ID, INVOICE_ID, "RELANCE_1");
+
+    expect(sendReminderEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "factures@example.com" })
+    );
+  });
+
+  it("met la facture en RELANCEE si l'email est envoyé", async () => {
     mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
     prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ status: "EN_ATTENTE" }) as never);
     prismaMock.reminder.create.mockResolvedValue({ id: REMINDER_ID } as never);
@@ -118,7 +149,7 @@ describe("sendManualReminder", () => {
 
     await sendManualReminder(SOCIETY_ID, INVOICE_ID, "RELANCE_1");
     expect(prismaMock.invoice.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: "EN_RETARD" } })
+      expect.objectContaining({ data: { status: "RELANCEE" } })
     );
   });
 
@@ -135,6 +166,7 @@ describe("sendManualReminder", () => {
     expect(result.success).toBe(true);
     expect(result.data?.reminderId).toBe(REMINDER_ID);
     expect(result.error).toMatch(/email/);
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
   });
 
   it("calcule le montant restant en soustrayant les paiements", async () => {
@@ -191,6 +223,7 @@ describe("sendManualReminder", () => {
         tenant: {
           id: TENANT_ID,
           email: "sci@example.com",
+          billingEmail: null,
           entityType: "PERSONNE_MORALE",
           companyName: "SCI Dupont",
           firstName: null,
@@ -214,8 +247,9 @@ describe("sendManualReminder", () => {
         }),
       })
     );
-    // status EN_RETARD → invoice.update NOT called
-    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    expect(prismaMock.invoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "RELANCEE" } })
+    );
   });
 
   it("PERSONNE_MORALE companyName null → '' (ligne 77 right branch)", async () => {
@@ -225,6 +259,7 @@ describe("sendManualReminder", () => {
         tenant: {
           id: TENANT_ID,
           email: "sci@example.com",
+          billingEmail: null,
           entityType: "PERSONNE_MORALE",
           companyName: null,
           firstName: null,
@@ -247,6 +282,7 @@ describe("sendManualReminder", () => {
         tenant: {
           id: TENANT_ID,
           email: "anon@example.com",
+          billingEmail: null,
           entityType: "PERSONNE_PHYSIQUE",
           companyName: null,
           firstName: null,
@@ -309,6 +345,21 @@ describe("sendBulkReminders", () => {
     const result = await sendBulkReminders(SOCIETY_ID, [INVOICE_ID, ID2], "RELANCE_1");
     expect(result.success).toBe(true);
     expect(result.data?.sent).toBe(1);
+    expect(result.data?.failed).toBe(1);
+  });
+
+  it("compte l'échec d'email comme un échec en masse", async () => {
+    const { sendReminderEmail } = await import("@/lib/email");
+    vi.mocked(sendReminderEmail).mockResolvedValueOnce({ success: false });
+
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice() as never);
+    prismaMock.reminder.create.mockResolvedValue({ id: REMINDER_ID } as never);
+    prismaMock.reminder.update.mockResolvedValue({} as never);
+
+    const result = await sendBulkReminders(SOCIETY_ID, [INVOICE_ID], "RELANCE_1");
+    expect(result.success).toBe(true);
+    expect(result.data?.sent).toBe(0);
     expect(result.data?.failed).toBe(1);
   });
 });

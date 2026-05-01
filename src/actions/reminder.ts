@@ -49,6 +49,7 @@ export async function sendManualReminder(
               select: {
                 id: true,
                 email: true,
+                billingEmail: true,
                 entityType: true,
                 companyName: true,
                 firstName: true,
@@ -67,7 +68,8 @@ export async function sendManualReminder(
     if (!invoice.lease?.tenant) return { success: false, error: "Locataire non trouvé" };
 
     const tenant = invoice.lease.tenant;
-    if (!tenant.email) return { success: false, error: "Le locataire n'a pas d'email" };
+    const tenantEmail = tenant.billingEmail || tenant.email;
+    if (!tenantEmail) return { success: false, error: "Le locataire n'a pas d'email" };
 
     const paid = invoice.payments.reduce((s, p) => s + p.amount, 0);
     const remaining = (invoice.totalTTC ?? invoice.totalHT) - paid;
@@ -97,7 +99,7 @@ export async function sendManualReminder(
     // Envoyer l'email
     const bcc = await getAllEmailCopyBcc(societyId);
     const emailResult = await sendReminderEmail({
-      to: tenant.email,
+      to: tenantEmail,
       tenantName,
       amount: remaining,
       dueDate: invoice.dueDate.toLocaleDateString("fr-FR"),
@@ -117,11 +119,14 @@ export async function sendManualReminder(
       },
     });
 
-    // Mettre la facture en EN_RETARD si elle ne l'est pas encore
-    if (invoice.status === "EN_ATTENTE") {
+    // Une relance effectivement envoyée sort la facture de la simple file "en retard".
+    if (
+      emailResult.success &&
+      ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(invoice.status)
+    ) {
       await prisma.invoice.update({
         where: { id: invoiceId },
-        data: { status: "EN_RETARD" },
+        data: { status: "RELANCEE" },
       });
     }
 
@@ -131,10 +136,12 @@ export async function sendManualReminder(
       action: "CREATE",
       entity: "Reminder",
       entityId: reminder.id,
-      details: { invoiceId, level, tenantEmail: tenant.email },
+      details: { invoiceId, level, tenantEmail },
     });
 
     revalidatePath("/relances");
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
 
     if (!emailResult.success) {
       return {
@@ -170,7 +177,7 @@ export async function sendBulkReminders(
 
     for (const invoiceId of invoiceIds) {
       const result = await sendManualReminder(societyId, invoiceId, level);
-      if (result.success) sent++;
+      if (result.success && !result.error) sent++;
       else failed++;
     }
 
