@@ -192,7 +192,26 @@ describe("generateSituationLocative", () => {
       expect.any(Array),
       expect.any(Array)
     );
-    expect(helperMocks.drawMoyennesRow).toHaveBeenCalled();
+    expect(helperMocks.drawMoyennesRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      [
+        "MOYENNES",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "12000.00 EUR",
+        "25.0%",
+        "20.00 EUR",
+        "",
+        "",
+      ],
+      expect.any(Array),
+      expect.any(Array)
+    );
   });
 
   it("couvre ANNUEL, SEMESTRIEL et les sauts de page (lignes 21, 22, 75, 101-103, 149)", async () => {

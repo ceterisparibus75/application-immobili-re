@@ -93,6 +93,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     let totalVLM = 0;
     let totalProv = 0;
     let lotCount = 0;
+    let occupiedLotCount = 0;
     let evolSum = 0;
     let evolCount = 0;
     let loyerM2Sum = 0;
@@ -129,6 +130,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
       totalVLM += vlm;
       totalProv += provCharges;
       lotCount++;
+      if (lease) occupiedLotCount++;
       if (evol !== 0) { evolSum += evol; evolCount++; }
       if (loyerM2 > 0) { loyerM2Sum += loyerM2; loyerM2Count++; }
 
@@ -157,7 +159,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     // Moyennes row
     y = drawMoyennesRow(p, ctx.bold, y, [
       "MOYENNES", "", "", "", "", "",
-      lotCount > 0 ? pdfCur(totalLoyer / lotCount) : "-",
+      occupiedLotCount > 0 ? pdfCur(totalLoyer / occupiedLotCount) : "-",
       evolCount > 0 ? (evolSum / evolCount).toFixed(1) + "%" : "-",
       loyerM2Count > 0 ? pdfCur(loyerM2Sum / loyerM2Count) : "-",
       "", "",
