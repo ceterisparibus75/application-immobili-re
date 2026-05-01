@@ -140,6 +140,18 @@ describe("generateSituationLocative", () => {
                 startDate: { lte: expect.any(Date) },
                 endDate: { gte: expect.any(Date) },
               }),
+              include: expect.objectContaining({
+                chargeProvisions: expect.objectContaining({
+                  where: expect.objectContaining({
+                    isActive: true,
+                    startDate: { lte: expect.any(Date) },
+                    OR: [
+                      { endDate: null },
+                      { endDate: { gte: expect.any(Date) } },
+                    ],
+                  }),
+                }),
+              }),
             }),
           }),
         }),

@@ -44,7 +44,16 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
             where: getActiveLeaseWhere(asOf),
             include: {
               tenant: true,
-              chargeProvisions: { where: { isActive: true } },
+              chargeProvisions: {
+                where: {
+                  isActive: true,
+                  startDate: { lte: asOf },
+                  OR: [
+                    { endDate: null },
+                    { endDate: { gte: asOf } },
+                  ],
+                },
+              },
             },
             take: 1,
             orderBy: { startDate: "desc" },
