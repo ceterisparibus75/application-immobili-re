@@ -100,7 +100,7 @@ export default function CashflowPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Cash-flow
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
@@ -164,17 +164,17 @@ export default function CashflowPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
-                  <Landmark className="h-4 w-4 text-blue-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Landmark className="h-4 w-4 text-blue-400 dark:text-blue-400" />
                 </div>
                 <p className="text-xs text-muted-foreground">Solde bancaire</p>
               </div>
               <p className={`text-2xl font-bold tabular-nums ${
-                data.totalBankBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"
+                data.totalBankBalance >= 0 ? "text-foreground" : "text-[var(--color-status-negative)]"
               }`}>
                 {formatCurrency(data.totalBankBalance)}
               </p>
-              <Link href="/banque" className="text-[10px] text-[var(--color-brand-blue)] hover:underline flex items-center gap-0.5 mt-1">
+              <Link href="/banque" className="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5 mt-1">
                 Voir les comptes <ArrowRight className="h-2.5 w-2.5" />
               </Link>
             </div>
@@ -199,8 +199,8 @@ export default function CashflowPage() {
 
             <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                  <TrendingDown className="h-4 w-4 text-amber-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+                  <TrendingDown className="h-4 w-4 text-amber-500" />
                 </div>
                 <p className="text-xs text-muted-foreground">Exceptionnel net</p>
               </div>
@@ -217,15 +217,15 @@ export default function CashflowPage() {
 
             <div className="bg-card rounded-xl p-5 shadow-brand">
               <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                  <Wallet className="h-4 w-4 text-indigo-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
+                  <Wallet className="h-4 w-4 text-indigo-400" />
                 </div>
                 <p className="text-xs text-muted-foreground">Financement net</p>
               </div>
               {(() => {
                 const net = data.totalFinancementIn - data.totalFinancementOut;
                 return (
-                  <p className={`text-2xl font-bold tabular-nums ${net >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>
+                  <p className={`text-2xl font-bold tabular-nums ${net >= 0 ? "text-foreground" : "text-[var(--color-status-negative)]"}`}>
                     {net >= 0 ? "+" : ""}{formatCurrency(net)}
                   </p>
                 );
@@ -238,10 +238,10 @@ export default function CashflowPage() {
           {data.uncategorizedCount > 0 && (
             <button
               onClick={() => setShowCategorize(!showCategorize)}
-              className="w-full flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800 rounded-xl text-sm hover:bg-amber-100/80 dark:hover:bg-amber-950/30 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-3 p-4 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800 rounded-xl text-sm hover:bg-amber-100/80 dark:hover:bg-amber-950/30 transition-colors text-left cursor-pointer"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 shrink-0">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-amber-900 dark:text-amber-200">
@@ -266,7 +266,7 @@ export default function CashflowPage() {
           <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+                <CardTitle className="text-base font-semibold text-foreground">
                   Évolution mensuelle
                 </CardTitle>
                 <div className="flex bg-muted rounded-lg p-0.5">
@@ -386,7 +386,7 @@ function BreakdownCard({ title, subtitle, data, total, emptyMessage, monthCount,
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">{title}</CardTitle>
+            <CardTitle className="text-base font-semibold text-foreground">{title}</CardTitle>
             <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
           <div className={`flex items-center gap-1.5 text-sm font-bold tabular-nums ${
@@ -434,7 +434,7 @@ function BreakdownCard({ title, subtitle, data, total, emptyMessage, monthCount,
               {data.map((b) => (
                 <div key={b.categoryId} className="flex items-center gap-2.5 group">
                   <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
-                  <span className="flex-1 text-sm truncate text-[var(--color-brand-deep)] group-hover:text-foreground">
+                  <span className="flex-1 text-sm truncate text-foreground group-hover:text-foreground">
                     {b.label}
                   </span>
                   <span className="font-mono text-xs tabular-nums font-semibold">
@@ -450,7 +450,7 @@ function BreakdownCard({ title, subtitle, data, total, emptyMessage, monthCount,
             {/* Moyenne mensuelle */}
             <div className="border-t pt-3 mt-1">
               <p className="text-xs text-muted-foreground text-center">
-                Moyenne mensuelle : <span className="font-semibold text-[var(--color-brand-deep)]">{formatCurrency(total / monthCount)}</span>
+                Moyenne mensuelle : <span className="font-semibold text-foreground">{formatCurrency(total / monthCount)}</span>
               </p>
             </div>
           </div>
@@ -473,7 +473,7 @@ function MonthlyDetail({ data }: { data: CashflowDashboard }) {
   return (
     <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+        <CardTitle className="text-base font-semibold text-foreground">
           Détail mensuel
         </CardTitle>
       </CardHeader>
@@ -491,7 +491,7 @@ function MonthlyDetail({ data }: { data: CashflowDashboard }) {
                   ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                   : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 }
-                <span className="flex-1 text-sm font-semibold text-[var(--color-brand-deep)]">{month.label}</span>
+                <span className="flex-1 text-sm font-semibold text-foreground">{month.label}</span>
                 <span className="text-xs font-mono text-[var(--color-status-positive)] tabular-nums">
                   +{formatCurrency(month.actualIncome)}
                 </span>
@@ -641,7 +641,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
       <Card className="border-0 shadow-brand bg-card rounded-xl">
         <CardContent className="py-12 text-center">
           <Check className="h-10 w-10 text-[var(--color-status-positive)] mx-auto mb-3" />
-          <p className="font-semibold text-[var(--color-brand-deep)]">Toutes les transactions sont catégorisées</p>
+          <p className="font-semibold text-foreground">Toutes les transactions sont catégorisées</p>
           <p className="text-xs text-muted-foreground mt-1">La ventilation de vos flux est à jour.</p>
         </CardContent>
       </Card>
@@ -652,7 +652,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
     <Card className="border-0 shadow-brand bg-card rounded-xl">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+          <CardTitle className="text-base font-semibold text-foreground">
             Catégorisation des transactions
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -690,7 +690,7 @@ function CategorizeSection({ societyId, onDone }: { societyId: string; onDone: (
 
                 {/* Libellé */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-[var(--color-brand-deep)]">{tx.label}</p>
+                  <p className="text-sm font-medium truncate text-foreground">{tx.label}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-muted-foreground">
                       {new Date(tx.transactionDate).toLocaleDateString("fr-FR")}
