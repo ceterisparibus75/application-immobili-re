@@ -192,7 +192,19 @@ function StatBlock({ label, value, detail }: { label: string; value: string; det
   );
 }
 
-export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
+type InvoicesListProps = {
+  invoices: InvoiceItem[];
+  title?: string;
+  itemLabel?: string;
+  itemLabelPlural?: string;
+};
+
+export function InvoicesList({
+  invoices,
+  title = "Console des factures",
+  itemLabel = "facture",
+  itemLabelPlural = "factures",
+}: InvoicesListProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
@@ -369,9 +381,9 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <CardTitle className="text-base">Console des factures</CardTitle>
+              <CardTitle className="text-base">{title}</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {visibleInvoices.length} facture{visibleInvoices.length > 1 ? "s" : ""} affichée{visibleInvoices.length > 1 ? "s" : ""} sur {invoices.length}
+                {visibleInvoices.length} {visibleInvoices.length > 1 ? itemLabelPlural : itemLabel} affichée{visibleInvoices.length > 1 ? "s" : ""} sur {invoices.length}
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[30rem]">
@@ -428,7 +440,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
               onCheckedChange={toggleAllVisible}
               disabled={visibleSendableIds.length === 0 || sending}
               id="select-visible-invoices"
-              aria-label="Sélectionner les factures envoyables affichées"
+              aria-label={`Sélectionner les ${itemLabelPlural} envoyables affichées`}
             />
             <label htmlFor="select-visible-invoices" className="cursor-pointer select-none text-sm">
               Sélectionner les envoyables affichées
@@ -466,7 +478,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
               <Search className="size-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-medium">Aucune facture dans cette vue</p>
+              <p className="font-medium">Aucune {itemLabel} dans cette vue</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Modifiez la recherche ou les filtres pour retrouver vos factures.
               </p>
@@ -485,7 +497,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                 <Building2 className="size-4 text-muted-foreground" />
                 <span className="truncate">{buildingName}</span>
                 <Badge variant="outline" className="ml-auto">
-                  {groupInvoices.length} facture{groupInvoices.length > 1 ? "s" : ""}
+                  {groupInvoices.length} {groupInvoices.length > 1 ? itemLabelPlural : itemLabel}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -507,7 +519,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                         onCheckedChange={() => toggleOne(invoice.id)}
                         disabled={!sendable || sending}
                         title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
-                        aria-label={`Sélectionner ${invoice.invoiceNumber ?? "facture sans numéro"}`}
+                        aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
                         className="mt-1"
                       />
                       <Link href={`/facturation/${invoice.id}`} className="min-w-0">

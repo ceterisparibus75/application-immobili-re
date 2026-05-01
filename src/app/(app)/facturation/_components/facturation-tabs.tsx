@@ -98,7 +98,7 @@ interface FacturationTabsProps {
   remindersCount: number;
 }
 
-type FacturationTab = "factures" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
+type FacturationTab = "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
 
 function tabHref(tab: FacturationTab): string {
   return tab === "factures" ? "/facturation" : `/facturation?tab=${tab}`;
@@ -141,7 +141,9 @@ export function FacturationTabs({
   remindersCount,
 }: FacturationTabsProps) {
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
-  const invoicesToSend = issuedInvoices.filter(
+  const quittances = issuedInvoices.filter((i) => i.invoiceType === "QUITTANCE");
+  const billingInvoices = issuedInvoices.filter((i) => i.invoiceType !== "QUITTANCE");
+  const invoicesToSend = billingInvoices.filter(
     (i) => (i.status === "VALIDEE" || i.status === "EN_ATTENTE") && !i.sentAt
   );
 
@@ -150,6 +152,14 @@ export function FacturationTabs({
       <div className="inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground">
         <FacturationTabLink value="factures" active={initialTab === "factures"}>
           Factures
+        </FacturationTabLink>
+        <FacturationTabLink value="quittances" active={initialTab === "quittances"}>
+          Quittances
+          {quittances.length > 0 && (
+            <Badge variant="outline" className="h-5 min-w-5 px-1.5 text-[10px]">
+              {quittances.length}
+            </Badge>
+          )}
         </FacturationTabLink>
         <FacturationTabLink value="brouillons" active={initialTab === "brouillons"}>
           Brouillons
@@ -188,7 +198,7 @@ export function FacturationTabs({
       {/* Onglet Factures */}
       {initialTab === "factures" && (
         <div className="space-y-6 mt-6">
-          {issuedInvoices.length === 0 ? (
+          {billingInvoices.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -215,7 +225,33 @@ export function FacturationTabs({
               </CardContent>
             </Card>
           ) : (
-            <InvoicesList invoices={issuedInvoices} />
+            <InvoicesList invoices={billingInvoices} />
+          )}
+        </div>
+      )}
+
+      {/* Onglet Quittances */}
+      {initialTab === "quittances" && (
+        <div className="space-y-6 mt-6">
+          {quittances.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Receipt className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-semibold">Aucune quittance</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Les quittances générées après paiement apparaîtront ici pour consultation ou envoi.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <InvoicesList
+              invoices={quittances}
+              title="Console des quittances"
+              itemLabel="quittance"
+              itemLabelPlural="quittances"
+            />
           )}
         </div>
       )}
@@ -285,7 +321,7 @@ export function FacturationTabs({
               </CardContent>
             </Card>
           ) : (
-            <InvoicesList invoices={invoicesToSend} />
+            <InvoicesList invoices={invoicesToSend} title="Factures à envoyer" />
           )}
         </div>
       )}
