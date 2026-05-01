@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn, type FilterOption } from "@/components/ui/data-table";
-import { Building2, User } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, ClipboardCheck, User } from "lucide-react";
 import Link from "next/link";
 
 interface TenantRow {
@@ -11,12 +11,17 @@ interface TenantRow {
   name: string;
   email: string | null;
   phone: string | null;
+  dossier: {
+    status: "complete" | "missing" | "critical";
+    label: string;
+    missing: string[];
+    variant: "success" | "warning" | "destructive";
+  };
   insurance: { label: string; variant: "success" | "warning" | "destructive" | "secondary" };
   riskVariant: "success" | "warning" | "destructive";
   riskLabel: string;
   totalRent: number;
   balance: number;
-  location: string | null;
   _count: { leases: number };
   isActive: boolean;
   buildingId: string | null;
@@ -57,14 +62,34 @@ const columns: DataTableColumn<TenantRow>[] = [
     ),
   },
   {
-    key: "location",
-    label: "Localisation",
-    render: (row) =>
-      row.location ? (
-        <span className="text-xs text-muted-foreground truncate block max-w-[180px]">{row.location}</span>
-      ) : (
-        <span className="text-xs text-muted-foreground/60 italic">Aucun bail</span>
-      ),
+    key: "dossier",
+    label: "Dossier",
+    render: (row) => {
+      const Icon = row.dossier.status === "complete"
+        ? CheckCircle2
+        : row.dossier.status === "critical"
+          ? AlertTriangle
+          : ClipboardCheck;
+      const preview = row.dossier.missing.slice(0, 3).join(", ");
+      return (
+        <Link
+          href={`/locataires/${row.id}/modifier`}
+          className="inline-flex max-w-[210px] flex-col items-start gap-1 hover:opacity-80"
+          onClick={(e) => e.stopPropagation()}
+          title={row.dossier.missing.length > 0 ? row.dossier.missing.join(", ") : "Dossier complet"}
+        >
+          <Badge variant={row.dossier.variant} className="gap-1 text-[11px]">
+            <Icon className="h-3 w-3" />
+            {row.dossier.label}
+          </Badge>
+          {preview && (
+            <span className="block max-w-full truncate text-xs text-muted-foreground">
+              {preview}
+            </span>
+          )}
+        </Link>
+      );
+    },
   },
   {
     key: "insurance",
@@ -126,6 +151,15 @@ const FILTERS: FilterOption[] = [
     options: [
       { value: "active", label: "Actifs" },
       { value: "inactive", label: "Inactifs" },
+    ],
+  },
+  {
+    key: "dossier",
+    label: "Dossier",
+    options: [
+      { value: "complete", label: "Complets" },
+      { value: "missing", label: "À compléter" },
+      { value: "critical", label: "Critiques" },
     ],
   },
   {

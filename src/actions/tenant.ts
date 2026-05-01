@@ -423,21 +423,112 @@ export async function getTenantsPaginated(
 
   // Build where clause
   const where: Record<string, unknown> = { societyId, deletedAt: null };
+  const andClauses: Record<string, unknown>[] = [];
 
   if (params.search) {
     const q = params.search;
-    where.OR = [
-      { firstName: { contains: q, mode: "insensitive" } },
-      { lastName: { contains: q, mode: "insensitive" } },
-      { companyName: { contains: q, mode: "insensitive" } },
-      { email: { contains: q, mode: "insensitive" } },
-    ];
+    andClauses.push({
+      OR: [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { companyName: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ],
+    });
   }
 
   if (params.filters?.status === "active") where.isActive = true;
   else if (params.filters?.status === "inactive") where.isActive = false;
 
   if (params.filters?.entityType) where.entityType = params.filters.entityType;
+  if (params.filters?.dossier === "complete") {
+    andClauses.push({
+      NOT: { email: { contains: "a-renseigner", mode: "insensitive" } },
+    });
+    andClauses.push({
+      OR: [
+        {
+          AND: [
+            { entityType: "PERSONNE_MORALE" },
+            { companyName: { not: null } },
+            { companyName: { not: "" } },
+            { companyLegalForm: { not: null } },
+            { companyLegalForm: { not: "" } },
+            { siret: { not: null } },
+            { siret: { not: "" } },
+            { companyAddress: { not: null } },
+            { companyAddress: { not: "" } },
+            { legalRepName: { not: null } },
+            { legalRepName: { not: "" } },
+            { OR: [
+              { AND: [{ phone: { not: null } }, { phone: { not: "" } }] },
+              { AND: [{ mobile: { not: null } }, { mobile: { not: "" } }] },
+            ] },
+          ],
+        },
+        {
+          AND: [
+            { entityType: "PERSONNE_PHYSIQUE" },
+            { firstName: { not: null } },
+            { firstName: { not: "" } },
+            { lastName: { not: null } },
+            { lastName: { not: "" } },
+            { personalAddress: { not: null } },
+            { personalAddress: { not: "" } },
+            { OR: [
+              { AND: [{ phone: { not: null } }, { phone: { not: "" } }] },
+              { AND: [{ mobile: { not: null } }, { mobile: { not: "" } }] },
+            ] },
+          ],
+        },
+      ],
+    });
+  } else if (params.filters?.dossier === "critical") {
+    andClauses.push({
+      OR: [
+        { email: { contains: "a-renseigner", mode: "insensitive" } },
+        { entityType: "PERSONNE_MORALE", companyName: null },
+        { entityType: "PERSONNE_MORALE", companyName: "" },
+        { entityType: "PERSONNE_MORALE", siret: null },
+        { entityType: "PERSONNE_MORALE", siret: "" },
+        { entityType: "PERSONNE_MORALE", companyAddress: null },
+        { entityType: "PERSONNE_MORALE", companyAddress: "" },
+        { entityType: "PERSONNE_PHYSIQUE", firstName: null },
+        { entityType: "PERSONNE_PHYSIQUE", firstName: "" },
+        { entityType: "PERSONNE_PHYSIQUE", lastName: null },
+        { entityType: "PERSONNE_PHYSIQUE", lastName: "" },
+        { entityType: "PERSONNE_PHYSIQUE", personalAddress: null },
+        { entityType: "PERSONNE_PHYSIQUE", personalAddress: "" },
+      ],
+    });
+  } else if (params.filters?.dossier === "missing") {
+    andClauses.push({
+      OR: [
+        { email: { contains: "a-renseigner", mode: "insensitive" } },
+        { phone: null },
+        { phone: "" },
+        { mobile: null },
+        { mobile: "" },
+        { entityType: "PERSONNE_MORALE", companyName: null },
+        { entityType: "PERSONNE_MORALE", companyName: "" },
+        { entityType: "PERSONNE_MORALE", companyLegalForm: null },
+        { entityType: "PERSONNE_MORALE", companyLegalForm: "" },
+        { entityType: "PERSONNE_MORALE", siret: null },
+        { entityType: "PERSONNE_MORALE", siret: "" },
+        { entityType: "PERSONNE_MORALE", companyAddress: null },
+        { entityType: "PERSONNE_MORALE", companyAddress: "" },
+        { entityType: "PERSONNE_MORALE", legalRepName: null },
+        { entityType: "PERSONNE_MORALE", legalRepName: "" },
+        { entityType: "PERSONNE_PHYSIQUE", firstName: null },
+        { entityType: "PERSONNE_PHYSIQUE", firstName: "" },
+        { entityType: "PERSONNE_PHYSIQUE", lastName: null },
+        { entityType: "PERSONNE_PHYSIQUE", lastName: "" },
+        { entityType: "PERSONNE_PHYSIQUE", personalAddress: null },
+        { entityType: "PERSONNE_PHYSIQUE", personalAddress: "" },
+      ],
+    });
+  }
+  if (andClauses.length > 0) where.AND = andClauses;
 
   // Build orderBy
   type OrderBy = Record<string, "asc" | "desc">;
@@ -453,8 +544,14 @@ export async function getTenantsPaginated(
         id: true,
         entityType: true,
         companyName: true,
+        companyLegalForm: true,
+        siret: true,
+        companyAddress: true,
+        legalRepName: true,
         firstName: true,
         lastName: true,
+        personalAddress: true,
+        autoEntrepreneurSiret: true,
         email: true,
         phone: true,
         mobile: true,

@@ -44,6 +44,75 @@ function insuranceStatus(expiresAt: Date | null): { label: string; variant: "suc
   return { label: "Valide", variant: "success" };
 }
 
+function isBlank(value?: string | null) {
+  return !value || value.trim().length === 0;
+}
+
+function isMissingEmail(value?: string | null) {
+  return isBlank(value) || (value ?? "").toLowerCase().includes("a-renseigner");
+}
+
+function dossierCompleteness(tenant: {
+  entityType: TenantEntityType;
+  companyName?: string | null;
+  companyLegalForm?: string | null;
+  siret?: string | null;
+  companyAddress?: string | null;
+  legalRepName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  personalAddress?: string | null;
+  autoEntrepreneurSiret?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+}) {
+  const missingCritical: string[] = [];
+  const missingSecondary: string[] = [];
+
+  if (isMissingEmail(tenant.email)) missingCritical.push("Email");
+  if (isBlank(tenant.phone) && isBlank(tenant.mobile)) missingSecondary.push("Téléphone");
+
+  if (tenant.entityType === "PERSONNE_MORALE") {
+    if (isBlank(tenant.companyName)) missingCritical.push("Raison sociale");
+    if (isBlank(tenant.siret)) missingCritical.push("SIRET");
+    if (isBlank(tenant.companyAddress)) missingCritical.push("Adresse");
+    if (isBlank(tenant.companyLegalForm)) missingSecondary.push("Forme juridique");
+    if (isBlank(tenant.legalRepName)) missingSecondary.push("Représentant");
+  } else {
+    if (isBlank(tenant.firstName)) missingCritical.push("Prénom");
+    if (isBlank(tenant.lastName)) missingCritical.push("Nom");
+    if (isBlank(tenant.personalAddress)) missingCritical.push("Adresse");
+    if (!isBlank(tenant.autoEntrepreneurSiret) && tenant.autoEntrepreneurSiret!.replace(/\D/g, "").length < 9) {
+      missingSecondary.push("SIRET AE");
+    }
+  }
+
+  const missing = [...missingCritical, ...missingSecondary];
+  if (missingCritical.length > 0) {
+    return {
+      status: "critical" as const,
+      label: `${missing.length} manquant${missing.length > 1 ? "s" : ""}`,
+      missing,
+      variant: "destructive" as const,
+    };
+  }
+  if (missingSecondary.length > 0) {
+    return {
+      status: "missing" as const,
+      label: `${missing.length} à compléter`,
+      missing,
+      variant: "warning" as const,
+    };
+  }
+  return {
+    status: "complete" as const,
+    label: "Complet",
+    missing,
+    variant: "success" as const,
+  };
+}
+
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -77,6 +146,7 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
       _count: t._count,
       isActive: t.isActive,
       name: tenantName(t),
+      dossier: dossierCompleteness(t),
       insurance: insuranceStatus(t.insuranceExpiresAt),
       riskVariant: RISK_VARIANTS[t.riskIndicator],
       riskLabel: RISK_LABELS[t.riskIndicator],
