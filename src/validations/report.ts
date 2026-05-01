@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  BOTH_FORMAT_REPORT_TYPES,
+  PDF_ONLY_REPORT_TYPES,
+  XLSX_ONLY_REPORT_TYPES,
+} from "@/lib/reports/format-support";
 
 /**
  * Validation des paramètres de génération de rapports.
@@ -14,24 +19,6 @@ export const REPORT_TYPES = [
   "BALANCE_AGEE",
   "SUIVI_MENSUEL",
   "VACANCE_LOCATIVE",
-] as const;
-
-const PDF_ONLY_REPORT_TYPES = [
-  "SITUATION_LOCATIVE",
-  "COMPTE_RENDU_GESTION",
-  "RECAP_CHARGES_LOCATAIRE",
-  "BALANCE_AGEE",
-  "SUIVI_MENSUEL",
-  "VACANCE_LOCATIVE",
-] as const;
-
-const XLSX_ONLY_REPORT_TYPES = [
-  "RENTABILITE_LOT",
-  "SUIVI_TRAVAUX",
-] as const;
-
-const BOTH_FORMAT_REPORT_TYPES = [
-  "ETAT_IMPAYES",
 ] as const;
 
 export const generateReportSchema = z

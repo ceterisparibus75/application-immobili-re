@@ -1,6 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { generateReport } from "./index";
-import type { ReportType, ReportResult } from "./types";
+import { isPdfCompatibleReportType } from "./format-support";
+import type { ReportResult } from "./types";
 
 /** Labels pour les types de rapports */
 const REPORT_LABELS: Record<string, string> = {
@@ -43,10 +44,14 @@ export async function generateConsolidatedReport(
   const mergedPdf = await PDFDocument.create();
 
   for (const type of reportTypes) {
+    if (!isPdfCompatibleReportType(type)) {
+      continue;
+    }
+
     try {
       const result = await generateReport({
         societyId,
-        type: type as ReportType,
+        type,
         year,
         format: "pdf",
       });

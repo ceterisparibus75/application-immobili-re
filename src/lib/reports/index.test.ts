@@ -48,6 +48,8 @@ vi.mock("./generators/vacance-locative", () => ({
 import { generateConsolidatedReport, getFrequencyLabel, getReportLabel } from "./consolidated";
 import { generateReport } from "./index";
 
+const VALID_TENANT_ID = "clh3x2z4k0000qh8g7z1y2v3t";
+
 describe("generateReport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,17 +118,21 @@ describe("generateReport", () => {
 
   it("dispatch vers chaque générateur selon le type (lignes 31-38)", async () => {
     const types = [
-      ["RENTABILITE_LOT", generatorMocks.generateRentabiliteLot],
-      ["ETAT_IMPAYES", generatorMocks.generateEtatImpayes],
-      ["RECAP_CHARGES_LOCATAIRE", generatorMocks.generateRecapChargesLocataire],
-      ["SUIVI_TRAVAUX", generatorMocks.generateSuiviTravaux],
-      ["SUIVI_MENSUEL", generatorMocks.generateSuiviMensuel],
-      ["VACANCE_LOCATIVE", generatorMocks.generateVacanceLocative],
+      ["RENTABILITE_LOT", generatorMocks.generateRentabiliteLot, { year: 2026, format: "xlsx" }],
+      ["ETAT_IMPAYES", generatorMocks.generateEtatImpayes, { format: "pdf" }],
+      [
+        "RECAP_CHARGES_LOCATAIRE",
+        generatorMocks.generateRecapChargesLocataire,
+        { year: 2026, tenantId: VALID_TENANT_ID, format: "pdf" },
+      ],
+      ["SUIVI_TRAVAUX", generatorMocks.generateSuiviTravaux, { year: 2026, format: "xlsx" }],
+      ["SUIVI_MENSUEL", generatorMocks.generateSuiviMensuel, { year: 2026, format: "pdf" }],
+      ["VACANCE_LOCATIVE", generatorMocks.generateVacanceLocative, { format: "pdf" }],
     ] as const;
 
-    for (const [type, mock] of types) {
+    for (const [type, mock, overrides] of types) {
       mock.mockClear();
-      await generateReport({ societyId: "society-1", type: type as never, format: "pdf" });
+      await generateReport({ societyId: "society-1", type: type as never, ...overrides });
       expect(mock).toHaveBeenCalledOnce();
     }
   });
@@ -147,7 +153,20 @@ describe("generateReport", () => {
         type: "TYPE_INCONNU" as never,
         format: "pdf",
       })
-    ).rejects.toThrow("Erreur lors de la generation du rapport. Veuillez reessayer.");
+    ).rejects.toThrow("Type de rapport invalide");
+  });
+
+  it("refuse un format incompatible même hors API", async () => {
+    await expect(
+      generateReport({
+        societyId: "society-1",
+        type: "SUIVI_TRAVAUX",
+        year: 2026,
+        format: "pdf",
+      })
+    ).rejects.toThrow("Ce rapport est disponible uniquement au format Excel");
+
+    expect(generatorMocks.generateSuiviTravaux).not.toHaveBeenCalled();
   });
 
   it("masque les erreurs internes du générateur par un message stable", async () => {
@@ -171,7 +190,7 @@ describe("generateReport", () => {
         societyId: "society-1",
         type: "RECAP_CHARGES_LOCATAIRE",
         year: 2026,
-        tenantId: "ctenant001",
+        tenantId: VALID_TENANT_ID,
         format: "pdf",
       })
     ).rejects.toThrow("Locataire introuvable");
@@ -211,6 +230,30 @@ describe("generateConsolidatedReport", () => {
     await expect(
       generateConsolidatedReport("society-1", ["SITUATION_LOCATIVE", "BALANCE_AGEE"])
     ).rejects.toThrow("Aucun rapport n'a pu être généré");
+  });
+
+  it("ignore les rapports Excel avant de fusionner le consolidé PDF", async () => {
+    generatorMocks.generateSituationLocative.mockResolvedValue({
+      buffer: Buffer.from(
+        "%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF"
+      ),
+      filename: "a.pdf",
+      contentType: "application/pdf",
+    });
+
+    await generateConsolidatedReport("society-1", ["SUIVI_TRAVAUX", "SITUATION_LOCATIVE"], 2026);
+
+    expect(generatorMocks.generateSuiviTravaux).not.toHaveBeenCalled();
+    expect(generatorMocks.generateSituationLocative).toHaveBeenCalledOnce();
+  });
+
+  it("échoue si seuls des rapports Excel sont demandés en consolidation", async () => {
+    await expect(
+      generateConsolidatedReport("society-1", ["SUIVI_TRAVAUX", "RENTABILITE_LOT"], 2026)
+    ).rejects.toThrow("Aucun rapport n'a pu être généré");
+
+    expect(generatorMocks.generateSuiviTravaux).not.toHaveBeenCalled();
+    expect(generatorMocks.generateRentabiliteLot).not.toHaveBeenCalled();
   });
 });
 
