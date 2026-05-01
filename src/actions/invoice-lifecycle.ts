@@ -5,6 +5,7 @@ import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import {
   recordPaymentSchema,
+  updateInvoiceNoteSchema,
   type RecordPaymentInput,
 } from "@/validations/invoice";
 import { revalidatePath } from "next/cache";
@@ -823,5 +824,41 @@ export async function linkInvoiceToBuilding(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[linkInvoiceToBuilding]", error);
     return { success: false, error: "Erreur lors du rattachement à l'immeuble" };
+  }
+}
+export async function updateInvoiceNote(
+  societyId: string,
+  invoiceId: string,
+  note: string | null
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = updateInvoiceNoteSchema.safeParse({ invoiceId, note });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    await prisma.invoice.update({
+      where: { id: invoiceId, societyId },
+      data: { note: parsed.data.note ?? null },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { field: "note" },
+    });
+
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateInvoiceNote]", error);
+    return { success: false, error: "Erreur lors de la mise à jour de la note" };
   }
 }

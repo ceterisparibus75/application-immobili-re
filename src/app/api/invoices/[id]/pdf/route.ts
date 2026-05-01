@@ -195,6 +195,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         amount: p.amount,
       })),
       creditNoteForNumber: invoice.creditNoteFor?.invoiceNumber ?? null,
+      note: invoice.note ?? null,
     };
 
     // 8b. Correction de la date d'émission si elle est dans le futur (bug historique)

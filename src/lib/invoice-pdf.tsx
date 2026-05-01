@@ -20,6 +20,7 @@ export type InvoicePdfData = {
   lines: Array<{ label: string; lotNumber?: string | null; totalHT: number; vatRate: number; totalTTC: number }>;
   payments: Array<{ paidAt: string; method?: string | null; amount: number }>;
   creditNoteForNumber?: string | null;
+  note?: string | null;
 };
 
 function splitAddress(addr: string): [string, string] | null {
@@ -215,6 +216,13 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             <Text style={[s.accountCellRight, { fontFamily: "Helvetica-Bold" }]}>{fmt(Math.max(0, totalToPay - paid))}</Text>
           </View>
         </View>
+
+        {data.note ? (
+          <View style={{ marginTop: 10, marginBottom: 8, padding: 8, borderWidth: 1, borderColor: BORDER, borderRadius: 3 }}>
+            <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: GRAY, marginBottom: 3 }}>Note</Text>
+            <Text style={{ fontSize: 8.5, lineHeight: 1.4 }}>{data.note}</Text>
+          </View>
+        ) : null}
 
         <View style={s.legal}>
           {soc?.vatRegime === "FRANCHISE" ? <Text style={{ fontFamily: "Helvetica-Bold", marginBottom: 2 }}>TVA non applicable - art. 293 B du CGI</Text> : null}

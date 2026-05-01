@@ -67,6 +67,11 @@ export const cancelInvoiceSchema = z.object({
   reason: z.string().optional().nullable(),
 });
 
+export const updateInvoiceNoteSchema = z.object({
+  invoiceId: z.string().cuid(),
+  note: z.string().max(2000).optional().nullable(),
+});
+
 export const validateBatchSchema = z.object({
   invoiceIds: z.array(z.string().cuid()).min(1, "Au moins une facture requise"),
 });
@@ -78,3 +83,4 @@ export type GenerateBatchInvoicesInput = z.infer<typeof generateBatchInvoicesSch
 export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;
 export type CancelInvoiceInput = z.infer<typeof cancelInvoiceSchema>;
 export type ValidateBatchInput = z.infer<typeof validateBatchSchema>;
+export type UpdateInvoiceNoteInput = z.infer<typeof updateInvoiceNoteSchema>;

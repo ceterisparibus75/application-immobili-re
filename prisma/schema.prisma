@@ -1756,6 +1756,7 @@ model Invoice {
   validatedAt         DateTime?
   cancelledAt         DateTime?
   cancelReason        String?
+  note                String?
 
   // Facturation électronique (Factur-X / ZUGFeRD)
   einvoiceXmlUrl      String? // Chemin Supabase vers le XML CII embarqué

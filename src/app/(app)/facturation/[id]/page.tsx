@@ -27,6 +27,7 @@ import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
+import { NoteEditor } from "./_components/note-editor";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -526,6 +527,13 @@ export default async function FactureDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {/* Note */}
+          <NoteEditor
+            invoiceId={invoice.id}
+            societyId={societyId}
+            initialNote={invoice.note ?? null}
+          />
 
           {/* Statut PA B2B */}
           {isEInvoicingConfigured() &&
