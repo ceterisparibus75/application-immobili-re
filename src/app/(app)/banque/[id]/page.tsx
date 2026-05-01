@@ -27,7 +27,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import AddTransactionForm from "./_components/add-transaction-form";
+import { TransactionFilters } from "./_components/transaction-filters";
 import ImportStatement from "./_components/import-statement";
 import SyncButton from "./_components/sync-button";
 import RecalculateButton from "./_components/recalculate-button";
@@ -35,16 +37,19 @@ import { ExportTransactions } from "@/components/exports/export-transactions";
 
 export default async function BankAccountDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ dateFrom?: string; dateTo?: string; category?: string; direction?: string }>;
 }) {
   const { id } = await params;
+  const filters = await searchParams;
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
 
   if (!societyId) redirect("/societes");
 
-  const account = await getBankAccountById(societyId, id);
+  const account = await getBankAccountById(societyId, id, filters);
   if (!account) notFound();
 
   const credits = account.transactions
@@ -175,9 +180,12 @@ export default async function BankAccountDetailPage({
           <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
-                Transactions récentes ({account.transactions.length})
+                Transactions ({account.transactions.length}{account._count.transactions !== account.transactions.length ? ` sur ${account._count.transactions}` : ""})
               </CardTitle>
             </CardHeader>
+            <Suspense>
+              <TransactionFilters />
+            </Suspense>
             <CardContent className="p-0">
               {account.transactions.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">

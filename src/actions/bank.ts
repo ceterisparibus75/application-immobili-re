@@ -139,7 +139,11 @@ export async function getBankAccounts(societyId: string) {
   });
 }
 
-export async function getBankAccountById(societyId: string, accountId: string) {
+export async function getBankAccountById(
+  societyId: string,
+  accountId: string,
+  filters?: { dateFrom?: string; dateTo?: string; category?: string; direction?: string }
+) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return null;
 
@@ -148,8 +152,14 @@ export async function getBankAccountById(societyId: string, accountId: string) {
       where: { id: accountId, societyId },
       include: {
         transactions: {
+          where: {
+            ...(filters?.dateFrom && { transactionDate: { gte: new Date(filters.dateFrom) } }),
+            ...(filters?.dateTo && { transactionDate: { lte: new Date(filters.dateTo + "T23:59:59") } }),
+            ...(filters?.category && { category: filters.category }),
+            ...(filters?.direction === "credit" && { amount: { gt: 0 } }),
+            ...(filters?.direction === "debit" && { amount: { lt: 0 } }),
+          },
           orderBy: { transactionDate: "desc" },
-          take: 50,
         },
         connection: {
           select: { institutionName: true, status: true },
