@@ -13,9 +13,8 @@ import {
   TrendingUp,
   Wallet,
   FolderOpen,
-  ClipboardList,
-  Plus,
   ExternalLink,
+  ShieldAlert,
 } from "lucide-react";
 import { ChargeProvisions } from "./charge-provisions";
 import { LeaseIndexationPanel } from "./lease-indexation-panel";
@@ -24,7 +23,16 @@ import { RentSteps } from "./rent-steps";
 import { LeaseAmendments } from "./lease-amendments";
 import { LeasePdfUpload } from "@/components/lease-pdf-upload";
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
-import type { PaymentFrequency, IndexType } from "@/generated/prisma/client";
+import { LeaseStatusCard } from "./lease-status-card";
+import type {
+  PaymentFrequency,
+  IndexType,
+  LeaseStatus,
+  LeaseTenantTransferType,
+  LegalEventStatus,
+  LegalEventType,
+  TenantEntityType,
+} from "@/generated/prisma/client";
 import type { LeaseIndexationOverview } from "@/actions/rent-revision";
 
 // ─── Types inline (miroirs des types internes des sous-composants) ─────────────
@@ -84,19 +92,44 @@ type AmendmentDocument = {
   createdAt: Date;
 };
 
-type InvoiceRow = {
-  id: string;
-  invoiceNumber: string | null;
-  dueDate: Date;
-  totalHT: number;
-  status: string;
-};
-
 type InspectionRow = {
   id: string;
   type: string;
   performedAt: Date;
   performedBy: string | null;
+};
+
+type TenantOption = {
+  id: string;
+  entityType: TenantEntityType;
+  companyName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+};
+
+type TenantHistoryRow = {
+  id: string;
+  startDate: Date;
+  endDate: Date | null;
+  transferType: LeaseTenantTransferType | null;
+  transferReason: string | null;
+  tenant: TenantOption;
+  transferDocument: {
+    id: string;
+    fileName: string;
+    storagePath: string | null;
+    fileUrl: string;
+  } | null;
+};
+
+type LegalEventRow = {
+  id: string;
+  type: LegalEventType;
+  title: string;
+  description: string | null;
+  eventDate: Date;
+  status: LegalEventStatus;
 };
 
 type LeaseDocument = {
@@ -162,9 +195,12 @@ type LoyerData = {
   paymentFrequency: PaymentFrequency;
 };
 
-type FacturationData = {
-  invoices: InvoiceRow[];
-  invoicesCount: number;
+type VieData = {
+  currentStatus: LeaseStatus;
+  tenants: TenantOption[];
+  tenantHistories: TenantHistoryRow[];
+  legalEvents: LegalEventRow[];
+  legalEventsCount: number;
   inspections: InspectionRow[];
   inspectionsCount: number;
 };
@@ -188,27 +224,13 @@ export type LeaseDetailTabsProps = {
   currentRentHT: number;
   contrat: ContractData;
   loyer: LoyerData;
-  facturation: FacturationData;
+  vie: VieData;
   documents: DocumentsData;
   indexation: LeaseIndexationOverview | null;
   rentValuationSlot: React.ReactNode;
 };
 
 // ─── Constantes d'affichage ────────────────────────────────────────────────────
-
-const INVOICE_STATUS_LABELS: Record<string, string> = {
-  BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
-  EN_ATTENTE: "En attente", PAYE: "Payée", PARTIELLEMENT_PAYE: "Part. payée",
-  EN_RETARD: "En retard", RELANCEE: "Relancée", LITIGIEUX: "Litigieux",
-  IRRECOUVRABLE: "Irrécouvrable", ANNULEE: "Annulée",
-};
-
-const INVOICE_STATUS_VARIANTS: Record<string, "success" | "secondary" | "warning" | "destructive" | "default" | "outline"> = {
-  BROUILLON: "outline", VALIDEE: "secondary", ENVOYEE: "default",
-  EN_ATTENTE: "default", PAYE: "success", PARTIELLEMENT_PAYE: "warning",
-  EN_RETARD: "destructive", RELANCEE: "destructive", LITIGIEUX: "destructive",
-  IRRECOUVRABLE: "secondary", ANNULEE: "outline",
-};
 
 // ─── Sous-composants internes ──────────────────────────────────────────────────
 
@@ -233,7 +255,7 @@ export function LeaseDetailTabs({
   currentRentHT,
   contrat,
   loyer,
-  facturation,
+  vie,
   documents,
   indexation,
   rentValuationSlot,
@@ -249,9 +271,9 @@ export function LeaseDetailTabs({
           <TrendingUp className="h-3.5 w-3.5 mr-1.5 hidden sm:inline" />
           Loyer
         </TabsTrigger>
-        <TabsTrigger value="facturation" className="text-xs sm:text-sm">
-          <Receipt className="h-3.5 w-3.5 mr-1.5 hidden sm:inline" />
-          Facturation
+        <TabsTrigger value="vie" className="text-xs sm:text-sm">
+          <ShieldAlert className="h-3.5 w-3.5 mr-1.5 hidden sm:inline" />
+          Vie du bail
         </TabsTrigger>
         <TabsTrigger value="documents" className="text-xs sm:text-sm">
           <FolderOpen className="h-3.5 w-3.5 mr-1.5 hidden sm:inline" />
@@ -488,114 +510,19 @@ export function LeaseDetailTabs({
         </Card>
       </TabsContent>
 
-      {/* ── Onglet Facturation ─────────────────────────────────────────────── */}
-      <TabsContent value="facturation" className="space-y-4 mt-0">
-        {/* Factures */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-                Factures ({facturation.invoicesCount})
-              </CardTitle>
-              {isActive && (
-                <Link href={`/facturation/generer?leaseId=${leaseId}`}>
-                  <Button variant="outline" size="sm">
-                    <Plus className="h-4 w-4" />
-                    Générer
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {facturation.invoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Aucune facture émise pour ce bail
-              </p>
-            ) : (
-              <div className="divide-y">
-                {facturation.invoices.map((inv) => (
-                  <Link
-                    key={inv.id}
-                    href={`/facturation/${inv.id}`}
-                    className="flex items-center justify-between py-3 hover:bg-muted/30 -mx-1 px-1 rounded transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{inv.invoiceNumber}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Échéance : {new Date(inv.dueDate).toLocaleDateString("fr-FR")}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm font-medium">
-                        {inv.totalHT.toLocaleString("fr-FR")} € HT
-                      </p>
-                      <Badge variant={INVOICE_STATUS_VARIANTS[inv.status] ?? "default"}>
-                        {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
-                      </Badge>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-            {facturation.invoicesCount > 6 && (
-              <Link href={`/facturation?leaseId=${leaseId}`}>
-                <Button variant="ghost" size="sm" className="w-full mt-2 text-xs">
-                  Voir toutes les factures
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* États des lieux */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                États des lieux ({facturation.inspectionsCount})
-              </CardTitle>
-              {isActive && (
-                <Link href={`/baux/${leaseId}/inspections/nouveau`}>
-                  <Button variant="outline" size="sm">
-                    <Plus className="h-4 w-4" />
-                    Nouveau
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {facturation.inspections.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Aucun état des lieux enregistré
-              </p>
-            ) : (
-              <div className="divide-y">
-                {facturation.inspections.map((insp) => (
-                  <div key={insp.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {insp.type === "ENTREE" ? "Entrée" : "Sortie"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(insp.performedAt).toLocaleDateString("fr-FR")}
-                        {insp.performedBy ? ` — ${insp.performedBy}` : ""}
-                      </p>
-                    </div>
-                    <Link href={`/baux/${leaseId}/inspections/${insp.id}`}>
-                      <Button variant="ghost" size="sm">
-                        Voir
-                      </Button>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* ── Onglet Vie du bail ─────────────────────────────────────────────── */}
+      <TabsContent value="vie" className="space-y-4 mt-0">
+        <LeaseStatusCard
+          leaseId={leaseId}
+          societyId={societyId}
+          currentStatus={vie.currentStatus}
+          tenants={vie.tenants}
+          tenantHistories={vie.tenantHistories}
+          legalEvents={vie.legalEvents}
+          legalEventsCount={vie.legalEventsCount}
+          inspections={vie.inspections}
+          inspectionsCount={vie.inspectionsCount}
+        />
       </TabsContent>
 
       {/* ── Onglet Documents ───────────────────────────────────────────────── */}
@@ -712,4 +639,4 @@ export function LeaseDetailTabs({
 }
 
 // ─── Export du type pour la page ───────────────────────────────────────────────
-export type { ContractData, LoyerData, FacturationData, DocumentsData };
+export type { ContractData, LoyerData, VieData, DocumentsData };

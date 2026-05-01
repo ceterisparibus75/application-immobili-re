@@ -473,7 +473,7 @@ export function TenantAccount({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
-            Compte locataire
+            Facturation et compte locataire
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={exportCsv}>
@@ -632,6 +632,104 @@ export function TenantAccount({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <section id="facturation" className="space-y-3 scroll-mt-24">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+                Facturation ({invoices.length})
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Factures MyGestia rattachées à ce locataire.
+              </p>
+            </div>
+            <a href={`/facturation/nouvelle?tenantId=${tenantId}`}>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4" />
+                Nouvelle facture
+              </Button>
+            </a>
+          </div>
+
+          {invoices.length === 0 ? (
+            <div className="rounded-md border border-dashed py-8 text-center">
+              <Receipt className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Aucune facture pour ce locataire</p>
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-auto max-h-[360px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Facture</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">TTC</TableHead>
+                    <TableHead className="text-right">Payé</TableHead>
+                    <TableHead className="text-right">Solde</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((invoice) => {
+                    const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
+                    const grossAmount =
+                      invoice.invoiceType === "AVOIR"
+                        ? -getCreditNoteAmount(invoice.totalTTC)
+                        : invoice.totalTTC;
+                    const remaining =
+                      invoice.invoiceType === "AVOIR"
+                        ? grossAmount
+                        : Math.max(0, invoice.totalTTC - paid);
+                    return (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="text-xs tabular-nums whitespace-nowrap">
+                          {formatDate(invoice.issueDate)}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={`/facturation/${invoice.id}`}
+                            className="text-sm font-medium hover:underline"
+                          >
+                            {INVOICE_TYPE_LABELS[invoice.invoiceType] ?? invoice.invoiceType}
+                          </a>
+                          <div className="text-xs text-muted-foreground">
+                            {invoice.invoiceNumber ?? "Sans numéro"}
+                            {invoice.periodStart ? ` · ${formatPeriod(invoice.periodStart, invoice.periodEnd)}` : ""}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={STATUS_VARIANTS[invoice.status] ?? "default"} className="text-[10px]">
+                            {STATUS_LABELS[invoice.status] ?? invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`text-right text-xs tabular-nums font-medium ${grossAmount < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                          {formatCurrency(grossAmount)} €
+                        </TableCell>
+                        <TableCell className="text-right text-xs tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {paid > 0 ? `${formatCurrency(paid)} €` : ""}
+                        </TableCell>
+                        <TableCell className={`text-right text-xs tabular-nums font-semibold ${remaining > 0 ? "text-destructive" : remaining < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                          {formatCurrency(remaining)} €
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </section>
+
+        <section id="compte-locataire" className="space-y-6 scroll-mt-24">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              Situation du compte locataire
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Mouvements facturés, paiements, avoirs et reprises de soldes.
+            </p>
+          </div>
         {/* KPIs */}
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="rounded-lg border p-3 text-center">
@@ -722,6 +820,7 @@ export function TenantAccount({
             </Table>
           </div>
         )}
+        </section>
       </CardContent>
     </Card>
   );

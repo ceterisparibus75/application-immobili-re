@@ -328,7 +328,25 @@ export const updateRentStepSchema = rentStepSchema.extend({
   id: z.string().cuid(),
 });
 
+export const transferLeaseTenantSchema = z.object({
+  leaseId: z.string().cuid(),
+  newTenantId: z.string().cuid(),
+  effectiveDate: z.string().min(1, "La date d'effet est requise"),
+  transferType: z
+    .enum([
+      "CESSION_FONDS",
+      "CESSION_DROIT_BAIL",
+      "SUBSTITUTION",
+      "FUSION_ABSORPTION",
+      "AUTRE",
+    ])
+    .default("CESSION_FONDS"),
+  transferReason: z.string().max(2000).optional().nullable(),
+  transferDocumentId: z.string().cuid().optional().nullable(),
+});
+
 export type CreateLeaseInput = z.infer<typeof createLeaseSchema>;
 export type UpdateLeaseInput = z.infer<typeof updateLeaseSchema>;
 export type RentStepInput = z.infer<typeof rentStepSchema>;
 export type CreateRentStepsInput = z.infer<typeof createRentStepsSchema>;
+export type TransferLeaseTenantInput = z.input<typeof transferLeaseTenantSchema>;

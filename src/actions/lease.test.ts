@@ -3,6 +3,7 @@ import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import {
   createLease,
   updateLease,
+  transferLeaseTenant,
   deleteLease,
   getLeases,
   getLeaseById,
@@ -247,6 +248,103 @@ describe("updateLease", () => {
     const r = await updateLease("society-1", { id: VALID_CUID, status: "RESILIE" })
     expect(r.success).toBe(true)
     expect(prismaMock.lot.updateMany).not.toHaveBeenCalled()
+  })
+})
+
+describe("transferLeaseTenant", () => {
+  it("change le titulaire du bail sans créer de nouveau bail", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID,
+      tenantId: "old-tenant",
+      status: "EN_COURS",
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2033-01-01"),
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        companyName: "Ancien Locataire",
+        firstName: null,
+        lastName: null,
+      },
+    } as never)
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: VALID_CUID2,
+      entityType: "PERSONNE_MORALE",
+      companyName: "Nouveau Locataire",
+      firstName: null,
+      lastName: null,
+    } as never)
+    prismaMock.leaseTenantHistory.findFirst.mockResolvedValue({
+      id: "history-current",
+      tenantId: "old-tenant",
+      startDate: new Date("2024-01-01"),
+    } as never)
+    prismaMock.leaseTenantHistory.update.mockResolvedValue({} as never)
+    prismaMock.leaseTenantHistory.create.mockResolvedValue({} as never)
+    prismaMock.lease.update.mockResolvedValue({} as never)
+    prismaMock.legalEvent.create.mockResolvedValue({} as never)
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock))
+
+    const r = await transferLeaseTenant("society-1", {
+      leaseId: VALID_CUID,
+      newTenantId: VALID_CUID2,
+      effectiveDate: "2026-05-01",
+      transferType: "CESSION_FONDS",
+      transferReason: "Cession du fonds",
+    })
+
+    expect(r.success).toBe(true)
+    expect(prismaMock.lease.update).toHaveBeenCalledWith({
+      where: { id: VALID_CUID },
+      data: { tenantId: VALID_CUID2 },
+    })
+    expect(prismaMock.leaseTenantHistory.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "history-current" },
+        data: { endDate: new Date("2026-05-01") },
+      })
+    )
+    expect(prismaMock.leaseTenantHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leaseId: VALID_CUID,
+          tenantId: VALID_CUID2,
+          transferType: "CESSION_FONDS",
+        }),
+      })
+    )
+    expect(prismaMock.legalEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: "CESSION", leaseId: VALID_CUID }),
+      })
+    )
+  })
+
+  it("refuse un changement vers le locataire déjà titulaire", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: VALID_CUID,
+      tenantId: VALID_CUID2,
+      status: "EN_COURS",
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2033-01-01"),
+      tenant: {
+        entityType: "PERSONNE_MORALE",
+        companyName: "Locataire",
+        firstName: null,
+        lastName: null,
+      },
+    } as never)
+
+    const r = await transferLeaseTenant("society-1", {
+      leaseId: VALID_CUID,
+      newTenantId: VALID_CUID2,
+      effectiveDate: "2026-05-01",
+    })
+
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("déjà titulaire")
+    expect(prismaMock.lease.update).not.toHaveBeenCalled()
   })
 })
 

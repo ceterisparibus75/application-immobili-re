@@ -104,29 +104,32 @@ async function generateDraftInvoices() {
       let rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps, lease.entryDate);
       const vatRate = lease.vatApplicable ? (lease.vatRate ?? 20) : 0;
 
-      // Prorata temporis sur la premiere periode (depuis la date de prise en jouissance)
+      const cronRfm = lease.rentFreeMonths ?? 0;
+      const cronRfmFloor = Math.floor(cronRfm);
+      const cronRfmFrac = cronRfm - cronRfmFloor;
+      const cronEffectiveFirstPaidDate = new Date(cronEffectiveStart);
+      cronEffectiveFirstPaidDate.setMonth(cronEffectiveFirstPaidDate.getMonth() + cronRfmFloor);
+
       let cronProrataLabel = "";
-      const cronLeaseStartDay = new Date(cronEffectiveStart).getDate();
+      const cronLeaseStartDay = cronEffectiveFirstPaidDate.getDate();
       const cronIsFirstPeriod =
-        periodStart.getFullYear() === new Date(cronEffectiveStart).getFullYear() &&
-        periodStart.getMonth() === new Date(cronEffectiveStart).getMonth();
-      if (cronIsFirstPeriod && rentHT > 0 && cronLeaseStartDay > 1) {
-        const y = new Date(cronEffectiveStart).getFullYear();
-        const m = new Date(cronEffectiveStart).getMonth();
+        periodStart.getFullYear() === cronEffectiveFirstPaidDate.getFullYear() &&
+        periodStart.getMonth() === cronEffectiveFirstPaidDate.getMonth();
+      if (cronIsFirstPeriod && rentHT > 0 && cronLeaseStartDay > 1 && cronRfmFrac === 0) {
+        const y = cronEffectiveFirstPaidDate.getFullYear();
+        const m = cronEffectiveFirstPaidDate.getMonth();
         const daysInMonth = new Date(y, m + 1, 0).getDate();
         const daysRemaining = daysInMonth - cronLeaseStartDay + 1;
         rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
         cronProrataLabel = " (prorata " + daysRemaining + "/" + daysInMonth + " j.)";
       }
-      const cronRfm = lease.rentFreeMonths ?? 0;
-      const cronRfmFrac = cronRfm - Math.floor(cronRfm);
       if (cronRfmFrac > 0 && rentHT > 0) {
         const cronLeaseStartNorm = new Date(cronEffectiveStart);
         cronLeaseStartNorm.setDate(1);
         const cronMonthsSince =
           (periodStart.getFullYear() - cronLeaseStartNorm.getFullYear()) * 12 +
           (periodStart.getMonth() - cronLeaseStartNorm.getMonth());
-        if (cronMonthsSince === Math.floor(cronRfm)) {
+        if (cronMonthsSince === cronRfmFloor) {
           const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
           const freeDays = Math.round(cronRfmFrac * daysInMonth);
           const paidDays = daysInMonth - freeDays;

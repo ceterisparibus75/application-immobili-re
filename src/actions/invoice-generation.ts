@@ -242,29 +242,33 @@ export async function generateInvoiceFromLease(
       lease.entryDate
     );
 
+    const rfm = lease.rentFreeMonths ?? 0;
+    const rfmFloor = Math.floor(rfm);
+    const rfmFrac = rfm - rfmFloor;
+    const effectiveFirstPaidDate = new Date(effectiveStart);
+    effectiveFirstPaidDate.setMonth(effectiveFirstPaidDate.getMonth() + rfmFloor);
+
     let prorataLabel = "";
-    const leaseStartDay = new Date(effectiveStart).getDate();
+    const leaseStartDay = effectiveFirstPaidDate.getDate();
     const isFirstPeriod =
-      periodStart.getFullYear() === new Date(effectiveStart).getFullYear() &&
-      periodStart.getMonth() === new Date(effectiveStart).getMonth();
-    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
-      const y = new Date(effectiveStart).getFullYear();
-      const m = new Date(effectiveStart).getMonth();
+      periodStart.getFullYear() === effectiveFirstPaidDate.getFullYear() &&
+      periodStart.getMonth() === effectiveFirstPaidDate.getMonth();
+    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1 && rfmFrac === 0) {
+      const y = effectiveFirstPaidDate.getFullYear();
+      const m = effectiveFirstPaidDate.getMonth();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
       const daysRemaining = daysInMonth - leaseStartDay + 1;
       rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
       prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
     }
 
-    const rfm = lease.rentFreeMonths ?? 0;
-    const rfmFrac = rfm - Math.floor(rfm);
     if (rfmFrac > 0 && rentHT > 0) {
       const leaseStartNorm = new Date(effectiveStart);
       leaseStartNorm.setDate(1);
       const monthsSinceLease =
         (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
         (periodStart.getMonth() - leaseStartNorm.getMonth());
-      if (monthsSinceLease === Math.floor(rfm)) {
+      if (monthsSinceLease === rfmFloor) {
         const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
         const freeDays = Math.round(rfmFrac * daysInMonth);
         const paidDays = daysInMonth - freeDays;
@@ -513,28 +517,32 @@ export async function generateBatchInvoices(
           lease.entryDate
         );
 
+        const batchRfm = lease.rentFreeMonths ?? 0;
+        const batchRfmFloor = Math.floor(batchRfm);
+        const batchRfmFrac = batchRfm - batchRfmFloor;
+        const batchEffectiveFirstPaidDate = new Date(batchEffectiveStart);
+        batchEffectiveFirstPaidDate.setMonth(batchEffectiveFirstPaidDate.getMonth() + batchRfmFloor);
+
         let batchProrataLabel = "";
-        const batchLeaseStartDay = new Date(batchEffectiveStart).getDate();
+        const batchLeaseStartDay = batchEffectiveFirstPaidDate.getDate();
         const batchIsFirstPeriod =
-          periodStart.getFullYear() === new Date(batchEffectiveStart).getFullYear() &&
-          periodStart.getMonth() === new Date(batchEffectiveStart).getMonth();
-        if (batchIsFirstPeriod && rentHT > 0 && batchLeaseStartDay > 1) {
-          const y = new Date(batchEffectiveStart).getFullYear();
-          const m = new Date(batchEffectiveStart).getMonth();
+          periodStart.getFullYear() === batchEffectiveFirstPaidDate.getFullYear() &&
+          periodStart.getMonth() === batchEffectiveFirstPaidDate.getMonth();
+        if (batchIsFirstPeriod && rentHT > 0 && batchLeaseStartDay > 1 && batchRfmFrac === 0) {
+          const y = batchEffectiveFirstPaidDate.getFullYear();
+          const m = batchEffectiveFirstPaidDate.getMonth();
           const daysInMonth = new Date(y, m + 1, 0).getDate();
           const daysRemaining = daysInMonth - batchLeaseStartDay + 1;
           rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
           batchProrataLabel = " (prorata " + daysRemaining + "/" + daysInMonth + " j.)";
         }
-        const batchRfm = lease.rentFreeMonths ?? 0;
-        const batchRfmFrac = batchRfm - Math.floor(batchRfm);
         if (batchRfmFrac > 0 && rentHT > 0) {
           const batchLeaseStartNorm = new Date(batchEffectiveStart);
           batchLeaseStartNorm.setDate(1);
           const batchMonthsSince =
             (periodStart.getFullYear() - batchLeaseStartNorm.getFullYear()) * 12 +
             (periodStart.getMonth() - batchLeaseStartNorm.getMonth());
-          if (batchMonthsSince === Math.floor(batchRfm)) {
+          if (batchMonthsSince === batchRfmFloor) {
             const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
             const freeDays = Math.round(batchRfmFrac * daysInMonth);
             const paidDays = daysInMonth - freeDays;
@@ -742,29 +750,33 @@ export async function refreshDraftInvoice(
       lease.entryDate
     );
 
+    const rfm = lease.rentFreeMonths ?? 0;
+    const rfmFloor = Math.floor(rfm);
+    const rfmFrac = rfm - rfmFloor;
+    const effectiveFirstPaidDate = new Date(effectiveStart);
+    effectiveFirstPaidDate.setMonth(effectiveFirstPaidDate.getMonth() + rfmFloor);
+
     let prorataLabel = "";
-    const leaseStartDay = new Date(effectiveStart).getDate();
+    const leaseStartDay = effectiveFirstPaidDate.getDate();
     const isFirstPeriod =
-      periodStart.getFullYear() === new Date(effectiveStart).getFullYear() &&
-      periodStart.getMonth() === new Date(effectiveStart).getMonth();
-    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
-      const y = new Date(effectiveStart).getFullYear();
-      const m = new Date(effectiveStart).getMonth();
+      periodStart.getFullYear() === effectiveFirstPaidDate.getFullYear() &&
+      periodStart.getMonth() === effectiveFirstPaidDate.getMonth();
+    if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1 && rfmFrac === 0) {
+      const y = effectiveFirstPaidDate.getFullYear();
+      const m = effectiveFirstPaidDate.getMonth();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
       const daysRemaining = daysInMonth - leaseStartDay + 1;
       rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
       prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
     }
 
-    const rfm = lease.rentFreeMonths ?? 0;
-    const rfmFrac = rfm - Math.floor(rfm);
     if (rfmFrac > 0 && rentHT > 0) {
       const leaseStartNorm = new Date(effectiveStart);
       leaseStartNorm.setDate(1);
       const monthsSinceLease =
         (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
         (periodStart.getMonth() - leaseStartNorm.getMonth());
-      if (monthsSinceLease === Math.floor(rfm)) {
+      if (monthsSinceLease === rfmFloor) {
         const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
         const freeDays = Math.round(rfmFrac * daysInMonth);
         const paidDays = daysInMonth - freeDays;

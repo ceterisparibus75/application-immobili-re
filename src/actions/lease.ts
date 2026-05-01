@@ -8,10 +8,12 @@ import { createAuditLog } from "@/lib/audit";
 import {
   createLeaseSchema,
   updateLeaseSchema,
+  transferLeaseTenantSchema,
   createRentStepsSchema,
   updateRentStepSchema,
   type CreateLeaseInput,
   type UpdateLeaseInput,
+  type TransferLeaseTenantInput,
   type CreateRentStepsInput,
 } from "@/validations/lease";
 import { revalidatePath } from "next/cache";
@@ -22,6 +24,17 @@ import {
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 import { LEASE_SCOPED_DOCUMENT_CATEGORIES } from "@/lib/document-lease-association";
+
+function formatTenantName(tenant: {
+  entityType: string;
+  companyName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}) {
+  return tenant.entityType === "PERSONNE_MORALE"
+    ? (tenant.companyName ?? "Locataire")
+    : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "Locataire";
+}
 
 export async function createLease(
   societyId: string,
@@ -127,6 +140,15 @@ export async function createLease(
             isPrimary: index === 0,
           })),
         },
+      },
+    });
+
+    await prisma.leaseTenantHistory.create({
+      data: {
+        societyId,
+        leaseId: lease.id,
+        tenantId: data.tenantId,
+        startDate,
       },
     });
 
@@ -242,6 +264,188 @@ export async function updateLease(
     }
     console.error("[updateLease]", error);
     return { success: false, error: "Erreur lors de la mise à jour" };
+  }
+}
+
+export async function transferLeaseTenant(
+  societyId: string,
+  input: TransferLeaseTenantInput
+): Promise<ActionResult<{ oldTenantId: string; newTenantId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const parsed = transferLeaseTenantSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const {
+      leaseId,
+      newTenantId,
+      effectiveDate,
+      transferType,
+      transferReason,
+      transferDocumentId,
+    } = parsed.data;
+    const effectiveAt = new Date(effectiveDate);
+    if (Number.isNaN(effectiveAt.getTime())) {
+      return { success: false, error: "Date d'effet invalide" };
+    }
+
+    const lease = await prisma.lease.findFirst({
+      where: { id: leaseId, societyId, deletedAt: null },
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        tenant: {
+          select: {
+            entityType: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+    if (!lease) return { success: false, error: "Bail introuvable" };
+    if (lease.status === "RESILIE") {
+      return { success: false, error: "Impossible de changer le locataire d'un bail résilié" };
+    }
+    if (lease.tenantId === newTenantId) {
+      return { success: false, error: "Le nouveau locataire est déjà titulaire du bail" };
+    }
+    if (effectiveAt < lease.startDate) {
+      return { success: false, error: "La date d'effet ne peut pas précéder le début du bail" };
+    }
+    if (lease.endDate && effectiveAt > lease.endDate) {
+      return { success: false, error: "La date d'effet ne peut pas dépasser la fin du bail" };
+    }
+
+    const newTenant = await prisma.tenant.findFirst({
+      where: { id: newTenantId, societyId, deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        entityType: true,
+        companyName: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+    if (!newTenant) return { success: false, error: "Nouveau locataire introuvable ou inactif" };
+
+    if (transferDocumentId) {
+      const document = await prisma.document.findFirst({
+        where: { id: transferDocumentId, societyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!document) return { success: false, error: "Document de cession introuvable" };
+    }
+
+    const oldTenantId = lease.tenantId;
+    const oldTenantName = formatTenantName(lease.tenant);
+    const newTenantName = formatTenantName(newTenant);
+
+    await prisma.$transaction(async (tx) => {
+      const activeHistory = await tx.leaseTenantHistory.findFirst({
+        where: { societyId, leaseId, endDate: null },
+        orderBy: { startDate: "desc" },
+        select: { id: true, startDate: true, tenantId: true },
+      });
+
+      if (activeHistory) {
+        if (effectiveAt < activeHistory.startDate) {
+          throw new Error("TRANSFER_DATE_BEFORE_ACTIVE_HOLDER");
+        }
+        await tx.leaseTenantHistory.update({
+          where: { id: activeHistory.id },
+          data: { endDate: effectiveAt },
+        });
+      } else {
+        await tx.leaseTenantHistory.create({
+          data: {
+            societyId,
+            leaseId,
+            tenantId: oldTenantId,
+            startDate: lease.startDate,
+            endDate: effectiveAt,
+          },
+        });
+      }
+
+      await tx.leaseTenantHistory.create({
+        data: {
+          societyId,
+          leaseId,
+          tenantId: newTenantId,
+          startDate: effectiveAt,
+          transferType,
+          transferReason: transferReason || null,
+          transferDocumentId: transferDocumentId || null,
+        },
+      });
+
+      await tx.lease.update({
+        where: { id: leaseId },
+        data: { tenantId: newTenantId },
+      });
+
+      await tx.legalEvent.create({
+        data: {
+          societyId,
+          leaseId,
+          type: "CESSION",
+          title: `Changement de locataire : ${oldTenantName} → ${newTenantName}`,
+          description: transferReason || null,
+          eventDate: effectiveAt,
+          status: "RESOLU",
+          resolvedAt: new Date(),
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Lease",
+      entityId: leaseId,
+      details: {
+        action: "TRANSFER_TENANT",
+        oldTenantId,
+        newTenantId,
+        effectiveDate,
+        transferType,
+      },
+    });
+
+    revalidatePath("/baux");
+    revalidatePath(`/baux/${leaseId}`);
+    revalidatePath(`/locataires/${oldTenantId}`);
+    revalidatePath(`/locataires/${newTenantId}`);
+    revalidatePath("/facturation");
+
+    return { success: true, data: { oldTenantId, newTenantId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifié" };
+    }
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    if (error instanceof Error && error.message === "TRANSFER_DATE_BEFORE_ACTIVE_HOLDER") {
+      return {
+        success: false,
+        error: "La date d'effet ne peut pas précéder le titulaire actuel",
+      };
+    }
+    console.error("[transferLeaseTenant]", error);
+    return { success: false, error: "Erreur lors du changement de locataire" };
   }
 }
 
@@ -449,6 +653,24 @@ export async function getLeaseById(societyId: string, leaseId: string) {
         orderBy: { isPrimary: "desc" },
       },
       tenant: true,
+      tenantHistories: {
+        orderBy: { startDate: "asc" },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              entityType: true,
+              companyName: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          transferDocument: {
+            select: { id: true, fileName: true, storagePath: true, fileUrl: true },
+          },
+        },
+      },
       managingContact: {
         select: { id: true, name: true, company: true, email: true, phone: true, mobile: true },
       },
@@ -543,6 +765,18 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           performedBy: true,
         },
       },
+      legalEvents: {
+        orderBy: { eventDate: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          description: true,
+          eventDate: true,
+          status: true,
+        },
+      },
       _count: {
         select: {
           invoices: true,
@@ -550,6 +784,8 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           inspections: true,
           amendments: true,
           rentSteps: true,
+          legalEvents: true,
+          tenantHistories: true,
         },
       },
     },

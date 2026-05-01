@@ -1,4 +1,5 @@
 import { getLeaseById, getLeaseFinancialSummary, getLeaseDocuments } from "@/actions/lease";
+import { getActiveTenants } from "@/actions/tenant";
 import { getLeaseIndexationOverview } from "@/actions/rent-revision";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,6 @@ import type {
 } from "@/generated/prisma/client";
 import { DeleteLeaseButton } from "./_components/delete-lease-button";
 import { RentValuationPanelWrapper } from "./_components/rent-valuation-wrapper";
-import { LeaseStatusCard } from "./_components/lease-status-card";
 import { LeaseTimelineBar } from "./_components/lease-timeline-bar";
 import { LeaseDetailTabs } from "./_components/lease-detail-tabs";
 
@@ -135,11 +135,12 @@ export default async function BailDetailPage({
 
   if (!societyId) redirect("/societes");
 
-  const [lease, financialSummary, leaseDocuments, indexationResult] = await Promise.all([
+  const [lease, financialSummary, leaseDocuments, indexationResult, activeTenants] = await Promise.all([
     getLeaseById(societyId, id),
     getLeaseFinancialSummary(societyId, id),
     getLeaseDocuments(societyId, id),
     getLeaseIndexationOverview(societyId, id),
+    getActiveTenants(societyId),
   ]);
   if (!lease) notFound();
 
@@ -272,9 +273,12 @@ export default async function BailDetailPage({
               leaseVatApplicable: lease.vatApplicable,
               paymentFrequency: lease.paymentFrequency,
             }}
-            facturation={{
-              invoices: lease.invoices,
-              invoicesCount: lease._count.invoices,
+            vie={{
+              currentStatus: lease.status,
+              tenants: activeTenants,
+              tenantHistories: lease.tenantHistories,
+              legalEvents: lease.legalEvents,
+              legalEventsCount: lease._count.legalEvents,
               inspections: lease.inspections,
               inspectionsCount: lease._count.inspections,
             }}
@@ -469,21 +473,14 @@ export default async function BailDetailPage({
                     </span>
                   )}
                 </div>
-                <Link href={`/facturation?leaseId=${lease.id}`}>
+                <Link href={`/locataires/${lease.tenant.id}#facturation`}>
                   <Button variant="outline" size="sm" className="w-full mt-1">
-                    Voir la facturation
+                    Voir sur la fiche locataire
                   </Button>
                 </Link>
               </CardContent>
             </Card>
           )}
-
-          {/* Statut du bail */}
-          <LeaseStatusCard
-            leaseId={lease.id}
-            societyId={societyId}
-            currentStatus={lease.status}
-          />
 
           {/* Gestion tiers */}
           {lease.isThirdPartyManaged && (

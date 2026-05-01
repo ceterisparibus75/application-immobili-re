@@ -466,29 +466,33 @@ export async function computeInvoicePreview(
     lease.entryDate
   );
 
+  const rfm = lease.rentFreeMonths ?? 0;
+  const rfmFloor = Math.floor(rfm);
+  const rfmFrac = rfm - rfmFloor;
+  const effectiveFirstPaidDate = new Date(effectiveStart);
+  effectiveFirstPaidDate.setMonth(effectiveFirstPaidDate.getMonth() + rfmFloor);
+
   let prorataLabel = "";
-  const leaseStartDay = new Date(effectiveStart).getDate();
+  const leaseStartDay = effectiveFirstPaidDate.getDate();
   const isFirstPeriod =
-    periodStart.getFullYear() === new Date(effectiveStart).getFullYear() &&
-    periodStart.getMonth() === new Date(effectiveStart).getMonth();
-  if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
-    const y = new Date(effectiveStart).getFullYear();
-    const m = new Date(effectiveStart).getMonth();
+    periodStart.getFullYear() === effectiveFirstPaidDate.getFullYear() &&
+    periodStart.getMonth() === effectiveFirstPaidDate.getMonth();
+  if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1 && rfmFrac === 0) {
+    const y = effectiveFirstPaidDate.getFullYear();
+    const m = effectiveFirstPaidDate.getMonth();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const daysRemaining = daysInMonth - leaseStartDay + 1;
     rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
     prorataLabel = ` (prorata ${daysRemaining}/${daysInMonth} j.)`;
   }
 
-  const rfm = lease.rentFreeMonths ?? 0;
-  const rfmFrac = rfm - Math.floor(rfm);
   if (rfmFrac > 0 && rentHT > 0) {
     const leaseStartNorm = new Date(effectiveStart);
     leaseStartNorm.setDate(1);
     const monthsSinceLease =
       (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
       (periodStart.getMonth() - leaseStartNorm.getMonth());
-    if (monthsSinceLease === Math.floor(rfm)) {
+    if (monthsSinceLease === rfmFloor) {
       const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
       const freeDays = Math.round(rfmFrac * daysInMonth);
       const paidDays = daysInMonth - freeDays;
