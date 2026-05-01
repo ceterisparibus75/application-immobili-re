@@ -49,6 +49,8 @@ export type CashflowMonthDetail = {
   exceptionalIncome: number;
   exceptionalExpenses: number;
   exceptionalNet: number;
+  financementIn: number;
+  financementOut: number;
   financementNet: number;
   // Ventilation réelle par catégorie
   expenseBreakdown: CategoryBreakdown[];
@@ -379,6 +381,8 @@ export async function getCashflowDashboard(
         exceptionalIncome: round(actual?.exceptionalIncome ?? 0),
         exceptionalExpenses: round(actual?.exceptionalExpenses ?? 0),
         exceptionalNet: round((actual?.exceptionalIncome ?? 0) - (actual?.exceptionalExpenses ?? 0)),
+        financementIn: round(actual?.financementIn ?? 0),
+        financementOut: round(actual?.financementOut ?? 0),
         financementNet: round((actual?.financementIn ?? 0) - (actual?.financementOut ?? 0)),
         expenseBreakdown,
         incomeBreakdown,
@@ -410,6 +414,8 @@ export async function getCashflowDashboard(
         exceptionalIncome: 0,
         exceptionalExpenses: 0,
         exceptionalNet: 0,
+        financementIn: 0,
+        financementOut: 0,
         financementNet: 0,
         expenseBreakdown: [],
         incomeBreakdown: [],

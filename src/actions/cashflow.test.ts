@@ -400,7 +400,7 @@ describe("getCashflowDashboard", () => {
     prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 5000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -434,7 +434,7 @@ describe("getCashflowDashboard", () => {
       { currentRentHT: 800, vatApplicable: false, vatRate: 0 },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 10000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 10000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -461,7 +461,7 @@ describe("getCashflowDashboard", () => {
     prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 5000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -493,7 +493,7 @@ describe("getCashflowDashboard", () => {
     prismaMock.charge.findMany.mockResolvedValue([
       { amount: 300, periodStart: now, periodEnd: chargeEnd }
     ] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 5000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -524,7 +524,7 @@ describe("getCashflowDashboard", () => {
     prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 5000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 5000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -597,7 +597,7 @@ describe("getCashflowDashboard — branches B1, B7, B11, B12, B17", () => {
     prismaMock.loanAmortizationLine.findMany.mockResolvedValue([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 0, transactions: [] }] as never);
   }
 
   it("deux amortLines même mois → B1 arm1 (clé déjà dans la map)", async () => {
@@ -614,7 +614,7 @@ describe("getCashflowDashboard — branches B1, B7, B11, B12, B17", () => {
       .mockResolvedValueOnce([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 0, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -644,7 +644,7 @@ describe("getCashflowDashboard — branches B1, B7, B11, B12, B17", () => {
       .mockResolvedValueOnce([] as never);
     prismaMock.lease.findMany.mockResolvedValue([] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 0 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 0, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);
@@ -662,7 +662,7 @@ describe("getCashflowDashboard — branches B1, B7, B11, B12, B17", () => {
       { currentRentHT: 1000, vatApplicable: true, vatRate: 20 },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
-    prismaMock.bankAccount.findMany.mockResolvedValue([{ currentBalance: 50000 }] as never);
+    prismaMock.bankAccount.findMany.mockResolvedValue([{ id: "acc-1", accountName: "Compte test", currentBalance: 50000, transactions: [] }] as never);
 
     const r = await getCashflowDashboard(SOCIETY_ID);
     expect(r.success).toBe(true);

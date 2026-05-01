@@ -76,7 +76,7 @@ export default function CashflowPage() {
   const societyId = activeSociety?.id;
 
   const [period, setPeriod] = useState<number>(12);
-  const [chartView, setChartView] = useState<"all" | "operational" | "exceptional">("all");
+  const [chartView, setChartView] = useState<"all" | "operational" | "exceptional" | "financement">("all");
   const [data, setData] = useState<CashflowDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -241,7 +241,7 @@ export default function CashflowPage() {
                   </p>
                 );
               })()}
-              <p className="text-[10px] text-muted-foreground mt-1">apports / remb. CCA</p>
+              <p className="text-[10px] text-muted-foreground mt-1">CCA, emprunts souscrits</p>
             </div>
           </div>
 
@@ -326,7 +326,7 @@ export default function CashflowPage() {
                   Évolution mensuelle
                 </CardTitle>
                 <div className="flex bg-muted rounded-lg p-0.5">
-                  {(["all", "operational", "exceptional"] as const).map((v) => (
+                  {(["all", "operational", "exceptional", "financement"] as const).map((v) => (
                     <button
                       key={v}
                       onClick={() => setChartView(v)}
@@ -334,7 +334,7 @@ export default function CashflowPage() {
                         chartView === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {v === "all" ? "Tout" : v === "operational" ? "Opérationnel" : "Exceptionnel"}
+                      {v === "all" ? "Tout" : v === "operational" ? "Opérationnel" : v === "exceptional" ? "Exceptionnel" : "Financement"}
                     </button>
                   ))}
                 </div>

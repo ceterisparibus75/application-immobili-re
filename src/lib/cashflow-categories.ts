@@ -48,7 +48,8 @@ export const NEUTRAL_CATEGORIES = [
   { id: "virement_interne",    label: "Virement de compte à compte",                  color: "#64748B", recurring: false },
   { id: "apport_cca",          label: "Apport en compte courant d'associés",          color: "#78716C", recurring: false },
   { id: "remboursement_cca",   label: "Remboursement de compte courant d'associés",   color: "#57534E", recurring: false },
-] as const;
+
+  { id: "souscription_emprunt", label: "Souscription d'un emprunt",                      color: "#3B82F6", recurring: false },] as const;
 
 // ── Tous les catégories ─────────────────────────────────────────────────────
 
@@ -89,7 +90,7 @@ export function isRecurringCategory(id: string): boolean {
 
 /** Flux de financement : CCA uniquement (exclu du cash-flow opérationnel). */
 export function isFinancementCategory(id: string): boolean {
-  return id === "apport_cca" || id === "remboursement_cca";
+  return id === "apport_cca" || id === "remboursement_cca" || id === "souscription_emprunt";
 }
 
 /** Virement interne strict (doublon comptable, exclu de tout calcul). */

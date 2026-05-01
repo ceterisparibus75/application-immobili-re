@@ -12,20 +12,21 @@ import {
 } from "./cashflow-categories";
 
 describe("constantes de catégories", () => {
-  it("EXPENSE_CATEGORIES contient 12 catégories", () => {
-    expect(EXPENSE_CATEGORIES).toHaveLength(12);
+  it("EXPENSE_CATEGORIES contient 14 catégories", () => {
+    expect(EXPENSE_CATEGORIES).toHaveLength(14);
   });
 
-  it("INCOME_CATEGORIES contient 5 catégories", () => {
-    expect(INCOME_CATEGORIES).toHaveLength(5);
+  it("INCOME_CATEGORIES contient 6 catégories", () => {
+    expect(INCOME_CATEGORIES).toHaveLength(6);
   });
 
   it("NEUTRAL_CATEGORIES contient les catégories neutres", () => {
-    expect(NEUTRAL_CATEGORIES).toHaveLength(3);
+    expect(NEUTRAL_CATEGORIES).toHaveLength(4);
     expect(NEUTRAL_CATEGORIES.map((category) => category.id)).toEqual([
       "virement_interne",
       "apport_cca",
       "remboursement_cca",
+      "souscription_emprunt",
     ]);
   });
 
