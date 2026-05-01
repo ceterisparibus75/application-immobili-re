@@ -28,6 +28,7 @@ import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
 import { NoteEditor } from "./_components/note-editor";
+import { ValidateInvoiceButton } from "./_components/validate-invoice-button";
 import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
 import { DeleteDraftButton } from "./_components/delete-draft-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
@@ -153,24 +154,52 @@ export default async function FactureDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Consultation — toujours visible */}
           <Link href={`/facturation/${invoice.id}/apercu`}>
             <Button variant="outline" size="sm">
               <Eye className="h-4 w-4" />
               Aperçu
             </Button>
           </Link>
-          <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4" />
-              PDF
-            </Button>
-          </a>
-          <a href={`/api/invoices/${invoice.id}/facturx`} download>
-            <Button variant="outline" size="sm" title="Télécharger au format Factur-X (PDF/A-3b + XML CII, conforme facturation électronique B2B)">
-              <FileCode2 className="h-4 w-4" />
-              Factur-X
-            </Button>
-          </a>
+
+          {/* Export PDF/Factur-X — uniquement sur les factures finalisées */}
+          {invoice.status !== "BROUILLON" && (
+            <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4" />
+                PDF
+              </Button>
+            </a>
+          )}
+          {invoice.status !== "BROUILLON" && (
+            <a href={`/api/invoices/${invoice.id}/facturx`} download>
+              <Button variant="outline" size="sm" title="Télécharger au format Factur-X (PDF/A-3b + XML CII, conforme facturation électronique B2B)">
+                <FileCode2 className="h-4 w-4" />
+                Factur-X
+              </Button>
+            </a>
+          )}
+
+          {/* Actions BROUILLON */}
+          {invoice.status === "BROUILLON" && (
+            <Link href={`/facturation/${invoice.id}/modifier`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
+          )}
+          {invoice.status === "BROUILLON" && (
+            <DeleteDraftButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+          {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
+            <RefreshDraftButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+          {invoice.status === "BROUILLON" && (
+            <ValidateInvoiceButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+
+          {/* Actions factures finalisées */}
           {isEInvoicingConfigured() && invoice.status !== "BROUILLON" && (
             <SubmitEInvoiceButton
               invoiceId={invoice.id}
@@ -187,20 +216,6 @@ export default async function FactureDetailPage({
               missingEmail={!invoice.society?.email}
             />
           )}
-          {invoice.status === "BROUILLON" && (
-            <Link href={`/facturation/${invoice.id}/modifier`}>
-              <Button variant="outline" size="sm">
-                <Pencil className="h-4 w-4" />
-                Modifier
-              </Button>
-            </Link>
-          )}
-          {invoice.status === "BROUILLON" && (
-            <DeleteDraftButton invoiceId={invoice.id} societyId={societyId} />
-          )}
-          {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
-            <RefreshDraftButton invoiceId={invoice.id} societyId={societyId} />
-          )}
           {!invoice.leaseId && buildingsForLink.length > 0 && (
             <LinkBuildingButton
               invoiceId={invoice.id}
@@ -215,7 +230,7 @@ export default async function FactureDetailPage({
           {invoice.invoiceType !== "AVOIR" && !["BROUILLON", "ANNULEE"].includes(invoice.status) && (
             <DuplicateInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           )}
-          {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
+          {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && !["BROUILLON", "ANNULEE"].includes(invoice.status) && (
             <Link href={`/facturation/${invoice.id}/avoir`}>
               <Button variant="outline" size="sm">
                 <ReceiptText className="h-4 w-4" />
