@@ -185,7 +185,7 @@ export default function GenererFacturesPage() {
             <div className="flex items-center gap-3 text-[var(--color-status-positive)]">
               <CheckCircle2 className="h-6 w-6" />
               <p className="text-lg font-semibold">
-                {result.created} facture{result.created !== 1 ? "s" : ""} créée{result.created !== 1 ? "s" : ""}
+                {result.created} brouillon{result.created !== 1 ? "s" : ""} créé{result.created !== 1 ? "s" : ""}
               </p>
             </div>
             {result.skipped > 0 && (
@@ -211,8 +211,8 @@ export default function GenererFacturesPage() {
           <Button variant="outline" onClick={() => { setResult(null); setStep("form"); }}>
             Nouvelle génération
           </Button>
-          <Link href="/facturation">
-            <Button>Voir les factures</Button>
+          <Link href="/facturation?tab=brouillons">
+            <Button>Voir les brouillons</Button>
           </Link>
         </div>
       </div>

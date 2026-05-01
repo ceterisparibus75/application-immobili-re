@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createInvoice, generateInvoiceFromLease, getActiveLeasesForInvoicing, previewInvoiceFromLease, type InvoicePreview } from "@/actions/invoice";
+import { createInvoice } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,14 +12,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Plus, Trash2, Zap, PenLine, Eye, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
-import { toast } from "sonner";
-import { InvoicePreviewSheet } from "@/components/invoice-preview-sheet";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,8 +27,6 @@ type TenantOption = {
   lastName?: string | null;
   email: string;
 };
-
-type LeaseOption = Awaited<ReturnType<typeof getActiveLeasesForInvoicing>>[number];
 
 type InvoiceLine = {
   label: string;
@@ -53,25 +47,11 @@ const VAT_RATES = [
 ];
 
 const INVOICE_TYPES = [
-  { value: "APPEL_LOYER", label: "Appel de loyer" },
-  { value: "QUITTANCE", label: "Quittance de loyer" },
   { value: "REGULARISATION_CHARGES", label: "Régularisation de charges" },
   { value: "DEPOT_DE_GARANTIE", label: "Dépôt de garantie" },
   { value: "REFACTURATION", label: "Refacturation" },
   { value: "AVOIR", label: "Avoir" },
 ];
-
-const FREQ_LABELS: Record<string, string> = {
-  MENSUEL: "Mensuel",
-  TRIMESTRIEL: "Trimestriel",
-  SEMESTRIEL: "Semestriel",
-  ANNUEL: "Annuel",
-};
-
-const TERM_LABELS: Record<string, string> = {
-  A_ECHOIR: "Terme à échoir",
-  ECHU: "Terme échu",
-};
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -81,40 +61,12 @@ function tenantLabel(t: { entityType: string; companyName?: string | null; first
     : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || (t.email ?? "—");
 }
 
-function leaseLabel(l: LeaseOption) {
-  const lot = l.lot ? `${l.lot.building.name} – Lot ${l.lot.number}` : "";
-  const tenant = tenantLabel(l.tenant);
-  return `${tenant}${lot ? " · " + lot : ""}`;
-}
-
-function fmt(v: number) {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-  }).format(v);
-}
-
 // ── Composant ─────────────────────────────────────────────────────────────
 
 export default function NouvelleFacturePage() {
   const router = useRouter();
   const { activeSociety } = useSociety();
 
-  const [mode, setMode] = useState<"auto" | "manual">("manual");
-
-  // ── Mode auto ──
-  const [leases, setLeases] = useState<LeaseOption[]>([]);
-  const [selectedLeaseId, setSelectedLeaseId] = useState("");
-  const [periodMonth, setPeriodMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [preview, setPreview] = useState<InvoicePreview | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [isPreviewing, startPreviewing] = useTransition();
-  const [isGenerating, startGenerating] = useTransition();
-
-  // ── Mode manuel ──
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [lines, setLines] = useState<InvoiceLine[]>([
     { label: "", quantity: 1, unitPrice: 0, vatRate: 20 },
@@ -122,71 +74,14 @@ export default function NouvelleFacturePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
 
-  // Chargement des baux actifs et locataires
+  // Chargement des locataires actifs
   useEffect(() => {
     if (!activeSociety) return;
-    void getActiveLeasesForInvoicing(activeSociety.id).then(setLeases);
     void fetch("/api/tenants/active")
       .then((r) => r.ok ? r.json() : { data: [] })
       .then((j: { data: TenantOption[] }) => setTenants(j.data));
   }, [activeSociety]);
 
-  const selectedLease = leases.find((l) => l.id === selectedLeaseId) ?? null;
-
-  // Réinitialiser la prévisualisation quand les paramètres changent
-  function onLeaseChange(id: string) {
-    setSelectedLeaseId(id);
-    setPreview(null);
-  }
-  function onPeriodChange(val: string) {
-    setPeriodMonth(val);
-    setPreview(null);
-  }
-
-  // Preview du montant (estimation rapide avant prévisualisation détaillée)
-  const previewAmount = selectedLease
-    ? (() => {
-        const ht = selectedLease.currentRentHT;
-        const vat = selectedLease.vatApplicable ? ht * (selectedLease.vatRate / 100) : 0;
-        return { ht, vat, ttc: ht + vat };
-      })()
-    : null;
-
-  // ── Handlers auto ──
-  function handlePreview() {
-    if (!activeSociety || !selectedLeaseId) return;
-    setPreview(null);
-    startPreviewing(async () => {
-      const result = await previewInvoiceFromLease(activeSociety.id, {
-        leaseId: selectedLeaseId,
-        periodMonth,
-      });
-      if (result.success && result.data) {
-        setPreview(result.data);
-        setSheetOpen(true);
-      } else {
-        toast.error(result.error ?? "Erreur lors de la prévisualisation");
-      }
-    });
-  }
-
-  function handleGenerate() {
-    if (!activeSociety || !selectedLeaseId) return;
-    startGenerating(async () => {
-      const result = await generateInvoiceFromLease(activeSociety.id, {
-        leaseId: selectedLeaseId,
-        periodMonth,
-      });
-      if (result.success && result.data) {
-        toast.success("Brouillon créé — validez-le pour lui attribuer un numéro.");
-        router.push(`/facturation/${result.data.id}`);
-      } else {
-        toast.error(result.error ?? "Erreur lors de la génération");
-      }
-    });
-  }
-
-  // ── Handlers manuel ──
   function addLine() {
     setLines([...lines, { label: "", quantity: 1, unitPrice: 0, vatRate: 20 }]);
   }
@@ -224,7 +119,7 @@ export default function NouvelleFacturePage() {
     const result = await createInvoice(activeSociety.id, {
       tenantId: data.tenantId!,
       leaseId: data.leaseId || null,
-      invoiceType: data.invoiceType as "APPEL_LOYER" | "QUITTANCE" | "REGULARISATION_CHARGES" | "REFACTURATION" | "AVOIR" | "DEPOT_DE_GARANTIE",
+      invoiceType: data.invoiceType as "REGULARISATION_CHARGES" | "REFACTURATION" | "AVOIR" | "DEPOT_DE_GARANTIE",
       dueDate: data.dueDate!,
       periodStart: data.periodStart || null,
       periodEnd: data.periodEnd || null,
@@ -242,16 +137,6 @@ export default function NouvelleFacturePage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Sheet de prévisualisation */}
-      {preview && (
-        <InvoicePreviewSheet
-          open={sheetOpen}
-          onOpenChange={setSheetOpen}
-          preview={preview}
-          onConfirm={handleGenerate}
-          isConfirming={isGenerating}
-        />
-      )}
       {/* En-tête */}
       <div className="flex items-center gap-4">
         <Link href="/facturation">
@@ -261,195 +146,13 @@ export default function NouvelleFacturePage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Facture ponctuelle</h1>
-          <p className="text-muted-foreground">Saisir une facture exceptionnelle ou générer un appel isolé</p>
+          <p className="text-muted-foreground">
+            Saisir une facture exceptionnelle hors génération de loyers.
+          </p>
         </div>
       </div>
 
-      {/* Sélecteur de mode */}
-      <div className="flex gap-2">
-        <Button
-          variant={mode === "auto" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMode("auto")}
-        >
-          <Zap className="h-4 w-4" />
-          Depuis un bail
-        </Button>
-        <Button
-          variant={mode === "manual" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setMode("manual")}
-        >
-          <PenLine className="h-4 w-4" />
-          Saisie ponctuelle
-        </Button>
-      </div>
-
-      {/* ── Mode : Génération depuis un bail ── */}
-      {mode === "auto" && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Appel de loyer automatique</CardTitle>
-              <CardDescription>
-                Sélectionnez un bail et une période. La facture sera pré-remplie avec les
-                paramètres du bail (fréquence, terme, loyer, TVA, loyer progressif).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="leaseId">Bail actif *</Label>
-                  <select
-                    id="leaseId"
-                    value={selectedLeaseId}
-                    onChange={(e) => onLeaseChange(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="">Sélectionner un bail...</option>
-                    {leases.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {leaseLabel(l)}
-                      </option>
-                    ))}
-                  </select>
-                  {leases.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Aucun bail actif trouvé pour cette société.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="periodMonth">Période *</Label>
-                  <Input
-                    id="periodMonth"
-                    type="month"
-                    value={periodMonth}
-                    onChange={(e) => onPeriodChange(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Mois pour lequel générer la facture
-                  </p>
-                </div>
-              </div>
-
-              {/* Aperçu estimatif du bail */}
-              {selectedLease && !preview && (
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                  <p className="text-sm font-medium">Bail sélectionné</p>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Locataire</span>
-                      <p className="font-medium">{tenantLabel(selectedLease.tenant)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Local</span>
-                      <p className="font-medium">
-                        {selectedLease.lot
-                          ? `${selectedLease.lot.building.name} – Lot ${selectedLease.lot.number}`
-                          : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Fréquence</span>
-                      <p className="font-medium">
-                        <Badge variant="outline" className="text-xs">
-                          {FREQ_LABELS[selectedLease.paymentFrequency] ?? selectedLease.paymentFrequency}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Terme</span>
-                      <p className="font-medium">
-                        <Badge variant="secondary" className="text-xs">
-                          {TERM_LABELS[selectedLease.billingTerm] ?? selectedLease.billingTerm}
-                        </Badge>
-                      </p>
-                    </div>
-                  </div>
-                  {previewAmount && (
-                    <div className="border-t pt-3 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Loyer HT estimé</span>
-                        <span>{fmt(previewAmount.ht)}</span>
-                      </div>
-                      <div className="flex justify-between font-semibold">
-                        <span>TTC estimé</span>
-                        <span>{fmt(previewAmount.ttc)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Badge récapitulatif après prévisualisation */}
-              {preview && (
-                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
-                  <div className="text-sm">
-                    <span className="font-medium">{preview.tenantName}</span>
-                    <span className="text-muted-foreground"> · {preview.lotLabel} · {preview.periodLabel}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {preview.alreadyExists && (
-                      <AlertCircle className="h-4 w-4 text-destructive" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setSheetOpen(true)}
-                      className="text-xs text-primary underline underline-offset-2 hover:no-underline"
-                    >
-                      Voir l&apos;aperçu
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreview(null)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-3">
-            <Link href="/facturation">
-              <Button variant="outline" type="button">Annuler</Button>
-            </Link>
-            {!preview ? (
-              <Button
-                onClick={handlePreview}
-                disabled={!selectedLeaseId || !periodMonth || isPreviewing}
-                variant="outline"
-              >
-                {isPreviewing ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Calcul...</>
-                ) : (
-                  <><Eye className="h-4 w-4" />Prévisualiser</>
-                )}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || preview.alreadyExists}
-              >
-                {isGenerating ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Génération...</>
-                ) : (
-                  <><Zap className="h-4 w-4" />Confirmer et générer</>
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Mode : Saisie manuelle ── */}
-      {mode === "manual" && (
-        <form onSubmit={handleManualSubmit} className="space-y-6">
+      <form onSubmit={handleManualSubmit} className="space-y-6">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -484,7 +187,7 @@ export default function NouvelleFacturePage() {
                     id="invoiceType"
                     name="invoiceType"
                     options={INVOICE_TYPES}
-                    defaultValue="APPEL_LOYER"
+                    defaultValue="REFACTURATION"
                     required
                   />
                 </div>
@@ -624,8 +327,7 @@ export default function NouvelleFacturePage() {
               )}
             </Button>
           </div>
-        </form>
-      )}
+      </form>
     </div>
   );
 }

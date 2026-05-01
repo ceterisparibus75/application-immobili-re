@@ -63,6 +63,13 @@ const DELIVERY_LABELS: Record<string, string> = {
   opened: "Ouvert", clicked: "Cliqué", sent: "Envoyé", queued: "En file",
 };
 
+const SENDABLE_STATUSES = new Set<InvoiceStatus>([
+  "VALIDEE",
+  "EN_ATTENTE",
+  "ENVOYEE",
+  "RELANCEE",
+]);
+
 function getTenantName(t: InvoiceItem["tenant"]): string {
   return t.entityType === "PERSONNE_MORALE"
     ? (t.companyName ?? "—")
@@ -75,6 +82,10 @@ function getBuildingName(invoice: InvoiceItem): string {
 
 function hasEmail(invoice: InvoiceItem): boolean {
   return !!(invoice.tenant.billingEmail || invoice.tenant.email);
+}
+
+function canSendInvoice(invoice: InvoiceItem): boolean {
+  return hasEmail(invoice) && !!invoice.invoiceNumber && SENDABLE_STATUSES.has(invoice.status);
 }
 
 function DeliveryBadge({ status, label }: { status: string | null; label: string | null }) {
@@ -181,7 +192,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
       [...invs].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
     ]);
 
-  const sendableIds = invoices.filter(hasEmail).map((i) => i.id);
+  const sendableIds = invoices.filter(canSendInvoice).map((i) => i.id);
 
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
@@ -238,7 +249,7 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
           aria-label="Tout sélectionner"
         />
         <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer select-none">
-          Tout sélectionner ({sendableIds.length} avec email)
+          Tout sélectionner ({sendableIds.length} envoyable{sendableIds.length > 1 ? "s" : ""})
         </label>
         {selected.size > 0 && (
           <>
@@ -282,8 +293,8 @@ export function InvoicesList({ invoices }: { invoices: InvoiceItem[] }) {
                   <Checkbox
                     checked={selected.has(invoice.id)}
                     onCheckedChange={() => toggleOne(invoice.id)}
-                    disabled={!hasEmail(invoice) || sending}
-                    title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : undefined}
+                    disabled={!canSendInvoice(invoice) || sending}
+                    title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !canSendInvoice(invoice) ? "Statut non envoyable" : undefined}
                     aria-label={`Sélectionner ${invoice.invoiceNumber ?? "brouillon"}`}
                   />
                   <Link

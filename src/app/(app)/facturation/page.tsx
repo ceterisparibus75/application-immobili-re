@@ -19,7 +19,7 @@ import {
 
 export const metadata = { title: "Facturation" };
 
-type FacturationTab = "factures" | "brouillons" | "en-retard" | "relances";
+type FacturationTab = "factures" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
 
 interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -28,6 +28,7 @@ interface PageProps {
 function parseFacturationTab(value: string | string[] | undefined): FacturationTab {
   const raw = Array.isArray(value) ? value[0] : value;
   if (raw === "brouillons") return "brouillons";
+  if (raw === "a-envoyer" || raw === "envoi") return "a-envoyer";
   if (raw === "en-retard" || raw === "retard") return "en-retard";
   if (raw === "relances") return "relances";
   return "factures";

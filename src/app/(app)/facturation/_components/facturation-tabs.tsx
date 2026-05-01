@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, FileClock, Plus, Receipt, Zap } from "lucide-react";
+import { AlertTriangle, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
 import { RelancesClient } from "./overdue-tab";
@@ -98,7 +98,7 @@ interface FacturationTabsProps {
   remindersCount: number;
 }
 
-type FacturationTab = "factures" | "brouillons" | "en-retard" | "relances";
+type FacturationTab = "factures" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
 
 function tabHref(tab: FacturationTab): string {
   return tab === "factures" ? "/facturation" : `/facturation?tab=${tab}`;
@@ -141,6 +141,9 @@ export function FacturationTabs({
   remindersCount,
 }: FacturationTabsProps) {
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
+  const invoicesToSend = issuedInvoices.filter(
+    (i) => (i.status === "VALIDEE" || i.status === "EN_ATTENTE") && !i.sentAt
+  );
 
   return (
     <div>
@@ -153,6 +156,14 @@ export function FacturationTabs({
           {brouillons.length > 0 && (
             <Badge variant="outline" className="h-5 min-w-5 px-1.5 text-[10px]">
               {brouillons.length}
+            </Badge>
+          )}
+        </FacturationTabLink>
+        <FacturationTabLink value="a-envoyer" active={initialTab === "a-envoyer"}>
+          À envoyer
+          {invoicesToSend.length > 0 && (
+            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
+              {invoicesToSend.length}
             </Badge>
           )}
         </FacturationTabLink>
@@ -240,6 +251,41 @@ export function FacturationTabs({
             </Card>
           ) : (
             <DraftsBanner drafts={brouillons} societyId={societyId} />
+          )}
+        </div>
+      )}
+
+      {/* Onglet À envoyer */}
+      {initialTab === "a-envoyer" && (
+        <div className="space-y-6 mt-6">
+          {invoicesToSend.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600">
+                  <Mail className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-semibold">Aucune facture à envoyer</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Les factures validées apparaîtront ici tant qu’elles n’ont pas été transmises au locataire.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Button asChild>
+                    <Link href="/facturation?tab=brouillons">
+                      <FileClock className="h-4 w-4" />
+                      Voir les brouillons
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/facturation/generer">
+                      <Zap className="h-4 w-4" />
+                      Générer les appels
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <InvoicesList invoices={invoicesToSend} />
           )}
         </div>
       )}
