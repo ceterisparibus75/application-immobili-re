@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download, FileCode2 } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download, FileCode2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -186,6 +186,14 @@ export default async function FactureDetailPage({
               missingSiret={!invoice.society?.siret}
               missingEmail={!invoice.society?.email}
             />
+          )}
+          {invoice.status === "BROUILLON" && (
+            <Link href={`/facturation/${invoice.id}/modifier`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
           )}
           {invoice.status === "BROUILLON" && (
             <DeleteDraftButton invoiceId={invoice.id} societyId={societyId} />

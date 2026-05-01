@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export const createInvoiceSchema = z.object({
   leaseId: z.string().cuid().optional().nullable(),
@@ -84,3 +84,21 @@ export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;
 export type CancelInvoiceInput = z.infer<typeof cancelInvoiceSchema>;
 export type ValidateBatchInput = z.infer<typeof validateBatchSchema>;
 export type UpdateInvoiceNoteInput = z.infer<typeof updateInvoiceNoteSchema>;
+
+export const updateDraftInvoiceSchema = z.object({
+  issueDate: z.string().min(1, "La date d'émission est requise"),
+  dueDate: z.string().min(1, "La date d'échéance est requise"),
+  periodStart: z.string().optional().nullable(),
+  periodEnd: z.string().optional().nullable(),
+  lines: z
+    .array(
+      z.object({
+        label: z.string().min(1, "La désignation est requise"),
+        quantity: z.coerce.number().positive().default(1),
+        unitPrice: z.coerce.number(),
+        vatRate: z.coerce.number().min(0).max(100).default(20),
+      })
+    )
+    .min(1, "Au moins une ligne est requise"),
+});
+export type UpdateDraftInvoiceInput = z.infer<typeof updateDraftInvoiceSchema>;
