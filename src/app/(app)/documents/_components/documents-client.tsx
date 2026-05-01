@@ -802,10 +802,12 @@ export function DocumentsClient({
   societyId,
   documents,
   initialDocumentId,
+  newDocumentHref = "/documents/nouveau",
 }: {
   societyId: string;
   documents: DocumentItem[];
   initialDocumentId?: string;
+  newDocumentHref?: string;
 }) {
   const [selectedFolder, setSelectedFolder] = useState<string>("all");
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(() => findDocumentById(documents, initialDocumentId));
@@ -965,7 +967,7 @@ export function DocumentsClient({
             <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("list")}><List className="h-3.5 w-3.5" /></Button>
             <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" onClick={() => setViewMode("grid")}><LayoutGrid className="h-3.5 w-3.5" /></Button>
           </div>
-          <Link href="/documents/nouveau"><Button size="sm" className="h-7 text-xs gap-1 shrink-0 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg"><Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nouveau</span></Button></Link>
+          <Link href={newDocumentHref}><Button size="sm" className="h-7 text-xs gap-1 shrink-0 bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg"><Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nouveau</span></Button></Link>
         </div>
         {viewMode === "list" && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FAFBFC] border-b border-gray-100 shrink-0">
@@ -1057,7 +1059,7 @@ export function DocumentsClient({
                     Réinitialiser
                   </Button>
                 )}
-                <Link href="/documents/nouveau">
+                <Link href={newDocumentHref}>
                   <Button size="sm" className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
                     <Plus className="h-4 w-4" />
                     Ajouter un document

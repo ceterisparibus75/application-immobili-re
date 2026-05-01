@@ -12,7 +12,7 @@ import { DocumentsClient } from "./_components/documents-client";
 export const metadata: Metadata = { title: "Documents" };
 
 type DocumentsPageProps = {
-  searchParams?: Promise<{ uploaded?: string; documentId?: string }>;
+  searchParams?: Promise<{ uploaded?: string; documentId?: string; tenantId?: string }>;
 };
 
 export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
@@ -23,10 +23,14 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const societyId = cookieStore.get("active-society-id")?.value;
   if (!societyId) redirect("/dashboard");
 
-  const documents = await getDocuments(societyId);
   const params = (await searchParams) ?? {};
+  const tenantId = params.tenantId;
+  const documents = await getDocuments(societyId, tenantId ? { tenantId } : undefined);
   const showUploadSuccess = params.uploaded === "1";
   const initialDocumentId = params.documentId;
+  const newDocumentHref = tenantId
+    ? `/documents/nouveau?tenantId=${encodeURIComponent(tenantId)}`
+    : "/documents/nouveau";
 
   return (
     <div className="space-y-4">
@@ -34,7 +38,9 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Documents</h1>
           <p className="text-muted-foreground text-sm">
-            {documents.length} document{documents.length !== 1 ? "s" : ""}{" · "}GED intelligente
+            {documents.length} document{documents.length !== 1 ? "s" : ""}
+            {" · "}
+            {tenantId ? "Vue locataire" : "GED intelligente"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -44,7 +50,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
               Datarooms
             </Button>
           </Link>
-          <Link href="/documents/nouveau">
+          <Link href={newDocumentHref}>
             <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
               <Plus className="h-4 w-4" />
               Ajouter un document
@@ -72,7 +78,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
                 Déposez vos pièces dans la GED et rattachez-les tout de suite au bon immeuble, bail ou locataire.
               </p>
             </div>
-            <Link href="/documents/nouveau" className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-brand-blue)]">
+            <Link href={newDocumentHref} className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-brand-blue)]">
               Ajouter un document
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -118,6 +124,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         societyId={societyId}
         documents={documents}
         initialDocumentId={initialDocumentId}
+        newDocumentHref={newDocumentHref}
       />
     </div>
   );

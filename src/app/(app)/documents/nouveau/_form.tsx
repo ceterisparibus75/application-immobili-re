@@ -18,20 +18,21 @@ type Props = {
   lots: { id: string; label: string; buildingId: string }[];
   leases: { id: string; label: string }[];
   tenants: { id: string; label: string }[];
+  initialTenantId?: string;
 };
 
-export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants }: Props) {
+export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants, initialTenantId }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [entityType, setEntityType] = useState<"building" | "lot" | "lease" | "tenant" | "">("");
+  const [entityType, setEntityType] = useState<"building" | "lot" | "lease" | "tenant" | "">(initialTenantId ? "tenant" : "");
   const [buildingId, setBuildingId] = useState("");
   const [lotId, setLotId] = useState("");
   const [leaseId, setLeaseId] = useState("");
-  const [tenantId, setTenantId] = useState("");
+  const [tenantId, setTenantId] = useState(initialTenantId ?? "");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -147,7 +148,9 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
         await uploadOne(filesToUpload[i], baseFolder);
       }
       setUploadProgress(100);
-      router.push("/documents?uploaded=1");
+      const params = new URLSearchParams({ uploaded: "1" });
+      if (entityType === "tenant" && tenantId) params.set("tenantId", tenantId);
+      router.push(`/documents?${params.toString()}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'upload");
     } finally {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createInvoice } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,9 +65,12 @@ function tenantLabel(t: { entityType: string; companyName?: string | null; first
 
 export default function NouvelleFacturePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { activeSociety } = useSociety();
+  const initialTenantId = searchParams.get("tenantId") ?? "";
 
   const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState(initialTenantId);
   const [lines, setLines] = useState<InvoiceLine[]>([
     { label: "", quantity: 1, unitPrice: 0, vatRate: 20 },
   ]);
@@ -170,6 +173,8 @@ export default function NouvelleFacturePage() {
                   <select
                     id="tenantId"
                     name="tenantId"
+                    value={selectedTenantId}
+                    onChange={(event) => setSelectedTenantId(event.target.value)}
                     required
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >

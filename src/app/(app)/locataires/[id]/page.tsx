@@ -12,6 +12,8 @@ import {
   Building2,
   Calendar,
   FileText,
+  FileUp,
+  FolderOpen,
   Mail,
   MapPin,
   Pencil,
@@ -474,6 +476,38 @@ export default async function LocataireDetailPage({
               {!tenant.email && !tenant.phone && !tenant.mobile && (
                 <p className="text-sm text-muted-foreground text-center py-2">Aucune coordonnée</p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Documents */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">Pièces rattachées au locataire</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums">
+                  {tenant._count.documents}
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/documents?tenantId=${tenant.id}`}>
+                    <FolderOpen className="h-4 w-4" />
+                    Voir les documents
+                  </Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href={`/documents/nouveau?tenantId=${tenant.id}`}>
+                    <FileUp className="h-4 w-4" />
+                    Ajouter une pièce
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

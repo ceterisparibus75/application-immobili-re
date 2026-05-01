@@ -601,7 +601,7 @@ export async function getTenants(societyId: string) {
   return prisma.tenant.findMany({
     where: { societyId, deletedAt: null },
     include: {
-      _count: { select: { leases: true } },
+      _count: { select: { leases: true, documents: true } },
       leases: {
         where: { status: "EN_COURS", deletedAt: null },
         select: {
@@ -667,7 +667,7 @@ export async function getTenantById(societyId: string, tenantId: string) {
           invitedAt: true,
         },
       },
-      _count: { select: { leases: true } },
+      _count: { select: { leases: true, documents: true } },
     },
   });
 }

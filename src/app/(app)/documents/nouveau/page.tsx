@@ -5,7 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { UploadDocumentForm } from "./_form";
 
-export default async function NouveauDocumentPage() {
+type NouveauDocumentPageProps = {
+  searchParams?: Promise<{ tenantId?: string }>;
+};
+
+export default async function NouveauDocumentPage({ searchParams }: NouveauDocumentPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -64,6 +68,10 @@ export default async function NouveauDocumentPage() {
         ? (t.companyName ?? "Locataire")
         : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim(),
   }));
+  const params = (await searchParams) ?? {};
+  const initialTenantId = params.tenantId && tenantOptions.some((tenant) => tenant.id === params.tenantId)
+    ? params.tenantId
+    : undefined;
 
   const lotOptions = lots.map((l) => ({
     id: l.id,
@@ -78,6 +86,7 @@ export default async function NouveauDocumentPage() {
       lots={lotOptions}
       leases={leaseOptions}
       tenants={tenantOptions}
+      initialTenantId={initialTenantId}
     />
   );
 }
