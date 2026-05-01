@@ -19,7 +19,7 @@ import {
 
 export const metadata = { title: "Facturation" };
 
-type FacturationTab = "factures" | "en-retard" | "relances";
+type FacturationTab = "factures" | "brouillons" | "en-retard" | "relances";
 
 interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -27,6 +27,7 @@ interface PageProps {
 
 function parseFacturationTab(value: string | string[] | undefined): FacturationTab {
   const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "brouillons") return "brouillons";
   if (raw === "en-retard" || raw === "retard") return "en-retard";
   if (raw === "relances") return "relances";
   return "factures";
@@ -190,20 +191,23 @@ export default async function FacturationPage({ searchParams }: PageProps) {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-violet-50/80 to-card dark:from-violet-950/20 dark:to-card p-5 shadow-sm">
+        <Link
+          href="/facturation?tab=brouillons"
+          className="rounded-xl border border-border/60 bg-gradient-to-br from-violet-50/80 to-card p-5 shadow-sm transition-colors hover:bg-accent/30 dark:from-violet-950/20 dark:to-card"
+        >
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
               <Clock className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums">{remindersCount}</p>
-              <p className="text-xs text-muted-foreground">Relances envoyées</p>
+              <p className="text-2xl font-bold tabular-nums">{brouillons.length}</p>
+              <p className="text-xs text-muted-foreground">Brouillons à valider</p>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
-      {/* Tabs: Factures | En retard | Relances */}
+      {/* Tabs: Factures | Brouillons | En retard | Relances */}
       <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" />}>
         <FacturationTabs
           initialTab={initialTab}

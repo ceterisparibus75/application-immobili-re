@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Plus, Receipt, Zap } from "lucide-react";
+import { AlertTriangle, FileClock, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
 import { RelancesClient } from "./overdue-tab";
@@ -98,7 +98,7 @@ interface FacturationTabsProps {
   remindersCount: number;
 }
 
-type FacturationTab = "factures" | "en-retard" | "relances";
+type FacturationTab = "factures" | "brouillons" | "en-retard" | "relances";
 
 function tabHref(tab: FacturationTab): string {
   return tab === "factures" ? "/facturation" : `/facturation?tab=${tab}`;
@@ -140,11 +140,21 @@ export function FacturationTabs({
   overdueCount,
   remindersCount,
 }: FacturationTabsProps) {
+  const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
+
   return (
     <div>
       <div className="inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground">
         <FacturationTabLink value="factures" active={initialTab === "factures"}>
           Factures
+        </FacturationTabLink>
+        <FacturationTabLink value="brouillons" active={initialTab === "brouillons"}>
+          Brouillons
+          {brouillons.length > 0 && (
+            <Badge variant="outline" className="h-5 min-w-5 px-1.5 text-[10px]">
+              {brouillons.length}
+            </Badge>
+          )}
         </FacturationTabLink>
         <FacturationTabLink value="en-retard" active={initialTab === "en-retard"}>
           En retard
@@ -167,8 +177,7 @@ export function FacturationTabs({
       {/* Onglet Factures */}
       {initialTab === "factures" && (
         <div className="space-y-6 mt-6">
-          <DraftsBanner drafts={brouillons} societyId={societyId} />
-          {invoices.length === 0 ? (
+          {issuedInvoices.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -195,7 +204,42 @@ export function FacturationTabs({
               </CardContent>
             </Card>
           ) : (
-            <InvoicesList invoices={invoices.filter((i) => i.status !== "BROUILLON")} />
+            <InvoicesList invoices={issuedInvoices} />
+          )}
+        </div>
+      )}
+
+      {/* Onglet Brouillons */}
+      {initialTab === "brouillons" && (
+        <div className="space-y-6 mt-6">
+          {brouillons.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]">
+                  <FileClock className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-semibold">Aucun brouillon à valider</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Générez les appels de loyers en masse pour préparer la file de validation.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Button asChild>
+                    <Link href="/facturation/generer">
+                      <Zap className="h-4 w-4" />
+                      Générer les appels
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/facturation/nouvelle">
+                      <Plus className="h-4 w-4" />
+                      Facture ponctuelle
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <DraftsBanner drafts={brouillons} societyId={societyId} />
           )}
         </div>
       )}
