@@ -485,6 +485,81 @@ export async function validateInvoice(
 }
 
 /**
+ * Duplique une facture en nouveau brouillon, sans reprendre les paiements ni les numéros.
+ */
+export async function duplicateInvoiceAsDraft(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      include: { lines: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+
+    const draft = await prisma.invoice.create({
+      data: {
+        societyId,
+        tenantId: invoice.tenantId,
+        leaseId: invoice.leaseId,
+        buildingId: invoice.buildingId,
+        invoiceType: invoice.invoiceType,
+        status: "BROUILLON",
+        issueDate: new Date(),
+        dueDate: invoice.dueDate,
+        periodStart: invoice.periodStart,
+        periodEnd: invoice.periodEnd,
+        totalHT: invoice.totalHT,
+        totalVAT: invoice.totalVAT,
+        totalTTC: invoice.totalTTC,
+        note: invoice.note,
+        creditNoteForId: invoice.invoiceType === "AVOIR" ? invoice.creditNoteForId : null,
+        isThirdPartyManaged: invoice.isThirdPartyManaged,
+        managementFeeHT: invoice.managementFeeHT,
+        managementFeeVAT: invoice.managementFeeVAT,
+        managementFeeTTC: invoice.managementFeeTTC,
+        expectedNetAmount: invoice.expectedNetAmount,
+        lines: {
+          create: invoice.lines.map((line) => ({
+            label: line.label,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            vatRate: line.vatRate,
+            totalHT: line.totalHT,
+            totalVAT: line.totalVAT,
+            totalTTC: line.totalTTC,
+            accountingAccountCode: line.accountingAccountCode,
+          })),
+        },
+      },
+      select: { id: true, tenantId: true },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: draft.id,
+      details: { action: "duplicate_as_draft", sourceInvoiceId: invoiceId },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${draft.id}`);
+    revalidatePath(`/locataires/${draft.tenantId}`);
+    return { success: true, data: { id: draft.id } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[duplicateInvoiceAsDraft]", error);
+    return { success: false, error: "Erreur lors de la duplication" };
+  }
+}
+
+/**
  * Valide en masse un lot de factures brouillon.
  */
 export async function validateBatchInvoices(

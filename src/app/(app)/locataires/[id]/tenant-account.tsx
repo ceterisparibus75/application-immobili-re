@@ -32,8 +32,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  CheckCircle2,
+  Copy,
   Download,
+  Eye,
   FileSpreadsheet,
+  Loader2,
   Plus,
   Receipt,
   Upload,
@@ -41,6 +45,7 @@ import {
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { createTenantBalanceAdjustment, importTenantLedgerStatement } from "@/actions/tenant";
+import { duplicateInvoiceAsDraft, validateInvoice } from "@/actions/invoice";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -136,15 +141,16 @@ const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destr
   IRRECOUVRABLE: "destructive",
 };
 
-const VALIDATED_INVOICE_STATUSES = new Set([
-  "VALIDEE",
-  "ENVOYEE",
-  "RELANCEE",
-  "PAYE",
-  "PARTIELLEMENT_PAYE",
-  "EN_RETARD",
-  "IRRECOUVRABLE",
-]);
+type InvoiceFilter = "ALL" | "DRAFTS" | "PENDING" | "ISSUED" | "OVERDUE" | "CREDITS";
+
+const INVOICE_FILTERS: Array<{ value: InvoiceFilter; label: string }> = [
+  { value: "ALL", label: "Toutes" },
+  { value: "DRAFTS", label: "Brouillons" },
+  { value: "PENDING", label: "En attente" },
+  { value: "ISSUED", label: "Émises" },
+  { value: "OVERDUE", label: "En retard" },
+  { value: "CREDITS", label: "Avoirs" },
+];
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-FR");
@@ -165,6 +171,41 @@ function formatPeriod(start: string | null, end: string | null): string {
   const mois = s.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   if (!e || s.getMonth() === e.getMonth()) return mois;
   return `${s.toLocaleDateString("fr-FR", { month: "short" })} - ${e.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}`;
+}
+
+function getInvoiceAmount(invoice: AccountInvoice): number {
+  return invoice.invoiceType === "AVOIR" ? -getCreditNoteAmount(invoice.totalTTC) : invoice.totalTTC;
+}
+
+function matchesInvoiceFilter(invoice: AccountInvoice, filter: InvoiceFilter): boolean {
+  switch (filter) {
+    case "DRAFTS":
+      return invoice.status === "BROUILLON";
+    case "PENDING":
+      return invoice.status === "EN_ATTENTE";
+    case "ISSUED":
+      return !["BROUILLON", "ANNULEE"].includes(invoice.status);
+    case "OVERDUE":
+      return invoice.status === "EN_RETARD" || invoice.status === "RELANCEE";
+    case "CREDITS":
+      return invoice.invoiceType === "AVOIR";
+    default:
+      return true;
+  }
+}
+
+function matchesInvoiceSearch(invoice: AccountInvoice, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  const period = formatPeriod(invoice.periodStart, invoice.periodEnd);
+  const haystack = [
+    invoice.invoiceNumber ?? "brouillon",
+    INVOICE_TYPE_LABELS[invoice.invoiceType] ?? invoice.invoiceType,
+    STATUS_LABELS[invoice.status] ?? invoice.status,
+    period,
+    formatCurrency(getInvoiceAmount(invoice)),
+  ].join(" ").toLowerCase();
+  return haystack.includes(query);
 }
 
 function normalizeHeader(value: string): string {
@@ -329,9 +370,16 @@ export function TenantAccount({
   tenantName,
 }: TenantAccountProps) {
   const movements = buildMovements(invoices, adjustments);
-  const validatedInvoices = invoices.filter((invoice) => VALIDATED_INVOICE_STATUSES.has(invoice.status));
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("ALL");
+  const [validatingInvoiceId, setValidatingInvoiceId] = useState<string | null>(null);
+  const [duplicatingInvoiceId, setDuplicatingInvoiceId] = useState<string | null>(null);
+  const billingInvoices = invoices
+    .filter((invoice) => matchesInvoiceFilter(invoice, invoiceFilter))
+    .filter((invoice) => matchesInvoiceSearch(invoice, invoiceSearch))
+    .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
 
   // Résumé
   const totalFacture = invoices
@@ -456,6 +504,34 @@ export function TenantAccount({
     });
   }
 
+  function handleValidateInvoice(invoiceId: string) {
+    setValidatingInvoiceId(invoiceId);
+    startTransition(async () => {
+      const result = await validateInvoice(societyId, invoiceId);
+      if (result.success) {
+        toast.success(`Facture validée${result.data?.invoiceNumber ? ` : ${result.data.invoiceNumber}` : ""}`);
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Erreur de validation");
+      }
+      setValidatingInvoiceId(null);
+    });
+  }
+
+  function handleDuplicateInvoice(invoiceId: string) {
+    setDuplicatingInvoiceId(invoiceId);
+    startTransition(async () => {
+      const result = await duplicateInvoiceAsDraft(societyId, invoiceId);
+      if (result.success) {
+        toast.success("Brouillon dupliqué dans le module Facturation");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Erreur lors de la duplication");
+      }
+      setDuplicatingInvoiceId(null);
+    });
+  }
+
   // Export CSV du relevé
   function exportCsv() {
     const header = "Date;Libellé;Débit;Crédit;Solde\n";
@@ -504,91 +580,152 @@ export function TenantAccount({
 
           <TabsContent value="facturation" className="mt-0">
             <section id="facturation" className="space-y-3 scroll-mt-24">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-                Facturation ({validatedInvoices.length})
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Factures MyGestia validées rattachées à ce locataire.
-              </p>
-            </div>
-            <a href={`/facturation/nouvelle?tenantId=${tenantId}`}>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4" />
-                Nouvelle facture
-              </Button>
-            </a>
-          </div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-muted-foreground" />
+                    Facturation ({invoices.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Retrouvez et pilotez les pièces de facturation rattachées à ce locataire.
+                  </p>
+                </div>
+                <a href={`/facturation/nouvelle?tenantId=${tenantId}`}>
+                  <Button variant="outline" size="sm">
+                    <Plus className="h-4 w-4" />
+                    Nouvelle facture
+                  </Button>
+                </a>
+              </div>
 
-          {validatedInvoices.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center">
-              <Receipt className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Aucune facture validée pour ce locataire</p>
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-auto max-h-[360px]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background z-10">
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Facture</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="text-right">TTC</TableHead>
-                    <TableHead className="text-right">Payé</TableHead>
-                    <TableHead className="text-right">Solde</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {validatedInvoices.map((invoice) => {
-                    const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
-                    const grossAmount =
-                      invoice.invoiceType === "AVOIR"
-                        ? -getCreditNoteAmount(invoice.totalTTC)
-                        : invoice.totalTTC;
-                    const remaining =
-                      invoice.invoiceType === "AVOIR"
-                        ? grossAmount
-                        : Math.max(0, invoice.totalTTC - paid);
-                    return (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="text-xs tabular-nums whitespace-nowrap">
-                          {formatDate(invoice.issueDate)}
-                        </TableCell>
-                        <TableCell>
-                          <a
-                            href={`/facturation/${invoice.id}`}
-                            className="text-sm font-medium hover:underline"
-                          >
-                            {INVOICE_TYPE_LABELS[invoice.invoiceType] ?? invoice.invoiceType}
-                          </a>
-                          <div className="text-xs text-muted-foreground">
-                            {invoice.invoiceNumber ?? "Sans numéro"}
-                            {invoice.periodStart ? ` · ${formatPeriod(invoice.periodStart, invoice.periodEnd)}` : ""}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={STATUS_VARIANTS[invoice.status] ?? "default"} className="text-[10px]">
-                            {STATUS_LABELS[invoice.status] ?? invoice.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={`text-right text-xs tabular-nums font-medium ${grossAmount < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                          {formatCurrency(grossAmount)} €
-                        </TableCell>
-                        <TableCell className="text-right text-xs tabular-nums text-emerald-600 dark:text-emerald-400">
-                          {paid > 0 ? `${formatCurrency(paid)} €` : ""}
-                        </TableCell>
-                        <TableCell className={`text-right text-xs tabular-nums font-semibold ${remaining > 0 ? "text-destructive" : remaining < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                          {formatCurrency(remaining)} €
-                        </TableCell>
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <Input
+                  value={invoiceSearch}
+                  onChange={(event) => setInvoiceSearch(event.target.value)}
+                  placeholder="Rechercher par numéro, type, période ou montant..."
+                  className="xl:max-w-sm"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {INVOICE_FILTERS.map((filter) => (
+                    <Button
+                      key={filter.value}
+                      type="button"
+                      variant={invoiceFilter === filter.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setInvoiceFilter(filter.value)}
+                    >
+                      {filter.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {billingInvoices.length === 0 ? (
+                <div className="rounded-md border border-dashed py-8 text-center">
+                  <Receipt className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune pièce de facturation ne correspond aux filtres</p>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-auto max-h-[420px]">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead className="w-[105px]">Date</TableHead>
+                        <TableHead>N° / brouillon</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Période</TableHead>
+                        <TableHead className="text-right">Montant TTC</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                      {billingInvoices.map((invoice) => {
+                        const amount = getInvoiceAmount(invoice);
+                        const isValidating = validatingInvoiceId === invoice.id;
+                        const isDuplicating = duplicatingInvoiceId === invoice.id;
+                        const canGeneratePdf = invoice.status !== "BROUILLON";
+                        return (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="text-xs tabular-nums whitespace-nowrap">
+                              {formatDate(invoice.issueDate)}
+                            </TableCell>
+                            <TableCell>
+                              <a
+                                href={`/facturation/${invoice.id}`}
+                                className="text-sm font-medium hover:underline"
+                              >
+                                {invoice.invoiceNumber ?? "Brouillon"}
+                              </a>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {INVOICE_TYPE_LABELS[invoice.invoiceType] ?? invoice.invoiceType}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {formatPeriod(invoice.periodStart, invoice.periodEnd) || "-"}
+                            </TableCell>
+                            <TableCell className={`text-right text-xs tabular-nums font-medium ${amount < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                              {formatCurrency(amount)} €
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={STATUS_VARIANTS[invoice.status] ?? "default"} className="text-[10px]">
+                                {STATUS_LABELS[invoice.status] ?? invoice.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-1">
+                                <Button asChild variant="ghost" size="icon" title="Ouvrir la facture">
+                                  <a href={`/facturation/${invoice.id}`}>
+                                    <Eye className="h-4 w-4" />
+                                    <span className="sr-only">Ouvrir</span>
+                                  </a>
+                                </Button>
+                                {canGeneratePdf && (
+                                  <Button asChild variant="ghost" size="icon" title="Télécharger le PDF">
+                                    <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
+                                      <Download className="h-4 w-4" />
+                                      <span className="sr-only">PDF</span>
+                                    </a>
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Dupliquer en brouillon"
+                                  onClick={() => handleDuplicateInvoice(invoice.id)}
+                                  disabled={isPending}
+                                >
+                                  {isDuplicating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                  <span className="sr-only">Dupliquer</span>
+                                </Button>
+                                {invoice.status === "BROUILLON" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleValidateInvoice(invoice.id)}
+                                    disabled={isPending}
+                                  >
+                                    {isValidating ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    )}
+                                    Valider
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </section>
           </TabsContent>
 

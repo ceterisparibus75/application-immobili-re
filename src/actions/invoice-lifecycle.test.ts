@@ -34,6 +34,7 @@ import {
   recordPayment,
   sendInvoiceToTenant,
   validateInvoice,
+  duplicateInvoiceAsDraft,
   validateBatchInvoices,
   cancelInvoice,
   markAsLitigious,
@@ -394,6 +395,68 @@ describe("validateInvoice", () => {
     prismaMock.invoice.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const result = await validateInvoice(SOCIETY_ID, INVOICE_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la validation" });
+  });
+});
+
+// ── duplicateInvoiceAsDraft ───────────────────────────────────
+
+describe("duplicateInvoiceAsDraft", () => {
+  it("retourne une erreur si la facture source est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const result = await duplicateInvoiceAsDraft(SOCIETY_ID, INVOICE_ID);
+
+    expect(result).toEqual({ success: false, error: "Facture introuvable" });
+  });
+
+  it("duplique une facture en brouillon sans numéro ni paiements", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({
+      buildingId: "building-1",
+      note: "Note interne",
+      isThirdPartyManaged: true,
+      managementFeeHT: 10,
+      managementFeeVAT: 2,
+      managementFeeTTC: 12,
+      expectedNetAmount: 788,
+      lines: [
+        {
+          label: "Loyer",
+          quantity: 1,
+          unitPrice: 800,
+          vatRate: 0,
+          totalHT: 800,
+          totalVAT: 0,
+          totalTTC: 800,
+          accountingAccountCode: "706000",
+        },
+      ],
+    }) as never);
+    prismaMock.invoice.create.mockResolvedValue({ id: "draft-1", tenantId: "tenant-1" } as never);
+
+    const result = await duplicateInvoiceAsDraft(SOCIETY_ID, INVOICE_ID);
+
+    expect(result).toEqual({ success: true, data: { id: "draft-1" } });
+    expect(prismaMock.invoice.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: "BROUILLON",
+        tenantId: "tenant-1",
+        leaseId: "lease-1",
+        buildingId: "building-1",
+        note: "Note interne",
+        lines: {
+          create: [
+            expect.objectContaining({
+              label: "Loyer",
+              totalTTC: 800,
+              accountingAccountCode: "706000",
+            }),
+          ],
+        },
+      }),
+      select: { id: true, tenantId: true },
+    }));
   });
 });
 
