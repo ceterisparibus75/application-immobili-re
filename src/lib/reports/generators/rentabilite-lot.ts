@@ -1,6 +1,10 @@
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import type { ReportOptions, ReportResult } from "../types";
+import {
+  REPORT_ACTIVE_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 export async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, buildingId } = opts;
@@ -16,7 +20,11 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
         where: { status: { in: ["EN_COURS", "RENOUVELE"] } },
         include: {
           invoices: {
-            where: { issueDate: { gte: from, lte: to }, invoiceType: { not: "AVOIR" } },
+            where: {
+              issueDate: { gte: from, lte: to },
+              invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+              status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+            },
           },
         },
         take: 1,

@@ -9,6 +9,10 @@ import {
   drawTableRow,
   drawTotalsRow,
 } from "../pdf-helpers";
+import {
+  REPORT_ACTIVE_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
@@ -18,13 +22,36 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   const from = new Date(year, 0, 1);
   const to = new Date(year, 11, 31, 23, 59, 59);
 
-  const [buildings, invoices, charges] = await Promise.all([
+  const [buildings, invoices, payments, charges] = await Promise.all([
     prisma.building.findMany({ where: { societyId }, orderBy: { name: "asc" } }),
     prisma.invoice.findMany({
-      where: { societyId, issueDate: { gte: from, lte: to }, invoiceType: { not: "AVOIR" } },
+      where: {
+        societyId,
+        issueDate: { gte: from, lte: to },
+        invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+        status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+      },
       include: {
         lease: { include: { lot: { select: { buildingId: true } } } },
-        payments: true,
+      },
+    }),
+    prisma.payment.findMany({
+      where: {
+        paidAt: { gte: from, lte: to },
+        invoice: {
+          societyId,
+          invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+          status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+        },
+      },
+      select: {
+        amount: true,
+        paidAt: true,
+        invoice: {
+          select: {
+            lease: { select: { lot: { select: { buildingId: true } } } },
+          },
+        },
       },
     }),
     prisma.charge.findMany({
@@ -54,6 +81,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     // Compute monthly data
     const bInvoices = invoices.filter((i) => i.lease?.lot?.buildingId === building.id);
+    const bPayments = payments.filter((p) => p.invoice.lease?.lot?.buildingId === building.id);
     const bCharges = charges.filter((c) => (c as any).buildingId === building.id);
 
     const monthlyFact: number[] = Array(12).fill(0);
@@ -63,11 +91,10 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     for (const inv of bInvoices) {
       const m = new Date(inv.issueDate).getMonth();
       monthlyFact[m] += inv.totalTTC;
-      if (inv.status === "PAYE") monthlyEnc[m] += inv.totalTTC;
-      else {
-        const paidAmt = (inv.payments ?? []).reduce((s: number, pay: any) => s + (pay.amount ?? 0), 0);
-        monthlyEnc[m] += paidAmt;
-      }
+    }
+    for (const payment of bPayments) {
+      const m = new Date(payment.paidAt).getMonth();
+      monthlyEnc[m] += payment.amount ?? 0;
     }
     for (const ch of bCharges) {
       const m = new Date(ch.date).getMonth();

@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/generated/prisma/client";
 import type { ReportOptions, ReportResult, ColAlign } from "../types";
 import { CW } from "../constants";
 import { initPdf, drawCoverPage, pdfCur, contentStartY, minY } from "../pdf-core";
@@ -12,14 +11,12 @@ import {
   drawEmptyMessage,
 } from "../pdf-helpers";
 import { CORAL, GREEN } from "../constants";
-
-type InvoiceWithPayments = Prisma.InvoiceGetPayload<{
-  include: {
-    tenant: true;
-    lease: { include: { lot: { select: { buildingId: true; number: true } } } };
-    payments: true;
-  };
-}>;
+import {
+  getOutstandingAmount,
+  getPaidAmount,
+  REPORT_ACTIVE_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 export async function generateCompteRenduGestion(opts: ReportOptions): Promise<ReportResult> {
   const { societyId } = opts;
@@ -30,7 +27,12 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   const [society, invoices, charges, buildings] = await Promise.all([
     prisma.society.findUnique({ where: { id: societyId } }),
     prisma.invoice.findMany({
-      where: { societyId, issueDate: { gte: from, lte: to }, invoiceType: { not: "AVOIR" } },
+      where: {
+        societyId,
+        issueDate: { gte: from, lte: to },
+        invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+        status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+      },
       include: {
         tenant: true,
         lease: { include: { lot: { select: { buildingId: true, number: true } } } },
@@ -48,8 +50,8 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
   if (!society) throw new Error("Société introuvable");
 
-  const paid = invoices.filter((i) => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
-  const pend = invoices.filter((i) => i.status !== "PAYE").reduce((s, i) => s + i.totalTTC, 0);
+  const paid = invoices.reduce((s, i) => s + getPaidAmount(i), 0);
+  const pend = invoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
   const totalInv = invoices.reduce((s, i) => s + i.totalTTC, 0);
   const tchg = charges.reduce((s, c) => s + c.amount, 0);
 
@@ -96,7 +98,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
     const bc = charges.filter((c) => c.buildingId === b.id);
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
-    const bP = bi.filter((i) => i.status === "PAYE").reduce((s, i) => s + i.totalTTC, 0);
+    const bP = bi.reduce((s, i) => s + getPaidAmount(i), 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
     y = drawTableRow(p, ctx.reg, y, [
       b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bF - bP),
@@ -135,10 +137,8 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
       const lotNum = tInvoices[0].lease?.lot?.number ?? "-";
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
-      const regle = tInvoices
-        .flatMap((i: InvoiceWithPayments) => i.payments)
-        .reduce((s, pay) => s + pay.amount, 0);
-      const solde = quittance - regle;
+      const regle = tInvoices.reduce((s, i) => s + getPaidAmount(i), 0);
+      const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
       bTotal += quittance;
       bPaid += regle;
 

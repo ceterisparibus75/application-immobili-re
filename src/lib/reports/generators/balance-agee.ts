@@ -10,6 +10,11 @@ import {
   drawKpiRow,
 } from "../pdf-helpers";
 import { drawPieChart } from "../pdf-charts";
+import {
+  getOutstandingAmount,
+  REPORT_OUTSTANDING_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 const BUCKETS = ["+120j", "91-120j", "61-90j", "31-60j", "0-30j"] as const;
 
@@ -26,19 +31,23 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const { societyId } = opts;
   const today = new Date();
 
-  const invoices = await prisma.invoice.findMany({
+  const rawInvoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+      invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
       dueDate: { lt: today },
-      status: { notIn: ["PAYE"] },
+      status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
     },
     include: {
       tenant: true,
       lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+      payments: { select: { amount: true } },
     },
     orderBy: { dueDate: "asc" },
   });
+  const invoices = rawInvoices
+    .map((invoice) => ({ ...invoice, outstandingAmount: getOutstandingAmount(invoice) }))
+    .filter((invoice) => invoice.outstandingAmount > 0.01);
 
   const ctx = await initPdf("Balance âgée", `Créances au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`, opts.society);
 
@@ -49,7 +58,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
 
   let p = ctx.np();
   let y = contentStartY();
-  const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
+  const total = invoices.reduce((s, i) => s + i.outstandingAmount, 0);
 
   // KPIs
   y = drawSectionHeader(p, ctx.serifBold, y, "Synthèse");
@@ -62,7 +71,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const bucketTotals: Record<string, number> = {};
   for (const b of BUCKETS) bucketTotals[b] = 0;
   for (const inv of invoices) {
-    bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.totalTTC;
+    bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }
 
   // Pie chart
@@ -92,8 +101,8 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
       arr.push(entry);
     }
     const bucket = ageBucket(new Date(inv.dueDate), today);
-    entry.buckets[bucket] += inv.totalTTC;
-    entry.total += inv.totalTTC;
+    entry.buckets[bucket] += inv.outstandingAmount;
+    entry.total += inv.outstandingAmount;
   }
 
   for (const [bName, tenants] of byBuilding) {

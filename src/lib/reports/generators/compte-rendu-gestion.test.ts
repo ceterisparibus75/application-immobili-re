@@ -149,14 +149,14 @@ describe("generateCompteRenduGestion", () => {
       pdfCtx.reg,
       expect.any(Number),
       "Loyers encaissés (payés)",
-      "1200.00 EUR",
+      "1500.00 EUR",
       expect.anything()
     );
     expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
       { id: "page-1" },
       pdfCtx.bold,
       expect.any(Number),
-      ["TOTAL", "", "2000.00 EUR", "1200.00 EUR", "250.00 EUR", "800.00 EUR"],
+      ["TOTAL", "", "2000.00 EUR", "1500.00 EUR", "250.00 EUR", "500.00 EUR"],
       expect.any(Array),
       expect.any(Array)
     );

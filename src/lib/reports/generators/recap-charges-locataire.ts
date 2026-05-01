@@ -12,6 +12,10 @@ import {
   drawKpiRow,
   drawEmptyMessage,
 } from "../pdf-helpers";
+import {
+  REPORT_ACTIVE_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 export async function generateRecapChargesLocataire(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, tenantId } = opts;
@@ -28,7 +32,11 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
       chargeProvisions: { where: { isActive: true } },
       chargeRegularizations: { where: { fiscalYear: year } },
       invoices: {
-        where: { issueDate: { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) }, invoiceType: { not: "AVOIR" } },
+        where: {
+          issueDate: { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) },
+          invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+          status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+        },
       },
     },
   });

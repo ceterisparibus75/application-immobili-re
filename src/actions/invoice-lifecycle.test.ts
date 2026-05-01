@@ -862,6 +862,12 @@ describe("generateAndSendQuittance", () => {
 
       await vi.waitFor(() => expect(supabaseStorageMock.upload).toHaveBeenCalled(), { timeout: 5000 });
       expect(prismaMock.document.create).toHaveBeenCalled();
+      expect(prismaMock.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: QUITTANCE_ID },
+          data: expect.objectContaining({ status: "PAYE" }),
+        })
+      );
     } finally {
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;

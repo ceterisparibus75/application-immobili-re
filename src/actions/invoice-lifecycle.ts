@@ -350,7 +350,7 @@ async function generateQuittancePdfAndSend(
 
     await prisma.invoice.update({
       where: { id: quittanceId },
-      data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to, status: "ENVOYEE" },
+      data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to, status: "PAYE" },
     });
 
     await prisma.document.create({

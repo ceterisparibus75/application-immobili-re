@@ -48,6 +48,7 @@ describe("generateSuiviMensuel", () => {
     helperMocks.initPdf.mockResolvedValue(pdfCtx);
     pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
     pdfCtx.np.mockReturnValue({ id: "page-landscape-1" });
+    prismaMock.payment.findMany.mockResolvedValue([] as never);
   });
 
   it("génère un PDF même sans immeuble", async () => {
@@ -82,22 +83,36 @@ describe("generateSuiviMensuel", () => {
         issueDate: new Date("2026-01-15T00:00:00.000Z"),
         totalTTC: 1000,
         status: "PAYE",
-        payments: [],
         lease: { lot: { buildingId: "building-1" } },
       },
       {
         issueDate: new Date("2026-02-15T00:00:00.000Z"),
         totalTTC: 800,
         status: "EN_ATTENTE",
-        payments: [{ amount: 300 }],
         lease: { lot: { buildingId: "building-1" } },
       },
       {
         issueDate: new Date("2026-03-15T00:00:00.000Z"),
         totalTTC: 400,
         status: "PAYE",
-        payments: [],
         lease: { lot: { buildingId: "other-building" } },
+      },
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        paidAt: new Date("2026-01-18T00:00:00.000Z"),
+        amount: 1000,
+        invoice: { lease: { lot: { buildingId: "building-1" } } },
+      },
+      {
+        paidAt: new Date("2026-02-18T00:00:00.000Z"),
+        amount: 300,
+        invoice: { lease: { lot: { buildingId: "building-1" } } },
+      },
+      {
+        paidAt: new Date("2026-03-18T00:00:00.000Z"),
+        amount: 400,
+        invoice: { lease: { lot: { buildingId: "other-building" } } },
       },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([
@@ -239,7 +254,7 @@ describe("generateSuiviMensuel", () => {
     expect(result.filename).toBe(`suivi-mensuel-${currentYear}.pdf`);
   });
 
-  it("gère payments null pour une facture non payée (ligne 68) et annFact=0 (lignes 106, 110)", async () => {
+  it("gère une facture sans paiement et annFact > 0 avec taux annuel nul", async () => {
     prismaMock.building.findMany.mockResolvedValue([
       { id: "building-1", name: "Immeuble Vide" },
     ] as never);
@@ -248,7 +263,6 @@ describe("generateSuiviMensuel", () => {
         issueDate: new Date("2026-01-15T00:00:00.000Z"),
         totalTTC: 500,
         status: "EN_ATTENTE",
-        payments: null,  // covers payments ?? [] branch
         lease: { lot: { buildingId: "building-1" } },
       },
     ] as never);
@@ -304,7 +318,7 @@ describe("generateSuiviMensuel", () => {
     );
   });
 
-  it("taux recouvrement 80-95% → couleur null, et pay.amount null → 0 (lignes 68, 113)", async () => {
+  it("taux recouvrement 80-95% → couleur null", async () => {
     prismaMock.building.findMany.mockResolvedValue([
       { id: "building-1", name: "Immeuble X" },
     ] as never);
@@ -313,15 +327,20 @@ describe("generateSuiviMensuel", () => {
         issueDate: new Date("2026-01-10T00:00:00.000Z"),
         totalTTC: 4550,
         status: "PAYE",
-        payments: [],
         lease: { lot: { buildingId: "building-1" } },
       },
       {
         issueDate: new Date("2026-01-20T00:00:00.000Z"),
         totalTTC: 1000,
         status: "EN_ATTENTE",
-        payments: [{ amount: null }],
         lease: { lot: { buildingId: "building-1" } },
+      },
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        paidAt: new Date("2026-01-25T00:00:00.000Z"),
+        amount: 4550,
+        invoice: { lease: { lot: { buildingId: "building-1" } } },
       },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);
@@ -359,8 +378,14 @@ describe("generateSuiviMensuel", () => {
         issueDate: new Date("2026-01-15T00:00:00.000Z"),
         totalTTC: 1000,
         status: "PAYE",
-        payments: [],
         lease: { lot: { buildingId: "building-1" } },
+      },
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        paidAt: new Date("2026-01-20T00:00:00.000Z"),
+        amount: 1000,
+        invoice: { lease: { lot: { buildingId: "building-1" } } },
       },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([] as never);

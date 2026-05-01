@@ -45,7 +45,7 @@ const buildTransaction = (overrides = {}) => ({
   id: TX_ID,
   bankAccountId: ACCOUNT_ID,
   isReconciled: false,
-  amount: -500,
+  amount: 500,
   transactionDate: new Date("2026-03-01"),
   reference: "REF-001",
   label: "Virement entrant",
@@ -105,7 +105,7 @@ describe("autoReconcile", () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      buildTransaction({ amount: -500, reference: "REF-001" }),
+      buildTransaction({ amount: 500, reference: "REF-001" }),
     ] as never);
     prismaMock.payment.findMany.mockResolvedValue([
       buildPayment({ amount: 500, reference: "REF-001" }),
@@ -121,7 +121,7 @@ describe("autoReconcile", () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      buildTransaction({ amount: -500, reference: "TX-REF", transactionDate: new Date("2026-03-01") }),
+      buildTransaction({ amount: 500, reference: "TX-REF", transactionDate: new Date("2026-03-01") }),
     ] as never);
     prismaMock.payment.findMany.mockResolvedValue([
       buildPayment({ amount: 500.005, reference: "PAY-REF", paidAt: new Date("2026-03-02") }),
@@ -137,7 +137,7 @@ describe("autoReconcile", () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      buildTransaction({ amount: -460, reference: null }),
+      buildTransaction({ amount: 460, reference: null }),
     ] as never);
     prismaMock.payment.findMany.mockResolvedValue([
       buildPayment({ amount: 500, reference: null, invoice: { isThirdPartyManaged: true, expectedNetAmount: 460 } }),
@@ -147,6 +147,21 @@ describe("autoReconcile", () => {
     const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
     expect(r.success).toBe(true);
     expect(r.data?.matched).toBe(1);
+  });
+
+  it("ignore les débits bancaires pour les paiements locataires", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: -500, reference: "REF-001" }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({ amount: 500, reference: "REF-001" }),
+    ] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(0);
   });
 
   it("retourne une erreur générique si la BDD échoue dans autoReconcile (lignes 193-194)", async () => {
@@ -160,8 +175,8 @@ describe("autoReconcile", () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      buildTransaction({ id: "ctx-dup01", amount: -500, reference: "REF-DUP" }),
-      buildTransaction({ id: "ctx-dup01", amount: -500, reference: "REF-DUP" }),
+      buildTransaction({ id: "ctx-dup01", amount: 500, reference: "REF-DUP" }),
+      buildTransaction({ id: "ctx-dup01", amount: 500, reference: "REF-DUP" }),
     ] as never);
     prismaMock.payment.findMany.mockResolvedValue([
       buildPayment({ id: "cpay-dup1", amount: 500, reference: "REF-DUP" }),
@@ -176,8 +191,8 @@ describe("autoReconcile", () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      buildTransaction({ id: "ctx-first1", amount: -500, reference: "REF-AAA" }),
-      buildTransaction({ id: "ctx-secon1", amount: -500, reference: null }),
+      buildTransaction({ id: "ctx-first1", amount: 500, reference: "REF-AAA" }),
+      buildTransaction({ id: "ctx-secon1", amount: 500, reference: null }),
     ] as never);
     prismaMock.payment.findMany.mockResolvedValue([
       buildPayment({ id: "cpay-aaa1", amount: 500, reference: "REF-AAA", invoice: { isThirdPartyManaged: false, expectedNetAmount: null } }),
@@ -231,12 +246,30 @@ describe("manualReconcile", () => {
     expect(r.error).toBe("Transaction introuvable");
   });
 
+  it("refuse de rapprocher un paiement locataire avec un débit bancaire", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: -500 }) as never);
+
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/créditrice/i);
+  });
+
   it("erreur si paiement introuvable", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.payment.findFirst.mockResolvedValue(null);
     const r = await manualReconcile(SOCIETY_ID, validInput);
     expect(r.success).toBe(false);
     expect(r.error).toBe("Paiement introuvable");
+  });
+
+  it("refuse un rapprochement manuel si le montant ne correspond pas au paiement", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.payment.findFirst.mockResolvedValue(buildPayment({ amount: 450 }) as never);
+
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/montant/i);
   });
 
   it("crée le rapprochement et l'audit log", async () => {
@@ -395,10 +428,11 @@ describe("getPendingInvoices", () => {
   it("retourne les factures en attente", async () => {
     mockAuthSession(UserRole.LECTURE);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { id: "cinvoice01", status: "VALIDEE", invoiceType: "APPEL_LOYER" },
+      { id: "cinvoice01", status: "VALIDEE", invoiceType: "APPEL_LOYER", totalTTC: 500, payments: [{ amount: 150 }] },
     ] as never);
     const r = await getPendingInvoices(SOCIETY_ID);
     expect(r).toHaveLength(1);
+    expect(r[0].totalTTC).toBe(350);
     expect(prismaMock.invoice.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -463,6 +497,14 @@ describe("reconcileWithInvoice", () => {
     const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
     expect(r.success).toBe(false);
     expect(r.error).toContain("Facture introuvable");
+  });
+
+  it("refuse de créer un paiement de facture depuis un débit bancaire", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: -500 }) as never);
+
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/créditrice/i);
   });
 
   it("rapproche avec succès", async () => {
@@ -540,7 +582,7 @@ describe("reconcileWithInvoice", () => {
 
   it("génère le statut PARTIELLEMENT_PAYE si paiement partiel (B47 arm1 — ligne 571, B49 arm1 — ligne 609)", async () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue(
-      buildTransaction({ amount: -100, bankAccountId: ACCOUNT_ID }) as never
+      buildTransaction({ amount: 100, bankAccountId: ACCOUNT_ID }) as never
     );
     prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
     const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
@@ -559,7 +601,7 @@ describe("reconcileWithInvoice", () => {
 
   it("génère le payment avec reference=undefined si transaction.reference=null (B ligne 571 arm1)", async () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue(
-      buildTransaction({ amount: -500, reference: null, bankAccountId: ACCOUNT_ID }) as never
+      buildTransaction({ amount: 500, reference: null, bankAccountId: ACCOUNT_ID }) as never
     );
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
       fn(prismaMock)
@@ -581,9 +623,9 @@ describe("reconcileWithInvoice", () => {
 describe("reconcileWithLoanLine", () => {
   beforeEach(() => {
     mockAuthSession(UserRole.COMPTABLE);
-    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction() as never);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: -500 }) as never);
     prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({
-      id: LOAN_LINE_ID, isPaid: false, dueDate: new Date(),
+      id: LOAN_LINE_ID, isPaid: false, dueDate: new Date(), totalPayment: 500,
     } as never);
     prismaMock.$transaction.mockResolvedValue([] as never);
   });
@@ -606,6 +648,22 @@ describe("reconcileWithLoanLine", () => {
     const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
     expect(r.success).toBe(false);
     expect(r.error).toContain("Échéance introuvable");
+  });
+
+  it("refuse de rapprocher une échéance de prêt avec un crédit bancaire", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: 500 }) as never);
+
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/débitrice/i);
+  });
+
+  it("refuse une échéance de prêt si le montant bancaire ne correspond pas", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: -420 }) as never);
+
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/montant/i);
   });
 
   it("rapproche avec l'échéance de prêt avec succès", async () => {

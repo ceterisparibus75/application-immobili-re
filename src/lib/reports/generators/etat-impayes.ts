@@ -10,6 +10,11 @@ import {
   drawTotalsRow,
 } from "../pdf-helpers";
 import { drawPieChart } from "../pdf-charts";
+import {
+  getOutstandingAmount,
+  REPORT_OUTSTANDING_INVOICE_STATUSES,
+  REPORT_REVENUE_INVOICE_TYPES,
+} from "../invoice-metrics";
 
 function ageBucket(dueDate: Date, today: Date): string {
   const days = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / 86400000));
@@ -26,19 +31,23 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   const { societyId, format = "pdf" } = opts;
   const today = new Date();
 
-  const invoices = await prisma.invoice.findMany({
+  const rawInvoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+      invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
       dueDate: { lt: today },
-      status: { notIn: ["PAYE"] },
+      status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
     },
     include: {
       tenant: true,
       lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+      payments: { select: { amount: true } },
     },
     orderBy: { dueDate: "asc" },
   });
+  const invoices = rawInvoices
+    .map((invoice) => ({ ...invoice, outstandingAmount: getOutstandingAmount(invoice) }))
+    .filter((invoice) => invoice.outstandingAmount > 0.01);
 
   const EUR = '#,##0.00 "€"';
   if (format === "xlsx") {
@@ -65,8 +74,8 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
         : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
       const loc = inv.lease?.lot ? `${inv.lease.lot.building.name} / ${inv.lease.lot.number}` : "-";
       const days = Math.max(0, Math.floor((today.getTime() - new Date(inv.dueDate).getTime()) / 86400000));
-      total += inv.totalTTC;
-      const row = ws.addRow([inv.invoiceNumber, tn, loc, new Date(inv.dueDate).toLocaleDateString("fr-FR"), inv.totalTTC, days, ageBucket(new Date(inv.dueDate), today), inv.status]);
+      total += inv.outstandingAmount;
+      const row = ws.addRow([inv.invoiceNumber, tn, loc, new Date(inv.dueDate).toLocaleDateString("fr-FR"), inv.outstandingAmount, days, ageBucket(new Date(inv.dueDate), today), inv.status]);
       row.getCell(5).numFmt = EUR;
       if (days > 30) row.getCell(6).font = { color: { argb: "FFC8302E" }, bold: true };
     }
@@ -104,7 +113,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   const bucketTotals: Record<string, number> = {};
   for (const b of BUCKETS) bucketTotals[b] = 0;
   for (const inv of invoices) {
-    bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.totalTTC;
+    bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }
 
   y = drawSectionHeader(p, ctx.serifBold, y, "Répartition par ancienneté");
@@ -114,7 +123,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   y -= 16;
 
   // Table grouped by building → tenant
-  const total = invoices.reduce((s, i) => s + i.totalTTC, 0);
+  const total = invoices.reduce((s, i) => s + i.outstandingAmount, 0);
   y = drawSectionHeader(p, ctx.serifBold, y, `Détail - Total : ${pdfCur(total)}`);
 
   const WS = [90, 85, 52, 52, 52, 52, 52, CW - 435];
@@ -134,7 +143,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     if (!bMap.has(tid)) {
       bMap.set(tid, { name: tn, loc: inv.lease?.lot ? `${bName} / ${inv.lease.lot.number}` : "-", buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])) });
     }
-    bMap.get(tid)!.buckets[ageBucket(new Date(inv.dueDate), today)] += inv.totalTTC;
+    bMap.get(tid)!.buckets[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }
 
   let ri = 0;

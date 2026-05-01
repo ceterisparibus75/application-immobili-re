@@ -7,6 +7,7 @@ import { bankReconciliationSchema, type BankReconciliationInput } from "@/valida
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
+import { getOutstandingAmount } from "@/lib/reports/invoice-metrics";
 import {
   getOptionalSocietyActionContext,
   requireSocietyActionContext,
@@ -133,6 +134,7 @@ export async function autoReconcile(
 
     for (const tx of transactions) {
       if (usedTransactionIds.has(tx.id)) continue;
+      if (tx.amount <= 0) continue;
 
       // Passe 1 : match exact référence + montant
       const exactMatch = payments.find(
@@ -141,7 +143,7 @@ export async function autoReconcile(
           p.reference &&
           tx.reference &&
           p.reference === tx.reference &&
-          Math.abs(p.amount - Math.abs(tx.amount)) < 0.01
+          Math.abs(p.amount - tx.amount) < 0.01
       );
 
       if (exactMatch) {
@@ -155,7 +157,7 @@ export async function autoReconcile(
       // Passe 2 : match approximatif montant ±0.01€ + date ±3 jours
       const approxMatch = payments.find((p) => {
         if (usedPaymentIds.has(p.id)) return false;
-        const amountMatch = Math.abs(p.amount - Math.abs(tx.amount)) <= 0.01;
+        const amountMatch = Math.abs(p.amount - tx.amount) <= 0.01;
         if (!amountMatch) return false;
         const txDate = tx.transactionDate.getTime();
         const pDate = new Date(p.paidAt).getTime();
@@ -175,7 +177,7 @@ export async function autoReconcile(
       const netMatch = payments.find((p) => {
         if (usedPaymentIds.has(p.id)) return false;
         if (!p.invoice?.isThirdPartyManaged || !p.invoice?.expectedNetAmount) return false;
-        return Math.abs(p.invoice.expectedNetAmount - Math.abs(tx.amount)) <= 0.01;
+        return Math.abs(p.invoice.expectedNetAmount - tx.amount) <= 0.01;
       });
 
       if (netMatch) {
@@ -234,6 +236,9 @@ export async function manualReconcile(
       },
     });
     if (!transaction) return { success: false, error: "Transaction introuvable" };
+    if (transaction.amount <= 0) {
+      return { success: false, error: "Un paiement locataire doit être rapproché avec une transaction bancaire créditrice" };
+    }
 
     // Vérifier que le paiement appartient à la société
     const payment = await prisma.payment.findFirst({
@@ -243,6 +248,9 @@ export async function manualReconcile(
       },
     });
     if (!payment) return { success: false, error: "Paiement introuvable" };
+    if (Math.abs(transaction.amount - payment.amount) > 0.01) {
+      return { success: false, error: "Le montant de la transaction ne correspond pas au paiement sélectionné" };
+    }
 
     await createReconciliationRecord(
       parsed.data.transactionId,
@@ -490,7 +498,7 @@ async function createReconciliationRecord(
 export async function getPendingInvoices(societyId: string) {
   if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
-  return prisma.invoice.findMany({
+  const invoices = await prisma.invoice.findMany({
     where: {
       societyId,
       invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
@@ -503,10 +511,18 @@ export async function getPendingInvoices(societyId: string) {
       totalTTC: true,
       dueDate: true,
       status: true,
+      payments: { select: { amount: true } },
       tenant: { select: { companyName: true, firstName: true, lastName: true } },
     },
     orderBy: { dueDate: "asc" },
   });
+
+  return invoices
+    .map((invoice) => ({
+      ...invoice,
+      totalTTC: getOutstandingAmount(invoice),
+    }))
+    .filter((invoice) => invoice.totalTTC > 0.01);
 }
 
 // ─── Échéances de prêts à rapprocher ─────────────────────────────────────────
@@ -552,9 +568,12 @@ export async function reconcileWithInvoice(
     ]);
     if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
     if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (transaction.amount <= 0) {
+      return { success: false, error: "Une facture locataire doit être rapprochée avec une transaction bancaire créditrice" };
+    }
 
     const paidSoFar = paidAgg._sum.amount ?? 0;
-    const newTotal = paidSoFar + Math.abs(transaction.amount);
+    const newTotal = paidSoFar + transaction.amount;
     // Pour les factures en gestion tiers, comparer au montant net attendu
     const targetAmount = invoice.isThirdPartyManaged && invoice.expectedNetAmount
       ? invoice.expectedNetAmount
@@ -565,7 +584,7 @@ export async function reconcileWithInvoice(
       const payment = await tx.payment.create({
         data: {
           invoiceId,
-          amount: Math.abs(transaction.amount),
+          amount: transaction.amount,
           paidAt: transaction.transactionDate,
           method: "virement",
           reference: transaction.reference ?? undefined,
@@ -641,6 +660,14 @@ export async function reconcileWithLoanLine(
     ]);
     if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
     if (!loanLine) return { success: false, error: "Échéance introuvable" };
+    if (transaction.amount >= 0) {
+      return { success: false, error: "Une échéance de prêt doit être rapprochée avec une transaction bancaire débitrice" };
+    }
+    const transactionAmount = Math.abs(transaction.amount);
+    const tolerance = Math.max(0.01, loanLine.totalPayment * 0.02);
+    if (Math.abs(transactionAmount - loanLine.totalPayment) > tolerance) {
+      return { success: false, error: "Le montant de la transaction ne correspond pas à l'échéance sélectionnée" };
+    }
 
     await prisma.$transaction([
       prisma.bankTransaction.update({ where: { id: transactionId }, data: { isReconciled: true } }),

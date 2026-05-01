@@ -313,14 +313,15 @@ describe("generateEtatImpayes", () => {
     );
   });
 
-  it("affiche '-' pour loc si lot est null (ligne 136) et cellColor null si rowTotal = 0 (ligne 154)", async () => {
+  it("affiche '-' pour loc si lot est null et utilise le solde restant dû", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([
       {
         tenantId: "t1",
         invoiceNumber: "INV-C",
         dueDate: new Date(today.getTime() - 10 * 86400000),
-        totalTTC: 0,
+        totalTTC: 100,
+        payments: [{ amount: 50 }],
         status: "VALIDE",
         tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Marc", lastName: "Alain", companyName: null },
         lease: { lot: null },
