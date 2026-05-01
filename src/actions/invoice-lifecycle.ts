@@ -615,6 +615,51 @@ export async function cancelInvoice(
   }
 }
 
+
+/**
+ * Solde un avoir (AVOIR) en statut VALIDEE ou EN_ATTENTE → PAYE.
+ * Utilisé pour confirmer qu'un avoir a été remboursé ou imputé.
+ */
+export async function settleAvoir(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId, invoiceType: "AVOIR" },
+      select: { id: true, status: true, totalTTC: true },
+    });
+    if (!invoice) return { success: false, error: "Avoir introuvable" };
+    if (!["VALIDEE", "EN_ATTENTE", "ENVOYEE"].includes(invoice.status)) {
+      return { success: false, error: "Cet avoir ne peut pas être soldé dans son état actuel" };
+    }
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "PAYE" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { transition: `${invoice.status} → PAYE`, settled: true },
+    });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[settleAvoir]", error);
+    return { success: false, error: "Erreur lors du solde de l'avoir" };
+  }
+}
 /**
  * Marque une facture comme litigieuse.
  */

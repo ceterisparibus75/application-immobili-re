@@ -26,6 +26,7 @@ import { SepaButton } from "./_components/sepa-button";
 import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
+import { SettleAvoirButton } from "./_components/settle-avoir-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -204,6 +205,9 @@ export default async function FactureDetailPage({
                 Émettre un avoir
               </Button>
             </Link>
+          )}
+          {invoice.invoiceType === "AVOIR" && ["VALIDEE", "EN_ATTENTE", "ENVOYEE"].includes(invoice.status) && (
+            <SettleAvoirButton invoiceId={invoice.id} societyId={societyId} />
           )}
         </div>
       </div>
