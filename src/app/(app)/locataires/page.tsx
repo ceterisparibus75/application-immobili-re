@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parsePaginationParams } from "@/lib/pagination";
 import type { RiskIndicator, TenantEntityType } from "@/generated/prisma/client";
-import { TenantsDataTable } from "./_components/tenants-data-table";
+import { TenantsDataTable, type TenantGroupBy, type TenantViewSort } from "./_components/tenants-data-table";
 import { LocatairesEmptyState } from "./_components/locataires-empty-state";
 
 export const metadata = { title: "Locataires" };
@@ -113,6 +113,35 @@ function dossierCompleteness(tenant: {
   };
 }
 
+const TENANT_VIEW_SORTS = new Set<TenantViewSort>([
+  "alpha",
+  "entry-desc",
+  "entry-asc",
+  "building",
+  "balance-desc",
+  "rent-desc",
+  "risk",
+  "dossier",
+]);
+
+const TENANT_GROUPS = new Set<TenantGroupBy>(["none", "building", "risk", "dossier", "insurance"]);
+
+function parseTenantViewSort(value: string | string[] | undefined): TenantViewSort {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && TENANT_VIEW_SORTS.has(raw as TenantViewSort) ? (raw as TenantViewSort) : "alpha";
+}
+
+function parseTenantGroupBy(value: string | string[] | undefined): TenantGroupBy {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && TENANT_GROUPS.has(raw as TenantGroupBy) ? (raw as TenantGroupBy) : "none";
+}
+
+function formatDate(value?: Date | null) {
+  return value
+    ? value.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : null;
+}
+
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -124,19 +153,23 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
 
   const resolvedParams = await searchParams;
   const pagination = parsePaginationParams(resolvedParams);
+  const viewSort = parseTenantViewSort(resolvedParams.viewSort);
+  const groupBy = parseTenantGroupBy(resolvedParams.groupBy);
 
   const { data: tenants, total } = await getTenantsPaginated(societyId, {
     page: pagination.page,
     pageSize: pagination.pageSize,
     search: pagination.search,
-    sortBy: pagination.sortBy,
-    sortOrder: pagination.sortOrder,
     filters: pagination.filters,
   });
 
   // Serialize dates for client component
   const serialized = tenants.map((t) => {
     const primaryLease = t.leases[0];
+    const lotLabel = t.leases.length > 0
+      ? t.leases.map((l) => `Lot ${l.lot.number}`).join(", ")
+      : null;
+
     return {
       id: t.id,
       entityType: t.entityType,
@@ -160,15 +193,10 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
       buildingAddress: primaryLease
         ? `${primaryLease.lot.building.addressLine1} - ${primaryLease.lot.building.postalCode} ${primaryLease.lot.building.city}`
         : null,
+      lotLabel,
+      entryDate: primaryLease?.startDate.toISOString() ?? null,
+      entryDateLabel: formatDate(primaryLease?.startDate ?? null),
     };
-  });
-
-  // Sort by building name so grouping is contiguous
-  serialized.sort((a, b) => {
-    if (!a.buildingName && !b.buildingName) return 0;
-    if (!a.buildingName) return 1;
-    if (!b.buildingName) return -1;
-    return a.buildingName.localeCompare(b.buildingName, "fr");
   });
 
   return (
@@ -205,10 +233,10 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
           total={total}
           page={pagination.page}
           pageSize={pagination.pageSize}
-          sortBy={pagination.sortBy}
-          sortOrder={pagination.sortOrder}
           search={pagination.search}
           activeFilters={pagination.filters}
+          viewSort={viewSort}
+          groupBy={groupBy}
         />
       )}
     </div>

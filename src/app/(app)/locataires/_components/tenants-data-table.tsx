@@ -4,6 +4,20 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn, type FilterOption } from "@/components/ui/data-table";
 import { AlertTriangle, Building2, CheckCircle2, ClipboardCheck, User } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+
+export type TenantViewSort =
+  | "alpha"
+  | "entry-desc"
+  | "entry-asc"
+  | "building"
+  | "balance-desc"
+  | "rent-desc"
+  | "risk"
+  | "dossier";
+
+export type TenantGroupBy = "none" | "building" | "risk" | "dossier" | "insurance";
 
 interface TenantRow {
   id: string;
@@ -27,6 +41,9 @@ interface TenantRow {
   buildingId: string | null;
   buildingName: string | null;
   buildingAddress: string | null;
+  lotLabel: string | null;
+  entryDate: string | null;
+  entryDateLabel: string | null;
 }
 
 interface Props {
@@ -38,13 +55,99 @@ interface Props {
   sortOrder?: "asc" | "desc";
   search?: string;
   activeFilters?: Record<string, string>;
+  viewSort?: TenantViewSort;
+  groupBy?: TenantGroupBy;
 }
 
-const columns: DataTableColumn<TenantRow>[] = [
+const SORT_OPTIONS: { value: TenantViewSort; label: string }[] = [
+  { value: "alpha", label: "Alphabétique" },
+  { value: "entry-desc", label: "Date d'entrée récente" },
+  { value: "entry-asc", label: "Date d'entrée ancienne" },
+  { value: "building", label: "Immeuble" },
+  { value: "balance-desc", label: "Solde décroissant" },
+  { value: "rent-desc", label: "Loyer décroissant" },
+  { value: "risk", label: "Risque" },
+  { value: "dossier", label: "Dossier incomplet" },
+];
+
+const GROUP_OPTIONS: { value: TenantGroupBy; label: string }[] = [
+  { value: "none", label: "Aucun" },
+  { value: "building", label: "Immeuble" },
+  { value: "risk", label: "Risque" },
+  { value: "dossier", label: "Dossier" },
+  { value: "insurance", label: "Assurance" },
+];
+
+const RISK_ORDER: Record<TenantRow["riskVariant"], number> = {
+  destructive: 0,
+  warning: 1,
+  success: 2,
+};
+
+const DOSSIER_ORDER: Record<TenantRow["dossier"]["status"], number> = {
+  critical: 0,
+  missing: 1,
+  complete: 2,
+};
+
+function compareText(a?: string | null, b?: string | null) {
+  return (a ?? "").localeCompare(b ?? "", "fr", { sensitivity: "base" });
+}
+
+function compareDate(a?: string | null, b?: string | null) {
+  const left = a ? new Date(a).getTime() : 0;
+  const right = b ? new Date(b).getTime() : 0;
+  return left - right;
+}
+
+function sortTenants(tenants: TenantRow[], viewSort: TenantViewSort, groupBy: TenantGroupBy) {
+  return [...tenants].sort((a, b) => {
+    const groupCompare = groupBy === "none" ? 0 : compareGroup(a, b, groupBy);
+    if (groupCompare !== 0) return groupCompare;
+
+    switch (viewSort) {
+      case "entry-desc":
+        return compareDate(b.entryDate, a.entryDate) || compareText(a.name, b.name);
+      case "entry-asc":
+        return compareDate(a.entryDate, b.entryDate) || compareText(a.name, b.name);
+      case "building":
+        return compareText(a.buildingName, b.buildingName) || compareText(a.name, b.name);
+      case "balance-desc":
+        return b.balance - a.balance || compareText(a.name, b.name);
+      case "rent-desc":
+        return b.totalRent - a.totalRent || compareText(a.name, b.name);
+      case "risk":
+        return RISK_ORDER[a.riskVariant] - RISK_ORDER[b.riskVariant] || compareText(a.name, b.name);
+      case "dossier":
+        return DOSSIER_ORDER[a.dossier.status] - DOSSIER_ORDER[b.dossier.status] || compareText(a.name, b.name);
+      case "alpha":
+      default:
+        return compareText(a.name, b.name);
+    }
+  });
+}
+
+function compareGroup(a: TenantRow, b: TenantRow, groupBy: TenantGroupBy) {
+  switch (groupBy) {
+    case "building":
+      return compareText(a.buildingName ?? "zzz", b.buildingName ?? "zzz");
+    case "risk":
+      return RISK_ORDER[a.riskVariant] - RISK_ORDER[b.riskVariant];
+    case "dossier":
+      return DOSSIER_ORDER[a.dossier.status] - DOSSIER_ORDER[b.dossier.status];
+    case "insurance":
+      return compareText(a.insurance.label, b.insurance.label);
+    case "none":
+    default:
+      return 0;
+  }
+}
+
+function buildColumns(groupBy: TenantGroupBy): DataTableColumn<TenantRow>[] {
+  return [
   {
     key: "name",
     label: "Locataire",
-    sortable: true,
     render: (row) => (
       <Link href={`/locataires/${row.id}`} className="flex items-center gap-2.5 min-w-0 hover:opacity-80" onClick={(e) => e.stopPropagation()}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -59,6 +162,34 @@ const columns: DataTableColumn<TenantRow>[] = [
           <p className="text-xs text-muted-foreground truncate">{row.email}</p>
         </div>
       </Link>
+    ),
+  },
+  ...(groupBy === "building"
+    ? []
+    : [
+        {
+          key: "building",
+          label: "Immeuble",
+          render: (row) => (
+            <div className="max-w-[260px]">
+              <p className="text-sm font-medium truncate">{row.buildingName ?? "Sans bail actif"}</p>
+              {row.buildingAddress && (
+                <p className="text-xs text-muted-foreground truncate">{row.buildingAddress}</p>
+              )}
+            </div>
+          ),
+        } satisfies DataTableColumn<TenantRow>,
+      ]),
+  {
+    key: "lot",
+    label: "Lot / Bail",
+    render: (row) => (
+      <div className="max-w-[170px]">
+        <p className="text-sm font-medium truncate">{row.lotLabel ?? "—"}</p>
+        <p className="text-xs text-muted-foreground">
+          {row.entryDateLabel ? `Entrée ${row.entryDateLabel}` : "Date d'entrée —"}
+        </p>
+      </div>
     ),
   },
   {
@@ -114,7 +245,6 @@ const columns: DataTableColumn<TenantRow>[] = [
   {
     key: "totalRent",
     label: "Loyer HT",
-    sortable: true,
     align: "right",
     render: (row) =>
       row.totalRent > 0 ? (
@@ -128,7 +258,6 @@ const columns: DataTableColumn<TenantRow>[] = [
   {
     key: "balance",
     label: "Solde",
-    sortable: true,
     align: "right",
     render: (row) => {
       if (row.balance === 0) {
@@ -142,7 +271,8 @@ const columns: DataTableColumn<TenantRow>[] = [
       );
     },
   },
-];
+  ];
+}
 
 const FILTERS: FilterOption[] = [
   {
@@ -181,28 +311,107 @@ export function TenantsDataTable({
   sortOrder,
   search,
   activeFilters,
+  viewSort = "alpha",
+  groupBy = "none",
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const columns = useMemo(() => buildColumns(groupBy), [groupBy]);
+  const sortedTenants = useMemo(() => sortTenants(tenants, viewSort, groupBy), [tenants, viewSort, groupBy]);
+
+  function updateViewParam(key: "viewSort" | "groupBy", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if ((key === "viewSort" && value === "alpha") || (key === "groupBy" && value === "none")) {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    params.set("page", "1");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   return (
-    <DataTable
-      columns={columns}
-      data={tenants}
-      total={total}
-      page={page}
-      pageSize={pageSize}
-      sortBy={sortBy}
-      sortOrder={sortOrder}
-      search={search}
-      filters={FILTERS}
-      activeFilters={activeFilters}
-      rowKey={(r) => r.id}
-      rowHref={(r) => `/locataires/${r.id}`}
-      emptyMessage="Aucun locataire trouvé"
-      groupBy={(row) => ({
-        key: row.buildingId ?? "no-building",
-        label: row.buildingName ?? "Sans bail actif",
-        sublabel: row.buildingAddress ?? undefined,
-        icon: <Building2 className="h-4 w-4 text-primary shrink-0" />,
-      })}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Présentation
+        </span>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Trier par</span>
+          <select
+            value={viewSort}
+            onChange={(e) => updateViewParam("viewSort", e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Regrouper par</span>
+          <select
+            value={groupBy}
+            onChange={(e) => updateViewParam("groupBy", e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {GROUP_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={sortedTenants}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        search={search}
+        filters={FILTERS}
+        activeFilters={activeFilters}
+        rowKey={(r) => r.id}
+        rowHref={(r) => `/locataires/${r.id}`}
+        emptyMessage="Aucun locataire trouvé"
+        groupBy={groupBy === "none" ? undefined : (row) => {
+          if (groupBy === "building") {
+            return {
+              key: row.buildingId ?? "no-building",
+              label: row.buildingName ?? "Sans bail actif",
+              sublabel: row.buildingAddress ?? undefined,
+              icon: <Building2 className="h-4 w-4 text-primary shrink-0" />,
+            };
+          }
+          if (groupBy === "risk") {
+            return {
+              key: row.riskVariant,
+              label: row.riskLabel,
+              icon: <AlertTriangle className="h-4 w-4 text-primary shrink-0" />,
+            };
+          }
+          if (groupBy === "dossier") {
+            return {
+              key: row.dossier.status,
+              label: row.dossier.status === "complete" ? "Dossiers complets" : row.dossier.status === "critical" ? "Dossiers critiques" : "Dossiers à compléter",
+              icon: <ClipboardCheck className="h-4 w-4 text-primary shrink-0" />,
+            };
+          }
+          return {
+            key: row.insurance.label,
+            label: row.insurance.label,
+            icon: <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />,
+          };
+        }}
+      />
+    </div>
   );
 }
