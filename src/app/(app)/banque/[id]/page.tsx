@@ -64,13 +64,13 @@ export default async function BankAccountDetailPage({
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <Link href="/banque">
-            <Button variant="ghost" size="icon" className="text-[var(--color-brand-deep)]">
+            <Button variant="ghost" size="icon" className="text-foreground">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                 {account.accountName}
               </h1>
               <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -134,7 +134,7 @@ export default async function BankAccountDetailPage({
         <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-xs text-muted-foreground mb-1">Solde actuel</p>
           <p className={`text-2xl font-bold tabular-nums ${
-            account.currentBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"
+            account.currentBalance >= 0 ? "text-foreground" : "text-[var(--color-status-negative)]"
           }`}>
             {account.currentBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
           </p>
@@ -179,7 +179,7 @@ export default async function BankAccountDetailPage({
         <div className="lg:col-span-2">
           <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">
+              <CardTitle className="text-base font-semibold text-foreground">
                 Transactions ({account.transactions.length}{account._count.transactions !== account.transactions.length ? ` sur ${account._count.transactions}` : ""})
               </CardTitle>
             </CardHeader>
@@ -265,7 +265,7 @@ export default async function BankAccountDetailPage({
         <div className="space-y-6">
           <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <Plus className="h-4 w-4" />
                 Ajouter une transaction
               </CardTitle>
@@ -282,7 +282,7 @@ export default async function BankAccountDetailPage({
 
           <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-[var(--color-brand-deep)]">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <Info className="h-4 w-4 text-[var(--color-brand-blue)]" />
                 Informations
               </CardTitle>
@@ -290,15 +290,15 @@ export default async function BankAccountDetailPage({
             <CardContent className="space-y-3">
               <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Banque</p>
-                <p className="text-sm font-medium text-[var(--color-brand-deep)]">{account.bankName}</p>
+                <p className="text-sm font-medium text-foreground">{account.bankName}</p>
               </div>
               <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">IBAN (masqué)</p>
-                <p className="text-sm font-mono text-[var(--color-brand-deep)]">{account.ibanMasked}</p>
+                <p className="text-sm font-mono text-foreground">{account.ibanMasked}</p>
               </div>
               <div className="py-2 px-3 rounded-lg bg-muted/50">
                 <p className="text-xs text-muted-foreground">Solde initial</p>
-                <p className="text-sm text-[var(--color-brand-deep)]">
+                <p className="text-sm text-foreground">
                   {account.initialBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
                 </p>
               </div>

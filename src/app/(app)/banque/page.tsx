@@ -28,10 +28,10 @@ export default async function BanquePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">Banque</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Banque</h1>
           <p className="text-muted-foreground">
             {accounts.length} compte{accounts.length !== 1 ? "s" : ""} —{" "}
-            <span className={`font-semibold ${totalBalance >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>
+            <span className={`font-semibold ${totalBalance >= 0 ? "text-foreground" : "text-[var(--color-status-negative)]"}`}>
               {totalBalance.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €
             </span>{" "}
             au total
@@ -61,7 +61,7 @@ export default async function BanquePage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
               <Landmark className="h-7 w-7 text-[var(--color-brand-blue)]" />
             </div>
-            <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-2">Aucun compte bancaire</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Aucun compte bancaire</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
               Ajoutez un compte pour suivre les mouvements, rapprocher les encaissements et alimenter le cash-flow.
             </p>
@@ -88,7 +88,7 @@ export default async function BanquePage() {
               <Card className="border-0 shadow-brand bg-card rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">{account.accountName}</CardTitle>
+                    <CardTitle className="text-base font-semibold text-foreground">{account.accountName}</CardTitle>
                     <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       account.isActive
                         ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"
@@ -103,14 +103,14 @@ export default async function BanquePage() {
                   <div className="space-y-2">
                     <div>
                       <p className="text-xs text-muted-foreground">IBAN</p>
-                      <p className="text-sm font-mono text-[var(--color-brand-deep)]">{account.ibanMasked}</p>
+                      <p className="text-sm font-mono text-foreground">{account.ibanMasked}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Solde actuel</p>
                       <p
                         className={`text-xl font-semibold tabular-nums ${
                           account.currentBalance >= 0
-                            ? "text-[var(--color-brand-deep)]"
+                            ? "text-foreground"
                             : "text-[var(--color-status-negative)]"
                         }`}
                       >
