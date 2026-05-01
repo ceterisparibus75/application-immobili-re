@@ -604,7 +604,7 @@ export async function getLeaseDocuments(societyId: string, leaseId: string) {
 
   const lease = await prisma.lease.findFirst({
     where: { id: leaseId, societyId, deletedAt: null },
-    select: { tenantId: true },
+    select: { tenantId: true, lotId: true },
   });
   if (!lease) return [];
 
@@ -617,6 +617,11 @@ export async function getLeaseDocuments(societyId: string, leaseId: string) {
         {
           leaseId: null,
           tenantId: lease.tenantId,
+          category: { in: [...LEASE_SCOPED_DOCUMENT_CATEGORIES] },
+        },
+        {
+          leaseId: null,
+          lotId: lease.lotId,
           category: { in: [...LEASE_SCOPED_DOCUMENT_CATEGORIES] },
         },
       ],

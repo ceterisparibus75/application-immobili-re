@@ -84,6 +84,31 @@ export async function resolveDocumentLeaseAssociation(
     }
   }
 
+  if (input.lotId && isLeaseScopedDocumentCategory(category)) {
+    const activeLeases = await prisma.lease.findMany({
+      where: {
+        societyId: input.societyId,
+        status: "EN_COURS",
+        deletedAt: null,
+        OR: [{ lotId: input.lotId }, { leaseLots: { some: { lotId: input.lotId } } }],
+      },
+      orderBy: { startDate: "desc" },
+      take: 2,
+      select: { id: true, lotId: true, tenantId: true, leaseFileUrl: true },
+    });
+
+    if (activeLeases.length === 1) {
+      const lease = activeLeases[0];
+      return {
+        buildingId: input.buildingId ?? null,
+        lotId: input.lotId,
+        leaseId: lease.id,
+        tenantId: input.tenantId ?? lease.tenantId,
+        shouldSyncLeasePdf: isPrimaryLeasePdf && !lease.leaseFileUrl,
+      };
+    }
+  }
+
   return {
     buildingId: input.buildingId ?? null,
     lotId: input.lotId ?? null,

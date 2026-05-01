@@ -207,4 +207,34 @@ describe("document upload route security", () => {
     );
     expect(prismaMock.lease.update).not.toHaveBeenCalled();
   });
+
+  it("rattache un état des lieux déposé sur un lot à son bail actif", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { id: "lease-1", lotId: "lot-1", tenantId: "tenant-1", leaseFileUrl: "https://existing.example/bail.pdf" },
+    ] as never);
+    prismaMock.document.create.mockResolvedValue({ id: "doc-1" } as never);
+
+    const response = await registerDocument(
+      jsonRequest("http://localhost/api/documents/register", {
+        fileName: "etat-des-lieux.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+        storagePath: "documents/society-1/lots/lot-1/1_etat-des-lieux.pdf",
+        category: "etat_des_lieux",
+        lotId: "lot-1",
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: "etat_des_lieux",
+          tenantId: "tenant-1",
+          leaseId: "lease-1",
+          lotId: "lot-1",
+        }),
+      })
+    );
+  });
 });
