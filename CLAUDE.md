@@ -314,6 +314,12 @@ Client unique avec cache `globalThis` en dev. Logs `query`+`error`+`warn` en dev
 
 Via Resend. Templates HTML intégrés : relance (3 niveaux), facture, quittance, bienvenue utilisateur, bienvenue locataire.
 
+L'envoi d'une facture ou d'une quittance depuis l'interface passe par `POST /api/invoices/[id]/send-email` :
+- envoi initial : génère le PDF, envoie l'email, dépose le PDF dans Documents si Storage est configuré, renseigne `sentAt`, `sentBy`, `resendEmailId` et passe `VALIDEE`/`EN_ATTENTE` à `ENVOYEE` ;
+- renvoi manuel : disponible sur `/facturation/[id]` via `SendInvoiceButton` quand `invoice.sentAt` existe ; le libellé devient `Renvoyer au locataire`, `sentAt` reste la date du premier envoi, `resendEmailId` est mis à jour avec le dernier email Resend et l'audit log porte `event: RESEND_INVOICE_EMAIL`.
+
+La file de masse n'inclut que les factures validées non envoyées (`!sentAt`). Une facture déjà envoyée ne revient pas dans `À traiter` ; elle se renvoie depuis son détail.
+
 ### Génération PDF (`src/lib/invoice-pdf.tsx`, `src/app/api/invoices/[id]/pdf/route.ts`)
 
 Les factures PDF utilisent `@react-pdf/renderer`. Le composant `InvoicePdf` reçoit un objet `InvoicePdfData` complet. La route API `/api/invoices/[id]/pdf` :
@@ -478,6 +484,12 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Rapports | `/rapports`, `/rapports/planification` | `report-generator.ts`, `report-schedule.ts` |
 | Assistant IA | `/assistant` | `ai-chatbot.ts` |
 | Paramètres facturation | `/parametres/facturation` | `einvoicing.ts` (PPFActivationCard, ChorusProCard) |
+
+Notes UX récentes :
+- `/facturation` est structuré en onglets `À traiter`, `Brouillons`, `Factures`, `Relances`, `Quittances`.
+- `À traiter` est la file d'actions de masse : brouillons, factures validées non envoyées, retards, génération. La carte `À envoyer` est inactive quand aucune facture n'est envoyable.
+- `Factures` est un registre de consultation des factures et avoirs ; `Quittances` est un registre séparé placé après `Relances`.
+- La fiche locataire expose un bloc `Documents` qui pointe vers `/documents?tenantId=...` et `/documents/nouveau?tenantId=...`.
 
 ## Cron Jobs (Vercel)
 

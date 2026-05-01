@@ -130,6 +130,9 @@ export default function LocatifPage() {
         <p>
           La fiche locataire propose désormais deux onglets distincts : <strong>Facturation</strong> pour retrouver, filtrer, valider et dupliquer les pièces de facturation du locataire, et <strong>Compte locataire</strong> pour le solde, les paiements, les avoirs et les mouvements historiques importés.
         </p>
+        <p>
+          Elle affiche aussi un bloc <strong>Documents</strong> avec le nombre de pièces rattachées au locataire, un accès direct à la GED filtrée et un raccourci pour ajouter un document déjà associé à ce locataire.
+        </p>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Indicateurs de risque :</p>
         <ul className="list-disc pl-5 space-y-1">

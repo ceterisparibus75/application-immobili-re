@@ -22,6 +22,9 @@ export default function DocumentsPage() {
         <p>
           Les documents peuvent être rattachés à différentes entités : immeuble, lot, bail, locataire ou société. Ils sont automatiquement classés par catégorie.
         </p>
+        <p>
+          Depuis une fiche locataire, le bloc <strong>Documents</strong> permet d'ouvrir directement les documents filtrés sur ce locataire ou d'ajouter un nouveau document déjà pré-rattaché.
+        </p>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Catégories de documents :</p>
         <ul className="list-disc pl-5 space-y-1">
@@ -39,7 +42,7 @@ export default function DocumentsPage() {
 
       <HelpSection id="upload" title="Ajouter un document">
         <HelpStep number={1} title="Choisissez l'entité">
-          <p>Depuis la fiche d'un immeuble, d'un bail ou d'un locataire, accédez à la section <strong>Documents</strong>.</p>
+          <p>Depuis la fiche d'un immeuble, d'un bail ou d'un locataire, accédez à la section <strong>Documents</strong>. Sur une fiche locataire, le bouton <strong>Ajouter un document</strong> ouvre le formulaire avec le locataire déjà sélectionné.</p>
         </HelpStep>
         <HelpStep number={2} title="Uploadez le fichier">
           <p>Cliquez sur <strong>Ajouter un document</strong>. Sélectionnez le fichier sur votre ordinateur (PDF, JPG, PNG, DOCX acceptés). La taille maximale est de 20 Mo par fichier.</p>
@@ -97,6 +100,7 @@ export default function DocumentsPage() {
         </p>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Par entité</strong> : depuis la fiche d'un immeuble, bail ou locataire, section Documents</li>
+          <li><strong>Par locataire</strong> : depuis la fiche locataire, cliquez sur <strong>Voir les documents</strong> pour ouvrir la GED filtrée sur ce locataire</li>
           <li><strong>Par catégorie</strong> : filtrez par type de document (diagnostics, baux, factures, etc.)</li>
           <li><strong>Par recherche</strong> : utilisez la barre de recherche globale pour retrouver un document par son nom</li>
           <li><strong>Par expiration</strong> : les documents arrivant à expiration sont signalés par un badge orange ou rouge</li>

@@ -151,8 +151,11 @@ Voir [CLAUDE.md](CLAUDE.md) pour la documentation architecture complète destin�
 
 - **Vie du bail** : la fiche bail regroupe désormais les actions de statut, les événements juridiques, les états des lieux et l'historique des titulaires successifs.
 - **Changement de locataire en cours de bail** : une cession de fonds, cession du droit au bail, substitution ou fusion peut changer le titulaire sans recréer le bail ni consommer un nouveau numéro.
+- **Facturation de masse clarifiée** : le module Facturation est organisé en onglets `À traiter`, `Brouillons`, `Factures`, `Relances` et `Quittances`. `À traiter` porte les actions de masse ; `Factures` et `Quittances` sont des registres de consultation.
+- **Renvoi manuel d'une facture** : depuis le détail d'une facture déjà envoyée, le bouton `Renvoyer au locataire` renvoie l'email sans modifier la date du premier envoi, avec audit log dédié.
 - **Facturation côté locataire** : la fiche locataire centralise les factures MyGestia et la situation du compte locataire.
 - **Compte locataire enrichi** : reprise de solde précédent et import de relevés historiques depuis un ancien logiciel, sans génération de facture.
+- **Documents côté locataire** : la fiche locataire donne accès aux documents filtrés sur ce locataire et permet d'ajouter une pièce déjà pré-rattachée.
 
 ---
 

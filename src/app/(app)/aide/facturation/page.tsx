@@ -17,14 +17,42 @@ export default function FacturationPage() {
     >
       <HelpSection id="vue-ensemble" title="Vue d'ensemble de la facturation">
         <p>
-          La page <strong>Facturation</strong> présente 4 indicateurs clés en haut de page : le montant total TTC facturé, le montant des impayés (avec le nombre de factures concernées), le nombre de factures en retard et le nombre de relances envoyées.
+          La page <strong>Facturation</strong> sert au pilotage de masse des factures : contrôler les brouillons, envoyer les factures prêtes, consulter le registre, suivre les retards et retrouver les quittances.
         </p>
         <p>
-          Les factures sont organisées en onglets : <strong>Toutes</strong>, <strong>Brouillons</strong>, <strong>En retard</strong> et <strong>Relances</strong>. Chaque onglet affiche un tableau filtrable et triable.
+          Les factures sont organisées en onglets : <strong>À traiter</strong>, <strong>Brouillons</strong>, <strong>Factures</strong>, <strong>Relances</strong> et <strong>Quittances</strong>. Cette séparation évite de mélanger les actions de masse et la simple consultation.
         </p>
         <p>
           Pour le suivi d'un locataire précis, ouvrez sa fiche : l'onglet <strong>Facturation</strong> permet de retrouver, filtrer, valider et dupliquer ses pièces de facturation, puis l'onglet <strong>Compte locataire</strong> détaille le solde, les paiements, les avoirs et les mouvements historiques.
         </p>
+      </HelpSection>
+
+      <HelpSection id="onglets-facturation" title="Comprendre les onglets du module Facturation">
+        <HelpStep number={1} title="À traiter">
+          <p>
+            C'est la file de travail opérationnelle. Elle regroupe les brouillons à contrôler, les factures validées mais non envoyées, les retards à suivre et l'accès à la génération de masse. La carte <strong>À envoyer</strong> descend vers la liste d'envoi quand des factures sont disponibles ; si le compteur est à zéro, elle est affichée comme inactive.
+          </p>
+        </HelpStep>
+        <HelpStep number={2} title="Brouillons">
+          <p>
+            Cet onglet contient les factures préparées mais pas encore validées. Une facture en brouillon peut être contrôlée, ajustée, validée ou supprimée selon le cas.
+          </p>
+        </HelpStep>
+        <HelpStep number={3} title="Factures">
+          <p>
+            Cet onglet est un registre de consultation. Il affiche les factures et avoirs validés, avec recherche et filtres, mais sans sélection de masse pour l'envoi.
+          </p>
+        </HelpStep>
+        <HelpStep number={4} title="Relances">
+          <p>
+            Cet onglet synthétise les factures en retard et donne accès au module <strong>Relances</strong>, où l'envoi et l'historique des relances sont centralisés.
+          </p>
+        </HelpStep>
+        <HelpStep number={5} title="Quittances">
+          <p>
+            Les quittances disposent de leur propre registre après <strong>Relances</strong>. Elles ne sont pas mélangées au registre des factures afin de conserver une lecture plus claire des reçus de paiement.
+          </p>
+        </HelpStep>
       </HelpSection>
 
       <HelpSection id="generation-auto" title="Génération automatique des factures">
@@ -38,16 +66,16 @@ export default function FacturationPage() {
           <p>Cliquez sur <strong>Valider</strong> pour chaque facture. La facture passe au statut <strong>Validée</strong> et un numéro de facture séquentiel lui est attribué.</p>
         </HelpStep>
         <HelpStep number={3} title="Envoyez par email">
-          <p>Envoyez la facture au locataire en un clic. Un PDF est généré automatiquement avec votre logo, les coordonnées bancaires et le détail des lignes.</p>
+          <p>Depuis <strong>À traiter</strong>, utilisez la section <strong>Factures à envoyer</strong> pour transmettre les factures validées en masse. Un PDF est généré automatiquement avec votre logo, les coordonnées bancaires et le détail des lignes.</p>
         </HelpStep>
         <div className="rounded-lg border p-4 bg-muted/20">
           <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
           <p className="text-sm">
-            Le 1er avril à 7h, {APP_NAME} crée un brouillon &laquo; FAC-2026-0042 &raquo; pour le bail de Jean Dupont : loyer 950 &euro; + charges 80 &euro; = 1 030 &euro; TTC. Vous le vérifiez dans Brouillons, cliquez sur Valider, puis sur Envoyer par email. Jean reçoit un PDF professionnel avec votre logo, l'IBAN pour le virement et le QR code de paiement.
+            Le 1er avril à 7h, {APP_NAME} crée un brouillon &laquo; FAC-2026-0042 &raquo; pour le bail de Jean Dupont : loyer 950 &euro; + charges 80 &euro; = 1 030 &euro; TTC. Vous le vérifiez dans Brouillons, cliquez sur Valider, puis l'envoyez depuis <strong>À traiter</strong>. Jean reçoit un PDF professionnel avec votre logo, l'IBAN pour le virement et le QR code de paiement.
           </p>
         </div>
         <InfoBox type="tip">
-          Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer des appels</strong>. Cela crée des brouillons pour les baux sélectionnés. Utile si vous devez facturer une période spécifique.
+          Vous pouvez aussi générer des appels de loyer manuellement depuis le bouton <strong>Générer les appels</strong>. Cela crée des brouillons pour les baux sélectionnés. Pour un cas isolé, utilisez <strong>Facture ponctuelle</strong>.
         </InfoBox>
       </HelpSection>
 
@@ -133,7 +161,7 @@ export default function FacturationPage() {
           </div>
         </div>
         <InfoBox type="info">
-          Vous pouvez aussi envoyer des relances manuellement à tout moment depuis la page Relances. Sélectionnez les factures concernées et cliquez sur Envoyer la relance.
+          Depuis l'onglet <strong>Relances</strong> du module Facturation, vous visualisez les factures concernées et ouvrez le module dédié. Vous pouvez aussi envoyer des relances manuellement à tout moment depuis la page <strong>Relances</strong>.
         </InfoBox>
       </HelpSection>
 
@@ -146,6 +174,9 @@ export default function FacturationPage() {
         </HelpStep>
         <HelpStep number={2} title="Envoyer par email">
           <p>La quittance peut être envoyée directement par email au locataire ou téléchargée en PDF.</p>
+        </HelpStep>
+        <HelpStep number={3} title="Retrouver les quittances">
+          <p>Les quittances validées sont regroupées dans l'onglet <strong>Quittances</strong> du module Facturation, placé après <strong>Relances</strong>.</p>
         </HelpStep>
       </HelpSection>
 
@@ -189,7 +220,11 @@ export default function FacturationPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment envoyer une facture par email au locataire ?</p>
-            <p>Depuis la fiche facture, cliquez sur le bouton <strong>Envoyer par email</strong>. Un PDF est généré automatiquement avec votre logo et vos coordonnées bancaires, puis envoyé à l'adresse email du locataire.</p>
+            <p>Depuis <strong>Facturation &gt; À traiter</strong>, la section <strong>Factures à envoyer</strong> permet l'envoi groupé des factures validées. Depuis la fiche d'une facture, utilisez <strong>Envoyer au locataire</strong> pour un envoi individuel.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment renvoyer une facture déjà envoyée ?</p>
+            <p>Ouvrez la facture depuis l'onglet <strong>Factures</strong>, puis cliquez sur <strong>Renvoyer au locataire</strong>. La date du premier envoi est conservée, et le renvoi est tracé dans l'audit avec la date du nouvel email.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Les factures sont-elles générées automatiquement ?</p>
@@ -201,7 +236,7 @@ export default function FacturationPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment voir les factures impayées ?</p>
-            <p>Cliquez sur l'onglet <strong>En retard</strong> sur la page Facturation. Le KPI <strong>Impayés</strong> en haut de page affiche le montant total des factures impayées ainsi que leur nombre.</p>
+            <p>Cliquez sur l'onglet <strong>Relances</strong> sur la page Facturation. Il synthétise les factures en retard et ouvre le module Relances pour l'envoi et l'historique des relances.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Où voir la facturation d'un seul locataire ?</p>

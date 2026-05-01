@@ -130,6 +130,16 @@ export default function DepannagePage() {
           </div>
 
           <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-2">Le locataire dit ne pas avoir reçu sa facture</p>
+            <ul className="text-sm list-disc pl-5 space-y-1">
+              <li>Vérifiez l&apos;adresse email du locataire, en priorité l&apos;email de facturation s&apos;il est renseigné.</li>
+              <li>Ouvrez la facture depuis <strong>Facturation &gt; Factures</strong>.</li>
+              <li>Si elle a déjà été envoyée, utilisez <strong>Renvoyer au locataire</strong>. Le premier envoi reste historisé et le renvoi est tracé dans l&apos;audit.</li>
+              <li>Demandez aussi au locataire de vérifier ses courriers indésirables.</li>
+            </ul>
+          </div>
+
+          <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-2">Un paiement a été enregistré mais la facture reste &laquo; Impayée &raquo;</p>
             <ul className="text-sm list-disc pl-5 space-y-1">
               <li>Vérifiez que le paiement est bien associé à la facture (fiche facture &gt; onglet Paiements).</li>
