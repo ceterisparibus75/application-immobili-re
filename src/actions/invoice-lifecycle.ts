@@ -629,7 +629,7 @@ export async function settleAvoir(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId, invoiceType: "AVOIR" },
-      select: { id: true, status: true, totalTTC: true },
+      select: { id: true, status: true, totalTTC: true, creditNoteForId: true },
     });
     if (!invoice) return { success: false, error: "Avoir introuvable" };
     if (!["VALIDEE", "EN_ATTENTE", "ENVOYEE"].includes(invoice.status)) {
@@ -640,6 +640,33 @@ export async function settleAvoir(
       where: { id: invoiceId },
       data: { status: "PAYE" },
     });
+
+    // Mettre à jour la facture d'origine si l'avoir la couvre
+    if (invoice.creditNoteForId) {
+      const original = await prisma.invoice.findFirst({
+        where: { id: invoice.creditNoteForId, societyId },
+        select: { id: true, status: true, totalTTC: true, payments: { select: { amount: true } } },
+      });
+      if (original && !["ANNULEE", "PAYE", "BROUILLON"].includes(original.status)) {
+        const paid = original.payments.reduce((s, p) => s + p.amount, 0);
+        const remaining = original.totalTTC - paid;
+        // avoir.totalTTC est négatif, il réduit le solde restant
+        const afterAvoir = remaining + invoice.totalTTC;
+        let newStatus: InvoiceStatus | null = null;
+        if (afterAvoir <= 0.01) {
+          newStatus = "PAYE";
+        } else if (afterAvoir < remaining) {
+          newStatus = "PARTIELLEMENT_PAYE";
+        }
+        if (newStatus) {
+          await prisma.invoice.update({
+            where: { id: original.id },
+            data: { status: newStatus },
+          });
+          revalidatePath(`/facturation/${original.id}`);
+        }
+      }
+    }
 
     await createAuditLog({
       societyId,
