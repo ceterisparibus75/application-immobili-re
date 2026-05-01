@@ -16,6 +16,7 @@ import {
   REPORT_ACTIVE_INVOICE_STATUSES,
   REPORT_REVENUE_INVOICE_TYPES,
 } from "../invoice-metrics";
+import { getLeaseOverlapWhere } from "../lease-scope";
 
 export async function generateRecapChargesLocataire(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, tenantId } = opts;
@@ -26,7 +27,11 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
   if (!tenant) throw new Error("Locataire introuvable");
 
   const leases = await prisma.lease.findMany({
-    where: { societyId, tenantId },
+    where: {
+      societyId,
+      tenantId,
+      ...getLeaseOverlapWhere(new Date(year, 0, 1), new Date(year, 11, 31, 23, 59, 59)),
+    },
     include: {
       lot: { include: { building: { select: { name: true } } } },
       chargeProvisions: { where: { isActive: true } },

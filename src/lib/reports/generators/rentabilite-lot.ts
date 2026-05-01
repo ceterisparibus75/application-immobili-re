@@ -5,6 +5,7 @@ import {
   REPORT_ACTIVE_INVOICE_STATUSES,
   REPORT_REVENUE_INVOICE_TYPES,
 } from "../invoice-metrics";
+import { getLeaseOverlapWhere } from "../lease-scope";
 
 export async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, buildingId } = opts;
@@ -17,7 +18,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
     include: {
       building: true,
       leases: {
-        where: { status: { in: ["EN_COURS", "RENOUVELE"] } },
+        where: getLeaseOverlapWhere(from, to),
         include: {
           invoices: {
             where: {
@@ -27,6 +28,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
             },
           },
         },
+        orderBy: { startDate: "desc" },
         take: 1,
       },
     },

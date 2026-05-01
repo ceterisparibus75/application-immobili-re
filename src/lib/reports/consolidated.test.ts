@@ -10,6 +10,12 @@ describe("getReportLabel", () => {
     expect(getReportLabel("BALANCE_AGEE")).toBe("Balance âgée & impayés");
   });
 
+  it("retourne les libellés des rapports Excel et locataire", () => {
+    expect(getReportLabel("RENTABILITE_LOT")).toBe("Rentabilité par lot");
+    expect(getReportLabel("SUIVI_TRAVAUX")).toBe("Suivi des travaux");
+    expect(getReportLabel("RECAP_CHARGES_LOCATAIRE")).toBe("Récapitulatif charges locataire");
+  });
+
   it("retourne la clé brute si le type est inconnu", () => {
     expect(getReportLabel("TYPE_INCONNU")).toBe("TYPE_INCONNU");
   });

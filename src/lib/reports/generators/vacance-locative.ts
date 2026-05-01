@@ -10,9 +10,11 @@ import {
   drawKpiRow,
 } from "../pdf-helpers";
 import { drawPieChart, drawBarChart } from "../pdf-charts";
+import { getActiveLeaseWhere } from "../lease-scope";
 
 export async function generateVacanceLocative(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, buildingId } = opts;
+  const asOf = new Date();
 
   const buildings = await prisma.building.findMany({
     where: { societyId, ...(buildingId ? { id: buildingId } : {}) },
@@ -20,7 +22,8 @@ export async function generateVacanceLocative(opts: ReportOptions): Promise<Repo
       lots: {
         include: {
           leases: {
-            where: { status: { in: ["EN_COURS", "RENOUVELE"] } },
+            where: getActiveLeaseWhere(asOf),
+            orderBy: { startDate: "desc" },
             take: 1,
           },
         },

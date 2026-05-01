@@ -14,6 +14,7 @@ import {
   drawSubText,
   drawEmptyMessage,
 } from "../pdf-helpers";
+import { getActiveLeaseWhere } from "../lease-scope";
 
 /** Number of periods per year for a given payment frequency */
 function periodsPerYear(freq: PaymentFrequency): number {
@@ -32,6 +33,7 @@ const ALIGNS: ColAlign[] = ["left", "left", "left", "right", "left", "left", "ri
 
 export async function generateSituationLocative(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, buildingId } = opts;
+  const asOf = new Date();
 
   const buildings = await prisma.building.findMany({
     where: { societyId, ...(buildingId ? { id: buildingId } : {}) },
@@ -39,7 +41,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
       lots: {
         include: {
           leases: {
-            where: { status: { in: ["EN_COURS", "RENOUVELE"] } },
+            where: getActiveLeaseWhere(asOf),
             include: {
               tenant: true,
               chargeProvisions: { where: { isActive: true } },

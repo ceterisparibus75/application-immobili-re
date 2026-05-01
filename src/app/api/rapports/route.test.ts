@@ -87,6 +87,21 @@ describe("POST /api/rapports", () => {
     expect(body.error.message).toContain("locataire");
   });
 
+  it("retourne 400 si le format demandé n'est pas compatible avec le rapport", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/rapports", {
+        method: "POST",
+        body: JSON.stringify({ type: "SUIVI_TRAVAUX", year: 2026, format: "pdf" }),
+        headers: { "Content-Type": "application/json" },
+      }) as never
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.message).toContain("Excel");
+  });
+
   it("génère le rapport, écrit l'audit et renvoie le binaire", async () => {
     const res = await POST(
       new Request("http://localhost/api/rapports", {

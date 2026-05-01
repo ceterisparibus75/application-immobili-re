@@ -113,6 +113,17 @@ describe("generateRentabiliteLot", () => {
       where: expect.objectContaining({
         buildingId: "building-1",
       }),
+      include: expect.objectContaining({
+        leases: expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: null,
+            status: { in: ["EN_COURS", "RENOUVELE", "RESILIE", "CONTENTIEUX"] },
+            startDate: { lte: expect.any(Date) },
+            endDate: { gte: expect.any(Date) },
+          }),
+          orderBy: { startDate: "desc" },
+        }),
+      }),
     }));
     expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith([
       "Immeuble A",

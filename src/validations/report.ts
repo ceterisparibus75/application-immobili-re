@@ -16,6 +16,24 @@ export const REPORT_TYPES = [
   "VACANCE_LOCATIVE",
 ] as const;
 
+const PDF_ONLY_REPORT_TYPES = [
+  "SITUATION_LOCATIVE",
+  "COMPTE_RENDU_GESTION",
+  "RECAP_CHARGES_LOCATAIRE",
+  "BALANCE_AGEE",
+  "SUIVI_MENSUEL",
+  "VACANCE_LOCATIVE",
+] as const;
+
+const XLSX_ONLY_REPORT_TYPES = [
+  "RENTABILITE_LOT",
+  "SUIVI_TRAVAUX",
+] as const;
+
+const BOTH_FORMAT_REPORT_TYPES = [
+  "ETAT_IMPAYES",
+] as const;
+
 export const generateReportSchema = z
   .object({
     type: z.enum(REPORT_TYPES, {
@@ -55,6 +73,30 @@ export const generateReportSchema = z
         code: z.ZodIssueCode.custom,
         message: "L'année est requise pour ce type de rapport",
         path: ["year"],
+      });
+    }
+
+    if (PDF_ONLY_REPORT_TYPES.includes(data.type as (typeof PDF_ONLY_REPORT_TYPES)[number]) && data.format !== "pdf") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ce rapport est disponible uniquement au format PDF",
+        path: ["format"],
+      });
+    }
+
+    if (XLSX_ONLY_REPORT_TYPES.includes(data.type as (typeof XLSX_ONLY_REPORT_TYPES)[number]) && data.format !== "xlsx") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Ce rapport est disponible uniquement au format Excel",
+        path: ["format"],
+      });
+    }
+
+    if (BOTH_FORMAT_REPORT_TYPES.includes(data.type as (typeof BOTH_FORMAT_REPORT_TYPES)[number]) && !["pdf", "xlsx"].includes(data.format)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Format de rapport invalide",
+        path: ["format"],
       });
     }
   });

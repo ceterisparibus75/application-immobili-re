@@ -30,9 +30,30 @@ describe("generateReportSchema", () => {
     if (result.success) expect(result.data.format).toBe("pdf");
   });
 
-  it("accepte le format xlsx", () => {
+  it("rejette xlsx pour un rapport PDF uniquement", () => {
     const result = generateReportSchema.safeParse({ type: "SITUATION_LOCATIVE", format: "xlsx" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes("PDF"))).toBe(true);
+    }
+  });
+
+  it("accepte xlsx pour les rapports Excel uniquement", () => {
+    const result = generateReportSchema.safeParse({ type: "SUIVI_TRAVAUX", year: 2026, format: "xlsx" });
     expect(result.success).toBe(true);
+  });
+
+  it("rejette pdf pour les rapports Excel uniquement", () => {
+    const result = generateReportSchema.safeParse({ type: "RENTABILITE_LOT", year: 2026, format: "pdf" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes("Excel"))).toBe(true);
+    }
+  });
+
+  it("accepte les deux formats pour ETAT_IMPAYES", () => {
+    expect(generateReportSchema.safeParse({ type: "ETAT_IMPAYES", format: "pdf" }).success).toBe(true);
+    expect(generateReportSchema.safeParse({ type: "ETAT_IMPAYES", format: "xlsx" }).success).toBe(true);
   });
 
   it("rejette un type de rapport invalide", () => {
@@ -83,7 +104,7 @@ describe("generateReportSchema", () => {
   });
 
   it("rejette RENTABILITE_LOT sans year", () => {
-    const result = generateReportSchema.safeParse({ type: "RENTABILITE_LOT" });
+    const result = generateReportSchema.safeParse({ type: "RENTABILITE_LOT", format: "xlsx" });
     expect(result.success).toBe(false);
   });
 

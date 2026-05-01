@@ -170,6 +170,16 @@ describe("generateRecapChargesLocataire", () => {
       "Loyers appelés",
       "2500.00 EUR"
     );
+    expect(prismaMock.lease.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        societyId: "society-1",
+        tenantId: "tenant-1",
+        deletedAt: null,
+        status: { in: ["EN_COURS", "RENOUVELE", "RESILIE", "CONTENTIEUX"] },
+        startDate: { lte: expect.any(Date) },
+        endDate: { gte: expect.any(Date) },
+      }),
+    }));
   });
 
   it("gère les sauts de page (lignes 63, 78, 87)", async () => {

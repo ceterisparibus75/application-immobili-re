@@ -107,6 +107,23 @@ describe("generateVacanceLocative", () => {
     });
 
     expect(result.contentType).toBe("application/pdf");
+    expect(prismaMock.building.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        lots: expect.objectContaining({
+          include: expect.objectContaining({
+            leases: expect.objectContaining({
+              where: expect.objectContaining({
+                deletedAt: null,
+                status: { in: ["EN_COURS", "RENOUVELE"] },
+                startDate: { lte: expect.any(Date) },
+                endDate: { gte: expect.any(Date) },
+              }),
+              orderBy: { startDate: "desc" },
+            }),
+          }),
+        }),
+      }),
+    }));
     expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
       { id: "page-1" },
       pdfCtx.bold,
