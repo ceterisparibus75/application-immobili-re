@@ -9,6 +9,7 @@ const mockComputeLines = vi.hoisted(() =>
   ])
 );
 const mockGetNextInvoiceNumber = vi.hoisted(() => vi.fn().mockResolvedValue("FAC-2025-001"));
+const mockGetNextCreditNoteNumber = vi.hoisted(() => vi.fn().mockResolvedValue("AV-2025-001"));
 const mockComputePeriodDates = vi.hoisted(() =>
   vi.fn().mockReturnValue({ periodStart: new Date("2025-01-01"), periodEnd: new Date("2025-01-31") })
 );
@@ -35,6 +36,7 @@ const mockComputeInvoicePreview = vi.hoisted(() =>
 vi.mock("./invoice-shared", () => ({
   computeLines: mockComputeLines,
   getNextInvoiceNumber: mockGetNextInvoiceNumber,
+  getNextCreditNoteNumber: mockGetNextCreditNoteNumber,
   computePeriodDates: mockComputePeriodDates,
   computeIssueDueDate: mockComputeIssueDueDate,
   computeRentForPeriod: mockComputeRentForPeriod,

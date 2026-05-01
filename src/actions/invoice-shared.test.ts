@@ -157,6 +157,23 @@ describe("computeRentForPeriod", () => {
     // 12 mois depuis start → on est dans la 2e plage (600+750=1350 → mois < 18)
     expect(rent).toBe(750);
   });
+
+  it("applique le palier correspondant à la période facturée, pas à la date du jour", () => {
+    const rent = computeRentForPeriod(
+      new Date("2024-01-01"),
+      800,
+      null,
+      0,
+      [
+        { startDate: new Date("2024-01-01"), endDate: new Date("2024-12-31"), rentHT: 900 },
+        { startDate: new Date("2025-01-01"), endDate: null, rentHT: 1000 },
+      ],
+      null,
+      new Date("2024-06-01")
+    );
+
+    expect(rent).toBe(900);
+  });
 });
 
 // ── computeManagementFee ───────────────────────────────────────

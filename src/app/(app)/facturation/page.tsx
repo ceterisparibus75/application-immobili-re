@@ -150,7 +150,7 @@ export default async function FacturationPage({ searchParams }: PageProps) {
             <Button variant="outline"><Zap className="h-4 w-4" />Générer les appels</Button>
           </Link>
           <Link href="/facturation/nouvelle">
-            <Button><Plus className="h-4 w-4" />Nouvelle facture</Button>
+            <Button><Plus className="h-4 w-4" />Facture ponctuelle</Button>
           </Link>
         </div>
       </div>

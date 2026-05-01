@@ -101,7 +101,7 @@ async function generateDraftInvoices() {
 
       // Calculer le loyer
       const cronEffectiveStart = lease.entryDate ?? lease.startDate;
-      let rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps, lease.entryDate);
+      let rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps, lease.entryDate, periodStart);
       const vatRate = lease.vatApplicable ? (lease.vatRate ?? 20) : 0;
 
       const cronRfm = lease.rentFreeMonths ?? 0;
@@ -305,11 +305,12 @@ function computeRent(
   progressiveRent: unknown,
   rentFreeMonths: number,
   rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[],
-  entryDate?: Date | null
+  entryDate?: Date | null,
+  referenceDate: Date = new Date()
 ): number {
   const effectiveStart = entryDate ?? startDate;
   const start = new Date(effectiveStart);
-  const now = new Date();
+  const now = new Date(referenceDate);
   const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
 
   if (months < Math.floor(rentFreeMonths)) return 0;

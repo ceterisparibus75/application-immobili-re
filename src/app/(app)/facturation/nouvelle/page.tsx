@@ -100,7 +100,7 @@ export default function NouvelleFacturePage() {
   const router = useRouter();
   const { activeSociety } = useSociety();
 
-  const [mode, setMode] = useState<"auto" | "manual">("auto");
+  const [mode, setMode] = useState<"auto" | "manual">("manual");
 
   // ── Mode auto ──
   const [leases, setLeases] = useState<LeaseOption[]>([]);
@@ -260,8 +260,8 @@ export default function NouvelleFacturePage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nouvelle facture</h1>
-          <p className="text-muted-foreground">Générer depuis un bail ou saisir manuellement</p>
+          <h1 className="text-2xl font-bold tracking-tight">Facture ponctuelle</h1>
+          <p className="text-muted-foreground">Saisir une facture exceptionnelle ou générer un appel isolé</p>
         </div>
       </div>
 
@@ -281,7 +281,7 @@ export default function NouvelleFacturePage() {
           onClick={() => setMode("manual")}
         >
           <PenLine className="h-4 w-4" />
-          Saisie manuelle
+          Saisie ponctuelle
         </Button>
       </div>
 

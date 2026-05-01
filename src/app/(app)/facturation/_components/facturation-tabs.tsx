@@ -188,7 +188,7 @@ export function FacturationTabs({
                   <Button asChild variant="outline">
                     <Link href="/facturation/nouvelle">
                       <Plus className="h-4 w-4" />
-                      Nouvelle facture
+                      Facture ponctuelle
                     </Link>
                   </Button>
                 </div>

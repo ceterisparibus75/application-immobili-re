@@ -198,13 +198,14 @@ export function computeRentForPeriod(
   progressiveRent: unknown,
   rentFreeMonths: number,
   rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[],
-  entryDate?: Date | null
+  entryDate?: Date | null,
+  referenceDate: Date = new Date()
 ): number {
   // Utiliser entryDate (prise en jouissance) si disponible, sinon startDate (signature)
   const effectiveStart = entryDate ?? startDate;
   const start = new Date(effectiveStart);
   start.setDate(1);
-  const now = new Date();
+  const now = new Date(referenceDate);
   now.setDate(1);
   const monthsSinceStart =
     (now.getFullYear() - start.getFullYear()) * 12 +
@@ -463,7 +464,8 @@ export async function computeInvoicePreview(
     lease.progressiveRent,
     lease.rentFreeMonths ?? 0,
     lease.rentSteps,
-    lease.entryDate
+    lease.entryDate,
+    periodStart
   );
 
   const rfm = lease.rentFreeMonths ?? 0;

@@ -34,6 +34,8 @@ export const INCOME_CATEGORIES = [
 
 export const NEUTRAL_CATEGORIES = [
   { id: "virement_interne", label: "Virement de compte à compte", color: "#64748B" },
+  { id: "apport_cca", label: "Apport en compte courant d'associés", color: "#78716C" },
+  { id: "remboursement_cca", label: "Remboursement de compte courant d'associés", color: "#57534E" },
 ] as const;
 
 // ── Tous les catégories ─────────────────────────────────────────────────────

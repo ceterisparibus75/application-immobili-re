@@ -265,9 +265,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           throw uploadError;
         }
 
+        const nextStatus =
+          invoice.status === "VALIDEE" || invoice.status === "EN_ATTENTE"
+            ? "ENVOYEE"
+            : invoice.status;
+
         await prisma.invoice.update({
           where: { id },
-          data: { fileUrl: docStoragePath, sentAt: new Date(), sentBy: to, resendEmailId: emailResult.emailId ?? null },
+          data: {
+            fileUrl: docStoragePath,
+            sentAt: new Date(),
+            sentBy: to,
+            resendEmailId: emailResult.emailId ?? null,
+            status: nextStatus,
+          },
         });
 
         await prisma.document.create({

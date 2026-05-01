@@ -22,7 +22,6 @@ import {
 } from "@/lib/action-society";
 import {
   computeLines,
-  getNextInvoiceNumber,
   getNextCreditNoteNumber,
   computePeriodDates,
   computeIssueDueDate,
@@ -239,7 +238,8 @@ export async function generateInvoiceFromLease(
       lease.progressiveRent,
       lease.rentFreeMonths ?? 0,
       lease.rentSteps,
-      lease.entryDate
+      lease.entryDate,
+      periodStart
     );
 
     const rfm = lease.rentFreeMonths ?? 0;
@@ -514,7 +514,8 @@ export async function generateBatchInvoices(
           lease.progressiveRent,
           lease.rentFreeMonths ?? 0,
           lease.rentSteps,
-          lease.entryDate
+          lease.entryDate,
+          periodStart
         );
 
         const batchRfm = lease.rentFreeMonths ?? 0;
@@ -751,7 +752,8 @@ export async function refreshDraftInvoice(
       lease.progressiveRent,
       lease.rentFreeMonths ?? 0,
       lease.rentSteps,
-      lease.entryDate
+      lease.entryDate,
+      periodStart
     );
 
     const rfm = lease.rentFreeMonths ?? 0;
