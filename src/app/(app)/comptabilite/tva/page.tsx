@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Calculator, CheckCircle2, Filter, RefreshCw, TriangleAlert } from "lucide-react";
+import { Calculator, CheckCircle2, FileCheck2, Filter, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
-import { getVatControl, type VatControlResult } from "@/actions/vat-control";
+import { getVatControl, liquidateVatPeriod, type VatControlResult } from "@/actions/vat-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,26 @@ export default function VatControlPage() {
     });
   }
 
+  function handleLiquidation() {
+    if (!activeSociety?.id || !data) return;
+    startTransition(async () => {
+      const result = await liquidateVatPeriod(activeSociety.id, {
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      });
+      if (result.success && result.data) {
+        toast.success(
+          result.data.alreadyExists
+            ? "L'écriture de liquidation existe déjà"
+            : "Écriture de liquidation TVA créée"
+        );
+        load();
+      } else {
+        toast.error(result.error ?? "Erreur lors de la liquidation TVA");
+      }
+    });
+  }
+
   useEffect(() => {
     load();
     // Les filtres ne doivent pas déclencher un rechargement avant action utilisateur.
@@ -70,10 +90,16 @@ export default function VatControlPage() {
           </div>
         </div>
         {data && (
-          <Badge variant={isBalanced ? "default" : "destructive"} className="gap-1">
-            {isBalanced ? <CheckCircle2 className="h-3 w-3" /> : <TriangleAlert className="h-3 w-3" />}
-            {isBalanced ? "TVA cohérente" : "Écart détecté"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={isBalanced ? "default" : "destructive"} className="gap-1">
+              {isBalanced ? <CheckCircle2 className="h-3 w-3" /> : <TriangleAlert className="h-3 w-3" />}
+              {isBalanced ? "TVA cohérente" : "Écart détecté"}
+            </Badge>
+            <Button onClick={handleLiquidation} disabled={isPending || !isBalanced} variant="outline">
+              <FileCheck2 className="h-4 w-4" />
+              Liquider
+            </Button>
+          </div>
         )}
       </div>
 
