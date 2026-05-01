@@ -49,6 +49,8 @@ const groups: BuildingGroupSummary[] = [
         leaseTypeLabel: "Habitation",
         isThirdPartyManaged: false,
         indexationStatus: "none",
+        indexationLabel: "Non indexé",
+        indexationDetail: null,
       },
     ],
   },

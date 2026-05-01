@@ -14,10 +14,12 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  Clock3,
   LayoutGrid,
   List,
   MapPin,
   Minus,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -39,7 +41,9 @@ export type LeaseSummary = {
   statusVariant: "success" | "secondary" | "warning" | "destructive" | "default";
   leaseTypeLabel: string;
   isThirdPartyManaged: boolean;
-  indexationStatus: "done" | "pending" | "none";
+  indexationStatus: "done" | "pending" | "soon" | "missing" | "none";
+  indexationLabel: string;
+  indexationDetail: string | null;
 };
 
 export type BuildingGroupSummary = {
@@ -91,6 +95,51 @@ function progressPercent(startDate: string, endDate: string): number {
 function daysUntil(dateStr: string): number {
   return Math.ceil(
     (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+}
+
+function IndexationIndicator({ lease }: { lease: LeaseSummary }) {
+  if (lease.indexationStatus === "none") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <Minus className="h-3.5 w-3.5 text-muted-foreground/40" />
+        {lease.indexationLabel}
+      </span>
+    );
+  }
+
+  const config = {
+    done: {
+      icon: CheckCircle2,
+      className: "text-emerald-600",
+    },
+    soon: {
+      icon: Clock3,
+      className: "text-amber-600",
+    },
+    pending: {
+      icon: AlertTriangle,
+      className: "text-red-600",
+    },
+    missing: {
+      icon: Settings2,
+      className: "text-amber-700",
+    },
+  }[lease.indexationStatus];
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex flex-col items-end gap-0.5 text-xs font-medium ${config.className}`}>
+      <span className="inline-flex items-center gap-1">
+        <Icon className="h-3.5 w-3.5" />
+        {lease.indexationLabel}
+      </span>
+      {lease.indexationDetail && (
+        <span className="text-[10px] font-normal text-muted-foreground">
+          {lease.indexationDetail}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -190,19 +239,7 @@ function LeaseCard({ lease }: { lease: LeaseSummary }) {
             <CalendarClock className="h-3 w-3" />
             Indexation
           </span>
-          {lease.indexationStatus === "none" ? (
-            <Minus className="h-3.5 w-3.5 text-muted-foreground/30" />
-          ) : lease.indexationStatus === "done" ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              À jour
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              À faire
-            </span>
-          )}
+          <IndexationIndicator lease={lease} />
         </div>
       </div>
     </Link>
@@ -481,18 +518,7 @@ function BauxTableGroup({
                     </Badge>
                   </td>
                   <td className="py-3 px-5 text-center hidden lg:table-cell">
-                    {lease.indexationStatus === "none" ? (
-                      <Minus className="h-3.5 w-3.5 text-muted-foreground/30 mx-auto" />
-                    ) : lease.indexationStatus === "done" ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        À jour
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
-                        <AlertTriangle className="h-3.5 w-3.5" />À faire
-                      </span>
-                    )}
+                    <IndexationIndicator lease={lease} />
                   </td>
                 </tr>
               ))}

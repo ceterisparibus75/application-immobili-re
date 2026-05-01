@@ -134,20 +134,80 @@ function tenantName(t: {
 
 type Lease = Awaited<ReturnType<typeof getLeases>>[number];
 
-function getIndexationStatus(lease: Lease): { label: string; variant: "done" | "pending" | "none" } {
-  if (!lease.indexType) return { label: "—", variant: "none" };
+type IndexationStatus = {
+  label: string;
+  detail: string | null;
+  variant: "done" | "pending" | "soon" | "missing" | "none";
+};
 
+function getRevisionAnchorDate(lease: Lease): Date {
+  switch (lease.revisionDateBasis) {
+    case "DATE_ENTREE":
+      return lease.entryDate ?? lease.startDate;
+    case "PREMIER_JANVIER":
+      return new Date(lease.startDate.getFullYear() + 1, 0, 1);
+    case "DATE_PERSONNALISEE": {
+      const custom = new Date(
+        lease.startDate.getFullYear(),
+        (lease.revisionCustomMonth ?? 1) - 1,
+        lease.revisionCustomDay ?? 1,
+      );
+      if (custom <= lease.startDate) custom.setFullYear(custom.getFullYear() + 1);
+      return custom;
+    }
+    case "DATE_SIGNATURE":
+    default:
+      return lease.startDate;
+  }
+}
+
+function getNextRevisionDate(lease: Lease): Date {
+  const frequencyMonths = lease.revisionFrequency ?? 12;
   const lastRevision = lease.rentRevisions?.[0];
   if (lastRevision) {
-    const revisionDate = new Date(lastRevision.effectiveDate);
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    if (revisionDate >= oneYearAgo) {
-      return { label: "À jour", variant: "done" };
-    }
+    const nextDate = new Date(lastRevision.effectiveDate);
+    nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
+    return nextDate;
   }
 
-  return { label: "À faire", variant: "pending" };
+  const anchor = getRevisionAnchorDate(lease);
+  if (lease.revisionDateBasis === "PREMIER_JANVIER" || lease.revisionDateBasis === "DATE_PERSONNALISEE") {
+    return anchor;
+  }
+
+  const nextDate = new Date(anchor);
+  nextDate.setMonth(nextDate.getMonth() + frequencyMonths);
+  return nextDate;
+}
+
+function formatShortDate(date: Date): string {
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function getIndexationStatus(lease: Lease): IndexationStatus {
+  if (!lease.indexType) return { label: "Non indexé", detail: null, variant: "none" };
+  if (!lease.baseIndexValue) {
+    return { label: "À configurer", detail: "Indice de base manquant", variant: "missing" };
+  }
+
+  const nextRevisionDate = getNextRevisionDate(lease);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const normalizedNext = new Date(nextRevisionDate);
+  normalizedNext.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((normalizedNext.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const detail = formatShortDate(nextRevisionDate);
+
+  if (diffDays < 0) {
+    return { label: "À faire", detail: `Échue le ${detail}`, variant: "pending" };
+  }
+  if (diffDays === 0) {
+    return { label: "À faire", detail: "Aujourd'hui", variant: "pending" };
+  }
+  if (diffDays <= 30) {
+    return { label: "À prévoir", detail, variant: "soon" };
+  }
+  return { label: "À jour", detail: `Prochaine ${detail}`, variant: "done" };
 }
 
 interface BuildingGroup {
@@ -215,6 +275,8 @@ function toLeaseSummary(lease: Lease): LeaseSummary {
     leaseTypeLabel: TYPE_LABELS[lease.leaseType],
     isThirdPartyManaged: lease.isThirdPartyManaged,
     indexationStatus: idx.variant,
+    indexationLabel: idx.label,
+    indexationDetail: idx.detail,
   };
 }
 
