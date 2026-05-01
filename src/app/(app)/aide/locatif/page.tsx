@@ -128,7 +128,7 @@ export default function LocatifPage() {
           Le tableau affiche pour chaque locataire : nom (avec avatar), type d'entité, loyer total cumulé sur tous ses baux, localisation (immeuble + lots), statut d'assurance et indicateur de risque.
         </p>
         <p>
-          La fiche locataire propose désormais deux onglets distincts : <strong>Facturation</strong> pour les factures MyGestia du locataire et <strong>Compte locataire</strong> pour le solde, les paiements, les avoirs et les mouvements historiques importés.
+          La fiche locataire propose désormais deux onglets distincts : <strong>Facturation</strong> pour les factures MyGestia validées du locataire et <strong>Compte locataire</strong> pour le solde, les paiements, les avoirs et les mouvements historiques importés.
         </p>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Indicateurs de risque :</p>

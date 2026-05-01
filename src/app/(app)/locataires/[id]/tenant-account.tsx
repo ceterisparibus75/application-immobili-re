@@ -136,6 +136,16 @@ const STATUS_VARIANTS: Record<string, "default" | "success" | "warning" | "destr
   IRRECOUVRABLE: "destructive",
 };
 
+const VALIDATED_INVOICE_STATUSES = new Set([
+  "VALIDEE",
+  "ENVOYEE",
+  "RELANCEE",
+  "PAYE",
+  "PARTIELLEMENT_PAYE",
+  "EN_RETARD",
+  "IRRECOUVRABLE",
+]);
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-FR");
 }
@@ -319,6 +329,7 @@ export function TenantAccount({
   tenantName,
 }: TenantAccountProps) {
   const movements = buildMovements(invoices, adjustments);
+  const validatedInvoices = invoices.filter((invoice) => VALIDATED_INVOICE_STATUSES.has(invoice.status));
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -497,10 +508,10 @@ export function TenantAccount({
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Receipt className="h-4 w-4 text-muted-foreground" />
-                Facturation ({invoices.length})
+                Facturation ({validatedInvoices.length})
               </h3>
               <p className="text-xs text-muted-foreground">
-                Factures MyGestia rattachées à ce locataire.
+                Factures MyGestia validées rattachées à ce locataire.
               </p>
             </div>
             <a href={`/facturation/nouvelle?tenantId=${tenantId}`}>
@@ -511,10 +522,10 @@ export function TenantAccount({
             </a>
           </div>
 
-          {invoices.length === 0 ? (
+          {validatedInvoices.length === 0 ? (
             <div className="rounded-md border border-dashed py-8 text-center">
               <Receipt className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Aucune facture pour ce locataire</p>
+              <p className="text-sm text-muted-foreground">Aucune facture validée pour ce locataire</p>
             </div>
           ) : (
             <div className="rounded-md border overflow-auto max-h-[360px]">
@@ -530,7 +541,7 @@ export function TenantAccount({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice) => {
+                  {validatedInvoices.map((invoice) => {
                     const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
                     const grossAmount =
                       invoice.invoiceType === "AVOIR"
