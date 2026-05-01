@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronSecret } from "@/lib/cron-auth";
 
@@ -42,6 +42,7 @@ async function generateDraftInvoices() {
       societyId: true,
       tenantId: true,
       startDate: true,
+      entryDate: true,
       endDate: true,
       paymentFrequency: true,
       billingTerm: true,
@@ -99,8 +100,40 @@ async function generateDraftInvoices() {
       }
 
       // Calculer le loyer
-      const rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps);
+      const cronEffectiveStart = lease.entryDate ?? lease.startDate;
+      let rentHT = computeRent(lease.startDate, lease.currentRentHT, lease.progressiveRent, lease.rentFreeMonths ?? 0, lease.rentSteps, lease.entryDate);
       const vatRate = lease.vatApplicable ? (lease.vatRate ?? 20) : 0;
+
+      // Prorata temporis sur la premiere periode (depuis la date de prise en jouissance)
+      let cronProrataLabel = "";
+      const cronLeaseStartDay = new Date(cronEffectiveStart).getDate();
+      const cronIsFirstPeriod =
+        periodStart.getFullYear() === new Date(cronEffectiveStart).getFullYear() &&
+        periodStart.getMonth() === new Date(cronEffectiveStart).getMonth();
+      if (cronIsFirstPeriod && rentHT > 0 && cronLeaseStartDay > 1) {
+        const y = new Date(cronEffectiveStart).getFullYear();
+        const m = new Date(cronEffectiveStart).getMonth();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        const daysRemaining = daysInMonth - cronLeaseStartDay + 1;
+        rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
+        cronProrataLabel = " (prorata " + daysRemaining + "/" + daysInMonth + " j.)";
+      }
+      const cronRfm = lease.rentFreeMonths ?? 0;
+      const cronRfmFrac = cronRfm - Math.floor(cronRfm);
+      if (cronRfmFrac > 0 && rentHT > 0) {
+        const cronLeaseStartNorm = new Date(cronEffectiveStart);
+        cronLeaseStartNorm.setDate(1);
+        const cronMonthsSince =
+          (periodStart.getFullYear() - cronLeaseStartNorm.getFullYear()) * 12 +
+          (periodStart.getMonth() - cronLeaseStartNorm.getMonth());
+        if (cronMonthsSince === Math.floor(cronRfm)) {
+          const daysInMonth = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0).getDate();
+          const freeDays = Math.round(cronRfmFrac * daysInMonth);
+          const paidDays = daysInMonth - freeDays;
+          rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
+          cronProrataLabel = cronProrataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+        }
+      }
 
       const lotLabel = lease.lot
         ? `${lease.lot.building.name} - Lot ${lease.lot.number}`
@@ -157,7 +190,7 @@ async function generateDraftInvoices() {
       if (invoiceLines.length === 0) {
         const rentVAT = rentHT * (vatRate / 100);
         invoiceLines.push({
-          label: `Loyer ${lotLabel} - ${periodLabel}`,
+          label: `Loyer ${lotLabel} - ${periodLabel}${cronProrataLabel}`,
           quantity: 1,
           unitPrice: rentHT,
           vatRate,
@@ -268,9 +301,11 @@ function computeRent(
   currentRentHT: number,
   progressiveRent: unknown,
   rentFreeMonths: number,
-  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[]
+  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[],
+  entryDate?: Date | null
 ): number {
-  const start = new Date(startDate);
+  const effectiveStart = entryDate ?? startDate;
+  const start = new Date(effectiveStart);
   const now = new Date();
   const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
 

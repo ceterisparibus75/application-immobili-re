@@ -1,4 +1,4 @@
-// Helpers privés et types partagés — pas de "use server" (importé par les sous-modules)
+﻿// Helpers privés et types partagés — pas de "use server" (importé par les sous-modules)
 
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
@@ -197,9 +197,12 @@ export function computeRentForPeriod(
   currentRentHT: number,
   progressiveRent: unknown,
   rentFreeMonths: number,
-  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[]
+  rentSteps?: { startDate: Date; endDate: Date | null; rentHT: number }[],
+  entryDate?: Date | null
 ): number {
-  const start = new Date(startDate);
+  // Utiliser entryDate (prise en jouissance) si disponible, sinon startDate (signature)
+  const effectiveStart = entryDate ?? startDate;
+  const start = new Date(effectiveStart);
   start.setDate(1);
   const now = new Date();
   now.setDate(1);
@@ -339,6 +342,7 @@ export async function computeInvoicePreview(
       id: true,
       tenantId: true,
       startDate: true,
+      entryDate: true,
       paymentFrequency: true,
       billingTerm: true,
       currentRentHT: true,
@@ -451,22 +455,25 @@ export async function computeInvoicePreview(
 
   const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
+  const effectiveStart = lease.entryDate ?? lease.startDate;
+
   let rentHT = computeRentForPeriod(
     lease.startDate,
     lease.currentRentHT,
     lease.progressiveRent,
     lease.rentFreeMonths ?? 0,
-    lease.rentSteps
+    lease.rentSteps,
+    lease.entryDate
   );
 
   let prorataLabel = "";
-  const leaseStartDay = new Date(lease.startDate).getDate();
+  const leaseStartDay = new Date(effectiveStart).getDate();
   const isFirstPeriod =
-    periodStart.getFullYear() === new Date(lease.startDate).getFullYear() &&
-    periodStart.getMonth() === new Date(lease.startDate).getMonth();
+    periodStart.getFullYear() === new Date(effectiveStart).getFullYear() &&
+    periodStart.getMonth() === new Date(effectiveStart).getMonth();
   if (isFirstPeriod && rentHT > 0 && leaseStartDay > 1) {
-    const y = new Date(lease.startDate).getFullYear();
-    const m = new Date(lease.startDate).getMonth();
+    const y = new Date(effectiveStart).getFullYear();
+    const m = new Date(effectiveStart).getMonth();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const daysRemaining = daysInMonth - leaseStartDay + 1;
     rentHT = Math.round((rentHT * daysRemaining / daysInMonth) * 100) / 100;
@@ -476,7 +483,7 @@ export async function computeInvoicePreview(
   const rfm = lease.rentFreeMonths ?? 0;
   const rfmFrac = rfm - Math.floor(rfm);
   if (rfmFrac > 0 && rentHT > 0) {
-    const leaseStartNorm = new Date(lease.startDate);
+    const leaseStartNorm = new Date(effectiveStart);
     leaseStartNorm.setDate(1);
     const monthsSinceLease =
       (periodStart.getFullYear() - leaseStartNorm.getFullYear()) * 12 +
