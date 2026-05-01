@@ -52,6 +52,7 @@ describe("generateCompteRenduGestion", () => {
     helperMocks.initPdf.mockResolvedValue(pdfCtx);
     pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
     pdfCtx.np.mockReturnValue({ id: "page-1" });
+    prismaMock.payment.findMany.mockResolvedValue([] as never);
   });
 
   it("rejette si la société est introuvable", async () => {
@@ -112,6 +113,46 @@ describe("generateCompteRenduGestion", () => {
         payments: [{ amount: 300, paidAt: new Date("2026-03-01T00:00:00.000Z") }],
       },
     ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        amount: 1200,
+        invoice: {
+          tenantId: "tenant-1",
+          tenant: {
+            entityType: "PERSONNE_PHYSIQUE",
+            firstName: "Alice",
+            lastName: "Durand",
+            companyName: null,
+          },
+          buildingId: null,
+          lease: {
+            lot: {
+              buildingId: "building-1",
+              number: "A1",
+            },
+          },
+        },
+      },
+      {
+        amount: 300,
+        invoice: {
+          tenantId: "tenant-2",
+          tenant: {
+            entityType: "PERSONNE_MORALE",
+            companyName: "ACME SAS",
+            firstName: null,
+            lastName: null,
+          },
+          buildingId: null,
+          lease: {
+            lot: {
+              buildingId: "building-1",
+              number: "A2",
+            },
+          },
+        },
+      },
+    ] as never);
     prismaMock.charge.findMany.mockResolvedValue([
       {
         buildingId: "building-1",
@@ -165,6 +206,110 @@ describe("generateCompteRenduGestion", () => {
       pdfCtx.reg,
       expect.any(Number),
       ["ACME SAS", "A2", "800.00 EUR", "300.00 EUR", "500.00 EUR", "Impayé"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 1 })
+    );
+  });
+
+  it("calcule l'encaissé sur les paiements de l'exercice, même si la facture vient d'un exercice précédent", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({
+      id: "society-1",
+      name: "Ma Société",
+    } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        buildingId: null,
+        totalTTC: 1000,
+        status: "EN_ATTENTE",
+        tenant: {
+          entityType: "PERSONNE_MORALE",
+          companyName: "ACME SAS",
+          firstName: null,
+          lastName: null,
+        },
+        lease: {
+          lot: {
+            buildingId: "building-1",
+            number: "A2",
+          },
+        },
+        payments: [],
+      },
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        amount: 600,
+        invoice: {
+          tenantId: "tenant-1",
+          tenant: {
+            entityType: "PERSONNE_MORALE",
+            companyName: "ACME SAS",
+            firstName: null,
+            lastName: null,
+          },
+          buildingId: null,
+          lease: {
+            lot: {
+              buildingId: "building-1",
+              number: "A2",
+            },
+          },
+        },
+      },
+      {
+        amount: 250,
+        invoice: {
+          tenantId: "tenant-3",
+          tenant: {
+            entityType: "PERSONNE_PHYSIQUE",
+            firstName: "Claire",
+            lastName: "Martin",
+            companyName: null,
+          },
+          buildingId: "building-1",
+          lease: null,
+        },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [{ id: "lot-1" }],
+      },
+    ] as never);
+
+    await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+    });
+
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Loyers encaissés (payés)",
+      "850.00 EUR",
+      expect.anything()
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      ["TOTAL", "", "1000.00 EUR", "850.00 EUR", "0.00 EUR", "1000.00 EUR"],
+      expect.any(Array),
+      expect.any(Array)
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Claire Martin", "-", "0.00 EUR", "250.00 EUR", "0.00 EUR", "Soldé"],
       expect.any(Array),
       expect.any(Array),
       expect.objectContaining({ rowIndex: 1 })

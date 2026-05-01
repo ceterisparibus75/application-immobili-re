@@ -13,7 +13,6 @@ import {
 import { CORAL, GREEN } from "../constants";
 import {
   getOutstandingAmount,
-  getPaidAmountInPeriod,
   REPORT_ACTIVE_INVOICE_STATUSES,
   REPORT_REVENUE_INVOICE_TYPES,
 } from "../invoice-metrics";
@@ -24,7 +23,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   const from = new Date(year, 0, 1);
   const to = new Date(year, 11, 31, 23, 59, 59);
 
-  const [society, invoices, charges, buildings] = await Promise.all([
+  const [society, invoices, payments, charges, buildings] = await Promise.all([
     prisma.society.findUnique({ where: { id: societyId } }),
     prisma.invoice.findMany({
       where: {
@@ -39,6 +38,27 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
         payments: { select: { amount: true, paidAt: true } },
       },
     }),
+    prisma.payment.findMany({
+      where: {
+        paidAt: { gte: from, lte: to },
+        invoice: {
+          societyId,
+          invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+          status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
+        },
+      },
+      select: {
+        amount: true,
+        invoice: {
+          select: {
+            buildingId: true,
+            tenantId: true,
+            tenant: true,
+            lease: { select: { lot: { select: { buildingId: true, number: true } } } },
+          },
+        },
+      },
+    }),
     prisma.charge.findMany({
       where: { societyId, date: { gte: from, lte: to } },
     }),
@@ -50,7 +70,12 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
   if (!society) throw new Error("Société introuvable");
 
-  const paid = invoices.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
+  const getInvoiceBuildingId = (invoice: { buildingId?: string | null; lease?: { lot?: { buildingId: string | null } | null } | null }) =>
+    invoice.lease?.lot?.buildingId ?? invoice.buildingId ?? null;
+  const getPaymentBuildingId = (payment: typeof payments[number]) =>
+    payment.invoice.lease?.lot?.buildingId ?? payment.invoice.buildingId ?? null;
+
+  const paid = payments.reduce((s, p) => s + (p.amount ?? 0), 0);
   const pend = invoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
   const totalInv = invoices.reduce((s, i) => s + i.totalTTC, 0);
   const tchg = charges.reduce((s, c) => s + c.amount, 0);
@@ -95,10 +120,11 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       y = contentStartY();
       y = drawTableHeader(p, ctx.bold, y, ["Immeuble", "Lots", "Facturé", "Encaissé", "Charges", "En attente"], BW, BA);
     }
-    const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
+    const bi = invoices.filter((i) => getInvoiceBuildingId(i) === b.id);
+    const bp = payments.filter((payment) => getPaymentBuildingId(payment) === b.id);
     const bc = charges.filter((c) => c.buildingId === b.id);
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
-    const bP = bi.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
+    const bP = bp.reduce((s, payment) => s + (payment.amount ?? 0), 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
     y = drawTableRow(p, ctx.reg, y, [
       b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bF - bP),
@@ -110,8 +136,9 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
   // Page 2+: Per-building per-tenant detail
   for (const b of buildings) {
-    const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
-    if (bi.length === 0) continue;
+    const bi = invoices.filter((i) => getInvoiceBuildingId(i) === b.id);
+    const bp = payments.filter((payment) => getPaymentBuildingId(payment) === b.id);
+    if (bi.length === 0 && bp.length === 0) continue;
 
     if (y < 160) { p = ctx.np(); y = contentStartY(); }
     y = drawSectionHeader(p, ctx.serifBold, y, b.name);
@@ -120,24 +147,33 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     const DA: ColAlign[] = ["left", "left", "right", "right", "right", "right"];
     y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Réglé", "Solde", "Statut"], DW, DA);
 
-    // Group by tenant
-    const byTenant = new Map<string, typeof bi>();
+    // Group by tenant/building so yearly invoicing and cash receipts can differ cleanly.
+    const byTenant = new Map<string, { invoices: typeof bi; payments: typeof bp }>();
     for (const inv of bi) {
       const tid = inv.tenantId;
-      if (!byTenant.has(tid)) byTenant.set(tid, []);
-      byTenant.get(tid)!.push(inv);
+      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [] });
+      byTenant.get(tid)!.invoices.push(inv);
+    }
+    for (const payment of bp) {
+      const tid = payment.invoice.tenantId;
+      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [] });
+      byTenant.get(tid)!.payments.push(payment);
     }
 
     let dri = 0;
     let bTotal = 0, bPaid = 0;
-    for (const [, tInvoices] of byTenant) {
-      const tenant = tInvoices[0].tenant;
+    for (const [, tenantActivity] of byTenant) {
+      const tInvoices = tenantActivity.invoices;
+      const tPayments = tenantActivity.payments;
+      const firstInvoice = tInvoices[0];
+      const firstPayment = tPayments[0];
+      const tenant = firstInvoice?.tenant ?? firstPayment?.invoice.tenant;
       const tn = tenant.entityType === "PERSONNE_MORALE"
         ? (tenant.companyName ?? "-")
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
-      const lotNum = tInvoices[0].lease?.lot?.number ?? "-";
+      const lotNum = firstInvoice?.lease?.lot?.number ?? firstPayment?.invoice.lease?.lot?.number ?? "-";
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
-      const regle = tInvoices.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
+      const regle = tPayments.reduce((s, payment) => s + (payment.amount ?? 0), 0);
       const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
       bTotal += quittance;
       bPaid += regle;
