@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   BookOpen, Plus, Scale, Archive, FileBarChart, PenLine,
-  List, TrendingUp, AlertTriangle, CheckCircle2, Clock, Calculator,
+  List, TrendingUp, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -67,6 +67,7 @@ export default async function ComptabilitePage() {
     { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-[var(--color-status-positive)]" },
     { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-[var(--color-status-caution)]" },
     { href: "/comptabilite/tva", icon: Calculator, label: "Contrôle TVA", color: "text-cyan-600" },
+    { href: "/comptabilite/revision", icon: ClipboardCheck, label: "Révision", color: "text-emerald-600" },
     { href: "/comptabilite/exports", icon: FileBarChart, label: "Export FEC", color: "text-slate-600" },
     { href: "/comptabilite/cloture", icon: Archive, label: "Exercices", color: "text-[var(--color-status-negative)]" },
   ];

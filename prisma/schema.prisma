@@ -311,6 +311,13 @@ enum EntryStatus {
   CLOTUREE
 }
 
+enum AccountReviewStatus {
+  TODO
+  IN_PROGRESS
+  REVIEWED
+  ISSUE
+}
+
 enum AccountType {
   ACTIF
   PASSIF
@@ -539,6 +546,7 @@ model Society {
   bankConnections          BankConnection[]
   accountingAccounts       AccountingAccount[]
   journalEntries           JournalEntry[]
+  accountReviews           AccountReview[]
   reminderScenarios        ReminderScenario[]
   contacts                 Contact[]
   messages                 Message[]
@@ -2023,6 +2031,7 @@ model AccountingAccount {
   lines            JournalEntryLine[]
   budgetLines      BudgetLine[]
   supplierInvoices SupplierInvoice[]  @relation("SupplierInvoiceAccount")
+  accountReviews   AccountReview[]
 
   @@unique([societyId, code])
   @@index([societyId])
@@ -2093,9 +2102,35 @@ model FiscalYear {
   society  Society        @relation(fields: [societyId], references: [id], onDelete: Cascade)
   closedBy User?          @relation("FiscalYearCloser", fields: [closedById], references: [id])
   entries  JournalEntry[]
+  accountReviews AccountReview[]
 
   @@unique([societyId, year])
   @@index([societyId])
+}
+
+/// Revue comptable d'un compte sur un exercice
+model AccountReview {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  fiscalYearId String
+  accountId    String
+
+  status       AccountReviewStatus @default(TODO)
+  note         String?              @db.Text
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  society    Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  fiscalYear FiscalYear        @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  account    AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, fiscalYearId, accountId])
+  @@index([societyId, fiscalYearId])
+  @@index([accountId])
+  @@index([status])
 }
 
 // ============================================================
