@@ -126,8 +126,9 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
     const bP = bp.reduce((s, payment) => s + (payment.amount ?? 0), 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
+    const bOutstanding = bi.reduce((s, i) => s + getOutstandingAmount(i), 0);
     y = drawTableRow(p, ctx.reg, y, [
-      b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bF - bP),
+      b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bOutstanding),
     ], BW, BA, { rowIndex: ri++ });
   }
   y = drawTotalsRow(p, ctx.bold, y, [
@@ -161,7 +162,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     }
 
     let dri = 0;
-    let bTotal = 0, bPaid = 0;
+    let bTotal = 0, bPaid = 0, bOutstanding = 0;
     for (const [, tenantActivity] of byTenant) {
       const tInvoices = tenantActivity.invoices;
       const tPayments = tenantActivity.payments;
@@ -177,6 +178,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
       bTotal += quittance;
       bPaid += regle;
+      bOutstanding += solde;
 
       if (y < minY()) {
         p = ctx.np();
@@ -193,7 +195,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       });
     }
     y = drawTotalsRow(p, ctx.bold, y, [
-      "SOUS-TOTAL", "", pdfCur(bTotal), pdfCur(bPaid), pdfCur(bTotal - bPaid), "",
+      "SOUS-TOTAL", "", pdfCur(bTotal), pdfCur(bPaid), pdfCur(bOutstanding), "",
     ], DW, DA);
     y -= 10;
   }

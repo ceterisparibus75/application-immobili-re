@@ -309,10 +309,27 @@ describe("generateCompteRenduGestion", () => {
       { id: "page-1" },
       pdfCtx.reg,
       expect.any(Number),
+      ["Immeuble A", "1", "1000.00 EUR", "850.00 EUR", "0.00 EUR", "1000.00 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
       ["Claire Martin", "-", "0.00 EUR", "250.00 EUR", "0.00 EUR", "Soldé"],
       expect.any(Array),
       expect.any(Array),
       expect.objectContaining({ rowIndex: 1 })
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      ["SOUS-TOTAL", "", "1000.00 EUR", "850.00 EUR", "1000.00 EUR", ""],
+      expect.any(Array),
+      expect.any(Array)
     );
   });
 
