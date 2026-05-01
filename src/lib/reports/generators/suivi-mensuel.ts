@@ -49,6 +49,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
         paidAt: true,
         invoice: {
           select: {
+            buildingId: true,
             lease: { select: { lot: { select: { buildingId: true } } } },
           },
         },
@@ -72,6 +73,10 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   const WIDTHS = [labelW, ...Array(12).fill(colW), colW];
   const ALIGNS: ColAlign[] = ["left", ...Array(13).fill("right") as ColAlign[]];
   const HDR = ["", ...MONTHS, "Année"];
+  const getInvoiceBuildingId = (invoice: { buildingId?: string | null; lease?: { lot?: { buildingId: string | null } | null } | null }) =>
+    invoice.lease?.lot?.buildingId ?? invoice.buildingId ?? null;
+  const getPaymentBuildingId = (payment: typeof payments[number]) =>
+    payment.invoice.lease?.lot?.buildingId ?? payment.invoice.buildingId ?? null;
 
   for (const building of buildings) {
     const p = ctx.np(true);
@@ -80,8 +85,8 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     y = drawSectionHeader(p, ctx.serifBold, y, building.name, 841.89);
 
     // Compute monthly data
-    const bInvoices = invoices.filter((i) => i.lease?.lot?.buildingId === building.id);
-    const bPayments = payments.filter((p) => p.invoice.lease?.lot?.buildingId === building.id);
+    const bInvoices = invoices.filter((i) => getInvoiceBuildingId(i) === building.id);
+    const bPayments = payments.filter((p) => getPaymentBuildingId(p) === building.id);
     const bCharges = charges.filter((c) => (c as any).buildingId === building.id);
 
     const monthlyFact: number[] = Array(12).fill(0);

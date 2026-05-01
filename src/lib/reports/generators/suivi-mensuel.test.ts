@@ -240,6 +240,88 @@ describe("generateSuiviMensuel", () => {
     );
   });
 
+  it("intègre les factures et paiements ponctuels rattachés directement à un immeuble", async () => {
+    prismaMock.building.findMany.mockResolvedValue([
+      { id: "building-1", name: "Immeuble A" },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        issueDate: new Date("2026-04-15T00:00:00.000Z"),
+        totalTTC: 700,
+        status: "VALIDEE",
+        buildingId: "building-1",
+        lease: null,
+      },
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        paidAt: new Date("2026-04-20T00:00:00.000Z"),
+        amount: 250,
+        invoice: { buildingId: "building-1", lease: null },
+      },
+    ] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+
+    await generateSuiviMensuel({
+      societyId: "society-1",
+      type: "SUIVI_MENSUEL",
+      year: 2026,
+    });
+
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      1,
+      { id: "page-landscape-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      [
+        "Loyers facturés",
+        "-",
+        "-",
+        "-",
+        "700.00 EUR",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "700.00 EUR",
+      ],
+      expect.any(Array),
+      expect.any(Array),
+      { rowIndex: 0 },
+      841.89
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenNthCalledWith(
+      2,
+      { id: "page-landscape-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      [
+        "Loyers encaissés",
+        "-",
+        "-",
+        "-",
+        "250.00 EUR",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "250.00 EUR",
+      ],
+      expect.any(Array),
+      expect.any(Array),
+      { rowIndex: 1 },
+      841.89
+    );
+  });
+
   it("utilise l'année courante si opts.year est absent (ligne 17)", async () => {
     prismaMock.building.findMany.mockResolvedValue([] as never);
     prismaMock.invoice.findMany.mockResolvedValue([] as never);
