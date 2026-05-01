@@ -82,14 +82,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const entryDate = new Date(parsed.data.entryDate);
+  const fiscalYear = await prisma.fiscalYear.findFirst({
+    where: {
+      societyId: context.societyId,
+      startDate: { lte: entryDate },
+      endDate: { gte: entryDate },
+    },
+    select: { id: true, isClosed: true },
+  });
+  if (fiscalYear?.isClosed) {
+    return NextResponse.json(
+      { error: "Impossible de créer une écriture dans un exercice clôturé" },
+      { status: 400 }
+    );
+  }
+
   const entry = await prisma.journalEntry.create({
     data: {
       societyId: context.societyId,
       journalType: parsed.data.journalType,
-      entryDate: new Date(parsed.data.entryDate),
+      entryDate,
       label: parsed.data.label,
       piece: parsed.data.piece ?? null,
       reference: parsed.data.reference ?? null,
+      fiscalYearId: fiscalYear?.id,
       isValidated: false,
       lines: {
         create: parsed.data.lines.map((l) => ({

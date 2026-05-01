@@ -543,6 +543,8 @@ export async function createJournalEntry(
     const parsed = createJournalEntrySchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
 
+    const entryDate = new Date(parsed.data.entryDate);
+
     // Vérifier l'équilibre débit/crédit
     const totalDebit = parsed.data.lines.reduce((s, l) => s + l.debit, 0);
     const totalCredit = parsed.data.lines.reduce((s, l) => s + l.credit, 0);
@@ -550,15 +552,21 @@ export async function createJournalEntry(
       return { success: false, error: `L'écriture n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)` };
     }
 
-    // Vérifier que l'exercice fiscal n'est pas clôturé
-    if (parsed.data.fiscalYearId) {
-      const fy = await prisma.fiscalYear.findFirst({
-        where: { id: parsed.data.fiscalYearId, societyId },
-        select: { isClosed: true },
-      });
-      if (!fy) return { success: false, error: "Exercice fiscal introuvable" };
-      if (fy.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
-    }
+    const fiscalYear = parsed.data.fiscalYearId
+      ? await prisma.fiscalYear.findFirst({
+          where: { id: parsed.data.fiscalYearId, societyId },
+          select: { id: true, isClosed: true },
+        })
+      : await prisma.fiscalYear.findFirst({
+          where: {
+            societyId,
+            startDate: { lte: entryDate },
+            endDate: { gte: entryDate },
+          },
+          select: { id: true, isClosed: true },
+        });
+    if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
+    if (fiscalYear?.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
 
     // Vérifier que chaque compte appartient à la société
     const accountIds = [...new Set(parsed.data.lines.map((l) => l.accountId))];
@@ -574,10 +582,10 @@ export async function createJournalEntry(
       data: {
         societyId,
         journalType: parsed.data.journalType as never,
-        entryDate: new Date(parsed.data.entryDate),
+        entryDate,
         piece: parsed.data.piece,
         label: parsed.data.label,
-        fiscalYearId: parsed.data.fiscalYearId,
+        fiscalYearId: fiscalYear?.id,
         status: "BROUILLON",
         lines: {
           create: parsed.data.lines.map((l) => ({

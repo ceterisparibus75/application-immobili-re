@@ -1143,6 +1143,19 @@ describe("createJournalEntry — guard exercice clôturé", () => {
     expect(result.error).toMatch(/Exercice fiscal introuvable/);
   });
 
+  it("rejette si la date tombe dans un exercice clôturé même sans fiscalYearId explicite", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: true,
+    } as never);
+
+    const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/clôturé/);
+  });
+
   it("autorise la création si l'exercice est ouvert", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.fiscalYear.findFirst.mockResolvedValue({
@@ -1161,6 +1174,28 @@ describe("createJournalEntry — guard exercice clôturé", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("rattache automatiquement l'écriture à l'exercice ouvert couvrant la date", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: false,
+    } as never);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1 },
+      { id: ACCOUNT_ID_2 },
+    ] as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fiscalYearId: FISCAL_YEAR_ID }),
+      })
+    );
   });
 });
 
