@@ -34,6 +34,10 @@ import {
  * Solde = ajustements manuels + factures TTC (hors annulées) - paiements - avoirs.
  * Un solde positif = le locataire doit de l'argent.
  */
+function getCreditNoteAmount(totalTTC: number): number {
+  return Math.abs(totalTTC);
+}
+
 export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
   await requireSocietyActionContext(societyId);
 
@@ -62,7 +66,7 @@ export async function computeTenantBalance(societyId: string, tenantId: string):
     const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
       // Un avoir réduit le solde
-      balance -= inv.totalTTC;
+      balance -= getCreditNoteAmount(inv.totalTTC);
     } else {
       balance += inv.totalTTC - paid;
     }
@@ -115,7 +119,7 @@ async function computeTenantBalances(societyId: string, tenantIds: string[]): Pr
     const current = balances.get(inv.tenantId) ?? 0;
     const paid = paidByInvoice.get(inv.id) ?? 0;
     if (inv.invoiceType === "AVOIR") {
-      balances.set(inv.tenantId, current - inv.totalTTC);
+      balances.set(inv.tenantId, current - getCreditNoteAmount(inv.totalTTC));
     } else {
       balances.set(inv.tenantId, current + (inv.totalTTC - paid));
     }
@@ -636,7 +640,7 @@ export async function getTenantAccountStatement(
     if (inv.invoiceType === "QUITTANCE") continue;
     const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
-      balance -= inv.totalTTC;
+      balance -= getCreditNoteAmount(inv.totalTTC);
     } else {
       balance += inv.totalTTC - paid;
     }

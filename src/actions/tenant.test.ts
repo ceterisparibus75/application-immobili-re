@@ -125,6 +125,15 @@ describe("computeTenantBalance", () => {
     expect(balance).toBe(600);
   });
 
+  it("réduit aussi le solde quand l'avoir est stocké en montant négatif", async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
+      { totalTTC: -800, invoiceType: "AVOIR", payments: [] },
+    ] as never);
+    const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
+    expect(balance).toBe(0);
+  });
+
   it("retourne 0 si toutes les factures sont entièrement payées", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
       { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ amount: 800 }] },
@@ -447,6 +456,42 @@ describe("getTenantAccountStatement", () => {
     const result = await getTenantAccountStatement(SOCIETY_ID, TENANT_ID);
     expect(result).not.toBeNull();
     expect(result?.balance).toBe(500); // 800 - 200 (paiement) - 100 (avoir)
+  });
+
+  it("calcule le solde correctement avec des avoirs stockés en négatif", async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "inv-1",
+        invoiceNumber: "FAC-2026-0001",
+        invoiceType: "APPEL_LOYER",
+        status: "VALIDEE",
+        issueDate: new Date(),
+        dueDate: new Date(),
+        periodStart: null,
+        periodEnd: null,
+        totalHT: 800,
+        totalVAT: 0,
+        totalTTC: 800,
+        payments: [],
+      },
+      {
+        id: "inv-2",
+        invoiceNumber: "AV-2026-0001",
+        invoiceType: "AVOIR",
+        status: "VALIDEE",
+        issueDate: new Date(),
+        dueDate: new Date(),
+        periodStart: null,
+        periodEnd: null,
+        totalHT: -800,
+        totalVAT: 0,
+        totalTTC: -800,
+        payments: [],
+      },
+    ] as never);
+
+    const result = await getTenantAccountStatement(SOCIETY_ID, TENANT_ID);
+    expect(result?.balance).toBe(0);
   });
 
   it("ignore les factures annulées et les brouillons", async () => {
@@ -777,6 +822,21 @@ describe("getTenantsPaginated — computeTenantBalances avec AVOIR", () => {
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
     expect(result.data[0].balance).toBe(500); // 800 - 100 payment - 200 avoir = 500
+  });
+
+  it("calcule le solde en batch avec AVOIR négatif", async () => {
+    prismaMock.tenant.findMany.mockResolvedValue([
+      { id: TENANT_ID, companyName: null, firstName: "Jean", lastName: "Dupont" },
+    ] as never);
+    prismaMock.tenant.count.mockResolvedValue(1 as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER" },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: -800, invoiceType: "AVOIR" },
+    ] as never);
+    prismaMock.payment.groupBy = vi.fn().mockResolvedValue([]) as never;
+
+    const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
+    expect(result.data[0].balance).toBe(0);
   });
 });
 

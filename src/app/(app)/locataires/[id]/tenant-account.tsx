@@ -143,6 +143,10 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getCreditNoteAmount(amount: number): number {
+  return Math.abs(amount);
+}
+
 function formatPeriod(start: string | null, end: string | null): string {
   if (!start) return "";
   const s = new Date(start);
@@ -260,7 +264,7 @@ function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustme
         date: inv.issueDate,
         label,
         type: "credit",
-        amount: inv.totalTTC,
+        amount: getCreditNoteAmount(inv.totalTTC),
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber ?? undefined,
         status: inv.status,
@@ -323,7 +327,7 @@ export function TenantAccount({
     .reduce((s, i) => s + i.totalTTC, 0);
   const totalAvoir = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType === "AVOIR")
-    .reduce((s, i) => s + i.totalTTC, 0);
+    .reduce((s, i) => s + getCreditNoteAmount(i.totalTTC), 0);
   const totalPaiements = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
     .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0);
