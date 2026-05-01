@@ -17,7 +17,7 @@ const NEXT_ACTIONS = [
     icon: Landmark,
   },
   {
-    href: "/comptabilite/cashflow",
+    href: "/cashflow",
     label: "Voir le cash-flow",
     description: "Mesurer l'impact des futures échéances sur la trésorerie.",
     icon: BarChart3,
@@ -69,3 +69,4 @@ export function EmpruntsEmptyState() {
     </Card>
   );
 }
+

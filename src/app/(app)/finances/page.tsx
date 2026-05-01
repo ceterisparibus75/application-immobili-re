@@ -69,7 +69,7 @@ export default async function FinancesPage() {
     {
       title: "Piloter la trésorerie",
       description: "Suivez cash-flow, emprunts, impayés et rapports pour décider plus vite.",
-      href: "/comptabilite/cashflow",
+      href: "/cashflow",
       action: "Voir le cash-flow",
       icon: BarChart3,
     },
@@ -192,3 +192,4 @@ export default async function FinancesPage() {
     </div>
   );
 }
+

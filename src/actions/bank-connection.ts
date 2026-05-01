@@ -139,7 +139,7 @@ export async function syncOpenBankingAccounts(
       synced++;
     }
     revalidatePath("/banque");
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
     return { success: true, data: { synced } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
@@ -302,7 +302,7 @@ export async function syncAllAccounts(
     }
 
     revalidatePath("/banque");
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
     return {
       success: true,
       data: { totalImported, accountsSynced, accountsFailed, details, dateWarning },
@@ -373,7 +373,7 @@ export async function syncAccountTransactions(
 
     revalidatePath("/banque");
     revalidatePath("/banque/" + bankAccountId);
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
@@ -588,7 +588,7 @@ export async function syncQontoAccountTransactions(
 
     revalidatePath("/banque");
     revalidatePath("/banque/" + bankAccountId);
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
     return { success: true, data: { imported } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
@@ -706,3 +706,4 @@ export async function deleteBankConnection(societyId: string, connectionId: stri
     return { success: false, error: "Erreur lors de la suppression" };
   }
 }
+

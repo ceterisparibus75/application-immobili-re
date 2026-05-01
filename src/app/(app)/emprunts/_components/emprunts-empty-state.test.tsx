@@ -19,7 +19,8 @@ describe("EmpruntsEmptyState", () => {
     expect(screen.getByRole("link", { name: /Connecter la banque/i })).toHaveAttribute("href", "/banque");
     expect(screen.getByRole("link", { name: /Voir le cash-flow/i })).toHaveAttribute(
       "href",
-      "/comptabilite/cashflow",
+      "/cashflow",
     );
   });
 });
+

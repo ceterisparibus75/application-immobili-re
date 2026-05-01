@@ -242,7 +242,7 @@ export async function createBankTransaction(
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${parsed.data.bankAccountId}`);
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
 
     return { success: true, data: { id: transaction.id } };
   } catch (error) {
@@ -532,7 +532,7 @@ export async function importBankStatement(
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${bankAccountId}`);
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
 
     return { success: true, data: { imported, skipped, duplicates } };
   } catch (error) {
@@ -567,3 +567,4 @@ function parseFlexDate(input: string): Date | null {
 function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+

@@ -86,3 +86,4 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
     </div>
   );
 }
+

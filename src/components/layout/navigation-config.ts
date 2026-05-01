@@ -93,7 +93,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
       { name: "Factures fournisseurs", href: "/banque/factures-fournisseurs", icon: Package },
       { name: "Emprunts", href: "/emprunts", icon: Wallet },
       { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
-      { name: "Cash-flow", href: "/comptabilite/cashflow", icon: BarChart3 },
+      { name: "Cash-flow", href: "/cashflow", icon: BarChart3 },
       { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
       { name: "Rapports", href: "/rapports", icon: FileBarChart },
       { name: "Indices INSEE", href: "/indices", icon: BarChart },
@@ -194,3 +194,4 @@ export const MOBILE_NAV_GROUPS: NavGroup[] = [
   ...PRIMARY_NAV_GROUPS,
   ...SECONDARY_NAV_GROUPS,
 ];
+

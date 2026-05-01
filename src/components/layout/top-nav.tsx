@@ -128,3 +128,4 @@ function isGroupActive(group: NavGroup, pathname: string) {
 function isItemActive(href: string, pathname: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+

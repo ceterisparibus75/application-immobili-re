@@ -28,7 +28,7 @@ export default function SyncButton({ bankAccountId, societyId }: SyncButtonProps
         {
           description: count > 0 ? "Les données Cash-flow ont été mises à jour." : undefined,
           action: count > 0
-            ? { label: "Voir le Cash-flow", onClick: () => window.location.assign("/comptabilite/cashflow") }
+            ? { label: "Voir le Cash-flow", onClick: () => window.location.assign("/cashflow") }
             : undefined,
         }
       );

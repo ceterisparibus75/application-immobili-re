@@ -175,7 +175,7 @@ export default function SyncAllButton({ societyId }: { societyId: string }) {
                     className="gap-1.5"
                     onClick={() => {
                       setDialogOpen(false);
-                      window.location.assign("/comptabilite/cashflow");
+                      window.location.assign("/cashflow");
                     }}
                   >
                     Voir le Cash-flow
@@ -193,3 +193,4 @@ export default function SyncAllButton({ societyId }: { societyId: string }) {
     </>
   );
 }
+

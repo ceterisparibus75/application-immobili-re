@@ -38,7 +38,7 @@ export default async function BanquePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/comptabilite/cashflow">
+          <Link href="/cashflow">
             <Button variant="outline" className="gap-1.5">
               <BarChart3 className="h-4 w-4" />
               Cash-flow
@@ -66,7 +66,7 @@ export default async function BanquePage() {
               Ajoutez un compte pour suivre les mouvements, rapprocher les encaissements et alimenter le cash-flow.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <Link href="/comptabilite/cashflow">
+              <Link href="/cashflow">
                 <Button variant="outline" className="gap-1.5">
                   <BarChart3 className="h-4 w-4" />
                   Voir le cash-flow
@@ -134,3 +134,4 @@ export default async function BanquePage() {
     </div>
   );
 }
+

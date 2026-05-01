@@ -608,7 +608,7 @@ export async function categorizeTransactions(
       details: { updated, action: "categorize" },
     });
 
-    revalidatePath("/comptabilite/cashflow");
+    revalidatePath("/cashflow");
     revalidatePath("/banque");
     return { success: true, data: { updated } };
   } catch (error) {
@@ -966,3 +966,4 @@ function buildBreakdown(
     .filter((b) => b.amount > 0)
     .sort((a, b) => b.amount - a.amount);
 }
+

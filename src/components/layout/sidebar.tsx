@@ -58,7 +58,7 @@ const navigation = [
       { name: "Emprunts", href: "/emprunts", icon: Banknote },
       { name: "Comptabilité", href: "/comptabilite", icon: BookOpen },
       { name: "Prévisionnel", href: "/comptabilite/previsionnel", icon: BarChart3 },
-      { name: "Cash-flow", href: "/comptabilite/cashflow", icon: Wallet },
+      { name: "Cash-flow", href: "/cashflow", icon: Wallet },
       { name: "Rapports", href: "/rapports", icon: FileBarChart },
     ],
   },
@@ -162,3 +162,4 @@ export function Sidebar() {
     </aside>
   );
 }
+
