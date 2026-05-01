@@ -88,7 +88,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const hdr = ["Locataire", "Immeuble/Lot", ...BUCKETS.map(String), "Total"];
 
   // Group by building
-  const byBuilding = new Map<string, { name: string; loc: string; buckets: Record<string, number>; total: number }[]>();
+  const byBuilding = new Map<string, { key: string; name: string; loc: string; buckets: Record<string, number>; total: number }[]>();
   for (const inv of invoices) {
     const bName = inv.lease?.lot?.building?.name ?? inv.building?.name ?? "Autre";
     if (!byBuilding.has(bName)) byBuilding.set(bName, []);
@@ -96,9 +96,11 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
     const tn = inv.tenant.entityType === "PERSONNE_MORALE"
       ? (inv.tenant.companyName ?? "-")
       : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
-    let entry = arr.find((e) => e.name === tn);
+    const key = inv.tenantId ?? tn;
+    let entry = arr.find((e) => e.key === key);
     if (!entry) {
       entry = {
+        key,
         name: tn,
         loc: inv.lease?.lot ? `${bName}/${inv.lease.lot.number}` : inv.building?.name ?? "-",
         buckets: Object.fromEntries(BUCKETS.map((b) => [b, 0])),

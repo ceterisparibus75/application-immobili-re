@@ -256,6 +256,48 @@ describe("generateBalanceAgee", () => {
     );
   });
 
+  it("ne fusionne pas deux locataires homonymes dans le même immeuble", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        totalTTC: 600,
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alex", lastName: "Martin", companyName: null },
+        lease: { lot: { number: "A1", building: { name: "Immeuble A" } } },
+      },
+      {
+        tenantId: "tenant-2",
+        totalTTC: 300,
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alex", lastName: "Martin", companyName: null },
+        lease: { lot: { number: "A2", building: { name: "Immeuble A" } } },
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Alex Martin", "Immeuble A/A1", "600.00 EUR"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["Alex Martin", "Immeuble A/A2", "300.00 EUR"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 1 })
+    );
+  });
+
   it("affiche '-' pour PERSONNE_MORALE avec companyName null (ligne 87) et nom vide (ligne 88)", async () => {
     const today = new Date();
     prismaMock.invoice.findMany.mockResolvedValue([
