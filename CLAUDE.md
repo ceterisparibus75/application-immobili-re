@@ -455,7 +455,8 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Charges + Catégories | `/charges` | `charge.ts`, `chargeProvision.ts` |
 | Facturation + Paiements | `/facturation` | `invoice.ts` (barrel → `invoice-shared.ts`, `invoice-queries.ts`, `invoice-generation.ts`, `invoice-lifecycle.ts`), `payment.ts` |
 | Facturation électronique B2B | `/facturation/[id]` | `einvoicing.ts` (bouton "Envoyer PA B2B") |
-| Banque + Rapprochement + Cashflow | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts`, `cashflow.ts` |
+| Banque + Rapprochement | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts` |
+| Cash-flow | `/cashflow` | `cashflow.ts`, `src/lib/cashflow-categories.ts` |
 | Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
 | Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
 | Indices ILC/ILAT/ICC | `/indices` | `insee-index.ts`, via API INSEE |

@@ -4,7 +4,7 @@ import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/h
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
-  title: `Banque et comptabilité | Centre d'aide | ${APP_NAME}`,
+  title: `Banque, comptabilité et cash-flow | Centre d'aide | ${APP_NAME}`,
 };
 
 export default function BanquePage() {
@@ -12,8 +12,8 @@ export default function BanquePage() {
     <HelpPageLayout
       slug="banque"
       icon={<Banknote className="h-6 w-6" />}
-      title="Banque et comptabilité"
-      description="Connectez vos comptes bancaires, rapprochez les transactions et gérez votre comptabilité avec export FEC."
+      title="Banque, comptabilité et cash-flow"
+      description="Connectez vos comptes bancaires, rapprochez les transactions, gérez votre comptabilité avec export FEC et analysez vos flux de trésorerie."
     >
       <HelpSection id="comptes" title="Gestion des comptes bancaires">
         <p>
@@ -126,6 +126,60 @@ export default function BanquePage() {
         <p>
           La clôture d'un exercice fige toutes les écritures et génère les à-nouveaux pour l'exercice suivant. Cette opération est irréversible : vérifiez bien que tous les brouillons sont validés avant de clôturer.
         </p>
+      </HelpSection>
+
+      <HelpSection id="cashflow" title="Module Cash-flow">
+        <p>
+          Le module <strong>Cash-flow</strong> (accessible via <strong>Cash-flow</strong> dans le menu) offre une vue complète et indépendante de vos flux de trésorerie, sans interférer avec la comptabilité.
+        </p>
+
+        <p className="font-semibold text-foreground mt-4 mb-2">4 indicateurs clés :</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {[
+            { title: "Solde bancaire", desc: "Somme des soldes de tous vos comptes bancaires à date." },
+            { title: "Opérationnel net", desc: "Revenus courants (loyers, charges récupérées) moins dépenses courantes (assurances, entretien, taxes…)." },
+            { title: "Exceptionnel net", desc: "Flux non récurrents : travaux importants, acquisition ou cession immobilière." },
+            { title: "Financement net", desc: "Apports et remboursements de compte courant d'associés (CCA)." },
+          ].map((item) => (
+            <div key={item.title} className="rounded-lg border p-3">
+              <p className="text-sm font-semibold text-foreground">{item.title}</p>
+              <p className="text-xs text-muted-foreground">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="font-semibold text-foreground mt-4 mb-2">Graphique avec 3 vues :</p>
+        <ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+          <li><strong>Tout</strong> — affiche revenus, dépenses opérationnelles et exceptionnelles, plus une ligne pointillée violette pour le financement net (CCA).</li>
+          <li><strong>Opérationnel</strong> — uniquement les flux récurrents (loyers, charges courantes).</li>
+          <li><strong>Exceptionnel</strong> — uniquement les flux non récurrents (travaux, acquisitions, cessions).</li>
+        </ul>
+
+        <HelpStep number={1} title="Catégoriser vos transactions">
+          <p>Cliquez sur <strong>Modifier les affectations</strong> pour affecter une catégorie à chaque transaction bancaire. Les catégories déterminent si le flux est opérationnel, exceptionnel ou neutre.</p>
+        </HelpStep>
+        <HelpStep number={2} title="Catégories principales">
+          <p>
+            <strong>Revenus courants</strong> : Loyers, Charges locatives récupérées, Régularisations, Autres revenus.<br />
+            <strong>Dépenses courants</strong> : Assurances, Entretien, Taxes, Frais bancaires, Intérêts d&apos;emprunt, Honoraires, Énergie…<br />
+            <strong>Exceptionnel</strong> : Travaux &amp; rénovation, Acquisition immobilière, Cession immobilière.<br />
+            <strong>Neutre / Financement</strong> : Virement interne (exclu des calculs), Apport CCA, Remboursement CCA.
+          </p>
+        </HelpStep>
+        <HelpStep number={3} title="Détecter les écarts bancaires">
+          <p>Un bandeau d&apos;alerte s&apos;affiche si des transactions restent non catégorisées ou si des comptes bancaires ne sont pas synchronisés. Cliquez sur <strong>Voir les détails</strong> pour identifier les transactions manquantes.</p>
+        </HelpStep>
+
+        <InfoBox type="info">
+          Les virements internes (de compte à compte) sont automatiquement exclus du calcul du cash-flow pour éviter les doublons comptables. Les apports et remboursements CCA apparaissent dans la section Financement, séparée de l&apos;opérationnel.
+        </InfoBox>
+
+        <div className="rounded-lg border p-4 bg-muted/20 mt-4">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            En janvier 2026, vos loyers perçus sont 8 500 &euro; (catégorie &laquo; Loyers &raquo;), vos charges courantes 2 300 &euro;. Le graphique affiche un opérationnel net de +6 200 &euro;. Vous avez aussi réalisé des travaux pour 4 000 &euro; (catégorie &laquo; Travaux &raquo;) — ce montant apparaît uniquement dans la vue &laquo; Exceptionnel &raquo;, sans polluer la vue opérationnelle.
+          </p>
+        </div>
       </HelpSection>
 
       <HelpSection id="faq" title="Questions fréquentes sur la banque et comptabilité">

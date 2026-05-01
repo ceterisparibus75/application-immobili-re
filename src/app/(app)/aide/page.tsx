@@ -43,7 +43,7 @@ const searchableGuides = [
   { slug: "patrimoine", title: "Gestion du patrimoine", description: "Immeubles, lots, diagnostics, maintenances et états des lieux." },
   { slug: "locatif", title: "Gestion locative", description: "Baux, vie du bail, changement de locataire, révisions de loyer, charges et contacts." },
   { slug: "facturation", title: "Facturation et paiements", description: "À traiter, brouillons, factures, relances, quittances, paiements, SEPA et compte locataire." },
-  { slug: "banque", title: "Banque et comptabilité", description: "Comptes bancaires, rapprochement, écritures comptables et export FEC." },
+  { slug: "banque", title: "Banque, comptabilité et cash-flow", description: "Comptes bancaires, rapprochement, cash-flow par catégorie, écritures comptables et export FEC." },
   { slug: "proprietaire", title: "Vue Propriétaire", description: "Tableau de bord consolidé multi-sociétés et gestion des propriétaires." },
   { slug: "emprunts", title: "Évaluations IA et emprunts", description: "Estimation du patrimoine par IA, emprunts et tableaux d'amortissement." },
   { slug: "documents", title: "Documents, Dataroom et signatures", description: "Stockage sécurisé, partage de documents et signatures électroniques." },
@@ -103,8 +103,8 @@ const guides = [
   {
     slug: "banque",
     icon: <Banknote className="h-5 w-5" />,
-    title: "Banque et comptabilité",
-    description: "Rapprochement, écritures comptables et export FEC.",
+    title: "Banque, comptabilité et cash-flow",
+    description: "Rapprochement, cash-flow par catégorie, écritures comptables et export FEC.",
     color: "bg-cyan-500/10 text-cyan-600",
   },
   {
