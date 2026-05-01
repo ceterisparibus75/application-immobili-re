@@ -249,6 +249,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!emailResult.success)
       return NextResponse.json({ error: { code: "EMAIL_ERROR", message: emailResult.error ?? "Erreur d'envoi" } }, { status: 500 });
 
+    const wasAlreadySent = !!invoice.sentAt;
+    const sentAt = new Date();
+    let uploadedStoragePath: string | null = null;
+
     // Dépôt automatique du PDF dans le module documents
     if (supabase) {
       try {
@@ -264,22 +268,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           console.error("[send-email] Upload document échoué:", uploadError.message, "path:", docStoragePath);
           throw uploadError;
         }
-
-        const nextStatus =
-          invoice.status === "VALIDEE" || invoice.status === "EN_ATTENTE"
-            ? "ENVOYEE"
-            : invoice.status;
-
-        await prisma.invoice.update({
-          where: { id },
-          data: {
-            fileUrl: docStoragePath,
-            sentAt: new Date(),
-            sentBy: to,
-            resendEmailId: emailResult.emailId ?? null,
-            status: nextStatus,
-          },
-        });
+        uploadedStoragePath = docStoragePath;
 
         await prisma.document.create({
           data: {
@@ -293,8 +282,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             mimeType: "application/pdf",
             category: isQuittance ? "quittance" : "facture",
             description: isQuittance
-              ? `Quittance ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`
-              : `Facture ${invoice.invoiceNumber} envoyée par email le ${new Date().toLocaleDateString("fr-FR")}`,
+              ? `Quittance ${invoice.invoiceNumber} ${wasAlreadySent ? "renvoyée" : "envoyée"} par email le ${sentAt.toLocaleDateString("fr-FR")}`
+              : `Facture ${invoice.invoiceNumber} ${wasAlreadySent ? "renvoyée" : "envoyée"} par email le ${sentAt.toLocaleDateString("fr-FR")}`,
           },
         });
       } catch (docError) {
@@ -302,16 +291,40 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    const nextStatus =
+      !wasAlreadySent && (invoice.status === "VALIDEE" || invoice.status === "EN_ATTENTE")
+        ? "ENVOYEE"
+        : invoice.status;
+
+    await prisma.invoice.update({
+      where: { id },
+      data: {
+        ...(uploadedStoragePath ? { fileUrl: uploadedStoragePath } : {}),
+        sentAt: wasAlreadySent ? invoice.sentAt : sentAt,
+        sentBy: wasAlreadySent ? (invoice.sentBy ?? to) : to,
+        ...(emailResult.emailId ? { resendEmailId: emailResult.emailId } : {}),
+        emailDeliveryStatus: null,
+        status: nextStatus,
+      },
+    });
+
     await createAuditLog({
       societyId: context.societyId,
       userId: context.userId,
       action: "SEND_EMAIL",
       entity: "Invoice",
       entityId: id,
-      details: { to, invoiceNumber: invoice.invoiceNumber },
+      details: {
+        to,
+        invoiceNumber: invoice.invoiceNumber,
+        emailId: emailResult.emailId ?? null,
+        event: wasAlreadySent ? "RESEND_INVOICE_EMAIL" : "SEND_INVOICE_EMAIL",
+        sentAt: sentAt.toISOString(),
+        previousSentAt: invoice.sentAt?.toISOString() ?? null,
+      },
     });
 
-    return NextResponse.json({ success: true, emailId: emailResult.emailId });
+    return NextResponse.json({ success: true, emailId: emailResult.emailId, resent: wasAlreadySent });
   } catch (error) {
     console.error("[send-email]", error);
     return NextResponse.json({ error: { code: "SEND_ERROR", message: "Erreur lors de l'envoi" } }, { status: 500 });

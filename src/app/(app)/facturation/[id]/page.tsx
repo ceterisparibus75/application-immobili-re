@@ -219,7 +219,7 @@ export default async function FactureDetailPage({
             />
           )}
           {invoice.status !== "BROUILLON" && (
-            <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
+            <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} alreadySent={!!invoice.sentAt} />
           )}
           {invoice.invoiceType !== "AVOIR" && !["BROUILLON", "ANNULEE"].includes(invoice.status) && (
             <DuplicateInvoiceButton invoiceId={invoice.id} societyId={societyId} />
