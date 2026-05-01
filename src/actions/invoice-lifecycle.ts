@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
@@ -935,5 +935,47 @@ export async function updateInvoiceNote(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateInvoiceNote]", error);
     return { success: false, error: "Erreur lors de la mise à jour de la note" };
+  }
+}
+
+
+/**
+ * Supprime définitivement un brouillon de facture (hard delete).
+ * Seul le statut BROUILLON est autorisé — une facture validée ne peut pas être supprimée.
+ */
+export async function deleteDraftInvoice(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: { id: true, status: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.status !== "BROUILLON") {
+      return { success: false, error: "Seuls les brouillons peuvent être supprimés" };
+    }
+
+    await prisma.invoice.delete({ where: { id: invoiceId } });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "Invoice",
+      entityId: invoiceId,
+      details: { reason: "Suppression brouillon" },
+    });
+
+    revalidatePath("/facturation");
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteDraftInvoice]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
   }
 }

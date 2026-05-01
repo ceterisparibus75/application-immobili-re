@@ -29,6 +29,7 @@ import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
 import { NoteEditor } from "./_components/note-editor";
 import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
+import { DeleteDraftButton } from "./_components/delete-draft-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -185,6 +186,9 @@ export default async function FactureDetailPage({
               missingSiret={!invoice.society?.siret}
               missingEmail={!invoice.society?.email}
             />
+          )}
+          {invoice.status === "BROUILLON" && (
+            <DeleteDraftButton invoiceId={invoice.id} societyId={societyId} />
           )}
           {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
             <RefreshDraftButton invoiceId={invoice.id} societyId={societyId} />
