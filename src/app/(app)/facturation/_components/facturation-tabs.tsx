@@ -84,6 +84,7 @@ function QueueCard({
   href,
   icon,
   tone = "default",
+  disabled = false,
 }: {
   title: string;
   count: number | string;
@@ -91,6 +92,7 @@ function QueueCard({
   href: string;
   icon: ReactNode;
   tone?: "default" | "warning" | "danger";
+  disabled?: boolean;
 }) {
   const toneClass =
     tone === "danger"
@@ -98,27 +100,41 @@ function QueueCard({
       : tone === "warning"
         ? "border-[var(--color-status-caution)]/25 bg-[var(--color-status-caution-bg)]/40"
         : "border-border/70 bg-card";
+  const content = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 items-center justify-center rounded-md bg-background/80 text-foreground">
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xl font-semibold tabular-nums">{count}</span>
+        {!disabled && <ArrowRight className="size-4 text-muted-foreground" />}
+      </div>
+    </div>
+  );
+
+  if (disabled) {
+    return (
+      <div
+        className={cn("rounded-lg border p-4 opacity-60", toneClass)}
+        aria-disabled="true"
+      >
+        {content}
+      </div>
+    );
+  }
 
   return (
     <Link
       href={href}
       className={cn("rounded-lg border p-4 transition-colors hover:bg-accent/40", toneClass)}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md bg-background/80 text-foreground">
-            {icon}
-          </div>
-          <div>
-            <p className="text-sm font-medium">{title}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-semibold tabular-nums">{count}</span>
-          <ArrowRight className="size-4 text-muted-foreground" />
-        </div>
-      </div>
+      {content}
     </Link>
   );
 }
@@ -196,6 +212,7 @@ export function FacturationTabs({
               detail="Validées mais pas encore transmises"
               href="/facturation#a-envoyer"
               icon={<Mail className="size-4" />}
+              disabled={invoicesToSend.length === 0}
             />
             <QueueCard
               title="Retards"
