@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createInvoice } from "@/actions/invoice";
+import { getTenantById } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,14 @@ type TenantOption = {
   firstName?: string | null;
   lastName?: string | null;
   email: string;
+};
+
+type LeaseOption = {
+  id: string;
+  status: string;
+  startDate: string;
+  lotNumber: string;
+  buildingName: string;
 };
 
 type InvoiceLine = {
@@ -71,6 +80,8 @@ export default function NouvelleFacturePage() {
 
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState(initialTenantId);
+  const [leases, setLeases] = useState<LeaseOption[]>([]);
+  const [selectedLeaseId, setSelectedLeaseId] = useState("");
   const [lines, setLines] = useState<InvoiceLine[]>([
     { label: "", quantity: 1, unitPrice: 0, vatRate: 20 },
   ]);
@@ -84,6 +95,29 @@ export default function NouvelleFacturePage() {
       .then((r) => r.ok ? r.json() : { data: [] })
       .then((j: { data: TenantOption[] }) => setTenants(j.data));
   }, [activeSociety]);
+
+  // Chargement des baux du locataire sélectionné
+  useEffect(() => {
+    async function loadLeases() {
+      if (!activeSociety || !selectedTenantId) {
+        setLeases([]);
+        setSelectedLeaseId("");
+        return;
+      }
+      const tenant = await getTenantById(activeSociety.id, selectedTenantId);
+      if (!tenant) { setLeases([]); setSelectedLeaseId(""); return; }
+      const opts: LeaseOption[] = (tenant.leases ?? []).map((l) => ({
+        id: l.id,
+        status: l.status,
+        startDate: new Date(l.startDate).toLocaleDateString("fr-FR", { month: "short", year: "numeric" }),
+        lotNumber: l.lot.number,
+        buildingName: l.lot.building.name,
+      }));
+      setLeases(opts);
+      setSelectedLeaseId(opts.length === 1 ? opts[0].id : "");
+    }
+    void loadLeases();
+  }, [activeSociety, selectedTenantId]);
 
   function addLine() {
     setLines([...lines, { label: "", quantity: 1, unitPrice: 0, vatRate: 20 }]);
@@ -203,6 +237,25 @@ export default function NouvelleFacturePage() {
                   <Label htmlFor="dueDate">Date d&apos;échéance *</Label>
                   <Input id="dueDate" name="dueDate" type="date" required />
                 </div>
+                {leases.length > 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="leaseId">Bail rattaché</Label>
+                    <select
+                      id="leaseId"
+                      name="leaseId"
+                      value={selectedLeaseId}
+                      onChange={(e) => setSelectedLeaseId(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="">Aucun bail (facture sans bail)</option>
+                      {leases.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.status === "EN_COURS" ? "\u2713 " : "Ancien \u00B7 "}Lot {l.lotNumber} — {l.buildingName} · depuis {l.startDate}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
