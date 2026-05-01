@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -81,21 +81,21 @@ export function LinesEditor({
   );
   const [saving, setSaving] = useState(false);
 
-  // Totaux affichés (lecture ou édition en temps réel)
-  const [displayTotals, setDisplayTotals] = useState({ ht: initHT, vat: initVAT, ttc: initTTC });
+  // Totaux en mode édition (live-computed). En lecture, on utilise toujours les props (fraîches après router.refresh()).
+  const [editTotals, setEditTotals] = useState({ ht: initHT, vat: initVAT, ttc: initTTC });
 
   function updateLine(index: number, field: keyof EditLine, value: string | number) {
     const next = lines.map((l, i) => (i === index ? { ...l, [field]: value } : l));
     setLines(next);
     const t = computeTotals(next);
-    setDisplayTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
+    setEditTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
   }
 
   function addLine() {
     const next = [...lines, { label: "", quantity: 1, unitPrice: 0, vatRate: 20 }];
     setLines(next);
     const t = computeTotals(next);
-    setDisplayTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
+    setEditTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
   }
 
   function removeLine(index: number) {
@@ -103,7 +103,7 @@ export function LinesEditor({
     const next = lines.filter((_, i) => i !== index);
     setLines(next);
     const t = computeTotals(next);
-    setDisplayTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
+    setEditTotals({ ht: round2(t.ht), vat: round2(t.vat), ttc: round2(t.ttc) });
   }
 
   async function handleSave() {
@@ -124,9 +124,12 @@ export function LinesEditor({
 
   function handleCancel() {
     setLines(initialLines.map((l) => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice, vatRate: l.vatRate })));
-    setDisplayTotals({ ht: initHT, vat: initVAT, ttc: initTTC });
+    setEditTotals({ ht: initHT, vat: initVAT, ttc: initTTC });
     setIsEditing(false);
   }
+
+  // En lecture, les props sont toujours fraîches (server re-render après router.refresh())
+  const totals = isEditing ? editTotals : { ht: initHT, vat: initVAT, ttc: initTTC };
 
   return (
     <Card>
@@ -134,7 +137,11 @@ export function LinesEditor({
         <div className="flex items-center justify-between">
           <CardTitle>Détail de la facture</CardTitle>
           {isDraft && !isEditing && (
-            <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="text-muted-foreground hover:text-foreground gap-1.5">
+            <Button variant="ghost" size="sm" onClick={() => {
+              setLines(initialLines.map((l) => ({ label: l.label, quantity: l.quantity, unitPrice: l.unitPrice, vatRate: l.vatRate })));
+              setEditTotals({ ht: initHT, vat: initVAT, ttc: initTTC });
+              setIsEditing(true);
+            }} className="text-muted-foreground hover:text-foreground gap-1.5">
               <Pencil className="h-3.5 w-3.5" />
               Modifier les lignes
             </Button>
@@ -254,15 +261,15 @@ export function LinesEditor({
         <div className="space-y-1 text-sm max-w-xs ml-auto">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total HT</span>
-            <span>{fmt(displayTotals.ht)}</span>
+            <span>{fmt(totals.ht)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">TVA</span>
-            <span>{fmt(displayTotals.vat)}</span>
+            <span>{fmt(totals.vat)}</span>
           </div>
           <div className="flex justify-between text-base font-semibold border-t pt-1 mt-1">
             <span>Total TTC</span>
-            <span>{fmt(displayTotals.ttc)}</span>
+            <span>{fmt(totals.ttc)}</span>
           </div>
         </div>
       </CardContent>

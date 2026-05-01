@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
@@ -699,6 +699,8 @@ export async function refreshDraftInvoice(
     if (!invoice.leaseId) return { success: false, error: "Ce brouillon n'est pas associé à un bail" };
     if (!invoice.periodStart) return { success: false, error: "Période de facturation manquante" };
 
+    const periodStart = new Date(invoice.periodStart);
+
     const lease = await prisma.lease.findFirst({
       where: { id: invoice.leaseId, societyId },
       select: {
@@ -723,7 +725,11 @@ export async function refreshDraftInvoice(
         managementFeeBasis: true,
         managementFeeVatRate: true,
         chargeProvisions: {
-          where: { isActive: true },
+          where: {
+            isActive: true,
+            startDate: { lte: periodStart },
+            OR: [{ endDate: null }, { endDate: { gte: periodStart } }],
+          },
           select: { monthlyAmount: true, vatRate: true, label: true },
         },
         lot: {
@@ -732,8 +738,6 @@ export async function refreshDraftInvoice(
       },
     });
     if (!lease) return { success: false, error: "Bail introuvable" };
-
-    const periodStart = new Date(invoice.periodStart);
     const periodEnd = computePeriodDates(
       `${periodStart.getFullYear()}-${String(periodStart.getMonth() + 1).padStart(2, "0")}`,
       lease.paymentFrequency,
