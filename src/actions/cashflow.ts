@@ -78,6 +78,7 @@ export type CashflowDashboard = {
   totalExceptionalExpenses: number;
   totalFinancementIn: number;
   totalFinancementOut: number;
+  bankAccountSummaries: BankAccountSummary[];
 };
 
 export type UncategorizedTransaction = {
@@ -88,6 +89,24 @@ export type UncategorizedTransaction = {
   reference: string | null;
   bankAccountName: string;
   suggestedCategory?: string;
+};
+
+export type BankAccountSummary = {
+  accountId: string;
+  accountName: string;
+  balance: number;
+  lastTransactionDate: string | null;
+  daysSinceLastTx: number | null;
+};
+
+export type RecategorizableTransaction = {
+  id: string;
+  transactionDate: string;
+  label: string;
+  amount: number;
+  reference: string | null;
+  bankAccountName: string;
+  category: string | null;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,12 +310,33 @@ export async function getCashflowDashboard(
       }
     }
 
-    // ── 5. Soldes bancaires ──────────────────────────────────────────────
-    const bankAccounts = await prisma.bankAccount.findMany({
+    // ── 5. Soldes bancaires + dernière transaction par compte ────────────
+    const bankAccountsDetail = await prisma.bankAccount.findMany({
       where: { societyId },
-      select: { currentBalance: true },
+      select: {
+        id: true,
+        accountName: true,
+        currentBalance: true,
+        transactions: {
+          orderBy: { transactionDate: "desc" },
+          take: 1,
+          select: { transactionDate: true },
+        },
+      },
     });
-    const totalBankBalance = bankAccounts.reduce((s, a) => s + a.currentBalance, 0);
+    const totalBankBalance = bankAccountsDetail.reduce((s, a) => s + a.currentBalance, 0);
+    const nowMs = Date.now();
+    const bankAccountSummaries: BankAccountSummary[] = bankAccountsDetail.map((acc) => {
+      const last = acc.transactions[0]?.transactionDate ?? null;
+      const days = last ? Math.floor((nowMs - last.getTime()) / 86_400_000) : null;
+      return {
+        accountId: acc.id,
+        accountName: acc.accountName,
+        balance: round(acc.currentBalance),
+        lastTransactionDate: last?.toISOString() ?? null,
+        daysSinceLastTx: days,
+      };
+    });
 
     // ── 6. Construire les mois ───────────────────────────────────────────
     const result: CashflowMonthDetail[] = [];
@@ -433,6 +473,7 @@ export async function getCashflowDashboard(
         totalExceptionalExpenses: round(pastMonths.reduce((s, m) => s + m.exceptionalExpenses, 0)),
         totalFinancementIn: round(Array.from(actualByMonth.values()).reduce((s, b) => s + b.financementIn, 0)),
         totalFinancementOut: round(Array.from(actualByMonth.values()).reduce((s, b) => s + b.financementOut, 0)),
+        bankAccountSummaries,
       },
     };
   } catch (error) {
@@ -828,6 +869,58 @@ export async function applyAutoTag(
   }
 
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// getRecentTransactions — toutes les transactions N mois (pour re-catégorisation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function getRecentTransactions(
+  societyId: string,
+  months: number = 3
+): Promise<ActionResult<RecategorizableTransaction[]>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const since = new Date();
+    since.setMonth(since.getMonth() - months);
+
+    const transactions = await prisma.bankTransaction.findMany({
+      where: {
+        bankAccount: { societyId },
+        transactionDate: { gte: since },
+      },
+      select: {
+        id: true,
+        transactionDate: true,
+        label: true,
+        amount: true,
+        reference: true,
+        category: true,
+        bankAccount: { select: { accountName: true } },
+      },
+      orderBy: { transactionDate: "desc" },
+      take: 300,
+    });
+
+    return {
+      success: true,
+      data: transactions.map((tx) => ({
+        id: tx.id,
+        transactionDate: tx.transactionDate.toISOString(),
+        label: tx.label,
+        amount: tx.amount,
+        reference: tx.reference,
+        bankAccountName: tx.bankAccount.accountName,
+        category: tx.category,
+      })),
+    };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getRecentTransactions]", error);
+    return { success: false, error: "Erreur lors de la récupération des transactions" };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
