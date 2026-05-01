@@ -1065,3 +1065,110 @@ export async function updateDraftInvoice(
     return { success: false, error: "Erreur lors de la modification" };
   }
 }
+
+/**
+ * Met à jour uniquement les dates d'un brouillon.
+ */
+export async function updateDraftDates(
+  societyId: string,
+  invoiceId: string,
+  input: { issueDate: string; dueDate: string; periodStart?: string | null; periodEnd?: string | null }
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: { id: true, status: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.status !== "BROUILLON") return { success: false, error: "Seuls les brouillons peuvent être modifiés" };
+    if (!input.issueDate || !input.dueDate) return { success: false, error: "Les dates d'émission et d'échéance sont requises" };
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        issueDate: new Date(input.issueDate),
+        dueDate: new Date(input.dueDate),
+        periodStart: input.periodStart ? new Date(input.periodStart) : null,
+        periodEnd: input.periodEnd ? new Date(input.periodEnd) : null,
+      },
+    });
+
+    await createAuditLog({ societyId, userId: context.userId, action: "UPDATE", entity: "Invoice", entityId: invoiceId, details: { reason: "Modification dates brouillon" } });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateDraftDates]", error);
+    return { success: false, error: "Erreur lors de la modification des dates" };
+  }
+}
+
+/**
+ * Met à jour uniquement les lignes d'un brouillon (recalcule les totaux).
+ */
+export async function updateDraftLines(
+  societyId: string,
+  invoiceId: string,
+  lines: Array<{ label: string; quantity: number; unitPrice: number; vatRate: number }>
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: { id: true, status: true },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.status !== "BROUILLON") return { success: false, error: "Seuls les brouillons peuvent être modifiés" };
+    if (!lines.length) return { success: false, error: "Au moins une ligne est requise" };
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const totals = lines.reduce(
+      (acc, l) => {
+        const ht = l.quantity * l.unitPrice;
+        const vat = ht * (l.vatRate / 100);
+        return { ht: acc.ht + ht, vat: acc.vat + vat, ttc: acc.ttc + ht + vat };
+      },
+      { ht: 0, vat: 0, ttc: 0 }
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.invoiceLine.deleteMany({ where: { invoiceId } });
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          totalHT: round2(totals.ht),
+          totalVAT: round2(totals.vat),
+          totalTTC: round2(totals.ttc),
+          lines: {
+            create: lines.map((l) => ({
+              label: l.label,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              vatRate: l.vatRate,
+              totalHT: round2(l.quantity * l.unitPrice),
+              totalVAT: round2(l.quantity * l.unitPrice * (l.vatRate / 100)),
+              totalTTC: round2(l.quantity * l.unitPrice * (1 + l.vatRate / 100)),
+            })),
+          },
+        },
+      });
+    });
+
+    await createAuditLog({ societyId, userId: context.userId, action: "UPDATE", entity: "Invoice", entityId: invoiceId, details: { reason: "Modification lignes brouillon" } });
+
+    revalidatePath("/facturation");
+    revalidatePath(`/facturation/${invoiceId}`);
+    return { success: true, data: { id: invoiceId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateDraftLines]", error);
+    return { success: false, error: "Erreur lors de la modification des lignes" };
+  }
+}

@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download, FileCode2, Pencil } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, User, ReceiptText, Eye, Download, FileCode2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -29,6 +29,8 @@ import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
 import { NoteEditor } from "./_components/note-editor";
 import { ValidateInvoiceButton } from "./_components/validate-invoice-button";
+import { DatesEditor } from "./_components/dates-editor";
+import { LinesEditor } from "./_components/lines-editor";
 import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
 import { DeleteDraftButton } from "./_components/delete-draft-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
@@ -182,14 +184,6 @@ export default async function FactureDetailPage({
 
           {/* Actions BROUILLON */}
           {invoice.status === "BROUILLON" && (
-            <Link href={`/facturation/${invoice.id}/modifier`}>
-              <Button variant="outline" size="sm">
-                <Pencil className="h-4 w-4" />
-                Modifier
-              </Button>
-            </Link>
-          )}
-          {invoice.status === "BROUILLON" && (
             <DeleteDraftButton invoiceId={invoice.id} societyId={societyId} />
           )}
           {invoice.status === "BROUILLON" && invoice.leaseId && invoice.invoiceType === "APPEL_LOYER" && (
@@ -248,114 +242,34 @@ export default async function FactureDetailPage({
         {/* Colonne principale */}
         <div className="lg:col-span-2 space-y-6">
           {/* Dates */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Date d&apos;émission</p>
-                  <p className="text-sm font-medium">
-                    {new Date(invoice.issueDate).toLocaleDateString("fr-FR")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Date d&apos;échéance</p>
-                  <p className="text-sm font-medium">
-                    {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}
-                  </p>
-                </div>
-                {invoice.periodStart && invoice.periodEnd && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Période</p>
-                    <p className="text-sm font-medium">
-                      {new Date(invoice.periodStart).toLocaleDateString("fr-FR")}{" "}
-                      →{" "}
-                      {new Date(invoice.periodEnd).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <DatesEditor
+            invoiceId={invoice.id}
+            societyId={societyId}
+            isDraft={invoice.status === "BROUILLON"}
+            issueDate={invoice.issueDate.toISOString().slice(0, 10)}
+            dueDate={invoice.dueDate.toISOString().slice(0, 10)}
+            periodStart={invoice.periodStart ? invoice.periodStart.toISOString().slice(0, 10) : ""}
+            periodEnd={invoice.periodEnd ? invoice.periodEnd.toISOString().slice(0, 10) : ""}
+          />
 
           {/* Lignes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Détail de la facture</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-xs text-muted-foreground">
-                    <th className="text-left pb-2">Désignation</th>
-                    <th className="text-right pb-2">Qté</th>
-                    <th className="text-right pb-2">PU HT</th>
-                    <th className="text-right pb-2">TVA %</th>
-                    <th className="text-right pb-2">Total HT</th>
-                    <th className="text-right pb-2">Total TTC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.lines.map((line) => (
-                    <tr key={line.id} className="border-b last:border-0">
-                      <td className="py-2">{line.label}</td>
-                      <td className="py-2 text-right">{line.quantity}</td>
-                      <td className="py-2 text-right">
-                        {line.unitPrice.toLocaleString("fr-FR", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </td>
-                      <td className="py-2 text-right">{line.vatRate} %</td>
-                      <td className="py-2 text-right">
-                        {line.totalHT.toLocaleString("fr-FR", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </td>
-                      <td className="py-2 text-right font-medium">
-                        {line.totalTTC.toLocaleString("fr-FR", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        €
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <Separator className="my-4" />
-
-              <div className="space-y-1 text-sm max-w-xs ml-auto">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total HT</span>
-                  <span>
-                    {invoice.totalHT.toLocaleString("fr-FR", {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    €
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">TVA</span>
-                  <span>
-                    {invoice.totalVAT.toLocaleString("fr-FR", {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    €
-                  </span>
-                </div>
-                <div className="flex justify-between text-base font-semibold border-t pt-1 mt-1">
-                  <span>Total TTC</span>
-                  <span>
-                    {invoice.totalTTC.toLocaleString("fr-FR", {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    €
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <LinesEditor
+            invoiceId={invoice.id}
+            societyId={societyId}
+            isDraft={invoice.status === "BROUILLON"}
+            initialLines={invoice.lines.map((l) => ({
+              label: l.label,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              vatRate: l.vatRate,
+              totalHT: l.totalHT,
+              totalVAT: l.totalVAT,
+              totalTTC: l.totalTTC,
+            }))}
+            totalHT={invoice.totalHT}
+            totalVAT={invoice.totalVAT}
+            totalTTC={invoice.totalTTC}
+          />
 
           {/* Liens avoir */}
           {invoice.creditNoteFor && (
