@@ -20,6 +20,14 @@ type ResolvedDocumentAssociation = {
 
 const LEASE_PRIMARY_DOCUMENT_CATEGORY = "bail";
 
+export const LEASE_SCOPED_DOCUMENT_CATEGORIES = ["bail", "avenant", "etat_des_lieux"] as const;
+
+function isLeaseScopedDocumentCategory(category: string): boolean {
+  return LEASE_SCOPED_DOCUMENT_CATEGORIES.includes(
+    category as (typeof LEASE_SCOPED_DOCUMENT_CATEGORIES)[number]
+  );
+}
+
 export async function resolveDocumentLeaseAssociation(
   input: DocumentAssociationInput
 ): Promise<ResolvedDocumentAssociation> {
@@ -51,7 +59,7 @@ export async function resolveDocumentLeaseAssociation(
     };
   }
 
-  if (input.tenantId && category === LEASE_PRIMARY_DOCUMENT_CATEGORY) {
+  if (input.tenantId && isLeaseScopedDocumentCategory(category)) {
     const activeLeases = await prisma.lease.findMany({
       where: {
         societyId: input.societyId,

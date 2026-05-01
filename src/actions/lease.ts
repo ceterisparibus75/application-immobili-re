@@ -21,6 +21,7 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import { LEASE_SCOPED_DOCUMENT_CATEGORIES } from "@/lib/document-lease-association";
 
 export async function createLease(
   societyId: string,
@@ -616,7 +617,7 @@ export async function getLeaseDocuments(societyId: string, leaseId: string) {
         {
           leaseId: null,
           tenantId: lease.tenantId,
-          category: "bail",
+          category: { in: [...LEASE_SCOPED_DOCUMENT_CATEGORIES] },
         },
       ],
     },

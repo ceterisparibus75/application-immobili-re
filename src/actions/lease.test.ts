@@ -405,9 +405,24 @@ describe("getLeaseDocuments", () => {
 
   it("retourne les documents du bail", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ tenantId: "tenant-1" } as never);
     prismaMock.document.findMany.mockResolvedValue([{ id: "doc-1" }] as never);
     const result = await getLeaseDocuments(SOCIETY_ID, LEASE_ID);
     expect(result).toHaveLength(1);
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { leaseId: LEASE_ID },
+            expect.objectContaining({
+              leaseId: null,
+              tenantId: "tenant-1",
+              category: { in: ["bail", "avenant", "etat_des_lieux"] },
+            }),
+          ]),
+        }),
+      })
+    );
   });
 });
 

@@ -176,4 +176,35 @@ describe("document upload route security", () => {
       },
     });
   });
+
+  it("rattache un état des lieux déposé sur un locataire à son bail actif sans remplacer le PDF du bail", async () => {
+    prismaMock.lease.findMany.mockResolvedValue([
+      { id: "lease-1", lotId: "lot-1", tenantId: "tenant-1", leaseFileUrl: null },
+    ] as never);
+    prismaMock.document.create.mockResolvedValue({ id: "doc-1" } as never);
+
+    const response = await registerDocument(
+      jsonRequest("http://localhost/api/documents/register", {
+        fileName: "etat-des-lieux.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+        storagePath: "documents/society-1/tenants/tenant-1/1_etat-des-lieux.pdf",
+        category: "etat_des_lieux",
+        tenantId: "tenant-1",
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: "etat_des_lieux",
+          tenantId: "tenant-1",
+          leaseId: "lease-1",
+          lotId: "lot-1",
+        }),
+      })
+    );
+    expect(prismaMock.lease.update).not.toHaveBeenCalled();
+  });
 });
