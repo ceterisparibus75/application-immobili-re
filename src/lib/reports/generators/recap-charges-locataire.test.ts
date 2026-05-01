@@ -179,7 +179,99 @@ describe("generateRecapChargesLocataire", () => {
         startDate: { lte: expect.any(Date) },
         endDate: { gte: expect.any(Date) },
       }),
+      include: expect.objectContaining({
+        chargeProvisions: expect.objectContaining({
+          where: expect.objectContaining({
+            isActive: true,
+            startDate: { lte: expect.any(Date) },
+            OR: [
+              { endDate: null },
+              { endDate: { gte: expect.any(Date) } },
+            ],
+          }),
+        }),
+      }),
     }));
+  });
+
+  it("calcule les provisions sur les mois actifs dans l'exercice", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      id: "tenant-1",
+      societyId: "society-1",
+      entityType: "PERSONNE_MORALE",
+      companyName: "ACME SAS",
+      email: null,
+      phone: null,
+    } as never);
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        id: "lease-1",
+        startDate: new Date("2026-01-01T00:00:00.000Z"),
+        lot: {
+          number: "A1",
+          building: { name: "Immeuble Test" },
+        },
+        chargeProvisions: [
+          {
+            label: "Provision juillet",
+            monthlyAmount: 100,
+            startDate: new Date("2026-07-01T00:00:00.000Z"),
+            endDate: null,
+          },
+          {
+            label: "Provision ancienne",
+            monthlyAmount: 50,
+            startDate: new Date("2025-10-01T00:00:00.000Z"),
+            endDate: new Date("2026-03-31T00:00:00.000Z"),
+          },
+        ],
+        chargeRegularizations: [],
+        invoices: [],
+      },
+    ] as never);
+
+    const result = await generateRecapChargesLocataire({
+      societyId: "society-1",
+      tenantId: "tenant-1",
+      type: "RECAP_CHARGES_LOCATAIRE",
+      year: 2026,
+    });
+
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableHeader).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      ["Provision sur charges", "Mensuel", "Exercice"],
+      expect.any(Array),
+      expect.any(Array)
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Provision juillet", "100.00 EUR", "600.00 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Provision ancienne", "50.00 EUR", "150.00 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 1 })
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      expect.any(Number),
+      ["Total provisions", "150.00 EUR", "750.00 EUR"],
+      expect.any(Array),
+      expect.any(Array)
+    );
   });
 
   it("gère les sauts de page (lignes 63, 78, 87)", async () => {

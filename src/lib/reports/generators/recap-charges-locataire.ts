@@ -18,9 +18,23 @@ import {
 } from "../invoice-metrics";
 import { getLeaseOverlapWhere } from "../lease-scope";
 
+function monthsInPeriod(startDate: Date | string | null | undefined, endDate: Date | string | null | undefined, from: Date, to: Date): number {
+  const start = startDate ? new Date(startDate) : from;
+  const end = endDate ? new Date(endDate) : to;
+  const overlapStart = start > from ? start : from;
+  const overlapEnd = end < to ? end : to;
+  if (overlapStart > overlapEnd) return 0;
+  return (overlapEnd.getFullYear() - overlapStart.getFullYear()) * 12
+    + overlapEnd.getMonth()
+    - overlapStart.getMonth()
+    + 1;
+}
+
 export async function generateRecapChargesLocataire(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, tenantId } = opts;
   const year = opts.year ?? new Date().getFullYear();
+  const from = new Date(year, 0, 1);
+  const to = new Date(year, 11, 31, 23, 59, 59);
   if (!tenantId) throw new Error("tenantId requis pour ce rapport");
 
   const tenant = await prisma.tenant.findFirst({ where: { id: tenantId, societyId } });
@@ -30,15 +44,24 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
     where: {
       societyId,
       tenantId,
-      ...getLeaseOverlapWhere(new Date(year, 0, 1), new Date(year, 11, 31, 23, 59, 59)),
+      ...getLeaseOverlapWhere(from, to),
     },
     include: {
       lot: { include: { building: { select: { name: true } } } },
-      chargeProvisions: { where: { isActive: true } },
+      chargeProvisions: {
+        where: {
+          isActive: true,
+          startDate: { lte: to },
+          OR: [
+            { endDate: null },
+            { endDate: { gte: from } },
+          ],
+        },
+      },
       chargeRegularizations: { where: { fiscalYear: year } },
       invoices: {
         where: {
-          issueDate: { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) },
+          issueDate: { gte: from, lte: to },
           invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
           status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
         },
@@ -84,15 +107,19 @@ export async function generateRecapChargesLocataire(opts: ReportOptions): Promis
     if (lease.chargeProvisions.length > 0) {
       const WS = [200, 100, CW - 300];
       const WA: ColAlign[] = ["left", "right", "right"];
-      y = drawTableHeader(p, ctx.bold, y, ["Provision sur charges", "Mensuel", "Annuel"], WS, WA);
-      let totProv = 0;
+      y = drawTableHeader(p, ctx.bold, y, ["Provision sur charges", "Mensuel", "Exercice"], WS, WA);
+      let totMonthlyProv = 0;
+      let totExerciseProv = 0;
       let ri = 0;
       for (const cp of lease.chargeProvisions) {
         if (y < minY()) { p = ctx.np(); y = contentStartY(); }
-        totProv += cp.monthlyAmount;
-        y = drawTableRow(p, ctx.reg, y, [cp.label, pdfCur(cp.monthlyAmount), pdfCur(cp.monthlyAmount * 12)], WS, WA, { rowIndex: ri++ });
+        const months = monthsInPeriod(cp.startDate, cp.endDate, from, to);
+        const exerciseAmount = cp.monthlyAmount * months;
+        totMonthlyProv += cp.monthlyAmount;
+        totExerciseProv += exerciseAmount;
+        y = drawTableRow(p, ctx.reg, y, [cp.label, pdfCur(cp.monthlyAmount), pdfCur(exerciseAmount)], WS, WA, { rowIndex: ri++ });
       }
-      y = drawTotalsRow(p, ctx.bold, y, ["Total provisions/mois", pdfCur(totProv), pdfCur(totProv * 12)], WS, WA);
+      y = drawTotalsRow(p, ctx.bold, y, ["Total provisions", pdfCur(totMonthlyProv), pdfCur(totExerciseProv)], WS, WA);
       y -= 8;
     }
 
