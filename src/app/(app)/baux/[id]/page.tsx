@@ -435,6 +435,17 @@ export default async function BailDetailPage({
                     €
                   </p>
                 </div>
+                {financialSummary.totalAvoir > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total avoirs</p>
+                    <p className="text-sm font-semibold text-emerald-600">
+                      -{financialSummary.totalAvoir.toLocaleString("fr-FR", {
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      €
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-muted-foreground">Total encaissé</p>
                   <p className="text-sm font-semibold text-emerald-600">
@@ -444,30 +455,35 @@ export default async function BailDetailPage({
                     €
                   </p>
                 </div>
-                {financialSummary.totalImpaye > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    {financialSummary.tenantBalance > 0 ? (
                       <AlertTriangle className="h-3 w-3 text-destructive" />
-                      Solde impayé
-                    </p>
-                    <p className="text-sm font-semibold text-destructive">
-                      {financialSummary.totalImpaye.toLocaleString("fr-FR", {
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      €
-                    </p>
-                  </div>
-                )}
-                {financialSummary.totalImpaye === 0 && (
-                  <p className="text-xs text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Aucun impayé
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    )}
+                    Solde du compte locataire
                   </p>
-                )}
+                  <p
+                    className={`text-sm font-semibold ${
+                      financialSummary.tenantBalance > 0
+                        ? "text-destructive"
+                        : financialSummary.tenantBalance < 0
+                          ? "text-emerald-600"
+                          : "text-foreground"
+                    }`}
+                  >
+                    {financialSummary.tenantBalance > 0 ? "+" : ""}
+                    {financialSummary.tenantBalance.toLocaleString("fr-FR", {
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    €
+                  </p>
+                </div>
                 <Separator />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{financialSummary.nbFactures} factures</span>
-                  {financialSummary.nbImpayees > 0 && (
+                  {financialSummary.nbImpayees > 0 && financialSummary.tenantBalance > 0 && (
                     <span className="text-destructive">
                       {financialSummary.nbImpayees} en retard
                     </span>

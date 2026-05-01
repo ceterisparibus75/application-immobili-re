@@ -469,26 +469,52 @@ describe("getLeaseFinancialSummary", () => {
 
   it("calcule les totaux avec paiement partiel sur une facture impayée (ligne 538)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ tenantId: "tenant-1" } as never);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { id: "inv-1", totalHT: 800, totalTTC: 800, status: "EN_RETARD", payments: [{ amount: 300 }] },
+      { id: "inv-1", totalHT: 800, totalTTC: 800, invoiceType: "LOYER", status: "EN_RETARD", payments: [{ amount: 300 }] },
     ] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
     const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
     expect(result?.totalImpaye).toBe(500);
+    expect(result?.tenantBalance).toBe(500);
   });
 
   it("calcule les totaux correctement", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ tenantId: "tenant-1" } as never);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { id: "inv-1", totalHT: 800, totalTTC: 800, status: "EN_RETARD", payments: [] },
-      { id: "inv-2", totalHT: 800, totalTTC: 800, status: "PAYE", payments: [{ amount: 800 }] },
+      { id: "inv-1", totalHT: 800, totalTTC: 800, invoiceType: "LOYER", status: "EN_RETARD", payments: [] },
+      { id: "inv-2", totalHT: 800, totalTTC: 800, invoiceType: "LOYER", status: "PAYE", payments: [{ amount: 800 }] },
     ] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
 
     const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
     expect(result?.nbFactures).toBe(2);
     expect(result?.totalFactureTTC).toBe(1600);
     expect(result?.totalEncaisse).toBe(800);
     expect(result?.totalImpaye).toBe(800);
+    expect(result?.tenantBalance).toBe(800);
     expect(result?.nbImpayees).toBe(1);
+  });
+
+  it("déduit les avoirs et reprises de solde comme le compte locataire", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE);
+    prismaMock.lease.findFirst.mockResolvedValue({ tenantId: "tenant-1" } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { id: "inv-1", totalHT: 397.03, totalTTC: 397.03, invoiceType: "LOYER", status: "VALIDEE", payments: [] },
+      { id: "credit-1", totalHT: -397.03, totalTTC: -397.03, invoiceType: "AVOIR", status: "VALIDEE", payments: [] },
+    ] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([
+      { amount: 100 },
+      { amount: -100 },
+    ] as never);
+
+    const result = await getLeaseFinancialSummary(SOCIETY_ID, LEASE_ID);
+
+    expect(result?.totalFactureTTC).toBe(397.03);
+    expect(result?.totalAvoir).toBe(397.03);
+    expect(result?.tenantBalance).toBe(0);
+    expect(result?.totalImpaye).toBe(0);
   });
 });
 

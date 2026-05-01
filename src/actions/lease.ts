@@ -797,40 +797,67 @@ export async function getLeaseFinancialSummary(societyId: string, leaseId: strin
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return null;
 
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      leaseId,
-      societyId,
-      invoiceType: { not: "QUITTANCE" },
-      status: { not: "BROUILLON" },
-    },
-    select: {
-      id: true,
-      totalHT: true,
-      totalTTC: true,
-      status: true,
-      payments: {
-        select: { amount: true },
-      },
-    },
+  const lease = await prisma.lease.findFirst({
+    where: { id: leaseId, societyId, deletedAt: null },
+    select: { tenantId: true },
   });
+  if (!lease) return null;
 
-  const totalFactureHT = invoices.reduce((sum, inv) => sum + inv.totalHT, 0);
-  const totalFactureTTC = invoices.reduce((sum, inv) => sum + inv.totalTTC, 0);
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        tenantId: lease.tenantId,
+        societyId,
+        invoiceType: { not: "QUITTANCE" },
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+      },
+      select: {
+        id: true,
+        totalHT: true,
+        totalTTC: true,
+        invoiceType: true,
+        status: true,
+        payments: {
+          select: { amount: true },
+        },
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { tenantId: lease.tenantId, societyId },
+      select: { amount: true },
+    }),
+  ]);
+
+  const totalFactureHT = invoices
+    .filter((inv) => inv.invoiceType !== "AVOIR")
+    .reduce((sum, inv) => sum + inv.totalHT, 0);
+  const totalFactureTTC = invoices
+    .filter((inv) => inv.invoiceType !== "AVOIR")
+    .reduce((sum, inv) => sum + inv.totalTTC, 0);
+  const totalAvoir = invoices
+    .filter((inv) => inv.invoiceType === "AVOIR")
+    .reduce((sum, inv) => sum + Math.abs(inv.totalTTC), 0);
   const totalEncaisse = invoices.reduce(
     (sum, inv) => sum + inv.payments.reduce((s, p) => s + p.amount, 0),
     0
   );
-  const totalImpaye = invoices
-    .filter((inv) => ["VALIDEE", "EN_RETARD", "RELANCEE", "LITIGIEUX", "EN_ATTENTE", "ENVOYEE", "PARTIELLEMENT_PAYE"].includes(inv.status))
-    .reduce((sum, inv) => {
-      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
-      return sum + Math.max(0, inv.totalTTC - paid);
-    }, 0);
+
+  let tenantBalance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
+  for (const inv of invoices) {
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      tenantBalance -= Math.abs(inv.totalTTC);
+    } else {
+      tenantBalance += inv.totalTTC - paid;
+    }
+  }
+  tenantBalance = Math.round(tenantBalance * 100) / 100;
+
+  const totalImpaye = Math.max(0, tenantBalance);
   const nbFactures = invoices.length;
   const nbImpayees = invoices.filter((inv) => ["EN_RETARD", "RELANCEE", "LITIGIEUX"].includes(inv.status)).length;
 
-  return { totalFactureHT, totalFactureTTC, totalEncaisse, totalImpaye, nbFactures, nbImpayees };
+  return { totalFactureHT, totalFactureTTC, totalAvoir, totalEncaisse, totalImpaye, tenantBalance, nbFactures, nbImpayees };
 }
 
 /** Documents associés à un bail (toutes catégories) */
