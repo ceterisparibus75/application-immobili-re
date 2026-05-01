@@ -113,6 +113,34 @@ export async function getNextInvoiceNumber(
   return `${prefix}-${currentYear}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
 }
 
+/** Numérotation atomique des avoirs — séquence séparée des factures. */
+export async function getNextCreditNoteNumber(
+  societyId: string,
+  tx: Prisma.TransactionClient
+): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  const current = await tx.society.findUnique({
+    where: { id: societyId },
+    select: { creditNoteNumberYear: true, nextCreditNoteNumber: true, invoicePrefix: true },
+  });
+
+  const yearChanged = !current || current.creditNoteNumberYear !== currentYear;
+
+  const society = await tx.society.update({
+    where: { id: societyId },
+    data: yearChanged
+      ? { creditNoteNumberYear: currentYear, nextCreditNoteNumber: 1 }
+      : { nextCreditNoteNumber: { increment: 1 } },
+    select: { nextCreditNoteNumber: true, invoicePrefix: true },
+  });
+
+  // Dériver le préfixe avoir : remplacer les 2 derniers caractères par "AV"
+  // Ex : MTGOI → MTGAV, FAC → FAV
+  const invoicePrefix = (current?.invoicePrefix?.toUpperCase() || "FAC");
+  const prefix = invoicePrefix.length >= 2 ? invoicePrefix.slice(0, -2) + "AV" : invoicePrefix + "AV";
+  return `${prefix}-${currentYear}-${String(society.nextCreditNoteNumber).padStart(4, "0")}`;
+}
 /** Calcule les dates de début/fin d'une période à partir d'un mois (ex: "2025-01"). */
 export function computePeriodDates(
   periodMonth: string,

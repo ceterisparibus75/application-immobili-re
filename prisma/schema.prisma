@@ -490,7 +490,9 @@ model Society {
   legalMentions     String? @db.Text // Mentions légales personnalisées
   invoicePrefix     String? // Préfixe numérotation (ex: "SCI1")
   nextInvoiceNumber Int     @default(0)
-  invoiceNumberYear Int     @default(0) // Année du compteur — réinitialise nextInvoiceNumber chaque année
+  invoiceNumberYear    Int     @default(0) // Année du compteur — réinitialise nextInvoiceNumber chaque année
+  nextCreditNoteNumber Int     @default(0) // Compteur séparé pour les avoirs
+  creditNoteNumberYear Int     @default(0) // Année du compteur avoir
 
   // Configuration
   isActive Boolean @default(true)

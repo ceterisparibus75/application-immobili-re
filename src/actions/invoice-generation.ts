@@ -23,6 +23,7 @@ import {
 import {
   computeLines,
   getNextInvoiceNumber,
+  getNextCreditNoteNumber,
   computePeriodDates,
   computeIssueDueDate,
   computeRentForPeriod,
@@ -876,7 +877,7 @@ export async function createCreditNote(
     }));
 
     const creditNote = await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      const invoiceNumber = await getNextCreditNoteNumber(societyId, tx);
       return tx.invoice.create({
         data: {
           societyId,
@@ -885,7 +886,7 @@ export async function createCreditNote(
           creditNoteForId: original.id,
           invoiceNumber,
           invoiceType: "AVOIR",
-          status: "EN_ATTENTE",
+          status: "BROUILLON",
           issueDate: new Date(),
           dueDate: new Date(parsed.data.dueDate),
           periodStart: original.periodStart,

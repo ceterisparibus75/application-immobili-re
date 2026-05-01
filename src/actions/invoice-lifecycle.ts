@@ -18,7 +18,7 @@ import {
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 import { env } from "@/lib/env";
-import { getNextInvoiceNumber } from "./invoice-shared";
+import { getNextInvoiceNumber, getNextCreditNoteNumber } from "./invoice-shared";
 
 // Numéro alloué à la validation, pas à la création du brouillon.
 
@@ -450,12 +450,12 @@ export async function validateInvoice(
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, societyId, status: "BROUILLON" },
-      select: { id: true, invoiceNumber: true },
+      select: { id: true, invoiceNumber: true, invoiceType: true },
     });
     if (!invoice) return { success: false, error: "Facture introuvable ou déjà validée" };
 
     const { invoiceNumber } = await prisma.$transaction(async (tx) => {
-      const number = await getNextInvoiceNumber(societyId, tx);
+      const number = invoice.invoiceType === "AVOIR" ? await getNextCreditNoteNumber(societyId, tx) : await getNextInvoiceNumber(societyId, tx);
       return tx.invoice.update({
         where: { id: invoiceId },
         data: { status: "VALIDEE", validatedAt: new Date(), invoiceNumber: number },
@@ -495,14 +495,14 @@ export async function validateBatchInvoices(
 
     const drafts = await prisma.invoice.findMany({
       where: { id: { in: invoiceIds }, societyId, status: "BROUILLON" },
-      select: { id: true, invoiceNumber: true },
+      select: { id: true, invoiceNumber: true, invoiceType: true },
     });
 
     // Validation séquentielle — chaque facture reçoit un numéro unique dans l'ordre
     const validatedAt = new Date();
     for (const draft of drafts) {
       await prisma.$transaction(async (tx) => {
-        const number = await getNextInvoiceNumber(societyId, tx);
+        const number = draft.invoiceType === "AVOIR" ? await getNextCreditNoteNumber(societyId, tx) : await getNextInvoiceNumber(societyId, tx);
         await tx.invoice.update({
           where: { id: draft.id },
           data: { status: "VALIDEE", validatedAt, invoiceNumber: number },
@@ -555,7 +555,7 @@ export async function cancelInvoice(
 
     if (needsCreditNote) {
       const creditNote = await prisma.$transaction(async (tx) => {
-        const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+        const invoiceNumber = await getNextCreditNoteNumber(societyId, tx);
         return tx.invoice.create({
           data: {
             societyId,
