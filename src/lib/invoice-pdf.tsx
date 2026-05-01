@@ -80,6 +80,10 @@ function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("fr-FR")
 const LEGAL_FORM_LABELS: Record<string, string> = {
   SCI: "Societe Civile Immobiliere (SCI)", SARL: "SARL",
   SAS: "SAS", SA: "SA", EURL: "EURL", SASU: "SASU", SNC: "SNC", AUTRE: "Societe",
+  ASSOCIATION: "Association", FONDATION: "Fondation", FONDS_DOTATION: "Fonds de dotation",
+  MUTUELLE: "Mutuelle", SYNDICAT: "Syndicat", SCOP: "SCOP", SCIC: "SCIC",
+  GIP: "GIP", EPIC: "EPIC", EPA: "EPA", SEM: "SEM", SPL: "SPL",
+  COLLECTIVITE: "Collectivite", CHAMBRE_CONSULAIRE: "Chambre consulaire",
   PERSONNE_PHYSIQUE: "Proprietaire",
 };
 

@@ -11,7 +11,7 @@ import type { ProprietaireAssocie } from "@/actions/proprietaire";
 import { toast } from "sonner";
 import { Pencil, X, Save, User, Building2, Plus, Trash2, Mail, Users } from "lucide-react";
 
-const LEGAL_FORMS = ["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "Holding", "Autre"];
+const LEGAL_FORMS = ["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "Holding", "Association", "Fondation", "Mutuelle", "EPIC", "EPA", "SEM", "SPL", "GIP", "SCOP", "SCIC", "Syndicat", "Collectivite", "Chambre consulaire", "Autre"];
 const ASSOCIE_ROLES = ["Co-propriétaire", "Usufruitier", "Nu-propriétaire", "Indivisaire", "Autre"];
 
 type ProprietaireData = {

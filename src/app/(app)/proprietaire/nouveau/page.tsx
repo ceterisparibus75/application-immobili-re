@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import type { ProprietaireEntityType } from "@/generated/prisma/client";
 
-const LEGAL_FORMS = ["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "Holding", "Autre"];
+const LEGAL_FORMS = ["SCI", "SARL", "SAS", "SA", "EURL", "SASU", "SNC", "Holding", "Association", "Fondation", "Mutuelle", "EPIC", "EPA", "SEM", "SPL", "GIP", "SCOP", "SCIC", "Syndicat", "Collectivite", "Chambre consulaire", "Autre"];
 
 export default function NouveauProprietairePage() {
   const router = useRouter();
