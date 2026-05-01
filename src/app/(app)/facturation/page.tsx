@@ -36,7 +36,7 @@ import {
 
 export const metadata = { title: "Facturation" };
 
-type FacturationTab = "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
+type FacturationTab = "a-traiter" | "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard";
 
 interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -44,12 +44,12 @@ interface PageProps {
 
 function parseFacturationTab(value: string | string[] | undefined): FacturationTab {
   const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "factures") return "factures";
   if (raw === "quittances") return "quittances";
   if (raw === "brouillons") return "brouillons";
   if (raw === "a-envoyer" || raw === "envoi") return "a-envoyer";
-  if (raw === "en-retard" || raw === "retard") return "en-retard";
-  if (raw === "relances") return "relances";
-  return "factures";
+  if (raw === "en-retard" || raw === "retard" || raw === "relances") return "en-retard";
+  return "a-traiter";
 }
 
 async function getOverdueInvoices(societyId: string) {
@@ -84,34 +84,6 @@ async function getOverdueInvoices(societyId: string) {
   });
 }
 
-async function getRecentReminders(societyId: string) {
-  return prisma.reminder.findMany({
-    where: { lease: { societyId } },
-    select: {
-      id: true,
-      level: true,
-      subject: true,
-      totalAmount: true,
-      sentAt: true,
-      isSent: true,
-      lease: {
-        select: {
-          tenant: {
-            select: {
-              entityType: true,
-              companyName: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
-}
-
 export default async function FacturationPage({ searchParams }: PageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
@@ -122,10 +94,9 @@ export default async function FacturationPage({ searchParams }: PageProps) {
 
   await requireSocietyAccess(session.user.id, societyId);
 
-  const [invoices, overdueInvoices, reminders] = await Promise.all([
+  const [invoices, overdueInvoices] = await Promise.all([
     getInvoices(societyId),
     getOverdueInvoices(societyId),
-    getRecentReminders(societyId),
   ]);
 
   const issuedInvoices = invoices.filter(isIssuedInvoiceForBillingKpi);
@@ -134,7 +105,6 @@ export default async function FacturationPage({ searchParams }: PageProps) {
   const totalTTC = sumInvoiceTotalTTC(issuedInvoices);
   const totalImpaye = sumInvoiceTotalTTC([...enAttente, ...enRetard]);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
-  const remindersCount = reminders.filter((r) => r.isSent).length;
   const resolvedSearchParams = (await searchParams) ?? {};
   const initialTab = parseFacturationTab(resolvedSearchParams.tab);
 
@@ -245,17 +215,15 @@ export default async function FacturationPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* Tabs: Factures | Quittances | Brouillons | En retard | Relances */}
+      {/* Tabs: À traiter | Factures | Quittances | Brouillons | À envoyer | En retard */}
       <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" />}>
         <FacturationTabs
           initialTab={initialTab}
           invoices={invoices}
           brouillons={brouillons}
           overdueInvoices={overdueInvoices}
-          reminders={reminders}
           societyId={societyId}
           overdueCount={overdueInvoices.length}
-          remindersCount={remindersCount}
         />
       </Suspense>
     </div>

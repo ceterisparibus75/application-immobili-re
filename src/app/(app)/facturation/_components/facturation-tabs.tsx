@@ -3,52 +3,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
-import { RelancesClient } from "./overdue-tab";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-
-const LEVEL_LABELS: Record<string, string> = {
-  RELANCE_1: "1ère relance",
-  RELANCE_2: "2ème relance",
-  MISE_EN_DEMEURE: "Mise en demeure",
-  CONTENTIEUX: "Contentieux",
-};
-
-const LEVEL_VARIANTS: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  RELANCE_1: "secondary",
-  RELANCE_2: "outline",
-  MISE_EN_DEMEURE: "destructive",
-  CONTENTIEUX: "destructive",
-};
 
 function fmt(v: number) {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
   }).format(v);
-}
-
-function tenantName(lease: {
-  tenant: {
-    entityType: string;
-    companyName: string | null;
-    firstName: string | null;
-    lastName: string | null;
-  };
-} | null) {
-  if (!lease?.tenant) return "—";
-  if (lease.tenant.entityType === "PERSONNE_MORALE")
-    return lease.tenant.companyName ?? "—";
-  const first = lease.tenant.firstName ?? "";
-  const last = lease.tenant.lastName ?? "";
-  return `${first} ${last}`.trim() || "—";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,38 +36,19 @@ type OverdueInvoice = {
   } | null;
 };
 
-type Reminder = {
-  id: string;
-  level: string;
-  subject: string;
-  totalAmount: number;
-  sentAt: Date | null;
-  isSent: boolean;
-  lease: {
-    tenant: {
-      entityType: string;
-      companyName: string | null;
-      firstName: string | null;
-      lastName: string | null;
-    };
-  } | null;
-};
-
 interface FacturationTabsProps {
   initialTab: FacturationTab;
   invoices: Invoice[];
   brouillons: Invoice[];
   overdueInvoices: OverdueInvoice[];
-  reminders: Reminder[];
   societyId: string;
   overdueCount: number;
-  remindersCount: number;
 }
 
-type FacturationTab = "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard" | "relances";
+type FacturationTab = "a-traiter" | "factures" | "quittances" | "brouillons" | "a-envoyer" | "en-retard";
 
 function tabHref(tab: FacturationTab): string {
-  return tab === "factures" ? "/facturation" : `/facturation?tab=${tab}`;
+  return tab === "a-traiter" ? "/facturation" : `/facturation?tab=${tab}`;
 }
 
 function FacturationTabLink({
@@ -130,15 +77,59 @@ function FacturationTabLink({
   );
 }
 
+function QueueCard({
+  title,
+  count,
+  detail,
+  href,
+  icon,
+  tone = "default",
+}: {
+  title: string;
+  count: number | string;
+  detail: string;
+  href: string;
+  icon: ReactNode;
+  tone?: "default" | "warning" | "danger";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "border-[var(--color-status-negative)]/25 bg-[var(--color-status-negative-bg)]/40"
+      : tone === "warning"
+        ? "border-[var(--color-status-caution)]/25 bg-[var(--color-status-caution-bg)]/40"
+        : "border-border/70 bg-card";
+
+  return (
+    <Link
+      href={href}
+      className={cn("rounded-lg border p-4 transition-colors hover:bg-accent/40", toneClass)}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-md bg-background/80 text-foreground">
+            {icon}
+          </div>
+          <div>
+            <p className="text-sm font-medium">{title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-semibold tabular-nums">{count}</span>
+          <ArrowRight className="size-4 text-muted-foreground" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export function FacturationTabs({
   initialTab,
   invoices,
   brouillons,
   overdueInvoices,
-  reminders,
   societyId,
   overdueCount,
-  remindersCount,
 }: FacturationTabsProps) {
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
   const quittances = issuedInvoices.filter((i) => i.invoiceType === "QUITTANCE");
@@ -146,10 +137,23 @@ export function FacturationTabs({
   const invoicesToSend = billingInvoices.filter(
     (i) => (i.status === "VALIDEE" || i.status === "EN_ATTENTE") && !i.sentAt
   );
+  const overdueTotal = overdueInvoices.reduce(
+    (sum, invoice) => sum + invoice.totalTTC - invoice.payments.reduce((paid, payment) => paid + payment.amount, 0),
+    0
+  );
+  const hasWork = brouillons.length > 0 || invoicesToSend.length > 0 || overdueCount > 0;
 
   return (
     <div>
       <div className="inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground">
+        <FacturationTabLink value="a-traiter" active={initialTab === "a-traiter"}>
+          À traiter
+          {hasWork && (
+            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
+              {brouillons.length + invoicesToSend.length + overdueCount}
+            </Badge>
+          )}
+        </FacturationTabLink>
         <FacturationTabLink value="factures" active={initialTab === "factures"}>
           Factures
         </FacturationTabLink>
@@ -185,15 +189,87 @@ export function FacturationTabs({
             </Badge>
           )}
         </FacturationTabLink>
-        <FacturationTabLink value="relances" active={initialTab === "relances"}>
-          Relances
-          {remindersCount > 0 && (
-            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
-              {remindersCount}
-            </Badge>
-          )}
-        </FacturationTabLink>
       </div>
+
+      {/* Onglet À traiter */}
+      {initialTab === "a-traiter" && (
+        <div className="mt-6 space-y-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <QueueCard
+              title="Brouillons"
+              count={brouillons.length}
+              detail="Factures à contrôler puis valider"
+              href="/facturation?tab=brouillons"
+              icon={<FileClock className="size-4" />}
+              tone={brouillons.length > 0 ? "warning" : "default"}
+            />
+            <QueueCard
+              title="À envoyer"
+              count={invoicesToSend.length}
+              detail="Validées mais pas encore transmises"
+              href="/facturation?tab=a-envoyer"
+              icon={<Mail className="size-4" />}
+            />
+            <QueueCard
+              title="Retards"
+              count={overdueCount}
+              detail={`${fmt(overdueTotal)} restant dû`}
+              href="/relances"
+              icon={<AlertTriangle className="size-4" />}
+              tone={overdueCount > 0 ? "danger" : "default"}
+            />
+            <QueueCard
+              title="Génération"
+              count="Masse"
+              detail="Préparer les appels de loyers"
+              href="/facturation/generer"
+              icon={<Zap className="size-4" />}
+            />
+          </div>
+
+          {!hasWork ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Receipt className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-semibold">Aucune action en attente</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Les brouillons, factures à envoyer et retards apparaîtront ici dès qu’une action de masse sera nécessaire.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {brouillons.length > 0 && <DraftsBanner drafts={brouillons} societyId={societyId} />}
+              {invoicesToSend.length > 0 && (
+                <InvoicesList invoices={invoicesToSend} title="Factures à envoyer" />
+              )}
+              {overdueCount > 0 && (
+                <Card className="border-[var(--color-status-negative)]/25">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <AlertTriangle className="h-4 w-4 text-[var(--color-status-negative)]" />
+                      Retards à traiter dans le module relance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {overdueCount} facture{overdueCount > 1 ? "s" : ""} en retard pour {fmt(overdueTotal)} restant dû.
+                    </p>
+                    <Button asChild>
+                      <Link href="/relances">
+                        Ouvrir les relances
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Onglet Factures */}
       {initialTab === "factures" && (
@@ -329,70 +405,35 @@ export function FacturationTabs({
       {/* Onglet En retard */}
       {initialTab === "en-retard" && (
       <div className="space-y-6 mt-6">
-        <Card>
+        <Card className="border-[var(--color-status-negative)]/25">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertTriangle className="h-4 w-4 text-[var(--color-status-negative)]" />
               Factures en retard
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <RelancesClient
-              societyId={societyId}
-              overdueInvoices={overdueInvoices}
-            />
-          </CardContent>
-        </Card>
-      </div>
-      )}
-
-      {/* Onglet Relances (historique) */}
-      {initialTab === "relances" && (
-      <div className="space-y-6 mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Historique des relances</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reminders.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                Aucune relance enregistrée
-              </p>
-            ) : (
-              <div className="divide-y">
-                {reminders.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between gap-4 py-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={LEVEL_VARIANTS[r.level] ?? "outline"}
-                          className="text-xs shrink-0"
-                        >
-                          {LEVEL_LABELS[r.level] ?? r.level}
-                        </Badge>
-                        <span className="text-sm font-medium truncate">
-                          {tenantName(r.lease)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.subject}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold">{fmt(r.totalAmount)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.sentAt
-                          ? new Date(r.sentAt).toLocaleDateString("fr-FR")
-                          : "Non envoyée"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          <CardContent className="flex flex-col gap-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border bg-background p-4">
+                <p className="text-xs text-muted-foreground">Factures concernées</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{overdueCount}</p>
               </div>
-            )}
+              <div className="rounded-md border bg-background p-4">
+                <p className="text-xs text-muted-foreground">Restant dû</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{fmt(overdueTotal)}</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-md bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                L’envoi et l’historique des relances sont centralisés dans le module dédié.
+              </p>
+              <Button asChild>
+                <Link href="/relances">
+                  Ouvrir les relances
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

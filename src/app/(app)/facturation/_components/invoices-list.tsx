@@ -13,6 +13,7 @@ import {
   Building2,
   CheckCircle2,
   Clock,
+  FileText,
   FilterX,
   Loader2,
   Search,
@@ -213,6 +214,7 @@ export function InvoicesList({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | InvoiceType>("all");
+  const [buildingFilter, setBuildingFilter] = useState<"all" | string>("all");
 
   useEffect(() => {
     const sentInvoices = invoices.filter((invoice) => invoice.resendEmailId);
@@ -257,12 +259,23 @@ export function InvoicesList({
       .map((type) => ({ value: type, label: TYPE_LABELS[type] }));
   }, [invoices]);
 
+  const buildingOptions = useMemo(() => {
+    return Array.from(new Set(invoices.map((invoice) => getBuildingName(invoice))))
+      .sort((a, b) => {
+        if (a === "Sans immeuble") return 1;
+        if (b === "Sans immeuble") return -1;
+        return a.localeCompare(b, "fr");
+      })
+      .map((building) => ({ value: building, label: building }));
+  }, [invoices]);
+
   const visibleInvoices = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
 
     return invoices.filter((invoice) => {
       if (statusFilter !== "all" && invoice.status !== statusFilter) return false;
       if (typeFilter !== "all" && invoice.invoiceType !== typeFilter) return false;
+      if (buildingFilter !== "all" && getBuildingName(invoice) !== buildingFilter) return false;
       if (!normalizedQuery) return true;
 
       const haystack = [
@@ -275,26 +288,29 @@ export function InvoicesList({
 
       return haystack.includes(normalizedQuery);
     });
-  }, [invoices, query, statusFilter, typeFilter]);
+  }, [buildingFilter, invoices, query, statusFilter, typeFilter]);
 
-  const byBuilding = useMemo<[string, InvoiceItem[]][]>(() => {
-    return Object.entries(
-      visibleInvoices.reduce<Record<string, InvoiceItem[]>>((acc, invoice) => {
-        const key = getBuildingName(invoice);
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(invoice);
-        return acc;
-      }, {})
-    )
-      .sort(([a], [b]) => {
-        if (a === "Sans immeuble") return 1;
-        if (b === "Sans immeuble") return -1;
-        return a.localeCompare(b, "fr");
-      })
-      .map(([name, groupInvoices]) => [
-        name,
-        [...groupInvoices].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
-      ]);
+  const sortedInvoices = useMemo(() => {
+    const statusRank: Partial<Record<InvoiceStatus, number>> = {
+      EN_RETARD: 0,
+      LITIGIEUX: 1,
+      RELANCEE: 2,
+      PARTIELLEMENT_PAYE: 3,
+      VALIDEE: 4,
+      EN_ATTENTE: 5,
+      ENVOYEE: 6,
+      BROUILLON: 7,
+      PAYE: 8,
+      IRRECOUVRABLE: 9,
+      ANNULEE: 10,
+    };
+
+    return [...visibleInvoices].sort((a, b) => {
+      const rankA = statusRank[a.status] ?? 99;
+      const rankB = statusRank[b.status] ?? 99;
+      if (rankA !== rankB) return rankA - rankB;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
   }, [visibleInvoices]);
 
   const visibleSendableIds = useMemo(
@@ -320,6 +336,7 @@ export function InvoicesList({
     setQuery("");
     setStatusFilter("all");
     setTypeFilter("all");
+    setBuildingFilter("all");
   };
 
   const toggleAllVisible = useCallback(() => {
@@ -406,7 +423,7 @@ export function InvoicesList({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="grid gap-2 lg:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto]">
+          <div className="grid gap-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_12rem_14rem_auto]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -427,6 +444,12 @@ export function InvoicesList({
               onChange={(event) => setTypeFilter(event.target.value as "all" | InvoiceType)}
               options={[{ value: "all", label: "Tous les types" }, ...typeOptions]}
               aria-label="Filtrer par type"
+            />
+            <NativeSelect
+              value={buildingFilter}
+              onChange={(event) => setBuildingFilter(event.target.value)}
+              options={[{ value: "all", label: "Tous les immeubles" }, ...buildingOptions]}
+              aria-label="Filtrer par immeuble"
             />
             <Button type="button" variant="outline" onClick={resetFilters}>
               <FilterX className="size-4" />
@@ -490,75 +513,79 @@ export function InvoicesList({
           </CardContent>
         </Card>
       ) : (
-        byBuilding.map(([buildingName, groupInvoices]) => (
-          <Card key={buildingName} className="overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 px-4 py-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Building2 className="size-4 text-muted-foreground" />
-                <span className="truncate">{buildingName}</span>
-                <Badge variant="outline" className="ml-auto">
-                  {groupInvoices.length} {groupInvoices.length > 1 ? itemLabelPlural : itemLabel}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {groupInvoices.map((invoice) => {
-                  const isSent = !!invoice.sentAt || localSentIds.has(invoice.id);
-                  const delivery = deliveryStatuses[invoice.id] ?? null;
-                  const displayStatus = getDisplayStatus(invoice);
-                  const sendable = canSendInvoice(invoice);
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <FileText className="size-4 text-muted-foreground" />
+              Liste de travail
+              <Badge variant="outline" className="ml-auto">
+                {sortedInvoices.length} {sortedInvoices.length > 1 ? itemLabelPlural : itemLabel}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {sortedInvoices.map((invoice) => {
+                const isSent = !!invoice.sentAt || localSentIds.has(invoice.id);
+                const delivery = deliveryStatuses[invoice.id] ?? null;
+                const displayStatus = getDisplayStatus(invoice);
+                const sendable = canSendInvoice(invoice);
+                const buildingName = getBuildingName(invoice);
 
-                  return (
-                    <div
-                      key={invoice.id}
-                      className="grid gap-3 px-4 py-3 transition-colors hover:bg-accent/30 md:grid-cols-[auto_minmax(0,1fr)_auto]"
-                    >
-                      <Checkbox
-                        checked={selected.has(invoice.id)}
-                        onCheckedChange={() => toggleOne(invoice.id)}
-                        disabled={!sendable || sending}
-                        title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
-                        aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
-                        className="mt-1"
-                      />
-                      <Link href={`/facturation/${invoice.id}`} className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold">{invoice.invoiceNumber ?? "Sans numéro"}</p>
-                          {isSent && delivery?.status && (
-                            <DeliveryBadge status={delivery.status} label={delivery.label} />
-                          )}
-                          {isSent && !delivery?.status && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--color-status-positive)]">
-                              <CheckCircle2 className="size-3 shrink-0" />
-                              Envoyé
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {getTenantName(invoice.tenant)} · échéance {formatDate(invoice.dueDate)}
-                          {isSent && invoice.sentAt ? ` · envoyé le ${formatDate(invoice.sentAt)}` : ""}
-                        </p>
-                      </Link>
-                      <div className="flex items-center justify-between gap-3 md:justify-end">
-                        <div className="text-left md:text-right">
-                          <p className="text-sm font-semibold tabular-nums">{formatCurrency(invoice.totalTTC)}</p>
-                          <p className="text-xs text-muted-foreground">{formatCurrency(invoice.totalHT)} HT</p>
-                        </div>
-                        <div className="flex flex-wrap justify-end gap-1.5">
-                          <Badge variant="outline" className="text-xs">{TYPE_LABELS[invoice.invoiceType]}</Badge>
-                          <Badge variant={STATUS_VARIANTS[displayStatus]} className="text-xs">
-                            {STATUS_LABELS[displayStatus]}
-                          </Badge>
-                        </div>
+                return (
+                  <div
+                    key={invoice.id}
+                    className="grid gap-3 px-4 py-3 transition-colors hover:bg-accent/30 md:grid-cols-[auto_minmax(0,1fr)_auto]"
+                  >
+                    <Checkbox
+                      checked={selected.has(invoice.id)}
+                      onCheckedChange={() => toggleOne(invoice.id)}
+                      disabled={!sendable || sending}
+                      title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
+                      aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
+                      className="mt-1"
+                    />
+                    <Link href={`/facturation/${invoice.id}`} className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">{invoice.invoiceNumber ?? "Sans numéro"}</p>
+                        {isSent && delivery?.status && (
+                          <DeliveryBadge status={delivery.status} label={delivery.label} />
+                        )}
+                        {isSent && !delivery?.status && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--color-status-positive)]">
+                            <CheckCircle2 className="size-3 shrink-0" />
+                            Envoyé
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <span>{getTenantName(invoice.tenant)}</span>
+                        <span>· échéance {formatDate(invoice.dueDate)}</span>
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <Building2 className="size-3 shrink-0" />
+                          <span className="truncate">{buildingName}</span>
+                        </span>
+                        {isSent && invoice.sentAt ? <span>· envoyé le {formatDate(invoice.sentAt)}</span> : null}
+                      </p>
+                    </Link>
+                    <div className="flex items-center justify-between gap-3 md:justify-end">
+                      <div className="text-left md:text-right">
+                        <p className="text-sm font-semibold tabular-nums">{formatCurrency(invoice.totalTTC)}</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(invoice.totalHT)} HT</p>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <Badge variant="outline" className="text-xs">{TYPE_LABELS[invoice.invoiceType]}</Badge>
+                        <Badge variant={STATUS_VARIANTS[displayStatus]} className="text-xs">
+                          {STATUS_LABELS[displayStatus]}
+                        </Badge>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ))
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
