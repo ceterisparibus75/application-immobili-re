@@ -9,6 +9,7 @@ import {
   getFiscalYears,
   createFiscalYear,
   closeFiscalYear,
+  generateOpeningEntries,
   getAccounts,
   getBalance,
   getGrandLivre,
@@ -167,13 +168,50 @@ describe("closeFiscalYear", () => {
     expect(result.error).toMatch(/équilibr/);
   });
 
+  it("retourne une erreur si des comptes mouvementés ne sont pas revus", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.count.mockResolvedValue(0 as never);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { debit: 1000, credit: 1000, accountId: ACCOUNT_ID_1 },
+    ] as never);
+    prismaMock.accountReview.count
+      .mockResolvedValueOnce(0 as never)
+      .mockResolvedValueOnce(0 as never);
+
+    const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/réviser/);
+  });
+
+  it("retourne une erreur si un compte a un point de révision ouvert", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.count.mockResolvedValue(0 as never);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { debit: 1000, credit: 1000, accountId: ACCOUNT_ID_1 },
+    ] as never);
+    prismaMock.accountReview.count
+      .mockResolvedValueOnce(1 as never)
+      .mockResolvedValueOnce(1 as never);
+
+    const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/point de révision/);
+  });
+
   it("clôture l'exercice avec succès", async () => {
     mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
     prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.count.mockResolvedValue(0 as never);
     prismaMock.journalEntryLine.findMany.mockResolvedValue([
-      { debit: 1000, credit: 1000 },
+      { debit: 1000, credit: 1000, accountId: ACCOUNT_ID_1 },
     ] as never);
+    prismaMock.accountReview.count
+      .mockResolvedValueOnce(1 as never)
+      .mockResolvedValueOnce(0 as never);
     prismaMock.fiscalYear.update.mockResolvedValue({} as never);
     prismaMock.journalEntry.updateMany.mockResolvedValue({ count: 5 } as never);
 
@@ -196,6 +234,65 @@ describe("closeFiscalYear", () => {
     prismaMock.fiscalYear.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la clôture" });
+  });
+});
+
+describe("generateOpeningEntries", () => {
+  it("retourne une erreur si l'exercice source n'est pas clôturé", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: false }) as never);
+
+    const result = await generateOpeningEntries(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/après clôture/);
+  });
+
+  it("génère une écriture d'à-nouveaux équilibrée", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: true, year: 2025 }) as never);
+    prismaMock.fiscalYear.findUnique.mockResolvedValue({
+      id: "fy-2026",
+      year: 2026,
+      startDate: new Date("2026-01-01"),
+    } as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { debit: 1000, credit: 0, accountId: "bank", account: { code: "512000", label: "Banque", type: "5" } },
+      { debit: 0, credit: 1000, accountId: "capital", account: { code: "101000", label: "Capital", type: "1" } },
+      { debit: 300, credit: 0, accountId: "charge", account: { code: "615100", label: "Entretien", type: "6" } },
+      { debit: 0, credit: 300, accountId: "product", account: { code: "706100", label: "Loyers", type: "7" } },
+    ] as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: "an-entry" } as never);
+
+    const result = await generateOpeningEntries(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result).toEqual({ success: true, data: { id: "an-entry", alreadyExists: false } });
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "AN",
+          fiscalYearId: "fy-2026",
+          reference: `opening:${FISCAL_YEAR_ID}:fy-2026`,
+        }),
+      })
+    );
+  });
+
+  it("retourne l'écriture existante si les à-nouveaux existent déjà", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: true, year: 2025 }) as never);
+    prismaMock.fiscalYear.findUnique.mockResolvedValue({
+      id: "fy-2026",
+      year: 2026,
+      startDate: new Date("2026-01-01"),
+    } as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({ id: "existing-an" } as never);
+
+    const result = await generateOpeningEntries(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result).toEqual({ success: true, data: { id: "existing-an", alreadyExists: true } });
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 });
 

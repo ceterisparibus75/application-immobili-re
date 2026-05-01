@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useSociety } from "@/providers/society-provider";
-import { getFiscalYears, createFiscalYear, closeFiscalYear } from "@/actions/accounting";
+import { getFiscalYears, createFiscalYear, closeFiscalYear, generateOpeningEntries } from "@/actions/accounting";
 import type { FiscalYearRow } from "@/actions/accounting";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Lock, Plus, CheckCircle2, AlertTriangle, Archive } from "lucide-react";
+import { Lock, Plus, CheckCircle2, AlertTriangle, Archive, FilePlus2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CloturePage() {
@@ -53,6 +53,18 @@ export default function CloturePage() {
         reload();
       } else {
         toast.error(res.error ?? "Erreur lors de la clôture");
+      }
+    });
+  }
+
+  function handleGenerateOpeningEntries(fiscalYearId: string) {
+    if (!activeSociety?.id) return;
+    startTransition(async () => {
+      const res = await generateOpeningEntries(activeSociety.id, fiscalYearId);
+      if (res.success) {
+        toast.success(res.data?.alreadyExists ? "Les à-nouveaux existent déjà" : "Écriture d'à-nouveaux créée");
+      } else {
+        toast.error(res.error ?? "Erreur lors de la génération des à-nouveaux");
       }
     });
   }
@@ -147,7 +159,11 @@ export default function CloturePage() {
                     {fy.closedAt ? formatDateTime(fy.closedAt) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    {!fy.isClosed && (
+                    {fy.isClosed ? (
+                      <Button variant="outline" size="sm" disabled={isPending} onClick={() => handleGenerateOpeningEntries(fy.id)}>
+                        <FilePlus2 className="h-3 w-3 mr-1" />À-nouveaux
+                      </Button>
+                    ) : (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="sm" disabled={isPending}>
@@ -166,6 +182,7 @@ export default function CloturePage() {
                                 <li>Verrouiller toutes les écritures de l&apos;exercice {fy.year}</li>
                                 <li>Interdire toute nouvelle écriture sur cet exercice</li>
                                 <li>Vérifier l&apos;équilibre global (débit = crédit)</li>
+                                <li>Bloquer la clôture si des comptes mouvementés ne sont pas revus</li>
                               </ul>
                               <p className="font-medium text-destructive">Toutes les écritures doivent être validées avant la clôture.</p>
                             </AlertDialogDescription>

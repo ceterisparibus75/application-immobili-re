@@ -59,6 +59,31 @@ export type GrandLivreRow = {
   accountLabel: string;
 };
 
+type OpeningEntryLine = {
+  accountId: string;
+  debit: number;
+  credit: number;
+  label: string;
+};
+
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+async function ensureAccountingAccount(
+  societyId: string,
+  code: string,
+  label: string,
+  type: string
+): Promise<{ id: string }> {
+  return prisma.accountingAccount.upsert({
+    where: { societyId_code: { societyId, code } },
+    update: { isActive: true },
+    create: { societyId, code, label, type, isActive: true },
+    select: { id: true },
+  });
+}
+
 // ─── Exercices fiscaux ────────────────────────────────────────────────────────
 
 export async function getFiscalYears(societyId: string): Promise<ActionResult<FiscalYearRow[]>> {
@@ -144,7 +169,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
     // Vérifier l'équilibre débit/crédit
     const lines = await prisma.journalEntryLine.findMany({
       where: { journalEntry: { societyId, fiscalYearId } },
-      select: { debit: true, credit: true },
+      select: { debit: true, credit: true, accountId: true },
     });
     const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
     const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
@@ -153,6 +178,35 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
         success: false,
         error: `La balance n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)`,
       };
+    }
+
+    const accountIds = [...new Set(lines.map((line) => line.accountId))];
+    if (accountIds.length > 0) {
+      const reviewedCount = await prisma.accountReview.count({
+        where: {
+          societyId,
+          fiscalYearId,
+          accountId: { in: accountIds },
+          status: "REVIEWED",
+        },
+      });
+      const issueCount = await prisma.accountReview.count({
+        where: {
+          societyId,
+          fiscalYearId,
+          accountId: { in: accountIds },
+          status: "ISSUE",
+        },
+      });
+      if (issueCount > 0) {
+        return { success: false, error: `${issueCount} compte(s) ont encore un point de révision ouvert` };
+      }
+      if (reviewedCount !== accountIds.length) {
+        return {
+          success: false,
+          error: `${accountIds.length - reviewedCount} compte(s) mouvementé(s) restent à réviser avant la clôture`,
+        };
+      }
     }
 
     await prisma.fiscalYear.update({
@@ -182,6 +236,141 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[closeFiscalYear]", error);
     return { success: false, error: "Erreur lors de la clôture" };
+  }
+}
+
+export async function generateOpeningEntries(
+  societyId: string,
+  sourceFiscalYearId: string
+): Promise<ActionResult<{ id: string; alreadyExists: boolean }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
+
+    const source = await prisma.fiscalYear.findFirst({
+      where: { id: sourceFiscalYearId, societyId },
+      select: { id: true, year: true, startDate: true, endDate: true, isClosed: true },
+    });
+    if (!source) return { success: false, error: "Exercice source introuvable" };
+    if (!source.isClosed) {
+      return { success: false, error: "Les à-nouveaux ne peuvent être générés qu'après clôture de l'exercice source" };
+    }
+
+    const target = await prisma.fiscalYear.findUnique({
+      where: { societyId_year: { societyId, year: source.year + 1 } },
+      select: { id: true, year: true, startDate: true },
+    });
+    if (!target) {
+      return { success: false, error: `Créez d'abord l'exercice ${source.year + 1} pour générer les à-nouveaux` };
+    }
+
+    const reference = `opening:${source.id}:${target.id}`;
+    const existing = await prisma.journalEntry.findFirst({
+      where: { societyId, reference },
+      select: { id: true },
+    });
+    if (existing) return { success: true, data: { id: existing.id, alreadyExists: true } };
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        account: { societyId },
+        journalEntry: {
+          entryDate: { gte: source.startDate, lte: source.endDate },
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        accountId: true,
+        account: { select: { code: true, label: true, type: true } },
+      },
+    });
+
+    const totals = new Map<string, { accountId: string; code: string; label: string; type: string; debit: number; credit: number }>();
+    for (const line of lines) {
+      const current = totals.get(line.accountId) ?? {
+        accountId: line.accountId,
+        code: line.account.code,
+        label: line.account.label,
+        type: line.account.type,
+        debit: 0,
+        credit: 0,
+      };
+      current.debit = roundCents(current.debit + line.debit);
+      current.credit = roundCents(current.credit + line.credit);
+      totals.set(line.accountId, current);
+    }
+
+    const openingLines: OpeningEntryLine[] = [];
+    let products = 0;
+    let charges = 0;
+    for (const account of [...totals.values()].sort((a, b) => a.code.localeCompare(b.code))) {
+      if (account.type === "6") {
+        charges = roundCents(charges + account.debit - account.credit);
+        continue;
+      }
+      if (account.type === "7") {
+        products = roundCents(products + account.credit - account.debit);
+        continue;
+      }
+      if (!["1", "2", "3", "4", "5"].includes(account.type)) continue;
+
+      const balance = roundCents(account.debit - account.credit);
+      if (Math.abs(balance) <= 0.01) continue;
+      openingLines.push({
+        accountId: account.accountId,
+        debit: balance > 0 ? balance : 0,
+        credit: balance < 0 ? Math.abs(balance) : 0,
+        label: `A-nouveau ${account.code} - ${account.label}`,
+      });
+    }
+
+    const result = roundCents(products - charges);
+    if (result > 0) {
+      const resultAccount = await ensureAccountingAccount(societyId, "120000", "Résultat de l'exercice (bénéfice)", "1");
+      openingLines.push({ accountId: resultAccount.id, debit: 0, credit: result, label: "Résultat bénéficiaire reporté" });
+    } else if (result < 0) {
+      const resultAccount = await ensureAccountingAccount(societyId, "129000", "Résultat de l'exercice (perte)", "1");
+      openingLines.push({ accountId: resultAccount.id, debit: Math.abs(result), credit: 0, label: "Résultat déficitaire reporté" });
+    }
+
+    const debit = roundCents(openingLines.reduce((sum, line) => sum + line.debit, 0));
+    const credit = roundCents(openingLines.reduce((sum, line) => sum + line.credit, 0));
+    if (openingLines.length < 2 || Math.abs(debit - credit) > 0.01) {
+      return { success: false, error: "Impossible de générer des à-nouveaux équilibrés" };
+    }
+
+    const entry = await prisma.journalEntry.create({
+      data: {
+        societyId,
+        fiscalYearId: target.id,
+        journalType: "AN",
+        entryDate: target.startDate,
+        piece: `AN-${target.year}`,
+        label: `À-nouveaux ${target.year}`,
+        reference,
+        status: "BROUILLON",
+        lines: { create: openingLines },
+      },
+      select: { id: true },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "JournalEntry",
+      entityId: entry.id,
+      details: { action: "GENERATE_OPENING_ENTRIES", sourceFiscalYearId, targetFiscalYearId: target.id },
+    });
+
+    revalidatePath("/comptabilite");
+    revalidatePath("/comptabilite/cloture");
+    return { success: true, data: { id: entry.id, alreadyExists: false } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[generateOpeningEntries]", error);
+    return { success: false, error: "Erreur lors de la génération des à-nouveaux" };
   }
 }
 
