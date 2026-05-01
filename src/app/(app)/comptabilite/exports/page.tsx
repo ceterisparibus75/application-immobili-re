@@ -21,6 +21,12 @@ const YEAR_OPTIONS = [
 
 const JOURNAL_OPTIONS = [
   { value: "all", label: "Tous les journaux" },
+  { value: "AN", label: "À nouveaux" },
+  { value: "AC", label: "Achats" },
+  { value: "BQUE", label: "Banque" },
+  { value: "INV", label: "Investissements" },
+  { value: "OD", label: "Opérations diverses" },
+  { value: "VT", label: "Ventes / TVA" },
   { value: "VENTES", label: "Ventes" },
   { value: "BANQUE", label: "Banque" },
   { value: "OPERATIONS_DIVERSES", label: "Opérations diverses" },

@@ -29,7 +29,6 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
           },
         },
         orderBy: { startDate: "desc" },
-        take: 1,
       },
     },
     orderBy: [{ building: { name: "asc" } }, { number: "asc" }],
@@ -63,7 +62,10 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   let totRev = 0;
   for (const lot of lots) {
     const lease = lot.leases[0];
-    const rev = lease?.invoices.reduce((s, inv) => s + inv.totalTTC, 0) ?? 0;
+    const rev = lot.leases.reduce(
+      (sum, leaseItem) => sum + leaseItem.invoices.reduce((s, inv) => s + inv.totalTTC, 0),
+      0
+    );
     totRev += rev;
     const row = ws.addRow([
       lot.building.name, lot.number, lot.lotType.replace(/_/g, " "),

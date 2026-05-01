@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { JournalType } from "@/generated/prisma/client";
 
 const JOURNAL_CODES: Record<string, string> = {
   VENTES: "VT",
@@ -47,7 +48,7 @@ function sanitize(s: string): string {
 export interface FecOptions {
   fiscalYearId?: string;
   year?: number;
-  journalType?: "VENTES" | "BANQUE" | "OPERATIONS_DIVERSES";
+  journalType?: JournalType;
   dateFrom?: Date;
   dateTo?: Date;
   validatedOnly?: boolean;

@@ -179,4 +179,49 @@ describe("generateRentabiliteLot", () => {
       expect.arrayContaining(["A1", null, "EN LOCATION"])
     );
   });
+
+  it("additionne les revenus de tous les baux successifs du lot sur l'exercice", async () => {
+    prismaMock.lot.findMany.mockResolvedValue([
+      {
+        building: { name: "Immeuble A" },
+        number: "A1",
+        lotType: "APPARTEMENT",
+        status: "EN_LOCATION",
+        marketRentValue: 950,
+        leases: [
+          {
+            currentRentHT: 980,
+            invoices: [{ totalTTC: 980 }],
+          },
+          {
+            currentRentHT: 900,
+            invoices: [{ totalTTC: 900 }, { totalTTC: 920 }],
+          },
+        ],
+      },
+    ] as never);
+
+    await generateRentabiliteLot({
+      societyId: "society-1",
+      type: "RENTABILITE_LOT",
+      year: 2026,
+    });
+
+    expect(prismaMock.lot.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        leases: expect.not.objectContaining({ take: 1 }),
+      }),
+    }));
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith([
+      "Immeuble A",
+      "A1",
+      "APPARTEMENT",
+      "Occupé",
+      980,
+      2800,
+      950,
+      "EN LOCATION",
+    ]);
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(["TOTAL", "", "", "", "", 2800, null, ""]);
+  });
 });

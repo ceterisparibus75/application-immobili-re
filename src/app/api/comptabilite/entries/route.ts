@@ -66,6 +66,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const accountIds = [...new Set(parsed.data.lines.map((line) => line.accountId))];
+  const ownedAccounts = await prisma.accountingAccount.findMany({
+    where: {
+      id: { in: accountIds },
+      societyId: context.societyId,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+  if (ownedAccounts.length !== accountIds.length) {
+    return NextResponse.json(
+      { error: "Un ou plusieurs comptes sont invalides pour cette société" },
+      { status: 400 }
+    );
+  }
+
   const entry = await prisma.journalEntry.create({
     data: {
       societyId: context.societyId,

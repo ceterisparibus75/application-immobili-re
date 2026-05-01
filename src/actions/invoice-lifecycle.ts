@@ -20,6 +20,10 @@ import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
+import {
+  createCustomerInvoiceJournalEntry,
+  createCustomerPaymentJournalEntry,
+} from "@/lib/accounting-automation";
 import { env } from "@/lib/env";
 import { getNextInvoiceNumber, getNextCreditNoteNumber } from "./invoice-shared";
 
@@ -59,6 +63,7 @@ export async function recordPayment(
         notes: parsed.data.notes ?? null,
       },
     });
+    await createCustomerPaymentJournalEntry(prisma, societyId, payment.id);
 
     const totalPaid =
       invoice.payments.reduce((s, p) => s + p.amount, 0) + parsed.data.amount;
@@ -459,11 +464,13 @@ export async function validateInvoice(
 
     const { invoiceNumber } = await prisma.$transaction(async (tx) => {
       const number = invoice.invoiceType === "AVOIR" ? await getNextCreditNoteNumber(societyId, tx) : await getNextInvoiceNumber(societyId, tx);
-      return tx.invoice.update({
+      const updated = await tx.invoice.update({
         where: { id: invoiceId },
         data: { status: "VALIDEE", validatedAt: new Date(), invoiceNumber: number },
         select: { invoiceNumber: true },
       });
+      await createCustomerInvoiceJournalEntry(tx, societyId, invoiceId);
+      return updated;
     });
 
     await createAuditLog({
@@ -585,6 +592,7 @@ export async function validateBatchInvoices(
           where: { id: draft.id },
           data: { status: "VALIDEE", validatedAt, invoiceNumber: number },
         });
+        await createCustomerInvoiceJournalEntry(tx, societyId, draft.id);
       });
     }
 
