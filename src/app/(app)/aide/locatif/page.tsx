@@ -48,6 +48,10 @@ export default function LocatifPage() {
           <li><strong className="text-amber-600">En négociation</strong> : conditions en cours de discussion</li>
           <li><strong className="text-red-700">Contentieux</strong> : litige en cours</li>
         </ul>
+
+        <InfoBox type="info">
+          Le changement de locataire en cours de bail se traite depuis l'onglet <strong>Vie du bail</strong>. Il conserve le même bail, enregistre le nouveau titulaire et garde l'historique de l'ancien locataire.
+        </InfoBox>
       </HelpSection>
 
       <HelpSection id="fiche-bail" title="Fiche bail détaillée">
@@ -76,16 +80,40 @@ export default function LocatifPage() {
             <p>Liste des modifications apportées au bail après sa signature (changement de loyer, de clause, etc.).</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">États des lieux et inspections</p>
-            <p>États des lieux d'entrée et de sortie avec date, intervenant et détail par pièce.</p>
+            <p className="font-semibold text-foreground mb-1">Vie du bail</p>
+            <p>Statut du bail, résiliation, renouvellement, négociation, contentieux, changement de locataire, titulaires successifs, événements juridiques et états des lieux.</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="font-semibold text-foreground mb-1">Factures récentes</p>
-            <p>Les dernières factures émises pour ce bail, avec numéro, montant, échéance et statut de paiement.</p>
+            <p className="font-semibold text-foreground mb-1">Documents</p>
+            <p>PDF du bail, signature électronique, avenants et documents GED rattachés au bail.</p>
           </div>
         </div>
         <InfoBox type="info">
-          Vous pouvez uploader le document PDF du bail signé directement dans la fiche. Il sera stocké de manière sécurisée et accessible à tout moment.
+          La facturation détaillée a été regroupée dans la fiche locataire. Cela permet de suivre le compte du titulaire, ses factures, paiements, avoirs et reprises de solde au même endroit.
+        </InfoBox>
+      </HelpSection>
+
+      <HelpSection id="vie-bail" title="Vie du bail et changement de locataire">
+        <p>
+          L'onglet <strong>Vie du bail</strong> centralise tout ce qui arrive au bail après sa création : statut, événements, états des lieux et titulaires successifs.
+        </p>
+        <HelpStep number={1} title="Ouvrir l'onglet Vie du bail">
+          <p>Depuis la fiche d'un bail, cliquez sur <strong>Vie du bail</strong>. Vous y retrouvez les actions de statut et l'historique des événements.</p>
+        </HelpStep>
+        <HelpStep number={2} title="Changer le titulaire du bail">
+          <p>Cliquez sur <strong>Changer le locataire</strong>, sélectionnez le nouveau locataire, indiquez la date d'effet et la nature du changement : cession du fonds, cession du droit au bail, substitution, fusion ou autre.</p>
+        </HelpStep>
+        <HelpStep number={3} title="Contrôler l'historique">
+          <p>L'ancien titulaire est clôturé à la date d'effet, le nouveau devient titulaire actuel, et un événement de cession est ajouté à la chronologie. Le bail conserve son numéro et sa durée initiale.</p>
+        </HelpStep>
+        <div className="rounded-lg border p-4 bg-muted/20">
+          <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
+          <p className="text-sm">
+            La société Alpha cède son fonds de commerce à la société Beta le 01/05/2026. Vous ouvrez le bail commercial, onglet Vie du bail, cliquez sur Changer le locataire, choisissez Beta et renseignez la date d'effet. Le bail reste le même, mais l'historique indique Alpha jusqu'au 01/05/2026 puis Beta comme titulaire actuel.
+          </p>
+        </div>
+        <InfoBox type="warning">
+          Les factures déjà émises restent attachées à l'ancien locataire. Les nouveaux appels générés après changement de titulaire sont rattachés au nouveau locataire.
         </InfoBox>
       </HelpSection>
 
@@ -98,6 +126,9 @@ export default function LocatifPage() {
         </p>
         <p>
           Le tableau affiche pour chaque locataire : nom (avec avatar), type d'entité, loyer total cumulé sur tous ses baux, localisation (immeuble + lots), statut d'assurance et indicateur de risque.
+        </p>
+        <p>
+          La fiche locataire regroupe désormais deux vues opérationnelles : <strong>Facturation</strong> pour les factures MyGestia du locataire et <strong>Situation du compte locataire</strong> pour le solde, les paiements, les avoirs et les mouvements historiques importés.
         </p>
 
         <p className="font-semibold text-foreground mt-6 mb-2">Indicateurs de risque :</p>
@@ -171,7 +202,11 @@ export default function LocatifPage() {
         <div className="space-y-3">
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment résilier un bail ?</p>
-            <p>Rendez-vous sur la fiche du bail concerné et cliquez sur le bouton <strong>Résilier</strong>. Renseignez la date de résiliation et le motif. Le lot associé redeviendra automatiquement vacant.</p>
+            <p>Rendez-vous sur la fiche du bail concerné, onglet <strong>Vie du bail</strong>, puis cliquez sur <strong>Résilier le bail</strong>. Le lot associé redeviendra automatiquement vacant.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment gérer une cession de fonds de commerce ?</p>
+            <p>Ouvrez la fiche du bail, onglet <strong>Vie du bail</strong>, puis cliquez sur <strong>Changer le locataire</strong>. Sélectionnez le repreneur, indiquez la date d'effet et choisissez la nature &laquo; Cession du fonds de commerce &raquo;. Le bail n'est pas recréé : seul le titulaire actuel change.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Puis-je renouveler un bail expiré ?</p>

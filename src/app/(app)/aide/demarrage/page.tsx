@@ -92,7 +92,7 @@ export default function DemarragePage() {
           <p>Si le bail est indexé, sélectionnez l'indice applicable (IRL pour l'habitation, ILC pour le commerce, ILAT pour les bureaux), le trimestre de référence et la fréquence de révision (annuelle). Les révisions seront calculées automatiquement à chaque échéance.</p>
         </HelpStep>
         <HelpStep number={4} title="Générez la première facture">
-          <p>La facturation est automatique : chaque jour à 7h, un brouillon de facture est généré pour les baux actifs. Vérifiez-le dans Facturation &gt; Brouillons, validez-le puis envoyez-le par email en un clic.</p>
+          <p>La facturation est automatique : chaque jour à 7h, un brouillon de facture est généré pour les baux actifs. Vérifiez-le dans Facturation &gt; Brouillons, validez-le puis envoyez-le par email en un clic. Pour suivre un locataire précis, ouvrez sa fiche : elle regroupe les factures et la situation du compte.</p>
         </HelpStep>
         <div className="rounded-lg border p-4 bg-muted/20">
           <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
@@ -114,6 +114,9 @@ export default function DemarragePage() {
         </HelpStep>
         <HelpStep number={3} title="Vérifiez et validez">
           <p>Vérifiez les colonnes détectées, corrigez si nécessaire, puis lancez l'import. Le tableur peut créer les immeubles, lots, locataires et contacts ; le PDF de bail prépare aussi le bail.</p>
+        </HelpStep>
+        <HelpStep number={4} title="Reprendre les soldes locataires">
+          <p>Depuis la fiche d'un locataire, utilisez <strong>Importer un relevé</strong> pour intégrer l'historique d'un ancien logiciel ou <strong>Importer un solde précédent</strong> pour saisir le montant TTC dû à la date de bascule. Ces mouvements ne créent pas de factures.</p>
         </HelpStep>
         <InfoBox type="tip">
           <strong>Import IA (Enterprise) :</strong> Uploadez directement un PDF de bail — l'IA extrait automatiquement les informations (locataire, lot, loyer, dates) et pré-remplit le formulaire de création.
@@ -157,6 +160,7 @@ export default function DemarragePage() {
               "Créer les lots de cet immeuble (ou importer depuis Excel)",
               "Enregistrer vos locataires",
               "Créer les baux actifs avec les conditions de loyer",
+              "Importer les soldes ou relevés historiques des locataires si vous migrez depuis un ancien logiciel",
               "Vérifier la génération automatique des factures (lendemain 7h)",
               "Inviter vos collaborateurs (Mon compte > Utilisateurs)",
               "Configurer les relances automatiques si souhaité",
@@ -179,7 +183,7 @@ export default function DemarragePage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Puis-je importer mes données depuis un autre logiciel ?</p>
-            <p>Oui, via <strong>Administration &gt; Import</strong>. Formats acceptés : CSV, Excel (.xlsx) et PDF (Enterprise). Un assistant de mappage vous guide pour faire correspondre vos colonnes. Exemple : colonne &laquo; Loyer mensuel &raquo; → champ &laquo; Loyer HT &raquo;.</p>
+            <p>Oui, via <strong>Administration &gt; Import</strong> pour les données structurantes et via la fiche locataire pour les relevés historiques. Formats acceptés : CSV, Excel (.xlsx), PDF (Enterprise) et relevés CSV/TSV pour les comptes locataires.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Faut-il créer la société avant les immeubles ?</p>

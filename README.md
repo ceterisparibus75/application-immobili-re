@@ -147,6 +147,15 @@ Voir [CLAUDE.md](CLAUDE.md) pour la documentation architecture complète destin�
 
 ---
 
+## Repères fonctionnels récents
+
+- **Vie du bail** : la fiche bail regroupe désormais les actions de statut, les événements juridiques, les états des lieux et l'historique des titulaires successifs.
+- **Changement de locataire en cours de bail** : une cession de fonds, cession du droit au bail, substitution ou fusion peut changer le titulaire sans recréer le bail ni consommer un nouveau numéro.
+- **Facturation côté locataire** : la fiche locataire centralise les factures MyGestia et la situation du compte locataire.
+- **Compte locataire enrichi** : reprise de solde précédent et import de relevés historiques depuis un ancien logiciel, sans génération de facture.
+
+---
+
 ## Sécurité
 
 - **2FA TOTP** : activable par utilisateur, codes 6 chiffres / 30s, codes de récupération

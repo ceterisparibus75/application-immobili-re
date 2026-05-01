@@ -108,6 +108,16 @@ export default function GlossairePage() {
                   "Dépenses engagées par le propriétaire mais refacturables au locataire, définies par décret (décret du 26 août 1987 pour les baux nus). Elles comprennent notamment : eau froide, entretien des parties communes, ascenseur, taxe sur les ordures ménagères, etc.",
               },
               {
+                term: "Cession du fonds de commerce",
+                definition:
+                  "Transmission d'un fonds exploité dans un local commercial. Dans l'application, elle peut entraîner un changement de titulaire du bail sans création d'un nouveau bail : l'ancien locataire est historisé et le repreneur devient titulaire à la date d'effet.",
+              },
+              {
+                term: "Compte locataire",
+                definition:
+                  "Relevé financier attaché à un locataire. Il regroupe les factures, paiements, avoirs, reprises de solde et mouvements historiques importés pour calculer le solde dû ou créditeur.",
+              },
+              {
                 term: "Compte rendu de gestion",
                 definition:
                   "Rapport périodique (mensuel ou trimestriel) envoyé par un gestionnaire immobilier au propriétaire, récapitulant les loyers encaissés, les charges, les impayés et les travaux réalisés.",
@@ -301,6 +311,11 @@ export default function GlossairePage() {
                 term: "Relevé de gérance",
                 definition:
                   "Document comptable fourni par un administrateur de biens au propriétaire, détaillant les encaissements, décaissements et honoraires sur une période donnée.",
+              },
+              {
+                term: "Relevé locataire",
+                definition:
+                  "Historique des mouvements d'un locataire sur une période : dates, libellés, débits, crédits et solde après mouvement. Dans MyGestia, son import alimente le compte locataire sans générer de facture ni de numéro comptable.",
               },
               {
                 term: "Rentabilité brute",

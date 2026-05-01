@@ -1,6 +1,6 @@
 # Audit de l'application - Évaluation de la maturité pour commercialisation
 
-**Date :** 4 avril 2026 — mis à jour le 26 avril 2026
+**Date :** 4 avril 2026 — mis à jour le 1 mai 2026
 **Application :** Plateforme de gestion immobilière SaaS (multi-société)  
 **Stack :** Next.js 16 / React 19 / TypeScript / Prisma 7 / PostgreSQL / Tailwind CSS v4
 
@@ -46,6 +46,8 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 - Création/modification/résiliation de baux
 - Types : habitation, commercial, professionnel
 - Gestion des dates (début, fin, préavis)
+- Onglet Vie du bail : statut, événements juridiques, états des lieux et titulaires successifs
+- Changement de locataire en cours de bail (cession de fonds, cession du droit au bail, substitution, fusion) sans recréer le bail
 - Avenants au bail (LeaseAmendment)
 - Inspections (état des lieux) avec photos par pièce
 - Upload du PDF du bail signé
@@ -56,6 +58,8 @@ L'application est une **plateforme SaaS de gestion immobilière locative** desti
 - Personne physique et personne morale
 - Contacts associés (garants, co-titulaires)
 - Documents d'identité et garanties
+- Fiche locataire avec facturation dédiée et situation de compte locataire
+- Import de relevés historiques et reprise de solde précédent sans génération de facture
 - Portail locataire (accès autonome avec auth JWT séparée)
 - Soft delete pour conformité RGPD
 
