@@ -214,7 +214,7 @@ export default async function BankAccountDetailPage({
 
                         {/* Libellé + méta */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-[var(--color-brand-deep)]" title={transaction.label}>
+                          <p className="text-sm font-medium truncate" title={transaction.label}>
                             {transaction.label}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -227,7 +227,7 @@ export default async function BankAccountDetailPage({
                               </span>
                             )}
                             {transaction.category && (
-                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
                                 {transaction.category}
                               </span>
                             )}
