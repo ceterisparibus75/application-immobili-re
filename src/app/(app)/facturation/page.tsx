@@ -36,7 +36,7 @@ import {
 
 export const metadata = { title: "Facturation" };
 
-type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances";
+type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances" | "quittances";
 
 interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -48,7 +48,7 @@ function parseFacturationTab(value: string | string[] | undefined): FacturationT
   if (raw === "brouillons") return "brouillons";
   if (raw === "a-envoyer" || raw === "envoi") return "a-traiter";
   if (raw === "relances" || raw === "en-retard" || raw === "retard") return "relances";
-  if (raw === "quittances") return "factures";
+  if (raw === "quittances") return "quittances";
   return "a-traiter";
 }
 
@@ -215,7 +215,7 @@ export default async function FacturationPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* Tabs: À traiter | Brouillons | Factures | Relances */}
+      {/* Tabs: À traiter | Brouillons | Factures | Relances | Quittances */}
       <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-muted" />}>
         <FacturationTabs
           initialTab={initialTab}

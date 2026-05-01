@@ -45,7 +45,7 @@ interface FacturationTabsProps {
   overdueCount: number;
 }
 
-type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances";
+type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances" | "quittances";
 
 function tabHref(tab: FacturationTab): string {
   return tab === "a-traiter" ? "/facturation" : `/facturation?tab=${tab}`;
@@ -132,7 +132,7 @@ export function FacturationTabs({
   overdueCount,
 }: FacturationTabsProps) {
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
-  const billingRegister = issuedInvoices;
+  const quittances = issuedInvoices.filter((i) => i.invoiceType === "QUITTANCE");
   const billingInvoices = issuedInvoices.filter((i) => i.invoiceType !== "QUITTANCE");
   const invoicesToSend = billingInvoices.filter(
     (i) => (i.status === "VALIDEE" || i.status === "EN_ATTENTE") && !i.sentAt
@@ -172,6 +172,9 @@ export function FacturationTabs({
               {overdueCount}
             </Badge>
           )}
+        </FacturationTabLink>
+        <FacturationTabLink value="quittances" active={initialTab === "quittances"}>
+          Quittances
         </FacturationTabLink>
       </div>
 
@@ -300,15 +303,15 @@ export function FacturationTabs({
       {/* Onglet Factures */}
       {initialTab === "factures" && (
         <div className="space-y-6 mt-6">
-          {billingRegister.length === 0 ? (
+          {billingInvoices.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Receipt className="h-7 w-7" />
                 </div>
-                <h3 className="text-lg font-semibold">Aucune pièce de facturation</h3>
+                <h3 className="text-lg font-semibold">Aucune facture</h3>
                 <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Les factures, avoirs et quittances validés apparaîtront ici en consultation.
+                  Les factures et avoirs validés apparaîtront ici en consultation.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
                   <Button asChild>
@@ -328,10 +331,10 @@ export function FacturationTabs({
             </Card>
           ) : (
             <InvoicesList
-              invoices={billingRegister}
-              title="Registre de facturation"
-              itemLabel="pièce"
-              itemLabelPlural="pièces"
+              invoices={billingInvoices}
+              title="Registre des factures"
+              itemLabel="facture"
+              itemLabelPlural="factures"
             />
           )}
         </div>
@@ -371,6 +374,32 @@ export function FacturationTabs({
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Onglet Quittances */}
+      {initialTab === "quittances" && (
+        <div className="space-y-6 mt-6">
+          {quittances.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Receipt className="h-7 w-7" />
+                </div>
+                <h3 className="text-lg font-semibold">Aucune quittance</h3>
+                <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                  Les quittances validées apparaîtront ici en consultation.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <InvoicesList
+              invoices={quittances}
+              title="Registre des quittances"
+              itemLabel="quittance"
+              itemLabelPlural="quittances"
+            />
+          )}
         </div>
       )}
     </div>
