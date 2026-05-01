@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Receipt, ScrollText, Mail, Bell } from "lucide-react";
+import { Receipt, Mail, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { name: "Facturation", href: "/facturation", icon: Receipt },
-  { name: "Charges", href: "/charges", icon: ScrollText },
   { name: "Courriers", href: "/courriers", icon: Mail },
   { name: "Relances", href: "/relances", icon: Bell },
 ] as const;
