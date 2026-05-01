@@ -1,4 +1,4 @@
-export const maxDuration = 30;
+﻿export const maxDuration = 30;
 
 import { getInvoiceById } from "@/actions/invoice";
 import { prisma } from "@/lib/prisma";
@@ -28,6 +28,7 @@ import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
 import { NoteEditor } from "./_components/note-editor";
+import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -198,6 +199,9 @@ export default async function FactureDetailPage({
           )}
           {invoice.status !== "BROUILLON" && (
             <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+          {invoice.invoiceType !== "AVOIR" && !["BROUILLON", "ANNULEE"].includes(invoice.status) && (
+            <DuplicateInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           )}
           {invoice.invoiceType !== "AVOIR" && invoice.creditNotes.length === 0 && (
             <Link href={`/facturation/${invoice.id}/avoir`}>
