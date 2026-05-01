@@ -89,6 +89,7 @@ describe("GET /api/cron/send-reports", () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body).toEqual({ success: true, total: 1, sent: 1, errors: 0 });
+    expect(computeReportYear).toHaveBeenCalledWith("MONTHLY", new Date("2026-04-26T08:00:00.000Z"));
     expect(generateConsolidatedReport).toHaveBeenCalledWith("soc-1", ["suivi-mensuel"], 2026);
     expect(sendConsolidatedReportEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: "gestionnaire@test.com", scheduleName: "Rapport mensuel" })

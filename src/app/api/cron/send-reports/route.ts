@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         // Génération du rapport consolidé
 
         // 2. Déterminer l'année du rapport
-        const year = computeReportYear(schedule.frequency);
+        const year = computeReportYear(schedule.frequency, now);
 
         // 3. Générer le rapport consolidé (fusion PDF)
         const result = await generateConsolidatedReport(

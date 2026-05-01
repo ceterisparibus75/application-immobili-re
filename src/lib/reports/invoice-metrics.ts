@@ -27,7 +27,7 @@ export const REPORT_OUTSTANDING_INVOICE_STATUSES = [
 
 export type ReportInvoiceWithPayments = {
   totalTTC: number;
-  payments?: Array<{ amount: number | null }> | null;
+  payments?: Array<{ amount: number | null; paidAt?: Date | string | null }> | null;
 };
 
 export function roundCurrency(amount: number): number {
@@ -37,6 +37,17 @@ export function roundCurrency(amount: number): number {
 export function getPaidAmount(invoice: ReportInvoiceWithPayments): number {
   return roundCurrency(
     (invoice.payments ?? []).reduce((sum, payment) => sum + (payment.amount ?? 0), 0)
+  );
+}
+
+export function getPaidAmountInPeriod(invoice: ReportInvoiceWithPayments, from: Date, to: Date): number {
+  return roundCurrency(
+    (invoice.payments ?? []).reduce((sum, payment) => {
+      if (!payment.paidAt) return sum;
+      const paidAt = new Date(payment.paidAt);
+      if (paidAt < from || paidAt > to) return sum;
+      return sum + (payment.amount ?? 0);
+    }, 0)
   );
 }
 

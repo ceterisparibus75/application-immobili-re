@@ -38,6 +38,9 @@ export async function generateReport(options: ReportOptions): Promise<ReportResu
       default: throw new Error("Type de rapport inconnu");
     }
   } catch (error) {
+    if (error instanceof Error && /introuvable|requis/i.test(error.message)) {
+      throw error;
+    }
     console.error(`[generateReport] Erreur lors de la generation du rapport ${options.type}:`, error);
     throw new Error("Erreur lors de la generation du rapport. Veuillez reessayer.");
   }

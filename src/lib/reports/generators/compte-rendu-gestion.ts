@@ -13,7 +13,7 @@ import {
 import { CORAL, GREEN } from "../constants";
 import {
   getOutstandingAmount,
-  getPaidAmount,
+  getPaidAmountInPeriod,
   REPORT_ACTIVE_INVOICE_STATUSES,
   REPORT_REVENUE_INVOICE_TYPES,
 } from "../invoice-metrics";
@@ -36,7 +36,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
       include: {
         tenant: true,
         lease: { include: { lot: { select: { buildingId: true, number: true } } } },
-        payments: true,
+        payments: { select: { amount: true, paidAt: true } },
       },
     }),
     prisma.charge.findMany({
@@ -50,7 +50,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
 
   if (!society) throw new Error("Société introuvable");
 
-  const paid = invoices.reduce((s, i) => s + getPaidAmount(i), 0);
+  const paid = invoices.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
   const pend = invoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
   const totalInv = invoices.reduce((s, i) => s + i.totalTTC, 0);
   const tchg = charges.reduce((s, c) => s + c.amount, 0);
@@ -98,7 +98,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     const bi = invoices.filter((i) => i.lease?.lot?.buildingId === b.id);
     const bc = charges.filter((c) => c.buildingId === b.id);
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
-    const bP = bi.reduce((s, i) => s + getPaidAmount(i), 0);
+    const bP = bi.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
     y = drawTableRow(p, ctx.reg, y, [
       b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bF - bP),
@@ -137,7 +137,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
       const lotNum = tInvoices[0].lease?.lot?.number ?? "-";
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
-      const regle = tInvoices.reduce((s, i) => s + getPaidAmount(i), 0);
+      const regle = tInvoices.reduce((s, i) => s + getPaidAmountInPeriod(i, from, to), 0);
       const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
       bTotal += quittance;
       bPaid += regle;

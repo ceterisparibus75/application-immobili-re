@@ -162,6 +162,20 @@ describe("generateReport", () => {
       })
     ).rejects.toThrow("Erreur lors de la generation du rapport. Veuillez reessayer.");
   });
+
+  it("préserve les erreurs métier pour que l'API retourne le bon statut", async () => {
+    generatorMocks.generateRecapChargesLocataire.mockRejectedValue(new Error("Locataire introuvable"));
+
+    await expect(
+      generateReport({
+        societyId: "society-1",
+        type: "RECAP_CHARGES_LOCATAIRE",
+        year: 2026,
+        tenantId: "ctenant001",
+        format: "pdf",
+      })
+    ).rejects.toThrow("Locataire introuvable");
+  });
 });
 
 describe("generateConsolidatedReport", () => {

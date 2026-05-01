@@ -119,10 +119,10 @@ export function computeNextRunAt(frequency: string, fromDate?: Date): Date {
  * Pour les rapports mensuels/trimestriels, c'est l'année en cours.
  * Pour les annuels, c'est l'année précédente (bilan de l'exercice écoulé).
  */
-export function computeReportYear(frequency: string): number {
-  const now = new Date();
-  if (frequency === "ANNUEL" && now.getMonth() === 0) {
-    return now.getFullYear() - 1;
+export function computeReportYear(frequency: string, fromDate?: Date): number {
+  const runDate = fromDate ?? new Date();
+  if (frequency === "ANNUEL") {
+    return runDate.getFullYear() - 1;
   }
-  return now.getFullYear();
+  return runDate.getFullYear();
 }

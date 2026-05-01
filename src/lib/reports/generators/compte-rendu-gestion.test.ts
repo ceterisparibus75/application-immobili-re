@@ -91,7 +91,7 @@ describe("generateCompteRenduGestion", () => {
             number: "A1",
           },
         },
-        payments: [{ amount: 1200 }],
+        payments: [{ amount: 1200, paidAt: new Date("2026-02-01T00:00:00.000Z") }],
       },
       {
         tenantId: "tenant-2",
@@ -109,7 +109,7 @@ describe("generateCompteRenduGestion", () => {
             number: "A2",
           },
         },
-        payments: [{ amount: 300 }],
+        payments: [{ amount: 300, paidAt: new Date("2026-03-01T00:00:00.000Z") }],
       },
     ] as never);
     prismaMock.charge.findMany.mockResolvedValue([
@@ -207,7 +207,7 @@ describe("generateCompteRenduGestion", () => {
         status: "PAYE",
         tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: null, lastName: null, companyName: null },
         lease: { lot: { buildingId: "building-1", number: "A1" } },
-        payments: [{ amount: 800 }],
+        payments: [{ amount: 800, paidAt: new Date("2026-02-01T00:00:00.000Z") }],
       },
       {
         tenantId: "tenant-1",
@@ -215,7 +215,7 @@ describe("generateCompteRenduGestion", () => {
         status: "PAYE",
         tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: null, lastName: null, companyName: null },
         lease: { lot: { buildingId: "building-1", number: "A1" } },
-        payments: [{ amount: 900 }],
+        payments: [{ amount: 900, paidAt: new Date("2026-03-01T00:00:00.000Z") }],
       },
       {
         tenantId: "tenant-2",
@@ -285,7 +285,7 @@ describe("generateCompteRenduGestion", () => {
         status: "PAYE",
         tenant: { entityType: "PERSONNE_PHYSIQUE", firstName: "Alice", lastName: "Durand", companyName: null },
         lease: { lot: { buildingId: "building-1", number: "A1" } },
-        payments: [{ amount: 1200 }],
+        payments: [{ amount: 1200, paidAt: new Date("2026-02-01T00:00:00.000Z") }],
       },
       {
         tenantId: "tenant-2",

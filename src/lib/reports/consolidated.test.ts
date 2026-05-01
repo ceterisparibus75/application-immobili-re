@@ -108,14 +108,12 @@ describe("computeReportYear", () => {
     expect(result).toBe(new Date().getFullYear());
   });
 
-  it("retourne l'année courante ou précédente pour ANNUEL selon le mois", () => {
-    const result = computeReportYear("ANNUEL");
-    const now = new Date();
-    const expected = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    expect(result).toBe(expected);
+  it("retourne toujours l'année précédente pour ANNUEL", () => {
+    const result = computeReportYear("ANNUEL", new Date("2026-05-15"));
+    expect(result).toBe(2025);
   });
 
-  it("retourne l'année précédente pour ANNUEL en janvier (ligne 121)", () => {
+  it("retourne l'année précédente pour ANNUEL en janvier", () => {
     vi.setSystemTime(new Date("2026-01-15"));
     const result = computeReportYear("ANNUEL");
     vi.useRealTimers();
