@@ -396,7 +396,13 @@ describe("getTenantsPaginated", () => {
 
     await getTenantsPaginated(SOCIETY_ID, { search: "Dupont" });
     expect(prismaMock.tenant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ OR: expect.anything() }) })
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({ OR: expect.anything() }),
+          ]),
+        }),
+      })
     );
   });
 

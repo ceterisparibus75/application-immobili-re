@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createSocietySchema, updateSocietySchema } from "./society";
+import { LEGAL_FORMS } from "@/lib/constants";
 
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t";
 
@@ -33,34 +34,12 @@ describe("createSocietySchema", () => {
   });
 
   it("rejette une forme juridique invalide", () => {
-    const result = createSocietySchema.safeParse({ ...validSociety, legalForm: "ASSOCIATION" });
+    const result = createSocietySchema.safeParse({ ...validSociety, legalForm: "FORME_INCONNUE" });
     expect(result.success).toBe(false);
   });
 
   it("accepte toutes les formes juridiques valides", () => {
-    const forms = [
-      "PERSONNE_PHYSIQUE",
-      "EI",
-      "EURL",
-      "SASU",
-      "SARL",
-      "SAS",
-      "SA",
-      "SNC",
-      "SCS",
-      "SCA",
-      "SCI",
-      "SCM",
-      "SCP",
-      "SCPI",
-      "SCCV",
-      "SELARL",
-      "SELAS",
-      "SPFPL",
-      "GIE",
-      "GFA",
-      "AUTRE",
-    ];
+    const forms = LEGAL_FORMS.map((form) => form.value);
     for (const legalForm of forms) {
       expect(createSocietySchema.safeParse({ ...validSociety, legalForm }).success).toBe(true);
     }

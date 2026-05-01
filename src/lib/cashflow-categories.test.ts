@@ -20,9 +20,13 @@ describe("constantes de catégories", () => {
     expect(INCOME_CATEGORIES).toHaveLength(5);
   });
 
-  it("NEUTRAL_CATEGORIES contient 1 catégorie", () => {
-    expect(NEUTRAL_CATEGORIES).toHaveLength(1);
-    expect(NEUTRAL_CATEGORIES[0].id).toBe("virement_interne");
+  it("NEUTRAL_CATEGORIES contient les catégories neutres", () => {
+    expect(NEUTRAL_CATEGORIES).toHaveLength(3);
+    expect(NEUTRAL_CATEGORIES.map((category) => category.id)).toEqual([
+      "virement_interne",
+      "apport_cca",
+      "remboursement_cca",
+    ]);
   });
 
   it("ALL_CATEGORIES est la somme des 3 tableaux", () => {

@@ -16,7 +16,7 @@ import {
 
 describe("LEGAL_FORMS", () => {
   it("contient toutes les formes juridiques supportées", () => {
-    expect(LEGAL_FORMS).toHaveLength(21);
+    expect(LEGAL_FORMS).toHaveLength(35);
   });
 
   it("contient PERSONNE_PHYSIQUE", () => {
