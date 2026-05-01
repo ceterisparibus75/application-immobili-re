@@ -177,6 +177,48 @@ describe("document upload route security", () => {
     });
   });
 
+  it("remplace le PDF du bail lors d'un upload explicite depuis la fiche bail", async () => {
+    prismaMock.lease.findFirst.mockResolvedValue({
+      id: "lease-1",
+      lotId: "lot-1",
+      tenantId: "tenant-1",
+      leaseFileUrl: "https://existing.example/bail.pdf",
+    } as never);
+    prismaMock.document.create.mockResolvedValue({ id: "doc-1" } as never);
+    prismaMock.lease.update.mockResolvedValue({ id: "lease-1" } as never);
+
+    const response = await registerDocument(
+      jsonRequest("http://localhost/api/documents/register", {
+        fileName: "bail-remplacement.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+        storagePath: "documents/society-1/leases/lease-1/2_bail-remplacement.pdf",
+        category: "bail",
+        leaseId: "lease-1",
+        syncLeasePdf: true,
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: "bail",
+          tenantId: "tenant-1",
+          leaseId: "lease-1",
+          lotId: "lot-1",
+        }),
+      })
+    );
+    expect(prismaMock.lease.update).toHaveBeenCalledWith({
+      where: { id: "lease-1" },
+      data: {
+        leaseFileUrl: "https://signed.example/document.pdf",
+        leaseFileStoragePath: "documents/society-1/leases/lease-1/2_bail-remplacement.pdf",
+      },
+    });
+  });
+
   it("rattache un état des lieux déposé sur un locataire à son bail actif sans remplacer le PDF du bail", async () => {
     prismaMock.lease.findMany.mockResolvedValue([
       { id: "lease-1", lotId: "lot-1", tenantId: "tenant-1", leaseFileUrl: null },

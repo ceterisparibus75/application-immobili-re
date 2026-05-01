@@ -28,10 +28,11 @@ export async function POST(req: NextRequest) {
       lotId?: string;
       leaseId?: string;
       tenantId?: string;
+      syncLeasePdf?: boolean;
     };
 
     const { fileName, fileSize, mimeType, storagePath, category, description, expiresAt,
-      buildingId, lotId, leaseId, tenantId } = body;
+      buildingId, lotId, leaseId, tenantId, syncLeasePdf } = body;
 
     if (!fileName || !storagePath) {
       return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
       lotId,
       leaseId,
       tenantId,
+      syncLeasePdf,
     });
 
     const doc = await prisma.document.create({

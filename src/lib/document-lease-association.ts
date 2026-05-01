@@ -8,6 +8,7 @@ type DocumentAssociationInput = {
   lotId?: string | null;
   leaseId?: string | null;
   tenantId?: string | null;
+  syncLeasePdf?: boolean | null;
 };
 
 type ResolvedDocumentAssociation = {
@@ -33,6 +34,7 @@ export async function resolveDocumentLeaseAssociation(
 ): Promise<ResolvedDocumentAssociation> {
   const category = input.category ?? "autre";
   const isPrimaryLeasePdf = category === LEASE_PRIMARY_DOCUMENT_CATEGORY && input.mimeType === "application/pdf";
+  const shouldForceLeasePdfSync = isPrimaryLeasePdf && input.syncLeasePdf === true;
 
   if (input.leaseId) {
     const lease = await prisma.lease.findFirst({
@@ -55,7 +57,7 @@ export async function resolveDocumentLeaseAssociation(
       lotId: input.lotId ?? lease.lotId,
       leaseId: lease.id,
       tenantId: input.tenantId ?? lease.tenantId,
-      shouldSyncLeasePdf: isPrimaryLeasePdf && !lease.leaseFileUrl,
+      shouldSyncLeasePdf: shouldForceLeasePdfSync || (isPrimaryLeasePdf && !lease.leaseFileUrl),
     };
   }
 
@@ -79,7 +81,7 @@ export async function resolveDocumentLeaseAssociation(
         lotId: input.lotId ?? lease.lotId,
         leaseId: lease.id,
         tenantId: input.tenantId,
-        shouldSyncLeasePdf: isPrimaryLeasePdf && !lease.leaseFileUrl,
+        shouldSyncLeasePdf: shouldForceLeasePdfSync || (isPrimaryLeasePdf && !lease.leaseFileUrl),
       };
     }
   }
@@ -104,7 +106,7 @@ export async function resolveDocumentLeaseAssociation(
         lotId: input.lotId,
         leaseId: lease.id,
         tenantId: input.tenantId ?? lease.tenantId,
-        shouldSyncLeasePdf: isPrimaryLeasePdf && !lease.leaseFileUrl,
+        shouldSyncLeasePdf: shouldForceLeasePdfSync || (isPrimaryLeasePdf && !lease.leaseFileUrl),
       };
     }
   }
