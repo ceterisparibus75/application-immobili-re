@@ -94,8 +94,8 @@ export async function generateFec(
   // Recuperer l exercice fiscal si fiscalYearId est fourni
   let fiscalYear: { year: number; startDate: Date; endDate: Date } | null = null;
   if (options.fiscalYearId) {
-    fiscalYear = await prisma.fiscalYear.findUnique({
-      where: { id: options.fiscalYearId },
+    fiscalYear = await prisma.fiscalYear.findFirst({
+      where: { id: options.fiscalYearId, societyId },
       select: { year: true, startDate: true, endDate: true },
     });
   }

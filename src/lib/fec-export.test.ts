@@ -142,7 +142,7 @@ describe("generateFec", () => {
   });
 
   it("filtre par exercice fiscal si fiscalYearId est fourni (lignes 92-96, 105-108, 242)", async () => {
-    prismaMock.fiscalYear.findUnique.mockResolvedValue({
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
       year: 2025,
       startDate: new Date("2025-01-01"),
       endDate: new Date("2025-12-31"),
@@ -151,8 +151,8 @@ describe("generateFec", () => {
 
     const result = await generateFec(SOCIETY_ID, { fiscalYearId: "fiscal-1" });
 
-    expect(prismaMock.fiscalYear.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "fiscal-1" } })
+    expect(prismaMock.fiscalYear.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "fiscal-1", societyId: SOCIETY_ID } })
     );
     expect(result.filename).toContain("20251231");
   });
