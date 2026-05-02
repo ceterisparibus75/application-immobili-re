@@ -1145,9 +1145,9 @@ describe("reconcileWithSupplierInvoice", () => {
       bankJournalEntryId: null,
       chargeId: "ccharge001",
     } as never);
-    prismaMock.accountingAccount.findFirst
-      .mockResolvedValueOnce({ id: "account-401", code: "401", label: "Fournisseurs" } as never)
-      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque" } as never);
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-401", code: "401000", label: "Fournisseurs", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-512", code: "512000", label: "Banques", type: "5" } as never);
     prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
     prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
       Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
@@ -1184,6 +1184,18 @@ describe("reconcileWithSupplierInvoice", () => {
         bankAccountId: ACCOUNT_ID,
       }),
     });
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "401000" } },
+        update: { isActive: true },
+      })
+    );
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "512000" } },
+        update: { isActive: true },
+      })
+    );
   });
 
   it("refuse une facture fournisseur si le montant ne correspond pas au débit bancaire", async () => {

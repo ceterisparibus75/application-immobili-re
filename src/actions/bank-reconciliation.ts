@@ -169,7 +169,7 @@ async function upsertAccountingAccount(
 ) {
   return client.accountingAccount.upsert({
     where: { societyId_code: { societyId, code: fallback.code } },
-    update: {},
+    update: { isActive: true },
     create: {
       societyId,
       code: fallback.code,
@@ -978,18 +978,9 @@ export async function reconcileWithSupplierInvoice(
 
       if (!journalEntryId) {
         const [compte401, compte512] = await Promise.all([
-          tx.accountingAccount.findFirst({
-            where: { societyId, code: { startsWith: "401" }, isActive: true },
-            orderBy: { code: "asc" },
-          }),
-          tx.accountingAccount.findFirst({
-            where: { societyId, code: { startsWith: "512" }, isActive: true },
-            orderBy: { code: "asc" },
-          }),
+          upsertAccountingAccount(tx, societyId, { code: "401000", label: "Fournisseurs", type: "4" }),
+          upsertAccountingAccount(tx, societyId, { code: "512000", label: "Banques", type: "5" }),
         ]);
-        if (!compte401 || !compte512) {
-          throw new Error("MISSING_SUPPLIER_BANK_ACCOUNTS");
-        }
 
         const amount = roundCents(Math.abs(transaction.amount));
         const entry = await tx.journalEntry.create({
@@ -1068,9 +1059,6 @@ export async function reconcileWithSupplierInvoice(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
-    if (error instanceof Error && error.message === "MISSING_SUPPLIER_BANK_ACCOUNTS") {
-      return { success: false, error: "Comptes 401 et 512 requis pour générer l'écriture fournisseur" };
-    }
     console.error("[reconcileWithSupplierInvoice]", error);
     return { success: false, error: "Erreur lors du rapprochement fournisseur" };
   }
