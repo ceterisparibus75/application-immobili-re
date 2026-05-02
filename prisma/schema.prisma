@@ -1927,6 +1927,7 @@ model BankTransaction {
   id            String   @id @default(cuid())
   createdAt     DateTime @default(now())
   bankAccountId String
+  journalEntryId String?  @unique
 
   transactionDate DateTime
   valueDate       DateTime?
@@ -1939,10 +1940,12 @@ model BankTransaction {
   externalId      String? // ID unique dans le relevé (anti-doublon)
 
   bankAccount     BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  journalEntry    JournalEntry?        @relation("BankTransactionJournalEntry", fields: [journalEntryId], references: [id], onDelete: SetNull)
   reconciliations BankReconciliation[]
 
   @@unique([bankAccountId, externalId])
   @@index([bankAccountId])
+  @@index([journalEntryId])
   @@index([bankAccountId, transactionDate])
   @@index([isReconciled])
 }
@@ -2058,6 +2061,7 @@ model JournalEntry {
   lines       JournalEntryLine[]
   fiscalYear  FiscalYear?        @relation(fields: [fiscalYearId], references: [id])
   validatedBy User?              @relation("JournalEntryValidator", fields: [validatedById], references: [id])
+  bankTransaction BankTransaction? @relation("BankTransactionJournalEntry")
 
   @@index([societyId])
   @@index([societyId, journalType, entryDate])

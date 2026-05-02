@@ -733,6 +733,26 @@ describe("generateJournalEntry", () => {
         data: expect.objectContaining({ journalType: "BQUE" }),
       })
     );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { journalEntryId: JOURNAL_ID },
+    });
+  });
+
+  it("retourne l'écriture bancaire déjà liée sans créer de doublon", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: 500,
+      journalEntryId: JOURNAL_ID,
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.id).toBe(JOURNAL_ID);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("génère une écriture pour un décaissement (montant négatif)", async () => {

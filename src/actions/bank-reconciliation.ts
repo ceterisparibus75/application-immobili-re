@@ -367,6 +367,9 @@ export async function generateJournalEntry(
       },
     });
     if (!transaction) return { success: false, error: "Transaction introuvable" };
+    if (transaction.journalEntryId) {
+      return { success: true, data: { id: transaction.journalEntryId } };
+    }
 
     // Chercher ou créer les comptes comptables
     const [compte512, compte411, compte658, compte622] = await Promise.all([
@@ -443,6 +446,10 @@ export async function generateJournalEntry(
         reference: transaction.reference ?? undefined,
         lines: { create: journalLines },
       },
+    });
+    await prisma.bankTransaction.update({
+      where: { id: transactionId },
+      data: { journalEntryId: entry.id },
     });
 
     await createAuditLog({
