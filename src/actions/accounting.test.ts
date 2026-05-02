@@ -657,6 +657,7 @@ describe("bulkImportJournalEntries", () => {
       { id: ACCOUNT_ID_1, code: "411000" },
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
     prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
 
@@ -674,6 +675,38 @@ describe("bulkImportJournalEntries", () => {
     expect(result.success).toBe(true);
     expect(result.data?.imported).toBe(1);
     expect(result.data?.skipped).toBe(0);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fiscalYearId: FISCAL_YEAR_ID }),
+      })
+    );
+  });
+
+  it("saute une écriture importée si son exercice est clôturé", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: true }) as never);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture loyer",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
+      },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toMatch(/exercice clôturé/);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("saute une écriture si le compte est introuvable", async () => {

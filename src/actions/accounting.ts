@@ -13,6 +13,7 @@ import {
   createFiscalYearSchema,
   createJournalEntrySchema,
 } from "@/validations/accounting";
+import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -771,6 +772,7 @@ export async function bulkImportJournalEntries(
       try {
         const journalType = normalizeJournalType(entry.journalType) as never;
         const entryDate = new Date(entry.entryDate);
+        const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, entryDate);
 
         const existing = await prisma.journalEntry.findFirst({
           where: {
@@ -808,6 +810,7 @@ export async function bulkImportJournalEntries(
             piece: entry.piece,
             label: entry.label.slice(0, 255),
             reference: entry.reference,
+            fiscalYearId,
             status: "BROUILLON",
             lines: { create: resolvedLines },
           },
