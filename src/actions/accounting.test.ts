@@ -21,6 +21,7 @@ import {
   validateJournalEntries,
   bulkImportAccounts,
   bulkImportJournalEntries,
+  getFrequentAccountsForJournal,
 } from "./accounting";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
@@ -387,6 +388,44 @@ describe("getAccounts", () => {
     prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await getAccounts(SOCIETY_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la récupération des comptes" });
+  });
+});
+
+describe("getFrequentAccountsForJournal", () => {
+  it("retourne les comptes les plus utilisés pour un journal canonique ou legacy", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        accountId: ACCOUNT_ID_1,
+        account: { id: ACCOUNT_ID_1, code: "411000", label: "Locataires", type: "4" },
+        journalEntry: { entryDate: new Date("2026-02-01") },
+      },
+      {
+        accountId: ACCOUNT_ID_1,
+        account: { id: ACCOUNT_ID_1, code: "411000", label: "Locataires", type: "4" },
+        journalEntry: { entryDate: new Date("2026-01-01") },
+      },
+      {
+        accountId: ACCOUNT_ID_2,
+        account: { id: ACCOUNT_ID_2, code: "706100", label: "Loyers", type: "7" },
+        journalEntry: { entryDate: new Date("2026-03-01") },
+      },
+    ] as never);
+
+    const result = await getFrequentAccountsForJournal(SOCIETY_ID, "VENTES");
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual([
+      { id: ACCOUNT_ID_1, code: "411000", label: "Locataires", type: "4", usageCount: 2, lastUsedAt: new Date("2026-02-01") },
+      { id: ACCOUNT_ID_2, code: "706100", label: "Loyers", type: "7", usageCount: 1, lastUsedAt: new Date("2026-03-01") },
+    ]);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({ journalType: { in: ["VT", "VENTES"] } }),
+        }),
+      })
+    );
   });
 });
 

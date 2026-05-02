@@ -3,8 +3,8 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
-import { createJournalEntry, getAccounts, getFiscalYears } from "@/actions/accounting";
-import type { AccountRow, FiscalYearRow } from "@/actions/accounting";
+import { createJournalEntry, getAccounts, getFiscalYears, getFrequentAccountsForJournal } from "@/actions/accounting";
+import type { AccountRow, FiscalYearRow, FrequentAccountRow } from "@/actions/accounting";
 import { formatCurrency } from "@/lib/utils";
 import { calculateJournalEntryTotals, getBalancingPatch } from "@/lib/accounting-entry-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ export default function NouvelleEcriturePage() {
   const [isPending, startTransition] = useTransition();
 
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [frequentAccounts, setFrequentAccounts] = useState<FrequentAccountRow[]>([]);
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [journal, setJournal] = useState("OD");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -52,6 +53,13 @@ export default function NouvelleEcriturePage() {
       }
     });
   }, [activeSociety?.id]);
+
+  useEffect(() => {
+    if (!activeSociety?.id) return;
+    getFrequentAccountsForJournal(activeSociety.id, journal).then((result) => {
+      if (result.success && result.data) setFrequentAccounts(result.data);
+    });
+  }, [activeSociety?.id, journal]);
 
   const totals = calculateJournalEntryTotals(lines);
   const { totalDebit, totalCredit, isBalanced } = totals;
@@ -198,6 +206,11 @@ export default function NouvelleEcriturePage() {
                         className={selectClass + " font-mono"}
                       >
                         <option value="">Sélectionner un compte</option>
+                        {frequentAccounts.length > 0 && (
+                          <optgroup label="Comptes fréquents du journal">
+                            {frequentAccounts.map(a => <option key={"frequent-" + a.id} value={a.id}>{a.code} — {a.label}</option>)}
+                          </optgroup>
+                        )}
                         {Object.entries(accountsByClass).sort((a, b) => a[0].localeCompare(b[0])).map(([cl, accs]) => (
                           <optgroup key={cl} label={"Classe " + cl}>
                             {accs.map(a => <option key={a.id} value={a.id}>{a.code} — {a.label}</option>)}

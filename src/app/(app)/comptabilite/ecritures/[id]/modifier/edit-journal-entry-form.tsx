@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Plus, Save, Scale, Trash2 } from "lucide-react";
 
-import { getAccounts, getFiscalYears, updateJournalEntry, type AccountRow, type FiscalYearRow } from "@/actions/accounting";
+import {
+  getAccounts,
+  getFiscalYears,
+  getFrequentAccountsForJournal,
+  updateJournalEntry,
+  type AccountRow,
+  type FiscalYearRow,
+  type FrequentAccountRow,
+} from "@/actions/accounting";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,6 +52,7 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
   const [isPending, startTransition] = useTransition();
 
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [frequentAccounts, setFrequentAccounts] = useState<FrequentAccountRow[]>([]);
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [journal, setJournal] = useState(initialEntry.journalType);
   const [date, setDate] = useState(initialEntry.entryDate);
@@ -57,6 +66,13 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
     getAccounts(activeSociety.id).then((result) => { if (result.success && result.data) setAccounts(result.data); });
     getFiscalYears(activeSociety.id).then((result) => { if (result.success && result.data) setFiscalYears(result.data); });
   }, [activeSociety?.id]);
+
+  useEffect(() => {
+    if (!activeSociety?.id) return;
+    getFrequentAccountsForJournal(activeSociety.id, journal).then((result) => {
+      if (result.success && result.data) setFrequentAccounts(result.data);
+    });
+  }, [activeSociety?.id, journal]);
 
   const totals = calculateJournalEntryTotals(lines);
   const { totalDebit, totalCredit, isBalanced } = totals;
@@ -210,6 +226,11 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
                     <TableCell>
                       <select value={line.accountId} onChange={(event) => setLine(line.id, "accountId", event.target.value)} className={selectClass + " font-mono"}>
                         <option value="">Sélectionner un compte</option>
+                        {frequentAccounts.length > 0 && (
+                          <optgroup label="Comptes fréquents du journal">
+                            {frequentAccounts.map((account) => <option key={"frequent-" + account.id} value={account.id}>{account.code} - {account.label}</option>)}
+                          </optgroup>
+                        )}
                         {Object.entries(accountsByClass).sort((a, b) => a[0].localeCompare(b[0])).map(([classe, classAccounts]) => (
                           <optgroup key={classe} label={"Classe " + classe}>
                             {classAccounts.map((account) => <option key={account.id} value={account.id}>{account.code} - {account.label}</option>)}
