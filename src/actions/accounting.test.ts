@@ -1147,13 +1147,13 @@ describe("getGrandLivre — filtres accountId, fiscalYearId, journalType (lignes
     );
   });
 
-  it("filtre par journalType", async () => {
+  it("filtre par journalType avec ses alias legacy", async () => {
     const result = await getGrandLivre(SOCIETY_ID, { journalType: "VT" });
     expect(result.success).toBe(true);
     expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          journalEntry: expect.objectContaining({ journalType: "VT" }),
+          journalEntry: expect.objectContaining({ journalType: { in: ["VT", "VENTES"] } }),
         }),
       })
     );

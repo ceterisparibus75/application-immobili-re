@@ -5,6 +5,7 @@ import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
+import type { JournalType, Prisma } from "@/generated/prisma/client";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -637,19 +638,26 @@ export async function getGrandLivre(
   try {
     await requireSocietyActionContext(societyId);
 
+    const journalTypeFilter: Prisma.JournalEntryWhereInput["journalType"] | undefined = filters.journalType
+      ? isAccountingJournalType(filters.journalType)
+        ? { in: getAccountingJournalTypeAliases(filters.journalType) as JournalType[] }
+        : filters.journalType as JournalType
+      : undefined;
+    const journalEntryWhere: Prisma.JournalEntryWhereInput = {
+      ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),
+      ...(journalTypeFilter ? { journalType: journalTypeFilter } : {}),
+      ...(filters.dateFrom ? { entryDate: { gte: new Date(filters.dateFrom) } } : {}),
+      ...(filters.dateTo
+        ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
+        : {}),
+    };
+
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         ...(filters.accountId ? { accountId: filters.accountId } : {}),
         ...(filters.nonLettered ? { letteringCode: null, lettrage: null } : {}),
         account: { societyId },
-        journalEntry: {
-          ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),
-          ...(filters.journalType ? { journalType: filters.journalType as never } : {}),
-          ...(filters.dateFrom ? { entryDate: { gte: new Date(filters.dateFrom) } } : {}),
-          ...(filters.dateTo
-            ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
-            : {}),
-        },
+        journalEntry: journalEntryWhere,
       },
       include: {
         account: { select: { code: true, label: true } },
