@@ -700,6 +700,58 @@ describe("reconcileWithLoanLine", () => {
     );
   });
 
+  it("crée une écriture BQUE ventilée pour une échéance de prêt", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({
+        amount: -520,
+        label: "Echéance prêt avril",
+        reference: "PRET-04",
+        journalEntryId: null,
+      }) as never
+    );
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({
+      id: LOAN_LINE_ID,
+      dueDate: new Date("2026-04-05"),
+      principalPayment: 400,
+      interestPayment: 100,
+      insurancePayment: 20,
+      totalPayment: 520,
+    } as never);
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-164000", code: "164000", label: "Emprunts", type: "1" } as never)
+      .mockResolvedValueOnce({ id: "account-661100", code: "661100", label: "Interets", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-616000", code: "616000", label: "Assurance", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          reference: "PRET-04",
+          lines: {
+            create: [
+              { accountId: "account-164000", debit: 400, credit: 0, label: "Remboursement capital emprunt" },
+              { accountId: "account-661100", debit: 100, credit: 0, label: "Intérêts d'emprunt" },
+              { accountId: "account-616000", debit: 20, credit: 0, label: "Assurance emprunteur" },
+              { accountId: "account-512", debit: 0, credit: 520, label: "Echéance prêt avril" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
+  });
+
   it("retourne une erreur si rôle insuffisant pour reconcileWithLoanLine (ForbiddenError ligne 639)", async () => {
     mockAuthSession(UserRole.LECTURE);
     const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);

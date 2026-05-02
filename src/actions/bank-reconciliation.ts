@@ -53,6 +53,10 @@ function getBankCategoryAccountFallback(category: string | null | undefined): Ac
   return BANK_CATEGORY_ACCOUNT_FALLBACKS[category] ?? null;
 }
 
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 async function upsertAccountingAccount(
   societyId: string,
   fallback: AccountFallback
@@ -728,13 +732,87 @@ export async function reconcileWithLoanLine(
       return { success: false, error: "Le montant de la transaction ne correspond pas à l'échéance sélectionnée" };
     }
 
-    await prisma.$transaction([
-      prisma.bankTransaction.update({ where: { id: transactionId }, data: { isReconciled: true } }),
-      prisma.loanAmortizationLine.update({
+    await prisma.$transaction(async (tx) => {
+      const [compte512, compte164, compte661, compte616] = await Promise.all([
+        tx.accountingAccount.upsert({
+          where: { societyId_code: { societyId, code: "512" } },
+          update: {},
+          create: { societyId, code: "512", label: "Banque", type: "5" },
+        }),
+        tx.accountingAccount.upsert({
+          where: { societyId_code: { societyId, code: "164000" } },
+          update: {},
+          create: { societyId, code: "164000", label: "Emprunts aupres des etablissements de credit", type: "1" },
+        }),
+        tx.accountingAccount.upsert({
+          where: { societyId_code: { societyId, code: "661100" } },
+          update: {},
+          create: { societyId, code: "661100", label: "Interets des emprunts", type: "6" },
+        }),
+        tx.accountingAccount.upsert({
+          where: { societyId_code: { societyId, code: "616000" } },
+          update: {},
+          create: { societyId, code: "616000", label: "Primes d'assurance", type: "6" },
+        }),
+      ]);
+
+      const journalEntry = transaction.journalEntryId
+        ? null
+        : await tx.journalEntry.create({
+            data: {
+              societyId,
+              fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+              journalType: "BQUE",
+              entryDate: transaction.transactionDate,
+              label: transaction.label,
+              reference: transaction.reference ?? undefined,
+              lines: {
+                create: [
+                  {
+                    accountId: compte164.id,
+                    debit: roundCents(loanLine.principalPayment),
+                    credit: 0,
+                    label: "Remboursement capital emprunt",
+                  },
+                  {
+                    accountId: compte661.id,
+                    debit: roundCents(loanLine.interestPayment),
+                    credit: 0,
+                    label: "Intérêts d'emprunt",
+                  },
+                  ...(loanLine.insurancePayment > 0
+                    ? [
+                        {
+                          accountId: compte616.id,
+                          debit: roundCents(loanLine.insurancePayment),
+                          credit: 0,
+                          label: "Assurance emprunteur",
+                        },
+                      ]
+                    : []),
+                  {
+                    accountId: compte512.id,
+                    debit: 0,
+                    credit: transactionAmount,
+                    label: transaction.label,
+                  },
+                ],
+              },
+            },
+          });
+
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: {
+          isReconciled: true,
+          ...(journalEntry ? { journalEntryId: journalEntry.id } : {}),
+        },
+      });
+      await tx.loanAmortizationLine.update({
         where: { id: loanLineId },
         data: { isPaid: true, paidAt: transaction.transactionDate },
-      }),
-    ]);
+      });
+    });
 
     await createAuditLog({
       societyId,
@@ -742,11 +820,12 @@ export async function reconcileWithLoanLine(
       action: "UPDATE",
       entity: "LoanAmortizationLine",
       entityId: loanLineId,
-      details: { transactionId, action: "reconcile_loan_payment" },
+      details: { transactionId, action: "reconcile_loan_payment", journalType: "BQUE" },
     });
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/comptabilite");
     revalidatePath("/emprunts");
     return { success: true };
   } catch (error) {
