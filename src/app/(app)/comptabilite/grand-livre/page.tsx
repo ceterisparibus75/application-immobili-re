@@ -15,6 +15,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   grandLivreExportFilename,
+  grandLivreRowsToAccountingText,
   grandLivreRowsToDelimited,
   type GrandLivreExportPayload,
   type GrandLivreExportRow,
@@ -112,7 +113,10 @@ export default function GrandLivrePage() {
       toast.error("Aucune ligne à exporter");
       return;
     }
-    const content = grandLivreRowsToDelimited(getExportRows(), separator);
+    const exportRows = getExportRows();
+    const content = extension === "txt"
+      ? grandLivreRowsToAccountingText(exportRows)
+      : grandLivreRowsToDelimited(exportRows, separator);
     const mime = extension === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildGrandLivreExportGroups,
+  grandLivreRowsToAccountingText,
   grandLivreRowsToDelimited,
   type GrandLivreExportRow,
 } from "./grand-livre-export";
@@ -58,5 +59,17 @@ describe("grand-livre export", () => {
     expect(csv.split("\r\n")[0]).toBe("Compte;Libellé compte;Date;Pièce;Journal;Libellé;Débit;Let.;Crédit;Solde;Statut");
     expect(csv).toContain("411000;Locataires;02/05/2026;P-1;VT;Loyer mai;700,00;AB;0,00;700,00;VALIDEE");
     expect(csv).toContain('"Avoir avec; séparateur"');
+  });
+
+  it("exporte le TXT sur les colonnes comptables importables", () => {
+    const text = grandLivreRowsToAccountingText(rows);
+
+    expect(text.split("\r\n")[0]).toContain("Compte");
+    expect(text.split("\r\n")[0]).toContain("Débit origine");
+    expect(text.split("\r\n")[0]).toContain("Crédit euro");
+    expect(text).toContain("411000");
+    expect(text).toContain("02/05/2026");
+    expect(text).toContain("700,00");
+    expect(text).toContain("2026");
   });
 });

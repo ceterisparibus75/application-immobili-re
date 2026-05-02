@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeTextBuffer, parseFec } from "./route";
+import { decodeTextBuffer, parseFec, parseGrandLivreText } from "./route";
 
 const fecRows = [
   "JournalCode\tJournalLib\tEcritureNum\tEcritureDate\tCompteNum\tCompteLib\tPieceRef\tEcritureLib\tDebit\tCredit",
@@ -31,5 +31,54 @@ describe("import-grand-livre FEC parser", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.totalDebit).toBe(100);
     expect(entries[0]?.totalCredit).toBe(100);
+  });
+
+  it("parse un export grand-livre texte à colonnes fixes", () => {
+    const text = [
+      "Compte        Libellé compte                                     Journal  Date écriture Pièce            Libellé écriture                                   Débit origine Crédit origine Débit euro  Crédit euro  Lettrage N Lettrage N+1 Lettrage partiel Révision Année      Mois       Jour       Monnaie ISO Monnaie Taux change Type règlement Quantité 1 Unité 1    Quantité 2 Unité 2 ",
+      "164100        PRET 82 000 €                                      INV      20/01/2026    2601-REMP-000001 Emprunts échus - Capital 40004822RAIM11AQ          459,16        0              459,16      0                       Faux         Faux             N        2026       1          20         E                   1           R              0                     0                  ",
+      "512100        BANQUE                                             INV      20/01/2026    2601-REMP-000001 Emprunts échus - Capital 40004822RAIM11AQ          0             459,16         0           459,16                  Faux         Faux             N        2026       1          20         E                   1           R              0                     0                  ",
+    ].join("\r\n");
+
+    const entries = parseGrandLivreText(text);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      journalCode: "INV",
+      entryDate: "2026-01-20",
+      piece: "2601-REMP-000001",
+      label: "Emprunts échus - Capital 40004822RAIM11AQ",
+      totalDebit: 459.16,
+      totalCredit: 459.16,
+      isBalanced: true,
+    });
+    expect(entries[0]?.lines).toEqual([
+      { accountCode: "164100", accountLabel: "PRET 82 000 €", debit: 459.16, credit: 0 },
+      { accountCode: "512100", accountLabel: "BANQUE", debit: 0, credit: 459.16 },
+    ]);
+  });
+
+  it("parse un export grand-livre CSV avec les colonnes débit/crédit euro", () => {
+    const text = [
+      "Compte;Libellé compte;Journal;Date écriture;Pièce;Libellé écriture;Débit origine;Crédit origine;Débit euro;Crédit euro;Lettrage N",
+      "164100;PRET 82 000 €;INV;20/01/2026;2601-REMP-000001;Emprunts échus - Capital 40004822RAIM11AQ;459,16;0;459,16;0;",
+      "512100;BANQUE;INV;20/01/2026;2601-REMP-000001;Emprunts échus - Capital 40004822RAIM11AQ;0;459,16;0;459,16;",
+    ].join("\n");
+
+    const entries = parseFec(text);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      journalCode: "INV",
+      entryDate: "2026-01-20",
+      totalDebit: 459.16,
+      totalCredit: 459.16,
+      isBalanced: true,
+    });
+    expect(entries[0]?.lines[0]).toMatchObject({
+      accountCode: "164100",
+      accountLabel: "PRET 82 000 €",
+      debit: 459.16,
+    });
   });
 });

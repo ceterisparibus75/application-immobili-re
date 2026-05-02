@@ -19,6 +19,8 @@ export type ParsedEntry = {
 };
 
 function parseFecDate(s: string): string {
+  const frenchDate = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (frenchDate) return `${frenchDate[3]}-${frenchDate[2]}-${frenchDate[1]}`;
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   const d = new Date(s);
   return isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
@@ -112,7 +114,13 @@ export function parseFec(text: string): ParsedEntry[] {
   const lines = text.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
   const firstLine = lines[0];
-  const sep = firstLine.includes("	") ? "	" : firstLine.includes("|") ? "|" : ";";
+  const sep = firstLine.includes("	")
+    ? "	"
+    : firstLine.includes("|")
+      ? "|"
+      : firstLine.includes(";")
+        ? ";"
+        : ",";
   const headers = parseDelimitedLine(firstLine, sep);
   const idx = (names: string[]) => {
     for (const n of names) {
@@ -123,33 +131,34 @@ export function parseFec(text: string): ParsedEntry[] {
   };
   const iJournal = idx(["JournalCode", "CodeJournal", "Journal"]);
   const iNum = idx(["EcritureNum", "NumEcriture", "Numero"]);
-  const iDate = idx(["EcritureDate", "DateEcriture", "Date"]);
+  const iDate = idx(["EcritureDate", "DateEcriture", "Date", "Date écriture", "Date ecriture"]);
   const iCompte = idx(["CompteNum", "NumCompte", "Compte"]);
-  const iCompteLib = idx(["CompteLib", "LibCompte", "LibelleCompte"]);
-  const iLib = idx(["EcritureLib", "LibEcriture", "Libelle"]);
-  const iDebit = idx(["Debit", "MontantDebit"]);
-  const iCredit = idx(["Credit", "MontantCredit"]);
+  const iCompteLib = idx(["CompteLib", "LibCompte", "LibelleCompte", "Libellé compte", "Libelle compte"]);
+  const iLib = idx(["EcritureLib", "LibEcriture", "Libelle", "Libellé écriture", "Libelle ecriture"]);
+  const iDebit = idx(["Debit", "MontantDebit", "Débit euro", "Debit euro", "Débit origine", "Debit origine"]);
+  const iCredit = idx(["Credit", "MontantCredit", "Crédit euro", "Credit euro", "Crédit origine", "Credit origine"]);
   const iPiece = idx(["PieceRef", "EcritureNum", "Piece"]);
   if (iJournal < 0 || iDate < 0 || iCompte < 0) return [];
   const rawEntries = new Map<string, ParsedEntry>();
   for (let i = 1; i < lines.length; i++) {
     const cols = parseDelimitedLine(lines[i], sep);
     const journalCode = cols[iJournal] ?? "";
-    const num = iNum >= 0 ? (cols[iNum] ?? `L${i}`) : `L${i}`;
+    const piece = iPiece >= 0 ? (cols[iPiece] ?? "") : "";
+    const num = iNum >= 0 ? (cols[iNum] ?? `L${i}`) : piece || `L${i}`;
     const dateRaw = cols[iDate] ?? "";
     const compteNum = cols[iCompte] ?? "";
     const compteLib = iCompteLib >= 0 ? (cols[iCompteLib] ?? compteNum) : compteNum;
     const lib = iLib >= 0 ? (cols[iLib] ?? "") : "";
     const debit = parseAmount(iDebit >= 0 ? (cols[iDebit] ?? "0") : "0");
     const credit = parseAmount(iCredit >= 0 ? (cols[iCredit] ?? "0") : "0");
-    const piece = iPiece >= 0 ? (cols[iPiece] ?? num) : num;
+    const pieceRef = piece || num;
     if (!compteNum) continue;
     const key = `${journalCode}|${num}|${dateRaw}`;
     if (!rawEntries.has(key)) {
       rawEntries.set(key, {
         journalCode,
         entryDate: parseFecDate(dateRaw),
-        piece: piece || num,
+        piece: pieceRef,
         label: lib,
         lines: [],
         totalDebit: 0,
@@ -166,6 +175,104 @@ export function parseFec(text: string): ParsedEntry[] {
   const result = Array.from(rawEntries.values());
   result.forEach((e) => {
     e.isBalanced = Math.abs(e.totalDebit - e.totalCredit) < 0.02;
+  });
+  return result;
+}
+
+function findHeaderPosition(header: string, label: string): number {
+  return normHeader(header).indexOf(normHeader(label));
+}
+
+function sliceColumn(line: string, start: number, end: number | undefined): string {
+  if (start < 0) return "";
+  return line.slice(start, end).trim();
+}
+
+function getFixedWidthColumns(header: string): Array<{ key: string; start: number; end?: number }> | null {
+  const definitions = [
+    ["accountCode", "Compte"],
+    ["accountLabel", "Libellé compte"],
+    ["journalCode", "Journal"],
+    ["entryDate", "Date écriture"],
+    ["piece", "Pièce"],
+    ["label", "Libellé écriture"],
+    ["debitOrigine", "Débit origine"],
+    ["creditOrigine", "Crédit origine"],
+    ["debit", "Débit euro"],
+    ["credit", "Crédit euro"],
+    ["lettrage", "Lettrage N"],
+  ] as const;
+
+  const positions = definitions
+    .map(([key, label]) => ({ key, start: findHeaderPosition(header, label) }))
+    .filter((column) => column.start >= 0)
+    .sort((a, b) => a.start - b.start);
+
+  const required = ["accountCode", "accountLabel", "journalCode", "entryDate", "label", "debit", "credit"];
+  if (!required.every((key) => positions.some((column) => column.key === key))) return null;
+
+  return positions.map((column, index) => ({
+    ...column,
+    end: positions[index + 1]?.start,
+  }));
+}
+
+export function parseGrandLivreText(text: string): ParsedEntry[] {
+  const lines = text.split(/\r\n|\n|\r/).filter((line) => line.trim().length > 0);
+  const headerIndex = lines.findIndex((line) => {
+    const normalized = normHeader(line);
+    return normalized.includes("compte") && normalized.includes("libelle compte") && normalized.includes("date ecriture");
+  });
+  if (headerIndex < 0) return [];
+
+  const columns = getFixedWidthColumns(lines[headerIndex]);
+  if (!columns) return [];
+
+  const column = (key: string) => columns.find((candidate) => candidate.key === key);
+  const rawEntries = new Map<string, ParsedEntry>();
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const get = (key: string) => {
+      const col = column(key);
+      return col ? sliceColumn(line, col.start, col.end) : "";
+    };
+
+    const accountCode = get("accountCode");
+    if (!/^\d{3,}/.test(accountCode)) continue;
+
+    const accountLabel = get("accountLabel") || accountCode;
+    const journalCode = get("journalCode") || "OD";
+    const entryDate = parseFecDate(get("entryDate"));
+    const piece = get("piece");
+    const label = get("label") || piece || `Ligne ${i}`;
+    const debit = parseAmount(get("debit"));
+    const credit = parseAmount(get("credit"));
+    if (debit === 0 && credit === 0) continue;
+
+    const entryKey = `${journalCode}|${entryDate}|${piece || label}`;
+    if (!rawEntries.has(entryKey)) {
+      rawEntries.set(entryKey, {
+        journalCode,
+        entryDate,
+        piece: piece || `${journalCode}-${entryDate}`,
+        label,
+        lines: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: false,
+      });
+    }
+
+    const entry = rawEntries.get(entryKey)!;
+    entry.lines.push({ accountCode, accountLabel, debit, credit });
+    entry.totalDebit = Math.round((entry.totalDebit + debit) * 100) / 100;
+    entry.totalCredit = Math.round((entry.totalCredit + credit) * 100) / 100;
+  }
+
+  const result = Array.from(rawEntries.values());
+  result.forEach((entry) => {
+    entry.isBalanced = Math.abs(entry.totalDebit - entry.totalCredit) < 0.02;
   });
   return result;
 }
@@ -286,13 +393,17 @@ export async function POST(req: NextRequest) {
       const text = decodeTextBuffer(buffer);
       entries = parseFec(text);
       source = entries.length > 0 ? "fec" : "unknown";
+      if (entries.length === 0) {
+        entries = parseGrandLivreText(text);
+        source = entries.length > 0 ? "grand_livre" : "unknown";
+      }
       if (source === "unknown") {
         return NextResponse.json(
           {
             error: {
               code: "PARSE_ERROR",
               message:
-                "Format non reconnu. Utilisez un export FEC (.txt, .csv) ou Excel (.xlsx).",
+                "Format non reconnu. Utilisez un export FEC, grand-livre texte (.txt, .csv) ou Excel (.xlsx).",
             },
           },
           { status: 400 }

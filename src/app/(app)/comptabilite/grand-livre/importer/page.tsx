@@ -60,7 +60,7 @@ export default function ImportGrandLivrePage() {
     const allowed = [".fec", ".txt", ".csv", ".xlsx", ".xls", ".ods"];
     if (!allowed.some((e) => ext.endsWith(e))) {
       toast.error(
-        "Format non supporté. Utilisez FEC (.txt, .csv) ou Excel (.xlsx, .xls)."
+        "Format non supporté. Utilisez FEC, Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)."
       );
       return;
     }
@@ -182,7 +182,7 @@ export default function ImportGrandLivrePage() {
             Importer des écritures
           </h1>
           <p className="text-muted-foreground text-sm">
-            Format FEC (.txt, .csv) ou Excel (.xlsx, .xls)
+            Format FEC, Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)
           </p>
         </div>
       </div>
@@ -229,15 +229,14 @@ export default function ImportGrandLivrePage() {
             </div>
             <div className="flex gap-3 mt-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <FileText className="h-4 w-4" /> FEC standard (.txt, .csv)
+                <FileText className="h-4 w-4" /> FEC / Grand Livre (.txt, .csv)
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-4 w-4" /> Excel (.xlsx, .xls)
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2 max-w-md text-center">
-              Le format FEC est le standard français exporté depuis Sage, EBP,
-              Ciel, QuadraCompta...
+              Formats acceptés : FEC DGFiP, grand-livre comptable texte/CSV, Excel.
             </p>
             {parseError && (
               <div className="mt-3 flex max-w-xl items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -294,6 +293,11 @@ export default function ImportGrandLivrePage() {
                 {source === "fec" && (
                   <Badge variant="secondary" className="ml-2">
                     Format FEC
+                  </Badge>
+                )}
+                {source === "grand_livre" && (
+                  <Badge variant="secondary" className="ml-2">
+                    Grand Livre
                   </Badge>
                 )}
                 {source === "excel" && (
