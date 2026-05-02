@@ -27,6 +27,8 @@ export const REPORT_OUTSTANDING_INVOICE_STATUSES = [
 
 export type ReportInvoiceWithPayments = {
   totalTTC: number;
+  isThirdPartyManaged?: boolean | null;
+  expectedNetAmount?: number | null;
   payments?: Array<{ amount: number | null; paidAt?: Date | string | null }> | null;
 };
 
@@ -52,5 +54,8 @@ export function getPaidAmountInPeriod(invoice: ReportInvoiceWithPayments, from: 
 }
 
 export function getOutstandingAmount(invoice: ReportInvoiceWithPayments): number {
-  return Math.max(0, roundCurrency(invoice.totalTTC - getPaidAmount(invoice)));
+  const targetAmount = invoice.isThirdPartyManaged && typeof invoice.expectedNetAmount === "number"
+    ? invoice.expectedNetAmount
+    : invoice.totalTTC;
+  return Math.max(0, roundCurrency(targetAmount - getPaidAmount(invoice)));
 }

@@ -17,6 +17,15 @@ describe("invoice-metrics", () => {
     expect(getOutstandingAmount({ totalTTC: 100, payments: [{ amount: 120 }] })).toBe(0);
   });
 
+  it("calcule le restant dû sur le montant net attendu en gestion tiers", () => {
+    expect(getOutstandingAmount({
+      totalTTC: 1000,
+      isThirdPartyManaged: true,
+      expectedNetAmount: 850,
+      payments: [{ amount: 850 }],
+    })).toBe(0);
+  });
+
   it("calcule les paiements encaissés sur une période donnée", () => {
     expect(getPaidAmountInPeriod({
       totalTTC: 500,
