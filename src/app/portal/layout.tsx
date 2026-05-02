@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   Building2, FileText, Home, Shield, LogOut, ReceiptText,
-  MessageSquare, Upload,
+  MessageSquare, Upload, UserCircle,
 } from "lucide-react";
 import "../globals.css";
 
@@ -20,6 +20,7 @@ const navLinks = [
   { href: "/portal/charges", label: "Charges", icon: ReceiptText },
   { href: "/portal/upload", label: "Envoyer", icon: Upload },
   { href: "/portal/tickets", label: "Demandes", icon: MessageSquare },
+  { href: "/portal/profil", label: "Profil", icon: UserCircle },
 ];
 
 /* ------------------------------------------------------------------ */

@@ -236,10 +236,22 @@ export default async function PortalDocumentsPage() {
       {/* Quittances */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4" />
-            Quittances ({quittances.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              Quittances ({quittances.length})
+            </CardTitle>
+            {quittances.some((q) => q.fileUrl) && (
+              <a
+                href="/api/portal/quittances/archive"
+                download
+                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Telecharger tout
+              </a>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {quittances.length === 0 ? (
