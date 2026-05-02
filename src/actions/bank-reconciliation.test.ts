@@ -118,6 +118,52 @@ describe("autoReconcile", () => {
     expect(r.data?.matched).toBe(1);
   });
 
+  it("crée l'écriture BQUE lors d'un rapprochement automatique exact", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: 500, reference: "REF-001", journalEntryId: null }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({
+        amount: 500,
+        reference: "REF-001",
+        invoice: { isThirdPartyManaged: false, expectedNetAmount: null, managementFeeTTC: null },
+      }),
+    ] as never);
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-411", code: "411", label: "Clients", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-658", code: "658", label: "Charges diverses", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-622", code: "622", label: "Honoraires", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(1);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          lines: {
+            create: [
+              { accountId: "account-512", debit: 500, credit: 0, label: "Virement entrant" },
+              { accountId: "account-411", debit: 0, credit: 500, label: "Virement entrant" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
+  });
+
   it("rapproche avec un match approximatif (montant ±0.01 + date ±3j) — lignes 139-155", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
@@ -217,6 +263,11 @@ describe("manualReconcile", () => {
     prismaMock.bankReconciliation.create.mockResolvedValue({ id: RECONCIL_ID } as never);
     prismaMock.bankTransaction.update.mockResolvedValue(buildTransaction({ isReconciled: true }) as never);
     prismaMock.payment.update.mockResolvedValue(buildPayment({ isReconciled: true }) as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "account-default" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
     prismaMock.invoice.findUnique.mockResolvedValue(null);
   });
 
@@ -281,6 +332,48 @@ describe("manualReconcile", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CREATE", entity: "BankReconciliation" })
     );
+  });
+
+  it("crée l'écriture BQUE lors d'un rapprochement manuel avec paiement existant", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: 500, journalEntryId: null }) as never
+    );
+    prismaMock.payment.findFirst.mockResolvedValue(
+      buildPayment({
+        invoice: { isThirdPartyManaged: false, expectedNetAmount: null, managementFeeTTC: null },
+      }) as never
+    );
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-411", code: "411", label: "Clients", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-658", code: "658", label: "Charges diverses", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-622", code: "622", label: "Honoraires", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          lines: {
+            create: [
+              { accountId: "account-512", debit: 500, credit: 0, label: "Virement entrant" },
+              { accountId: "account-411", debit: 0, credit: 500, label: "Virement entrant" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
   });
 
   it("revalide le chemin locataire si invoice.tenantId trouvé (ligne 258)", async () => {

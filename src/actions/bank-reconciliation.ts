@@ -279,7 +279,7 @@ export async function autoReconcile(
         where: { isReconciled: false, invoice: { societyId } },
         include: {
           invoice: {
-            select: { isThirdPartyManaged: true, expectedNetAmount: true },
+            select: { isThirdPartyManaged: true, expectedNetAmount: true, managementFeeTTC: true },
           },
         },
         orderBy: { paidAt: "asc" },
@@ -305,7 +305,11 @@ export async function autoReconcile(
       );
 
       if (exactMatch) {
-        await createReconciliationRecord(tx.id, exactMatch.id, true);
+        await createReconciliationRecord(tx.id, exactMatch.id, true, undefined, context.userId, {
+          societyId,
+          transaction: tx,
+          payment: exactMatch,
+        });
         usedPaymentIds.add(exactMatch.id);
         usedTransactionIds.add(tx.id);
         matched++;
@@ -324,7 +328,11 @@ export async function autoReconcile(
       });
 
       if (approxMatch) {
-        await createReconciliationRecord(tx.id, approxMatch.id, true);
+        await createReconciliationRecord(tx.id, approxMatch.id, true, undefined, context.userId, {
+          societyId,
+          transaction: tx,
+          payment: approxMatch,
+        });
         usedPaymentIds.add(approxMatch.id);
         usedTransactionIds.add(tx.id);
         matched++;
@@ -339,7 +347,11 @@ export async function autoReconcile(
       });
 
       if (netMatch) {
-        await createReconciliationRecord(tx.id, netMatch.id, true);
+        await createReconciliationRecord(tx.id, netMatch.id, true, undefined, context.userId, {
+          societyId,
+          transaction: tx,
+          payment: netMatch,
+        });
         usedPaymentIds.add(netMatch.id);
         usedTransactionIds.add(tx.id);
         matched++;
@@ -404,19 +416,52 @@ export async function manualReconcile(
         id: parsed.data.paymentId,
         invoice: { societyId },
       },
+      include: {
+        invoice: {
+          select: {
+            isThirdPartyManaged: true,
+            expectedNetAmount: true,
+            managementFeeTTC: true,
+          },
+        },
+      },
     });
     if (!payment) return { success: false, error: "Paiement introuvable" };
     if (Math.abs(transaction.amount - payment.amount) > 0.01) {
       return { success: false, error: "Le montant de la transaction ne correspond pas au paiement sélectionné" };
     }
 
-    await createReconciliationRecord(
-      parsed.data.transactionId,
-      parsed.data.paymentId,
-      true,
-      parsed.data.notes,
-      context.userId
-    );
+    await prisma.$transaction(async (tx) => {
+      await tx.bankReconciliation.create({
+        data: {
+          transactionId: parsed.data.transactionId,
+          paymentId: parsed.data.paymentId,
+          isValidated: true,
+          validatedAt: new Date(),
+          validatedBy: context.userId,
+          notes: parsed.data.notes ?? null,
+        },
+      });
+      const journalEntryId = transaction.journalEntryId
+        ? transaction.journalEntryId
+        : await createBankJournalEntryForTransaction(
+            tx,
+            societyId,
+            {
+              ...transaction,
+              reconciliations: [{ payment: { invoice: payment.invoice } }],
+            },
+            { linkTransaction: false }
+          );
+      await tx.bankTransaction.update({
+        where: { id: parsed.data.transactionId },
+        data: { isReconciled: true, journalEntryId },
+      });
+      await tx.payment.update({
+        where: { id: parsed.data.paymentId },
+        data: { isReconciled: true },
+      });
+    });
 
     await createAuditLog({
       societyId,
@@ -424,11 +469,12 @@ export async function manualReconcile(
       action: "CREATE",
       entity: "BankReconciliation",
       entityId: parsed.data.transactionId,
-      details: { transactionId: parsed.data.transactionId, paymentId: parsed.data.paymentId },
+      details: { transactionId: parsed.data.transactionId, paymentId: parsed.data.paymentId, journalType: "BQUE" },
     });
 
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath("/comptabilite");
     revalidatePath("/facturation");
     // Mettre à jour la fiche comptable du locataire
     revalidatePath("/locataires");
@@ -560,8 +606,53 @@ async function createReconciliationRecord(
   paymentId: string,
   isValidated: boolean,
   notes?: string,
-  validatedBy?: string
+  validatedBy?: string,
+  journalContext?: {
+    societyId: string;
+    transaction: Omit<BankJournalTransaction, "reconciliations">;
+    payment: {
+      invoice: {
+        isThirdPartyManaged: boolean;
+        managementFeeTTC?: number | null;
+      } | null;
+    };
+  }
 ): Promise<void> {
+  if (journalContext) {
+    await prisma.$transaction(async (tx) => {
+      await tx.bankReconciliation.create({
+        data: {
+          transactionId,
+          paymentId,
+          isValidated,
+          validatedAt: isValidated ? new Date() : null,
+          validatedBy: validatedBy ?? null,
+          notes: notes ?? null,
+        },
+      });
+      const journalEntryId = journalContext.transaction.journalEntryId
+        ? journalContext.transaction.journalEntryId
+        : await createBankJournalEntryForTransaction(
+            tx,
+            journalContext.societyId,
+            {
+              ...journalContext.transaction,
+              reconciliations: [{ payment: { invoice: journalContext.payment.invoice } }],
+            },
+            { linkTransaction: false }
+          );
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true, journalEntryId },
+      });
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: { isReconciled: true },
+      });
+    });
+    return;
+  }
+
   await prisma.$transaction([
     prisma.bankReconciliation.create({
       data: {
