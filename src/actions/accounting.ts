@@ -67,6 +67,7 @@ export type BalanceRow = {
 
 export type GrandLivreRow = {
   id: string;
+  accountId: string;
   date: Date;
   piece: string | null;
   journalType: string;
@@ -739,6 +740,7 @@ export async function getGrandLivre(
       solde += line.debit - line.credit;
       return {
         id: line.id,
+        accountId: line.accountId,
         date: line.journalEntry.entryDate,
         piece: line.journalEntry.piece,
         journalType: line.journalEntry.journalType,

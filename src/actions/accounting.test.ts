@@ -1417,6 +1417,7 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
     prismaMock.journalEntryLine.findMany.mockResolvedValue([
       {
         id: "l1",
+        accountId: ACCOUNT_ID_1,
         debit: 500,
         credit: 0,
         label: null,
@@ -1437,6 +1438,7 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
     prismaMock.journalEntryLine.findMany.mockResolvedValue([
       {
         id: "l1",
+        accountId: ACCOUNT_ID_1,
         debit: 500,
         credit: 0,
         label: "Loyer",
@@ -1452,6 +1454,29 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
     expect(result.success).toBe(true);
     const rows = result.data as Array<{ lettrage: string | null }>;
     expect(rows[0].lettrage).toBe("AB");
+  });
+
+  it("expose l'identifiant du compte pour les actions de traitement depuis le grand livre", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: "l1",
+        accountId: ACCOUNT_ID_1,
+        debit: 500,
+        credit: 0,
+        label: "Loyer",
+        lettrage: null,
+        letteringCode: null,
+        account: { code: "411000", label: "Clients" },
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", journalType: "VT", label: "Facture", status: "VALIDEE" },
+      },
+    ] as never);
+
+    const result = await getGrandLivre(SOCIETY_ID, {});
+
+    expect(result.success).toBe(true);
+    const rows = result.data as Array<{ accountId: string }>;
+    expect(rows[0].accountId).toBe(ACCOUNT_ID_1);
   });
 });
 

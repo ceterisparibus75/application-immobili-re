@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BookOpen, Filter, TrendingDown, TrendingUp, Upload } from "lucide-react";
+import { BookOpen, Filter, Link2, TrendingDown, TrendingUp, Upload } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -163,16 +163,30 @@ export default function GrandLivrePage() {
       {Object.entries(byAccount).map(([code, lines]) => {
         const accLabel = lines[0]?.accountLabel ?? "";
         const lastSolde = lines[lines.length - 1]?.solde ?? 0;
+        const accountIdForLettering = lines[0]?.accountId;
+        const canOpenLettering = code.startsWith("4") && Boolean(accountIdForLettering);
         return (
           <Card key={code}>
             <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span className="font-mono font-bold">{code}</span>
-                <span className="font-normal text-muted-foreground">{accLabel}</span>
-                <span className={lastSolde >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}>
-                  Solde : {formatCurrency(lastSolde)}
-                </span>
-              </CardTitle>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <CardTitle className="text-sm flex min-w-0 items-center gap-3">
+                  <span className="font-mono font-bold">{code}</span>
+                  <span className="truncate font-normal text-muted-foreground">{accLabel}</span>
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={lastSolde >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}>
+                    Solde : {formatCurrency(lastSolde)}
+                  </span>
+                  {canOpenLettering && accountIdForLettering && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/comptabilite/lettrage?accountId=${encodeURIComponent(accountIdForLettering)}`}>
+                        <Link2 className="h-4 w-4" />
+                        Lettrer
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">

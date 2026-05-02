@@ -45,16 +45,26 @@ export default function LetteringPage() {
   const [letteredGroups, setLetteredGroups] = useState<LetteredGroup[]>([]);
   const [suggestions, setSuggestions] = useState<LetteringSuggestion[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [requestedAccountId, setRequestedAccountId] = useState<string | null>();
 
   useEffect(() => {
-    if (!activeSociety?.id) return;
+    setRequestedAccountId(new URLSearchParams(window.location.search).get("accountId"));
+  }, []);
+
+  useEffect(() => {
+    if (!activeSociety?.id || requestedAccountId === undefined) return;
     getAccounts(activeSociety.id).then((result) => {
       if (!result.success || !result.data) return;
       const eligibleAccounts = result.data.filter((account) => account.code.startsWith("4"));
       setAccounts(eligibleAccounts);
-      if (eligibleAccounts[0]) setAccountId(eligibleAccounts[0].id);
+      const requestedAccount = eligibleAccounts.find((account) => account.id === requestedAccountId);
+      if (requestedAccount) {
+        setAccountId(requestedAccount.id);
+      } else if (eligibleAccounts[0]) {
+        setAccountId(eligibleAccounts[0].id);
+      }
     });
-  }, [activeSociety?.id]);
+  }, [activeSociety?.id, requestedAccountId]);
 
   function load(nextAccountId = accountId) {
     if (!activeSociety?.id || !nextAccountId) return;
