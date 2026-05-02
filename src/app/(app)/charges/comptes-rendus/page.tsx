@@ -9,6 +9,7 @@ import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { GenerateReportButton } from "./_components/generate-button";
 import { ChargeReportsEmptyState } from "./_components/charge-reports-empty-state";
+import { SendStatementButton } from "./_components/send-statement-button";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -131,3 +132,4 @@ export default async function ComptesRendusPage() {
     </div>
   );
 }
+

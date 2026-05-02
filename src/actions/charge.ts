@@ -451,7 +451,7 @@ export async function getChargeRegularizations(societyId: string) {
     include: {
       lease: {
         include: {
-          tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
+          tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true, email: true } },
           lot: { include: { building: { select: { id: true, name: true, city: true } } } },
         },
       },
@@ -502,7 +502,7 @@ export async function generateAnnualChargeReport(
       },
       include: {
         lot: true,
-        tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
+        tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true, email: true } },
         chargeProvisions: { where: { isActive: true } },
       },
     });
@@ -853,3 +853,4 @@ export async function autoRegularizeCharges(
     return { success: false, error: "Erreur lors de la régularisation" };
   }
 }
+
