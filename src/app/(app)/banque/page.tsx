@@ -81,12 +81,6 @@ export default async function BanquePage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/cashflow">
-            <Button variant="outline" className="gap-1.5">
-              <BarChart3 className="h-4 w-4" />
-              Cash-flow
-            </Button>
-          </Link>
           <Link href="/banque/factures-fournisseurs">
             <Button variant="outline" className="gap-1.5">
               <Building2 className="h-4 w-4" />
@@ -161,17 +155,15 @@ export default async function BanquePage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/cashflow">
-          <Card className="h-full border-0 bg-card shadow-brand transition-shadow hover:shadow-brand-lg">
-            <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-sm font-medium">À catégoriser</p>
-                <p className="text-2xl font-bold">{dashboard.actionQueues.uncategorizedTransactions}</p>
-              </div>
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </Link>
+        <Card className="h-full border-0 bg-card shadow-brand">
+          <CardContent className="flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm font-medium">À catégoriser</p>
+              <p className="text-2xl font-bold">{dashboard.actionQueues.uncategorizedTransactions}</p>
+            </div>
+            <BarChart3 className="h-5 w-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
         <Link href="/comptabilite">
           <Card className="h-full border-0 bg-card shadow-brand transition-shadow hover:shadow-brand-lg">
             <CardContent className="flex items-center justify-between p-4">

@@ -26,10 +26,7 @@ export default function SyncButton({ bankAccountId, societyId }: SyncButtonProps
           ? "Aucune nouvelle transaction"
           : `${count} transaction${count > 1 ? "s" : ""} importée${count > 1 ? "s" : ""}`,
         {
-          description: count > 0 ? "Les données Cash-flow ont été mises à jour." : undefined,
-          action: count > 0
-            ? { label: "Voir le Cash-flow", onClick: () => window.location.assign("/cashflow") }
-            : undefined,
+          description: count > 0 ? "Les données de catégorisation ont été mises à jour." : undefined,
         }
       );
     } else {

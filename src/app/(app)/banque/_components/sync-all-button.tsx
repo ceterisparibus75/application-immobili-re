@@ -14,7 +14,6 @@ import {
   RefreshCw,
   XCircle,
   SkipForward,
-  ArrowRight,
 } from "lucide-react";
 import { syncAllAccounts } from "@/actions/bank-connection";
 import type { SyncAllResult, SyncAccountDetail } from "@/actions/bank-connection";
@@ -168,20 +167,6 @@ export default function SyncAllButton({ societyId }: { societyId: string }) {
 
               {/* Actions */}
               <div className="flex justify-end gap-2 pt-2">
-                {result.totalImported > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => {
-                      setDialogOpen(false);
-                      window.location.assign("/cashflow");
-                    }}
-                  >
-                    Voir le Cash-flow
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                )}
                 <Button size="sm" onClick={() => setDialogOpen(false)}>
                   Fermer
                 </Button>

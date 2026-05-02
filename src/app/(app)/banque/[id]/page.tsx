@@ -13,8 +13,6 @@ import {
   ArrowLeft,
   ArrowDownLeft,
   ArrowUpRight,
-  ArrowRight,
-  BarChart3,
   CheckCircle2,
   Clock,
   GitMerge,
@@ -110,13 +108,6 @@ export default async function BankAccountDetailPage({
           {(account.powensAccountId || account.qontoAccountId) && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}
-          <Link href="/cashflow">
-            <Button variant="outline" className="rounded-lg border-border/60 gap-1.5">
-              <BarChart3 className="h-4 w-4" />
-              Cash-flow
-              <ArrowRight className="h-3 w-3" />
-            </Button>
-          </Link>
           <Link href={`/banque/${id}/rapprochement`}>
             <Button variant="outline" className="rounded-lg border-border/60">
               <GitMerge className="h-4 w-4" />
