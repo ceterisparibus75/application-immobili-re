@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { bankReconciliationSchema, type BankReconciliationInput } from "@/validations/bank";
+import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
@@ -431,9 +432,11 @@ export async function generateJournalEntry(
       ];
     }
 
+    const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, transaction.transactionDate);
     const entry = await prisma.journalEntry.create({
       data: {
         societyId,
+        fiscalYearId,
         journalType: "BANQUE",
         entryDate: transaction.transactionDate,
         label: transaction.label,

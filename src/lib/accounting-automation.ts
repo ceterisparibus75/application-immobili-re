@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 
 type AccountingAccountRef = {
   id: string;
@@ -8,7 +9,7 @@ type AccountingAccountRef = {
 
 type AccountingClient = Pick<
   Prisma.TransactionClient,
-  "accountingAccount" | "invoice" | "journalEntry" | "payment"
+  "accountingAccount" | "fiscalYear" | "invoice" | "journalEntry" | "payment"
 >;
 
 type JournalLineInput = {
@@ -195,9 +196,11 @@ export async function createCustomerInvoiceJournalEntry(
 
   const journalType: Prisma.JournalEntryCreateInput["journalType"] = "VT";
   const label = `${isCreditNote ? "Avoir" : "Facture"} ${piece} - ${tenantName}`;
+  const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, invoice.issueDate);
   const entry = await tx.journalEntry.create({
     data: {
       societyId,
+      fiscalYearId,
       journalType,
       entryDate: invoice.issueDate,
       piece,
@@ -269,9 +272,11 @@ export async function createCustomerPaymentJournalEntry(
 
   const piece = payment.reference ?? payment.invoice.invoiceNumber ?? undefined;
   const method = payment.method ? ` (${payment.method})` : "";
+  const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, payment.paidAt);
   const entry = await tx.journalEntry.create({
     data: {
       societyId,
+      fiscalYearId,
       journalType: "BQUE",
       entryDate: payment.paidAt,
       piece,

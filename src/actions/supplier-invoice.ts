@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
+import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { createQontoTransfer } from "@/lib/qonto";
 import {
@@ -321,6 +322,9 @@ export async function validateSupplierInvoice(
     if (!invoice.supplierName) return { success: false, error: "Le nom du fournisseur est requis" };
     if (!invoice.invoiceDate) return { success: false, error: "La date de facture est requise" };
 
+    const invoiceEntryDate = new Date(invoice.invoiceDate);
+    const invoiceFiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, invoiceEntryDate);
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Créer la Charge (si une catégorie est renseignée)
       let charge: { id: string } | null = null;
@@ -398,8 +402,9 @@ export async function validateSupplierInvoice(
         const entry = await tx.journalEntry.create({
           data: {
             societyId,
+            fiscalYearId: invoiceFiscalYearId,
             journalType: "AC",
-            entryDate: new Date(invoice.invoiceDate!),
+            entryDate: invoiceEntryDate,
             piece: invoice.invoiceNumber ?? undefined,
             label: `Facture fournisseur - ${invoice.supplierName}`,
             status: "BROUILLON",
@@ -524,6 +529,9 @@ export async function markSupplierInvoicePaid(
       return { success: false, error: "Seules les factures validées peuvent être marquées comme payées" };
     }
 
+    const paidEntryDate = new Date(parsed.data.paidAt);
+    const paidFiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, paidEntryDate);
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Chercher les comptes 401 et 512
       const [compte401, compte512] = await Promise.all([
@@ -544,8 +552,9 @@ export async function markSupplierInvoicePaid(
         const entry = await tx.journalEntry.create({
           data: {
             societyId,
+            fiscalYearId: paidFiscalYearId,
             journalType: "BQUE",
-            entryDate: new Date(parsed.data.paidAt),
+            entryDate: paidEntryDate,
             piece: parsed.data.reference ?? undefined,
             label: `Règlement facture fournisseur - ${invoice.supplierName ?? invoice.reference}`,
             status: "BROUILLON",
