@@ -153,6 +153,18 @@ describe("getBankOperationsDashboard", () => {
         bankAccountId: "bank-2",
         bankJournalEntryId: null,
       },
+      {
+        id: "supplier-3",
+        supplierName: "Maintenance Express",
+        amountTTC: 100,
+        dueDate: new Date("2026-04-30"),
+        status: "VALIDATED",
+        paymentStatus: "PENDING",
+        paymentMethod: null,
+        paymentExecutedAt: null,
+        bankAccountId: "bank-1",
+        bankJournalEntryId: null,
+      },
     ] as never);
     prismaMock.journalEntry.findMany.mockResolvedValue([
       {
@@ -202,14 +214,14 @@ describe("getBankOperationsDashboard", () => {
     expect(dashboard?.actionQueues.unreconciledTransactions).toBe(2);
     expect(dashboard?.actionQueues.uncategorizedTransactions).toBe(1);
     expect(dashboard?.actionQueues.missingBankJournalEntries).toBe(2);
-    expect(dashboard?.actionQueues.supplierInvoicesToPay).toBe(1);
+    expect(dashboard?.actionQueues.supplierInvoicesToPay).toBe(2);
     expect(dashboard?.actionQueues.supplierPaymentsToReconcile).toBe(1);
     expect(dashboard?.actionQueues.bankingConnectionsAttention).toBe(1);
     expect(dashboard?.supplierPaymentControl).toEqual({
-      toPayAmount: 450,
-      toPayCount: 1,
-      overdueAmount: 0,
-      overdueCount: 0,
+      toPayAmount: 550,
+      toPayCount: 2,
+      overdueAmount: 100,
+      overdueCount: 1,
       toReconcileAmount: 900,
       toReconcileCount: 1,
     });
@@ -223,8 +235,10 @@ describe("getBankOperationsDashboard", () => {
         periodDebits: -450,
         unreconciledCount: 1,
         missingJournalEntryCount: 1,
-        supplierToPayAmount: 450,
-        supplierToPayCount: 1,
+        supplierToPayAmount: 550,
+        supplierToPayCount: 2,
+        supplierOverdueAmount: 100,
+        supplierOverdueCount: 1,
         supplierToReconcileAmount: 0,
         supplierToReconcileCount: 0,
         status: "active",

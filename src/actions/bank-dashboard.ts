@@ -22,6 +22,8 @@ export type BankPartnerFlow = {
   missingJournalEntryCount: number;
   supplierToPayAmount: number;
   supplierToPayCount: number;
+  supplierOverdueAmount: number;
+  supplierOverdueCount: number;
   supplierToReconcileAmount: number;
   supplierToReconcileCount: number;
   lastSyncAt: Date | null;
@@ -385,6 +387,8 @@ export async function getBankOperationsDashboard(
       missingJournalEntryCount: 0,
       supplierToPayAmount: 0,
       supplierToPayCount: 0,
+      supplierOverdueAmount: 0,
+      supplierOverdueCount: 0,
       supplierToReconcileAmount: 0,
       supplierToReconcileCount: 0,
       lastSyncAt: null,
@@ -432,6 +436,10 @@ export async function getBankOperationsDashboard(
     if (supplierPayment.needsPayment) {
       partner.supplierToPayAmount = addAmount(partner.supplierToPayAmount, supplierPayment.amountTTC);
       partner.supplierToPayCount += 1;
+      if (supplierPayment.dueDate && supplierPayment.dueDate.getTime() < periodEnd.getTime()) {
+        partner.supplierOverdueAmount = addAmount(partner.supplierOverdueAmount, supplierPayment.amountTTC);
+        partner.supplierOverdueCount += 1;
+      }
     }
     if (supplierPayment.needsBankReconciliation) {
       partner.supplierToReconcileAmount = addAmount(
