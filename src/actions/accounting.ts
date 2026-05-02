@@ -638,6 +638,10 @@ export async function getGrandLivre(
   try {
     await requireSocietyActionContext(societyId);
 
+    if (filters.journalType && !isAccountingJournalType(filters.journalType)) {
+      return { success: false, error: "Journal comptable non supporté" };
+    }
+
     const journalTypeFilter: Prisma.JournalEntryWhereInput["journalType"] | undefined = filters.journalType
       ? isAccountingJournalType(filters.journalType)
         ? { in: getAccountingJournalTypeAliases(filters.journalType) as JournalType[] }

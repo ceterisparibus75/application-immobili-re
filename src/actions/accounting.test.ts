@@ -1158,6 +1158,12 @@ describe("getGrandLivre — filtres accountId, fiscalYearId, journalType (lignes
       })
     );
   });
+
+  it("refuse un journalType inconnu", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { journalType: "BANQUE_LEGACY" });
+    expect(result).toEqual({ success: false, error: "Journal comptable non supporté" });
+    expect(prismaMock.journalEntryLine.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("bulkImportAccounts — code ou label vide", () => {
