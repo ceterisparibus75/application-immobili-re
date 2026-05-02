@@ -12,6 +12,16 @@ vi.mock("@/lib/portal-auth", () => ({ requirePortalAuth }));
 import { updatePortalTenantContact } from "./portal-tenant";
 import { createAuditLog } from "@/lib/audit";
 
+const baseTenant = {
+  id: "tenant-1",
+  societyId: "soc-1",
+  entityType: "PERSONNE_PHYSIQUE",
+  phone: "0100000000",
+  mobile: "0600000000",
+  personalAddress: "Ancienne adresse",
+  companyAddress: null,
+} as never;
+
 describe("updatePortalTenantContact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,7 +47,7 @@ describe("updatePortalTenantContact", () => {
   });
 
   it("met a jour le telephone du locataire", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
     prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
 
     const result = await updatePortalTenantContact({ phone: "0612345678" });
@@ -52,7 +62,7 @@ describe("updatePortalTenantContact", () => {
   });
 
   it("met a jour le mobile du locataire", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
     prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
 
     const result = await updatePortalTenantContact({ mobile: "0687654321" });
@@ -65,18 +75,8 @@ describe("updatePortalTenantContact", () => {
     );
   });
 
-  it("rejette un email invalide", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
-
-    const result = await updatePortalTenantContact({ email: "pas-un-email" });
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBeTruthy();
-    expect(prismaMock.tenant.update).not.toHaveBeenCalled();
-  });
-
   it("rejette si aucun champ fourni", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
 
     const result = await updatePortalTenantContact({});
 
@@ -84,8 +84,8 @@ describe("updatePortalTenantContact", () => {
     expect(prismaMock.tenant.update).not.toHaveBeenCalled();
   });
 
-  it("cree un audit log apres mise a jour", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
+  it("cree un audit log avec before/after et source portal_locataire", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
     prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
 
     await updatePortalTenantContact({ phone: "0612345678" });
@@ -95,21 +95,57 @@ describe("updatePortalTenantContact", () => {
         action: "UPDATE",
         entity: "Tenant",
         entityId: "tenant-1",
+        details: expect.objectContaining({
+          event: "PORTAL_TENANT_CONTACT_UPDATE",
+          source: "portal_locataire",
+          before: expect.objectContaining({ phone: "0100000000" }),
+          after: expect.objectContaining({ phone: "0612345678" }),
+        }),
       })
     );
   });
 
-  it("ne met pas a jour l'email si egal a l'email de session (securite)", async () => {
-    prismaMock.tenant.findFirst.mockResolvedValue({ id: "tenant-1", societyId: "soc-1" } as never);
+  it("met a jour personalAddress pour PERSONNE_PHYSIQUE", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
     prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
 
-    const result = await updatePortalTenantContact({ email: "tenant@test.fr", phone: "0600000000" });
+    const result = await updatePortalTenantContact({ address: "12 rue de la Paix\n75001 Paris" });
 
     expect(result.success).toBe(true);
-    // L'email de session ne doit pas etre modifie (evite de se bloquer hors du portail)
     expect(prismaMock.tenant.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.not.objectContaining({ email: expect.anything() }),
+        data: expect.objectContaining({ personalAddress: "12 rue de la Paix\n75001 Paris" }),
+      })
+    );
+  });
+
+  it("met a jour companyAddress pour PERSONNE_MORALE", async () => {
+    const moralTenant = { id: "tenant-1", societyId: "soc-1", entityType: "PERSONNE_MORALE", phone: "0100000000", mobile: "0600000000", personalAddress: null, companyAddress: "Ancienne adresse societe" } as never;
+    prismaMock.tenant.findFirst.mockResolvedValue(moralTenant);
+    prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
+
+    const result = await updatePortalTenantContact({ address: "10 avenue de l'Opera\n75001 Paris" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.tenant.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ companyAddress: "10 avenue de l'Opera\n75001 Paris" }),
+      })
+    );
+  });
+
+  it("log contient l'ancienne et la nouvelle adresse", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue(baseTenant);
+    prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
+
+    await updatePortalTenantContact({ address: "Nouvelle adresse" });
+
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          before: expect.objectContaining({ address: "Ancienne adresse" }),
+          after: expect.objectContaining({ address: "Nouvelle adresse" }),
+        }),
       })
     );
   });

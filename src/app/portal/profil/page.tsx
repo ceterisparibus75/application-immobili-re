@@ -15,10 +15,15 @@ export default async function PortalProfilePage() {
 
   const tenant = await prisma.tenant.findFirst({
     where: { id: session.tenantId, email: { equals: session.email, mode: "insensitive" }, isActive: true },
-    select: { phone: true, mobile: true },
+    select: { phone: true, mobile: true, personalAddress: true, companyAddress: true, entityType: true },
   });
 
   if (!tenant) redirect("/portal/login");
+
+  const address =
+    tenant.entityType === "PERSONNE_MORALE"
+      ? (tenant.companyAddress ?? "")
+      : (tenant.personalAddress ?? "");
 
   return (
     <div className="max-w-lg space-y-6">
@@ -26,7 +31,11 @@ export default async function PortalProfilePage() {
         <h1 className="text-2xl font-bold tracking-tight">Mon profil</h1>
         <p className="text-muted-foreground">Mettez a jour vos coordonnees de contact.</p>
       </div>
-      <ProfileContactForm phone={tenant.phone ?? ""} mobile={tenant.mobile ?? ""} />
+      <ProfileContactForm
+        phone={tenant.phone ?? ""}
+        mobile={tenant.mobile ?? ""}
+        address={address}
+      />
     </div>
   );
 }
