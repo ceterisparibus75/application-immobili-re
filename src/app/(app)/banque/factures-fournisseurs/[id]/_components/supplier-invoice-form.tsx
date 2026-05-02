@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import {
   AlertTriangle,
   Sparkles,
   RefreshCw,
+  Archive,
 } from "lucide-react";
 import {
   updateSupplierInvoiceData,
@@ -218,7 +220,7 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
     startValidate(async () => {
       const result = await validateSupplierInvoice(societyId, invoice.id);
       if (result.success) {
-        toast.success("Facture validée — une charge a été créée");
+        toast.success(isFixedAssetAccount ? "Facture validée en immobilisation" : "Facture validée — une charge a été créée");
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur lors de la validation");
@@ -597,9 +599,19 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
                 className="mt-1 h-8 text-sm"
               />
               {isFixedAssetAccount && (
-                <p className="text-xs text-[var(--color-status-caution)] mt-1">
-                  Immobilisation : la validation générera une écriture d&apos;achat en classe 2, sans charge locative.
-                </p>
+                <div className="mt-1 space-y-2">
+                  <p className="text-xs text-[var(--color-status-caution)]">
+                    Immobilisation : la validation générera une écriture d&apos;achat en classe 2, sans charge locative.
+                  </p>
+                  {invoice.status === "VALIDATED" && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/comptabilite/immobilisations/nouveau?supplierInvoiceId=${invoice.id}`}>
+                        <Archive className="h-4 w-4" />
+                        Créer le plan d&apos;amortissement
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               )}
               {accountingAccounts.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-1">

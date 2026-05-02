@@ -466,6 +466,33 @@ enum SupplierPaymentStatus {
   CANCELLED // Annulé
 }
 
+enum FixedAssetCategory {
+  STRUCTURE
+  FACADE_TOITURE
+  INSTALLATIONS_TECHNIQUES
+  AGENCEMENTS_AMENAGEMENTS
+  MOBILIER_EQUIPEMENTS
+  TRAVAUX_COPROPRIETE
+  AUTRE
+}
+
+enum FixedAssetDepreciationMethod {
+  LINEAR
+}
+
+enum FixedAssetStatus {
+  ACTIVE
+  FULLY_DEPRECIATED
+  DISPOSED
+  ARCHIVED
+}
+
+enum FixedAssetDepreciationLineStatus {
+  PLANNED
+  POSTED
+  SKIPPED
+}
+
 // ============================================================
 // PHASE 1 — SOCLE : UTILISATEURS, SOCIÉTÉS, RBAC, AUDIT
 // ============================================================
@@ -583,6 +610,7 @@ model Society {
   transactionAutoTags      TransactionAutoTag[]
   supplierInboxConfig      SupplierInboxConfig?
   supplierInvoices         SupplierInvoice[]
+  fixedAssets              FixedAsset[]
   legalEvents              LegalEvent[]
 
   // Numérotation baux
@@ -865,6 +893,7 @@ model Building {
   copropriete            Copropriete?            @relation(fields: [coproprieteId], references: [id], onDelete: SetNull)
   thirdPartyStatements   ThirdPartyStatement[]
   supplierInvoices       SupplierInvoice[]
+  fixedAssets            FixedAsset[]
   invoices               Invoice[]
 
   @@index([societyId])
@@ -2031,11 +2060,14 @@ model AccountingAccount {
   refContrat  String? // Référence emprunt ou contrat lié
   isActive    Boolean      @default(true)
 
-  society          Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lines            JournalEntryLine[]
-  budgetLines      BudgetLine[]
-  supplierInvoices SupplierInvoice[]  @relation("SupplierInvoiceAccount")
-  accountReviews   AccountReview[]
+  society                        Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lines                          JournalEntryLine[]
+  budgetLines                    BudgetLine[]
+  supplierInvoices               SupplierInvoice[]  @relation("SupplierInvoiceAccount")
+  fixedAssetAccounts             FixedAsset[]       @relation("FixedAssetAssetAccount")
+  fixedAssetDepreciationAccounts FixedAsset[]       @relation("FixedAssetDepreciationAccount")
+  fixedAssetExpenseAccounts      FixedAsset[]       @relation("FixedAssetExpenseAccount")
+  accountReviews                 AccountReview[]
 
   @@unique([societyId, code])
   @@index([societyId])
@@ -2059,12 +2091,14 @@ model JournalEntry {
   validatedById String?
   documentId    String? // Pièce justificative GED liée à l'écriture
 
-  society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
-  lines       JournalEntryLine[]
-  fiscalYear  FiscalYear?        @relation(fields: [fiscalYearId], references: [id])
-  validatedBy User?              @relation("JournalEntryValidator", fields: [validatedById], references: [id])
-  bankTransaction BankTransaction? @relation("BankTransactionJournalEntry")
-  document    Document?          @relation("JournalEntryDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  society                     Society                      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lines                       JournalEntryLine[]
+  fiscalYear                  FiscalYear?                  @relation(fields: [fiscalYearId], references: [id])
+  validatedBy                 User?                        @relation("JournalEntryValidator", fields: [validatedById], references: [id])
+  bankTransaction             BankTransaction?             @relation("BankTransactionJournalEntry")
+  document                    Document?                    @relation("JournalEntryDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  fixedAssetAcquisitions      FixedAsset[]                 @relation("FixedAssetAcquisitionEntry")
+  fixedAssetDepreciationLines FixedAssetDepreciationLine[] @relation("FixedAssetDepreciationEntry")
 
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
@@ -4098,6 +4132,7 @@ model SupplierInvoice {
   accountingAccount AccountingAccount? @relation("SupplierInvoiceAccount", fields: [accountingAccountId], references: [id], onDelete: SetNull)
   charge            Charge?            @relation("ChargeSupplierInvoice", fields: [chargeId], references: [id], onDelete: SetNull)
   bankAccount       BankAccount?       @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  fixedAssets       FixedAsset[]
 
   @@index([societyId])
   @@index([societyId, status])
@@ -4108,6 +4143,74 @@ model SupplierInvoice {
   @@index([accountingAccountId])
   @@index([supplierName])
   @@index([invoiceDate])
+}
+
+/// Immobilisation amortissable liée à une activité immobilière
+model FixedAsset {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  name        String
+  description String?                      @db.Text
+  category    FixedAssetCategory           @default(AUTRE)
+  status      FixedAssetStatus             @default(ACTIVE)
+  method      FixedAssetDepreciationMethod @default(LINEAR)
+
+  buildingId                String
+  supplierInvoiceId         String?
+  acquisitionJournalEntryId String?
+
+  assetAccountId        String
+  depreciationAccountId String
+  expenseAccountId      String
+
+  acquisitionDate  DateTime
+  serviceStartDate DateTime
+  depreciableBase  Float
+  residualValue    Float    @default(0)
+  durationMonths   Int
+
+  society                 Society                      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  building                Building                     @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  supplierInvoice         SupplierInvoice?             @relation(fields: [supplierInvoiceId], references: [id], onDelete: SetNull)
+  acquisitionJournalEntry JournalEntry?                @relation("FixedAssetAcquisitionEntry", fields: [acquisitionJournalEntryId], references: [id], onDelete: SetNull)
+  assetAccount            AccountingAccount            @relation("FixedAssetAssetAccount", fields: [assetAccountId], references: [id], onDelete: Restrict)
+  depreciationAccount     AccountingAccount            @relation("FixedAssetDepreciationAccount", fields: [depreciationAccountId], references: [id], onDelete: Restrict)
+  expenseAccount          AccountingAccount            @relation("FixedAssetExpenseAccount", fields: [expenseAccountId], references: [id], onDelete: Restrict)
+  depreciationLines       FixedAssetDepreciationLine[]
+
+  @@index([societyId])
+  @@index([societyId, status])
+  @@index([buildingId])
+  @@index([supplierInvoiceId])
+}
+
+/// Dotation d'amortissement prévisionnelle ou comptabilisée
+model FixedAssetDepreciationLine {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fixedAssetId   String
+  journalEntryId String?
+
+  fiscalYear        Int
+  periodStart       DateTime
+  periodEnd         DateTime
+  amount            Float
+  accumulatedAmount Float
+  netBookValue      Float
+  status            FixedAssetDepreciationLineStatus @default(PLANNED)
+
+  fixedAsset   FixedAsset    @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry? @relation("FixedAssetDepreciationEntry", fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@unique([fixedAssetId, fiscalYear])
+  @@index([fixedAssetId])
+  @@index([journalEntryId])
+  @@index([fiscalYear])
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   BookOpen, Plus, Scale, Archive, FileBarChart, PenLine,
   List, TrendingUp, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardCheck, Link2, FileSpreadsheet,
-  BookMarked, Landmark,
+  BookMarked, Landmark, Boxes,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -93,6 +93,7 @@ export default async function ComptabilitePage() {
     { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-[var(--color-status-positive)]" },
     { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-[var(--color-status-caution)]" },
     { href: "/comptabilite/tva", icon: Calculator, label: "Contrôle TVA", color: "text-cyan-600" },
+    { href: "/comptabilite/immobilisations", icon: Boxes, label: "Immobilisations", color: "text-amber-600" },
     { href: "/comptabilite/revision", icon: ClipboardCheck, label: "Révision", color: "text-emerald-600" },
     { href: "/comptabilite/lettrage", icon: Link2, label: "Lettrage", color: "text-indigo-600" },
     { href: "/comptabilite/etats-annuels", icon: FileSpreadsheet, label: "États annuels", color: "text-rose-600" },
