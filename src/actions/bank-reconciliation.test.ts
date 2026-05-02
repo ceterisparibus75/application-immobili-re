@@ -795,6 +795,51 @@ describe("generateJournalEntry", () => {
     expect(r.success).toBe(true);
   });
 
+  it("utilise le compte 627000 pour une transaction catégorisée frais bancaires", async () => {
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-411", code: "411", label: "Clients", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-658", code: "658", label: "Charges diverses", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-622", code: "622", label: "Honoraires", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-627000", code: "627000", label: "Frais bancaires", type: "6" } as never);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: -25,
+      category: "frais_bancaires",
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "627000" } },
+      })
+    );
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: expect.arrayContaining([
+              expect.objectContaining({
+                accountId: "account-627000",
+                debit: 25,
+                credit: 0,
+              }),
+              expect.objectContaining({
+                accountId: "account-512",
+                debit: 0,
+                credit: 25,
+              }),
+            ]),
+          },
+        }),
+      })
+    );
+  });
+
   it("génère une écriture à 3 lignes pour gestion tiers (lignes 375, 388-390)", async () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue({
       ...buildTransaction(),
