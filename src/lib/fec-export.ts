@@ -5,6 +5,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  getAccountingJournalTypeAliases,
+  isAccountingJournalType,
+} from "@/lib/accounting-journals";
 import type { JournalType } from "@/generated/prisma/client";
 
 const JOURNAL_CODES: Record<string, string> = {
@@ -120,7 +124,9 @@ export async function generateFec(
   }
 
   if (options.journalType) {
-    where.journalType = options.journalType;
+    where.journalType = isAccountingJournalType(options.journalType)
+      ? { in: getAccountingJournalTypeAliases(options.journalType) }
+      : options.journalType;
   }
   const entries = await prisma.journalEntry.findMany({
     where,

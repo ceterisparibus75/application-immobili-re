@@ -196,7 +196,21 @@ describe("generateFec", () => {
 
     expect(prismaMock.journalEntry.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ journalType: "VENTES" }),
+        where: expect.objectContaining({ journalType: { in: ["VT", "VENTES"] } }),
+      })
+    );
+  });
+
+  it("inclut les anciens codes quand le filtre journal canonique est fourni", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([] as never);
+
+    await generateFec(SOCIETY_ID, { journalType: "BQUE" });
+
+    expect(prismaMock.journalEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalType: { in: ["BQUE", "BANQUE"] },
+        }),
       })
     );
   });
