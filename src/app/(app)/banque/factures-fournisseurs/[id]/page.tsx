@@ -60,7 +60,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.accountingAccount.findMany({
-      where: { societyId, isActive: true, type: "6" },
+      where: { societyId, isActive: true, type: { in: ["2", "6"] } },
       select: { id: true, code: true, label: true },
       orderBy: { code: "asc" },
     }),

@@ -446,9 +446,20 @@ export async function validateSupplierInvoice(
     const invoiceFiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, invoiceEntryDate);
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Créer la Charge (si une catégorie est renseignée)
+      // 1. Résoudre le compte débité : compte sélectionné en priorité,
+      // sinon mapping métier par catégorie.
+      const [compteDebit, compte401] = await Promise.all([
+        resolveSupplierInvoiceChargeAccount(tx.accountingAccount, societyId, invoice.accountingAccountId, invoice.category),
+        tx.accountingAccount.findFirst({
+          where: { societyId, code: { startsWith: "401" }, isActive: true },
+          orderBy: { code: "asc" },
+        }),
+      ]);
+      const isFixedAsset = compteDebit?.type === "2";
+
+      // 2. Créer la Charge uniquement pour une dépense de classe 6.
       let charge: { id: string } | null = null;
-      if (invoice.categoryId) {
+      if (invoice.categoryId && !isFixedAsset) {
         charge = await tx.charge.create({
           data: {
             societyId,
@@ -466,19 +477,10 @@ export async function validateSupplierInvoice(
         });
       }
 
-      // 2. Résoudre le compte de charge : compte sélectionné en priorité, sinon mapping métier par catégorie
-      const [compteCharge, compte401] = await Promise.all([
-        resolveSupplierInvoiceChargeAccount(tx.accountingAccount, societyId, invoice.accountingAccountId, invoice.category),
-        tx.accountingAccount.findFirst({
-          where: { societyId, code: { startsWith: "401" }, isActive: true },
-          orderBy: { code: "asc" },
-        }),
-      ]);
-
       // 3. Créer l'écriture comptable AC si les comptes existent
       let journalEntryId: string | null = null;
 
-      if (compteCharge && compte401) {
+      if (compteDebit && compte401) {
         const lines: Array<{
           accountId: string;
           debit: number;
@@ -486,7 +488,7 @@ export async function validateSupplierInvoice(
           label: string;
         }> = [
           {
-            accountId: compteCharge.id,
+            accountId: compteDebit.id,
             debit: invoice.amountHT ?? invoice.amountTTC!,
             credit: 0,
             label: invoice.description ?? invoice.supplierName!,
@@ -501,15 +503,16 @@ export async function validateSupplierInvoice(
 
         // Ajouter la ligne TVA si applicable
         if (invoice.amountVAT && invoice.amountVAT > 0) {
-          const compte44566 = await tx.accountingAccount.findFirst({
-            where: { societyId, code: { startsWith: "445" }, isActive: true },
+          const tvaPrefix = isFixedAsset ? "44562" : "44566";
+          const compteTva = await tx.accountingAccount.findFirst({
+            where: { societyId, code: { startsWith: tvaPrefix }, isActive: true },
           });
-          if (compte44566) {
+          if (compteTva) {
             lines.splice(1, 0, {
-              accountId: compte44566.id,
+              accountId: compteTva.id,
               debit: invoice.amountVAT,
               credit: 0,
-              label: "TVA déductible",
+              label: isFixedAsset ? "TVA déductible sur immobilisations" : "TVA déductible",
             });
           }
         }

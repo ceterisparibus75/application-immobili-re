@@ -507,6 +507,69 @@ describe("validateSupplierInvoice", () => {
     );
   });
 
+  it("valide des travaux immobilisés en classe 2 sans créer de charge locative", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "PENDING_REVIEW",
+        buildingId: "bld-1",
+        categoryId: null,
+        accountingAccountId: ACCOUNT_ID,
+        amountTTC: 1200,
+        amountHT: 1000,
+        amountVAT: 200,
+        supplierName: "AJ Service",
+        invoiceDate: new Date("2026-02-11"),
+        description: "Travaux immobilisés",
+      }) as never
+    );
+    const chargeCreate = vi.fn();
+    const journalCreate = vi.fn().mockResolvedValue({ id: "journal-immob" });
+    const supplierUpdate = vi.fn().mockResolvedValue({});
+    const findFirst = vi.fn()
+      .mockResolvedValueOnce({ id: "acc-401" })
+      .mockResolvedValueOnce({ id: "acc-44562" });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
+      const tx = {
+        charge: { create: chargeCreate },
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue({ id: "acc-213", type: "2" }),
+          findFirst,
+        },
+        journalEntry: { create: journalCreate },
+        supplierInvoice: { update: supplierUpdate },
+      };
+      return fn(tx);
+    });
+
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ chargeId: null, journalEntryId: "journal-immob" });
+    expect(chargeCreate).not.toHaveBeenCalled();
+    expect(findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({ code: { startsWith: "44562" } }),
+      })
+    );
+    expect(journalCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: expect.arrayContaining([
+              expect.objectContaining({ accountId: "acc-213", debit: 1000, credit: 0 }),
+              expect.objectContaining({ accountId: "acc-44562", debit: 200, credit: 0 }),
+              expect.objectContaining({ accountId: "acc-401", debit: 0, credit: 1200 }),
+            ]),
+          },
+        }),
+      })
+    );
+  });
+
   it("retourne une erreur ForbiddenError (lignes 444-445)", async () => {
     mockAuthSession("LECTURE", SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValue(null as never);

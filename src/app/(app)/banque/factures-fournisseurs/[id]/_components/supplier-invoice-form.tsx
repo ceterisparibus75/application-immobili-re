@@ -179,6 +179,8 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
 
   // Pour les factures fournisseurs, toutes les catégories de la société sont disponibles
   const filteredCategories = categories;
+  const selectedAccountingAccount = accountingAccounts.find((account) => account.id === accountingAccountId);
+  const isFixedAssetAccount = selectedAccountingAccount?.code.startsWith("2") ?? false;
 
   function handleSave() {
     startSave(async () => {
@@ -591,12 +593,17 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
                   value: a.id,
                   label: `${a.code} — ${a.label}`,
                 }))}
-                placeholder="Sélectionner un compte (classe 6)"
+                placeholder="Sélectionner un compte (classe 2 ou 6)"
                 className="mt-1 h-8 text-sm"
               />
+              {isFixedAssetAccount && (
+                <p className="text-xs text-[var(--color-status-caution)] mt-1">
+                  Immobilisation : la validation générera une écriture d&apos;achat en classe 2, sans charge locative.
+                </p>
+              )}
               {accountingAccounts.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Aucun compte de classe 6 — créez-les dans Comptabilité → Comptes
+                  Aucun compte de classe 2 ou 6 — créez-les dans Comptabilité → Comptes
                 </p>
               )}
             </div>
