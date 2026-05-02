@@ -21,15 +21,17 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { filterAccountReviewRows } from "@/lib/account-review-utils";
 
 const STATUS_OPTIONS = [
-  { value: "TODO", label: "À revoir" },
+  { value: "TODO", label: "À justifier" },
   { value: "IN_PROGRESS", label: "En cours" },
+  { value: "JUSTIFIED", label: "Justifié" },
   { value: "REVIEWED", label: "Revu" },
-  { value: "ISSUE", label: "Point ouvert" },
+  { value: "ISSUE", label: "Anomalie" },
 ] as const;
 
 const STATUS_BADGES: Record<AccountReviewRow["status"], "default" | "secondary" | "outline" | "destructive"> = {
   TODO: "secondary",
   IN_PROGRESS: "outline",
+  JUSTIFIED: "outline",
   REVIEWED: "default",
   ISSUE: "destructive",
 };
@@ -151,11 +153,12 @@ export default function AccountRevisionPage() {
 
       {board && (
         <>
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
             <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Comptes</p><p className="text-2xl font-bold">{board.stats.total}</p></CardContent></Card>
-            <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">À revoir</p><p className="text-2xl font-bold">{board.stats.todo}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">À justifier</p><p className="text-2xl font-bold">{board.stats.todo}</p></CardContent></Card>
             <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">En cours</p><p className="text-2xl font-bold">{board.stats.inProgress}</p></CardContent></Card>
-            <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Points ouverts</p><p className="text-2xl font-bold">{board.stats.issue}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Justifiés</p><p className="text-2xl font-bold">{board.stats.justified}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Anomalies</p><p className="text-2xl font-bold">{board.stats.issue}</p></CardContent></Card>
             <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Avancement</p><p className="text-2xl font-bold">{board.stats.completionRate} %</p></CardContent></Card>
           </div>
 

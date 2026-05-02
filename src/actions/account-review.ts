@@ -44,6 +44,7 @@ export type AccountReviewBoard = {
     total: number;
     todo: number;
     inProgress: number;
+    justified: number;
     reviewed: number;
     issue: number;
     completionRate: number;
@@ -53,6 +54,7 @@ export type AccountReviewBoard = {
     total: number;
     todo: number;
     inProgress: number;
+    justified: number;
     reviewed: number;
     issue: number;
     completionRate: number;
@@ -67,7 +69,7 @@ export type AccountReviewBoard = {
 const updateReviewSchema = z.object({
   fiscalYearId: z.string().cuid(),
   accountId: z.string().cuid(),
-  status: z.enum(["TODO", "IN_PROGRESS", "REVIEWED", "ISSUE"]),
+  status: z.enum(["TODO", "IN_PROGRESS", "JUSTIFIED", "REVIEWED", "ISSUE"]),
   note: z.string().max(5000).optional().nullable(),
 });
 
@@ -88,6 +90,7 @@ function getAccountReviewCycle(code: string): AccountReviewCycle {
 function buildStats(rows: AccountReviewRow[]): AccountReviewBoard["stats"] {
   const total = rows.length;
   const reviewed = rows.filter((row) => row.status === "REVIEWED").length;
+  const justified = rows.filter((row) => row.status === "JUSTIFIED").length;
   const issue = rows.filter((row) => row.status === "ISSUE").length;
   const inProgress = rows.filter((row) => row.status === "IN_PROGRESS").length;
   const todo = rows.filter((row) => row.status === "TODO").length;
@@ -96,6 +99,7 @@ function buildStats(rows: AccountReviewRow[]): AccountReviewBoard["stats"] {
     total,
     todo,
     inProgress,
+    justified,
     reviewed,
     issue,
     completionRate: total > 0 ? Math.round((reviewed / total) * 100) : 0,
@@ -145,7 +149,8 @@ const CYCLE_CHECKLIST_ITEMS: Record<AccountReviewCycle, string[]> = {
 function getCycleStatus(rows: AccountReviewRow[]): AccountReviewStatus {
   if (rows.some((row) => row.status === "ISSUE")) return "ISSUE";
   if (rows.length > 0 && rows.every((row) => row.status === "REVIEWED")) return "REVIEWED";
-  if (rows.some((row) => row.status === "IN_PROGRESS" || row.status === "REVIEWED")) return "IN_PROGRESS";
+  if (rows.length > 0 && rows.every((row) => row.status === "JUSTIFIED" || row.status === "REVIEWED")) return "JUSTIFIED";
+  if (rows.some((row) => row.status === "IN_PROGRESS" || row.status === "JUSTIFIED" || row.status === "REVIEWED")) return "IN_PROGRESS";
   return "TODO";
 }
 

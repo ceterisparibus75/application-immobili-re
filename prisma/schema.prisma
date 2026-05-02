@@ -314,6 +314,7 @@ enum EntryStatus {
 enum AccountReviewStatus {
   TODO
   IN_PROGRESS
+  JUSTIFIED
   REVIEWED
   ISSUE
 }
