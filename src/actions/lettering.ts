@@ -356,6 +356,14 @@ export async function letterEntries(
       };
     }
 
+    const accountIds = new Set(lines.map((line) => line.accountId));
+    if (accountIds.size !== 1) {
+      return {
+        success: false,
+        error: "Le lettrage doit porter sur des lignes du même compte comptable.",
+      };
+    }
+
     // Verifier l equilibre debit = credit
     const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
     const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);

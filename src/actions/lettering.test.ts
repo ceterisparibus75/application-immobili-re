@@ -157,6 +157,20 @@ describe("letterEntries", () => {
     expect(result.error).toMatch(/Desequilibre/);
   });
 
+  it("refuse de lettrer des lignes de comptes différents", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      makeLine({ debit: 500, credit: 0, accountId: ACCOUNT_ID }),
+      makeLine({ id: LINE_ID_2, debit: 0, credit: 500, accountId: "clh3x2z4k0004qh8g7z1y2v3x" }),
+    ] as never);
+
+    const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/même compte/);
+    expect(prismaMock.journalEntryLine.updateMany).not.toHaveBeenCalled();
+  });
+
   it("lette les lignes équilibrées avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.journalEntryLine.findMany
