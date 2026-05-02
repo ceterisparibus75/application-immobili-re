@@ -981,6 +981,30 @@ describe("bulkImportJournalEntries", () => {
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("saute une écriture importée avec moins de deux lignes", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "OD",
+        entryDate: "2025-01-15",
+        label: "Ligne unique",
+        lines: [{ accountCode: "411000", debit: 1000, credit: 1000 }],
+      },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toContain("Au moins 2 lignes");
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("catch interne avec piece null et throw non-Error — branches ?? et instanceof (ligne 566)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([

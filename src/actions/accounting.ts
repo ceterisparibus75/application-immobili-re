@@ -1152,6 +1152,11 @@ export async function bulkImportJournalEntries(
           skipped++;
           continue;
         }
+        if (entry.lines.length < 2) {
+          if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: Au moins 2 lignes requises`);
+          skipped++;
+          continue;
+        }
         const entryDate = new Date(entry.entryDate);
         const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, entryDate);
 
