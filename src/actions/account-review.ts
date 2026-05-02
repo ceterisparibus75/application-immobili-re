@@ -13,11 +13,21 @@ import {
 } from "@/lib/action-society";
 import type { AccountReviewStatus } from "@/generated/prisma/client";
 
+export type AccountReviewCycle =
+  | "Trésorerie"
+  | "Tiers"
+  | "TVA"
+  | "Immobilisations"
+  | "Produits"
+  | "Charges"
+  | "Autres";
+
 export type AccountReviewRow = {
   accountId: string;
   code: string;
   label: string;
   classe: string;
+  cycle: AccountReviewCycle;
   totalDebit: number;
   totalCredit: number;
   balance: number;
@@ -38,6 +48,15 @@ export type AccountReviewBoard = {
     issue: number;
     completionRate: number;
   };
+  cycleStats: Array<{
+    cycle: AccountReviewCycle;
+    total: number;
+    todo: number;
+    inProgress: number;
+    reviewed: number;
+    issue: number;
+    completionRate: number;
+  }>;
 };
 
 const updateReviewSchema = z.object({
@@ -49,6 +68,16 @@ const updateReviewSchema = z.object({
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function getAccountReviewCycle(code: string): AccountReviewCycle {
+  if (code.startsWith("512") || code.startsWith("53")) return "Trésorerie";
+  if (code.startsWith("445")) return "TVA";
+  if (code.startsWith("4")) return "Tiers";
+  if (code.startsWith("2")) return "Immobilisations";
+  if (code.startsWith("7")) return "Produits";
+  if (code.startsWith("6")) return "Charges";
+  return "Autres";
 }
 
 function buildStats(rows: AccountReviewRow[]): AccountReviewBoard["stats"] {
@@ -66,6 +95,16 @@ function buildStats(rows: AccountReviewRow[]): AccountReviewBoard["stats"] {
     issue,
     completionRate: total > 0 ? Math.round((reviewed / total) * 100) : 0,
   };
+}
+
+function buildCycleStats(rows: AccountReviewRow[]): AccountReviewBoard["cycleStats"] {
+  const order: AccountReviewCycle[] = ["Trésorerie", "Tiers", "TVA", "Immobilisations", "Produits", "Charges", "Autres"];
+  return order
+    .map((cycle) => {
+      const cycleRows = rows.filter((row) => row.cycle === cycle);
+      return { cycle, ...buildStats(cycleRows) };
+    })
+    .filter((row) => row.total > 0);
 }
 
 export async function getAccountReviewBoard(
@@ -132,6 +171,7 @@ export async function getAccountReviewBoard(
         code: account.code,
         label: account.label,
         classe: account.type,
+        cycle: getAccountReviewCycle(account.code),
         totalDebit: roundCents(total.debit),
         totalCredit: roundCents(total.credit),
         balance: roundCents(total.debit - total.credit),
@@ -148,6 +188,7 @@ export async function getAccountReviewBoard(
         fiscalYearId,
         rows,
         stats: buildStats(rows),
+        cycleStats: buildCycleStats(rows),
       },
     };
   } catch (error) {

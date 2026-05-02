@@ -2,11 +2,16 @@ import type { AccountReviewRow } from "@/actions/account-review";
 
 export function filterAccountReviewRows(
   rows: AccountReviewRow[],
-  showEmptyAccounts: boolean
+  showEmptyAccounts: boolean,
+  cycle?: string
 ): AccountReviewRow[] {
-  if (showEmptyAccounts) return rows;
+  const cycleRows = cycle && cycle !== "all"
+    ? rows.filter((row) => row.cycle === cycle)
+    : rows;
 
-  return rows.filter((row) =>
+  if (showEmptyAccounts) return cycleRows;
+
+  return cycleRows.filter((row) =>
     Math.abs(row.totalDebit) > 0.01 || Math.abs(row.totalCredit) > 0.01
   );
 }

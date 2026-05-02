@@ -57,10 +57,15 @@ describe("getAccountReviewBoard", () => {
     });
     expect(result.data?.rows[0]).toMatchObject({
       accountId: ACCOUNT_ID,
+      cycle: "Tiers",
       balance: 1200,
       status: "REVIEWED",
       note: "OK",
     });
+    expect(result.data?.cycleStats).toEqual([
+      expect.objectContaining({ cycle: "Tiers", total: 1, reviewed: 1, completionRate: 100 }),
+      expect.objectContaining({ cycle: "Produits", total: 1, todo: 1, completionRate: 0 }),
+    ]);
   });
 });
 

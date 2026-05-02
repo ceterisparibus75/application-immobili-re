@@ -13,6 +13,7 @@ function makeRow(overrides: Partial<AccountReviewRow>): AccountReviewRow {
     totalCredit: 0,
     balance: 0,
     status: "TODO",
+    cycle: "Tiers",
     note: null,
     reviewedAt: null,
     reviewedById: null,
@@ -37,5 +38,14 @@ describe("filterAccountReviewRows", () => {
     ];
 
     expect(filterAccountReviewRows(rows, true).map((row) => row.accountId)).toEqual(["acc-empty", "acc-moved"]);
+  });
+
+  it("filtre les comptes par cycle de révision", () => {
+    const rows = [
+      makeRow({ accountId: "acc-tiers", code: "411000", cycle: "Tiers", totalDebit: 100 }),
+      makeRow({ accountId: "acc-produits", code: "706100", cycle: "Produits", totalCredit: 100 }),
+    ];
+
+    expect(filterAccountReviewRows(rows, false, "Produits").map((row) => row.accountId)).toEqual(["acc-produits"]);
   });
 });

@@ -51,6 +51,7 @@ export default function AccountRevisionPage() {
   const [board, setBoard] = useState<AccountReviewBoard | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [showEmptyAccounts, setShowEmptyAccounts] = useState(false);
+  const [cycle, setCycle] = useState("all");
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -106,7 +107,7 @@ export default function AccountRevisionPage() {
   }
 
   const selectedFiscalYear = fiscalYears.find((year) => year.id === fiscalYearId);
-  const visibleRows = board ? filterAccountReviewRows(board.rows, showEmptyAccounts) : [];
+  const visibleRows = board ? filterAccountReviewRows(board.rows, showEmptyAccounts, cycle) : [];
 
   return (
     <div className="space-y-6">
@@ -162,15 +163,29 @@ export default function AccountRevisionPage() {
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-base">Comptes à réviser</CardTitle>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={showEmptyAccounts}
-                    onChange={(event) => setShowEmptyAccounts(event.target.checked)}
-                    className="h-4 w-4 rounded border-input accent-primary"
-                  />
-                  Afficher les comptes sans mouvement
-                </label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={cycle}
+                    onChange={(event) => setCycle(event.target.value)}
+                    className={selectClassName() + " sm:w-48"}
+                  >
+                    <option value="all">Tous les cycles</option>
+                    {board.cycleStats.map((item) => (
+                      <option key={item.cycle} value={item.cycle}>
+                        {item.cycle} ({item.reviewed}/{item.total})
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={showEmptyAccounts}
+                      onChange={(event) => setShowEmptyAccounts(event.target.checked)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                    Afficher les comptes sans mouvement
+                  </label>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -179,6 +194,7 @@ export default function AccountRevisionPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-28">Compte</TableHead>
+                      <TableHead className="w-36">Cycle</TableHead>
                       <TableHead>Intitulé</TableHead>
                       <TableHead className="text-right">Solde</TableHead>
                       <TableHead className="w-36">Statut</TableHead>
@@ -189,7 +205,7 @@ export default function AccountRevisionPage() {
                   <TableBody>
                     {visibleRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                           Aucun compte mouvementé sur cet exercice
                         </TableCell>
                       </TableRow>
@@ -197,6 +213,9 @@ export default function AccountRevisionPage() {
                     {visibleRows.map((row) => (
                       <TableRow key={row.accountId}>
                         <TableCell className="font-mono text-sm font-medium">{row.code}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{row.cycle}</Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="font-medium">{row.label}</div>
                           <div className="text-xs text-muted-foreground">
