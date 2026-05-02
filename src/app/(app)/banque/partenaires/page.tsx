@@ -87,6 +87,14 @@ export default async function BankPartnersPage() {
                   <p className="text-xs text-muted-foreground">Non rapprochées</p>
                   <p className="font-semibold text-[var(--color-status-caution)]">{partner.unreconciledCount}</p>
                 </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Fournisseurs à payer</p>
+                  <p className="font-semibold tabular-nums">{formatCurrency(partner.supplierToPayAmount)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">À rapprocher</p>
+                  <p className="font-semibold tabular-nums text-[var(--color-status-caution)]">{formatCurrency(partner.supplierToReconcileAmount)}</p>
+                </div>
               </div>
               <div className="text-xs text-muted-foreground">
                 {partner.lastSyncAt ? `Dernière synchronisation : ${formatDate(partner.lastSyncAt)}` : "Aucune synchronisation automatique connue"}

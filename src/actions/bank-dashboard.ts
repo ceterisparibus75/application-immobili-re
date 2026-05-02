@@ -20,6 +20,8 @@ export type BankPartnerFlow = {
   unreconciledCount: number;
   uncategorizedCount: number;
   missingJournalEntryCount: number;
+  supplierToPayAmount: number;
+  supplierToReconcileAmount: number;
   lastSyncAt: Date | null;
   expiresAt: Date | null;
 };
@@ -346,6 +348,7 @@ export async function getBankOperationsDashboard(
   );
 
   const partnerMap = new Map<string, BankPartnerFlow>();
+  const accountPartnerKeys = new Map<string, string>();
   const accountRows: BankAccountPilotageRow[] = accounts.map((account) => {
     const provider = normalizeProvider(
       account.connection?.provider,
@@ -354,6 +357,7 @@ export async function getBankOperationsDashboard(
     );
     const institutionName = account.connection?.institutionName ?? (provider === "MANUAL" ? "Comptes manuels" : account.bankName);
     const key = account.connection?.id ?? provider;
+    accountPartnerKeys.set(account.id, key);
     const stats = accountStats.get(account.id) ?? {
       periodCredits: 0,
       periodDebits: 0,
@@ -377,6 +381,8 @@ export async function getBankOperationsDashboard(
       unreconciledCount: 0,
       uncategorizedCount: 0,
       missingJournalEntryCount: 0,
+      supplierToPayAmount: 0,
+      supplierToReconcileAmount: 0,
       lastSyncAt: null,
       expiresAt: account.connection?.expiresAt ?? null,
     };
@@ -412,6 +418,23 @@ export async function getBankOperationsDashboard(
       lastSyncAt: account.lastSyncAt,
     };
   });
+
+  for (const supplierPayment of supplierPayments) {
+    if (!supplierPayment.bankAccountId) continue;
+    const partnerKey = accountPartnerKeys.get(supplierPayment.bankAccountId);
+    if (!partnerKey) continue;
+    const partner = partnerMap.get(partnerKey);
+    if (!partner) continue;
+    if (supplierPayment.needsPayment) {
+      partner.supplierToPayAmount = addAmount(partner.supplierToPayAmount, supplierPayment.amountTTC);
+    }
+    if (supplierPayment.needsBankReconciliation) {
+      partner.supplierToReconcileAmount = addAmount(
+        partner.supplierToReconcileAmount,
+        supplierPayment.amountTTC
+      );
+    }
+  }
 
   for (const transaction of transactions) {
     const provider = normalizeProvider(
