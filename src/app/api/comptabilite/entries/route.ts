@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
+import { createAuditLog } from "@/lib/audit";
 import { z } from "zod";
 
 export async function GET(req: NextRequest) {
@@ -116,6 +117,20 @@ export async function POST(req: NextRequest) {
           credit: l.credit,
         })),
       },
+    },
+  });
+
+  await createAuditLog({
+    societyId: context.societyId,
+    userId: context.userId,
+    action: "CREATE",
+    entity: "JournalEntry",
+    entityId: entry.id,
+    details: {
+      source: "API",
+      journalType: parsed.data.journalType,
+      piece: parsed.data.piece ?? null,
+      label: parsed.data.label,
     },
   });
 
