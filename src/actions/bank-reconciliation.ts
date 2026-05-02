@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
 import { getOutstandingAmount } from "@/lib/reports/invoice-metrics";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   getOptionalSocietyActionContext,
   requireSocietyActionContext,
@@ -19,6 +20,29 @@ type AccountFallback = {
   code: string;
   label: string;
   type: string;
+};
+
+type AccountingJournalClient = Pick<
+  Prisma.TransactionClient,
+  "accountingAccount" | "bankTransaction" | "fiscalYear" | "journalEntry"
+>;
+
+type BankJournalTransaction = {
+  id: string;
+  amount: number;
+  transactionDate: Date;
+  label: string;
+  reference: string | null;
+  category: string | null;
+  journalEntryId: string | null;
+  reconciliations: Array<{
+    payment: {
+      invoice: {
+        isThirdPartyManaged: boolean;
+        managementFeeTTC?: number | null;
+      } | null;
+    } | null;
+  }>;
 };
 
 const BANK_CATEGORY_ACCOUNT_FALLBACKS: Record<string, AccountFallback> = {
@@ -58,10 +82,11 @@ function roundCents(value: number): number {
 }
 
 async function upsertAccountingAccount(
+  client: Pick<Prisma.TransactionClient, "accountingAccount">,
   societyId: string,
   fallback: AccountFallback
 ) {
-  return prisma.accountingAccount.upsert({
+  return client.accountingAccount.upsert({
     where: { societyId_code: { societyId, code: fallback.code } },
     update: {},
     create: {
@@ -71,6 +96,77 @@ async function upsertAccountingAccount(
       type: fallback.type,
     },
   });
+}
+
+async function createBankJournalEntryForTransaction(
+  client: AccountingJournalClient,
+  societyId: string,
+  transaction: BankJournalTransaction,
+  options: { linkTransaction?: boolean } = {}
+): Promise<string> {
+  const amount = Math.abs(transaction.amount);
+  const isIncome = transaction.amount > 0;
+  const hasInvoice = transaction.reconciliations.length > 0;
+  const categoryContraFallback = hasInvoice
+    ? null
+    : getBankCategoryAccountFallback(transaction.category);
+
+  const [compte512, compte411, compte658, compte622, categoryContraAccount] = await Promise.all([
+    upsertAccountingAccount(client, societyId, { code: "512", label: "Banque", type: "5" }),
+    upsertAccountingAccount(client, societyId, { code: "411", label: "Clients", type: "4" }),
+    upsertAccountingAccount(client, societyId, { code: "658", label: "Charges diverses de gestion", type: "6" }),
+    upsertAccountingAccount(client, societyId, { code: "622", label: "Remunerations d'intermediaires et honoraires", type: "6" }),
+    categoryContraFallback
+      ? upsertAccountingAccount(client, societyId, categoryContraFallback)
+      : Promise.resolve(null),
+  ]);
+
+  const thirdPartyInvoice = transaction.reconciliations.find(
+    (r) => r.payment?.invoice?.isThirdPartyManaged && r.payment?.invoice?.managementFeeTTC
+  )?.payment?.invoice;
+  const contraAccount = hasInvoice ? compte411 : categoryContraAccount ?? compte658;
+
+  let journalLines;
+  if (isIncome && thirdPartyInvoice?.managementFeeTTC) {
+    const feeAmount = thirdPartyInvoice.managementFeeTTC;
+    const grossAmount = amount + feeAmount;
+    journalLines = [
+      { accountId: compte512.id, debit: amount, credit: 0, label: "Virement agence (net)" },
+      { accountId: compte622.id, debit: roundCents(feeAmount), credit: 0, label: "Honoraires de gestion" },
+      { accountId: compte411.id, debit: 0, credit: roundCents(grossAmount), label: "Loyer brut TTC" },
+    ];
+  } else if (isIncome) {
+    journalLines = [
+      { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
+      { accountId: contraAccount.id, debit: 0, credit: amount, label: transaction.label },
+    ];
+  } else {
+    journalLines = [
+      { accountId: contraAccount.id, debit: amount, credit: 0, label: transaction.label },
+      { accountId: compte512.id, debit: 0, credit: amount, label: transaction.label },
+    ];
+  }
+
+  const entry = await client.journalEntry.create({
+    data: {
+      societyId,
+      fiscalYearId: await resolveOpenFiscalYearIdForDate(client, societyId, transaction.transactionDate),
+      journalType: "BQUE",
+      entryDate: transaction.transactionDate,
+      label: transaction.label,
+      reference: transaction.reference ?? undefined,
+      lines: { create: journalLines },
+    },
+  });
+
+  if (options.linkTransaction ?? true) {
+    await client.bankTransaction.update({
+      where: { id: transaction.id },
+      data: { journalEntryId: entry.id },
+    });
+  }
+
+  return entry.id;
 }
 
 // ─── Données pour le rapprochement ────────────────────────────────────────────
@@ -434,88 +530,21 @@ export async function generateJournalEntry(
 
     const amount = Math.abs(transaction.amount);
     const isIncome = transaction.amount > 0;
-    const hasInvoice = transaction.reconciliations.length > 0;
-    const categoryContraFallback = hasInvoice
-      ? null
-      : getBankCategoryAccountFallback(transaction.category);
-
-    // Chercher ou créer les comptes comptables
-    const [compte512, compte411, compte658, compte622, categoryContraAccount] = await Promise.all([
-      upsertAccountingAccount(societyId, { code: "512", label: "Banque", type: "5" }),
-      upsertAccountingAccount(societyId, { code: "411", label: "Clients", type: "4" }),
-      upsertAccountingAccount(societyId, { code: "658", label: "Charges diverses de gestion", type: "6" }),
-      upsertAccountingAccount(societyId, { code: "622", label: "Remunerations d'intermediaires et honoraires", type: "6" }),
-      categoryContraFallback
-        ? upsertAccountingAccount(societyId, categoryContraFallback)
-        : Promise.resolve(null),
-    ]);
-
-    // Detecter si la transaction concerne une facture en gestion tiers
-    const thirdPartyInvoice = transaction.reconciliations.find(
-      (r) => r.payment?.invoice?.isThirdPartyManaged && r.payment?.invoice?.managementFeeTTC
-    )?.payment?.invoice;
-
-    // Compte de contrepartie selon la nature de la transaction
-    const contraAccount = hasInvoice ? compte411 : categoryContraAccount ?? compte658;
-
-    // Construire les lignes d'ecriture
-    let journalLines;
-    if (isIncome && thirdPartyInvoice && thirdPartyInvoice.managementFeeTTC) {
-      // Gestion tiers : ecriture a 3 lignes
-      // Debit 512 (Banque) : montant net recu
-      // Debit 622 (Honoraires) : honoraires TTC
-      // Credit 411 (Client) : montant brut TTC
-      const feeAmount = thirdPartyInvoice.managementFeeTTC;
-      const grossAmount = amount + feeAmount;
-      journalLines = [
-        { accountId: compte512.id, debit: amount, credit: 0, label: "Virement agence (net)" },
-        { accountId: compte622.id, debit: Math.round(feeAmount * 100) / 100, credit: 0, label: "Honoraires de gestion" },
-        { accountId: compte411.id, debit: 0, credit: Math.round(grossAmount * 100) / 100, label: "Loyer brut TTC" },
-      ];
-    } else if (isIncome) {
-      // Entree d'argent standard : Debit 512 Banque / Credit 411 Clients
-      journalLines = [
-        { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
-        { accountId: contraAccount.id, debit: 0, credit: amount, label: transaction.label },
-      ];
-    } else {
-      // Sortie d'argent : Debit 658 Charges / Credit 512 Banque
-      journalLines = [
-        { accountId: contraAccount.id, debit: amount, credit: 0, label: transaction.label },
-        { accountId: compte512.id, debit: 0, credit: amount, label: transaction.label },
-      ];
-    }
-
-    const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, transaction.transactionDate);
-    const entry = await prisma.journalEntry.create({
-      data: {
-        societyId,
-        fiscalYearId,
-        journalType: "BQUE",
-        entryDate: transaction.transactionDate,
-        label: transaction.label,
-        reference: transaction.reference ?? undefined,
-        lines: { create: journalLines },
-      },
-    });
-    await prisma.bankTransaction.update({
-      where: { id: transactionId },
-      data: { journalEntryId: entry.id },
-    });
+    const entryId = await createBankJournalEntryForTransaction(prisma, societyId, transaction);
 
     await createAuditLog({
       societyId,
       userId: context.userId,
       action: "CREATE",
       entity: "JournalEntry",
-      entityId: entry.id,
+      entityId: entryId,
       details: { transactionId, amount, type: isIncome ? "recette" : "depense" },
     });
 
     revalidatePath("/comptabilite");
     revalidatePath(`/banque/${transaction.bankAccountId}`);
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
-    return { success: true, data: { id: entry.id } };
+    return { success: true, data: { id: entryId } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
@@ -664,9 +693,18 @@ export async function reconcileWithInvoice(
           validatedBy: context.userId,
         },
       });
+      const journalEntryId = await createBankJournalEntryForTransaction(
+        tx,
+        societyId,
+        {
+          ...transaction,
+          reconciliations: [{ payment: { invoice } }],
+        },
+        { linkTransaction: false }
+      );
       await tx.bankTransaction.update({
         where: { id: transactionId },
-        data: { isReconciled: true },
+        data: { isReconciled: true, journalEntryId },
       });
     });
 
@@ -676,11 +714,12 @@ export async function reconcileWithInvoice(
       action: "CREATE",
       entity: "BankReconciliation",
       entityId: transactionId,
-      details: { invoiceId, action: "reconcile_invoice" },
+      details: { invoiceId, action: "reconcile_invoice", journalType: "BQUE" },
     });
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/comptabilite");
     revalidatePath("/facturation");
     revalidatePath("/locataires");
     if (invoice.tenantId) {

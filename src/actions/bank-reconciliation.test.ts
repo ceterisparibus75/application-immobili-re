@@ -501,6 +501,8 @@ describe("reconcileWithInvoice", () => {
       isThirdPartyManaged: false, expectedNetAmount: null, tenantId: "ctenant001",
     } as never);
     prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "account-default" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
     prismaMock.$transaction.mockResolvedValue(undefined as never);
   });
 
@@ -539,6 +541,46 @@ describe("reconcileWithInvoice", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CREATE", entity: "BankReconciliation" })
     );
+  });
+
+  it("crée l'écriture BQUE lors du rapprochement avec une facture", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: 500, journalEntryId: null }) as never
+    );
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-411", code: "411", label: "Clients", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-658", code: "658", label: "Charges diverses", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-622", code: "622", label: "Honoraires", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) =>
+      fn(prismaMock)
+    );
+    prismaMock.payment.create.mockResolvedValue({ id: PAYMENT_ID } as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+    prismaMock.bankReconciliation.create.mockResolvedValue({} as never);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+
+    const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          lines: {
+            create: [
+              { accountId: "account-512", debit: 500, credit: 0, label: "Virement entrant" },
+              { accountId: "account-411", debit: 0, credit: 500, label: "Virement entrant" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
   });
 
   it("retourne une erreur si rôle insuffisant pour reconcileWithInvoice (ForbiddenError ligne 589)", async () => {
