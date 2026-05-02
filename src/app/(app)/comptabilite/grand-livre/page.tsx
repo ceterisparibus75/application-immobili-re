@@ -13,15 +13,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BookOpen, Filter, TrendingDown, TrendingUp, Upload } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import {
+  ACCOUNTING_JOURNAL_LABELS,
+  CANONICAL_ACCOUNTING_JOURNAL_TYPES,
+  isAccountingJournalType,
+} from "@/lib/accounting-journals";
 
-const JOURNAL_LABELS: Record<string, string> = {
-  AN: "A Nouveaux", AC: "Achats", BQUE: "Banque", INV: "Investissements",
-  OD: "Op. Diverses", VT: "Ventes/TVA", VENTES: "Ventes", BANQUE: "Banque", OPERATIONS_DIVERSES: "Op. Diverses",
-};
+const JOURNAL_OPTIONS = CANONICAL_ACCOUNTING_JOURNAL_TYPES.map((value) => ({
+  value,
+  label: value + " - " + ACCOUNTING_JOURNAL_LABELS[value],
+}));
 
 const STATUS_COLORS: Record<string, string> = {
   BROUILLON: "secondary", VALIDEE: "default", CLOTUREE: "outline",
 };
+
+function getJournalLabel(journalType: string): string {
+  return isAccountingJournalType(journalType) ? ACCOUNTING_JOURNAL_LABELS[journalType] : journalType;
+}
 
 export default function GrandLivrePage() {
   const { activeSociety } = useSociety();
@@ -36,6 +45,7 @@ export default function GrandLivrePage() {
   const [journalType, setJournalType] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [nonLettered, setNonLettered] = useState(false);
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -53,6 +63,7 @@ export default function GrandLivrePage() {
         journalType: journalType === "all" ? undefined : journalType,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        nonLettered,
       });
       if (res.success && res.data) setRows(res.data);
       else toast.error(res.error ?? "Erreur");
@@ -100,12 +111,23 @@ export default function GrandLivrePage() {
             </select>
             <select value={journalType} onChange={e => setJournalType(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
               <option value="all">Tous les journaux</option>
-              {Object.entries(JOURNAL_LABELS).slice(0, 6).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {JOURNAL_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Du" />
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Au" />
           </div>
-          <Button onClick={load} disabled={isPending} className="mt-3">{isPending ? "Chargement..." : "Afficher"}</Button>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={nonLettered}
+                onChange={e => setNonLettered(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              Non lettrées uniquement
+            </label>
+            <Button onClick={load} disabled={isPending}>{isPending ? "Chargement..." : "Afficher"}</Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -169,7 +191,7 @@ export default function GrandLivrePage() {
                       <TableRow key={l.id}>
                         <TableCell className="font-mono text-xs">{formatDate(l.date)}</TableCell>
                         <TableCell className="font-mono text-xs">{l.piece ?? "—"}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-xs">{JOURNAL_LABELS[l.journalType] ?? l.journalType}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{getJournalLabel(l.journalType)}</Badge></TableCell>
                         <TableCell className="text-sm">{l.label}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-[var(--color-status-positive)]">{l.debit > 0 ? formatCurrency(l.debit) : ""}</TableCell>
                         <TableCell className="text-right font-mono text-sm text-[var(--color-status-negative)]">{l.credit > 0 ? formatCurrency(l.credit) : ""}</TableCell>

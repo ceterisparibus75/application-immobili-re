@@ -31,16 +31,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { ACCOUNTING_JOURNAL_LABELS, isAccountingJournalType } from "@/lib/accounting-journals";
 
-const JOURNAL_LABELS: Record<string, string> = {
-  AN: "A Nouveaux",
-  AC: "Achats",
-  BQUE: "Banque",
-  BQ: "Banque",
-  INV: "Investissements",
-  OD: "Op. Diverses",
-  VT: "Ventes",
-};
+function getJournalLabel(journalType: string): string {
+  return isAccountingJournalType(journalType) ? ACCOUNTING_JOURNAL_LABELS[journalType] : journalType;
+}
 
 export default function ImportGrandLivrePage() {
   const { activeSociety } = useSociety();
@@ -347,7 +342,7 @@ export default function ImportGrandLivrePage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {JOURNAL_LABELS[entry.journalCode] ?? entry.journalCode}
+                          {getJournalLabel(entry.journalCode)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm font-mono">

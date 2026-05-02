@@ -16,18 +16,17 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { ValidateDraftJournalEntriesButton } from "./_components/validate-draft-journal-entries-button";
 import { ValidateJournalEntryButton } from "./_components/validate-journal-entry-button";
 import { DeleteJournalEntryButton } from "./_components/delete-journal-entry-button";
+import { ACCOUNTING_JOURNAL_LABELS, isAccountingJournalType } from "@/lib/accounting-journals";
 
 export const metadata = { title: "Comptabilité" };
-
-const JOURNAL_LABELS: Record<string, string> = {
-  VENTES: "Ventes", BANQUE: "Banque", OPERATIONS_DIVERSES: "Op. Diverses",
-  AN: "À Nouveaux", AC: "Achats", BQUE: "Banque", INV: "Investissements",
-  OD: "Op. Diverses", VT: "Ventes/TVA",
-};
 
 const STATUS_COLORS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   BROUILLON: "secondary", VALIDEE: "default", CLOTUREE: "outline",
 };
+
+function getJournalLabel(journalType: string): string {
+  return isAccountingJournalType(journalType) ? ACCOUNTING_JOURNAL_LABELS[journalType] : journalType;
+}
 
 export default async function ComptabilitePage() {
   const h = await headers();
@@ -180,7 +179,7 @@ export default async function ComptabilitePage() {
                         <TableCell className="font-mono text-xs text-muted-foreground">{entry.piece ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs font-mono">
-                            {JOURNAL_LABELS[entry.journalType] ?? entry.journalType}
+                            {getJournalLabel(entry.journalType)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm max-w-64 truncate">{entry.label}</TableCell>
@@ -256,7 +255,7 @@ export default async function ComptabilitePage() {
                       <TableCell className="font-mono text-xs text-muted-foreground">{e.piece ?? "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs font-mono">
-                          {JOURNAL_LABELS[e.journalType] ?? e.journalType}
+                          {getJournalLabel(e.journalType)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm max-w-64 truncate">{e.label}</TableCell>

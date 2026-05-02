@@ -6,34 +6,30 @@
 
 import { prisma } from "@/lib/prisma";
 import {
+  ACCOUNTING_JOURNAL_LABELS,
+  type CanonicalAccountingJournalType,
   getAccountingJournalTypeAliases,
   isAccountingJournalType,
+  normalizeAccountingJournalType,
 } from "@/lib/accounting-journals";
 import type { JournalType } from "@/generated/prisma/client";
 
-const JOURNAL_CODES: Record<string, string> = {
-  VENTES: "VT",
-  BANQUE: "BQ",
-  OPERATIONS_DIVERSES: "OD",
+const FEC_JOURNAL_CODES: Record<CanonicalAccountingJournalType, string> = {
   AN: "AN",
   AC: "AC",
-  BQUE: "BQ",
-  INV: "IN",
-  OD: "OD",
   VT: "VT",
+  BQUE: "BQ",
+  OD: "OD",
+  INV: "IN",
 };
 
-const JOURNAL_LIBS: Record<string, string> = {
-  VENTES: "Journal des ventes",
-  BANQUE: "Journal de banque",
-  OPERATIONS_DIVERSES: "Journal des operations diverses",
-  AN: "Journal des a-nouveaux",
-  AC: "Journal des achats",
-  BQUE: "Journal de banque",
-  INV: "Journal des investissements",
-  OD: "Journal des operations diverses",
-  VT: "Journal des ventes",
-};
+const FEC_HEADER = [
+  "JournalCode", "JournalLib", "EcritureNum", "EcritureDate",
+  "CompteNum", "CompteLib", "CompAuxNum", "CompAuxLib",
+  "PieceRef", "PieceDate", "EcritureLib",
+  "Debit", "Credit", "EcritureLet", "DateLet",
+  "ValidDate", "Montantdevise", "Idevise",
+].join("\t");
 
 function fmtDate(d: Date): string {
   const y = d.getFullYear();
@@ -98,6 +94,28 @@ export async function generateFec(
       where: { id: options.fiscalYearId, societyId },
       select: { year: true, startDate: true, endDate: true },
     });
+    if (!fiscalYear) {
+      return {
+        content: FEC_HEADER,
+        lineCount: 0,
+        anomalies: [
+          {
+            entryId: options.fiscalYearId,
+            piece: null,
+            message: "Exercice fiscal introuvable pour cette société",
+            severity: "error",
+          },
+        ],
+        stats: {
+          totalEntries: 0,
+          totalLines: 0,
+          totalDebit: 0,
+          totalCredit: 0,
+          balanced: true,
+        },
+        filename: `${siren}FEC${fmtDate(new Date())}.txt`,
+      };
+    }
   }
 
   const where: Record<string, unknown> = { societyId };
@@ -140,14 +158,6 @@ export async function generateFec(
     orderBy: [{ journalType: "asc" }, { entryDate: "asc" }, { createdAt: "asc" }],
   });
 
-  const FEC_HEADER = [
-    "JournalCode", "JournalLib", "EcritureNum", "EcritureDate",
-    "CompteNum", "CompteLib", "CompAuxNum", "CompAuxLib",
-    "PieceRef", "PieceDate", "EcritureLib",
-    "Debit", "Credit", "EcritureLet", "DateLet",
-    "ValidDate", "Montantdevise", "Idevise",
-  ].join("\t");
-
   const rows: string[] = [FEC_HEADER];
   const anomalies: FecAnomaly[] = [];
   const counters: Record<string, number> = {};
@@ -155,7 +165,15 @@ export async function generateFec(
   let totalCredit = 0;
 
   for (const entry of entries) {
-    const journalCode = JOURNAL_CODES[entry.journalType] ?? entry.journalType.slice(0, 3);
+    const canonicalJournalType = isAccountingJournalType(entry.journalType)
+      ? normalizeAccountingJournalType(entry.journalType)
+      : null;
+    const journalCode = canonicalJournalType
+      ? FEC_JOURNAL_CODES[canonicalJournalType]
+      : entry.journalType.slice(0, 3);
+    const journalLib = canonicalJournalType
+      ? "Journal - " + ACCOUNTING_JOURNAL_LABELS[canonicalJournalType]
+      : entry.journalType;
     counters[journalCode] = (counters[journalCode] ?? 0) + 1;
     const ecritureNum = `${journalCode}${String(counters[journalCode]).padStart(6, "0")}`;
 
@@ -245,7 +263,7 @@ export async function generateFec(
 
       rows.push([
         journalCode,
-        sanitize(JOURNAL_LIBS[entry.journalType] ?? entry.journalType),
+        sanitize(journalLib),
         ecritureNum,
         fmtDate(entry.entryDate),
         sanitize(line.account.code),

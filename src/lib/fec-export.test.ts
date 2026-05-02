@@ -157,6 +157,23 @@ describe("generateFec", () => {
     expect(result.filename).toContain("20251231");
   });
 
+  it("bloque l'export si l'exercice fiscal demandé est introuvable", async () => {
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await generateFec(SOCIETY_ID, { fiscalYearId: "missing-fiscal-year" });
+
+    expect(prismaMock.journalEntry.findMany).not.toHaveBeenCalled();
+    expect(result.lineCount).toBe(0);
+    expect(result.stats.totalEntries).toBe(0);
+    expect(result.anomalies).toEqual([
+      expect.objectContaining({
+        entryId: "missing-fiscal-year",
+        severity: "error",
+        message: expect.stringContaining("Exercice fiscal introuvable"),
+      }),
+    ]);
+  });
+
   it("filtre validatedOnly si l'option est activée (ligne 101)", async () => {
     prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
 

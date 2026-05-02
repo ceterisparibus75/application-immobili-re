@@ -58,22 +58,29 @@ export async function getNextLetteringCode(
   try {
     await requireSocietyActionContext(societyId, "COMPTABLE");
 
-    // Trouver le dernier code de lettrage utilise pour cette societe
-    const lastLettered = await prisma.journalEntryLine.findFirst({
+    // Trouver le dernier code de lettrage utilise pour cette societe, champs legacy inclus.
+    const letteredLines = await prisma.journalEntryLine.findMany({
       where: {
-        letteringCode: { not: null },
+        OR: [
+          { letteringCode: { not: null } },
+          { lettrage: { not: null } },
+        ],
         journalEntry: { societyId },
       },
-      orderBy: { letteringCode: "desc" },
-      select: { letteringCode: true },
+      select: { letteringCode: true, lettrage: true },
     });
 
-    if (!lastLettered?.letteringCode) {
+    const lastCode = letteredLines
+      .flatMap((line) => [line.letteringCode, line.lettrage])
+      .filter((code): code is string => Boolean(code))
+      .sort((a, b) => (a.length === b.length ? a.localeCompare(b) : a.length - b.length))
+      .at(-1);
+
+    if (!lastCode) {
       return { success: true, data: { code: "AA" } };
     }
 
-    const code = lastLettered.letteringCode;
-    const nextCode = incrementLetteringCode(code);
+    const nextCode = incrementLetteringCode(lastCode);
     return { success: true, data: { code: nextCode } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) {
@@ -138,6 +145,7 @@ export async function letterEntries(
         debit: true,
         credit: true,
         letteringCode: true,
+        lettrage: true,
         accountId: true,
       },
     });
@@ -151,7 +159,7 @@ export async function letterEntries(
     }
 
     // Verifier qu aucune ligne n est deja lettree
-    const alreadyLettered = lines.filter((l) => l.letteringCode !== null);
+    const alreadyLettered = lines.filter((l) => l.letteringCode !== null || l.lettrage !== null);
     if (alreadyLettered.length > 0) {
       return {
         success: false,
@@ -182,6 +190,7 @@ export async function letterEntries(
       where: { id: { in: parsed.data.lineIds } },
       data: {
         letteringCode: code,
+        lettrage: code,
         letteredAt: now,
       },
     });
@@ -237,7 +246,10 @@ export async function unletterEntries(
     // Verifier que des lignes existent avec ce code dans cette societe
     const existingLines = await prisma.journalEntryLine.findMany({
       where: {
-        letteringCode: parsed.data.letteringCode,
+        OR: [
+          { letteringCode: parsed.data.letteringCode },
+          { lettrage: parsed.data.letteringCode },
+        ],
         journalEntry: { societyId },
       },
       select: { id: true },
@@ -253,11 +265,15 @@ export async function unletterEntries(
     // Supprimer le lettrage
     await prisma.journalEntryLine.updateMany({
       where: {
-        letteringCode: parsed.data.letteringCode,
+        OR: [
+          { letteringCode: parsed.data.letteringCode },
+          { lettrage: parsed.data.letteringCode },
+        ],
         journalEntry: { societyId },
       },
       data: {
         letteringCode: null,
+        lettrage: null,
         letteredAt: null,
       },
     });
@@ -325,6 +341,7 @@ export async function getUnletteredEntries(
       where: {
         accountId: parsed.data.accountId,
         letteringCode: null,
+        lettrage: null,
         journalEntry: { societyId },
       },
       include: {
@@ -385,7 +402,10 @@ export async function getLetteredGroups(
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         accountId: parsed.data.accountId,
-        letteringCode: { not: null },
+        OR: [
+          { letteringCode: { not: null } },
+          { lettrage: { not: null } },
+        ],
         journalEntry: { societyId },
       },
       include: {
@@ -405,8 +425,9 @@ export async function getLetteredGroups(
 
     const groups = new Map<string, LetteredGroup>();
     for (const line of lines) {
-      if (!line.letteringCode) continue;
-      const existing = groups.get(line.letteringCode);
+      const letteringCode = line.letteringCode ?? line.lettrage;
+      if (!letteringCode) continue;
+      const existing = groups.get(letteringCode);
       if (existing) {
         existing.lineCount += 1;
         existing.totalDebit = roundCents(existing.totalDebit + line.debit);
@@ -418,8 +439,8 @@ export async function getLetteredGroups(
         continue;
       }
 
-      groups.set(line.letteringCode, {
-        letteringCode: line.letteringCode,
+      groups.set(letteringCode, {
+        letteringCode,
         lineCount: 1,
         totalDebit: roundCents(line.debit),
         totalCredit: roundCents(line.credit),
@@ -462,6 +483,7 @@ export async function getLetteringSuggestions(
       where: {
         accountId: parsed.data.accountId,
         letteringCode: null,
+        lettrage: null,
         journalEntry: { societyId },
       },
       include: {

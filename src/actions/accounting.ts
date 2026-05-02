@@ -559,7 +559,14 @@ export async function getBalance(
 
 export async function getGrandLivre(
   societyId: string,
-  filters: { accountId?: string; fiscalYearId?: string; journalType?: string; dateFrom?: string; dateTo?: string }
+  filters: {
+    accountId?: string;
+    fiscalYearId?: string;
+    journalType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    nonLettered?: boolean;
+  }
 ): Promise<ActionResult<GrandLivreRow[]>> {
   try {
     await requireSocietyActionContext(societyId);
@@ -567,6 +574,7 @@ export async function getGrandLivre(
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         ...(filters.accountId ? { accountId: filters.accountId } : {}),
+        ...(filters.nonLettered ? { letteringCode: null, lettrage: null } : {}),
         account: { societyId },
         journalEntry: {
           ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),

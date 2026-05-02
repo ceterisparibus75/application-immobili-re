@@ -2,22 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { generateFec } from "@/lib/fec-export";
 import { createAuditLog } from "@/lib/audit";
+import { isAccountingJournalType } from "@/lib/accounting-journals";
 import type { JournalType } from "@/generated/prisma/client";
 
-const JOURNAL_TYPES: JournalType[] = [
-  "VENTES",
-  "BANQUE",
-  "OPERATIONS_DIVERSES",
-  "AN",
-  "AC",
-  "BQUE",
-  "INV",
-  "OD",
-  "VT",
-];
-
 function parseJournalType(value: unknown): JournalType | undefined {
-  return typeof value === "string" && JOURNAL_TYPES.includes(value as JournalType)
+  return typeof value === "string" && isAccountingJournalType(value)
     ? (value as JournalType)
     : undefined;
 }

@@ -14,15 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Plus, Trash2, AlertTriangle, CheckCircle2, PenLine, Scale } from "lucide-react";
 import { toast } from "sonner";
+import { ACCOUNTING_JOURNAL_LABELS, CANONICAL_ACCOUNTING_JOURNAL_TYPES } from "@/lib/accounting-journals";
 
-const JOURNALS = [
-  { value: "AN", label: "AN — À Nouveaux" },
-  { value: "AC", label: "AC — Achats" },
-  { value: "BQUE", label: "BQUE — Banque" },
-  { value: "INV", label: "INV — Investissements" },
-  { value: "OD", label: "OD — Opérations Diverses" },
-  { value: "VT", label: "VT — Ventes/TVA" },
-];
+const JOURNALS = CANONICAL_ACCOUNTING_JOURNAL_TYPES.map((value) => ({
+  value,
+  label: value + " - " + ACCOUNTING_JOURNAL_LABELS[value],
+}));
 
 type Line = { id: string; accountId: string; label: string; debit: string; credit: string };
 

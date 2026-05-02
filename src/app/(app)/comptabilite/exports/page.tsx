@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { ACCOUNTING_JOURNAL_LABELS, CANONICAL_ACCOUNTING_JOURNAL_TYPES } from "@/lib/accounting-journals";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i);
@@ -21,15 +22,10 @@ const YEAR_OPTIONS = [
 
 const JOURNAL_OPTIONS = [
   { value: "all", label: "Tous les journaux" },
-  { value: "AN", label: "À nouveaux" },
-  { value: "AC", label: "Achats" },
-  { value: "BQUE", label: "Banque" },
-  { value: "INV", label: "Investissements" },
-  { value: "OD", label: "Opérations diverses" },
-  { value: "VT", label: "Ventes / TVA" },
-  { value: "VENTES", label: "Ventes" },
-  { value: "BANQUE", label: "Banque" },
-  { value: "OPERATIONS_DIVERSES", label: "Opérations diverses" },
+  ...CANONICAL_ACCOUNTING_JOURNAL_TYPES.map((value) => ({
+    value,
+    label: value + " - " + ACCOUNTING_JOURNAL_LABELS[value],
+  })),
 ];
 
 interface FecAnomaly {

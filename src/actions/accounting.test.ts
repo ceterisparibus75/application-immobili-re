@@ -543,6 +543,23 @@ describe("getGrandLivre", () => {
     );
   });
 
+  it("filtre les lignes non lettrées sur les champs moderne et legacy", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
+
+    const result = await getGrandLivre(SOCIETY_ID, { nonLettered: true });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          letteringCode: null,
+          lettrage: null,
+        }),
+      })
+    );
+  });
+
   it("retourne une erreur générique si la BDD échoue dans getGrandLivre", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));

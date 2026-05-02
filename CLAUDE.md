@@ -431,8 +431,10 @@ Trois intégrations bancaires parallèles, toutes optionnelles :
 
 ### Comptabilité avancée
 
-- **Export FEC** (`src/lib/fec-export.ts`) : génère le Fichier des Écritures Comptables au format DGFiP (Article A.47 A-1). Séparateur tabulation, UTF-8, CRLF.
-- **Lettrage** (`src/actions/lettering.ts`) : rapprochement des écritures comptables par code de lettrage (`letterEntries()`, `unletterEntries()`).
+- **Types de journaux** (`src/lib/accounting-journals.ts`) : types canoniques (`AN`, `AC`, `VT`, `BQUE`, `OD`, `INV`) et codes legacy (`VENTES`, `BANQUE`, `OPERATIONS_DIVERSES`). Toujours utiliser `normalizeAccountingJournalType()` pour regrouper/comparer — les données BDD peuvent contenir l'un ou l'autre. `getAccountingJournalTypeAliases()` retourne le canonique + ses synonymes legacy (utile pour les filtres Prisma `in`).
+- **Résumé des journaux** (`src/actions/accounting-journals.ts`) : `getJournalSummary(societyId, filters)` retourne `JournalSummaryRow[]` (nb écritures, totaux débit/crédit, équilibre, plage de dates) filtrable par `fiscalYearId` ou plage de dates. Rôle minimum : `COMPTABLE`.
+- **Export FEC** (`src/lib/fec-export.ts`) : génère le Fichier des Écritures Comptables au format DGFiP (Article A.47 A-1). Séparateur tabulation, UTF-8, CRLF. Filtre via `fiscalYearId` (prioritaire) ou `year`. Les anomalies de sévérité `"error"` bloquent l'export (`GET /api/comptabilite/fec` retourne HTTP 422 avec la liste) ; `POST` valide sans télécharger.
+- **Lettrage** (`src/actions/lettering.ts`) : rapprochement des écritures comptables. `letterEntries()` / `unletterEntries()` posent/lèvent un code de lettrage. `getNextLetteringCode()` génère le prochain code disponible en séquence AA–ZZ. `getLetteringSuggestions()` retourne des `LetteringSuggestion[]` (groupes de lignes à équilibre nul ou quasi-nul) pour le lettrage assisté.
 - **Export RGPD** (`src/lib/rgpd-export.ts`) : export de toutes les données personnelles d'un locataire au format JSON/CSV.
 
 ### Signature électronique (ENTERPRISE)
@@ -457,7 +459,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Facturation électronique B2B | `/facturation/[id]` | `einvoicing.ts` (bouton "Envoyer PA B2B") |
 | Banque + Rapprochement | `/banque` | `bank.ts`, `bank-connection.ts`, `bank-reconciliation.ts` |
 | Cash-flow | `/cashflow` | `cashflow.ts`, `src/lib/cashflow-categories.ts` |
-| Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
+| Comptabilité + Lettrage + FEC | `/comptabilite` | `accounting.ts`, `accounting-journals.ts`, `lettering.ts`, `fec-export.ts` (via API routes) |
 | Emprunts + Amortissement | `/emprunts` | `loan.ts` (3 types : AMORTISSABLE, IN_FINE, BULLET) |
 | Indices ILC/ILAT/ICC | `/indices` | `insee-index.ts`, via API INSEE |
 | Relances | `/relances` | `reminder.ts` |

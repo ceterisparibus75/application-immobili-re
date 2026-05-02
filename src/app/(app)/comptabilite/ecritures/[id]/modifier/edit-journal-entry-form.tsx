@@ -15,15 +15,12 @@ import { calculateJournalEntryTotals, getBalancingPatch } from "@/lib/accounting
 import { formatCurrency } from "@/lib/utils";
 import { useSociety } from "@/providers/society-provider";
 import { DeleteJournalEntryButton } from "../../../_components/delete-journal-entry-button";
+import { ACCOUNTING_JOURNAL_LABELS, CANONICAL_ACCOUNTING_JOURNAL_TYPES } from "@/lib/accounting-journals";
 
-const JOURNALS = [
-  { value: "AN", label: "AN - A Nouveaux" },
-  { value: "AC", label: "AC - Achats" },
-  { value: "BQUE", label: "BQUE - Banque" },
-  { value: "INV", label: "INV - Investissements" },
-  { value: "OD", label: "OD - Operations Diverses" },
-  { value: "VT", label: "VT - Ventes/TVA" },
-];
+const JOURNALS = CANONICAL_ACCOUNTING_JOURNAL_TYPES.map((value) => ({
+  value,
+  label: value + " - " + ACCOUNTING_JOURNAL_LABELS[value],
+}));
 
 type Line = { id: string; accountId: string; label: string; debit: string; credit: string };
 

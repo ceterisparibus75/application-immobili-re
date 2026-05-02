@@ -8,21 +8,10 @@ import {
 import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
+  ACCOUNTING_JOURNAL_LABELS,
   isAccountingJournalType,
   normalizeAccountingJournalType,
 } from "@/lib/accounting-journals";
-
-const JOURNAL_LABELS: Record<string, string> = {
-  VENTES: "Ventes",
-  BANQUE: "Banque",
-  OPERATIONS_DIVERSES: "Opérations diverses",
-  AN: "À-nouveaux",
-  AC: "Achats",
-  BQUE: "Banque",
-  INV: "Investissements",
-  OD: "Opérations diverses",
-  VT: "Ventes / TVA",
-};
 
 export type JournalSummaryFilters = {
   fiscalYearId?: string;
@@ -97,7 +86,7 @@ export async function getJournalSummary(
         : entry.journalType;
       const row = byJournal.get(key) ?? {
         journalType: key,
-        journalLabel: JOURNAL_LABELS[key] ?? key,
+        journalLabel: ACCOUNTING_JOURNAL_LABELS[key] ?? key,
         entryCount: 0,
         lineCount: 0,
         draftCount: 0,

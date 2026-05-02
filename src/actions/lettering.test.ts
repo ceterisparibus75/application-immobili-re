@@ -25,6 +25,7 @@ function makeLine(overrides = {}) {
     debit: 500,
     credit: 0,
     letteringCode: null,
+    lettrage: null,
     accountId: ACCOUNT_ID,
     ...overrides,
   };
@@ -39,7 +40,7 @@ describe("getNextLetteringCode", () => {
 
   it("retourne AA si aucun lettrage existant", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.success).toBe(true);
@@ -48,7 +49,7 @@ describe("getNextLetteringCode", () => {
 
   it("incrémente le code AA → AB", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findFirst.mockResolvedValue({ letteringCode: "AA" } as never);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "AA", lettrage: null }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("AB");
@@ -56,7 +57,7 @@ describe("getNextLetteringCode", () => {
 
   it("incrémente AZ → BA", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findFirst.mockResolvedValue({ letteringCode: "AZ" } as never);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "AZ", lettrage: null }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("BA");
@@ -64,10 +65,22 @@ describe("getNextLetteringCode", () => {
 
   it("incrémente ZZ → AZZ (ajoute un caractère)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findFirst.mockResolvedValue({ letteringCode: "ZZ" } as never);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "ZZ", lettrage: null }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("AAA");
+  });
+
+  it("tient compte des anciens codes lettrage pour générer le prochain code", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { letteringCode: null, lettrage: "AB" },
+      { letteringCode: "AC", lettrage: null },
+    ] as never);
+
+    const result = await getNextLetteringCode(SOCIETY_ID);
+
+    expect(result.data?.code).toBe("AD");
   });
 
   it("retourne ForbiddenError si rôle insuffisant pour getNextLetteringCode (lignes 48-49)", async () => {
@@ -79,7 +92,7 @@ describe("getNextLetteringCode", () => {
 
   it("retourne une erreur générique si la BDD échoue dans getNextLetteringCode (lignes 51-52)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findFirst.mockRejectedValue(new Error("DB error"));
+    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB error"));
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la generation du code de lettrage" });
   });
@@ -119,6 +132,19 @@ describe("letterEntries", () => {
     expect(result.error).toMatch(/deja lettree/);
   });
 
+  it("retourne une erreur si une ligne a un ancien code lettrage", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      makeLine({ lettrage: "AA" }),
+      makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
+    ] as never);
+
+    const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/deja lettree/);
+  });
+
   it("retourne une erreur si débit ≠ crédit", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.journalEntryLine.findMany.mockResolvedValue([
@@ -133,17 +159,22 @@ describe("letterEntries", () => {
 
   it("lette les lignes équilibrées avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([
-      makeLine({ debit: 500, credit: 0 }),
-      makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
-    ] as never);
-    prismaMock.journalEntryLine.findFirst.mockResolvedValue(null); // getNextLetteringCode → AA
+    prismaMock.journalEntryLine.findMany
+      .mockResolvedValueOnce([
+        makeLine({ debit: 500, credit: 0 }),
+        makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
+      ] as never)
+      .mockResolvedValueOnce([] as never); // getNextLetteringCode -> AA
     prismaMock.journalEntryLine.updateMany.mockResolvedValue({ count: 2 } as never);
 
     const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
     expect(result.success).toBe(true);
     expect(result.data?.letteringCode).toBe("AA");
-    expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalled();
+    expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ letteringCode: "AA", lettrage: "AA" }),
+      })
+    );
   });
 
   it("retourne une erreur si rôle insuffisant pour letterEntries", async () => {
@@ -162,11 +193,12 @@ describe("letterEntries", () => {
 
   it("retourne une erreur si getNextLetteringCode échoue (ligne 141)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([
-      makeLine({ debit: 500, credit: 0 }),
-      makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
-    ] as never);
-    prismaMock.journalEntryLine.findFirst.mockRejectedValue(new Error("DB error"));
+    prismaMock.journalEntryLine.findMany
+      .mockResolvedValueOnce([
+        makeLine({ debit: 500, credit: 0 }),
+        makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
+      ] as never)
+      .mockRejectedValueOnce(new Error("DB error"));
     const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/Impossible de generer/);
@@ -203,7 +235,24 @@ describe("unletterEntries", () => {
     const result = await unletterEntries(SOCIETY_ID, "AA");
     expect(result.success).toBe(true);
     expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { letteringCode: null, letteredAt: null } })
+      expect.objectContaining({ data: { letteringCode: null, lettrage: null, letteredAt: null } })
+    );
+  });
+
+  it("délette les lignes portant un ancien code lettrage", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ id: "line-legacy" }] as never);
+    prismaMock.journalEntryLine.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await unletterEntries(SOCIETY_ID, "AB");
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ letteringCode: "AB" }, { lettrage: "AB" }],
+        }),
+      })
     );
   });
 
@@ -246,6 +295,11 @@ describe("getUnletteredEntries", () => {
     expect(result.data?.lines).toHaveLength(1);
     expect(result.data?.lines[0].debit).toBe(800);
     expect(result.data?.lines[0].entryLabel).toBe("Facture janvier");
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ letteringCode: null, lettrage: null }),
+      })
+    );
   });
 
   it("retourne une erreur de validation si l'accountId est invalide", async () => {
@@ -309,6 +363,33 @@ describe("getLetteredGroups", () => {
     ]);
   });
 
+  it("regroupe les lignes lettrées avec l'ancien champ lettrage", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 500,
+        credit: 0,
+        letteringCode: null,
+        lettrage: "AB",
+        letteredAt: null,
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", label: "Facture janvier" },
+      },
+    ] as never);
+
+    const result = await getLetteredGroups(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.groups[0]).toEqual(expect.objectContaining({ letteringCode: "AB" }));
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ letteringCode: { not: null } }, { lettrage: { not: null } }],
+        }),
+      })
+    );
+  });
+
   it("retourne une erreur de validation si l'accountId est invalide", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
 
@@ -358,6 +439,11 @@ describe("getLetteringSuggestions", () => {
         reason: "Montants identiques",
       }),
     ]);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ letteringCode: null, lettrage: null }),
+      })
+    );
   });
 
   it("retourne une erreur de validation si l'accountId est invalide", async () => {
