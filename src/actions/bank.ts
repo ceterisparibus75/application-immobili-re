@@ -203,6 +203,15 @@ export async function getBankAccountById(
           },
           orderBy: { transactionDate: "desc" },
           take: 250,
+          select: {
+            id: true,
+            transactionDate: true,
+            amount: true,
+            label: true,
+            reference: true,
+            category: true,
+            isReconciled: true,
+          },
         },
         connection: {
           select: { institutionName: true, status: true },

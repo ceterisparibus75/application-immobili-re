@@ -376,6 +376,38 @@ describe("getBankAccountById", () => {
     )
   })
 
+  it("ne selectionne pas journalEntryId sur la fiche banque pour rester compatible avec les bases non migrees", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-1",
+      societyId: SOCIETY_ID,
+      ibanEncrypted: "encrypted_FR7630006000011234567890189",
+      initialBalance: 0,
+      currentBalance: 0,
+      transactions: [],
+      connection: null,
+      _count: { transactions: 0 },
+    } as never)
+    prismaMock.bankTransaction.count.mockResolvedValue(0 as never)
+
+    await getBankAccountById(SOCIETY_ID, "ba-1")
+
+    const query = prismaMock.bankAccount.findFirst.mock.calls[0]?.[0] as {
+      include?: { transactions?: { select?: Record<string, boolean> } };
+    };
+
+    expect(query.include?.transactions?.select).toEqual({
+      id: true,
+      transactionDate: true,
+      amount: true,
+      label: true,
+      reference: true,
+      category: true,
+      isReconciled: true,
+    })
+    expect(query.include?.transactions?.select).not.toHaveProperty("journalEntryId")
+  })
+
   it("charge les 30 derniers jours par defaut quand aucune periode n'est choisie", async () => {
     mockAuthSession(UserRole.LECTURE)
     prismaMock.bankAccount.findFirst.mockResolvedValue({
