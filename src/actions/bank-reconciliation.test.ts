@@ -1121,6 +1121,8 @@ describe("getSupplierInvoicesToReconcile", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           societyId: SOCIETY_ID,
+          bankJournalEntryId: null,
+          amountTTC: { not: null },
         }),
       })
     );
@@ -1196,6 +1198,24 @@ describe("reconcileWithSupplierInvoice", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/montant/i);
+  });
+
+  it("refuse une facture fournisseur déjà rapprochée avec une autre transaction", async () => {
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      amountTTC: 450,
+      status: "PAID",
+      bankJournalEntryId: JOURNAL_ID,
+    } as never);
+    prismaMock.bankTransaction.findFirst
+      .mockResolvedValueOnce(buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }) as never)
+      .mockResolvedValueOnce({ id: "other-tx" } as never);
+
+    const result = await reconcileWithSupplierInvoice(SOCIETY_ID, TX_ID, SUPPLIER_INVOICE_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/déjà rapprochée/i);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -1296,6 +1316,14 @@ describe("getBankReconciliationSuggestions", () => {
     );
     expect(result[1].candidates.map((candidate) => candidate.kind)).toContain("payment");
     expect(result[1].bestCandidate?.score).toBeGreaterThanOrEqual(80);
+    expect(prismaMock.supplierInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bankJournalEntryId: null,
+          amountTTC: { not: null },
+        }),
+      })
+    );
   });
 });
 

@@ -158,29 +158,45 @@ export default function ReconciliationClient({
   );
   const [journalTargetId, setJournalTargetId] = useState<string | null>(null);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+  const [operationNotice, setOperationNotice] = useState<{
+    type: "info" | "success" | "error";
+    message: string;
+  } | null>(null);
 
   function toggleTx(id: string) {
     setSelectedTxId((p) => (p === id ? null : id));
   }
 
   function handleAutoReconcile() {
-    startTransition(async () => {
-      const result = await autoReconcile(societyId, bankAccountId);
-      if (result.success) {
-        const n = result.data?.matched ?? 0;
-        toast.success(
-          n === 0
-            ? "Aucun rapprochement automatique trouvé"
-            : n +
-                " rapprochement" +
-                (n > 1 ? "s" : "") +
-                " effectué" +
-                (n > 1 ? "s" : "")
-        );
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "Erreur rapprochement automatique");
-      }
+    setOperationNotice({ type: "info", message: "Rapprochement automatique en cours..." });
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await autoReconcile(societyId, bankAccountId);
+          if (result.success) {
+            const n = result.data?.matched ?? 0;
+            const message =
+              n === 0
+                ? "Aucun rapprochement automatique trouvé"
+                : n +
+                  " rapprochement" +
+                  (n > 1 ? "s" : "") +
+                  " effectué" +
+                  (n > 1 ? "s" : "");
+            toast.success(message);
+            setOperationNotice({ type: "success", message });
+            router.refresh();
+          } else {
+            const message = result.error ?? "Erreur rapprochement automatique";
+            toast.error(message);
+            setOperationNotice({ type: "error", message });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Erreur rapprochement automatique";
+          toast.error(message);
+          setOperationNotice({ type: "error", message });
+        }
+      })();
     });
   }
 
@@ -203,61 +219,101 @@ export default function ReconciliationClient({
     kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
     rightId: string
   ) {
-    if (!selectedTxId) return;
+    const transactionId = selectedTxId;
+    if (!transactionId) {
+      const message = "Sélectionnez une transaction bancaire avant de rapprocher";
+      toast.error(message);
+      setOperationNotice({ type: "error", message });
+      return;
+    }
     setReconcileTargetId(rightId);
-    startTransition(async () => {
-      let result;
-      if (kind === "payment") {
-        result = await manualReconcile(societyId, {
-          transactionId: selectedTxId,
-          paymentId: rightId,
-        });
-      } else if (kind === "invoice") {
-        result = await reconcileWithInvoice(societyId, selectedTxId, rightId);
-      } else if (kind === "loanLine") {
-        result = await reconcileWithLoanLine(societyId, selectedTxId, rightId);
-      } else {
-        result = await reconcileWithSupplierInvoice(societyId, selectedTxId, rightId);
-      }
-      if (result.success) {
-        toast.success("Rapprochement effectué");
-        setSelectedTxId(null);
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "Erreur rapprochement");
-      }
-      setReconcileTargetId(null);
+    setOperationNotice({ type: "info", message: "Rapprochement en cours..." });
+    startTransition(() => {
+      void (async () => {
+        try {
+          let result;
+          if (kind === "payment") {
+            result = await manualReconcile(societyId, {
+              transactionId,
+              paymentId: rightId,
+            });
+          } else if (kind === "invoice") {
+            result = await reconcileWithInvoice(societyId, transactionId, rightId);
+          } else if (kind === "loanLine") {
+            result = await reconcileWithLoanLine(societyId, transactionId, rightId);
+          } else {
+            result = await reconcileWithSupplierInvoice(societyId, transactionId, rightId);
+          }
+          if (result.success) {
+            const message = "Rapprochement effectué";
+            toast.success(message);
+            setOperationNotice({ type: "success", message });
+            setSelectedTxId(null);
+            router.refresh();
+          } else {
+            const message = result.error ?? "Erreur rapprochement";
+            toast.error(message);
+            setOperationNotice({ type: "error", message });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Erreur rapprochement";
+          toast.error(message);
+          setOperationNotice({ type: "error", message });
+        } finally {
+          setReconcileTargetId(null);
+        }
+      })();
     });
   }
 
   function handleApplySuggestion(candidate: ReconciliationCandidate) {
-    if (!selectedTxId) return;
+    const transactionId = selectedTxId;
+    if (!transactionId) {
+      const message = "Sélectionnez une transaction bancaire avant d'appliquer une suggestion";
+      toast.error(message);
+      setOperationNotice({ type: "error", message });
+      return;
+    }
     setReconcileTargetId(candidate.targetId);
-    startTransition(async () => {
-      let result;
-      if (candidate.kind === "payment") {
-        result = await manualReconcile(societyId, {
-          transactionId: selectedTxId,
-          paymentId: candidate.targetId,
-        });
-      } else if (candidate.kind === "invoice") {
-        result = await reconcileWithInvoice(societyId, selectedTxId, candidate.targetId);
-      } else if (candidate.kind === "loanLine") {
-        result = await reconcileWithLoanLine(societyId, selectedTxId, candidate.targetId);
-      } else if (candidate.kind === "supplierInvoice") {
-        result = await reconcileWithSupplierInvoice(societyId, selectedTxId, candidate.targetId);
-      } else {
-        result = await reconcileWithJournalEntry(societyId, selectedTxId, candidate.targetId);
-      }
+    setOperationNotice({ type: "info", message: `Application de la suggestion ${candidate.label}...` });
+    startTransition(() => {
+      void (async () => {
+        try {
+          let result;
+          if (candidate.kind === "payment") {
+            result = await manualReconcile(societyId, {
+              transactionId,
+              paymentId: candidate.targetId,
+            });
+          } else if (candidate.kind === "invoice") {
+            result = await reconcileWithInvoice(societyId, transactionId, candidate.targetId);
+          } else if (candidate.kind === "loanLine") {
+            result = await reconcileWithLoanLine(societyId, transactionId, candidate.targetId);
+          } else if (candidate.kind === "supplierInvoice") {
+            result = await reconcileWithSupplierInvoice(societyId, transactionId, candidate.targetId);
+          } else {
+            result = await reconcileWithJournalEntry(societyId, transactionId, candidate.targetId);
+          }
 
-      if (result.success) {
-        toast.success("Suggestion appliquée");
-        setSelectedTxId(null);
-        router.refresh();
-      } else {
-        toast.error(result.error ?? "Impossible d'appliquer la suggestion");
-      }
-      setReconcileTargetId(null);
+          if (result.success) {
+            const message = "Suggestion appliquée";
+            toast.success(message);
+            setOperationNotice({ type: "success", message });
+            setSelectedTxId(null);
+            router.refresh();
+          } else {
+            const message = result.error ?? "Impossible d'appliquer la suggestion";
+            toast.error(message);
+            setOperationNotice({ type: "error", message });
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Impossible d'appliquer la suggestion";
+          toast.error(message);
+          setOperationNotice({ type: "error", message });
+        } finally {
+          setReconcileTargetId(null);
+        }
+      })();
     });
   }
 
@@ -335,6 +391,20 @@ export default function ReconciliationClient({
             "Sélectionnez une transaction à gauche, puis rapprochez-la à droite."
           )}
         </p>
+        {operationNotice && (
+          <div
+            className={
+              "w-full rounded-md border px-3 py-2 text-sm " +
+              (operationNotice.type === "error"
+                ? "border-destructive/40 bg-destructive/10 text-destructive"
+                : operationNotice.type === "success"
+                  ? "border-[var(--color-status-positive)]/30 bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]"
+                  : "border-border bg-muted/40 text-muted-foreground")
+            }
+          >
+            {operationNotice.message}
+          </div>
+        )}
         <Button
           onClick={handleAutoReconcile}
           disabled={isPending}

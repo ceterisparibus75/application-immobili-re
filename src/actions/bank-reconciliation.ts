@@ -913,11 +913,8 @@ export async function getSupplierInvoicesToReconcile(societyId: string) {
     where: {
       societyId,
       status: { in: ["VALIDATED", "PAID"] },
-      OR: [
-        { bankJournalEntryId: null },
-        { paymentStatus: null },
-        { paymentStatus: { in: ["PENDING", "SUBMITTED", "CONFIRMED"] } },
-      ],
+      bankJournalEntryId: null,
+      amountTTC: { not: null },
     },
     select: {
       id: true,
@@ -961,6 +958,19 @@ export async function reconcileWithSupplierInvoice(
     }
     if (invoice.amountTTC == null || Math.abs(Math.abs(transaction.amount) - invoice.amountTTC) > 0.01) {
       return { success: false, error: "Le montant de la transaction ne correspond pas à la facture fournisseur sélectionnée" };
+    }
+    if (invoice.bankJournalEntryId) {
+      const existingLinkedTransaction = await prisma.bankTransaction.findFirst({
+        where: {
+          journalEntryId: invoice.bankJournalEntryId,
+          bankAccount: { societyId },
+          id: { not: transactionId },
+        },
+        select: { id: true },
+      });
+      if (existingLinkedTransaction) {
+        return { success: false, error: "Cette facture fournisseur est déjà rapprochée avec une autre transaction bancaire" };
+      }
     }
 
     await prisma.$transaction(async (tx) => {
@@ -1222,6 +1232,8 @@ export async function getBankReconciliationSuggestions(
       where: {
         societyId,
         status: { in: ["VALIDATED", "PAID"] },
+        bankJournalEntryId: null,
+        amountTTC: { not: null },
       },
       select: {
         id: true,
