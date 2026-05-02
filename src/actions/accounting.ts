@@ -105,6 +105,15 @@ function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function validateDebitCreditLines(lines: Array<{ debit: number; credit: number }>): string | null {
+  const invalidLine = lines.find((line) => {
+    const hasDebit = Math.abs(line.debit) > 0.01;
+    const hasCredit = Math.abs(line.credit) > 0.01;
+    return hasDebit === hasCredit;
+  });
+  return invalidLine ? "Chaque ligne doit renseigner un débit ou un crédit, pas les deux" : null;
+}
+
 async function ensureAccountingAccount(
   societyId: string,
   code: string,
@@ -724,6 +733,9 @@ export async function createJournalEntry(
     const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
 
     // Vérifier l'équilibre débit/crédit
+    const lineValidationError = validateDebitCreditLines(parsed.data.lines);
+    if (lineValidationError) return { success: false, error: lineValidationError };
+
     const totalDebit = parsed.data.lines.reduce((s, l) => s + l.debit, 0);
     const totalCredit = parsed.data.lines.reduce((s, l) => s + l.credit, 0);
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
@@ -824,6 +836,9 @@ export async function updateJournalEntry(
 
     const entryDate = new Date(parsed.data.entryDate);
     const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
+
+    const lineValidationError = validateDebitCreditLines(parsed.data.lines);
+    if (lineValidationError) return { success: false, error: lineValidationError };
 
     const totalDebit = parsed.data.lines.reduce((sum, line) => sum + line.debit, 0);
     const totalCredit = parsed.data.lines.reduce((sum, line) => sum + line.credit, 0);
@@ -1154,6 +1169,12 @@ export async function bulkImportJournalEntries(
         }
         if (entry.lines.length < 2) {
           if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: Au moins 2 lignes requises`);
+          skipped++;
+          continue;
+        }
+        const lineValidationError = validateDebitCreditLines(entry.lines);
+        if (lineValidationError) {
+          if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: ${lineValidationError}`);
           skipped++;
           continue;
         }

@@ -648,6 +648,21 @@ describe("createJournalEntry", () => {
     expect(result.error).toMatch(/équilibr/);
   });
 
+  it("refuse une ligne avec débit et crédit simultanés", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const result = await createJournalEntry(SOCIETY_ID, {
+      ...validJournalInput,
+      lines: [
+        { accountId: ACCOUNT_ID_1, debit: 1000, credit: 1000 },
+        { accountId: ACCOUNT_ID_2, debit: 1000, credit: 1000 },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/débit ou un crédit/i);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("retourne une erreur si un compte est invalide", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
