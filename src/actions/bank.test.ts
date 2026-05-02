@@ -289,6 +289,27 @@ describe("getBankAccounts", () => {
     expect(r).toHaveLength(1)
     expect(r[0].ibanMasked).toBe("****")
   })
+
+  it("normalise les soldes nulls d anciens comptes bancaires", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findMany.mockResolvedValue([
+      {
+        id: "ba-legacy",
+        societyId: SOCIETY_ID,
+        bankName: "BNP",
+        accountName: "Compte legacy",
+        ibanEncrypted: "encrypted_FR7630006000011234567890189",
+        initialBalance: null,
+        currentBalance: null,
+        _count: { transactions: 0 },
+      },
+    ] as never)
+
+    const r = await getBankAccounts(SOCIETY_ID)
+
+    expect(r[0].initialBalance).toBe(0)
+    expect(r[0].currentBalance).toBe(0)
+  })
 })
 
 // ─── getBankAccountById ─────────────────────────────────────────────────────
@@ -326,6 +347,39 @@ describe("getBankAccountById", () => {
     expect(r).not.toBeNull()
     expect(r!.ibanMasked).toBe("FR76 **** **** 0189")
     expect(r!.unreconciledCount).toBe(3)
+  })
+
+  it("normalise les soldes et montants nulls d anciennes données bancaires", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-legacy",
+      societyId: SOCIETY_ID,
+      ibanEncrypted: "encrypted_FR7630006000011234567890189",
+      initialBalance: null,
+      currentBalance: null,
+      transactions: [
+        {
+          id: "tx-legacy",
+          transactionDate: new Date("2026-01-10"),
+          amount: null,
+          label: "Transaction legacy",
+          reference: null,
+          category: null,
+          isReconciled: null,
+        },
+      ],
+      connection: null,
+      _count: { transactions: 1 },
+    } as never)
+    prismaMock.bankTransaction.count.mockResolvedValue(1 as never)
+
+    const r = await getBankAccountById(SOCIETY_ID, "ba-legacy")
+
+    expect(r).not.toBeNull()
+    expect(r!.initialBalance).toBe(0)
+    expect(r!.currentBalance).toBe(0)
+    expect(r!.transactions[0].amount).toBe(0)
+    expect(r!.transactions[0].isReconciled).toBe(false)
   })
 })
 

@@ -24,6 +24,10 @@ import {
 
 // ─── Comptes bancaires ────────────────────────────────────────────────────────
 
+function normalizeBankNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 export async function createBankAccount(
   societyId: string,
   input: CreateBankAccountInput
@@ -135,7 +139,12 @@ export async function getBankAccounts(societyId: string) {
     } catch {
       // ignore
     }
-    return { ...account, ibanMasked };
+    return {
+      ...account,
+      initialBalance: normalizeBankNumber(account.initialBalance),
+      currentBalance: normalizeBankNumber(account.currentBalance),
+      ibanMasked,
+    };
   });
 }
 
@@ -182,7 +191,18 @@ export async function getBankAccountById(
     // ignore
   }
 
-  return { ...account, ibanMasked, unreconciledCount };
+  return {
+    ...account,
+    initialBalance: normalizeBankNumber(account.initialBalance),
+    currentBalance: normalizeBankNumber(account.currentBalance),
+    transactions: account.transactions.map((transaction) => ({
+      ...transaction,
+      amount: normalizeBankNumber(transaction.amount),
+      isReconciled: transaction.isReconciled === true,
+    })),
+    ibanMasked,
+    unreconciledCount,
+  };
 }
 
 export async function getBankAccountSummaryById(societyId: string, accountId: string) {
@@ -577,4 +597,3 @@ function parseFlexDate(input: string): Date | null {
 function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
