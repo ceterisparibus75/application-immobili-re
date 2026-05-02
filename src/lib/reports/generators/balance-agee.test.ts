@@ -56,6 +56,7 @@ describe("generateBalanceAgee", () => {
     helperMocks.initPdf.mockResolvedValue(pdfCtx);
     pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
     pdfCtx.np.mockReturnValue({ id: "page-1" });
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
   });
 
   it("génère un PDF même sans facture impayée", async () => {
@@ -74,10 +75,45 @@ describe("generateBalanceAgee", () => {
       pdfCtx.bold,
       pdfCtx.reg,
       expect.any(Number),
-      "Nombre de factures impayées",
+      "Nombre de créances",
       "0"
     );
     expect(helperMocks.drawPieChart).toHaveBeenCalled();
+  });
+
+  it("inclut les reprises de solde positives dans les créances âgées", async () => {
+    const today = new Date();
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        amount: 3544.76,
+        dueDate: new Date(today.getTime() - 10 * 86400000),
+        tenant: { entityType: "PERSONNE_MORALE", companyName: "KSR", firstName: null, lastName: null },
+        lease: { lot: { number: "A1", building: { name: "Champigny-sur-Marne" } } },
+      },
+    ] as never);
+
+    const result = await generateBalanceAgee({ societyId: "society-1", type: "BALANCE_AGEE" });
+
+    expect(result.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["KSR", "Champigny-sur-Marne/A1", "3544.76 EUR"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
+      expect.anything(),
+      pdfCtx.bold,
+      expect.any(Number),
+      ["TOTAL GÉNÉRAL", "", "-", "-", "-", "-", "3544.76 EUR", "3544.76 EUR"],
+      expect.any(Array),
+      expect.any(Array)
+    );
   });
 
   it("agrège les créances par immeuble et par tranche d'ancienneté", async () => {

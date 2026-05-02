@@ -53,6 +53,7 @@ describe("generateCompteRenduGestion", () => {
     pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
     pdfCtx.np.mockReturnValue({ id: "page-1" });
     prismaMock.payment.findMany.mockResolvedValue([] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
   });
 
   it("rejette si la société est introuvable", async () => {
@@ -330,6 +331,84 @@ describe("generateCompteRenduGestion", () => {
       ["SOUS-TOTAL", "", "1000.00 EUR", "850.00 EUR", "1000.00 EUR", ""],
       expect.any(Array),
       expect.any(Array)
+    );
+  });
+
+  it("inclut les reprises de solde dans les soldes sans les ajouter au total facturé", async () => {
+    prismaMock.society.findUnique.mockResolvedValue({
+      id: "society-1",
+      name: "Ma Société",
+    } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.payment.findMany.mockResolvedValue([] as never);
+    prismaMock.charge.findMany.mockResolvedValue([] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([
+      {
+        tenantId: "tenant-1",
+        amount: 3544.76,
+        dueDate: new Date("2026-04-01T00:00:00.000Z"),
+        tenant: {
+          entityType: "PERSONNE_MORALE",
+          companyName: "KSR",
+          firstName: null,
+          lastName: null,
+        },
+        lease: {
+          lot: {
+            buildingId: "building-1",
+            number: "A1",
+          },
+        },
+      },
+    ] as never);
+    prismaMock.building.findMany.mockResolvedValue([
+      {
+        id: "building-1",
+        name: "Immeuble A",
+        lots: [{ id: "lot-1" }],
+      },
+    ] as never);
+
+    await generateCompteRenduGestion({
+      societyId: "society-1",
+      type: "COMPTE_RENDU_GESTION",
+      year: 2026,
+    });
+
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Total facturé",
+      "0.00 EUR"
+    );
+    expect(helperMocks.drawKpiRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.bold,
+      pdfCtx.reg,
+      expect.any(Number),
+      "Loyers en attente / retard",
+      "3544.76 EUR",
+      expect.anything()
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["Immeuble A", "1", "0.00 EUR", "0.00 EUR", "0.00 EUR", "3544.76 EUR"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      { id: "page-1" },
+      pdfCtx.reg,
+      expect.any(Number),
+      ["KSR", "A1", "0.00 EUR", "0.00 EUR", "3544.76 EUR", "Impayé"],
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
     );
   });
 

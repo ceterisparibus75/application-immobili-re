@@ -31,24 +31,42 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   const { societyId } = opts;
   const today = new Date();
 
-  const rawInvoices = await prisma.invoice.findMany({
-    where: {
-      societyId,
-      invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
-      dueDate: { lt: today },
-      status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
-    },
-    include: {
-      tenant: true,
-      building: { select: { name: true } },
-      lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
-      payments: { select: { amount: true } },
-    },
-    orderBy: { dueDate: "asc" },
-  });
+  const [rawInvoices, balanceAdjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+        dueDate: { lt: today },
+        status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
+      },
+      include: {
+        tenant: true,
+        building: { select: { name: true } },
+        lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+        payments: { select: { amount: true } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, dueDate: { lt: today }, amount: { gt: 0 } },
+      include: {
+        tenant: true,
+        lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+  ]);
   const invoices = rawInvoices
     .map((invoice) => ({ ...invoice, outstandingAmount: getOutstandingAmount(invoice) }))
     .filter((invoice) => invoice.outstandingAmount > 0.01);
+  const receivables = [
+    ...invoices,
+    ...balanceAdjustments.map((adjustment) => ({
+      ...adjustment,
+      building: null,
+      outstandingAmount: adjustment.amount,
+    })),
+  ];
 
   const ctx = await initPdf("Balance âgée", `Créances au ${today.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`, opts.society);
 
@@ -59,19 +77,19 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
 
   let p = ctx.np();
   let y = contentStartY();
-  const total = invoices.reduce((s, i) => s + i.outstandingAmount, 0);
+  const total = receivables.reduce((s, i) => s + i.outstandingAmount, 0);
 
   // KPIs
   y = drawSectionHeader(p, ctx.serifBold, y, "Synthèse");
   y -= 4;
-  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nombre de factures impayées", String(invoices.length));
+  y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Nombre de créances", String(receivables.length));
   y = drawKpiRow(p, ctx.bold, ctx.reg, y, "Montant total des créances", pdfCur(total), CORAL);
   y -= 12;
 
   // Bucket totals
   const bucketTotals: Record<string, number> = {};
   for (const b of BUCKETS) bucketTotals[b] = 0;
-  for (const inv of invoices) {
+  for (const inv of receivables) {
     bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }
 
@@ -89,7 +107,7 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
 
   // Group by building
   const byBuilding = new Map<string, { key: string; name: string; loc: string; buckets: Record<string, number>; total: number }[]>();
-  for (const inv of invoices) {
+  for (const inv of receivables) {
     const bName = inv.lease?.lot?.building?.name ?? inv.building?.name ?? "Autre";
     if (!byBuilding.has(bName)) byBuilding.set(bName, []);
     const arr = byBuilding.get(bName)!;

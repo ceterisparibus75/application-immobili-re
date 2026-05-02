@@ -31,24 +31,48 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   const { societyId, format = "pdf" } = opts;
   const today = new Date();
 
-  const rawInvoices = await prisma.invoice.findMany({
-    where: {
-      societyId,
-      invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
-      dueDate: { lt: today },
-      status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
-    },
-    include: {
-      tenant: true,
-      building: { select: { name: true } },
-      lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
-      payments: { select: { amount: true } },
-    },
-    orderBy: { dueDate: "asc" },
-  });
+  const [rawInvoices, balanceAdjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
+        dueDate: { lt: today },
+        status: { in: [...REPORT_OUTSTANDING_INVOICE_STATUSES] },
+      },
+      include: {
+        tenant: true,
+        building: { select: { name: true } },
+        lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+        payments: { select: { amount: true } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, dueDate: { lt: today }, amount: { gt: 0 } },
+      include: {
+        tenant: true,
+        lease: { include: { lot: { include: { building: { select: { name: true } } } } } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+  ]);
   const invoices = rawInvoices
     .map((invoice) => ({ ...invoice, outstandingAmount: getOutstandingAmount(invoice) }))
     .filter((invoice) => invoice.outstandingAmount > 0.01);
+  const receivables = [
+    ...invoices.map((invoice) => ({
+      ...invoice,
+      displayReference: invoice.invoiceNumber,
+      displayStatus: invoice.status,
+    })),
+    ...balanceAdjustments.map((adjustment) => ({
+      ...adjustment,
+      building: null,
+      outstandingAmount: adjustment.amount,
+      displayReference: adjustment.reference ?? "Reprise de solde",
+      displayStatus: "Reprise",
+    })),
+  ];
 
   const EUR = '#,##0.00 "€"';
   if (format === "xlsx") {
@@ -69,7 +93,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
     ws.getRow(2).height = 22;
     [16, 25, 28, 14, 16, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     let total = 0;
-    for (const inv of invoices) {
+    for (const inv of receivables) {
       const tn = inv.tenant.entityType === "PERSONNE_MORALE"
         ? (inv.tenant.companyName ?? "-")
         : `${inv.tenant.firstName ?? ""} ${inv.tenant.lastName ?? ""}`.trim() || "-";
@@ -78,7 +102,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
         : inv.building?.name ?? "-";
       const days = Math.max(0, Math.floor((today.getTime() - new Date(inv.dueDate).getTime()) / 86400000));
       total += inv.outstandingAmount;
-      const row = ws.addRow([inv.invoiceNumber, tn, loc, new Date(inv.dueDate).toLocaleDateString("fr-FR"), inv.outstandingAmount, days, ageBucket(new Date(inv.dueDate), today), inv.status]);
+      const row = ws.addRow([inv.displayReference, tn, loc, new Date(inv.dueDate).toLocaleDateString("fr-FR"), inv.outstandingAmount, days, ageBucket(new Date(inv.dueDate), today), inv.displayStatus]);
       row.getCell(5).numFmt = EUR;
       if (days > 30) row.getCell(6).font = { color: { argb: "FFC8302E" }, bold: true };
     }
@@ -99,13 +123,13 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   drawCoverPage(ctx, "État des Impayés", "Balance âgée des créances", [
     `Société : ${opts.society?.name ?? ""}`,
     `Au ${today.toLocaleDateString("fr-FR")}`,
-    `${invoices.length} facture(s) impayée(s)`,
+    `${receivables.length} créance(s) impayée(s)`,
   ]);
 
   let p = ctx.np();
   let y = contentStartY();
 
-  if (invoices.length === 0) {
+  if (receivables.length === 0) {
     p.drawText("Aucune facture impayée", { x: 41, y, size: 10, font: ctx.bold, color: GREEN });
     y -= 16;
     p.drawText("Toutes les factures sont à jour.", { x: 41, y, size: 9, font: ctx.reg, color: GREEN });
@@ -115,7 +139,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   // Pie chart: debt by age bucket
   const bucketTotals: Record<string, number> = {};
   for (const b of BUCKETS) bucketTotals[b] = 0;
-  for (const inv of invoices) {
+  for (const inv of receivables) {
     bucketTotals[ageBucket(new Date(inv.dueDate), today)] += inv.outstandingAmount;
   }
 
@@ -126,7 +150,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
   y -= 16;
 
   // Table grouped by building → tenant
-  const total = invoices.reduce((s, i) => s + i.outstandingAmount, 0);
+  const total = receivables.reduce((s, i) => s + i.outstandingAmount, 0);
   y = drawSectionHeader(p, ctx.serifBold, y, `Détail - Total : ${pdfCur(total)}`);
 
   const WS = [90, 85, 52, 52, 52, 52, 52, CW - 435];
@@ -135,7 +159,7 @@ export async function generateEtatImpayes(opts: ReportOptions): Promise<ReportRe
 
   // Group by building→tenant
   const grouped = new Map<string, Map<string, { name: string; loc: string; buckets: Record<string, number> }>>();
-  for (const inv of invoices) {
+  for (const inv of receivables) {
     const bName = inv.lease?.lot?.building?.name ?? inv.building?.name ?? "Autre";
     const tn = inv.tenant.entityType === "PERSONNE_MORALE"
       ? (inv.tenant.companyName ?? "-")

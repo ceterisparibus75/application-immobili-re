@@ -101,6 +101,7 @@ describe("generateEtatImpayes", () => {
     pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
     pdfCtx.np.mockReturnValue(pageMock);
     pageMock.drawText.mockReset();
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
   });
 
   it("génère un PDF vide si aucune facture impayée n'est trouvée", async () => {
@@ -384,6 +385,51 @@ describe("generateEtatImpayes", () => {
     expect(xlsxResult.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
       expect.arrayContaining(["INV-DIRECT", "Marc Alain", "Immeuble Direct"])
+    );
+  });
+
+  it("inclut les reprises de solde positives en PDF et XLSX", async () => {
+    const today = new Date();
+    const adjustment = {
+      tenantId: "t1",
+      amount: 3544.76,
+      dueDate: new Date(today.getTime() - 10 * 86400000),
+      reference: null,
+      tenant: { entityType: "PERSONNE_MORALE", companyName: "KSR", firstName: null, lastName: null },
+      lease: { lot: { number: "A1", building: { name: "Champigny-sur-Marne" } } },
+    };
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([adjustment] as never);
+
+    const pdfResult = await generateEtatImpayes({ societyId: "society-1", type: "ETAT_IMPAYES" });
+
+    expect(pdfResult.contentType).toBe("application/pdf");
+    expect(helperMocks.drawTableRow).toHaveBeenCalledWith(
+      pageMock,
+      pdfCtx.reg,
+      expect.any(Number),
+      expect.arrayContaining(["KSR", "Champigny-sur-Marne / A1", "3544.76 EUR"]),
+      expect.any(Array),
+      expect.any(Array),
+      expect.objectContaining({ rowIndex: 0 })
+    );
+
+    vi.clearAllMocks();
+    helperMocks.initPdf.mockResolvedValue(pdfCtx);
+    pdfCtx.save.mockResolvedValue(Buffer.from("pdf-buffer"));
+    pdfCtx.np.mockReturnValue(pageMock);
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([adjustment] as never);
+
+    const xlsxResult = await generateEtatImpayes({
+      societyId: "society-1",
+      type: "ETAT_IMPAYES",
+      format: "xlsx",
+    });
+
+    expect(xlsxResult.contentType).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(excelMocks.worksheet.addRow).toHaveBeenCalledWith(
+      expect.arrayContaining(["Reprise de solde", "KSR", "Champigny-sur-Marne / A1", expect.any(String), 3544.76])
     );
   });
 

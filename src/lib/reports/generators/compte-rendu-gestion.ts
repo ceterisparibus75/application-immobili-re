@@ -23,7 +23,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   const from = new Date(year, 0, 1);
   const to = new Date(year, 11, 31, 23, 59, 59);
 
-  const [society, invoices, payments, charges, buildings] = await Promise.all([
+  const [society, invoices, payments, charges, balanceAdjustments, buildings] = await Promise.all([
     prisma.society.findUnique({ where: { id: societyId } }),
     prisma.invoice.findMany({
       where: {
@@ -62,6 +62,14 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     prisma.charge.findMany({
       where: { societyId, date: { gte: from, lte: to } },
     }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, dueDate: { lte: to } },
+      include: {
+        tenant: true,
+        lease: { include: { lot: { select: { buildingId: true, number: true } } } },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
     prisma.building.findMany({
       where: { societyId },
       include: { lots: { select: { id: true } } },
@@ -74,9 +82,12 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     invoice.lease?.lot?.buildingId ?? invoice.buildingId ?? null;
   const getPaymentBuildingId = (payment: typeof payments[number]) =>
     payment.invoice.lease?.lot?.buildingId ?? payment.invoice.buildingId ?? null;
+  const getAdjustmentBuildingId = (adjustment: typeof balanceAdjustments[number]) =>
+    adjustment.lease?.lot?.buildingId ?? null;
 
   const paid = payments.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const pend = invoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
+  const adjustmentBalance = balanceAdjustments.reduce((s, adjustment) => s + adjustment.amount, 0);
+  const pend = invoices.reduce((s, i) => s + getOutstandingAmount(i), 0) + adjustmentBalance;
   const totalInv = invoices.reduce((s, i) => s + i.totalTTC, 0);
   const tchg = charges.reduce((s, c) => s + c.amount, 0);
 
@@ -92,7 +103,7 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   let p = ctx.np();
   let y = contentStartY();
 
-  if (invoices.length === 0 && charges.length === 0) {
+  if (invoices.length === 0 && charges.length === 0 && balanceAdjustments.length === 0) {
     drawEmptyMessage(p, ctx.reg, y, `Aucune donnée financière trouvée pour l'année ${year}.`);
   }
 
@@ -123,10 +134,12 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     const bi = invoices.filter((i) => getInvoiceBuildingId(i) === b.id);
     const bp = payments.filter((payment) => getPaymentBuildingId(payment) === b.id);
     const bc = charges.filter((c) => c.buildingId === b.id);
+    const ba = balanceAdjustments.filter((adjustment) => getAdjustmentBuildingId(adjustment) === b.id);
     const bF = bi.reduce((s, i) => s + i.totalTTC, 0);
     const bP = bp.reduce((s, payment) => s + (payment.amount ?? 0), 0);
     const bC = bc.reduce((s, c) => s + c.amount, 0);
-    const bOutstanding = bi.reduce((s, i) => s + getOutstandingAmount(i), 0);
+    const bOutstanding = bi.reduce((s, i) => s + getOutstandingAmount(i), 0)
+      + ba.reduce((s, adjustment) => s + adjustment.amount, 0);
     y = drawTableRow(p, ctx.reg, y, [
       b.name, String(b.lots.length), pdfCur(bF), pdfCur(bP), pdfCur(bC), pdfCur(bOutstanding),
     ], BW, BA, { rowIndex: ri++ });
@@ -139,7 +152,8 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
   for (const b of buildings) {
     const bi = invoices.filter((i) => getInvoiceBuildingId(i) === b.id);
     const bp = payments.filter((payment) => getPaymentBuildingId(payment) === b.id);
-    if (bi.length === 0 && bp.length === 0) continue;
+    const ba = balanceAdjustments.filter((adjustment) => getAdjustmentBuildingId(adjustment) === b.id);
+    if (bi.length === 0 && bp.length === 0 && ba.length === 0) continue;
 
     if (y < 160) { p = ctx.np(); y = contentStartY(); }
     y = drawSectionHeader(p, ctx.serifBold, y, b.name);
@@ -149,16 +163,21 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     y = drawTableHeader(p, ctx.bold, y, ["Locataire", "Lot", "Quittance", "Réglé", "Solde", "Statut"], DW, DA);
 
     // Group by tenant/building so yearly invoicing and cash receipts can differ cleanly.
-    const byTenant = new Map<string, { invoices: typeof bi; payments: typeof bp }>();
+    const byTenant = new Map<string, { invoices: typeof bi; payments: typeof bp; adjustments: typeof ba }>();
     for (const inv of bi) {
       const tid = inv.tenantId;
-      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [] });
+      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [], adjustments: [] });
       byTenant.get(tid)!.invoices.push(inv);
     }
     for (const payment of bp) {
       const tid = payment.invoice.tenantId;
-      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [] });
+      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [], adjustments: [] });
       byTenant.get(tid)!.payments.push(payment);
+    }
+    for (const adjustment of ba) {
+      const tid = adjustment.tenantId;
+      if (!byTenant.has(tid)) byTenant.set(tid, { invoices: [], payments: [], adjustments: [] });
+      byTenant.get(tid)!.adjustments.push(adjustment);
     }
 
     let dri = 0;
@@ -166,16 +185,19 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
     for (const [, tenantActivity] of byTenant) {
       const tInvoices = tenantActivity.invoices;
       const tPayments = tenantActivity.payments;
+      const tAdjustments = tenantActivity.adjustments;
       const firstInvoice = tInvoices[0];
       const firstPayment = tPayments[0];
-      const tenant = firstInvoice?.tenant ?? firstPayment?.invoice.tenant;
+      const firstAdjustment = tAdjustments[0];
+      const tenant = firstInvoice?.tenant ?? firstPayment?.invoice.tenant ?? firstAdjustment?.tenant;
       const tn = tenant.entityType === "PERSONNE_MORALE"
         ? (tenant.companyName ?? "-")
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
-      const lotNum = firstInvoice?.lease?.lot?.number ?? firstPayment?.invoice.lease?.lot?.number ?? "-";
+      const lotNum = firstInvoice?.lease?.lot?.number ?? firstPayment?.invoice.lease?.lot?.number ?? firstAdjustment?.lease?.lot?.number ?? "-";
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
       const regle = tPayments.reduce((s, payment) => s + (payment.amount ?? 0), 0);
-      const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0);
+      const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0)
+        + tAdjustments.reduce((s, adjustment) => s + adjustment.amount, 0);
       bTotal += quittance;
       bPaid += regle;
       bOutstanding += solde;
