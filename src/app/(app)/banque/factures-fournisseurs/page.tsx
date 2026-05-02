@@ -62,6 +62,10 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
   const pagination = parsePaginationParams(resolvedParams);
   const statusFilter =
     typeof resolvedParams.status === "string" ? resolvedParams.status : undefined;
+  const bankAccountIdsFilter =
+    typeof resolvedParams.bankAccountIds === "string"
+      ? resolvedParams.bankAccountIds.split(",").filter(Boolean)
+      : [];
 
   const page = pagination.page;
   const pageSize = pagination.pageSize;
@@ -69,6 +73,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
 
   const where: Record<string, unknown> = { societyId };
   if (statusFilter) where.status = statusFilter;
+  if (bankAccountIdsFilter.length > 0) where.bankAccountId = { in: bankAccountIdsFilter };
   if (pagination.search) {
     const q = pagination.search;
     where.OR = [

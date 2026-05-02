@@ -26,6 +26,7 @@ export type BankPartnerFlow = {
   supplierOverdueCount: number;
   supplierToReconcileAmount: number;
   supplierToReconcileCount: number;
+  supplierPaymentHref: string;
   lastSyncAt: Date | null;
   expiresAt: Date | null;
 };
@@ -391,11 +392,15 @@ export async function getBankOperationsDashboard(
       supplierOverdueCount: 0,
       supplierToReconcileAmount: 0,
       supplierToReconcileCount: 0,
+      supplierPaymentHref: "/banque/factures-fournisseurs?status=VALIDATED",
       lastSyncAt: null,
       expiresAt: account.connection?.expiresAt ?? null,
     };
     partner.accountCount++;
     partner.accountIds.push(account.id);
+    partner.supplierPaymentHref = `/banque/factures-fournisseurs?status=VALIDATED&bankAccountIds=${partner.accountIds
+      .map((id) => encodeURIComponent(id))
+      .join(",")}`;
     partner.totalBalance = addAmount(partner.totalBalance, account.currentBalance);
     partner.periodCredits = addAmount(partner.periodCredits, stats.periodCredits);
     partner.periodDebits = addAmount(partner.periodDebits, stats.periodDebits);

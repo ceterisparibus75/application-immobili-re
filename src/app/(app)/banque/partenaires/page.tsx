@@ -89,7 +89,9 @@ export default async function BankPartnersPage() {
                 </div>
                 <div className="rounded-lg bg-muted/50 p-3">
                   <p className="text-xs text-muted-foreground">Fournisseurs à payer</p>
-                  <p className="font-semibold tabular-nums">{formatCurrency(partner.supplierToPayAmount)}</p>
+                  <Link href={partner.supplierPaymentHref} className="font-semibold tabular-nums hover:underline">
+                    {formatCurrency(partner.supplierToPayAmount)}
+                  </Link>
                   <p className="text-xs text-muted-foreground">{partner.supplierToPayCount} facture{partner.supplierToPayCount !== 1 ? "s" : ""}</p>
                 </div>
                 {partner.supplierOverdueCount > 0 && (
@@ -101,7 +103,9 @@ export default async function BankPartnersPage() {
                 )}
                 <div className="rounded-lg bg-muted/50 p-3">
                   <p className="text-xs text-muted-foreground">À rapprocher</p>
-                  <p className="font-semibold tabular-nums text-[var(--color-status-caution)]">{formatCurrency(partner.supplierToReconcileAmount)}</p>
+                  <Link href={partner.supplierPaymentHref} className="font-semibold tabular-nums text-[var(--color-status-caution)] hover:underline">
+                    {formatCurrency(partner.supplierToReconcileAmount)}
+                  </Link>
                   <p className="text-xs text-muted-foreground">{partner.supplierToReconcileCount} paiement{partner.supplierToReconcileCount !== 1 ? "s" : ""}</p>
                 </div>
               </div>

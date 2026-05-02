@@ -241,6 +241,7 @@ describe("getBankOperationsDashboard", () => {
         supplierOverdueCount: 1,
         supplierToReconcileAmount: 0,
         supplierToReconcileCount: 0,
+        supplierPaymentHref: "/banque/factures-fournisseurs?status=VALIDATED&bankAccountIds=bank-1",
         status: "active",
       }),
       expect.objectContaining({
@@ -253,6 +254,7 @@ describe("getBankOperationsDashboard", () => {
         supplierToPayCount: 0,
         supplierToReconcileAmount: 900,
         supplierToReconcileCount: 1,
+        supplierPaymentHref: "/banque/factures-fournisseurs?status=VALIDATED&bankAccountIds=bank-2",
         status: "error",
       }),
       expect.objectContaining({
