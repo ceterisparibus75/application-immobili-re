@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   Building2, FileText, Home, Shield, LogOut, ReceiptText,
-  MessageSquare, Upload, UserCircle,
+  MessageSquare, Upload, UserCircle, History,
 } from "lucide-react";
 import "../globals.css";
 
@@ -15,6 +15,7 @@ import { APP_NAME } from "@/lib/constants";
 
 const navLinks = [
   { href: "/portal/dashboard", label: "Accueil", icon: Home },
+  { href: "/portal/paiements", label: "Historique", icon: History },
   { href: "/portal/documents", label: "Documents", icon: FileText },
   { href: "/portal/assurance", label: "Assurance", icon: Shield },
   { href: "/portal/charges", label: "Charges", icon: ReceiptText },
