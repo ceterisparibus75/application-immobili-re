@@ -9,6 +9,7 @@ import {
   getFiscalYears,
   createFiscalYear,
   closeFiscalYear,
+  getFiscalYearCloseChecklist,
   generateOpeningEntries,
   getAccounts,
   getBalance,
@@ -234,6 +235,53 @@ describe("closeFiscalYear", () => {
     prismaMock.fiscalYear.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const result = await closeFiscalYear(SOCIETY_ID, FISCAL_YEAR_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la clôture" });
+  });
+});
+
+describe("getFiscalYearCloseChecklist", () => {
+  it("retourne les contrôles passants quand la clôture est possible", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.count.mockResolvedValue(0);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { debit: 100, credit: 0, accountId: ACCOUNT_ID_1 },
+      { debit: 0, credit: 100, accountId: ACCOUNT_ID_2 },
+    ] as never);
+    prismaMock.accountReview.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+
+    const result = await getFiscalYearCloseChecklist(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.canClose).toBe(true);
+    expect(result.data?.checks.every((check) => check.status === "PASS")).toBe(true);
+  });
+
+  it("retourne les blocages de clôture sans modifier l'exercice", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.count.mockResolvedValue(1);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      { debit: 100, credit: 0, accountId: ACCOUNT_ID_1 },
+      { debit: 0, credit: 90, accountId: ACCOUNT_ID_2 },
+    ] as never);
+    prismaMock.accountReview.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+
+    const result = await getFiscalYearCloseChecklist(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.canClose).toBe(false);
+    expect(result.data?.checks.filter((check) => check.status === "BLOCKING")).toHaveLength(3);
+    expect(prismaMock.fiscalYear.update).not.toHaveBeenCalled();
+  });
+
+  it("retourne une erreur si l'exercice de contrôle est introuvable", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await getFiscalYearCloseChecklist(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/introuvable/);
   });
 });
 

@@ -2,8 +2,14 @@
 
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useSociety } from "@/providers/society-provider";
-import { getFiscalYears, createFiscalYear, closeFiscalYear, generateOpeningEntries } from "@/actions/accounting";
-import type { FiscalYearRow } from "@/actions/accounting";
+import {
+  getFiscalYears,
+  createFiscalYear,
+  closeFiscalYear,
+  generateOpeningEntries,
+  getFiscalYearCloseChecklist,
+} from "@/actions/accounting";
+import type { FiscalYearCloseChecklist, FiscalYearRow } from "@/actions/accounting";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Lock, Plus, CheckCircle2, AlertTriangle, Archive, FilePlus2 } from "lucide-react";
+import { Lock, Plus, CheckCircle2, AlertTriangle, Archive, FilePlus2, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CloturePage() {
@@ -20,6 +26,7 @@ export default function CloturePage() {
   const societyId = activeSociety?.id;
   const [isPending, startTransition] = useTransition();
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
+  const [closeChecklist, setCloseChecklist] = useState<FiscalYearCloseChecklist | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newYear, setNewYear] = useState({ year: new Date().getFullYear(), startDate: "", endDate: "" });
 
@@ -53,6 +60,18 @@ export default function CloturePage() {
         reload();
       } else {
         toast.error(res.error ?? "Erreur lors de la clôture");
+      }
+    });
+  }
+
+  function handleLoadChecklist(fiscalYearId: string) {
+    if (!activeSociety?.id) return;
+    startTransition(async () => {
+      const res = await getFiscalYearCloseChecklist(activeSociety.id, fiscalYearId);
+      if (res.success && res.data) {
+        setCloseChecklist(res.data);
+      } else {
+        toast.error(res.error ?? "Erreur lors du contrôle de clôture");
       }
     });
   }
@@ -118,6 +137,41 @@ export default function CloturePage() {
         </Card>
       )}
 
+      {closeChecklist && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base">Contrôle avant clôture {closeChecklist.year}</CardTitle>
+                <CardDescription>
+                  {closeChecklist.canClose
+                    ? "Tous les contrôles requis sont validés."
+                    : "Des points bloquants doivent être corrigés avant clôture."}
+                </CardDescription>
+              </div>
+              <Badge variant={closeChecklist.canClose ? "default" : "destructive"}>
+                {closeChecklist.canClose ? "Clôturable" : "Bloqué"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            {closeChecklist.checks.map((check) => (
+              <div key={check.key} className="rounded-md border p-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                  {check.status === "PASS" ? (
+                    <CheckCircle2 className="h-4 w-4 text-[var(--color-status-success)]" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  )}
+                  {check.label}
+                </div>
+                <p className="text-xs text-muted-foreground">{check.detail}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Liste des exercices</CardTitle>
@@ -164,37 +218,42 @@ export default function CloturePage() {
                         <FilePlus2 className="h-3 w-3 mr-1" />À-nouveaux
                       </Button>
                     ) : (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm" disabled={isPending}>
-                            <Lock className="h-3 w-3 mr-1" />Clôturer
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="flex items-center gap-2">
-                              <AlertTriangle className="h-5 w-5 text-destructive" />
-                              Clôturer l&apos;exercice {fy.year}&nbsp;?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription className="space-y-2">
-                              <p>Cette opération est <strong>irréversible</strong>. Elle va&nbsp;:</p>
-                              <ul className="list-disc pl-4 space-y-1">
-                                <li>Verrouiller toutes les écritures de l&apos;exercice {fy.year}</li>
-                                <li>Interdire toute nouvelle écriture sur cet exercice</li>
-                                <li>Vérifier l&apos;équilibre global (débit = crédit)</li>
-                                <li>Bloquer la clôture si des comptes mouvementés ne sont pas revus</li>
-                              </ul>
-                              <p className="font-medium text-destructive">Toutes les écritures doivent être validées avant la clôture.</p>
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleClose(fy.id, fy.year)} className="bg-destructive hover:bg-destructive/90">
-                              Confirmer la clôture
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" disabled={isPending} onClick={() => handleLoadChecklist(fy.id)}>
+                          <ListChecks className="h-3 w-3 mr-1" />Contrôles
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" disabled={isPending}>
+                              <Lock className="h-3 w-3 mr-1" />Clôturer
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                Clôturer l&apos;exercice {fy.year}&nbsp;?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="space-y-2">
+                                <p>Cette opération est <strong>irréversible</strong>. Elle va&nbsp;:</p>
+                                <ul className="list-disc pl-4 space-y-1">
+                                  <li>Verrouiller toutes les écritures de l&apos;exercice {fy.year}</li>
+                                  <li>Interdire toute nouvelle écriture sur cet exercice</li>
+                                  <li>Vérifier l&apos;équilibre global (débit = crédit)</li>
+                                  <li>Bloquer la clôture si des comptes mouvementés ne sont pas revus</li>
+                                </ul>
+                                <p className="font-medium text-destructive">Toutes les écritures doivent être validées avant la clôture.</p>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleClose(fy.id, fy.year)} className="bg-destructive hover:bg-destructive/90">
+                                Confirmer la clôture
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

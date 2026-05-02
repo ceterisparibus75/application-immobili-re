@@ -60,6 +60,27 @@ export type GrandLivreRow = {
   accountLabel: string;
 };
 
+export type FiscalYearCloseCheck = {
+  key: "drafts" | "balance" | "reviews";
+  label: string;
+  status: "PASS" | "BLOCKING";
+  detail: string;
+};
+
+export type FiscalYearCloseChecklist = {
+  fiscalYearId: string;
+  year: number;
+  isClosed: boolean;
+  canClose: boolean;
+  totalDebit: number;
+  totalCredit: number;
+  draftCount: number;
+  movedAccountCount: number;
+  reviewedAccountCount: number;
+  issueCount: number;
+  checks: FiscalYearCloseCheck[];
+};
+
 type OpeningEntryLine = {
   accountId: string;
   debit: number;
@@ -83,6 +104,97 @@ async function ensureAccountingAccount(
     create: { societyId, code, label, type, isActive: true },
     select: { id: true },
   });
+}
+
+async function buildFiscalYearCloseChecklist(
+  societyId: string,
+  fiscalYearId: string
+): Promise<FiscalYearCloseChecklist | null> {
+  const fy = await prisma.fiscalYear.findFirst({
+    where: { id: fiscalYearId, societyId },
+    select: { id: true, year: true, isClosed: true },
+  });
+  if (!fy) return null;
+
+  const drafts = await prisma.journalEntry.count({
+    where: { societyId, fiscalYearId, status: "BROUILLON" },
+  }) ?? 0;
+
+  const lines = await prisma.journalEntryLine.findMany({
+    where: { journalEntry: { societyId, fiscalYearId } },
+    select: { debit: true, credit: true, accountId: true },
+  }) ?? [];
+  const totalDebit = roundCents(lines.reduce((sum, line) => sum + line.debit, 0));
+  const totalCredit = roundCents(lines.reduce((sum, line) => sum + line.credit, 0));
+  const isBalanced = Math.abs(totalDebit - totalCredit) <= 0.01;
+
+  const accountIds = [...new Set(lines.map((line) => line.accountId))];
+  let reviewedCount = 0;
+  let issueCount = 0;
+  if (accountIds.length > 0) {
+    reviewedCount = await prisma.accountReview.count({
+      where: {
+        societyId,
+        fiscalYearId,
+        accountId: { in: accountIds },
+        status: "REVIEWED",
+      },
+    }) ?? 0;
+    issueCount = await prisma.accountReview.count({
+      where: {
+        societyId,
+        fiscalYearId,
+        accountId: { in: accountIds },
+        status: "ISSUE",
+      },
+    }) ?? 0;
+  }
+
+  const unreviewedCount = Math.max(accountIds.length - reviewedCount, 0);
+  const checks: FiscalYearCloseCheck[] = [
+    {
+      key: "drafts",
+      label: "Écritures validées",
+      status: drafts === 0 ? "PASS" : "BLOCKING",
+      detail: drafts === 0
+        ? "Aucune écriture en brouillon"
+        : `${drafts} écriture(s) en brouillon à valider avant la clôture`,
+    },
+    {
+      key: "balance",
+      label: "Balance équilibrée",
+      status: isBalanced ? "PASS" : "BLOCKING",
+      detail: isBalanced
+        ? `Débit ${totalDebit.toFixed(2)} € = crédit ${totalCredit.toFixed(2)} €`
+        : `La balance n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)`,
+    },
+    {
+      key: "reviews",
+      label: "Révision des comptes",
+      status: issueCount === 0 && unreviewedCount === 0 ? "PASS" : "BLOCKING",
+      detail: issueCount > 0
+        ? `${issueCount} compte(s) ont encore un point de révision ouvert`
+        : unreviewedCount > 0
+          ? `${unreviewedCount} compte(s) mouvementé(s) restent à réviser avant la clôture`
+          : accountIds.length === 0
+            ? "Aucun compte mouvementé"
+            : "Tous les comptes mouvementés sont revus",
+    },
+  ];
+
+  return {
+    fiscalYearId: fy.id,
+    year: fy.year,
+    isClosed: fy.isClosed,
+    canClose: !fy.isClosed && checks.every((check) => check.status === "PASS"),
+    totalDebit,
+    totalCredit,
+    draftCount: drafts,
+    movedAccountCount: accountIds.length,
+    reviewedAccountCount: reviewedCount,
+    issueCount,
+    checks,
+  };
 }
 
 // ─── Exercices fiscaux ────────────────────────────────────────────────────────
@@ -155,60 +267,11 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
   try {
     const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
 
-    const fy = await prisma.fiscalYear.findFirst({ where: { id: fiscalYearId, societyId } });
-    if (!fy) return { success: false, error: "Exercice introuvable" };
-    if (fy.isClosed) return { success: false, error: "Cet exercice est déjà clôturé" };
-
-    // Vérifier qu'il n'y a pas d'écritures en brouillon
-    const drafts = await prisma.journalEntry.count({
-      where: { societyId, fiscalYearId, status: "BROUILLON" },
-    });
-    if (drafts > 0) {
-      return { success: false, error: `Il reste ${drafts} écriture(s) en brouillon à valider avant la clôture` };
-    }
-
-    // Vérifier l'équilibre débit/crédit
-    const lines = await prisma.journalEntryLine.findMany({
-      where: { journalEntry: { societyId, fiscalYearId } },
-      select: { debit: true, credit: true, accountId: true },
-    });
-    const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
-    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      return {
-        success: false,
-        error: `La balance n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)`,
-      };
-    }
-
-    const accountIds = [...new Set(lines.map((line) => line.accountId))];
-    if (accountIds.length > 0) {
-      const reviewedCount = await prisma.accountReview.count({
-        where: {
-          societyId,
-          fiscalYearId,
-          accountId: { in: accountIds },
-          status: "REVIEWED",
-        },
-      });
-      const issueCount = await prisma.accountReview.count({
-        where: {
-          societyId,
-          fiscalYearId,
-          accountId: { in: accountIds },
-          status: "ISSUE",
-        },
-      });
-      if (issueCount > 0) {
-        return { success: false, error: `${issueCount} compte(s) ont encore un point de révision ouvert` };
-      }
-      if (reviewedCount !== accountIds.length) {
-        return {
-          success: false,
-          error: `${accountIds.length - reviewedCount} compte(s) mouvementé(s) restent à réviser avant la clôture`,
-        };
-      }
-    }
+    const checklist = await buildFiscalYearCloseChecklist(societyId, fiscalYearId);
+    if (!checklist) return { success: false, error: "Exercice introuvable" };
+    if (checklist.isClosed) return { success: false, error: "Cet exercice est déjà clôturé" };
+    const blockingCheck = checklist.checks.find((check) => check.status === "BLOCKING");
+    if (blockingCheck) return { success: false, error: blockingCheck.detail };
 
     await prisma.fiscalYear.update({
       where: { id: fiscalYearId },
@@ -227,7 +290,7 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
       action: "UPDATE",
       entity: "FiscalYear",
       entityId: fiscalYearId,
-      details: { action: "close", year: fy.year },
+      details: { action: "close", year: checklist.year },
     });
 
     revalidatePath("/comptabilite");
@@ -237,6 +300,25 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[closeFiscalYear]", error);
     return { success: false, error: "Erreur lors de la clôture" };
+  }
+}
+
+export async function getFiscalYearCloseChecklist(
+  societyId: string,
+  fiscalYearId: string
+): Promise<ActionResult<FiscalYearCloseChecklist>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const checklist = await buildFiscalYearCloseChecklist(societyId, fiscalYearId);
+    if (!checklist) return { success: false, error: "Exercice introuvable" };
+
+    return { success: true, data: checklist };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getFiscalYearCloseChecklist]", error);
+    return { success: false, error: "Erreur lors du contrôle de clôture" };
   }
 }
 
