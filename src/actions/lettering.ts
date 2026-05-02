@@ -46,6 +46,31 @@ export type LetteringSuggestion = {
   }[];
 };
 
+type SuggestionEntryLine = {
+  id: string;
+  debit: number;
+  credit: number;
+  label: string | null;
+  journalEntry: {
+    entryDate: Date;
+    piece: string | null;
+    reference: string | null;
+    label: string;
+  };
+};
+
+type CreditCandidate = {
+  line: SuggestionEntryLine;
+  used: boolean;
+};
+
+type ScoredCreditCandidate = CreditCandidate & {
+  sharedReference: boolean;
+  relatedLabels: boolean;
+  closeDate: boolean;
+  score: number;
+};
+
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -112,6 +137,60 @@ function buildSuggestionReason(matches: { sharedReference: boolean; relatedLabel
   ].filter((reason): reason is string => Boolean(reason));
 
   return reasons.length > 0 ? reasons.join(", ") : "Montants identiques";
+}
+
+function scoreCreditCandidate(debitLine: SuggestionEntryLine, creditLine: SuggestionEntryLine) {
+  const sharedReference = hasSharedReference(debitLine, creditLine);
+  const relatedLabels = labelsLookRelated(debitLine, creditLine);
+  const closeDate = daysBetween(debitLine.journalEntry.entryDate, creditLine.journalEntry.entryDate) <= 15;
+  const score =
+    100 +
+    (sharedReference ? 50 : 0) +
+    (relatedLabels ? 20 : 0) +
+    (closeDate ? 10 : 0) -
+    Math.min(daysBetween(debitLine.journalEntry.entryDate, creditLine.journalEntry.entryDate), 365) / 100;
+  return { sharedReference, relatedLabels, closeDate, score };
+}
+
+function findCreditCombination(debitLine: SuggestionEntryLine, candidates: CreditCandidate[]): ScoredCreditCandidate[] | null {
+  const target = roundCents(debitLine.debit);
+  const ranked: ScoredCreditCandidate[] = candidates
+    .filter((candidate) => !candidate.used && candidate.line.credit > 0 && candidate.line.credit < target + 0.01)
+    .map((candidate) => ({ ...candidate, ...scoreCreditCandidate(debitLine, candidate.line) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  let best: ScoredCreditCandidate[] | null = null;
+
+  function search(index: number, selected: ScoredCreditCandidate[], total: number): boolean {
+    const roundedTotal = roundCents(total);
+    if (selected.length >= 2 && Math.abs(roundedTotal - target) <= 0.01) {
+      best = selected;
+      return true;
+    }
+    if (selected.length >= 4 || roundedTotal > target + 0.01) return false;
+
+    for (let i = index; i < ranked.length; i += 1) {
+      if (search(i + 1, [...selected, ranked[i]], roundedTotal + ranked[i].line.credit)) return true;
+    }
+    return false;
+  }
+
+  search(0, [], 0);
+  return best;
+}
+
+function toSuggestionLine(line: SuggestionEntryLine): LetteringSuggestion["lines"][number] {
+  return {
+    id: line.id,
+    debit: line.debit,
+    credit: line.credit,
+    label: line.label,
+    entryDate: line.journalEntry.entryDate,
+    piece: line.journalEntry.piece,
+    reference: line.journalEntry.reference ?? null,
+    entryLabel: line.journalEntry.label,
+  };
 }
 /**
  * Genere le prochain code de lettrage pour une societe.
@@ -576,38 +655,39 @@ export async function getLetteringSuggestions(
       const match = availableCredits
         .filter((candidate) => !candidate.used && Math.abs(roundCents(debitLine.debit - candidate.line.credit)) <= 0.01)
         .map((candidate) => {
-          const sharedReference = hasSharedReference(debitLine, candidate.line);
-          const relatedLabels = labelsLookRelated(debitLine, candidate.line);
-          const closeDate = daysBetween(debitLine.journalEntry.entryDate, candidate.line.journalEntry.entryDate) <= 15;
-          const score =
-            100 +
-            (sharedReference ? 50 : 0) +
-            (relatedLabels ? 20 : 0) +
-            (closeDate ? 10 : 0) -
-            Math.min(daysBetween(debitLine.journalEntry.entryDate, candidate.line.journalEntry.entryDate), 365) / 100;
-          return { ...candidate, score, sharedReference, relatedLabels, closeDate };
+          return { ...candidate, ...scoreCreditCandidate(debitLine, candidate.line) };
         })
         .sort((a, b) => b.score - a.score)[0];
-      if (!match) continue;
-      match.used = true;
+      if (match) {
+        match.used = true;
 
-      const suggestionLines = [debitLine, match.line].map((line) => ({
-        id: line.id,
-        debit: line.debit,
-        credit: line.credit,
-        label: line.label,
-        entryDate: line.journalEntry.entryDate,
-        piece: line.journalEntry.piece,
-        reference: line.journalEntry.reference ?? null,
-        entryLabel: line.journalEntry.label,
-      }));
+        const suggestionLines = [debitLine, match.line].map(toSuggestionLine);
 
+        suggestions.push({
+          lineIds: suggestionLines.map((line) => line.id),
+          totalDebit: roundCents(debitLine.debit),
+          totalCredit: roundCents(match.line.credit),
+          difference: 0,
+          reason: buildSuggestionReason(match),
+          lines: suggestionLines,
+        });
+        continue;
+      }
+
+      const combination = findCreditCombination(debitLine, availableCredits);
+      if (!combination) continue;
+      combination.forEach((candidate) => {
+        candidate.used = true;
+      });
+
+      const suggestionLines = [debitLine, ...combination.map((candidate) => candidate.line)].map(toSuggestionLine);
+      const totalCredit = roundCents(combination.reduce((sum, candidate) => sum + candidate.line.credit, 0));
       suggestions.push({
         lineIds: suggestionLines.map((line) => line.id),
         totalDebit: roundCents(debitLine.debit),
-        totalCredit: roundCents(match.line.credit),
-        difference: 0,
-        reason: buildSuggestionReason(match),
+        totalCredit,
+        difference: roundCents(Math.abs(debitLine.debit - totalCredit)),
+        reason: "Paiements cumulés",
         lines: suggestionLines,
       });
     }

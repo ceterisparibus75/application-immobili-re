@@ -500,6 +500,63 @@ describe("getLetteringSuggestions", () => {
     );
   });
 
+  it("propose un lettrage multi-paiements quand plusieurs crédits soldent un débit", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const creditId1 = "clh3x2z4k0007qh8g7z1y2v3a";
+    const creditId2 = "clh3x2z4k0008qh8g7z1y2v3b";
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 500,
+        credit: 0,
+        label: "Facture FAC-2026-004",
+        journalEntry: {
+          entryDate: new Date("2026-02-01"),
+          piece: "FAC-2026-004",
+          reference: "BAIL-42",
+          label: "Facture février",
+        },
+      },
+      {
+        id: creditId1,
+        debit: 0,
+        credit: 300,
+        label: "Paiement partiel FAC-2026-004",
+        journalEntry: {
+          entryDate: new Date("2026-02-05"),
+          piece: "PAY-2026-004-A",
+          reference: "BAIL-42",
+          label: "Premier paiement février",
+        },
+      },
+      {
+        id: creditId2,
+        debit: 0,
+        credit: 200,
+        label: "Solde FAC-2026-004",
+        journalEntry: {
+          entryDate: new Date("2026-02-12"),
+          piece: "PAY-2026-004-B",
+          reference: "BAIL-42",
+          label: "Solde paiement février",
+        },
+      },
+    ] as never);
+
+    const result = await getLetteringSuggestions(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.suggestions[0]).toEqual(
+      expect.objectContaining({
+        lineIds: [LINE_ID_1, creditId1, creditId2],
+        totalDebit: 500,
+        totalCredit: 500,
+        difference: 0,
+        reason: "Paiements cumulés",
+      })
+    );
+  });
+
   it("retourne une erreur de validation si l'accountId est invalide", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
 
