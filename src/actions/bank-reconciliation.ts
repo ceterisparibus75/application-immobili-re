@@ -79,9 +79,11 @@ export async function getReconciledItems(societyId: string, bankAccountId: strin
       id: true,
       transaction: {
         select: {
+          id: true,
           label: true,
           transactionDate: true,
           amount: true,
+          journalEntryId: true,
         },
       },
       payment: {
@@ -463,6 +465,8 @@ export async function generateJournalEntry(
     });
 
     revalidatePath("/comptabilite");
+    revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     return { success: true, data: { id: entry.id } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };

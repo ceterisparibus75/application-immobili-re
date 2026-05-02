@@ -24,6 +24,7 @@ import {
   generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
+import { revalidatePath } from "next/cache";
 
 const SOCIETY_ID = "society-1";
 // IDs au format CUID : commence par 'c', min 9 chars, pas de tiret
@@ -415,10 +416,28 @@ describe("getReconciledItems", () => {
   it("retourne les rapprochements", async () => {
     mockAuthSession(UserRole.LECTURE);
     prismaMock.bankReconciliation.findMany.mockResolvedValue([
-      { id: RECONCIL_ID, isValidated: true },
+      {
+        id: RECONCIL_ID,
+        isValidated: true,
+        transaction: { id: TX_ID, journalEntryId: JOURNAL_ID },
+      },
     ] as never);
     const r = await getReconciledItems(SOCIETY_ID, ACCOUNT_ID);
     expect(r).toHaveLength(1);
+    expect(r[0].transaction.id).toBe(TX_ID);
+    expect(r[0].transaction.journalEntryId).toBe(JOURNAL_ID);
+    expect(prismaMock.bankReconciliation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          transaction: expect.objectContaining({
+            select: expect.objectContaining({
+              id: true,
+              journalEntryId: true,
+            }),
+          }),
+        }),
+      })
+    );
   });
 });
 
@@ -743,6 +762,9 @@ describe("generateJournalEntry", () => {
       where: { id: TX_ID },
       data: { journalEntryId: JOURNAL_ID },
     });
+    expect(revalidatePath).toHaveBeenCalledWith("/comptabilite");
+    expect(revalidatePath).toHaveBeenCalledWith(`/banque/${ACCOUNT_ID}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/banque/${ACCOUNT_ID}/rapprochement`);
   });
 
   it("retourne l'écriture bancaire déjà liée sans créer de doublon", async () => {

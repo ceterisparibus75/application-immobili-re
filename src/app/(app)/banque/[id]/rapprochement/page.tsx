@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import ReconciliationClient from "./_components/reconciliation-client";
@@ -152,6 +152,17 @@ async function ReconciledItemsSection({
                   {r.transaction.amount >= 0 ? "+" : ""}{formatCurrency(r.transaction.amount)}
                 </span>
                 <Badge variant="success" className="text-xs">Rapproché</Badge>
+                {r.transaction.journalEntryId ? (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <FileText className="h-3 w-3" />
+                    BQUE générée
+                  </Badge>
+                ) : (
+                  <GenerateJournalEntryButton
+                    societyId={societyId}
+                    transactionId={r.transaction.id}
+                  />
+                )}
                 <UnreconcileButton societyId={societyId} reconciliationId={r.id} />
               </div>
             </div>
@@ -173,6 +184,26 @@ function ReconciledItemsSkeleton() {
         <Skeleton className="h-10 w-full" />
       </CardContent>
     </Card>
+  );
+}
+
+function GenerateJournalEntryButton({
+  societyId,
+  transactionId,
+}: {
+  societyId: string;
+  transactionId: string;
+}) {
+  return (
+    <form action={async () => {
+      "use server";
+      const { generateJournalEntry } = await import("@/actions/bank-reconciliation");
+      await generateJournalEntry(societyId, transactionId);
+    }}>
+      <button type="submit" className="text-xs text-muted-foreground hover:text-foreground transition-colors underline">
+        Générer BQUE
+      </button>
+    </form>
   );
 }
 
