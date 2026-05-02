@@ -8,7 +8,7 @@ describe("SupplierInvoicesEmptyState", () => {
     render(<SupplierInvoicesEmptyState />);
 
     expect(screen.getByRole("heading", { name: "Aucune facture fournisseur" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Uploader une facture/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Importer des factures/i })).toHaveAttribute(
       "href",
       "/banque/factures-fournisseurs/nouveau",
     );

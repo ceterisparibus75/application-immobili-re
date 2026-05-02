@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { UploadForm } from "./_components/upload-form";
 
-export const metadata = { title: "Uploader une facture fournisseur" };
+export const metadata = { title: "Importer des factures fournisseurs" };
 
 export default async function NouvelleFacturePage() {
   const h = await headers();
@@ -22,7 +22,7 @@ export default async function NouvelleFacturePage() {
         </Link>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-brand-deep)]">
-            Uploader une facture fournisseur
+            Importer des factures fournisseurs
           </h1>
           <p className="text-muted-foreground text-sm">
             Importez un PDF — l&apos;IA tentera d&apos;extraire automatiquement les informations.

@@ -41,7 +41,7 @@ export function SupplierInvoicesEmptyState() {
           <Button asChild>
             <Link href="/banque/factures-fournisseurs/nouveau">
               <Plus className="h-4 w-4" />
-              Uploader une facture
+              Importer des factures
             </Link>
           </Button>
 

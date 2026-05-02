@@ -136,7 +136,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
         <Link href="/banque/factures-fournisseurs/nouveau">
           <Button className="gap-1.5">
             <Plus className="h-4 w-4" />
-            Uploader une facture
+            Importer des factures
           </Button>
         </Link>
       </div>
