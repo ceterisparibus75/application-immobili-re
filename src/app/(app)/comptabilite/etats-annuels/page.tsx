@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { FileSpreadsheet, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { getAnnualStatements, type AnnualStatementLine, type AnnualStatements } from "@/actions/annual-statements";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSociety } from "@/providers/society-provider";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { annualStatementsCsvFilename, annualStatementsToCsv } from "@/lib/annual-statements-export";
 
 function selectClassName() {
   return "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring";
@@ -95,6 +96,19 @@ export default function AnnualStatementsPage() {
     });
   }
 
+  function handleExportCsv() {
+    if (!data) return;
+    const blob = new Blob([annualStatementsToCsv(data)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = annualStatementsCsvFilename(data);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     load(fiscalYearId);
     // Chargement uniquement quand l'exercice change.
@@ -128,6 +142,10 @@ export default function AnnualStatementsPage() {
           <Button variant="outline" onClick={() => load()} disabled={isPending || !fiscalYearId}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Actualiser
+          </Button>
+          <Button variant="outline" onClick={handleExportCsv} disabled={!data}>
+            <Download className="h-4 w-4" />
+            Export CSV
           </Button>
         </div>
       </div>
