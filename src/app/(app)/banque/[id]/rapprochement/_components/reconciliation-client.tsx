@@ -60,6 +60,12 @@ type LoanLine = {
   interestPayment: number;
   insurancePayment: number;
   totalPayment: number;
+  principalPaidAt: Date | null;
+  interestPaidAt: Date | null;
+  insurancePaidAt: Date | null;
+  principalBankTransactionId: string | null;
+  interestBankTransactionId: string | null;
+  insuranceBankTransactionId: string | null;
   loan: { id: string; label: string; lender: string };
 };
 
@@ -82,6 +88,29 @@ function tenantLabel(
   return (
     t.companyName ??
     (((t.firstName ?? "") + " " + (t.lastName ?? "")).trim() || "—")
+  );
+}
+
+function LoanComponentStatus({
+  label,
+  amount,
+  paidAt,
+}: {
+  label: string;
+  amount: number;
+  paidAt: Date | null;
+}) {
+  if (amount <= 0.01) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label} {formatCurrency(amount)}
+      {paidAt && (
+        <span className="inline-flex h-4 items-center rounded-full border border-border px-1 text-[10px] text-[var(--color-status-positive)]">
+          pointé
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -493,11 +522,27 @@ export default function ReconciliationClient({
                             {line.period} · {formatDate(line.dueDate)}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Capital {formatCurrency(line.principalPayment)}
-                            {" "}· Intérêts{" "}
-                            {formatCurrency(line.interestPayment)}
-                            {line.insurancePayment > 0 &&
-                              ` · Ass. ${formatCurrency(line.insurancePayment)}`}
+                            <LoanComponentStatus
+                              label="Capital"
+                              amount={line.principalPayment}
+                              paidAt={line.principalPaidAt}
+                            />
+                            {" · "}
+                            <LoanComponentStatus
+                              label="Intérêts"
+                              amount={line.interestPayment}
+                              paidAt={line.interestPaidAt}
+                            />
+                            {line.insurancePayment > 0 && (
+                              <>
+                                {" · "}
+                                <LoanComponentStatus
+                                  label="Ass."
+                                  amount={line.insurancePayment}
+                                  paidAt={line.insurancePaidAt}
+                                />
+                              </>
+                            )}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 ml-2 shrink-0">

@@ -957,6 +957,113 @@ describe("reconcileWithLoanLine", () => {
     });
   });
 
+  it("rapproche un prélèvement d'intérêts seul sans solder toute l'échéance", async () => {
+    const transactionDate = new Date("2026-03-05");
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({
+        amount: -2716.09,
+        label: "00000972856 05/03/26 INTERETS",
+        reference: "321",
+        transactionDate,
+        journalEntryId: null,
+      }) as never
+    );
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({
+      id: LOAN_LINE_ID,
+      dueDate: new Date("2026-03-05"),
+      principalPayment: 6509.68,
+      interestPayment: 2716.09,
+      insurancePayment: 0,
+      totalPayment: 9225.77,
+      principalPaidAt: null,
+      interestPaidAt: null,
+      insurancePaidAt: null,
+    } as never);
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-164000", code: "164000", label: "Emprunts", type: "1" } as never)
+      .mockResolvedValueOnce({ id: "account-661100", code: "661100", label: "Interets", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-616000", code: "616000", label: "Assurance", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          lines: {
+            create: [
+              { accountId: "account-661100", debit: 2716.09, credit: 0, label: "Intérêts d'emprunt" },
+              { accountId: "account-512", debit: 0, credit: 2716.09, label: "00000972856 05/03/26 INTERETS" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.loanAmortizationLine.update).toHaveBeenCalledWith({
+      where: { id: LOAN_LINE_ID },
+      data: {
+        interestPaidAt: transactionDate,
+        interestBankTransactionId: TX_ID,
+        isPaid: false,
+        paidAt: null,
+      },
+    });
+  });
+
+  it("solde l'échéance quand le capital est rapproché après les intérêts", async () => {
+    const interestPaidAt = new Date("2026-03-05");
+    const principalPaidAt = new Date("2026-03-06");
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({
+        amount: -6509.68,
+        label: "00000972856 05/03/26 CAPITAL",
+        reference: "318",
+        transactionDate: principalPaidAt,
+        journalEntryId: null,
+      }) as never
+    );
+    prismaMock.loanAmortizationLine.findFirst.mockResolvedValue({
+      id: LOAN_LINE_ID,
+      dueDate: new Date("2026-03-05"),
+      principalPayment: 6509.68,
+      interestPayment: 2716.09,
+      insurancePayment: 0,
+      totalPayment: 9225.77,
+      principalPaidAt: null,
+      interestPaidAt,
+      interestBankTransactionId: "ctransact02",
+      insurancePaidAt: null,
+    } as never);
+    prismaMock.accountingAccount.upsert
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque", type: "5" } as never)
+      .mockResolvedValueOnce({ id: "account-164000", code: "164000", label: "Emprunts", type: "1" } as never)
+      .mockResolvedValueOnce({ id: "account-661100", code: "661100", label: "Interets", type: "6" } as never)
+      .mockResolvedValueOnce({ id: "account-616000", code: "616000", label: "Assurance", type: "6" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.loanAmortizationLine.update).toHaveBeenCalledWith({
+      where: { id: LOAN_LINE_ID },
+      data: {
+        principalPaidAt,
+        principalBankTransactionId: TX_ID,
+        isPaid: true,
+        paidAt: principalPaidAt,
+      },
+    });
+  });
+
   it("retourne une erreur si rôle insuffisant pour reconcileWithLoanLine (ForbiddenError ligne 639)", async () => {
     mockAuthSession(UserRole.LECTURE);
     const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);

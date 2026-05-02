@@ -81,6 +81,87 @@ function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+type LoanPaymentComponent = "principal" | "interest" | "insurance";
+
+type LoanComponentMatch = {
+  components: LoanPaymentComponent[];
+  isFullInstallment: boolean;
+};
+
+type LoanLineReconciliationState = {
+  principalPayment: number;
+  interestPayment: number;
+  insurancePayment: number;
+  totalPayment: number;
+  principalPaidAt: Date | null;
+  interestPaidAt: Date | null;
+  insurancePaidAt: Date | null;
+};
+
+const LOAN_PAYMENT_COMPONENTS: Array<{
+  key: LoanPaymentComponent;
+  amountField: "principalPayment" | "interestPayment" | "insurancePayment";
+  paidAtField: "principalPaidAt" | "interestPaidAt" | "insurancePaidAt";
+}> = [
+  { key: "principal", amountField: "principalPayment", paidAtField: "principalPaidAt" },
+  { key: "interest", amountField: "interestPayment", paidAtField: "interestPaidAt" },
+  { key: "insurance", amountField: "insurancePayment", paidAtField: "insurancePaidAt" },
+];
+
+function isPositiveAccountingAmount(value: number): boolean {
+  return roundCents(value) > 0.01;
+}
+
+function amountMatches(actual: number, expected: number): boolean {
+  const expectedRounded = roundCents(expected);
+  const tolerance = Math.max(0.01, expectedRounded * 0.02);
+  return Math.abs(roundCents(actual) - expectedRounded) <= tolerance;
+}
+
+function findLoanComponentMatch(
+  loanLine: LoanLineReconciliationState,
+  transactionAmount: number
+): LoanComponentMatch | null {
+  const requiredComponents = LOAN_PAYMENT_COMPONENTS.filter((component) =>
+    isPositiveAccountingAmount(loanLine[component.amountField])
+  );
+  const hasComponentAlreadyPaid = requiredComponents.some((component) =>
+    Boolean(loanLine[component.paidAtField])
+  );
+
+  if (!hasComponentAlreadyPaid && amountMatches(transactionAmount, loanLine.totalPayment)) {
+    return { components: requiredComponents.map((component) => component.key), isFullInstallment: true };
+  }
+
+  for (const component of requiredComponents) {
+    if (!loanLine[component.paidAtField] && amountMatches(transactionAmount, loanLine[component.amountField])) {
+      return { components: [component.key], isFullInstallment: false };
+    }
+  }
+
+  const interestAndInsurance: LoanPaymentComponent[] = ["interest", "insurance"];
+  const canMatchInterestAndInsurance = interestAndInsurance.every((component) => {
+    const meta = LOAN_PAYMENT_COMPONENTS.find((item) => item.key === component);
+    return meta && isPositiveAccountingAmount(loanLine[meta.amountField]) && !loanLine[meta.paidAtField];
+  });
+  const interestInsuranceAmount = loanLine.interestPayment + loanLine.insurancePayment;
+  if (canMatchInterestAndInsurance && amountMatches(transactionAmount, interestInsuranceAmount)) {
+    return { components: interestAndInsurance, isFullInstallment: false };
+  }
+
+  return null;
+}
+
+function isLoanLineFullyPaidAfterMatch(
+  loanLine: LoanLineReconciliationState,
+  match: LoanComponentMatch
+): boolean {
+  return LOAN_PAYMENT_COMPONENTS.every((component) => {
+    if (!isPositiveAccountingAmount(loanLine[component.amountField])) return true;
+    return Boolean(loanLine[component.paidAtField]) || match.components.includes(component.key);
+  });
+}
+
 async function upsertAccountingAccount(
   client: Pick<Prisma.TransactionClient, "accountingAccount">,
   societyId: string,
@@ -741,6 +822,12 @@ export async function getUpcomingLoanLines(societyId: string) {
       interestPayment: true,
       insurancePayment: true,
       totalPayment: true,
+      principalPaidAt: true,
+      interestPaidAt: true,
+      insurancePaidAt: true,
+      principalBankTransactionId: true,
+      interestBankTransactionId: true,
+      insuranceBankTransactionId: true,
       loan: { select: { id: true, label: true, lender: true } },
     },
     orderBy: { dueDate: "asc" },
@@ -872,9 +959,12 @@ export async function reconcileWithLoanLine(
       return { success: false, error: "Une échéance de prêt doit être rapprochée avec une transaction bancaire débitrice" };
     }
     const transactionAmount = Math.abs(transaction.amount);
-    const tolerance = Math.max(0.01, loanLine.totalPayment * 0.02);
-    if (Math.abs(transactionAmount - loanLine.totalPayment) > tolerance) {
-      return { success: false, error: "Le montant de la transaction ne correspond pas à l'échéance sélectionnée" };
+    const match = findLoanComponentMatch(loanLine, transactionAmount);
+    if (!match) {
+      return {
+        success: false,
+        error: "Le montant de la transaction ne correspond ni au total ni à un composant non rapproché de l'échéance (capital, intérêts, assurance)",
+      };
     }
 
     await prisma.$transaction(async (tx) => {
@@ -901,6 +991,45 @@ export async function reconcileWithLoanLine(
         }),
       ]);
 
+      const journalLines = [
+        ...(match.components.includes("principal")
+          ? [
+              {
+                accountId: compte164.id,
+                debit: roundCents(loanLine.principalPayment),
+                credit: 0,
+                label: "Remboursement capital emprunt",
+              },
+            ]
+          : []),
+        ...(match.components.includes("interest")
+          ? [
+              {
+                accountId: compte661.id,
+                debit: roundCents(loanLine.interestPayment),
+                credit: 0,
+                label: "Intérêts d'emprunt",
+              },
+            ]
+          : []),
+        ...(match.components.includes("insurance")
+          ? [
+              {
+                accountId: compte616.id,
+                debit: roundCents(loanLine.insurancePayment),
+                credit: 0,
+                label: "Assurance emprunteur",
+              },
+            ]
+          : []),
+        {
+          accountId: compte512.id,
+          debit: 0,
+          credit: roundCents(transactionAmount),
+          label: transaction.label,
+        },
+      ];
+
       const journalEntry = transaction.journalEntryId
         ? null
         : await tx.journalEntry.create({
@@ -912,39 +1041,37 @@ export async function reconcileWithLoanLine(
               label: transaction.label,
               reference: transaction.reference ?? undefined,
               lines: {
-                create: [
-                  {
-                    accountId: compte164.id,
-                    debit: roundCents(loanLine.principalPayment),
-                    credit: 0,
-                    label: "Remboursement capital emprunt",
-                  },
-                  {
-                    accountId: compte661.id,
-                    debit: roundCents(loanLine.interestPayment),
-                    credit: 0,
-                    label: "Intérêts d'emprunt",
-                  },
-                  ...(loanLine.insurancePayment > 0
-                    ? [
-                        {
-                          accountId: compte616.id,
-                          debit: roundCents(loanLine.insurancePayment),
-                          credit: 0,
-                          label: "Assurance emprunteur",
-                        },
-                      ]
-                    : []),
-                  {
-                    accountId: compte512.id,
-                    debit: 0,
-                    credit: transactionAmount,
-                    label: transaction.label,
-                  },
-                ],
+                create: journalLines,
               },
             },
           });
+
+      const isPaid = isLoanLineFullyPaidAfterMatch(loanLine, match);
+      const updateData: {
+        principalPaidAt?: Date;
+        interestPaidAt?: Date;
+        insurancePaidAt?: Date;
+        principalBankTransactionId?: string;
+        interestBankTransactionId?: string;
+        insuranceBankTransactionId?: string;
+        isPaid: boolean;
+        paidAt: Date | null;
+      } = {
+        isPaid,
+        paidAt: isPaid ? transaction.transactionDate : null,
+      };
+      if (match.components.includes("principal")) {
+        updateData.principalPaidAt = transaction.transactionDate;
+        updateData.principalBankTransactionId = transactionId;
+      }
+      if (match.components.includes("interest")) {
+        updateData.interestPaidAt = transaction.transactionDate;
+        updateData.interestBankTransactionId = transactionId;
+      }
+      if (match.components.includes("insurance")) {
+        updateData.insurancePaidAt = transaction.transactionDate;
+        updateData.insuranceBankTransactionId = transactionId;
+      }
 
       await tx.bankTransaction.update({
         where: { id: transactionId },
@@ -955,7 +1082,7 @@ export async function reconcileWithLoanLine(
       });
       await tx.loanAmortizationLine.update({
         where: { id: loanLineId },
-        data: { isPaid: true, paidAt: transaction.transactionDate },
+        data: updateData,
       });
     });
 
@@ -965,7 +1092,13 @@ export async function reconcileWithLoanLine(
       action: "UPDATE",
       entity: "LoanAmortizationLine",
       entityId: loanLineId,
-      details: { transactionId, action: "reconcile_loan_payment", journalType: "BQUE" },
+      details: {
+        transactionId,
+        action: "reconcile_loan_payment",
+        journalType: "BQUE",
+        components: match.components,
+        isFullInstallment: match.isFullInstallment,
+      },
     });
 
     revalidatePath("/banque");

@@ -2533,6 +2533,13 @@ model LoanAmortizationLine {
   isPaid Boolean   @default(false)
   paidAt DateTime?
 
+  principalPaidAt            DateTime?
+  interestPaidAt             DateTime?
+  insurancePaidAt            DateTime?
+  principalBankTransactionId String?   @unique
+  interestBankTransactionId  String?   @unique
+  insuranceBankTransactionId String?   @unique
+
   loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
 
   @@index([loanId])
