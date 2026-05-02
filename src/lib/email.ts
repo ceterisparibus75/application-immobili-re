@@ -495,6 +495,7 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams): Promise<Emai
       { label: "Loyer mensuel", value: fmt(params.monthlyRent), bold: true },
     ])}
     ${params.contactEmail ? para(`Contact : <a href="mailto:${params.contactEmail}" style="color:${BRAND.blue};text-decoration:none;">${params.contactEmail}</a>`) : ""}
+    ${ctaButton("Accéder à mon espace locataire", `${SITE_URL}/portal`)}
     ${para("Nous vous souhaitons un agréable séjour.")}
     ${signature(params.societyName)}
   `;
@@ -875,7 +876,7 @@ export async function sendWelcomeTrialEmail(
       ${stepsHtml}
     </table>
 
-    ${ctaButton("Accéder à mon espace", `${SITE_URL}/proprietaire`)}
+    ${ctaButton("Accéder à mon espace", `${SITE_URL}/login`)}
 
     ${infoBox(
       `Des questions ? Notre équipe est disponible à <a href="mailto:contact@mygestia.immo" style="color:${BRAND.blue};">contact@mygestia.immo</a> ou directement depuis l'assistant IA intégré à votre espace.`,

@@ -360,6 +360,19 @@ describe("sendWelcomeEmail", () => {
     const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
     expect(html).toContain("gestion@sci.fr");
   });
+
+  it("inclut le lien permanent vers le portail locataire", async () => {
+    await sendWelcomeEmail({
+      to: "locataire@example.com",
+      tenantName: "Marie Curie",
+      propertyAddress: "12 rue de la Paix, Paris",
+      leaseStart: "01/02/2026",
+      monthlyRent: 900,
+      societyName: "SCI Patrimoine",
+    });
+    const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
+    expect(html).toContain("/portal");
+  });
 });
 
 // ── sendPortalActivationEmail ──────────────────────────────────
@@ -567,5 +580,11 @@ describe("sendWelcomeTrialEmail", () => {
         subject: expect.stringContaining("essai"),
       })
     );
+  });
+
+  it("inclut le lien permanent de connexion gestionnaire", async () => {
+    await sendWelcomeTrialEmail("new@example.com", "Alice", "Starter");
+    const html: string = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0].html;
+    expect(html).toContain("/login");
   });
 });
