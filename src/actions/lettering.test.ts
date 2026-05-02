@@ -436,12 +436,66 @@ describe("getLetteringSuggestions", () => {
         totalDebit: 500,
         totalCredit: 500,
         difference: 0,
-        reason: "Montants identiques",
+        reason: "libellés proches, date proche",
       }),
     ]);
     expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ letteringCode: null, lettrage: null }),
+      })
+    );
+  });
+
+  it("priorise la contrepartie avec référence commune et date proche", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const unrelatedCreditId = "clh3x2z4k0005qh8g7z1y2v3y";
+    const matchingCreditId = "clh3x2z4k0006qh8g7z1y2v3z";
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 500,
+        credit: 0,
+        label: "Facture FAC-2026-001",
+        journalEntry: {
+          entryDate: new Date("2026-01-10"),
+          piece: "FAC-2026-001",
+          reference: "BAIL-42",
+          label: "Facture janvier",
+        },
+      },
+      {
+        id: unrelatedCreditId,
+        debit: 0,
+        credit: 500,
+        label: "Paiement ancien sans référence",
+        journalEntry: {
+          entryDate: new Date("2025-11-01"),
+          piece: "PAY-OLD",
+          reference: null,
+          label: "Paiement ancien",
+        },
+      },
+      {
+        id: matchingCreditId,
+        debit: 0,
+        credit: 500,
+        label: "Paiement FAC-2026-001",
+        journalEntry: {
+          entryDate: new Date("2026-01-12"),
+          piece: "PAY-2026-001",
+          reference: "BAIL-42",
+          label: "Paiement janvier FAC-2026-001",
+        },
+      },
+    ] as never);
+
+    const result = await getLetteringSuggestions(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.suggestions[0]).toEqual(
+      expect.objectContaining({
+        lineIds: [LINE_ID_1, matchingCreditId],
+        reason: "Référence commune, libellés proches, date proche",
       })
     );
   });

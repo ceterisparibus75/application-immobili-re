@@ -41,12 +41,77 @@ export type LetteringSuggestion = {
     label: string | null;
     entryDate: Date;
     piece: string | null;
+    reference: string | null;
     entryLabel: string;
   }[];
 };
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function normalizeMatchText(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function hasSharedReference(
+  debitLine: { label: string | null; journalEntry: { piece: string | null; reference: string | null; label: string } },
+  creditLine: { label: string | null; journalEntry: { piece: string | null; reference: string | null; label: string } }
+): boolean {
+  const debitRefs = [
+    debitLine.journalEntry.reference,
+    debitLine.journalEntry.piece,
+  ].map(normalizeMatchText).filter(Boolean);
+  const creditRefs = [
+    creditLine.journalEntry.reference,
+    creditLine.journalEntry.piece,
+  ].map(normalizeMatchText).filter(Boolean);
+
+  return debitRefs.some((debitRef) =>
+    creditRefs.includes(debitRef) ||
+    normalizeMatchText(creditLine.label).includes(debitRef) ||
+    normalizeMatchText(creditLine.journalEntry.label).includes(debitRef)
+  );
+}
+
+function labelsLookRelated(
+  debitLine: { label: string | null; journalEntry: { piece: string | null; label: string } },
+  creditLine: { label: string | null; journalEntry: { label: string } }
+): boolean {
+  const debitPiece = normalizeMatchText(debitLine.journalEntry.piece);
+  if (debitPiece && (normalizeMatchText(creditLine.label).includes(debitPiece) || normalizeMatchText(creditLine.journalEntry.label).includes(debitPiece))) {
+    return true;
+  }
+
+  const debitTokens = new Set([
+    ...normalizeMatchText(debitLine.label).split(" "),
+    ...normalizeMatchText(debitLine.journalEntry.label).split(" "),
+  ].filter((token) => token.length >= 4));
+  const creditTokens = new Set([
+    ...normalizeMatchText(creditLine.label).split(" "),
+    ...normalizeMatchText(creditLine.journalEntry.label).split(" "),
+  ].filter((token) => token.length >= 4));
+
+  return [...debitTokens].some((token) => creditTokens.has(token));
+}
+
+function daysBetween(a: Date, b: Date): number {
+  return Math.abs(a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function buildSuggestionReason(matches: { sharedReference: boolean; relatedLabels: boolean; closeDate: boolean }): string {
+  const reasons = [
+    matches.sharedReference ? "Référence commune" : null,
+    matches.relatedLabels ? "libellés proches" : null,
+    matches.closeDate ? "date proche" : null,
+  ].filter((reason): reason is string => Boolean(reason));
+
+  return reasons.length > 0 ? reasons.join(", ") : "Montants identiques";
 }
 /**
  * Genere le prochain code de lettrage pour une societe.
@@ -413,6 +478,7 @@ export async function getLetteredGroups(
           select: {
             entryDate: true,
             piece: true,
+            reference: true,
             label: true,
           },
         },
@@ -491,6 +557,7 @@ export async function getLetteringSuggestions(
           select: {
             entryDate: true,
             piece: true,
+            reference: true,
             label: true,
           },
         },
@@ -506,9 +573,21 @@ export async function getLetteringSuggestions(
     const suggestions: LetteringSuggestion[] = [];
 
     for (const debitLine of lines.filter((line) => line.debit > 0 && line.credit === 0)) {
-      const match = availableCredits.find((candidate) =>
-        !candidate.used && Math.abs(roundCents(debitLine.debit - candidate.line.credit)) <= 0.01
-      );
+      const match = availableCredits
+        .filter((candidate) => !candidate.used && Math.abs(roundCents(debitLine.debit - candidate.line.credit)) <= 0.01)
+        .map((candidate) => {
+          const sharedReference = hasSharedReference(debitLine, candidate.line);
+          const relatedLabels = labelsLookRelated(debitLine, candidate.line);
+          const closeDate = daysBetween(debitLine.journalEntry.entryDate, candidate.line.journalEntry.entryDate) <= 15;
+          const score =
+            100 +
+            (sharedReference ? 50 : 0) +
+            (relatedLabels ? 20 : 0) +
+            (closeDate ? 10 : 0) -
+            Math.min(daysBetween(debitLine.journalEntry.entryDate, candidate.line.journalEntry.entryDate), 365) / 100;
+          return { ...candidate, score, sharedReference, relatedLabels, closeDate };
+        })
+        .sort((a, b) => b.score - a.score)[0];
       if (!match) continue;
       match.used = true;
 
@@ -519,6 +598,7 @@ export async function getLetteringSuggestions(
         label: line.label,
         entryDate: line.journalEntry.entryDate,
         piece: line.journalEntry.piece,
+        reference: line.journalEntry.reference ?? null,
         entryLabel: line.journalEntry.label,
       }));
 
@@ -527,7 +607,7 @@ export async function getLetteringSuggestions(
         totalDebit: roundCents(debitLine.debit),
         totalCredit: roundCents(match.line.credit),
         difference: 0,
-        reason: "Montants identiques",
+        reason: buildSuggestionReason(match),
         lines: suggestionLines,
       });
     }
