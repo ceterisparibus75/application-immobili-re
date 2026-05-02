@@ -191,6 +191,19 @@ export default function ImportGrandLivrePage() {
         </div>
       </div>
 
+      <Card className="border-amber-500/40 bg-amber-500/10">
+        <CardContent className="flex items-start gap-3 py-4 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <p className="text-muted-foreground">
+            Les données importées sont reprises telles que fournies dans le
+            fichier. MyGestia ne garantit pas leur exactitude, leur
+            exhaustivité ni leur conformité comptable ou fiscale ; leur
+            vérification relève de l&apos;utilisateur, notamment via les travaux de
+            lettrage, de révision et de clôture.
+          </p>
+        </CardContent>
+      </Card>
+
       {entries.length === 0 && (
         <Card
           className={["border-2 border-dashed transition-colors cursor-pointer", isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"].join(" ")}

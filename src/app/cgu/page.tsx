@@ -86,9 +86,22 @@ export default function CGUPage() {
               <ul className="list-disc pl-6 space-y-1">
                 <li>Des dommages indirects, y compris la perte de chiffre d&apos;affaires, de donnees ou d&apos;opportunites.</li>
                 <li>Des interruptions temporaires du Service pour maintenance ou mise a jour.</li>
-                <li>De l&apos;inexactitude des donnees saisies par l&apos;Utilisateur.</li>
+                <li>De l&apos;inexactitude, de l&apos;incompletude ou de la non-conformite des donnees saisies, importees, synchronisees ou transmises par l&apos;Utilisateur.</li>
                 <li>Des dysfonctionnements lies aux services tiers (hebergement, paiement, email).</li>
               </ul>
+              <p>
+                L&apos;Utilisateur demeure seul responsable de la fiabilite, de
+                l&apos;exactitude, de l&apos;exhaustivite et de la conformite comptable,
+                fiscale et juridique des informations qu&apos;il saisit ou importe
+                dans le Service, notamment les ecritures comptables, grands
+                livres, fichiers, documents justificatifs, donnees locatives et
+                donnees financieres. Les fonctions d&apos;import, d&apos;export, de
+                rapprochement, de lettrage, de revision, de controle ou
+                d&apos;assistance proposees par le Service constituent des outils
+                d&apos;aide a la gestion et ne se substituent pas aux controles,
+                validations et diligences de l&apos;Utilisateur ou de ses conseils
+                professionnels.
+              </p>
               <p>En tout etat de cause, la responsabilite de l&apos;Editeur est limitee au montant des sommes effectivement versees par l&apos;Utilisateur au cours des 12 derniers mois.</p>
             </div>
           </section>
