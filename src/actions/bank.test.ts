@@ -349,6 +349,94 @@ describe("getBankAccountById", () => {
     expect(r!.unreconciledCount).toBe(3)
   })
 
+  it("limite le nombre de transactions chargees pour eviter un rendu serveur trop long", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-1",
+      societyId: SOCIETY_ID,
+      ibanEncrypted: "encrypted_FR7630006000011234567890189",
+      initialBalance: 0,
+      currentBalance: 0,
+      transactions: [],
+      connection: null,
+      _count: { transactions: 1200 },
+    } as never)
+    prismaMock.bankTransaction.count.mockResolvedValue(0 as never)
+
+    await getBankAccountById(SOCIETY_ID, "ba-1")
+
+    expect(prismaMock.bankAccount.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          transactions: expect.objectContaining({
+            take: 250,
+          }),
+        }),
+      })
+    )
+  })
+
+  it("charge les 30 derniers jours par defaut quand aucune periode n'est choisie", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-1",
+      societyId: SOCIETY_ID,
+      ibanEncrypted: "encrypted_FR7630006000011234567890189",
+      initialBalance: 0,
+      currentBalance: 0,
+      transactions: [],
+      connection: null,
+      _count: { transactions: 10 },
+    } as never)
+    prismaMock.bankTransaction.count.mockResolvedValue(0 as never)
+
+    await getBankAccountById(SOCIETY_ID, "ba-1")
+
+    expect(prismaMock.bankAccount.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          transactions: expect.objectContaining({
+            where: expect.objectContaining({
+              transactionDate: expect.objectContaining({ gte: expect.any(Date) }),
+            }),
+          }),
+        }),
+      })
+    )
+  })
+
+  it("filtre les transactions sur le mois choisi", async () => {
+    mockAuthSession(UserRole.LECTURE)
+    prismaMock.bankAccount.findFirst.mockResolvedValue({
+      id: "ba-1",
+      societyId: SOCIETY_ID,
+      ibanEncrypted: "encrypted_FR7630006000011234567890189",
+      initialBalance: 0,
+      currentBalance: 0,
+      transactions: [],
+      connection: null,
+      _count: { transactions: 10 },
+    } as never)
+    prismaMock.bankTransaction.count.mockResolvedValue(0 as never)
+
+    await getBankAccountById(SOCIETY_ID, "ba-1", { period: "month", month: "2026-04" })
+
+    expect(prismaMock.bankAccount.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          transactions: expect.objectContaining({
+            where: expect.objectContaining({
+              transactionDate: expect.objectContaining({
+                gte: new Date("2026-04-01T00:00:00.000Z"),
+                lte: new Date("2026-04-30T23:59:59.999Z"),
+              }),
+            }),
+          }),
+        }),
+      })
+    )
+  })
+
   it("normalise les soldes et montants nulls d anciennes données bancaires", async () => {
     mockAuthSession(UserRole.LECTURE)
     prismaMock.bankAccount.findFirst.mockResolvedValue({

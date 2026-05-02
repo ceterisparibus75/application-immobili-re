@@ -20,6 +20,17 @@ const DIRECTION_OPTIONS = [
   { value: "debit", label: "Sorties uniquement" },
 ];
 
+const PERIOD_OPTIONS = [
+  { value: "last30", label: "30 derniers jours" },
+  { value: "month", label: "Mois choisi" },
+  { value: "custom", label: "Dates personnalisées" },
+];
+
+function getCurrentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function TransactionFilters() {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,23 +49,97 @@ export function TransactionFilters() {
     [router, pathname, searchParams]
   );
 
+  const updatePeriod = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("dateFrom");
+      params.delete("dateTo");
+      if (value === "last30") {
+        params.delete("period");
+        params.delete("month");
+      } else {
+        params.set("period", value);
+        if (value === "month" && !params.get("month")) params.set("month", getCurrentMonthValue());
+        if (value !== "month") params.delete("month");
+      }
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
+  const updateMonth = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("dateFrom");
+      params.delete("dateTo");
+      if (value) {
+        params.set("period", "month");
+        params.set("month", value);
+      } else {
+        params.delete("period");
+        params.delete("month");
+      }
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
+  const updateDate = useCallback(
+    (key: "dateFrom" | "dateTo", value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("month");
+      if (value) {
+        params.set("period", "custom");
+        params.set(key, value);
+      } else {
+        params.delete(key);
+        if (!params.has("dateFrom") && !params.has("dateTo")) params.delete("period");
+      }
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
   const reset = () => router.push(pathname);
+  const period = searchParams.get("period") ?? "last30";
 
   const hasFilters =
     searchParams.has("dateFrom") ||
     searchParams.has("dateTo") ||
+    searchParams.has("month") ||
     searchParams.has("category") ||
-    searchParams.has("direction");
+    searchParams.has("direction") ||
+    searchParams.has("period");
 
   return (
     <div className="flex flex-wrap gap-3 items-end px-4 pb-3 border-b border-border/50">
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Période</Label>
+        <NativeSelect
+          options={PERIOD_OPTIONS}
+          value={period}
+          onChange={(e) => updatePeriod(e.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+      {period === "month" && (
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Mois</Label>
+          <Input
+            type="month"
+            className="h-8 text-xs w-36"
+            value={searchParams.get("month") ?? getCurrentMonthValue()}
+            onChange={(e) => updateMonth(e.target.value)}
+          />
+        </div>
+      )}
       <div className="space-y-1">
         <Label className="text-xs text-muted-foreground">Du</Label>
         <Input
           type="date"
           className="h-8 text-xs w-36"
           value={searchParams.get("dateFrom") ?? ""}
-          onChange={(e) => update("dateFrom", e.target.value)}
+          onChange={(e) => updateDate("dateFrom", e.target.value)}
         />
       </div>
       <div className="space-y-1">
@@ -63,7 +148,7 @@ export function TransactionFilters() {
           type="date"
           className="h-8 text-xs w-36"
           value={searchParams.get("dateTo") ?? ""}
-          onChange={(e) => update("dateTo", e.target.value)}
+          onChange={(e) => updateDate("dateTo", e.target.value)}
         />
       </div>
       <div className="space-y-1">

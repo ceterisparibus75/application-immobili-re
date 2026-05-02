@@ -28,6 +28,38 @@ function normalizeBankNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function getDefaultTransactionDateFrom(): Date {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  return date;
+}
+
+function buildBankTransactionDateFilter(filters?: {
+  dateFrom?: string;
+  dateTo?: string;
+  period?: string;
+  month?: string;
+}) {
+  if (filters?.dateFrom || filters?.dateTo) {
+    return {
+      ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+      ...(filters.dateTo ? { lte: new Date(filters.dateTo + "T23:59:59") } : {}),
+    };
+  }
+
+  const monthMatch = filters?.period === "month" && filters.month?.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const monthIndex = Number(monthMatch[2]) - 1;
+    return {
+      gte: new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0)),
+      lte: new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59, 999)),
+    };
+  }
+
+  return { gte: getDefaultTransactionDateFrom() };
+}
+
 export async function createBankAccount(
   societyId: string,
   input: CreateBankAccountInput
@@ -151,10 +183,12 @@ export async function getBankAccounts(societyId: string) {
 export async function getBankAccountById(
   societyId: string,
   accountId: string,
-  filters?: { dateFrom?: string; dateTo?: string; category?: string; direction?: string }
+  filters?: { dateFrom?: string; dateTo?: string; category?: string; direction?: string; period?: string; month?: string }
 ) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return null;
+
+  const transactionDate = buildBankTransactionDateFilter(filters);
 
   const [account, unreconciledCount] = await Promise.all([
     prisma.bankAccount.findFirst({
@@ -162,13 +196,13 @@ export async function getBankAccountById(
       include: {
         transactions: {
           where: {
-            ...(filters?.dateFrom && { transactionDate: { gte: new Date(filters.dateFrom) } }),
-            ...(filters?.dateTo && { transactionDate: { lte: new Date(filters.dateTo + "T23:59:59") } }),
+            transactionDate,
             ...(filters?.category && { category: filters.category }),
             ...(filters?.direction === "credit" && { amount: { gt: 0 } }),
             ...(filters?.direction === "debit" && { amount: { lt: 0 } }),
           },
           orderBy: { transactionDate: "desc" },
+          take: 250,
         },
         connection: {
           select: { institutionName: true, status: true },

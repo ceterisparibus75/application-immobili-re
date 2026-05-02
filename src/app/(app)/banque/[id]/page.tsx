@@ -6,8 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { isNeutralCategory } from "@/lib/cashflow-categories";
+import { buildMonthlyTransactionGroups } from "@/lib/bank-transactions";
 import {
   ArrowLeft,
   ArrowDownLeft,
@@ -40,7 +41,7 @@ export default async function BankAccountDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ dateFrom?: string; dateTo?: string; category?: string; direction?: string }>;
+  searchParams: Promise<{ dateFrom?: string; dateTo?: string; category?: string; direction?: string; period?: string; month?: string }>;
 }) {
   const { id } = await params;
   const filters = await searchParams;
@@ -58,6 +59,7 @@ export default async function BankAccountDetailPage({
   const debits = account.transactions
     .filter((t) => t.amount < 0 && !isNeutralCategory(t.category ?? ""))
     .reduce((s, t) => s + t.amount, 0);
+  const monthlyGroups = buildMonthlyTransactionGroups(account.transactions);
 
   return (
     <div className="space-y-6">
@@ -193,68 +195,81 @@ export default async function BankAccountDetailPage({
                 </p>
               ) : (
                 <div className="divide-y divide-border/50">
-                  {account.transactions.map((transaction) => {
-                    const isCredit = transaction.amount >= 0;
-                    return (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
-                      >
-                        {/* Icône direction */}
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                          isCredit
-                            ? "bg-[var(--color-status-positive-bg)]"
-                            : "bg-[var(--color-status-negative-bg)]"
-                        }`}>
-                          {isCredit
-                            ? <ArrowDownLeft className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
-                            : <ArrowUpRight className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
-                          }
+                  {monthlyGroups.map((group) => (
+                    <section key={group.monthKey} className="divide-y divide-border/50">
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/40 px-4 py-2">
+                        <div>
+                          <p className="text-sm font-semibold capitalize">{group.label}</p>
+                          <p className="text-xs text-muted-foreground">{group.count} opération{group.count !== 1 ? "s" : ""}</p>
                         </div>
-
-                        {/* Libellé + méta */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" title={transaction.label}>
-                            {transaction.label}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(transaction.transactionDate).toLocaleDateString("fr-FR")}
-                            </span>
-                            {transaction.reference && (
-                              <span className="text-xs text-muted-foreground truncate max-w-32" title={transaction.reference}>
-                                · {transaction.reference}
-                              </span>
-                            )}
-                            {transaction.category && (
-                              <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
-                                {transaction.category}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Montant */}
-                        <div className="text-right shrink-0">
-                          <p className={`text-sm font-semibold tabular-nums ${
-                            isCredit
-                              ? "text-[var(--color-status-positive)]"
-                              : "text-[var(--color-status-negative)]"
-                          }`}>
-                            {isCredit ? "+" : ""}{transaction.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                          </p>
-                        </div>
-
-                        {/* Statut */}
-                        <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
-                          {transaction.isReconciled
-                            ? <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
-                            : <Clock className="h-4 w-4 text-muted-foreground/40" />
-                          }
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                          <span className="text-[var(--color-status-positive)]">Entrées {formatCurrency(group.totalCredit)}</span>
+                          <span className="text-[var(--color-status-negative)]">Sorties {formatCurrency(group.totalDebit)}</span>
+                          <span className={group.net >= 0 ? "font-semibold text-foreground" : "font-semibold text-[var(--color-status-negative)]"}>
+                            Net {formatCurrency(group.net)}
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
+                      {group.transactions.map((transaction) => {
+                        const isCredit = transaction.amount >= 0;
+                        return (
+                          <div
+                            key={transaction.id}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
+                          >
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                              isCredit
+                                ? "bg-[var(--color-status-positive-bg)]"
+                                : "bg-[var(--color-status-negative-bg)]"
+                            }`}>
+                              {isCredit
+                                ? <ArrowDownLeft className="h-3.5 w-3.5 text-[var(--color-status-positive)]" />
+                                : <ArrowUpRight className="h-3.5 w-3.5 text-[var(--color-status-negative)]" />
+                              }
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate" title={transaction.label}>
+                                {transaction.label}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(transaction.transactionDate).toLocaleDateString("fr-FR")}
+                                </span>
+                                {transaction.reference && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-32" title={transaction.reference}>
+                                    · {transaction.reference}
+                                  </span>
+                                )}
+                                {transaction.category && (
+                                  <span className="inline-flex text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                                    {transaction.category}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <p className={`text-sm font-semibold tabular-nums ${
+                                isCredit
+                                  ? "text-[var(--color-status-positive)]"
+                                  : "text-[var(--color-status-negative)]"
+                              }`}>
+                                {isCredit ? "+" : ""}{transaction.amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 w-6 flex justify-center" title={transaction.isReconciled ? "Rapproché" : "En attente"}>
+                              {transaction.isReconciled
+                                ? <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
+                                : <Clock className="h-4 w-4 text-muted-foreground/40" />
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  ))}
                 </div>
               )}
             </CardContent>
