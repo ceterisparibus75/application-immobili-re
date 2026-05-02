@@ -12,7 +12,7 @@ vi.mock("@/lib/portal-auth", () => ({ requirePortalAuth }));
 import { updatePortalTenantContact } from "./portal-tenant";
 import { createAuditLog } from "@/lib/audit";
 
-const baseTenant = {
+const baseTenantData = {
   id: "tenant-1",
   societyId: "soc-1",
   entityType: "PERSONNE_PHYSIQUE",
@@ -20,7 +20,8 @@ const baseTenant = {
   mobile: "0600000000",
   personalAddress: "Ancienne adresse",
   companyAddress: null,
-} as never;
+};
+const baseTenant = baseTenantData as never;
 
 describe("updatePortalTenantContact", () => {
   beforeEach(() => {
@@ -120,7 +121,7 @@ describe("updatePortalTenantContact", () => {
   });
 
   it("met a jour companyAddress pour PERSONNE_MORALE", async () => {
-    const moralTenant = { id: "tenant-1", societyId: "soc-1", entityType: "PERSONNE_MORALE", phone: "0100000000", mobile: "0600000000", personalAddress: null, companyAddress: "Ancienne adresse societe" } as never;
+    const moralTenant = { ...baseTenantData, entityType: "PERSONNE_MORALE", companyAddress: "Ancienne adresse societe", personalAddress: null } as never;
     prismaMock.tenant.findFirst.mockResolvedValue(moralTenant);
     prismaMock.tenant.update.mockResolvedValue({ id: "tenant-1" } as never);
 
