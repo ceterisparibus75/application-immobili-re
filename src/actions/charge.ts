@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
@@ -478,7 +478,15 @@ export async function generateAnnualChargeReport(
         buildingId,
         date: { gte: periodStart, lte: periodEnd },
       },
-      include: { category: true },
+      include: {
+        category: {
+          include: {
+            allocationKeys: {
+              include: { entries: { select: { lotId: true, percentage: true } } },
+            },
+          },
+        },
+      },
     });
 
     if (charges.length === 0) {
@@ -559,14 +567,18 @@ export async function generateAnnualChargeReport(
         const recoverableRate = category.nature === "RECUPERABLE" ? 1 : (category.recoverableRate ?? 50) / 100;
         const recoverableAmount = totalAmount * recoverableRate;
 
-        // Clé de répartition
+        // Clé de répartition (PERSONNALISE utilise les entrées stockées)
         let allocationRate = 0;
-        if (category.allocationMethod === "SURFACE" && totalSurface > 0) {
+        if (category.allocationMethod === "PERSONNALISE" && category.allocationKeys.length > 0) {
+          const key = category.allocationKeys[0]!;
+          const entry = key.entries.find((e) => e.lotId === lease.lotId);
+          allocationRate = entry ? entry.percentage / 100 : 0;
+        } else if (category.allocationMethod === "SURFACE" && totalSurface > 0) {
           allocationRate = lease.lot.area / totalSurface;
         } else if (category.allocationMethod === "NB_LOTS" && nbLots > 0) {
           allocationRate = 1 / nbLots;
         } else {
-          // TANTIEME (default) - fallback sur SURFACE si pas de tantièmes
+          // TANTIEME (default) - fallback sur SURFACE si pas de tantiemes
           if (totalTantiemes > 0 && (lease.lot.commonShares ?? 0) > 0) {
             allocationRate = (lease.lot.commonShares ?? 0) / totalTantiemes;
           } else if (totalSurface > 0) {
