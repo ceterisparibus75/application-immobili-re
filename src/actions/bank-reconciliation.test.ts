@@ -867,6 +867,19 @@ describe("reconcileWithLoanLine", () => {
     expect(r.error).toContain("Échéance introuvable");
   });
 
+  it("ne charge que les échéances de prêt non payées", async () => {
+    const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
+    expect(r.success).toBe(true);
+    expect(prismaMock.loanAmortizationLine.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: LOAN_LINE_ID,
+          isPaid: false,
+        }),
+      })
+    );
+  });
+
   it("refuse de rapprocher une échéance de prêt avec un crédit bancaire", async () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue(buildTransaction({ amount: 500 }) as never);
 

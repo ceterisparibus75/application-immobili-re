@@ -863,7 +863,7 @@ export async function reconcileWithLoanLine(
         where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
       }),
       prisma.loanAmortizationLine.findFirst({
-        where: { id: loanLineId, loan: { societyId } },
+        where: { id: loanLineId, isPaid: false, loan: { societyId } },
       }),
     ]);
     if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
