@@ -1027,6 +1027,21 @@ describe("generateJournalEntry", () => {
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("refuse de générer une écriture bancaire pour un montant nul", async () => {
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      ...buildTransaction(),
+      amount: 0,
+      reconciliations: [],
+      bankAccount: { id: ACCOUNT_ID, societyId: SOCIETY_ID },
+    } as never);
+
+    const r = await generateJournalEntry(SOCIETY_ID, TX_ID);
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/montant nul/i);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("génère une écriture pour un décaissement (montant négatif)", async () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue({
       ...buildTransaction(),

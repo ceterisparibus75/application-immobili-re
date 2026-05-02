@@ -585,6 +585,9 @@ export async function generateJournalEntry(
     if (transaction.journalEntryId) {
       return { success: true, data: { id: transaction.journalEntryId } };
     }
+    if (Math.abs(transaction.amount) <= 0.01) {
+      return { success: false, error: "Impossible de générer une écriture bancaire pour un montant nul" };
+    }
 
     const amount = Math.abs(transaction.amount);
     const isIncome = transaction.amount > 0;
