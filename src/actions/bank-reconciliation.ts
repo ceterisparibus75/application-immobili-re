@@ -1283,6 +1283,85 @@ export async function getBankReconciliationSuggestions(
   });
 }
 
+// ─── Rapprochement avec une écriture BQUE existante ─────────────────────────
+
+export async function reconcileWithJournalEntry(
+  societyId: string,
+  transactionId: string,
+  journalEntryId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const [transaction, journalEntry] = await Promise.all([
+      prisma.bankTransaction.findFirst({
+        where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+      }),
+      prisma.journalEntry.findFirst({
+        where: { id: journalEntryId, societyId, journalType: "BQUE" },
+        include: {
+          bankTransaction: { select: { id: true } },
+          lines: {
+            select: {
+              debit: true,
+              credit: true,
+              account: { select: { code: true, label: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+    if (!journalEntry) return { success: false, error: "Écriture BQUE introuvable" };
+    if (journalEntry.bankTransaction) {
+      return { success: false, error: "Cette écriture BQUE est déjà liée à une transaction bancaire" };
+    }
+    if (journalEntry.isValidated || journalEntry.status !== "BROUILLON") {
+      return { success: false, error: "Seules les écritures BQUE en brouillon peuvent être rapprochées" };
+    }
+
+    const bankAmount = roundCents(
+      journalEntry.lines.reduce((sum, line) => {
+        if (!line.account.code.startsWith("512")) return sum;
+        return sum + line.debit - line.credit;
+      }, 0)
+    );
+    if (Math.abs(bankAmount - roundCents(transaction.amount)) > 0.01) {
+      return { success: false, error: "Le montant banque de l'écriture BQUE ne correspond pas à la transaction" };
+    }
+
+    await prisma.bankTransaction.update({
+      where: { id: transactionId },
+      data: { isReconciled: true, journalEntryId },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "BankTransaction",
+      entityId: transactionId,
+      details: {
+        action: "reconcile_journal_entry",
+        journalEntryId,
+        journalType: "BQUE",
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/comptabilite");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileWithJournalEntry]", error);
+    return { success: false, error: "Erreur lors du rapprochement avec l'écriture BQUE" };
+  }
+}
+
 // ─── Rapprochement avec une facture (crée le paiement auto) ──────────────────
 
 export async function reconcileWithInvoice(

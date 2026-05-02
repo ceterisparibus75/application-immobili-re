@@ -24,6 +24,7 @@ import {
   getSupplierInvoicesToReconcile,
   reconcileWithSupplierInvoice,
   getBankReconciliationSuggestions,
+  reconcileWithJournalEntry,
   generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
@@ -1294,6 +1295,65 @@ describe("getBankReconciliationSuggestions", () => {
     );
     expect(result[1].candidates.map((candidate) => candidate.kind)).toContain("payment");
     expect(result[1].bestCandidate?.score).toBeGreaterThanOrEqual(80);
+  });
+});
+
+// ─── Rapprochement avec une écriture BQUE existante ─────────────────────────
+
+describe("reconcileWithJournalEntry", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: -140, bankAccountId: ACCOUNT_ID, journalEntryId: null }) as never
+    );
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: JOURNAL_ID,
+      societyId: SOCIETY_ID,
+      journalType: "BQUE",
+      status: "BROUILLON",
+      isValidated: false,
+      bankTransaction: null,
+      lines: [
+        { debit: 140, credit: 0, account: { code: "627000", label: "Frais bancaires" } },
+        { debit: 0, credit: 140, account: { code: "512", label: "Banque" } },
+      ],
+    } as never);
+  });
+
+  it("lie une transaction bancaire à une écriture BQUE existante si le montant 512 correspond", async () => {
+    const result = await reconcileWithJournalEntry(SOCIETY_ID, TX_ID, JOURNAL_ID);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE",
+        entity: "BankTransaction",
+        entityId: TX_ID,
+      })
+    );
+  });
+
+  it("refuse de lier une écriture BQUE si le montant banque ne correspond pas", async () => {
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: JOURNAL_ID,
+      journalType: "BQUE",
+      status: "BROUILLON",
+      isValidated: false,
+      bankTransaction: null,
+      lines: [
+        { debit: 0, credit: 80, account: { code: "512", label: "Banque" } },
+      ],
+    } as never);
+
+    const result = await reconcileWithJournalEntry(SOCIETY_ID, TX_ID, JOURNAL_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/montant/i);
+    expect(prismaMock.bankTransaction.update).not.toHaveBeenCalled();
   });
 });
 

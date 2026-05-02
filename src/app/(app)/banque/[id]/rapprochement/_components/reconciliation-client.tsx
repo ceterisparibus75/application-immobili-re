@@ -11,9 +11,11 @@ import {
   autoReconcile,
   generateJournalEntry,
   manualReconcile,
+  reconcileWithJournalEntry,
   reconcileWithInvoice,
   reconcileWithLoanLine,
   reconcileWithSupplierInvoice,
+  type ReconciliationCandidate,
   type BankReconciliationSuggestion,
 } from "@/actions/bank-reconciliation";
 import { toast } from "sonner";
@@ -226,6 +228,37 @@ export default function ReconciliationClient({
     });
   }
 
+  function handleApplySuggestion(candidate: ReconciliationCandidate) {
+    if (!selectedTxId) return;
+    setReconcileTargetId(candidate.targetId);
+    startTransition(async () => {
+      let result;
+      if (candidate.kind === "payment") {
+        result = await manualReconcile(societyId, {
+          transactionId: selectedTxId,
+          paymentId: candidate.targetId,
+        });
+      } else if (candidate.kind === "invoice") {
+        result = await reconcileWithInvoice(societyId, selectedTxId, candidate.targetId);
+      } else if (candidate.kind === "loanLine") {
+        result = await reconcileWithLoanLine(societyId, selectedTxId, candidate.targetId);
+      } else if (candidate.kind === "supplierInvoice") {
+        result = await reconcileWithSupplierInvoice(societyId, selectedTxId, candidate.targetId);
+      } else {
+        result = await reconcileWithJournalEntry(societyId, selectedTxId, candidate.targetId);
+      }
+
+      if (result.success) {
+        toast.success("Suggestion appliquée");
+        setSelectedTxId(null);
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Impossible d'appliquer la suggestion");
+      }
+      setReconcileTargetId(null);
+    });
+  }
+
   const totalRight =
     payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
   const selectedTx = selectedTxId
@@ -410,16 +443,35 @@ export default function ReconciliationClient({
             {selectedSuggestion?.bestCandidate && (
               <div className="border-b border-border/60 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Meilleur candidat
+                  Suggestions
                 </p>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-status-caution-bg)]/60 p-3">
-                  <div>
-                    <p className="text-sm font-medium">{selectedSuggestion.bestCandidate.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedSuggestion.bestCandidate.kind} · {selectedSuggestion.bestCandidate.reason}
-                    </p>
-                  </div>
-                  <Badge variant="warning">{selectedSuggestion.bestCandidate.score}%</Badge>
+                <div className="mt-2 space-y-2">
+                  {selectedSuggestion.candidates.slice(0, 3).map((candidate) => (
+                    <div key={`${candidate.kind}-${candidate.targetId}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-status-caution-bg)]/60 p-3">
+                      <div>
+                        <p className="text-sm font-medium">{candidate.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {candidate.kind} · {candidate.reason}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="warning">{candidate.score}%</Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApplySuggestion(candidate)}
+                          disabled={isPending}
+                        >
+                          {isPending && reconcileTargetId === candidate.targetId ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                          Appliquer
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
