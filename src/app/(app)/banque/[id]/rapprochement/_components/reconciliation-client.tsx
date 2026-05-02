@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GitMerge, Loader2, Zap, Receipt, Banknote, Check } from "lucide-react";
+import { Check, FileText, GitMerge, Loader2, Zap, Receipt, Banknote } from "lucide-react";
 import {
   autoReconcile,
+  generateJournalEntry,
   manualReconcile,
   reconcileWithInvoice,
   reconcileWithLoanLine,
@@ -21,6 +23,7 @@ type Transaction = {
   amount: number;
   label: string;
   reference: string | null;
+  journalEntryId: string | null;
 };
 type Payment = {
   id: string;
@@ -99,10 +102,12 @@ export default function ReconciliationClient({
   pendingInvoices,
   loanLines,
 }: ReconciliationClientProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [reconcileTargetId, setReconcileTargetId] = useState<string | null>(
     null
   );
+  const [journalTargetId, setJournalTargetId] = useState<string | null>(null);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
   function toggleTx(id: string) {
@@ -126,6 +131,21 @@ export default function ReconciliationClient({
       } else {
         toast.error(result.error ?? "Erreur rapprochement automatique");
       }
+    });
+  }
+
+  function handleGenerateJournalEntry() {
+    if (!selectedTxId) return;
+    setJournalTargetId(selectedTxId);
+    startTransition(async () => {
+      const result = await generateJournalEntry(societyId, selectedTxId);
+      if (result.success) {
+        toast.success("Écriture BQUE générée");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Erreur lors de la génération de l'écriture");
+      }
+      setJournalTargetId(null);
     });
   }
 
@@ -239,6 +259,27 @@ export default function ReconciliationClient({
           )}
           Rapprochement automatique
         </Button>
+        {selectedTx && (
+          selectedTx.journalEntryId ? (
+            <Badge variant="outline" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Écriture BQUE générée
+            </Badge>
+          ) : (
+            <Button
+              onClick={handleGenerateJournalEntry}
+              disabled={isPending}
+              variant="outline"
+            >
+              {journalTargetId === selectedTx.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Générer écriture BQUE
+            </Button>
+          )
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -272,8 +313,14 @@ export default function ReconciliationClient({
                       <p className="text-sm font-medium">{tx.label}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(tx.transactionDate)}
-                        {tx.reference && ` · ${tx.reference}`}
+                      {tx.reference && ` · ${tx.reference}`}
                       </p>
+                      {tx.journalEntryId && (
+                        <Badge variant="outline" className="mt-2 gap-1 text-[10px]">
+                          <FileText className="h-3 w-3" />
+                          BQUE
+                        </Badge>
+                      )}
                     </div>
                     <span
                       className={

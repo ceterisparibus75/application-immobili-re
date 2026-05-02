@@ -371,10 +371,16 @@ describe("getUnreconciledTransactions", () => {
   it("retourne les transactions non rapprochées", async () => {
     mockAuthSession(UserRole.LECTURE);
     prismaMock.bankTransaction.findMany.mockResolvedValue([
-      { id: TX_ID, isReconciled: false, amount: -500 },
+      { id: TX_ID, isReconciled: false, amount: -500, journalEntryId: JOURNAL_ID },
     ] as never);
     const r = await getUnreconciledTransactions(SOCIETY_ID, ACCOUNT_ID);
     expect(r).toHaveLength(1);
+    expect(r[0].journalEntryId).toBe(JOURNAL_ID);
+    expect(prismaMock.bankTransaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ journalEntryId: true }),
+      })
+    );
   });
 });
 

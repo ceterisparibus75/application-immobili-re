@@ -35,6 +35,7 @@ export async function getUnreconciledTransactions(
       amount: true,
       label: true,
       reference: true,
+      journalEntryId: true,
     },
     orderBy: { transactionDate: "desc" },
   });
