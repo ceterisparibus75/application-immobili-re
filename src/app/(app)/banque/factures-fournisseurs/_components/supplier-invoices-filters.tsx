@@ -44,15 +44,18 @@ export function SupplierInvoicesFilters({ currentSearch, currentStatus }: Props)
     e.preventDefault();
     const form = e.currentTarget;
     const search = (form.elements.namedItem("search") as HTMLInputElement).value;
-    router.push(`${pathname}?${createQueryString({ search: search || undefined })}`);
+    const query = createQueryString({ search: search || undefined });
+    router.push(query ? `${pathname}?${query}` : pathname);
   }
 
   function handleStatusChange(status: string) {
-    router.push(`${pathname}?${createQueryString({ status: status || undefined })}`);
+    const query = createQueryString({ status: status || undefined });
+    router.push(query ? `${pathname}?${query}` : pathname);
   }
 
   function handleClear() {
-    router.push(pathname);
+    const query = createQueryString({ search: undefined, status: undefined });
+    router.push(query ? `${pathname}?${query}` : pathname);
   }
 
   const hasFilters = !!currentSearch || !!currentStatus;

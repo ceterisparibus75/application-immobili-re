@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { parsePaginationParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { getSupplierPaymentDashboard } from "@/actions/supplier-invoice";
+import { buildSupplierInvoicesHref } from "@/lib/supplier-invoice-url";
 import {
   FileText,
   Plus,
@@ -109,6 +110,13 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
   const [totalCount, pendingCount, validatedThisMonth] = kpis;
 
   const isEmpty = total === 0 && !pagination.search && !statusFilter;
+  const buildPageHref = (targetPage: number) =>
+    buildSupplierInvoicesHref({
+      page: targetPage,
+      status: statusFilter,
+      search: pagination.search,
+      bankAccountIds: bankAccountIdsFilter,
+    });
 
   return (
     <div className="space-y-6">
@@ -316,18 +324,14 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
               </p>
               <div className="flex gap-2">
                 {page > 1 && (
-                  <Link
-                    href={`/banque/factures-fournisseurs?page=${page - 1}${statusFilter ? `&status=${statusFilter}` : ""}${pagination.search ? `&search=${pagination.search}` : ""}`}
-                  >
+                  <Link href={buildPageHref(page - 1)}>
                     <Button variant="outline" size="sm">
                       Précédent
                     </Button>
                   </Link>
                 )}
                 {skip + pageSize < total && (
-                  <Link
-                    href={`/banque/factures-fournisseurs?page=${page + 1}${statusFilter ? `&status=${statusFilter}` : ""}${pagination.search ? `&search=${pagination.search}` : ""}`}
-                  >
+                  <Link href={buildPageHref(page + 1)}>
                     <Button variant="outline" size="sm">
                       Suivant
                     </Button>
