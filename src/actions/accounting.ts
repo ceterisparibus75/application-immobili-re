@@ -756,6 +756,7 @@ export async function createJournalEntry(
           select: { id: true, isClosed: true },
         });
     if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
+    if (!parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
     if (fiscalYear?.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
 
     // Vérifier que chaque compte appartient à la société
@@ -860,6 +861,7 @@ export async function updateJournalEntry(
           select: { id: true, isClosed: true },
         });
     if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
+    if (!parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
     if (fiscalYear?.isClosed) return { success: false, error: "Impossible de modifier une écriture dans un exercice clôturé" };
 
     const accountIds = [...new Set(parsed.data.lines.map((line) => line.accountId))];
@@ -1017,6 +1019,11 @@ export async function validateJournalEntries(
     const notDraft = entries.find((entry) => entry.status !== "BROUILLON");
     if (notDraft) {
       return { success: false, error: "Toutes les écritures doivent être en brouillon pour être validées" };
+    }
+
+    const invalidLine = entries.find((entry) => validateDebitCreditLines(entry.lines));
+    if (invalidLine) {
+      return { success: false, error: "Chaque ligne doit renseigner un débit ou un crédit avant validation" };
     }
 
     const unbalanced = entries.find((entry) => {
@@ -1180,6 +1187,11 @@ export async function bulkImportJournalEntries(
         }
         const entryDate = new Date(entry.entryDate);
         const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, entryDate);
+        if (!fiscalYearId) {
+          if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: aucun exercice fiscal ouvert`);
+          skipped++;
+          continue;
+        }
 
         const existing = await prisma.journalEntry.findFirst({
           where: {

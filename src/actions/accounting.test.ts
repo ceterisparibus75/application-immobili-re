@@ -665,6 +665,7 @@ describe("createJournalEntry", () => {
 
   it("retourne une erreur si un compte est invalide", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
       { id: ACCOUNT_ID_1 },
       // ACCOUNT_ID_2 manquant → compte invalide
@@ -677,6 +678,7 @@ describe("createJournalEntry", () => {
 
   it("crée l'écriture avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
       { id: ACCOUNT_ID_1 },
       { id: ACCOUNT_ID_2 },
@@ -700,6 +702,7 @@ describe("createJournalEntry", () => {
 
   it("retourne une erreur générique si la BDD échoue dans createJournalEntry", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'écriture" });
@@ -778,6 +781,21 @@ describe("updateJournalEntry", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/clôturé/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuse de modifier si aucun exercice ne couvre la date", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "BROUILLON",
+    } as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await updateJournalEntry(SOCIETY_ID, ENTRY_ID, validJournalInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Aucun exercice fiscal ouvert/);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });
@@ -950,6 +968,33 @@ describe("bulkImportJournalEntries", () => {
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("saute une écriture importée si aucun exercice ne couvre la date", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture hors exercice",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
+      },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toMatch(/aucun exercice fiscal ouvert/i);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("saute une écriture si le compte est introuvable", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([] as never); // aucun compte
@@ -996,6 +1041,33 @@ describe("bulkImportJournalEntries", () => {
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("saute une écriture importée avec une ligne débit et crédit simultanés", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture incohérente",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 1000 },
+          { accountCode: "706000", debit: 500, credit: 500 },
+        ],
+      },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toMatch(/débit ou un crédit/i);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("saute une écriture importée avec moins de deux lignes", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
@@ -1027,6 +1099,7 @@ describe("bulkImportJournalEntries", () => {
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.create.mockRejectedValue("string error");
 
     const result = await bulkImportJournalEntries(SOCIETY_ID, [
@@ -1130,6 +1203,7 @@ describe("bulkImportJournalEntries", () => {
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
 
     const result = await bulkImportJournalEntries(SOCIETY_ID, [
@@ -1272,6 +1346,7 @@ describe("bulkImportJournalEntries — normalizeJournalType branches", () => {
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
   });
 
@@ -1360,6 +1435,7 @@ describe("bulkImportJournalEntries — erreur non-Error dans catch (ligne 566)",
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.create.mockRejectedValue("string-error");
 
     const result = await bulkImportJournalEntries(SOCIETY_ID, [
@@ -1561,6 +1637,26 @@ describe("validateJournalEntries", () => {
     expect(result.error).toMatch(/équilibrée/);
     expect(prismaMock.journalEntry.updateMany).not.toHaveBeenCalled();
   });
+
+  it("refuse la validation en masse si une ligne a débit et crédit simultanés", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        id: ENTRY_ID,
+        status: "BROUILLON",
+        lines: [
+          { debit: 1000, credit: 1000 },
+          { debit: 500, credit: 500 },
+        ],
+      },
+    ] as never);
+
+    const result = await validateJournalEntries(SOCIETY_ID, [ENTRY_ID]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/débit ou un crédit/i);
+    expect(prismaMock.journalEntry.updateMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("createJournalEntry — guard exercice clôturé", () => {
@@ -1604,6 +1700,17 @@ describe("createJournalEntry — guard exercice clôturé", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/clôturé/);
+  });
+
+  it("rejette si aucun exercice ne couvre la date sans fiscalYearId explicite", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Aucun exercice fiscal ouvert/);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("autorise la création si l'exercice est ouvert", async () => {
