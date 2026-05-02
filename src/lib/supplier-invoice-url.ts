@@ -18,3 +18,7 @@ export function buildSupplierInvoicesHref(params: SupplierInvoicesHrefParams = {
   const query = searchParams.toString();
   return query ? `/banque/factures-fournisseurs?${query}` : "/banque/factures-fournisseurs";
 }
+
+export function buildPrepareSupplierPaymentsHref(bankAccountIds: string[] = []): string {
+  return buildSupplierInvoicesHref({ status: "VALIDATED", bankAccountIds });
+}

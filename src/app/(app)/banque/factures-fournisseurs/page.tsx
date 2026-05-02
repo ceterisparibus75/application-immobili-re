@@ -8,7 +8,10 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { parsePaginationParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { getSupplierPaymentDashboard } from "@/actions/supplier-invoice";
-import { buildSupplierInvoicesHref } from "@/lib/supplier-invoice-url";
+import {
+  buildPrepareSupplierPaymentsHref,
+  buildSupplierInvoicesHref,
+} from "@/lib/supplier-invoice-url";
 import {
   FileText,
   Plus,
@@ -196,7 +199,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/banque/factures-fournisseurs?status=VALIDATED">
+          <Link href={buildPrepareSupplierPaymentsHref(bankAccountIdsFilter)}>
             <Button variant="outline" size="sm">Préparer les paiements</Button>
           </Link>
           <Link href="/banque/controle-comptable">
