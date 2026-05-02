@@ -71,4 +71,79 @@ describe("supplier invoice routes", () => {
     expect(body.error).toBe("Stockage non configuré");
     expect(analyzeSupplierInvoice).not.toHaveBeenCalled();
   });
+
+  it("utilise la société active de session quand le header x-society-id n'est pas injecté", async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    prismaMock.supplierInvoice.findUnique.mockResolvedValue({
+      id: "inv-1",
+      societyId: "soc-1",
+      storagePath: "documents/soc-1/supplier-invoices/inv.pdf",
+      mimeType: "application/pdf",
+      supplierName: null,
+      amountTTC: null,
+    } as never);
+
+    const response = await analyzeRoute(
+      new Request("http://localhost/api/supplier-invoices/inv-1/analyze", { method: "POST" }) as never,
+      { params: Promise.resolve({ id: "inv-1" }) }
+    );
+
+    expect(response.status).toBe(503);
+    expect(requireActiveSocietyRouteContext).toHaveBeenCalledWith();
+  });
+
+  it("marque l'analyse en erreur si l'IA ne retourne aucune donnée exploitable", async () => {
+    prismaMock.supplierInvoice.findUnique.mockResolvedValue({
+      id: "inv-1",
+      societyId: "soc-1",
+      storagePath: "supplier-invoices/inv.pdf",
+      mimeType: "application/pdf",
+      supplierName: null,
+      amountTTC: null,
+    } as never);
+    const download = vi.fn().mockResolvedValue({
+      data: new Blob([new TextEncoder().encode("%PDF-1.7")], { type: "application/pdf" }),
+      error: null,
+    });
+    createClient.mockReturnValue({ storage: { from: vi.fn(() => ({ download })) } });
+    analyzeSupplierInvoice.mockResolvedValue({
+      supplierName: null,
+      supplierSiret: null,
+      supplierAddress: null,
+      supplierIban: null,
+      supplierBic: null,
+      invoiceNumber: null,
+      invoiceDate: null,
+      dueDate: null,
+      amountHT: null,
+      amountVAT: null,
+      amountTTC: null,
+      vatRate: null,
+      currency: "EUR",
+      description: null,
+      periodStart: null,
+      periodEnd: null,
+      confidence: 0,
+    });
+
+    const response = await analyzeRoute(
+      new Request("http://localhost/api/supplier-invoices/inv-1/analyze", {
+        method: "POST",
+        headers: { "x-society-id": "soc-1" },
+      }) as never,
+      { params: Promise.resolve({ id: "inv-1" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.error).toBe("Analyse IA sans données exploitables");
+    expect(prismaMock.supplierInvoice.update).toHaveBeenLastCalledWith({
+      where: { id: "inv-1" },
+      data: expect.objectContaining({
+        aiStatus: "error",
+        aiConfidence: 0,
+      }),
+    });
+  });
 });

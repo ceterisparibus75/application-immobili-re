@@ -2,12 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
-import { analyzeSupplierInvoice } from "@/lib/supplier-invoice-ai";
+import { analyzeSupplierInvoice, type SupplierInvoiceAIResult } from "@/lib/supplier-invoice-ai";
 import { encrypt } from "@/lib/encryption";
 import { env } from "@/lib/env";
 import { verifyCronSecret } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
+
+function countExtractedFields(result: SupplierInvoiceAIResult): number {
+  const fields: Array<keyof Omit<SupplierInvoiceAIResult, "currency" | "confidence">> = [
+    "supplierName",
+    "supplierSiret",
+    "supplierAddress",
+    "supplierIban",
+    "supplierBic",
+    "invoiceNumber",
+    "invoiceDate",
+    "dueDate",
+    "amountHT",
+    "amountVAT",
+    "amountTTC",
+    "vatRate",
+    "description",
+    "periodStart",
+    "periodEnd",
+  ];
+
+  return fields.filter((field) => result[field] !== null && result[field] !== undefined).length;
+}
 
 export async function POST(
   request: NextRequest,
@@ -22,11 +44,7 @@ export async function POST(
   let sessionSocietyId: string | undefined;
 
   if (!isCronCall) {
-    const societyIdHeader = request.headers.get("x-society-id");
-    if (!societyIdHeader) {
-      return NextResponse.json({ error: "Société non identifiée" }, { status: 400 });
-    }
-    const context = await requireActiveSocietyRouteContext({ societyId: societyIdHeader });
+    const context = await requireActiveSocietyRouteContext();
     if (context instanceof NextResponse) {
       return context;
     }
@@ -96,6 +114,25 @@ export async function POST(
 
     // ── Analyse IA ────────────────────────────────────────────────────────
     const result = await analyzeSupplierInvoice(buffer, invoice.mimeType ?? "application/pdf");
+    const extractedFieldsCount = countExtractedFields(result);
+
+    if (extractedFieldsCount === 0) {
+      await prisma.supplierInvoice.update({
+        where: { id },
+        data: {
+          aiConfidence: 0,
+          aiAnalyzedAt: new Date(),
+          aiStatus: "error",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          aiRawMetadata: result as any,
+        },
+      });
+
+      return NextResponse.json(
+        { error: "Analyse IA sans données exploitables" },
+        { status: 422 }
+      );
+    }
 
     // ── Chiffrer l'IBAN si présent ────────────────────────────────────────
     let supplierIbanEncrypted: string | null = null;
@@ -138,6 +175,7 @@ export async function POST(
         aiStatus: "done",
         supplierName: result.supplierName,
         amountTTC: result.amountTTC,
+        extractedFieldsCount,
       },
     });
   } catch (err) {

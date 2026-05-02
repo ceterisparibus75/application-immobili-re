@@ -26,6 +26,7 @@ import {
   EyeOff,
   AlertTriangle,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import {
   updateSupplierInvoiceData,
@@ -35,6 +36,7 @@ import {
   initiateQontoPayment,
 } from "@/actions/supplier-invoice";
 import { toast } from "sonner";
+import { parseSupplierInvoiceAnalyzeResponse } from "@/lib/supplier-invoice-analysis";
 
 interface Building {
   id: string;
@@ -137,9 +139,12 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
   const [rejecting, startReject] = useTransition();
   const [paying, startPay] = useTransition();
   const [qontoPaying, startQontoPay] = useTransition();
+  const [analyzing, startAnalyze] = useTransition();
 
   const isReadonly = invoice.status === "PAID" || invoice.status === "ARCHIVED";
   const isAI = (invoice.aiConfidence ?? 0) > 0.3;
+  const aiFailed = invoice.aiStatus === "error" || (invoice.aiStatus === "done" && (invoice.aiConfidence ?? 0) === 0);
+  const aiPending = invoice.aiStatus === "pending";
 
   // Form state
   const [supplierName, setSupplierName] = useState(invoice.supplierName ?? "");
@@ -270,6 +275,20 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
     });
   }
 
+  function handleAnalyze() {
+    startAnalyze(async () => {
+      const response = await fetch(`/api/supplier-invoices/${invoice.id}/analyze`, { method: "POST" });
+      const result = await parseSupplierInvoiceAnalyzeResponse(response);
+
+      if (result.success) {
+        toast.success("Analyse IA terminée");
+      } else {
+        toast.error(result.error);
+      }
+      router.refresh();
+    });
+  }
+
   const qontoAccounts = bankAccounts.filter((ba) => ba.qontoAccountId);
 
   return (
@@ -280,6 +299,40 @@ export function SupplierInvoiceForm({ invoice, societyId, buildings, categories,
           <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
             <Sparkles className="h-4 w-4 shrink-0" />
             <span>Données extraites automatiquement par IA (confiance : {Math.round((invoice.aiConfidence ?? 0) * 100)} %)</span>
+          </div>
+        )}
+
+        {(aiFailed || aiPending) && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] px-3 py-2 text-sm">
+            <div className="flex items-center gap-2 text-[var(--color-status-caution)]">
+              {aiPending ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+              )}
+              <span>
+                {aiPending
+                  ? "Analyse IA en cours ou incomplète"
+                  : "Analyse IA échouée ou sans données exploitables"}
+              </span>
+            </div>
+            {!isReadonly && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="h-8 shrink-0 gap-1.5"
+              >
+                {analyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                Relancer
+              </Button>
+            )}
           </div>
         )}
 

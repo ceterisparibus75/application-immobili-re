@@ -72,6 +72,17 @@ describe("analyzeSupplierInvoice", () => {
     expect(result.supplierIban).toBe("FR76123456789012345678901 89".replace(/\s/g, ""));
   });
 
+  it("inclut les appels de provisions et appels de fonds dans le périmètre d'analyse", async () => {
+    mockMessagesCreate.mockResolvedValue(makeResponse(JSON.stringify({ supplierName: "Square Habitat" })));
+
+    await analyzeSupplierInvoice(PDF_BUFFER, "application/pdf");
+
+    const createArg = mockMessagesCreate.mock.calls.at(-1)?.[0];
+    const prompt = createArg.messages[0].content.find((block: { type: string }) => block.type === "text").text;
+    expect(prompt).toContain("appel de provisions");
+    expect(prompt).toContain("appel de fonds");
+  });
+
   it("supprime les espaces de l'IBAN", async () => {
     mockMessagesCreate.mockResolvedValue(
       makeResponse(JSON.stringify({

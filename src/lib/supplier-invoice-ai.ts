@@ -78,7 +78,7 @@ export async function analyzeSupplierInvoice(
     throw new Error("ANTHROPIC_API_KEY manquante");
   }
 
-  const prompt = `Tu es un expert en comptabilité et gestion immobilière française. Analyse cette facture fournisseur et réponds en JSON valide uniquement, sans aucun texte avant ou après.
+  const prompt = `Tu es un expert en comptabilité et gestion immobilière française. Analyse cette facture fournisseur, note d'honoraires, appel de provisions ou appel de fonds et réponds en JSON valide uniquement, sans aucun texte avant ou après.
 
 Extrais EXACTEMENT ces champs :
 {
@@ -101,6 +101,7 @@ Extrais EXACTEMENT ces champs :
 }
 
 Règles importantes :
+- Pour un appel de provisions ou un appel de fonds de copropriété/syndic, considère le syndic ou gestionnaire comme fournisseur, la référence comme numéro de facture, la date du document comme date facture et le total appelé comme montant TTC
 - L'IBAN doit être sans espaces (retire tous les espaces)
 - Les montants sont des nombres décimaux, pas des chaînes
 - Les dates sont au format YYYY-MM-DD

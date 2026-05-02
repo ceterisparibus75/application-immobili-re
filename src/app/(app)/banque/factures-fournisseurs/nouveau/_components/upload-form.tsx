@@ -8,6 +8,7 @@ import { Upload, FileText, X, Loader2, AlertCircle } from "lucide-react";
 import { uploadSupplierInvoice } from "@/actions/supplier-invoice";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { parseSupplierInvoiceAnalyzeResponse } from "@/lib/supplier-invoice-analysis";
 
 interface Props {
   societyId: string;
@@ -95,14 +96,21 @@ export function UploadForm({ societyId }: Props) {
 
         setUploadProgress(80);
 
+        const invoiceId = result.data!.id;
+
         // 4. Analyse IA (on attend la fin pour que le formulaire soit pré-rempli)
-        await fetch(`/api/supplier-invoices/${result.data!.id}/analyze`, { method: "POST" }).catch(() => {});
+        const analyzeRes = await fetch(`/api/supplier-invoices/${invoiceId}/analyze`, { method: "POST" });
+        const analyzeResult = await parseSupplierInvoiceAnalyzeResponse(analyzeRes);
 
         setUploadProgress(100);
-        toast.success("Facture analysée avec succès !");
+        if (analyzeResult.success) {
+          toast.success("Facture analysée avec succès !");
+        } else {
+          toast.warning(`Facture uploadée, mais analyse IA échouée : ${analyzeResult.error}`);
+        }
 
         // 5. Rediriger vers le détail
-        router.push(`/banque/factures-fournisseurs/${result.data!.id}`);
+        router.push(`/banque/factures-fournisseurs/${invoiceId}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Erreur lors de l'upload";
         setError(msg);
