@@ -29,12 +29,18 @@ type AccountingJournalClient = Pick<
 
 type BankJournalTransaction = {
   id: string;
+  bankAccountId: string;
   amount: number;
   transactionDate: Date;
   label: string;
   reference: string | null;
   category: string | null;
   journalEntryId: string | null;
+  bankAccount?: {
+    id: string;
+    bankName: string;
+    accountName: string;
+  } | null;
   reconciliations: Array<{
     payment: {
       invoice: {
@@ -79,6 +85,67 @@ function getBankCategoryAccountFallback(category: string | null | undefined): Ac
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function normalizeAccountLabel(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stableNumericSuffix(seed: string, length: number): string {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  const modulo = 10 ** length;
+  const value = hash % modulo;
+  return String(value === 0 ? 1 : value).padStart(length, "0");
+}
+
+function buildAccountingSubAccount(
+  prefix: "401" | "512",
+  labelPrefix: string,
+  displayName: string,
+  seed: string,
+  type: string
+): AccountFallback {
+  const normalizedName = normalizeAccountLabel(displayName) || `${labelPrefix} ${seed.slice(-6)}`;
+  return {
+    code: `${prefix}${stableNumericSuffix(`${prefix}:${seed}:${normalizedName}`, 6)}`,
+    label: `${labelPrefix} - ${normalizedName}`,
+    type,
+  };
+}
+
+function buildSupplierAccountFallback(invoice: {
+  id: string;
+  supplierName: string | null;
+  supplierSiret?: string | null;
+}): AccountFallback {
+  return buildAccountingSubAccount(
+    "401",
+    "Fournisseur",
+    invoice.supplierName ?? invoice.supplierSiret ?? invoice.id,
+    invoice.supplierSiret ?? invoice.id,
+    "4"
+  );
+}
+
+function buildBankAccountFallback(bankAccount: {
+  id: string;
+  bankName?: string | null;
+  accountName?: string | null;
+}): AccountFallback {
+  return buildAccountingSubAccount(
+    "512",
+    "Banque",
+    `${bankAccount.bankName ?? ""} ${bankAccount.accountName ?? ""}`,
+    bankAccount.id,
+    "5"
+  );
 }
 
 type LoanPaymentComponent = "principal" | "interest" | "insurance";
@@ -192,8 +259,12 @@ async function createBankJournalEntryForTransaction(
     ? null
     : getBankCategoryAccountFallback(transaction.category);
 
+  const bankAccountFallback = transaction.bankAccount
+    ? buildBankAccountFallback(transaction.bankAccount)
+    : { code: "512000", label: "Banques", type: "5" };
+
   const [compte512, compte411, compte658, compte622, categoryContraAccount] = await Promise.all([
-    upsertAccountingAccount(client, societyId, { code: "512", label: "Banque", type: "5" }),
+    upsertAccountingAccount(client, societyId, bankAccountFallback),
     upsertAccountingAccount(client, societyId, { code: "411", label: "Clients", type: "4" }),
     upsertAccountingAccount(client, societyId, { code: "658", label: "Charges diverses de gestion", type: "6" }),
     upsertAccountingAccount(client, societyId, { code: "622", label: "Remunerations d'intermediaires et honoraires", type: "6" }),
@@ -354,6 +425,11 @@ export async function autoReconcile(
     const [transactions, payments] = await Promise.all([
       prisma.bankTransaction.findMany({
         where: { bankAccountId, isReconciled: false },
+        include: {
+          bankAccount: {
+            select: { id: true, bankName: true, accountName: true },
+          },
+        },
         orderBy: { transactionDate: "asc" },
       }),
       prisma.payment.findMany({
@@ -485,6 +561,11 @@ export async function manualReconcile(
         id: parsed.data.transactionId,
         isReconciled: false,
         bankAccount: { societyId },
+      },
+      include: {
+        bankAccount: {
+          select: { id: true, bankName: true, accountName: true },
+        },
       },
     });
     if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
@@ -714,6 +795,7 @@ export async function generateMissingBankJournalEntries(
             payment: { include: { invoice: true } },
           },
         },
+        bankAccount: true,
       },
       orderBy: { transactionDate: "asc" },
       take: 250,
@@ -946,6 +1028,11 @@ export async function reconcileWithSupplierInvoice(
     const [transaction, invoice] = await Promise.all([
       prisma.bankTransaction.findFirst({
         where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+        include: {
+          bankAccount: {
+            select: { id: true, bankName: true, accountName: true },
+          },
+        },
       }),
       prisma.supplierInvoice.findFirst({
         where: { id: supplierInvoiceId, societyId },
@@ -978,8 +1065,14 @@ export async function reconcileWithSupplierInvoice(
 
       if (!journalEntryId) {
         const [compte401, compte512] = await Promise.all([
-          upsertAccountingAccount(tx, societyId, { code: "401000", label: "Fournisseurs", type: "4" }),
-          upsertAccountingAccount(tx, societyId, { code: "512000", label: "Banques", type: "5" }),
+          upsertAccountingAccount(tx, societyId, buildSupplierAccountFallback(invoice)),
+          upsertAccountingAccount(
+            tx,
+            societyId,
+            transaction.bankAccount
+              ? buildBankAccountFallback(transaction.bankAccount)
+              : { code: "512000", label: "Banques", type: "5" }
+          ),
         ]);
 
         const amount = roundCents(Math.abs(transaction.amount));

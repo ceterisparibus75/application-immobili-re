@@ -1133,7 +1133,10 @@ describe("reconcileWithSupplierInvoice", () => {
   beforeEach(() => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankTransaction.findFirst.mockResolvedValue(
-      buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }) as never
+      {
+        ...buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }),
+        bankAccount: { id: ACCOUNT_ID, bankName: "Qonto", accountName: "Compte principal" },
+      } as never
     );
     prismaMock.supplierInvoice.findFirst.mockResolvedValue({
       id: SUPPLIER_INVOICE_ID,
@@ -1146,8 +1149,8 @@ describe("reconcileWithSupplierInvoice", () => {
       chargeId: "ccharge001",
     } as never);
     prismaMock.accountingAccount.upsert
-      .mockResolvedValueOnce({ id: "account-401", code: "401000", label: "Fournisseurs", type: "4" } as never)
-      .mockResolvedValueOnce({ id: "account-512", code: "512000", label: "Banques", type: "5" } as never);
+      .mockResolvedValueOnce({ id: "account-401", code: "401123456", label: "Fournisseur - EDF", type: "4" } as never)
+      .mockResolvedValueOnce({ id: "account-512", code: "512123456", label: "Banque - Qonto Compte principal", type: "5" } as never);
     prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
     prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
       Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
@@ -1186,14 +1189,22 @@ describe("reconcileWithSupplierInvoice", () => {
     });
     expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { societyId_code: { societyId: SOCIETY_ID, code: "401000" } },
+        where: { societyId_code: { societyId: SOCIETY_ID, code: expect.stringMatching(/^401\d{6}$/) } },
         update: { isActive: true },
+        create: expect.objectContaining({
+          label: "Fournisseur - EDF",
+          type: "4",
+        }),
       })
     );
     expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { societyId_code: { societyId: SOCIETY_ID, code: "512000" } },
+        where: { societyId_code: { societyId: SOCIETY_ID, code: expect.stringMatching(/^512\d{6}$/) } },
         update: { isActive: true },
+        create: expect.objectContaining({
+          label: "Banque - Qonto Compte principal",
+          type: "5",
+        }),
       })
     );
   });
@@ -1220,7 +1231,10 @@ describe("reconcileWithSupplierInvoice", () => {
       bankJournalEntryId: JOURNAL_ID,
     } as never);
     prismaMock.bankTransaction.findFirst
-      .mockResolvedValueOnce(buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }) as never)
+      .mockResolvedValueOnce({
+        ...buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }),
+        bankAccount: { id: ACCOUNT_ID, bankName: "Qonto", accountName: "Compte principal" },
+      } as never)
       .mockResolvedValueOnce({ id: "other-tx" } as never);
 
     const result = await reconcileWithSupplierInvoice(SOCIETY_ID, TX_ID, SUPPLIER_INVOICE_ID);
