@@ -161,6 +161,31 @@ export default function AccountRevisionPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-base">Checklist par cycle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {board.cycleChecklist.map((item) => (
+                  <div key={item.cycle} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-medium">{item.cycle}</div>
+                      <Badge variant={STATUS_BADGES[item.status]}>
+                        {STATUS_OPTIONS.find((option) => option.value === item.status)?.label ?? item.status}
+                      </Badge>
+                    </div>
+                    <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                      {item.items.map((check) => (
+                        <li key={check}>{check}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-base">Comptes à réviser</CardTitle>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

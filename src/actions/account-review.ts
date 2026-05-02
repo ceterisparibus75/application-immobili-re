@@ -57,6 +57,11 @@ export type AccountReviewBoard = {
     issue: number;
     completionRate: number;
   }>;
+  cycleChecklist: Array<{
+    cycle: AccountReviewCycle;
+    status: AccountReviewStatus;
+    items: string[];
+  }>;
 };
 
 const updateReviewSchema = z.object({
@@ -105,6 +110,55 @@ function buildCycleStats(rows: AccountReviewRow[]): AccountReviewBoard["cycleSta
       return { cycle, ...buildStats(cycleRows) };
     })
     .filter((row) => row.total > 0);
+}
+
+const CYCLE_CHECKLIST_ITEMS: Record<AccountReviewCycle, string[]> = {
+  Trésorerie: [
+    "Rapprochements bancaires contrôlés",
+    "Soldes banque et caisse justifiés",
+  ],
+  Tiers: [
+    "Comptes tiers lettrés ou justifiés",
+    "Balances âgées et points ouverts revus",
+  ],
+  TVA: [
+    "TVA collectée et déductible cadrée",
+    "Déclarations TVA rapprochées de la comptabilité",
+  ],
+  Immobilisations: [
+    "Acquisitions et cessions justifiées",
+    "Amortissements et valeur nette contrôlés",
+  ],
+  Produits: [
+    "Loyers, refacturations et avoirs cadrés",
+    "Factures et quittances rapprochées",
+  ],
+  Charges: [
+    "Charges récupérables et non récupérables contrôlées",
+    "Justificatifs fournisseurs liés aux écritures",
+  ],
+  Autres: [
+    "Comptes résiduels analysés et justifiés",
+  ],
+};
+
+function getCycleStatus(rows: AccountReviewRow[]): AccountReviewStatus {
+  if (rows.some((row) => row.status === "ISSUE")) return "ISSUE";
+  if (rows.length > 0 && rows.every((row) => row.status === "REVIEWED")) return "REVIEWED";
+  if (rows.some((row) => row.status === "IN_PROGRESS" || row.status === "REVIEWED")) return "IN_PROGRESS";
+  return "TODO";
+}
+
+function buildCycleChecklist(rows: AccountReviewRow[]): AccountReviewBoard["cycleChecklist"] {
+  const cycles = [...new Set(rows.map((row) => row.cycle))];
+  return cycles.map((cycle) => {
+    const cycleRows = rows.filter((row) => row.cycle === cycle);
+    return {
+      cycle,
+      status: getCycleStatus(cycleRows),
+      items: CYCLE_CHECKLIST_ITEMS[cycle],
+    };
+  });
 }
 
 export async function getAccountReviewBoard(
@@ -189,6 +243,7 @@ export async function getAccountReviewBoard(
         rows,
         stats: buildStats(rows),
         cycleStats: buildCycleStats(rows),
+        cycleChecklist: buildCycleChecklist(rows),
       },
     };
   } catch (error) {

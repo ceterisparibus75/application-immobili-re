@@ -66,6 +66,18 @@ describe("getAccountReviewBoard", () => {
       expect.objectContaining({ cycle: "Tiers", total: 1, reviewed: 1, completionRate: 100 }),
       expect.objectContaining({ cycle: "Produits", total: 1, todo: 1, completionRate: 0 }),
     ]);
+    expect(result.data?.cycleChecklist).toEqual([
+      expect.objectContaining({
+        cycle: "Tiers",
+        status: "REVIEWED",
+        items: expect.arrayContaining(["Comptes tiers lettrés ou justifiés"]),
+      }),
+      expect.objectContaining({
+        cycle: "Produits",
+        status: "TODO",
+        items: expect.arrayContaining(["Loyers, refacturations et avoirs cadrés"]),
+      }),
+    ]);
   });
 });
 
