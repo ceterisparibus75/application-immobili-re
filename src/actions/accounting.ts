@@ -1254,6 +1254,14 @@ export type BulkImportJournalEntriesOptions = {
   allowUnbalancedEntries?: boolean;
 };
 
+export type SkippedImportJournalEntry = {
+  journalType: string;
+  entryDate: string;
+  piece?: string;
+  label: string;
+  reason: string;
+};
+
 function normalizeJournalType(code: string): JournalType | null {
   const c = code.toUpperCase().trim();
   if (c === "AN") return "AN";
@@ -1269,7 +1277,7 @@ export async function bulkImportJournalEntries(
   societyId: string,
   entries: ImportJournalEntryInput[],
   options: BulkImportJournalEntriesOptions = {},
-): Promise<ActionResult<{ imported: number; skipped: number; errors: string[] }>> {
+): Promise<ActionResult<{ imported: number; skipped: number; errors: string[]; skippedDetails: SkippedImportJournalEntry[] }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
@@ -1315,31 +1323,43 @@ export async function bulkImportJournalEntries(
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const skippedDetails: SkippedImportJournalEntry[] = [];
+
+    const recordSkipped = (entry: ImportJournalEntryInput, reason: string) => {
+      skipped++;
+      skippedDetails.push({
+        journalType: entry.journalType,
+        entryDate: entry.entryDate,
+        piece: entry.piece,
+        label: entry.label,
+        reason,
+      });
+    };
 
     for (const entry of entries) {
       try {
         const journalType = normalizeJournalType(entry.journalType);
         if (!journalType) {
           if (errors.length < 20) errors.push(`Journal ${entry.journalType} non supporté`);
-          skipped++;
+          recordSkipped(entry, `Journal ${entry.journalType} non supporté`);
           continue;
         }
         if (!options.allowUnbalancedEntries && entry.lines.length < 2) {
           if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: Au moins 2 lignes requises`);
-          skipped++;
+          recordSkipped(entry, "Au moins 2 lignes requises");
           continue;
         }
         const lineValidationError = validateDebitCreditLines(entry.lines);
         if (lineValidationError) {
           if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: ${lineValidationError}`);
-          skipped++;
+          recordSkipped(entry, lineValidationError);
           continue;
         }
         const entryDate = new Date(entry.entryDate);
         const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, entryDate);
         if (!fiscalYearId) {
           if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: aucun exercice fiscal ouvert`);
-          skipped++;
+          recordSkipped(entry, "Aucun exercice fiscal ouvert");
           continue;
         }
 
@@ -1351,7 +1371,10 @@ export async function bulkImportJournalEntries(
             ...(entry.piece ? { piece: entry.piece } : { label: entry.label }),
           },
         });
-        if (existing) { skipped++; continue; }
+        if (existing) {
+          recordSkipped(entry, "Écriture déjà présente");
+          continue;
+        }
 
         const resolvedLines: Array<{ accountId: string; label: string; debit: number; credit: number }> = [];
         let lineError = false;
@@ -1369,7 +1392,10 @@ export async function bulkImportJournalEntries(
             credit: line.credit,
           });
         }
-        if (lineError) { skipped++; continue; }
+        if (lineError) {
+          recordSkipped(entry, "Compte introuvable");
+          continue;
+        }
 
         const totalDebit = resolvedLines.reduce((sum, line) => sum + line.debit, 0);
         const totalCredit = resolvedLines.reduce((sum, line) => sum + line.credit, 0);
@@ -1377,7 +1403,7 @@ export async function bulkImportJournalEntries(
           if (errors.length < 20) {
             errors.push(`Écriture ${entry.piece ?? entry.label}: non équilibrée`);
           }
-          skipped++;
+          recordSkipped(entry, "Écriture non équilibrée");
           continue;
         }
 
@@ -1396,8 +1422,9 @@ export async function bulkImportJournalEntries(
         });
         imported++;
       } catch (e) {
-        if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? ""}: ${e instanceof Error ? e.message : "Erreur"}`);
-        skipped++;
+        const reason = e instanceof Error ? e.message : "Erreur";
+        if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? ""}: ${reason}`);
+        recordSkipped(entry, reason);
       }
     }
 
@@ -1411,7 +1438,7 @@ export async function bulkImportJournalEntries(
     });
 
     revalidatePath("/comptabilite");
-    return { success: true, data: { imported, skipped, errors } };
+    return { success: true, data: { imported, skipped, errors, skippedDetails } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

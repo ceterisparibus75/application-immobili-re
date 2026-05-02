@@ -1268,6 +1268,7 @@ describe("bulkImportJournalEntries", () => {
       { id: ACCOUNT_ID_1, code: "411000" },
       { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue({ id: ENTRY_ID } as never);
 
     const result = await bulkImportJournalEntries(SOCIETY_ID, [
@@ -1284,6 +1285,15 @@ describe("bulkImportJournalEntries", () => {
     expect(result.success).toBe(true);
     expect(result.data?.imported).toBe(0);
     expect(result.data?.skipped).toBe(1);
+    expect(result.data?.skippedDetails).toEqual([
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        piece: undefined,
+        label: "Facture loyer",
+        reason: "Écriture déjà présente",
+      },
+    ]);
   });
 
   it("refuse un type de journal inconnu", async () => {

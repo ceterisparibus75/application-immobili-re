@@ -3,7 +3,10 @@
 import { useState, useTransition, useRef } from "react";
 import { useSociety } from "@/providers/society-provider";
 import { bulkImportJournalEntries } from "@/actions/accounting";
-import type { ImportJournalEntryInput } from "@/actions/accounting";
+import type {
+  ImportJournalEntryInput,
+  SkippedImportJournalEntry,
+} from "@/actions/accounting";
 import type { ParsedEntry } from "@/app/api/comptabilite/import-grand-livre/route";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +55,7 @@ export default function ImportGrandLivrePage() {
     imported: number;
     skipped: number;
     errors: string[];
+    skippedDetails: SkippedImportJournalEntry[];
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -285,6 +289,45 @@ export default function ImportGrandLivrePage() {
                     <li>... et {result.errors.length - 5} autre(s)</li>
                   )}
                 </ul>
+              )}
+              {result.skippedDetails.length > 0 && (
+                <div className="mt-3 rounded-md border border-border/80">
+                  <div className="border-b border-border/80 px-3 py-2 text-xs font-medium text-muted-foreground">
+                    Écritures ignorées
+                  </div>
+                  <div className="max-h-64 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Journal</TableHead>
+                          <TableHead>Pièce</TableHead>
+                          <TableHead>Libellé</TableHead>
+                          <TableHead>Raison</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.skippedDetails.map((item, index) => (
+                          <TableRow key={`${item.journalType}-${item.entryDate}-${item.piece ?? item.label}-${index}`}>
+                            <TableCell className="whitespace-nowrap">
+                              {formatDate(item.entryDate)}
+                            </TableCell>
+                            <TableCell>{getJournalLabel(item.journalType)}</TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {item.piece ?? "-"}
+                            </TableCell>
+                            <TableCell className="max-w-[420px] truncate">
+                              {item.label}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {item.reason}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               )}
             </div>
             <Button
