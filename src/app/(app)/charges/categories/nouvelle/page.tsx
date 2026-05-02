@@ -15,7 +15,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { ArrowLeft, Loader2, BookOpen } from "lucide-react";
+import { ArrowLeft, Loader2, BookOpen, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 
@@ -45,6 +45,7 @@ export default function NouvelleCategorieChargePage() {
   const [libraryCategories, setLibraryCategories] = useState<LibraryCat[]>([]);
   const [nature, setNature] = useState("RECUPERABLE");
   const [selectedLibCatId, setSelectedLibCatId] = useState("");
+  const [allocationMethod, setAllocationMethod] = useState("TANTIEME");
 
   const [defaultBuildingId] = useState(
     () => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("buildingId") ?? "" : ""
@@ -233,9 +234,19 @@ export default function NouvelleCategorieChargePage() {
                   name="allocationMethod"
                   options={ALLOCATION_OPTIONS}
                   defaultValue="TANTIEME"
+                  onChange={(e) => setAllocationMethod(e.target.value)}
                 />
               </div>
             </div>
+
+            {allocationMethod === "PERSONNALISE" && (
+              <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Apres creation, vous pourrez configurer le pourcentage de chaque lot depuis la page <strong>Cles de repartition</strong>.
+                </span>
+              </div>
+            )}
 
             {nature === "MIXTE" && (
               <div className="space-y-2">
