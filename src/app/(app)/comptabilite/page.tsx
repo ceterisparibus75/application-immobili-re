@@ -16,6 +16,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { ValidateDraftJournalEntriesButton } from "./_components/validate-draft-journal-entries-button";
 import { ValidateJournalEntryButton } from "./_components/validate-journal-entry-button";
 import { DeleteJournalEntryButton } from "./_components/delete-journal-entry-button";
+import { LinkJournalEntryDocumentSelect } from "./_components/link-journal-entry-document-select";
 import { ACCOUNTING_JOURNAL_LABELS, isAccountingJournalType } from "@/lib/accounting-journals";
 
 export const metadata = { title: "Comptabilité" };
@@ -41,16 +42,22 @@ export default async function ComptabilitePage() {
     return null;
   }
 
-  const [entries, draftEntries, accountCount, fiscalYear, stats] = await Promise.all([
+  const [entries, draftEntries, accountCount, fiscalYear, stats, documents] = await Promise.all([
     prisma.journalEntry.findMany({
       where: { societyId },
-      include: { lines: { select: { debit: true, credit: true } } },
+      include: {
+        lines: { select: { debit: true, credit: true } },
+        document: { select: { id: true, fileName: true, storagePath: true, fileUrl: true } },
+      },
       orderBy: { entryDate: "desc" },
       take: 20,
     }),
     prisma.journalEntry.findMany({
       where: { societyId, status: "BROUILLON" },
-      include: { lines: { select: { debit: true, credit: true } } },
+      include: {
+        lines: { select: { debit: true, credit: true } },
+        document: { select: { id: true, fileName: true, storagePath: true, fileUrl: true } },
+      },
       orderBy: { entryDate: "asc" },
       take: 10,
     }),
@@ -63,6 +70,12 @@ export default async function ComptabilitePage() {
       by: ["status"],
       where: { societyId },
       _count: { id: true },
+    }),
+    prisma.document.findMany({
+      where: { societyId, deletedAt: null },
+      select: { id: true, fileName: true, category: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
     }),
   ]);
 
@@ -166,6 +179,7 @@ export default async function ComptabilitePage() {
                     <TableHead className="w-20">Pièce</TableHead>
                     <TableHead className="w-20">Journal</TableHead>
                     <TableHead>Libellé</TableHead>
+                    <TableHead className="w-52">Justificatif</TableHead>
                     <TableHead className="text-right w-28">Montant</TableHead>
                     <TableHead className="text-right w-64">Action</TableHead>
                   </TableRow>
@@ -183,6 +197,14 @@ export default async function ComptabilitePage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm max-w-64 truncate">{entry.label}</TableCell>
+                        <TableCell>
+                          <LinkJournalEntryDocumentSelect
+                            societyId={societyId}
+                            entryId={entry.id}
+                            currentDocumentId={entry.document?.id ?? null}
+                            documents={documents}
+                          />
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">{formatCurrency(total)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -235,6 +257,7 @@ export default async function ComptabilitePage() {
                   <TableHead className="w-20">Pièce</TableHead>
                   <TableHead className="w-20">Journal</TableHead>
                   <TableHead>Libellé</TableHead>
+                  <TableHead className="w-52">Justificatif</TableHead>
                   <TableHead className="text-right w-28">Montant</TableHead>
                   <TableHead className="w-24">Statut</TableHead>
                 </TableRow>
@@ -242,7 +265,7 @@ export default async function ComptabilitePage() {
               <TableBody>
                 {entries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Aucune écriture — <Link href="/comptabilite/nouvelle-ecriture" className="underline">Saisir la première</Link>
                     </TableCell>
                   </TableRow>
@@ -259,6 +282,14 @@ export default async function ComptabilitePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm max-w-64 truncate">{e.label}</TableCell>
+                      <TableCell>
+                        <LinkJournalEntryDocumentSelect
+                          societyId={societyId}
+                          entryId={e.id}
+                          currentDocumentId={e.document?.id ?? null}
+                          documents={documents}
+                        />
+                      </TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(total)}</TableCell>
                       <TableCell>
                         <Badge variant={STATUS_COLORS[e.status] ?? "secondary"} className="text-xs">

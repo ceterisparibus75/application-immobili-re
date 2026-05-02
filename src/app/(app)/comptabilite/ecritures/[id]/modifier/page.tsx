@@ -57,6 +57,7 @@ export default async function EditJournalEntryPage({
         piece: entry.piece ?? "",
         label: entry.label,
         fiscalYearId: entry.fiscalYearId ?? "none",
+        documentId: entry.documentId ?? "none",
         lines: entry.lines.map((line) => ({
           id: line.id,
           accountId: line.accountId,

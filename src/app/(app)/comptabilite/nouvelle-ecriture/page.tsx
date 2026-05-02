@@ -3,8 +3,8 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSociety } from "@/providers/society-provider";
-import { createJournalEntry, getAccounts, getFiscalYears, getFrequentAccountsForJournal } from "@/actions/accounting";
-import type { AccountRow, FiscalYearRow, FrequentAccountRow } from "@/actions/accounting";
+import { createJournalEntry, getAccountingDocumentOptions, getAccounts, getFiscalYears, getFrequentAccountsForJournal } from "@/actions/accounting";
+import type { AccountingDocumentOption, AccountRow, FiscalYearRow, FrequentAccountRow } from "@/actions/accounting";
 import { formatCurrency } from "@/lib/utils";
 import { calculateJournalEntryTotals, getBalancingPatch } from "@/lib/accounting-entry-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,11 +35,13 @@ export default function NouvelleEcriturePage() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [frequentAccounts, setFrequentAccounts] = useState<FrequentAccountRow[]>([]);
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
+  const [documents, setDocuments] = useState<AccountingDocumentOption[]>([]);
   const [journal, setJournal] = useState("OD");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [piece, setPiece] = useState("");
   const [label, setLabel] = useState("");
   const [fiscalYearId, setFiscalYearId] = useState("none");
+  const [documentId, setDocumentId] = useState("none");
   const [lines, setLines] = useState<Line[]>([newLine(), newLine()]);
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function NouvelleEcriturePage() {
         if (current) setFiscalYearId(current.id);
       }
     });
+    getAccountingDocumentOptions(activeSociety.id).then(r => { if (r.success && r.data) setDocuments(r.data); });
   }, [activeSociety?.id]);
 
   useEffect(() => {
@@ -102,6 +105,7 @@ export default function NouvelleEcriturePage() {
         piece: piece || undefined,
         label,
         fiscalYearId: fiscalYearId === "none" ? undefined : fiscalYearId,
+        documentId: documentId === "none" ? null : documentId,
         lines: validLines.map(l => ({
           accountId: l.accountId,
           label: l.label || undefined,
@@ -161,6 +165,17 @@ export default function NouvelleEcriturePage() {
               {fiscalYears.map(fy => (
                 <option key={fy.id} value={fy.id} disabled={fy.isClosed}>
                   {fy.year}{fy.isClosed ? " (clôturé)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 md:col-span-3">
+            <Label>Pièce GED</Label>
+            <select value={documentId} onChange={e => setDocumentId(e.target.value)} className={selectClass}>
+              <option value="none">Aucune pièce liée</option>
+              {documents.map(document => (
+                <option key={document.id} value={document.id}>
+                  {document.fileName}{document.category ? ` — ${document.category}` : ""}
                 </option>
               ))}
             </select>

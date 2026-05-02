@@ -47,6 +47,13 @@ export type FrequentAccountRow = AccountRow & {
   lastUsedAt: Date;
 };
 
+export type AccountingDocumentOption = {
+  id: string;
+  fileName: string;
+  category: string | null;
+  createdAt: Date;
+};
+
 export type BalanceRow = {
   accountId: string;
   code: string;
@@ -126,6 +133,20 @@ async function ensureAccountingAccount(
     create: { societyId, code, label, type, isActive: true },
     select: { id: true },
   });
+}
+
+async function resolveJournalEntryDocument(
+  societyId: string,
+  documentId: string | null | undefined
+): Promise<{ document: { id: string; fileName: string } | null; error?: string }> {
+  if (!documentId) return { document: null };
+
+  const document = await prisma.document.findFirst({
+    where: { id: documentId, societyId, deletedAt: null },
+    select: { id: true, fileName: true },
+  });
+  if (!document) return { document: null, error: "Document introuvable dans la GED" };
+  return { document };
 }
 
 async function buildFiscalYearCloseChecklist(
@@ -503,6 +524,26 @@ export async function getAccounts(societyId: string): Promise<ActionResult<Accou
   }
 }
 
+export async function getAccountingDocumentOptions(societyId: string): Promise<ActionResult<AccountingDocumentOption[]>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const documents = await prisma.document.findMany({
+      where: { societyId, deletedAt: null },
+      select: { id: true, fileName: true, category: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return { success: true, data: documents };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getAccountingDocumentOptions]", error);
+    return { success: false, error: "Erreur lors de la récupération des pièces GED" };
+  }
+}
+
 export async function getFrequentAccountsForJournal(
   societyId: string,
   journalType: string,
@@ -720,6 +761,7 @@ export async function createJournalEntry(
     piece?: string;
     label: string;
     fiscalYearId?: string;
+    documentId?: string | null;
     lines: Array<{ accountId: string; label?: string; debit: number; credit: number }>;
   }
 ): Promise<ActionResult<{ id: string }>> {
@@ -769,6 +811,10 @@ export async function createJournalEntry(
       return { success: false, error: "Un ou plusieurs comptes sont invalides" };
     }
 
+    const documentResolution = await resolveJournalEntryDocument(societyId, parsed.data.documentId);
+    if (documentResolution.error) return { success: false, error: documentResolution.error };
+    const linkedDocument = documentResolution.document;
+
     const entry = await prisma.journalEntry.create({
       data: {
         societyId,
@@ -777,6 +823,7 @@ export async function createJournalEntry(
         piece: parsed.data.piece,
         label: parsed.data.label,
         fiscalYearId: fiscalYear?.id,
+        documentId: linkedDocument?.id ?? null,
         status: "BROUILLON",
         lines: {
           create: parsed.data.lines.map((l) => ({
@@ -795,7 +842,7 @@ export async function createJournalEntry(
       action: "CREATE",
       entity: "JournalEntry",
       entityId: entry.id,
-      details: { journalType, piece: input.piece, label: input.label },
+      details: { journalType, piece: input.piece, label: input.label, documentId: linkedDocument?.id ?? null },
     });
 
     revalidatePath("/comptabilite");
@@ -817,6 +864,7 @@ export async function updateJournalEntry(
     piece?: string;
     label: string;
     fiscalYearId?: string;
+    documentId?: string | null;
     lines: Array<{ accountId: string; label?: string; debit: number; credit: number }>;
   }
 ): Promise<ActionResult<{ id: string }>> {
@@ -873,6 +921,10 @@ export async function updateJournalEntry(
       return { success: false, error: "Un ou plusieurs comptes sont invalides" };
     }
 
+    const documentResolution = await resolveJournalEntryDocument(societyId, parsed.data.documentId);
+    if (documentResolution.error) return { success: false, error: documentResolution.error };
+    const linkedDocument = documentResolution.document;
+
     await prisma.$transaction(async (tx) => {
       await tx.journalEntryLine.deleteMany({ where: { journalEntryId: entryId } });
       await tx.journalEntry.update({
@@ -883,6 +935,7 @@ export async function updateJournalEntry(
           piece: parsed.data.piece,
           label: parsed.data.label,
           fiscalYearId: fiscalYear?.id,
+          documentId: linkedDocument?.id ?? null,
           lines: {
             create: parsed.data.lines.map((line) => ({
               accountId: line.accountId,
@@ -901,7 +954,7 @@ export async function updateJournalEntry(
       action: "UPDATE",
       entity: "JournalEntry",
       entityId: entryId,
-      details: { action: "update_draft", journalType, piece: input.piece, label: input.label },
+      details: { action: "update_draft", journalType, piece: input.piece, label: input.label, documentId: linkedDocument?.id ?? null },
     });
 
     revalidatePath("/comptabilite");
@@ -911,6 +964,53 @@ export async function updateJournalEntry(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateJournalEntry]", error);
     return { success: false, error: "Erreur lors de la modification de l'écriture" };
+  }
+}
+
+export async function linkJournalEntryDocument(
+  societyId: string,
+  entryId: string,
+  documentId: string | null
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const entry = await prisma.journalEntry.findFirst({
+      where: { id: entryId, societyId },
+      select: { id: true, documentId: true },
+    });
+    if (!entry) return { success: false, error: "Écriture introuvable" };
+
+    const documentResolution = await resolveJournalEntryDocument(societyId, documentId);
+    if (documentResolution.error) return { success: false, error: documentResolution.error };
+    const linkedDocument = documentResolution.document;
+
+    await prisma.journalEntry.update({
+      where: { id: entryId },
+      data: { documentId: linkedDocument?.id ?? null },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "JournalEntry",
+      entityId: entryId,
+      details: {
+        action: linkedDocument ? "link_document" : "unlink_document",
+        previousDocumentId: entry.documentId,
+        documentId: linkedDocument?.id ?? null,
+      },
+    });
+
+    revalidatePath("/comptabilite");
+    revalidatePath("/comptabilite/grand-livre");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[linkJournalEntryDocument]", error);
+    return { success: false, error: "Erreur lors de la liaison de la pièce GED" };
   }
 }
 

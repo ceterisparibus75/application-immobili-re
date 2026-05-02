@@ -23,6 +23,7 @@ export const createJournalEntrySchema = z.object({
   piece: z.string().max(50).optional(),
   label: z.string().min(1, "Libellé requis").max(255),
   fiscalYearId: z.string().optional(),
+  documentId: z.string().cuid().optional().nullable(),
   lines: z.array(journalEntryLineSchema).min(2, "Au moins 2 lignes requises"),
 });
 

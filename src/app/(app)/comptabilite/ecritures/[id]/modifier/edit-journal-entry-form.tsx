@@ -7,9 +7,11 @@ import { AlertTriangle, CheckCircle2, Plus, Save, Scale, Trash2 } from "lucide-r
 
 import {
   getAccounts,
+  getAccountingDocumentOptions,
   getFiscalYears,
   getFrequentAccountsForJournal,
   updateJournalEntry,
+  type AccountingDocumentOption,
   type AccountRow,
   type FiscalYearRow,
   type FrequentAccountRow,
@@ -39,6 +41,7 @@ type InitialEntry = {
   piece: string;
   label: string;
   fiscalYearId: string;
+  documentId: string;
   lines: Line[];
 };
 
@@ -54,17 +57,20 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [frequentAccounts, setFrequentAccounts] = useState<FrequentAccountRow[]>([]);
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
+  const [documents, setDocuments] = useState<AccountingDocumentOption[]>([]);
   const [journal, setJournal] = useState(initialEntry.journalType);
   const [date, setDate] = useState(initialEntry.entryDate);
   const [piece, setPiece] = useState(initialEntry.piece);
   const [label, setLabel] = useState(initialEntry.label);
   const [fiscalYearId, setFiscalYearId] = useState(initialEntry.fiscalYearId || "none");
+  const [documentId, setDocumentId] = useState(initialEntry.documentId || "none");
   const [lines, setLines] = useState<Line[]>(initialEntry.lines.length > 0 ? initialEntry.lines : [newLine(), newLine()]);
 
   useEffect(() => {
     if (!activeSociety?.id) return;
     getAccounts(activeSociety.id).then((result) => { if (result.success && result.data) setAccounts(result.data); });
     getFiscalYears(activeSociety.id).then((result) => { if (result.success && result.data) setFiscalYears(result.data); });
+    getAccountingDocumentOptions(activeSociety.id).then((result) => { if (result.success && result.data) setDocuments(result.data); });
   }, [activeSociety?.id]);
 
   useEffect(() => {
@@ -133,6 +139,7 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
         piece: piece || undefined,
         label,
         fiscalYearId: fiscalYearId === "none" ? undefined : fiscalYearId,
+        documentId: documentId === "none" ? null : documentId,
         lines: validLines.map((line) => ({
           accountId: line.accountId,
           label: line.label || undefined,
@@ -185,6 +192,17 @@ export function EditJournalEntryForm({ initialEntry }: { initialEntry: InitialEn
               {fiscalYears.map((year) => (
                 <option key={year.id} value={year.id} disabled={year.isClosed}>
                   {year.year}{year.isClosed ? " (clôturé)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 md:col-span-3">
+            <Label>Pièce GED</Label>
+            <select value={documentId} onChange={(event) => setDocumentId(event.target.value)} className={selectClass}>
+              <option value="none">Aucune pièce liée</option>
+              {documents.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.fileName}{document.category ? ` — ${document.category}` : ""}
                 </option>
               ))}
             </select>

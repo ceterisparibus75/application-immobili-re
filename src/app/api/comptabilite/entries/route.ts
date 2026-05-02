@@ -35,7 +35,10 @@ export async function GET(req: NextRequest) {
 
   const entries = await prisma.journalEntry.findMany({
     where,
-    include: { lines: { select: { accountId: true, debit: true, credit: true } } },
+    include: {
+      lines: { select: { accountId: true, debit: true, credit: true } },
+      document: { select: { id: true, fileName: true, storagePath: true, fileUrl: true } },
+    },
     orderBy: { entryDate: "desc" },
   });
 
@@ -51,6 +54,7 @@ const createEntrySchema = z.object({
   label: z.string().min(1),
   piece: z.string().optional().nullable(),
   reference: z.string().optional().nullable(),
+  documentId: z.string().cuid().optional().nullable(),
   lines: z
     .array(
       z.object({
@@ -109,6 +113,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let documentId: string | null = null;
+  if (parsed.data.documentId) {
+    const document = await prisma.document.findFirst({
+      where: { id: parsed.data.documentId, societyId: context.societyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!document) {
+      return NextResponse.json(
+        { error: "Document introuvable dans la GED" },
+        { status: 400 }
+      );
+    }
+    documentId = document.id;
+  }
+
   const entryDate = new Date(parsed.data.entryDate);
   const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
   const fiscalYear = await prisma.fiscalYear.findFirst({
@@ -141,6 +160,7 @@ export async function POST(req: NextRequest) {
       piece: parsed.data.piece ?? null,
       reference: parsed.data.reference ?? null,
       fiscalYearId: fiscalYear?.id,
+      documentId,
       isValidated: false,
       status: "BROUILLON",
       lines: {
@@ -163,6 +183,7 @@ export async function POST(req: NextRequest) {
     details: {
       source: "API",
       journalType,
+      documentId,
       piece: parsed.data.piece ?? null,
       label: parsed.data.label,
     },

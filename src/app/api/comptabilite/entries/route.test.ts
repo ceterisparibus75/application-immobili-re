@@ -23,6 +23,7 @@ const FISCAL_YEAR_ID = "clh3x2z4k0002qh8g7z1y2v3v";
 const ENTRY_ID = "clh3x2z4k0003qh8g7z1y2v3w";
 const ACCOUNT_ID_1 = "clh3x2z4k0004qh8g7z1y2v3x";
 const ACCOUNT_ID_2 = "clh3x2z4k0005qh8g7z1y2v3y";
+const DOCUMENT_ID = "clh3x2z4k0006qh8g7z1y2v3z";
 
 function makeRequest(body: unknown): Request {
   return new Request("http://localhost/api/comptabilite/entries", {
@@ -117,6 +118,38 @@ describe("POST /api/comptabilite/entries", () => {
         }),
       })
     );
+  });
+
+  it("lie une pièce GED à l'écriture créée", async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: DOCUMENT_ID,
+      fileName: "facture.pdf",
+    } as never);
+
+    const response = await POST(makeRequest({ ...validBody, documentId: DOCUMENT_ID }) as never);
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.document.findFirst).toHaveBeenCalledWith({
+      where: { id: DOCUMENT_ID, societyId: SOCIETY_ID, deletedAt: null },
+      select: { id: true },
+    });
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ documentId: DOCUMENT_ID }),
+      })
+    );
+  });
+
+  it("refuse une pièce GED introuvable ou hors société", async () => {
+    prismaMock.document.findFirst.mockResolvedValue(null);
+
+    const response = await POST(makeRequest({ ...validBody, documentId: DOCUMENT_ID }) as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Document introuvable dans la GED",
+    });
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("refuse une ligne avec débit et crédit simultanés", async () => {

@@ -19,6 +19,7 @@ import {
   deleteJournalEntry,
   validateJournalEntry,
   validateJournalEntries,
+  linkJournalEntryDocument,
   bulkImportAccounts,
   bulkImportJournalEntries,
   getFrequentAccountsForJournal,
@@ -30,6 +31,7 @@ const ACCOUNT_ID_1 = "clh3x2z4k0002qh8g7z1y2v3v";
 const ACCOUNT_ID_2 = "clh3x2z4k0003qh8g7z1y2v3w";
 const ENTRY_ID = "clh3x2z4k0004qh8g7z1y2v3x";
 const ENTRY_ID_2 = "clh3x2z4k0005qh8g7z1y2v3y";
+const DOCUMENT_ID = "clh3x2z4k0006qh8g7z1y2v3z";
 
 function makeFiscalYear(overrides = {}) {
   return {
@@ -1656,6 +1658,66 @@ describe("validateJournalEntries", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/débit ou un crédit/i);
     expect(prismaMock.journalEntry.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkJournalEntryDocument", () => {
+  it("lie une pièce GED existante à une écriture de la société", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      documentId: null,
+    } as never);
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: DOCUMENT_ID,
+      fileName: "facture-edf.pdf",
+    } as never);
+    prismaMock.journalEntry.update.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await linkJournalEntryDocument(SOCIETY_ID, ENTRY_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.document.findFirst).toHaveBeenCalledWith({
+      where: { id: DOCUMENT_ID, societyId: SOCIETY_ID, deletedAt: null },
+      select: { id: true, fileName: true },
+    });
+    expect(prismaMock.journalEntry.update).toHaveBeenCalledWith({
+      where: { id: ENTRY_ID },
+      data: { documentId: DOCUMENT_ID },
+    });
+  });
+
+  it("détache la pièce GED d'une écriture", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      documentId: DOCUMENT_ID,
+    } as never);
+    prismaMock.journalEntry.update.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await linkJournalEntryDocument(SOCIETY_ID, ENTRY_ID, null);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.document.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.journalEntry.update).toHaveBeenCalledWith({
+      where: { id: ENTRY_ID },
+      data: { documentId: null },
+    });
+  });
+
+  it("refuse une pièce GED introuvable ou hors société", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      documentId: null,
+    } as never);
+    prismaMock.document.findFirst.mockResolvedValue(null);
+
+    const result = await linkJournalEntryDocument(SOCIETY_ID, ENTRY_ID, DOCUMENT_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Document introuvable/);
+    expect(prismaMock.journalEntry.update).not.toHaveBeenCalled();
   });
 });
 

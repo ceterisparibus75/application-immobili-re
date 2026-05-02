@@ -2056,15 +2056,18 @@ model JournalEntry {
   status        EntryStatus @default(BROUILLON)
   fiscalYearId  String?
   validatedById String?
+  documentId    String? // Pièce justificative GED liée à l'écriture
 
   society     Society            @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lines       JournalEntryLine[]
   fiscalYear  FiscalYear?        @relation(fields: [fiscalYearId], references: [id])
   validatedBy User?              @relation("JournalEntryValidator", fields: [validatedById], references: [id])
   bankTransaction BankTransaction? @relation("BankTransactionJournalEntry")
+  document    Document?          @relation("JournalEntryDocument", fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
+  @@index([documentId])
 }
 
 /// Ligne d'écriture comptable
@@ -2401,6 +2404,7 @@ model Document {
   leaseTenantHistoryTransfers LeaseTenantHistory[]
   dataroomDocuments           DataroomDocument[]
   thirdPartyStatement         ThirdPartyStatement?
+  journalEntries              JournalEntry[]       @relation("JournalEntryDocument")
 
   @@index([societyId])
   @@index([societyId, deletedAt])
