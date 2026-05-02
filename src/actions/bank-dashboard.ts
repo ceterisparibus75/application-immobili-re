@@ -21,7 +21,9 @@ export type BankPartnerFlow = {
   uncategorizedCount: number;
   missingJournalEntryCount: number;
   supplierToPayAmount: number;
+  supplierToPayCount: number;
   supplierToReconcileAmount: number;
+  supplierToReconcileCount: number;
   lastSyncAt: Date | null;
   expiresAt: Date | null;
 };
@@ -382,7 +384,9 @@ export async function getBankOperationsDashboard(
       uncategorizedCount: 0,
       missingJournalEntryCount: 0,
       supplierToPayAmount: 0,
+      supplierToPayCount: 0,
       supplierToReconcileAmount: 0,
+      supplierToReconcileCount: 0,
       lastSyncAt: null,
       expiresAt: account.connection?.expiresAt ?? null,
     };
@@ -427,12 +431,14 @@ export async function getBankOperationsDashboard(
     if (!partner) continue;
     if (supplierPayment.needsPayment) {
       partner.supplierToPayAmount = addAmount(partner.supplierToPayAmount, supplierPayment.amountTTC);
+      partner.supplierToPayCount += 1;
     }
     if (supplierPayment.needsBankReconciliation) {
       partner.supplierToReconcileAmount = addAmount(
         partner.supplierToReconcileAmount,
         supplierPayment.amountTTC
       );
+      partner.supplierToReconcileCount += 1;
     }
   }
 

@@ -224,7 +224,9 @@ describe("getBankOperationsDashboard", () => {
         unreconciledCount: 1,
         missingJournalEntryCount: 1,
         supplierToPayAmount: 450,
+        supplierToPayCount: 1,
         supplierToReconcileAmount: 0,
+        supplierToReconcileCount: 0,
         status: "active",
       }),
       expect.objectContaining({
@@ -234,7 +236,9 @@ describe("getBankOperationsDashboard", () => {
         transactionCount: 1,
         periodDebits: -900,
         supplierToPayAmount: 0,
+        supplierToPayCount: 0,
         supplierToReconcileAmount: 900,
+        supplierToReconcileCount: 1,
         status: "error",
       }),
       expect.objectContaining({
