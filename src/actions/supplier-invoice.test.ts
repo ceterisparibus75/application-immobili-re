@@ -384,6 +384,54 @@ describe("validateSupplierInvoice", () => {
     expect(result.data?.chargeId).toBe("charge-1");
   });
 
+  it("résout un compte comptable métier depuis la catégorie si aucun compte n'est sélectionné", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue(
+      makeInvoice({
+        status: "PENDING_REVIEW",
+        buildingId: "bld-1",
+        categoryId: "cat-teom",
+        accountingAccountId: null,
+        category: {
+          name: "TEOM (Taxe ordures ménagères)",
+          nature: "RECUPERABLE",
+        },
+        amountTTC: 1200,
+        amountHT: 1200,
+        amountVAT: 0,
+        supplierName: "Trésor public",
+        invoiceDate: new Date("2026-04-01"),
+      }) as never
+    );
+    const findFirst = vi.fn()
+      .mockResolvedValueOnce({ id: "acc-6352" })
+      .mockResolvedValueOnce({ id: "acc-401" });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
+      const tx = {
+        charge: { create: vi.fn().mockResolvedValue({ id: "charge-1" }) },
+        accountingAccount: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          findFirst,
+        },
+        journalEntry: { create: vi.fn().mockResolvedValue({ id: "journal-1" }) },
+        supplierInvoice: { update: vi.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+
+    const result = await validateSupplierInvoice(SOCIETY_ID, INVOICE_ID);
+
+    expect(result.success).toBe(true);
+    expect(findFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({ code: { startsWith: "6352" } }),
+      })
+    );
+  });
+
   it("retourne une erreur ForbiddenError (lignes 444-445)", async () => {
     mockAuthSession("LECTURE", SOCIETY_ID);
     prismaMock.userSociety.findUnique.mockResolvedValue(null as never);

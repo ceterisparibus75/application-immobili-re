@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import { getChargeAccountCodePrefixes, type ChargeAccountingCategory } from "@/lib/charge-accounting-mapping";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { createQontoTransfer } from "@/lib/qonto";
 import {
@@ -25,6 +26,32 @@ import {
 } from "@/validations/supplier-invoice";
 
 const REVALIDATE_PATH = "/banque/factures-fournisseurs";
+
+type SupplierInvoiceAccountLookup = {
+  findUnique: typeof prisma.accountingAccount.findUnique;
+  findFirst: typeof prisma.accountingAccount.findFirst;
+};
+
+async function resolveSupplierInvoiceChargeAccount(
+  accountingAccount: SupplierInvoiceAccountLookup,
+  societyId: string,
+  accountingAccountId: string | null,
+  category?: ChargeAccountingCategory | null
+) {
+  if (accountingAccountId) {
+    return accountingAccount.findUnique({ where: { id: accountingAccountId } });
+  }
+
+  for (const prefix of getChargeAccountCodePrefixes(category)) {
+    const account = await accountingAccount.findFirst({
+      where: { societyId, code: { startsWith: prefix }, isActive: true },
+      orderBy: { code: "asc" },
+    });
+    if (account) return account;
+  }
+
+  return null;
+}
 
 // ─── Upload manuel d'une facture fournisseur ──────────────────────────────────
 
@@ -307,6 +334,7 @@ export async function validateSupplierInvoice(
 
     const invoice = await prisma.supplierInvoice.findFirst({
       where: { id: invoiceId, societyId },
+      include: { category: { select: { name: true, nature: true } } },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
     if (invoice.status !== "PENDING_REVIEW") {
@@ -346,14 +374,9 @@ export async function validateSupplierInvoice(
         });
       }
 
-      // 2. Résoudre le compte de charge : compte sélectionné en priorité, sinon premier 60x
+      // 2. Résoudre le compte de charge : compte sélectionné en priorité, sinon mapping métier par catégorie
       const [compteCharge, compte401] = await Promise.all([
-        invoice.accountingAccountId
-          ? tx.accountingAccount.findUnique({ where: { id: invoice.accountingAccountId } })
-          : tx.accountingAccount.findFirst({
-              where: { societyId, code: { startsWith: "60" }, isActive: true },
-              orderBy: { code: "asc" },
-            }),
+        resolveSupplierInvoiceChargeAccount(tx.accountingAccount, societyId, invoice.accountingAccountId, invoice.category),
         tx.accountingAccount.findFirst({
           where: { societyId, code: { startsWith: "401" }, isActive: true },
           orderBy: { code: "asc" },
