@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import { getAccounts, type AccountRow } from "@/actions/accounting";
 import {
   getLetteredGroups,
+  getLetteringSuggestions,
   getUnletteredEntries,
   letterEntries,
   unletterEntries,
   type LetteredGroup,
+  type LetteringSuggestion,
 } from "@/actions/lettering";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,7 @@ export default function LetteringPage() {
   const [accountId, setAccountId] = useState("");
   const [lines, setLines] = useState<UnletteredLine[]>([]);
   const [letteredGroups, setLetteredGroups] = useState<LetteredGroup[]>([]);
+  const [suggestions, setSuggestions] = useState<LetteringSuggestion[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -56,9 +59,10 @@ export default function LetteringPage() {
   function load(nextAccountId = accountId) {
     if (!activeSociety?.id || !nextAccountId) return;
     startTransition(async () => {
-      const [unletteredResult, letteredResult] = await Promise.all([
+      const [unletteredResult, letteredResult, suggestionResult] = await Promise.all([
         getUnletteredEntries(activeSociety.id, nextAccountId),
         getLetteredGroups(activeSociety.id, nextAccountId),
+        getLetteringSuggestions(activeSociety.id, nextAccountId),
       ]);
 
       if (unletteredResult.success && unletteredResult.data) {
@@ -72,6 +76,12 @@ export default function LetteringPage() {
         setLetteredGroups(letteredResult.data.groups);
       } else {
         toast.error(letteredResult.error ?? "Erreur lors du chargement des groupes lettrés");
+      }
+
+      if (suggestionResult.success && suggestionResult.data) {
+        setSuggestions(suggestionResult.data.suggestions);
+      } else {
+        toast.error(suggestionResult.error ?? "Erreur lors du calcul des suggestions");
       }
     });
   }
@@ -105,6 +115,19 @@ export default function LetteringPage() {
 
     startTransition(async () => {
       const result = await letterEntries(activeSociety.id, selected);
+      if (result.success) {
+        toast.success(`Lettrage ${result.data?.letteringCode ?? ""} créé`);
+        load(accountId);
+      } else {
+        toast.error(result.error ?? "Erreur lors du lettrage");
+      }
+    });
+  }
+
+  function handleLetterSuggestion(suggestion: LetteringSuggestion) {
+    if (!activeSociety?.id) return;
+    startTransition(async () => {
+      const result = await letterEntries(activeSociety.id, suggestion.lineIds);
       if (result.success) {
         toast.success(`Lettrage ${result.data?.letteringCode ?? ""} créé`);
         load(accountId);
@@ -186,6 +209,60 @@ export default function LetteringPage() {
           </CardContent>
         </Card>
       </div>
+
+      {suggestions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Suggestions de lettrage</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Proposition</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead className="w-44">Période</TableHead>
+                    <TableHead className="w-44 text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suggestions.map((suggestion) => (
+                    <TableRow key={suggestion.lineIds.join("-")}>
+                      <TableCell>
+                        <div className="font-medium">{suggestion.reason}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {suggestion.lines.map((line) => line.piece ?? line.entryLabel).join(" / ")}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(suggestion.totalDebit)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(suggestion.lines[0].entryDate)} - {formatDate(suggestion.lines[suggestion.lines.length - 1].entryDate)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelected(suggestion.lineIds)}
+                            disabled={isPending}
+                          >
+                            Sélectionner
+                          </Button>
+                          <Button size="sm" onClick={() => handleLetterSuggestion(suggestion)} disabled={isPending}>
+                            <Link2 className="h-4 w-4" />
+                            Lettrer
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

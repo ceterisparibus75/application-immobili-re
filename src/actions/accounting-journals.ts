@@ -7,6 +7,10 @@ import {
 } from "@/lib/action-society";
 import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import {
+  isAccountingJournalType,
+  normalizeAccountingJournalType,
+} from "@/lib/accounting-journals";
 
 const JOURNAL_LABELS: Record<string, string> = {
   VENTES: "Ventes",
@@ -88,7 +92,9 @@ export async function getJournalSummary(
 
     const byJournal = new Map<string, JournalSummaryRow>();
     for (const entry of entries) {
-      const key = entry.journalType;
+      const key = isAccountingJournalType(entry.journalType)
+        ? normalizeAccountingJournalType(entry.journalType)
+        : entry.journalType;
       const row = byJournal.get(key) ?? {
         journalType: key,
         journalLabel: JOURNAL_LABELS[key] ?? key,

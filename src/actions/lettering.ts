@@ -14,6 +14,7 @@ import {
   unletterEntriesSchema,
   getUnletteredEntriesSchema,
   getLetteredGroupsSchema,
+  getLetteringSuggestionsSchema,
 } from "@/validations/lettering";
 
 export type LetteredGroup = {
@@ -25,6 +26,23 @@ export type LetteredGroup = {
   lastEntryDate: Date;
   letteredAt: Date | null;
   pieces: string[];
+};
+
+export type LetteringSuggestion = {
+  lineIds: string[];
+  totalDebit: number;
+  totalCredit: number;
+  difference: number;
+  reason: string;
+  lines: {
+    id: string;
+    debit: number;
+    credit: number;
+    label: string | null;
+    entryDate: Date;
+    piece: string | null;
+    entryLabel: string;
+  }[];
 };
 
 function roundCents(value: number): number {
@@ -422,5 +440,85 @@ export async function getLetteredGroups(
     }
     console.error("[getLetteredGroups]", error);
     return { success: false, error: "Erreur lors de la recuperation des groupes lettres" };
+  }
+}
+
+export async function getLetteringSuggestions(
+  societyId: string,
+  accountId: string
+): Promise<ActionResult<{ suggestions: LetteringSuggestion[] }>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = getLetteringSuggestionsSchema.safeParse({ accountId });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        accountId: parsed.data.accountId,
+        letteringCode: null,
+        journalEntry: { societyId },
+      },
+      include: {
+        journalEntry: {
+          select: {
+            entryDate: true,
+            piece: true,
+            label: true,
+          },
+        },
+      },
+      orderBy: {
+        journalEntry: { entryDate: "asc" },
+      },
+    });
+
+    const availableCredits = lines
+      .filter((line) => line.credit > 0 && line.debit === 0)
+      .map((line) => ({ line, used: false }));
+    const suggestions: LetteringSuggestion[] = [];
+
+    for (const debitLine of lines.filter((line) => line.debit > 0 && line.credit === 0)) {
+      const match = availableCredits.find((candidate) =>
+        !candidate.used && Math.abs(roundCents(debitLine.debit - candidate.line.credit)) <= 0.01
+      );
+      if (!match) continue;
+      match.used = true;
+
+      const suggestionLines = [debitLine, match.line].map((line) => ({
+        id: line.id,
+        debit: line.debit,
+        credit: line.credit,
+        label: line.label,
+        entryDate: line.journalEntry.entryDate,
+        piece: line.journalEntry.piece,
+        entryLabel: line.journalEntry.label,
+      }));
+
+      suggestions.push({
+        lineIds: suggestionLines.map((line) => line.id),
+        totalDebit: roundCents(debitLine.debit),
+        totalCredit: roundCents(match.line.credit),
+        difference: 0,
+        reason: "Montants identiques",
+        lines: suggestionLines,
+      });
+    }
+
+    return { success: true, data: { suggestions } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[getLetteringSuggestions]", error);
+    return { success: false, error: "Erreur lors du calcul des suggestions de lettrage" };
   }
 }

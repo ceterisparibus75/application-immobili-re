@@ -5,7 +5,14 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
-import { getNextLetteringCode, letterEntries, unletterEntries, getUnletteredEntries, getLetteredGroups } from "./lettering";
+import {
+  getNextLetteringCode,
+  letterEntries,
+  unletterEntries,
+  getUnletteredEntries,
+  getLetteredGroups,
+  getLetteringSuggestions,
+} from "./lettering";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const ACCOUNT_ID = "clh3x2z4k0001qh8g7z1y2v3u";
@@ -306,6 +313,57 @@ describe("getLetteredGroups", () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
 
     const result = await getLetteredGroups(SOCIETY_ID, "not-a-cuid");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+});
+
+describe("getLetteringSuggestions", () => {
+  it("propose des lettrages exacts debit-credit sur un compte", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 500,
+        credit: 0,
+        label: "Facture janvier",
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", label: "Facture janvier" },
+      },
+      {
+        id: LINE_ID_2,
+        debit: 0,
+        credit: 500,
+        label: "Paiement janvier",
+        journalEntry: { entryDate: new Date("2025-01-20"), piece: "PAY-001", label: "Paiement janvier" },
+      },
+      {
+        id: "clh3x2z4k0004qh8g7z1y2v3x",
+        debit: 120,
+        credit: 0,
+        label: "Facture non reglee",
+        journalEntry: { entryDate: new Date("2025-02-01"), piece: "FAC-002", label: "Facture fevrier" },
+      },
+    ] as never);
+
+    const result = await getLetteringSuggestions(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.suggestions).toEqual([
+      expect.objectContaining({
+        lineIds: [LINE_ID_1, LINE_ID_2],
+        totalDebit: 500,
+        totalCredit: 500,
+        difference: 0,
+        reason: "Montants identiques",
+      }),
+    ]);
+  });
+
+  it("retourne une erreur de validation si l'accountId est invalide", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+
+    const result = await getLetteringSuggestions(SOCIETY_ID, "not-a-cuid");
 
     expect(result.success).toBe(false);
     expect(result.error).toBeTruthy();

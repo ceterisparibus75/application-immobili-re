@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useSociety } from "@/providers/society-provider";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { filterAccountReviewRows } from "@/lib/account-review-utils";
 
 const STATUS_OPTIONS = [
   { value: "TODO", label: "À revoir" },
@@ -49,6 +50,7 @@ export default function AccountRevisionPage() {
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [board, setBoard] = useState<AccountReviewBoard | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [showEmptyAccounts, setShowEmptyAccounts] = useState(false);
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -104,6 +106,7 @@ export default function AccountRevisionPage() {
   }
 
   const selectedFiscalYear = fiscalYears.find((year) => year.id === fiscalYearId);
+  const visibleRows = board ? filterAccountReviewRows(board.rows, showEmptyAccounts) : [];
 
   return (
     <div className="space-y-6">
@@ -157,7 +160,18 @@ export default function AccountRevisionPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Comptes à réviser</CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-base">Comptes à réviser</CardTitle>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showEmptyAccounts}
+                    onChange={(event) => setShowEmptyAccounts(event.target.checked)}
+                    className="h-4 w-4 rounded border-input accent-primary"
+                  />
+                  Afficher les comptes sans mouvement
+                </label>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -173,7 +187,14 @@ export default function AccountRevisionPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {board.rows.map((row) => (
+                    {visibleRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Aucun compte mouvementé sur cet exercice
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {visibleRows.map((row) => (
                       <TableRow key={row.accountId}>
                         <TableCell className="font-mono text-sm font-medium">{row.code}</TableCell>
                         <TableCell>

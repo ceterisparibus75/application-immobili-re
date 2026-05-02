@@ -39,3 +39,9 @@ export const getLetteredGroupsSchema = z.object({
 });
 
 export type GetLetteredGroupsInput = z.infer<typeof getLetteredGroupsSchema>;
+
+export const getLetteringSuggestionsSchema = z.object({
+  accountId: z.string().cuid(),
+});
+
+export type GetLetteringSuggestionsInput = z.infer<typeof getLetteringSuggestionsSchema>;

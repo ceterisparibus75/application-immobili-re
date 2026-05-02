@@ -75,6 +75,56 @@ describe("getJournalSummary", () => {
     ]);
   });
 
+  it("regroupe les anciens codes journaux avec les codes canoniques", async () => {
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        journalType: "VENTES",
+        entryDate: new Date("2025-01-15"),
+        status: "VALIDEE",
+        lines: [
+          { debit: 1000, credit: 0 },
+          { debit: 0, credit: 1000 },
+        ],
+      },
+      {
+        journalType: "VT",
+        entryDate: new Date("2025-01-20"),
+        status: "VALIDEE",
+        lines: [
+          { debit: 200, credit: 0 },
+          { debit: 0, credit: 200 },
+        ],
+      },
+      {
+        journalType: "BANQUE",
+        entryDate: new Date("2025-02-01"),
+        status: "BROUILLON",
+        lines: [
+          { debit: 300, credit: 0 },
+          { debit: 0, credit: 300 },
+        ],
+      },
+    ] as never);
+
+    const result = await getJournalSummary(SOCIETY_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        journalType: "BQUE",
+        entryCount: 1,
+        draftCount: 1,
+        totalDebit: 300,
+      }),
+      expect.objectContaining({
+        journalType: "VT",
+        entryCount: 2,
+        validatedCount: 2,
+        totalDebit: 1200,
+      }),
+    ]);
+  });
+
   it("filtre par exercice fiscal", async () => {
     prismaMock.fiscalYear.findFirst.mockResolvedValue({
       startDate: new Date("2025-01-01"),
