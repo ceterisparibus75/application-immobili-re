@@ -6,12 +6,13 @@ import { useSociety } from "@/providers/society-provider";
 import { createJournalEntry, getAccounts, getFiscalYears } from "@/actions/accounting";
 import type { AccountRow, FiscalYearRow } from "@/actions/accounting";
 import { formatCurrency } from "@/lib/utils";
+import { calculateJournalEntryTotals, getBalancingPatch } from "@/lib/accounting-entry-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Plus, Trash2, AlertTriangle, CheckCircle2, PenLine } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, CheckCircle2, PenLine, Scale } from "lucide-react";
 import { toast } from "sonner";
 
 const JOURNALS = [
@@ -55,10 +56,9 @@ export default function NouvelleEcriturePage() {
     });
   }, [activeSociety?.id]);
 
-  const totalDebit = lines.reduce((s, l) => s + (parseFloat(l.debit) || 0), 0);
-  const totalCredit = lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
-  const diff = Math.abs(totalDebit - totalCredit);
+  const totals = calculateJournalEntryTotals(lines);
+  const { totalDebit, totalCredit, isBalanced } = totals;
+  const diff = totals.difference;
 
   function setLine(id: string, field: keyof Line, value: string) {
     setLines(ls => ls.map(l => l.id === id ? { ...l, [field]: value } : l));
@@ -67,6 +67,20 @@ export default function NouvelleEcriturePage() {
   function removeLine(id: string) {
     if (lines.length <= 2) return;
     setLines(ls => ls.filter(l => l.id !== id));
+  }
+
+  function handleBalance() {
+    const patch = getBalancingPatch(lines);
+    if (!patch) return;
+
+    setLines((current) => {
+      const target =
+        [...current].reverse().find((line) => line.accountId && !line.debit && !line.credit) ??
+        [...current].reverse().find((line) => line.accountId) ??
+        current[current.length - 1];
+      if (!target) return [...current, { ...newLine(), ...patch }];
+      return current.map((line) => line.id === target.id ? { ...line, ...patch } : line);
+    });
   }
 
   function handleSubmit() {
@@ -152,11 +166,17 @@ export default function NouvelleEcriturePage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Lignes d’écriture</CardTitle>
-          <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-[var(--color-status-positive)]" : diff > 0 ? "text-[var(--color-status-negative)]" : "text-muted-foreground")}>
-            {totalDebit > 0 && (isBalanced
-              ? <><CheckCircle2 className="h-4 w-4" />Écriture équilibrée</>
-              : <><AlertTriangle className="h-4 w-4" />Écart : {formatCurrency(diff)}</>
-            )}
+          <div className="flex items-center gap-2">
+            <div className={"flex items-center gap-2 text-sm font-medium " + (isBalanced ? "text-[var(--color-status-positive)]" : diff > 0 ? "text-[var(--color-status-negative)]" : "text-muted-foreground")}>
+              {totalDebit > 0 && (isBalanced
+                ? <><CheckCircle2 className="h-4 w-4" />Écriture équilibrée</>
+                : <><AlertTriangle className="h-4 w-4" />Écart : {formatCurrency(diff)}</>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={handleBalance} disabled={isBalanced || diff <= 0.01}>
+              <Scale className="h-4 w-4" />
+              Équilibrer
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">

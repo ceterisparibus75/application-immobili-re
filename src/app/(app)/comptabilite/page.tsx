@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ValidateDraftJournalEntriesButton } from "./_components/validate-draft-journal-entries-button";
+import { ValidateJournalEntryButton } from "./_components/validate-journal-entry-button";
+import { DeleteJournalEntryButton } from "./_components/delete-journal-entry-button";
 
 export const metadata = { title: "Comptabilité" };
 
@@ -39,12 +42,18 @@ export default async function ComptabilitePage() {
     return null;
   }
 
-  const [entries, accountCount, fiscalYear, stats] = await Promise.all([
+  const [entries, draftEntries, accountCount, fiscalYear, stats] = await Promise.all([
     prisma.journalEntry.findMany({
       where: { societyId },
       include: { lines: { select: { debit: true, credit: true } } },
       orderBy: { entryDate: "desc" },
       take: 20,
+    }),
+    prisma.journalEntry.findMany({
+      where: { societyId, status: "BROUILLON" },
+      include: { lines: { select: { debit: true, credit: true } } },
+      orderBy: { entryDate: "asc" },
+      take: 10,
     }),
     prisma.accountingAccount.count({ where: { societyId, isActive: true } }),
     prisma.fiscalYear.findFirst({
@@ -139,6 +148,63 @@ export default async function ComptabilitePage() {
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <span><strong>{brouillonCount} écriture(s)</strong> sont en brouillon et doivent être validées avant la clôture de l&apos;exercice.</span>
         </div>
+      )}
+      {draftEntries.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between py-3">
+            <CardTitle className="text-base">Écritures à valider</CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{draftEntries.length} affichée(s)</Badge>
+              <ValidateDraftJournalEntriesButton societyId={societyId} entryIds={draftEntries.map((entry) => entry.id)} />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-24">Date</TableHead>
+                    <TableHead className="w-20">Pièce</TableHead>
+                    <TableHead className="w-20">Journal</TableHead>
+                    <TableHead>Libellé</TableHead>
+                    <TableHead className="text-right w-28">Montant</TableHead>
+                    <TableHead className="text-right w-64">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {draftEntries.map((entry) => {
+                    const total = entry.lines.reduce((sum, line) => sum + line.debit, 0);
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="font-mono text-xs">{formatDate(entry.entryDate)}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{entry.piece ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {JOURNAL_LABELS[entry.journalType] ?? entry.journalType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-64 truncate">{entry.label}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatCurrency(total)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/comptabilite/ecritures/${entry.id}/modifier`}>
+                                <PenLine className="h-3 w-3" />
+                                Modifier
+                              </Link>
+                            </Button>
+                            <ValidateJournalEntryButton societyId={societyId} entryId={entry.id} />
+                            <DeleteJournalEntryButton societyId={societyId} entryId={entry.id} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
       {/* Accès rapides */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">

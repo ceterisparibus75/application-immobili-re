@@ -18,7 +18,7 @@ test.describe("Authentication", () => {
     await page.fill("input[type='email'], input[name='email']", "invalid@example.com")
     await page.fill("input[type='password']", "wrongpassword123")
     await page.getByRole("button", { name: /connexion|se connecter/i }).click()
-    await expect(page.locator("text=/erreur|invalide|incorrect/i")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/erreur|invalide|incorrect/i)).toBeVisible({ timeout: 5000 })
   })
 })
 

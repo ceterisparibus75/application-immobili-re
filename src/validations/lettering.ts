@@ -32,3 +32,10 @@ export const getUnletteredEntriesSchema = z.object({
 });
 
 export type GetUnletteredEntriesInput = z.infer<typeof getUnletteredEntriesSchema>;
+
+// Schema pour lister les groupes lettrees d un compte
+export const getLetteredGroupsSchema = z.object({
+  accountId: z.string().cuid(),
+});
+
+export type GetLetteredGroupsInput = z.infer<typeof getLetteredGroupsSchema>;

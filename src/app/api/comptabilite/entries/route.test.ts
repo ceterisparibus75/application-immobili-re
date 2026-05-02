@@ -105,6 +105,20 @@ describe("POST /api/comptabilite/entries", () => {
     );
   });
 
+  it("accepte les codes de journaux comptables modernes", async () => {
+    const response = await POST(makeRequest({ ...validBody, journalType: "BQUE" }) as never);
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          status: "BROUILLON",
+        }),
+      })
+    );
+  });
+
   it("refuse une écriture dont un compte n'appartient pas à la société", async () => {
     prismaMock.accountingAccount.findMany.mockResolvedValue([{ id: ACCOUNT_ID_1 }] as never);
 

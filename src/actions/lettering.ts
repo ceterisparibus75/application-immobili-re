@@ -13,7 +13,23 @@ import {
   letterEntriesSchema,
   unletterEntriesSchema,
   getUnletteredEntriesSchema,
+  getLetteredGroupsSchema,
 } from "@/validations/lettering";
+
+export type LetteredGroup = {
+  letteringCode: string;
+  lineCount: number;
+  totalDebit: number;
+  totalCredit: number;
+  firstEntryDate: Date;
+  lastEntryDate: Date;
+  letteredAt: Date | null;
+  pieces: string[];
+};
+
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 /**
  * Genere le prochain code de lettrage pour une societe.
  * Sequence : AA, AB, ..., AZ, BA, BB, ..., ZZ
@@ -330,5 +346,81 @@ export async function getUnletteredEntries(
     }
     console.error("[getUnletteredEntries]", error);
     return { success: false, error: "Erreur lors de la recuperation des lignes non lettrees" };
+  }
+}
+
+export async function getLetteredGroups(
+  societyId: string,
+  accountId: string
+): Promise<ActionResult<{ groups: LetteredGroup[] }>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = getLetteredGroupsSchema.safeParse({ accountId });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      };
+    }
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        accountId: parsed.data.accountId,
+        letteringCode: { not: null },
+        journalEntry: { societyId },
+      },
+      include: {
+        journalEntry: {
+          select: {
+            entryDate: true,
+            piece: true,
+            label: true,
+          },
+        },
+      },
+      orderBy: [
+        { letteringCode: "asc" },
+        { journalEntry: { entryDate: "asc" } },
+      ],
+    });
+
+    const groups = new Map<string, LetteredGroup>();
+    for (const line of lines) {
+      if (!line.letteringCode) continue;
+      const existing = groups.get(line.letteringCode);
+      if (existing) {
+        existing.lineCount += 1;
+        existing.totalDebit = roundCents(existing.totalDebit + line.debit);
+        existing.totalCredit = roundCents(existing.totalCredit + line.credit);
+        if (line.journalEntry.entryDate < existing.firstEntryDate) existing.firstEntryDate = line.journalEntry.entryDate;
+        if (line.journalEntry.entryDate > existing.lastEntryDate) existing.lastEntryDate = line.journalEntry.entryDate;
+        if (line.letteredAt && (!existing.letteredAt || line.letteredAt > existing.letteredAt)) existing.letteredAt = line.letteredAt;
+        if (line.journalEntry.piece && !existing.pieces.includes(line.journalEntry.piece)) existing.pieces.push(line.journalEntry.piece);
+        continue;
+      }
+
+      groups.set(line.letteringCode, {
+        letteringCode: line.letteringCode,
+        lineCount: 1,
+        totalDebit: roundCents(line.debit),
+        totalCredit: roundCents(line.credit),
+        firstEntryDate: line.journalEntry.entryDate,
+        lastEntryDate: line.journalEntry.entryDate,
+        letteredAt: line.letteredAt,
+        pieces: line.journalEntry.piece ? [line.journalEntry.piece] : [],
+      });
+    }
+
+    return { success: true, data: { groups: [...groups.values()] } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) {
+      return { success: false, error: "Non authentifie" };
+    }
+    if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    console.error("[getLetteredGroups]", error);
+    return { success: false, error: "Erreur lors de la recuperation des groupes lettres" };
   }
 }

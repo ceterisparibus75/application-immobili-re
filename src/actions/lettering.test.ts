@@ -5,7 +5,7 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
-import { getNextLetteringCode, letterEntries, unletterEntries, getUnletteredEntries } from "./lettering";
+import { getNextLetteringCode, letterEntries, unletterEntries, getUnletteredEntries, getLetteredGroups } from "./lettering";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const ACCOUNT_ID = "clh3x2z4k0001qh8g7z1y2v3u";
@@ -260,5 +260,54 @@ describe("getUnletteredEntries", () => {
     prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await getUnletteredEntries(SOCIETY_ID, ACCOUNT_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la recuperation des lignes non lettrees" });
+  });
+});
+
+describe("getLetteredGroups", () => {
+  it("regroupe les lignes lettrées par code pour un compte", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 500,
+        credit: 0,
+        letteringCode: "AA",
+        letteredAt: new Date("2025-01-20"),
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", label: "Facture janvier" },
+      },
+      {
+        id: LINE_ID_2,
+        debit: 0,
+        credit: 500,
+        letteringCode: "AA",
+        letteredAt: new Date("2025-01-20"),
+        journalEntry: { entryDate: new Date("2025-01-18"), piece: "PAY-001", label: "Paiement janvier" },
+      },
+    ] as never);
+
+    const result = await getLetteredGroups(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.groups).toEqual([
+      {
+        letteringCode: "AA",
+        lineCount: 2,
+        totalDebit: 500,
+        totalCredit: 500,
+        firstEntryDate: new Date("2025-01-15"),
+        lastEntryDate: new Date("2025-01-18"),
+        letteredAt: new Date("2025-01-20"),
+        pieces: ["FAC-001", "PAY-001"],
+      },
+    ]);
+  });
+
+  it("retourne une erreur de validation si l'accountId est invalide", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+
+    const result = await getLetteredGroups(SOCIETY_ID, "not-a-cuid");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
   });
 });

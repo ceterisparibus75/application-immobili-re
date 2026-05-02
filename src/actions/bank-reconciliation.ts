@@ -437,7 +437,7 @@ export async function generateJournalEntry(
       data: {
         societyId,
         fiscalYearId,
-        journalType: "BANQUE",
+        journalType: "BQUE",
         entryDate: transaction.transactionDate,
         label: transaction.label,
         reference: transaction.reference ?? undefined,

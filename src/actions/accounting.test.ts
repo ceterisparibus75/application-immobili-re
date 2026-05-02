@@ -15,7 +15,10 @@ import {
   getBalance,
   getGrandLivre,
   createJournalEntry,
+  updateJournalEntry,
+  deleteJournalEntry,
   validateJournalEntry,
+  validateJournalEntries,
   bulkImportAccounts,
   bulkImportJournalEntries,
 } from "./accounting";
@@ -25,6 +28,7 @@ const FISCAL_YEAR_ID = "clh3x2z4k0001qh8g7z1y2v3u";
 const ACCOUNT_ID_1 = "clh3x2z4k0002qh8g7z1y2v3v";
 const ACCOUNT_ID_2 = "clh3x2z4k0003qh8g7z1y2v3w";
 const ENTRY_ID = "clh3x2z4k0004qh8g7z1y2v3x";
+const ENTRY_ID_2 = "clh3x2z4k0005qh8g7z1y2v3y";
 
 function makeFiscalYear(overrides = {}) {
   return {
@@ -563,6 +567,18 @@ describe("createJournalEntry", () => {
     expect(result.success).toBe(false);
   });
 
+  it("retourne une erreur si le journal comptable n'est pas supporté", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+
+    const result = await createJournalEntry(SOCIETY_ID, {
+      ...validJournalInput,
+      journalType: "BANQUE_LEGACY",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Journal/);
+  });
+
   it("retourne une erreur si débit ≠ crédit", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     const result = await createJournalEntry(SOCIETY_ID, {
@@ -616,6 +632,112 @@ describe("createJournalEntry", () => {
     prismaMock.accountingAccount.findMany.mockRejectedValue(new Error("DB connection lost"));
     const result = await createJournalEntry(SOCIETY_ID, validJournalInput);
     expect(result).toEqual({ success: false, error: "Erreur lors de la création de l'écriture" });
+  });
+});
+
+describe("updateJournalEntry", () => {
+  it("met à jour une écriture brouillon et remplace ses lignes", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "BROUILLON",
+    } as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: false,
+    } as never);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1 },
+      { id: ACCOUNT_ID_2 },
+    ] as never);
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock) as never);
+    prismaMock.journalEntry.update.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await updateJournalEntry(SOCIETY_ID, ENTRY_ID, {
+      ...validJournalInput,
+      piece: "OD-001",
+      fiscalYearId: FISCAL_YEAR_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.deleteMany).toHaveBeenCalledWith({
+      where: { journalEntryId: ENTRY_ID },
+    });
+    expect(prismaMock.journalEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ENTRY_ID },
+        data: expect.objectContaining({
+          journalType: "VT",
+          piece: "OD-001",
+          lines: expect.objectContaining({ create: expect.any(Array) }),
+        }),
+      })
+    );
+  });
+
+  it("refuse de modifier une écriture validée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "VALIDEE",
+    } as never);
+
+    const result = await updateJournalEntry(SOCIETY_ID, ENTRY_ID, validJournalInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/brouillon/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuse de modifier dans un exercice clôturé", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "BROUILLON",
+    } as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: FISCAL_YEAR_ID,
+      isClosed: true,
+    } as never);
+
+    const result = await updateJournalEntry(SOCIETY_ID, ENTRY_ID, {
+      ...validJournalInput,
+      fiscalYearId: FISCAL_YEAR_ID,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/clôturé/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteJournalEntry", () => {
+  it("supprime une écriture brouillon", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "BROUILLON",
+    } as never);
+    prismaMock.journalEntry.delete.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await deleteJournalEntry(SOCIETY_ID, ENTRY_ID);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntry.delete).toHaveBeenCalledWith({ where: { id: ENTRY_ID } });
+  });
+
+  it("refuse de supprimer une écriture validée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue({
+      id: ENTRY_ID,
+      status: "VALIDEE",
+    } as never);
+
+    const result = await deleteJournalEntry(SOCIETY_ID, ENTRY_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/brouillon/);
+    expect(prismaMock.journalEntry.delete).not.toHaveBeenCalled();
   });
 });
 
@@ -1073,6 +1195,28 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
     const rows = result.data as Array<{ label: string }>;
     expect(rows[0].label).toBe("Libellé journal");
   });
+
+  it("affiche le code de lettrage moderne si disponible", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: "l1",
+        debit: 500,
+        credit: 0,
+        label: "Loyer",
+        lettrage: null,
+        letteringCode: "AB",
+        account: { code: "411000", label: "Clients" },
+        journalEntry: { entryDate: new Date("2025-01-15"), piece: "FAC-001", journalType: "VT", label: "Facture", status: "VALIDEE" },
+      },
+    ] as never);
+
+    const result = await getGrandLivre(SOCIETY_ID, {});
+
+    expect(result.success).toBe(true);
+    const rows = result.data as Array<{ lettrage: string | null }>;
+    expect(rows[0].lettrage).toBe("AB");
+  });
 });
 
 describe("bulkImportJournalEntries — erreur non-Error dans catch (ligne 566)", () => {
@@ -1207,6 +1351,82 @@ describe("validateJournalEntry", () => {
     const result = await validateJournalEntry(SOCIETY_ID, ENTRY_ID);
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/insuffisantes|refus/i);
+  });
+});
+
+describe("validateJournalEntries", () => {
+  it("valide plusieurs écritures brouillon équilibrées", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        id: ENTRY_ID,
+        status: "BROUILLON",
+        lines: [
+          { debit: 1000, credit: 0 },
+          { debit: 0, credit: 1000 },
+        ],
+      },
+      {
+        id: ENTRY_ID_2,
+        status: "BROUILLON",
+        lines: [
+          { debit: 250, credit: 0 },
+          { debit: 0, credit: 250 },
+        ],
+      },
+    ] as never);
+    prismaMock.journalEntry.updateMany.mockResolvedValue({ count: 2 } as never);
+
+    const result = await validateJournalEntries(SOCIETY_ID, [ENTRY_ID, ENTRY_ID_2]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.validated).toBe(2);
+    expect(prismaMock.journalEntry.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId: SOCIETY_ID, id: { in: [ENTRY_ID, ENTRY_ID_2] }, status: "BROUILLON" },
+        data: expect.objectContaining({ status: "VALIDEE", isValidated: true }),
+      })
+    );
+  });
+
+  it("refuse la validation en masse si une écriture n'est pas brouillon", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        id: ENTRY_ID,
+        status: "VALIDEE",
+        lines: [
+          { debit: 1000, credit: 0 },
+          { debit: 0, credit: 1000 },
+        ],
+      },
+    ] as never);
+
+    const result = await validateJournalEntries(SOCIETY_ID, [ENTRY_ID]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/brouillon/);
+    expect(prismaMock.journalEntry.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuse la validation en masse si une écriture est déséquilibrée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        id: ENTRY_ID,
+        status: "BROUILLON",
+        lines: [
+          { debit: 1000, credit: 0 },
+          { debit: 0, credit: 900 },
+        ],
+      },
+    ] as never);
+
+    const result = await validateJournalEntries(SOCIETY_ID, [ENTRY_ID]);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/équilibrée/);
+    expect(prismaMock.journalEntry.updateMany).not.toHaveBeenCalled();
   });
 });
 

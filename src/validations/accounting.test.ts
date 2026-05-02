@@ -85,7 +85,7 @@ describe("createJournalEntrySchema", () => {
   const validLine2 = { accountId: "411000", debit: 0, credit: 1000 };
 
   const validEntry = {
-    journalType: "BQ",
+    journalType: "BQUE",
     entryDate: "2025-06-01",
     label: "Virement loyer juin",
     lines: [validLine, validLine2],

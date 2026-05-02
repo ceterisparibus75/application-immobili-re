@@ -12,8 +12,13 @@ import {
 import {
   createFiscalYearSchema,
   createJournalEntrySchema,
+  validateJournalEntriesSchema,
 } from "@/validations/accounting";
 import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import {
+  normalizeAccountingJournalType,
+  type AccountingJournalType,
+} from "@/lib/accounting-journals";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -594,7 +599,7 @@ export async function getGrandLivre(
         debit: line.debit,
         credit: line.credit,
         solde,
-        lettrage: line.lettrage,
+        lettrage: line.letteringCode ?? line.lettrage,
         status: line.journalEntry.status,
         accountCode: line.account.code,
         accountLabel: line.account.label,
@@ -630,6 +635,7 @@ export async function createJournalEntry(
     if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
 
     const entryDate = new Date(parsed.data.entryDate);
+    const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
 
     // Vérifier l'équilibre débit/crédit
     const totalDebit = parsed.data.lines.reduce((s, l) => s + l.debit, 0);
@@ -667,7 +673,7 @@ export async function createJournalEntry(
     const entry = await prisma.journalEntry.create({
       data: {
         societyId,
-        journalType: parsed.data.journalType as never,
+        journalType: journalType as never,
         entryDate,
         piece: parsed.data.piece,
         label: parsed.data.label,
@@ -690,7 +696,7 @@ export async function createJournalEntry(
       action: "CREATE",
       entity: "JournalEntry",
       entityId: entry.id,
-      details: { journalType: input.journalType, piece: input.piece, label: input.label },
+      details: { journalType, piece: input.piece, label: input.label },
     });
 
     revalidatePath("/comptabilite");
@@ -700,6 +706,145 @@ export async function createJournalEntry(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createJournalEntry]", error);
     return { success: false, error: "Erreur lors de la création de l'écriture" };
+  }
+}
+
+export async function updateJournalEntry(
+  societyId: string,
+  entryId: string,
+  input: {
+    journalType: string;
+    entryDate: string;
+    piece?: string;
+    label: string;
+    fiscalYearId?: string;
+    lines: Array<{ accountId: string; label?: string; debit: number; credit: number }>;
+  }
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const existing = await prisma.journalEntry.findFirst({
+      where: { id: entryId, societyId },
+      select: { id: true, status: true },
+    });
+    if (!existing) return { success: false, error: "Écriture introuvable" };
+    if (existing.status !== "BROUILLON") {
+      return { success: false, error: "Seules les écritures en brouillon peuvent être modifiées" };
+    }
+
+    const parsed = createJournalEntrySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const entryDate = new Date(parsed.data.entryDate);
+    const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
+
+    const totalDebit = parsed.data.lines.reduce((sum, line) => sum + line.debit, 0);
+    const totalCredit = parsed.data.lines.reduce((sum, line) => sum + line.credit, 0);
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+      return { success: false, error: `L'écriture n'est pas équilibrée (débit ${totalDebit.toFixed(2)} € ≠ crédit ${totalCredit.toFixed(2)} €)` };
+    }
+
+    const fiscalYear = parsed.data.fiscalYearId
+      ? await prisma.fiscalYear.findFirst({
+          where: { id: parsed.data.fiscalYearId, societyId },
+          select: { id: true, isClosed: true },
+        })
+      : await prisma.fiscalYear.findFirst({
+          where: {
+            societyId,
+            startDate: { lte: entryDate },
+            endDate: { gte: entryDate },
+          },
+          select: { id: true, isClosed: true },
+        });
+    if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
+    if (fiscalYear?.isClosed) return { success: false, error: "Impossible de modifier une écriture dans un exercice clôturé" };
+
+    const accountIds = [...new Set(parsed.data.lines.map((line) => line.accountId))];
+    const accounts = await prisma.accountingAccount.findMany({
+      where: { id: { in: accountIds }, societyId },
+      select: { id: true },
+    });
+    if (accounts.length !== accountIds.length) {
+      return { success: false, error: "Un ou plusieurs comptes sont invalides" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.journalEntryLine.deleteMany({ where: { journalEntryId: entryId } });
+      await tx.journalEntry.update({
+        where: { id: entryId },
+        data: {
+          journalType: journalType as never,
+          entryDate,
+          piece: parsed.data.piece,
+          label: parsed.data.label,
+          fiscalYearId: fiscalYear?.id,
+          lines: {
+            create: parsed.data.lines.map((line) => ({
+              accountId: line.accountId,
+              label: line.label,
+              debit: line.debit,
+              credit: line.credit,
+            })),
+          },
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "JournalEntry",
+      entityId: entryId,
+      details: { action: "update_draft", journalType, piece: input.piece, label: input.label },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true, data: { id: entryId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[updateJournalEntry]", error);
+    return { success: false, error: "Erreur lors de la modification de l'écriture" };
+  }
+}
+
+export async function deleteJournalEntry(
+  societyId: string,
+  entryId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const entry = await prisma.journalEntry.findFirst({
+      where: { id: entryId, societyId },
+      select: { id: true, status: true, piece: true, label: true },
+    });
+    if (!entry) return { success: false, error: "Écriture introuvable" };
+    if (entry.status !== "BROUILLON") {
+      return { success: false, error: "Seules les écritures en brouillon peuvent être supprimées" };
+    }
+
+    await prisma.journalEntry.delete({ where: { id: entryId } });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "JournalEntry",
+      entityId: entryId,
+      details: { action: "delete_draft", piece: entry.piece, label: entry.label },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteJournalEntry]", error);
+    return { success: false, error: "Erreur lors de la suppression de l'écriture" };
   }
 }
 
@@ -741,6 +886,68 @@ export async function validateJournalEntry(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[validateJournalEntry]", error);
     return { success: false, error: "Erreur lors de la validation de l'écriture" };
+  }
+}
+
+export async function validateJournalEntries(
+  societyId: string,
+  entryIds: string[]
+): Promise<ActionResult<{ validated: number }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = validateJournalEntriesSchema.safeParse({ entryIds });
+    if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    const uniqueEntryIds = [...new Set(parsed.data.entryIds)];
+    const entries = await prisma.journalEntry.findMany({
+      where: { societyId, id: { in: uniqueEntryIds } },
+      select: {
+        id: true,
+        status: true,
+        lines: { select: { debit: true, credit: true } },
+      },
+    });
+
+    if (entries.length !== uniqueEntryIds.length) {
+      return { success: false, error: "Une ou plusieurs écritures sont introuvables" };
+    }
+
+    const notDraft = entries.find((entry) => entry.status !== "BROUILLON");
+    if (notDraft) {
+      return { success: false, error: "Toutes les écritures doivent être en brouillon pour être validées" };
+    }
+
+    const unbalanced = entries.find((entry) => {
+      const totalDebit = roundCents(entry.lines.reduce((sum, line) => sum + line.debit, 0));
+      const totalCredit = roundCents(entry.lines.reduce((sum, line) => sum + line.credit, 0));
+      return Math.abs(totalDebit - totalCredit) > 0.01;
+    });
+    if (unbalanced) {
+      return { success: false, error: "Chaque écriture doit être équilibrée avant validation" };
+    }
+
+    const result = await prisma.journalEntry.updateMany({
+      where: { societyId, id: { in: uniqueEntryIds }, status: "BROUILLON" },
+      data: { status: "VALIDEE", isValidated: true, validatedById: context.userId },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "JournalEntry",
+      entityId: societyId,
+      details: { action: "bulk_validate", count: result.count, entryIds: uniqueEntryIds },
+    });
+
+    revalidatePath("/comptabilite");
+    return { success: true, data: { validated: result.count } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[validateJournalEntries]", error);
+    return { success: false, error: "Erreur lors de la validation des écritures" };
   }
 }
 

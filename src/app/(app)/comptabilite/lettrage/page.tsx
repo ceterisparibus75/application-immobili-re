@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Link2, Loader2, RefreshCw } from "lucide-react";
+import { Link2, Loader2, RefreshCw, Unlink2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getAccounts, type AccountRow } from "@/actions/accounting";
-import { getUnletteredEntries, letterEntries } from "@/actions/lettering";
+import {
+  getLetteredGroups,
+  getUnletteredEntries,
+  letterEntries,
+  unletterEntries,
+  type LetteredGroup,
+} from "@/actions/lettering";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +40,7 @@ export default function LetteringPage() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [accountId, setAccountId] = useState("");
   const [lines, setLines] = useState<UnletteredLine[]>([]);
+  const [letteredGroups, setLetteredGroups] = useState<LetteredGroup[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -49,12 +56,22 @@ export default function LetteringPage() {
   function load(nextAccountId = accountId) {
     if (!activeSociety?.id || !nextAccountId) return;
     startTransition(async () => {
-      const result = await getUnletteredEntries(activeSociety.id, nextAccountId);
-      if (result.success && result.data) {
-        setLines(result.data.lines);
+      const [unletteredResult, letteredResult] = await Promise.all([
+        getUnletteredEntries(activeSociety.id, nextAccountId),
+        getLetteredGroups(activeSociety.id, nextAccountId),
+      ]);
+
+      if (unletteredResult.success && unletteredResult.data) {
+        setLines(unletteredResult.data.lines);
         setSelected([]);
       } else {
-        toast.error(result.error ?? "Erreur lors du chargement des lignes");
+        toast.error(unletteredResult.error ?? "Erreur lors du chargement des lignes");
+      }
+
+      if (letteredResult.success && letteredResult.data) {
+        setLetteredGroups(letteredResult.data.groups);
+      } else {
+        toast.error(letteredResult.error ?? "Erreur lors du chargement des groupes lettrés");
       }
     });
   }
@@ -93,6 +110,19 @@ export default function LetteringPage() {
         load(accountId);
       } else {
         toast.error(result.error ?? "Erreur lors du lettrage");
+      }
+    });
+  }
+
+  function handleUnletter(letteringCode: string) {
+    if (!activeSociety?.id) return;
+    startTransition(async () => {
+      const result = await unletterEntries(activeSociety.id, letteringCode);
+      if (result.success) {
+        toast.success(`Lettrage ${letteringCode} supprimé`);
+        load(accountId);
+      } else {
+        toast.error(result.error ?? "Erreur lors du délettrage");
       }
     });
   }
@@ -211,6 +241,60 @@ export default function LetteringPage() {
                     </TableCell>
                     <TableCell className="text-right font-mono">{line.debit > 0 ? formatCurrency(line.debit) : ""}</TableCell>
                     <TableCell className="text-right font-mono">{line.credit > 0 ? formatCurrency(line.credit) : ""}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Groupes lettrés</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-20">Code</TableHead>
+                  <TableHead className="w-24">Lignes</TableHead>
+                  <TableHead>Pièces</TableHead>
+                  <TableHead className="text-right">Débit</TableHead>
+                  <TableHead className="text-right">Crédit</TableHead>
+                  <TableHead className="w-44">Période</TableHead>
+                  <TableHead className="w-28 text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {letteredGroups.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Aucun groupe lettré pour ce compte
+                    </TableCell>
+                  </TableRow>
+                )}
+                {letteredGroups.map((group) => (
+                  <TableRow key={group.letteringCode}>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono">{group.letteringCode}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{group.lineCount}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {group.pieces.length > 0 ? group.pieces.join(", ") : "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(group.totalDebit)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(group.totalCredit)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(group.firstEntryDate)} - {formatDate(group.lastEntryDate)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" onClick={() => handleUnletter(group.letteringCode)} disabled={isPending}>
+                        <Unlink2 className="h-4 w-4" />
+                        Délettrer
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

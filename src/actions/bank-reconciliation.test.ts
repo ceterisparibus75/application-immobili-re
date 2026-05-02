@@ -730,7 +730,7 @@ describe("generateJournalEntry", () => {
     expect(r.data?.id).toBe(JOURNAL_ID);
     expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ journalType: "BANQUE" }),
+        data: expect.objectContaining({ journalType: "BQUE" }),
       })
     );
   });
@@ -764,7 +764,7 @@ describe("generateJournalEntry", () => {
     expect(r.success).toBe(true);
     expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ journalType: "BANQUE" }),
+        data: expect.objectContaining({ journalType: "BQUE" }),
       })
     );
   });

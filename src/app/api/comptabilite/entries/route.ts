@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { createAuditLog } from "@/lib/audit";
+import {
+  isAccountingJournalType,
+  normalizeAccountingJournalType,
+  type AccountingJournalType,
+} from "@/lib/accounting-journals";
 import { z } from "zod";
 
 export async function GET(req: NextRequest) {
@@ -28,7 +33,10 @@ export async function GET(req: NextRequest) {
 }
 
 const createEntrySchema = z.object({
-  journalType: z.enum(["VENTES", "BANQUE", "OPERATIONS_DIVERSES"]),
+  journalType: z
+    .string()
+    .min(1, "Journal requis")
+    .refine(isAccountingJournalType, "Journal comptable non supporté"),
   entryDate: z.string().min(1),
   label: z.string().min(1),
   piece: z.string().optional().nullable(),
@@ -84,6 +92,7 @@ export async function POST(req: NextRequest) {
   }
 
   const entryDate = new Date(parsed.data.entryDate);
+  const journalType = normalizeAccountingJournalType(parsed.data.journalType as AccountingJournalType);
   const fiscalYear = await prisma.fiscalYear.findFirst({
     where: {
       societyId: context.societyId,
@@ -102,13 +111,14 @@ export async function POST(req: NextRequest) {
   const entry = await prisma.journalEntry.create({
     data: {
       societyId: context.societyId,
-      journalType: parsed.data.journalType,
+      journalType: journalType as never,
       entryDate,
       label: parsed.data.label,
       piece: parsed.data.piece ?? null,
       reference: parsed.data.reference ?? null,
       fiscalYearId: fiscalYear?.id,
       isValidated: false,
+      status: "BROUILLON",
       lines: {
         create: parsed.data.lines.map((l) => ({
           accountId: l.accountId,
@@ -128,7 +138,7 @@ export async function POST(req: NextRequest) {
     entityId: entry.id,
     details: {
       source: "API",
-      journalType: parsed.data.journalType,
+      journalType,
       piece: parsed.data.piece ?? null,
       label: parsed.data.label,
     },
