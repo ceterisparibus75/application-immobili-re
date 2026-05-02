@@ -119,6 +119,24 @@ describe("POST /api/comptabilite/entries", () => {
     );
   });
 
+  it("refuse une ligne avec débit et crédit simultanés", async () => {
+    const response = await POST(
+      makeRequest({
+        ...validBody,
+        lines: [
+          { accountId: ACCOUNT_ID_1, debit: 1200, credit: 1200, label: "Client" },
+          { accountId: ACCOUNT_ID_2, debit: 300, credit: 300, label: "Loyer" },
+        ],
+      }) as never
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Chaque ligne doit renseigner un débit ou un crédit, pas les deux",
+    });
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("refuse une écriture dont un compte n'appartient pas à la société", async () => {
     prismaMock.accountingAccount.findMany.mockResolvedValue([{ id: ACCOUNT_ID_1 }] as never);
 
@@ -142,6 +160,18 @@ describe("POST /api/comptabilite/entries", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: "Impossible de créer une écriture dans un exercice clôturé",
+    });
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("refuse une écriture sans exercice fiscal couvrant la date", async () => {
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const response = await POST(makeRequest(validBody) as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Aucun exercice fiscal ouvert ne couvre cette date",
     });
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });

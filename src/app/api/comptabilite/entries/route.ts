@@ -9,6 +9,16 @@ import {
 } from "@/lib/accounting-journals";
 import { z } from "zod";
 
+function validateDebitCreditLines(lines: Array<{ debit: number; credit: number }>): string | null {
+  const invalidLine = lines.find((line) => {
+    const hasDebit = Math.abs(line.debit) > 0.01;
+    const hasCredit = Math.abs(line.credit) > 0.01;
+    return hasDebit === hasCredit;
+  });
+
+  return invalidLine ? "Chaque ligne doit renseigner un débit ou un crédit, pas les deux" : null;
+}
+
 export async function GET(req: NextRequest) {
   const context = await requireActiveSocietyRouteContext();
   if (context instanceof NextResponse) return context;
@@ -66,6 +76,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const lineValidationError = validateDebitCreditLines(parsed.data.lines);
+  if (lineValidationError) {
+    return NextResponse.json(
+      { error: lineValidationError },
+      { status: 400 }
+    );
+  }
+
   const totalDebit = parsed.data.lines.reduce((s, l) => s + l.debit, 0);
   const totalCredit = parsed.data.lines.reduce((s, l) => s + l.credit, 0);
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
@@ -104,6 +122,12 @@ export async function POST(req: NextRequest) {
   if (fiscalYear?.isClosed) {
     return NextResponse.json(
       { error: "Impossible de créer une écriture dans un exercice clôturé" },
+      { status: 400 }
+    );
+  }
+  if (!fiscalYear) {
+    return NextResponse.json(
+      { error: "Aucun exercice fiscal ouvert ne couvre cette date" },
       { status: 400 }
     );
   }
