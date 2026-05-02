@@ -98,6 +98,23 @@ describe("import-grand-livre parsers", () => {
     expect(entries[0]?.lines).toHaveLength(1);
   });
 
+  it("ne fusionne pas les soldes à nouveau sans pièce de comptes différents", () => {
+    const text = [
+      "Compte        Libellé compte                                     Journal  Date écriture Pièce            Libellé écriture                                   Débit origine Crédit origine Débit euro  Crédit euro  Lettrage N Lettrage N+1 Lettrage partiel Révision Année      Mois       Jour       Monnaie ISO Monnaie Taux change Type règlement Quantité 1 Unité 1    Quantité 2 Unité 2 ",
+      "101300        CAPITAL SOCIAL APPELE, VERSE                       AN       01/01/2026                     Solde à nouveau                                    0             201000         0           201000                  Faux         Faux             N        2026       1          1          E                   1           R              0                     0                  ",
+      "119000        REPORT A NOUVEAU DEBITEUR                          AN       01/01/2026                     Solde à nouveau                                    98422,97      0              98422,97    0                       Faux         Faux             N        2026       1          1          E                   1           R              0                     0                  ",
+    ].join("\r\n");
+
+    const entries = parseGrandLivreText(text);
+
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.lines.map((line) => line.accountCode))).toEqual([
+      ["101300"],
+      ["119000"],
+    ]);
+    expect(entries.map((entry) => entry.isBalanced)).toEqual([false, false]);
+  });
+
   it("parse un export grand-livre CSV avec les colonnes débit/crédit euro", () => {
     const text = [
       "Compte;Libellé compte;Journal;Date écriture;Pièce;Libellé écriture;Débit origine;Crédit origine;Débit euro;Crédit euro;Lettrage N",

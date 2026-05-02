@@ -278,12 +278,15 @@ export function parseGrandLivreText(text: string): ParsedEntry[] {
     const credit = parseAmount(get("credit"));
     if (debit === 0 && credit === 0) continue;
 
-    const entryKey = `${journalCode}|${entryDate}|${piece || label}`;
+    const isOpeningBalanceWithoutPiece = journalCode.toUpperCase().trim() === "AN" && !piece;
+    const entryKey = isOpeningBalanceWithoutPiece
+      ? `${journalCode}|${entryDate}|${accountCode}|${i}`
+      : `${journalCode}|${entryDate}|${piece || label}`;
     if (!rawEntries.has(entryKey)) {
       rawEntries.set(entryKey, {
         journalCode,
         entryDate,
-        piece: piece || `${journalCode}-${entryDate}`,
+        piece: piece || (isOpeningBalanceWithoutPiece ? `${journalCode}-${entryDate}-${accountCode}` : `${journalCode}-${entryDate}`),
         label,
         lines: [],
         totalDebit: 0,
