@@ -279,6 +279,22 @@ describe("generateOpeningEntries", () => {
     );
   });
 
+  it("bloque les à-nouveaux si l'exercice cible est clôturé", async () => {
+    mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: true, year: 2025 }) as never);
+    prismaMock.fiscalYear.findUnique.mockResolvedValue({
+      id: "fy-2026",
+      year: 2026,
+      startDate: new Date("2026-01-01"),
+      isClosed: true,
+    } as never);
+
+    const result = await generateOpeningEntries(SOCIETY_ID, FISCAL_YEAR_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/déjà clôturé/);
+  });
+
   it("retourne l'écriture existante si les à-nouveaux existent déjà", async () => {
     mockAuthSession("ADMIN_SOCIETE", SOCIETY_ID);
     prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear({ isClosed: true, year: 2025 }) as never);

@@ -2,6 +2,7 @@
 
 import type { ActionResult } from "@/actions/society";
 import { createAuditLog } from "@/lib/audit";
+import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import {
@@ -286,9 +287,11 @@ export async function liquidateVatPeriod(
       }
 
       const entryDate = filters.dateTo ? new Date(filters.dateTo) : new Date();
+      const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, entryDate);
       const created = await tx.journalEntry.create({
         data: {
           societyId,
+          fiscalYearId,
           journalType: "OD",
           entryDate,
           piece: "TVA",

@@ -257,10 +257,13 @@ export async function generateOpeningEntries(
 
     const target = await prisma.fiscalYear.findUnique({
       where: { societyId_year: { societyId, year: source.year + 1 } },
-      select: { id: true, year: true, startDate: true },
+      select: { id: true, year: true, startDate: true, isClosed: true },
     });
     if (!target) {
       return { success: false, error: `Créez d'abord l'exercice ${source.year + 1} pour générer les à-nouveaux` };
+    }
+    if (target.isClosed) {
+      return { success: false, error: `Impossible de générer les à-nouveaux dans l'exercice ${target.year} déjà clôturé` };
     }
 
     const reference = `opening:${source.id}:${target.id}`;
