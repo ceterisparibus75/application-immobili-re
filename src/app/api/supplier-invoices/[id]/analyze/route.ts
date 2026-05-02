@@ -31,6 +31,61 @@ function countExtractedFields(result: SupplierInvoiceAIResult): number {
   return fields.filter((field) => result[field] !== null && result[field] !== undefined).length;
 }
 
+type SupplierAssignment = {
+  buildingId?: string;
+  categoryId?: string;
+  accountingAccountId?: string;
+};
+
+function normalizeSupplierName(name: string): string {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+async function resolveHistoricSupplierAssignment(
+  societyId: string,
+  invoiceId: string,
+  supplierName: string | null
+): Promise<SupplierAssignment> {
+  if (!supplierName) return {};
+
+  const previousInvoices = await prisma.supplierInvoice.findMany({
+    where: {
+      societyId,
+      id: { not: invoiceId },
+      supplierName: { equals: normalizeSupplierName(supplierName), mode: "insensitive" },
+      OR: [
+        { buildingId: { not: null } },
+        { categoryId: { not: null } },
+        { accountingAccountId: { not: null } },
+      ],
+    },
+    select: {
+      buildingId: true,
+      categoryId: true,
+      accountingAccountId: true,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 20,
+  });
+
+  const signatures = new Map<string, SupplierAssignment>();
+  for (const previous of previousInvoices) {
+    const assignment = {
+      buildingId: previous.buildingId ?? undefined,
+      categoryId: previous.categoryId ?? undefined,
+      accountingAccountId: previous.accountingAccountId ?? undefined,
+    };
+    const signature = [
+      assignment.buildingId ?? "",
+      assignment.categoryId ?? "",
+      assignment.accountingAccountId ?? "",
+    ].join("|");
+    signatures.set(signature, assignment);
+  }
+
+  return signatures.size === 1 ? [...signatures.values()][0] : {};
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -139,6 +194,11 @@ export async function POST(
     if (result.supplierIban) {
       supplierIbanEncrypted = encrypt(result.supplierIban);
     }
+    const historicAssignment = await resolveHistoricSupplierAssignment(
+      invoice.societyId,
+      id,
+      result.supplierName
+    );
 
     // ── Persister les données extraites ───────────────────────────────────
     await prisma.supplierInvoice.update({
@@ -160,6 +220,9 @@ export async function POST(
         description: result.description ?? undefined,
         periodStart: result.periodStart ? new Date(result.periodStart) : undefined,
         periodEnd: result.periodEnd ? new Date(result.periodEnd) : undefined,
+        buildingId: historicAssignment.buildingId,
+        categoryId: historicAssignment.categoryId,
+        accountingAccountId: historicAssignment.accountingAccountId,
         aiConfidence: result.confidence,
         aiAnalyzedAt: new Date(),
         aiStatus: "done",

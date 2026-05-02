@@ -146,4 +146,65 @@ describe("supplier invoice routes", () => {
       }),
     });
   });
+
+  it("réutilise une affectation fournisseur historique non ambiguë après analyse IA", async () => {
+    prismaMock.supplierInvoice.findUnique.mockResolvedValue({
+      id: "inv-1",
+      societyId: "soc-1",
+      storagePath: "supplier-invoices/inv.pdf",
+      mimeType: "application/pdf",
+      supplierName: null,
+      amountTTC: null,
+    } as never);
+    const download = vi.fn().mockResolvedValue({
+      data: new Blob([new TextEncoder().encode("%PDF-1.7")], { type: "application/pdf" }),
+      error: null,
+    });
+    createClient.mockReturnValue({ storage: { from: vi.fn(() => ({ download })) } });
+    analyzeSupplierInvoice.mockResolvedValue({
+      supplierName: "SQUARE HABITAT NORD DE FRANCE",
+      supplierSiret: null,
+      supplierAddress: null,
+      supplierIban: null,
+      supplierBic: null,
+      invoiceNumber: "S.7071.00001",
+      invoiceDate: "2026-01-01",
+      dueDate: null,
+      amountHT: null,
+      amountVAT: null,
+      amountTTC: 2502.66,
+      vatRate: null,
+      currency: "EUR",
+      description: "Appel de provisions Bureaux Bollaert",
+      periodStart: null,
+      periodEnd: null,
+      confidence: 0.69,
+    });
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([
+      {
+        buildingId: "building-lens",
+        categoryId: "cat-copro",
+        accountingAccountId: "account-614",
+      },
+    ] as never);
+
+    const response = await analyzeRoute(
+      new Request("http://localhost/api/supplier-invoices/inv-1/analyze", {
+        method: "POST",
+        headers: { "x-society-id": "soc-1" },
+      }) as never,
+      { params: Promise.resolve({ id: "inv-1" }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.supplierInvoice.update).toHaveBeenLastCalledWith({
+      where: { id: "inv-1" },
+      data: expect.objectContaining({
+        supplierName: "SQUARE HABITAT NORD DE FRANCE",
+        buildingId: "building-lens",
+        categoryId: "cat-copro",
+        accountingAccountId: "account-614",
+      }),
+    });
+  });
 });

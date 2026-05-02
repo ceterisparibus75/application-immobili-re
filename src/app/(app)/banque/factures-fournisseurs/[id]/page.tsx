@@ -193,6 +193,7 @@ export default async function SupplierInvoiceDetailPage({ params }: PageProps) {
         {/* Formulaire (40%) — défile dans sa colonne */}
         <div className="lg:col-span-2 h-full overflow-y-auto pb-4">
           <SupplierInvoiceForm
+            key={`${invoice.id}-${invoice.updatedAt.getTime()}`}
             invoice={safeInvoice}
             societyId={societyId}
             buildings={buildings}
