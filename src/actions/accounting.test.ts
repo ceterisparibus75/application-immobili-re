@@ -943,6 +943,51 @@ describe("bulkImportJournalEntries", () => {
     );
   });
 
+  it("crée les comptes manquants quand l'import grand-livre l'autorise", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany
+      .mockResolvedValueOnce([{ id: ACCOUNT_ID_1, code: "411000" }] as never)
+      .mockResolvedValueOnce([
+        { id: ACCOUNT_ID_1, code: "411000" },
+        { id: ACCOUNT_ID_2, code: "CAJHOLD" },
+      ] as never);
+    prismaMock.accountingAccount.createMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await bulkImportJournalEntries(
+      SOCIETY_ID,
+      [
+        {
+          journalType: "VT",
+          entryDate: "2025-01-15",
+          label: "Loyer",
+          lines: [
+            { accountCode: "411000", debit: 1000, credit: 0 },
+            { accountCode: "CAJHOLD", accountLabel: "AJ HOLD", debit: 0, credit: 1000 },
+          ],
+        },
+      ],
+      { createMissingAccounts: true }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(1);
+    expect(prismaMock.accountingAccount.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          societyId: SOCIETY_ID,
+          code: "CAJHOLD",
+          label: "AJ HOLD",
+          type: "AUX",
+          isActive: true,
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   it("saute une écriture importée si son exercice est clôturé", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([

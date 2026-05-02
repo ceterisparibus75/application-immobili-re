@@ -146,7 +146,8 @@ export default function ImportGrandLivrePage() {
         label: e.label || e.piece,
         lines: e.lines.map((l) => ({
           accountCode: l.accountCode,
-          label: l.accountLabel,
+          accountLabel: l.accountLabel,
+          label: e.label || l.accountLabel,
           debit: l.debit,
           credit: l.credit,
         })),
@@ -156,7 +157,9 @@ export default function ImportGrandLivrePage() {
       return;
     }
     startImporting(async () => {
-      const res = await bulkImportJournalEntries(activeSociety.id, toImport);
+      const res = await bulkImportJournalEntries(activeSociety.id, toImport, {
+        createMissingAccounts: source === "grand_livre",
+      });
       if (res.success && res.data) {
         setResult(res.data);
         toast.success(res.data.imported + " écriture(s) importée(s)");

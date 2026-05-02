@@ -1242,10 +1242,15 @@ export type ImportJournalEntryInput = {
   reference?: string;
   lines: Array<{
     accountCode: string;
+    accountLabel?: string;
     label?: string;
     debit: number;
     credit: number;
   }>;
+};
+
+export type BulkImportJournalEntriesOptions = {
+  createMissingAccounts?: boolean;
 };
 
 function normalizeJournalType(code: string): JournalType | null {
@@ -1262,6 +1267,7 @@ function normalizeJournalType(code: string): JournalType | null {
 export async function bulkImportJournalEntries(
   societyId: string,
   entries: ImportJournalEntryInput[],
+  options: BulkImportJournalEntriesOptions = {},
 ): Promise<ActionResult<{ imported: number; skipped: number; errors: string[] }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "COMPTABLE");
@@ -1269,11 +1275,41 @@ export async function bulkImportJournalEntries(
     if (!entries.length) return { success: false, error: "Aucune écriture à importer" };
     if (entries.length > 2000) return { success: false, error: "Maximum 2000 écritures par import" };
 
-    const accounts = await prisma.accountingAccount.findMany({
+    let accounts = await prisma.accountingAccount.findMany({
       where: { societyId },
       select: { id: true, code: true },
     });
-    const accountMap = new Map(accounts.map((a) => [a.code, a.id]));
+    let accountMap = new Map(accounts.map((a) => [a.code, a.id]));
+
+    if (options.createMissingAccounts) {
+      const labelsByCode = new Map<string, string>();
+      for (const entry of entries) {
+        for (const line of entry.lines) {
+          const code = line.accountCode.trim();
+          if (!code || accountMap.has(code)) continue;
+          labelsByCode.set(code, (line.accountLabel ?? code).trim() || code);
+        }
+      }
+
+      const missingAccounts = Array.from(labelsByCode.entries());
+      if (missingAccounts.length > 0) {
+        await prisma.accountingAccount.createMany({
+          data: missingAccounts.map(([code, label]) => ({
+            societyId,
+            code,
+            label,
+            type: /^\d/.test(code) ? code[0] : "AUX",
+            isActive: true,
+          })),
+          skipDuplicates: true,
+        });
+        accounts = await prisma.accountingAccount.findMany({
+          where: { societyId },
+          select: { id: true, code: true },
+        });
+        accountMap = new Map(accounts.map((a) => [a.code, a.id]));
+      }
+    }
 
     let imported = 0;
     let skipped = 0;

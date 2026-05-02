@@ -188,6 +188,34 @@ function sliceColumn(line: string, start: number, end: number | undefined): stri
   return line.slice(start, end).trim();
 }
 
+function roundAmount(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function isGrandLivreAccountCode(value: string): boolean {
+  return /^[A-Z0-9][A-Z0-9 ._/-]{1,}$/i.test(value.trim());
+}
+
+function balanceGrandLivreEntry(entry: ParsedEntry): void {
+  const difference = roundAmount(entry.totalDebit - entry.totalCredit);
+  if (Math.abs(difference) < 0.02) {
+    entry.isBalanced = true;
+    return;
+  }
+
+  const debit = difference < 0 ? Math.abs(difference) : 0;
+  const credit = difference > 0 ? difference : 0;
+  entry.lines.push({
+    accountCode: "471000",
+    accountLabel: "Compte d'attente import grand livre",
+    debit,
+    credit,
+  });
+  entry.totalDebit = roundAmount(entry.totalDebit + debit);
+  entry.totalCredit = roundAmount(entry.totalCredit + credit);
+  entry.isBalanced = Math.abs(entry.totalDebit - entry.totalCredit) < 0.02;
+}
+
 function getFixedWidthColumns(header: string): Array<{ key: string; start: number; end?: number }> | null {
   const definitions = [
     ["accountCode", "Compte"],
@@ -238,8 +266,8 @@ export function parseGrandLivreText(text: string): ParsedEntry[] {
       return col ? sliceColumn(line, col.start, col.end) : "";
     };
 
-    const accountCode = get("accountCode");
-    if (!/^\d{3,}/.test(accountCode)) continue;
+    const accountCode = get("accountCode").trim();
+    if (!isGrandLivreAccountCode(accountCode)) continue;
 
     const accountLabel = get("accountLabel") || accountCode;
     const journalCode = get("journalCode") || "OD";
@@ -266,14 +294,12 @@ export function parseGrandLivreText(text: string): ParsedEntry[] {
 
     const entry = rawEntries.get(entryKey)!;
     entry.lines.push({ accountCode, accountLabel, debit, credit });
-    entry.totalDebit = Math.round((entry.totalDebit + debit) * 100) / 100;
-    entry.totalCredit = Math.round((entry.totalCredit + credit) * 100) / 100;
+    entry.totalDebit = roundAmount(entry.totalDebit + debit);
+    entry.totalCredit = roundAmount(entry.totalCredit + credit);
   }
 
   const result = Array.from(rawEntries.values());
-  result.forEach((entry) => {
-    entry.isBalanced = Math.abs(entry.totalDebit - entry.totalCredit) < 0.02;
-  });
+  result.forEach(balanceGrandLivreEntry);
   return result;
 }
 
