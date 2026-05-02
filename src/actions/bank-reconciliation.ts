@@ -812,6 +812,7 @@ export async function getUpcomingLoanLines(societyId: string) {
   return prisma.loanAmortizationLine.findMany({
     where: {
       isPaid: false,
+      dueDate: { lte: new Date() },
       loan: { societyId, status: "EN_COURS" },
     },
     select: {

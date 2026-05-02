@@ -397,9 +397,24 @@ export async function markAmortizationLinePaid(
     });
     if (!line) return { error: "Ligne introuvable" };
 
+    const paidAt = new Date();
     await prisma.loanAmortizationLine.update({
       where: { id: lineId },
-      data: { isPaid: paid, paidAt: paid ? new Date() : null },
+      data: paid
+        ? {
+            isPaid: true,
+            paidAt,
+            principalPaidAt: line.principalPaidAt ?? (line.principalPayment > 0.01 ? paidAt : null),
+            interestPaidAt: line.interestPaidAt ?? (line.interestPayment > 0.01 ? paidAt : null),
+            insurancePaidAt: line.insurancePaidAt ?? (line.insurancePayment > 0.01 ? paidAt : null),
+          }
+        : {
+            isPaid: false,
+            paidAt: null,
+            principalPaidAt: line.principalBankTransactionId ? line.principalPaidAt : null,
+            interestPaidAt: line.interestBankTransactionId ? line.interestPaidAt : null,
+            insurancePaidAt: line.insuranceBankTransactionId ? line.insurancePaidAt : null,
+          },
     });
 
     await createAuditLog({
@@ -507,14 +522,45 @@ export async function regenerateAmortizationTable(societyId: string, loanId: str
   if (!loan) return { error: "Emprunt introuvable" };
 
   // Récupérer les lignes payées pour préserver leur statut
-  const paidLinesByPeriod = new Map<number, { isPaid: boolean; paidAt: Date | null }>();
+  const paidLinesByPeriod = new Map<
+    number,
+    {
+      isPaid: boolean;
+      paidAt: Date | null;
+      principalPaidAt: Date | null;
+      interestPaidAt: Date | null;
+      insurancePaidAt: Date | null;
+      principalBankTransactionId: string | null;
+      interestBankTransactionId: string | null;
+      insuranceBankTransactionId: string | null;
+    }
+  >();
   const existingLines = await prisma.loanAmortizationLine.findMany({
     where: { loanId },
-    select: { period: true, isPaid: true, paidAt: true },
+    select: {
+      period: true,
+      isPaid: true,
+      paidAt: true,
+      principalPaidAt: true,
+      interestPaidAt: true,
+      insurancePaidAt: true,
+      principalBankTransactionId: true,
+      interestBankTransactionId: true,
+      insuranceBankTransactionId: true,
+    },
   });
   for (const line of existingLines) {
-    if (line.isPaid) {
-      paidLinesByPeriod.set(line.period, { isPaid: true, paidAt: line.paidAt });
+    if (line.isPaid || line.principalPaidAt || line.interestPaidAt || line.insurancePaidAt) {
+      paidLinesByPeriod.set(line.period, {
+        isPaid: line.isPaid,
+        paidAt: line.paidAt,
+        principalPaidAt: line.principalPaidAt,
+        interestPaidAt: line.interestPaidAt,
+        insurancePaidAt: line.insurancePaidAt,
+        principalBankTransactionId: line.principalBankTransactionId,
+        interestBankTransactionId: line.interestBankTransactionId,
+        insuranceBankTransactionId: line.insuranceBankTransactionId,
+      });
     }
   }
 
@@ -546,6 +592,12 @@ export async function regenerateAmortizationTable(societyId: string, loanId: str
         remainingBalance: line.remainingBalance,
         isPaid: paid?.isPaid ?? false,
         paidAt: paid?.paidAt ?? null,
+        principalPaidAt: paid?.principalPaidAt ?? null,
+        interestPaidAt: paid?.interestPaidAt ?? null,
+        insurancePaidAt: paid?.insurancePaidAt ?? null,
+        principalBankTransactionId: paid?.principalBankTransactionId ?? null,
+        interestBankTransactionId: paid?.interestBankTransactionId ?? null,
+        insuranceBankTransactionId: paid?.insuranceBankTransactionId ?? null,
       };
     }),
   });

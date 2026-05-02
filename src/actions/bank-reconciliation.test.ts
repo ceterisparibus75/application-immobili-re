@@ -627,13 +627,21 @@ describe("getUpcomingLoanLines", () => {
     expect(r).toEqual([]);
   });
 
-  it("retourne les échéances de prêt non payées", async () => {
+  it("retourne uniquement les échéances de prêt échues non payées", async () => {
     mockAuthSession(UserRole.LECTURE);
     prismaMock.loanAmortizationLine.findMany.mockResolvedValue([
       { id: "cloanline01", isPaid: false, dueDate: new Date() },
     ] as never);
     const r = await getUpcomingLoanLines(SOCIETY_ID);
     expect(r).toHaveLength(1);
+    expect(prismaMock.loanAmortizationLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isPaid: false,
+          dueDate: { lte: expect.any(Date) },
+        }),
+      })
+    );
   });
 });
 

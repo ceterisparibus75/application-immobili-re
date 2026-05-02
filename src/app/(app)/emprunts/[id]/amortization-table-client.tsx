@@ -19,6 +19,12 @@ type Line = {
   remainingBalance: number;
   isPaid: boolean;
   paidAt: Date | string | null;
+  principalPaidAt?: Date | string | null;
+  interestPaidAt?: Date | string | null;
+  insurancePaidAt?: Date | string | null;
+  principalBankTransactionId?: string | null;
+  interestBankTransactionId?: string | null;
+  insuranceBankTransactionId?: string | null;
 };
 
 type EditState = {
@@ -35,6 +41,23 @@ function fmt(v: number) {
 
 function parseNum(s: string): number {
   return parseFloat(s.replace(",", ".").replace(/\s/g, "")) || 0;
+}
+
+function hasPositiveAmount(value: number): boolean {
+  return Math.round(value * 100) / 100 > 0.01;
+}
+
+function isFullyPointed(line: Line): boolean {
+  if (line.isPaid) return true;
+  const principalOk = !hasPositiveAmount(line.principalPayment) || Boolean(line.principalPaidAt);
+  const interestOk = !hasPositiveAmount(line.interestPayment) || Boolean(line.interestPaidAt);
+  const insuranceOk = !hasPositiveAmount(line.insurancePayment) || Boolean(line.insurancePaidAt);
+  return principalOk && interestOk && insuranceOk;
+}
+
+function isPartiallyPointed(line: Line): boolean {
+  if (isFullyPointed(line)) return false;
+  return Boolean(line.principalPaidAt || line.interestPaidAt || line.insurancePaidAt);
 }
 
 export function AmortizationTableClient({
@@ -55,10 +78,24 @@ export function AmortizationTableClient({
     startTransition(async () => {
       const result = await markAmortizationLinePaid(societyId, line.id, !line.isPaid);
       if ("success" in result) {
+        const paidAt = !line.isPaid ? new Date().toISOString() : null;
         setLocalLines((prev) =>
           prev.map((l) =>
             l.id === line.id
-              ? { ...l, isPaid: !l.isPaid, paidAt: !l.isPaid ? new Date().toISOString() : null }
+              ? {
+                  ...l,
+                  isPaid: !l.isPaid,
+                  paidAt,
+                  principalPaidAt: !l.isPaid
+                    ? (hasPositiveAmount(l.principalPayment) ? paidAt : null)
+                    : (l.principalBankTransactionId ? l.principalPaidAt : null),
+                  interestPaidAt: !l.isPaid
+                    ? (hasPositiveAmount(l.interestPayment) ? paidAt : null)
+                    : (l.interestBankTransactionId ? l.interestPaidAt : null),
+                  insurancePaidAt: !l.isPaid
+                    ? (hasPositiveAmount(l.insurancePayment) ? paidAt : null)
+                    : (l.insuranceBankTransactionId ? l.insurancePaidAt : null),
+                }
               : l
           )
         );
@@ -141,6 +178,8 @@ export function AmortizationTableClient({
             {visibleLines.map((line) => {
               const isLoading = loadingId === line.id && isPending;
               const isEditing = editingId === line.id;
+              const isLineFullyPointed = isFullyPointed(line);
+              const isLinePartiallyPointed = isPartiallyPointed(line);
 
               if (isEditing && editState) {
                 return (
@@ -203,7 +242,7 @@ export function AmortizationTableClient({
               return (
                 <tr
                   key={line.id}
-                  className={`transition-colors group ${line.isPaid ? "text-muted-foreground bg-muted/30" : ""}`}
+                  className={`transition-colors group ${isLineFullyPointed ? "text-muted-foreground bg-muted/30" : ""}`}
                 >
                   <td className="py-1.5 pr-2 tabular-nums">{line.period}</td>
                   <td className="py-1.5 pr-2 whitespace-nowrap">
@@ -223,14 +262,19 @@ export function AmortizationTableClient({
                       className="h-7 w-7"
                       onClick={() => togglePaid(line)}
                       disabled={isLoading}
-                      title={line.isPaid ? "Marquer comme non réglée" : "Marquer comme réglée"}
+                      title={isLineFullyPointed ? "Marquer comme non réglée" : "Marquer comme réglée"}
                     >
-                      {line.isPaid ? (
+                      {isLineFullyPointed ? (
                         <CheckCircle className="h-4 w-4 text-[var(--color-status-positive)]" />
                       ) : (
                         <Circle className="h-4 w-4 text-muted-foreground" />
                       )}
                     </Button>
+                    {isLinePartiallyPointed && (
+                      <Badge variant="warning" className="ml-1 h-4 px-1 text-[10px]">
+                        partiel
+                      </Badge>
+                    )}
                   </td>
                   <td className="py-1.5 text-center">
                     <Button
@@ -258,7 +302,7 @@ export function AmortizationTableClient({
               <td className="pt-2 pr-2 text-right tabular-nums text-muted-foreground">—</td>
               <td className="pt-2">
                 <Badge variant="secondary" className="text-xs">
-                  {localLines.filter((l) => l.isPaid).length}/{localLines.length}
+                  {localLines.filter((l) => isFullyPointed(l)).length}/{localLines.length}
                 </Badge>
               </td>
               <td />

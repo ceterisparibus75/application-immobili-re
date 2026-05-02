@@ -20,11 +20,13 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Percent,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { AmortizationTableClient } from "./amortization-table-client";
 import { LoanActionsClient } from "./loan-actions-client";
 import { MovementsClient } from "./movements-client";
+import { calculateLoanRepaymentMetrics } from "@/lib/loan-metrics";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   EN_COURS: { label: "En cours", variant: "default" },
@@ -68,12 +70,18 @@ export default async function EmpruntDetailPage({
 
   // Calculs globaux
   const today = new Date();
-  const paidLines = loan.amortizationLines.filter((l) => l.isPaid);
-  const paidPrincipal = paidLines.reduce((s, l) => s + l.principalPayment, 0);
-  // CRD = dernière ligne dont la date d'échéance est passée (calendrier réel)
-  const pastLines = loan.amortizationLines.filter((l) => new Date(l.dueDate) <= today);
-  const lastPastLine = pastLines[pastLines.length - 1]; // trié asc par period
-  const remainingBalance = isCC ? (loan.currentBalance ?? 0) : (lastPastLine?.remainingBalance ?? loan.amount);
+  const loanMetrics = !isCC
+    ? calculateLoanRepaymentMetrics({
+        loanAmount: loan.amount,
+        lines: loan.amortizationLines,
+        asOf: today,
+      })
+    : null;
+  const paidPrincipal = loanMetrics?.paidPrincipal ?? 0;
+  const remainingBalance = isCC
+    ? (loan.currentBalance ?? 0)
+    : (loanMetrics?.reconciledRemainingBalance ?? loan.amount);
+  const theoreticalRemainingBalance = loanMetrics?.theoreticalRemainingBalance ?? remainingBalance;
   const totalInterest = loan.amortizationLines.reduce((s, l) => s + l.interestPayment, 0);
   const totalInsurance = loan.amortizationLines.reduce((s, l) => s + l.insurancePayment, 0);
   const totalCost = loan.amount + totalInterest + totalInsurance;
@@ -90,10 +98,8 @@ export default async function EmpruntDetailPage({
     : null;
 
   const statusInfo = STATUS_LABELS[loan.status];
-  // Progression basée sur le calendrier (CRD) pour cohérence avec le montant affiché
-  const calendarPaidPrincipal = loan.amount - remainingBalance;
   const progressPct = loan.amount > 0
-    ? Math.min(100, Math.max(0, (calendarPaidPrincipal / loan.amount) * 100))
+    ? Math.min(100, Math.max(0, (paidPrincipal / loan.amount) * 100))
     : 0;
 
   return (
@@ -178,7 +184,12 @@ export default async function EmpruntDetailPage({
               <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${progressPct}%` }} />
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">{Math.round(progressPct)}% remboursé</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{Math.round(progressPct)}% pointé</p>
+              {Math.abs(remainingBalance - theoreticalRemainingBalance) > 0.01 && (
+                <p className="text-xs text-[var(--color-status-caution)] mt-0.5">
+                  Théorique à date : {fmt(theoreticalRemainingBalance)}
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -216,13 +227,36 @@ export default async function EmpruntDetailPage({
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">Échéances payées</p>
                 </div>
-                <p className="text-xl font-bold">{paidLines.length} / {loan.amortizationLines.length}</p>
+                <p className="text-xl font-bold">
+                  {loanMetrics?.fullyPaidLinesCount ?? 0} / {loan.amortizationLines.length}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Capital remboursé : {fmt(paidPrincipal)}
                 </p>
+                {(loanMetrics?.partiallyPaidLinesCount ?? 0) > 0 && (
+                  <p className="text-xs text-[var(--color-status-caution)]">
+                    {loanMetrics?.partiallyPaidLinesCount} échéance{loanMetrics?.partiallyPaidLinesCount !== 1 ? "s" : ""} partielle{loanMetrics?.partiallyPaidLinesCount !== 1 ? "s" : ""}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
+        </div>
+      )}
+
+      {!isCC && loanMetrics?.hasReconciliationWarning && (
+        <div className="flex gap-3 rounded-lg border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)]/60 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-status-caution)]" />
+          <div className="space-y-1">
+            <p className="font-medium text-[var(--color-status-caution)]">
+              Situation bancaire/comptable incomplète
+            </p>
+            <p className="text-muted-foreground">
+              Le capital restant dû affiché est basé sur les prélèvements de capital pointés.{" "}
+              {loanMetrics.dueUnreconciledLinesCount} échéance{loanMetrics.dueUnreconciledLinesCount !== 1 ? "s" : ""} échue{loanMetrics.dueUnreconciledLinesCount !== 1 ? "s" : ""} reste{loanMetrics.dueUnreconciledLinesCount !== 1 ? "nt" : ""} à rapprocher totalement
+              {loanMetrics.dueUnreconciledAmount > 0.01 && `, soit ${fmt(loanMetrics.dueUnreconciledAmount)}`}.
+            </p>
+          </div>
         </div>
       )}
 
@@ -392,7 +426,8 @@ export default async function EmpruntDetailPage({
             <CardTitle className="flex items-center justify-between">
               <span>{isObligation ? "Échéancier des coupons" : "Tableau d\u0027amortissement"}</span>
               <span className="text-sm font-normal text-muted-foreground">
-                {paidLines.length} / {loan.amortizationLines.length} échéances réglées
+                {loanMetrics?.fullyPaidLinesCount ?? 0} / {loan.amortizationLines.length} échéances réglées
+                {(loanMetrics?.partiallyPaidLinesCount ?? 0) > 0 && ` · ${loanMetrics?.partiallyPaidLinesCount} partielles`}
               </span>
             </CardTitle>
           </CardHeader>
