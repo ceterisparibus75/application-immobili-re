@@ -10,9 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BookOpen, Filter, Link2, TrendingDown, TrendingUp, Upload } from "lucide-react";
+import { BookOpen, Download, FileText, Filter, Link2, TrendingDown, TrendingUp, Upload } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import {
+  grandLivreExportFilename,
+  grandLivreRowsToDelimited,
+  type GrandLivreExportPayload,
+  type GrandLivreExportRow,
+} from "@/lib/grand-livre-export";
 import {
   ACCOUNTING_JOURNAL_LABELS,
   CANONICAL_ACCOUNTING_JOURNAL_TYPES,
@@ -38,6 +44,7 @@ export default function GrandLivrePage() {
   const [rows, setRows] = useState<GrandLivreRow[]>([]);
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Filters
   const [fiscalYearId, setFiscalYearId] = useState<string>("all");
@@ -72,6 +79,89 @@ export default function GrandLivrePage() {
     });
   }
 
+  function getExportRows(): GrandLivreExportRow[] {
+    return rows.map((row) => ({
+      id: row.id,
+      accountCode: row.accountCode,
+      accountLabel: row.accountLabel,
+      date: row.date instanceof Date ? row.date.toISOString() : row.date,
+      piece: row.piece,
+      journalType: row.journalType,
+      label: row.label,
+      debit: row.debit,
+      credit: row.credit,
+      solde: row.solde,
+      lettrage: row.lettrage,
+      status: row.status,
+    }));
+  }
+
+  function getPeriodLabel(): string {
+    const selectedFiscalYear = fiscalYears.find((fy) => fy.id === fiscalYearId);
+    if (selectedFiscalYear) {
+      return `Du ${formatDate(selectedFiscalYear.startDate)} au ${formatDate(selectedFiscalYear.endDate)}`;
+    }
+    if (dateFrom || dateTo) {
+      return `Du ${dateFrom ? formatDate(new Date(dateFrom)) : "début"} au ${dateTo ? formatDate(new Date(dateTo)) : "fin"}`;
+    }
+    return "Toutes périodes";
+  }
+
+  function downloadTextExport(extension: "csv" | "txt", separator: "," | ";" | "\t") {
+    if (rows.length === 0) {
+      toast.error("Aucune ligne à exporter");
+      return;
+    }
+    const content = grandLivreRowsToDelimited(getExportRows(), separator);
+    const mime = extension === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = grandLivreExportFilename(extension);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportPdf() {
+    if (rows.length === 0) {
+      toast.error("Aucune ligne à exporter");
+      return;
+    }
+    setIsExportingPdf(true);
+    try {
+      const payload: GrandLivreExportPayload = {
+        societyName: activeSociety?.name ?? "MyGestia",
+        periodLabel: getPeriodLabel(),
+        rows: getExportRows(),
+      };
+      const response = await fetch("/api/comptabilite/grand-livre/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error?.message ?? "Erreur lors de l'export PDF");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = grandLivreExportFilename("pdf");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erreur lors de l'export PDF");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }
+
   const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
   const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
 
@@ -90,12 +180,41 @@ export default function GrandLivrePage() {
           <BookOpen className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-semibold">Grand Livre</h1>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/comptabilite/grand-livre/importer">
-            <Upload className="h-4 w-4" />
-            Importer
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={rows.length === 0}
+            onClick={() => downloadTextExport("csv", ";")}
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={rows.length === 0}
+            onClick={() => downloadTextExport("txt", "\t")}
+          >
+            <FileText className="h-4 w-4" />
+            TXT
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={rows.length === 0 || isExportingPdf}
+            onClick={exportPdf}
+          >
+            <FileText className="h-4 w-4" />
+            {isExportingPdf ? "PDF..." : "PDF"}
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/comptabilite/grand-livre/importer">
+              <Upload className="h-4 w-4" />
+              Importer
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filtres */}
