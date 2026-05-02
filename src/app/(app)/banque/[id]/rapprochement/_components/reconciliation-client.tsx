@@ -14,6 +14,7 @@ import {
   reconcileWithInvoice,
   reconcileWithLoanLine,
   reconcileWithSupplierInvoice,
+  type BankReconciliationSuggestion,
 } from "@/actions/bank-reconciliation";
 import { toast } from "sonner";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -135,6 +136,7 @@ interface ReconciliationClientProps {
   pendingInvoices: PendingInvoice[];
   loanLines: LoanLine[];
   supplierInvoices: SupplierInvoice[];
+  suggestions: BankReconciliationSuggestion[];
 }
 
 export default function ReconciliationClient({
@@ -145,6 +147,7 @@ export default function ReconciliationClient({
   pendingInvoices,
   loanLines,
   supplierInvoices,
+  suggestions,
 }: ReconciliationClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -228,6 +231,10 @@ export default function ReconciliationClient({
   const selectedTx = selectedTxId
     ? transactions.find((t) => t.id === selectedTxId)
     : null;
+  const suggestionsByTransaction = new Map(
+    suggestions.map((suggestion) => [suggestion.transactionId, suggestion])
+  );
+  const selectedSuggestion = selectedTxId ? suggestionsByTransaction.get(selectedTxId) : null;
 
   if (transactions.length === 0 && totalRight === 0) {
     return (
@@ -367,6 +374,11 @@ export default function ReconciliationClient({
                           BQUE
                         </Badge>
                       )}
+                      {suggestionsByTransaction.get(tx.id)?.bestCandidate && (
+                        <Badge variant="warning" className="mt-2 ml-1 text-[10px]">
+                          Suggestion {suggestionsByTransaction.get(tx.id)?.bestCandidate?.score}%
+                        </Badge>
+                      )}
                     </div>
                     <span
                       className={
@@ -395,6 +407,22 @@ export default function ReconciliationClient({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {selectedSuggestion?.bestCandidate && (
+              <div className="border-b border-border/60 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Meilleur candidat
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-status-caution-bg)]/60 p-3">
+                  <div>
+                    <p className="text-sm font-medium">{selectedSuggestion.bestCandidate.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedSuggestion.bestCandidate.kind} · {selectedSuggestion.bestCandidate.reason}
+                    </p>
+                  </div>
+                  <Badge variant="warning">{selectedSuggestion.bestCandidate.score}%</Badge>
+                </div>
+              </div>
+            )}
             <Tabs defaultValue="payments" className="w-full">
               <div className="px-4 pt-4">
                 <TabsList className="w-full">

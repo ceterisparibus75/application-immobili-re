@@ -997,6 +997,292 @@ export async function reconcileWithSupplierInvoice(
   }
 }
 
+// ─── Suggestions de rapprochement ───────────────────────────────────────────
+
+export type ReconciliationCandidateKind =
+  | "payment"
+  | "invoice"
+  | "loanLine"
+  | "supplierInvoice"
+  | "journalEntry";
+
+export type ReconciliationCandidate = {
+  kind: ReconciliationCandidateKind;
+  targetId: string;
+  label: string;
+  amount: number;
+  date: Date | null;
+  score: number;
+  reason: string;
+};
+
+export type BankReconciliationSuggestion = {
+  transactionId: string;
+  candidates: ReconciliationCandidate[];
+  bestCandidate: ReconciliationCandidate | null;
+};
+
+function normalizeMatchText(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function daysBetween(left: Date, right: Date | null): number {
+  if (!right) return 99;
+  return Math.abs(left.getTime() - right.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function computeSuggestionScore(input: {
+  transactionAmount: number;
+  candidateAmount: number;
+  transactionDate: Date;
+  candidateDate: Date | null;
+  transactionLabel: string;
+  candidateLabel: string;
+  expectedDirection: "credit" | "debit" | "any";
+}): { score: number; reason: string } {
+  const transactionAbs = Math.abs(input.transactionAmount);
+  const candidateAbs = Math.abs(input.candidateAmount);
+  const amountDelta = Math.abs(transactionAbs - candidateAbs);
+  const dateDelta = daysBetween(input.transactionDate, input.candidateDate);
+  const txText = normalizeMatchText(input.transactionLabel);
+  const candidateText = normalizeMatchText(input.candidateLabel);
+  const directionMatches =
+    input.expectedDirection === "any" ||
+    (input.expectedDirection === "credit" && input.transactionAmount > 0) ||
+    (input.expectedDirection === "debit" && input.transactionAmount < 0);
+
+  let score = 0;
+  const reasons: string[] = [];
+  if (directionMatches) {
+    score += 10;
+    reasons.push(input.expectedDirection === "debit" ? "débit compatible" : input.expectedDirection === "credit" ? "crédit compatible" : "sens compatible");
+  }
+  if (amountDelta <= 0.01) {
+    score += 60;
+    reasons.push("montant exact");
+  } else if (amountDelta <= Math.max(1, candidateAbs * 0.02)) {
+    score += 40;
+    reasons.push("montant proche");
+  }
+  if (dateDelta <= 1) {
+    score += 20;
+    reasons.push("date proche");
+  } else if (dateDelta <= 7) {
+    score += 10;
+    reasons.push("période proche");
+  }
+  if (candidateText && txText.includes(candidateText)) {
+    score += 10;
+    reasons.push("libellé reconnu");
+  } else if (candidateText && candidateText.split(" ").some((part) => part.length >= 4 && txText.includes(part))) {
+    score += 6;
+    reasons.push("mot-clé reconnu");
+  }
+
+  return { score: Math.min(100, score), reason: reasons.join(", ") || "candidat possible" };
+}
+
+function tenantDisplayName(tenant: { companyName: string | null; firstName: string | null; lastName: string | null } | null): string {
+  if (!tenant) return "Locataire non renseigné";
+  return tenant.companyName ?? (`${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "Locataire non renseigné");
+}
+
+export async function getBankReconciliationSuggestions(
+  societyId: string,
+  bankAccountId: string
+): Promise<BankReconciliationSuggestion[]> {
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
+
+  const [transactions, payments, invoices, supplierInvoices, loanLines, journalEntries] = await Promise.all([
+    prisma.bankTransaction.findMany({
+      where: {
+        bankAccountId,
+        isReconciled: false,
+        bankAccount: { societyId },
+      },
+      select: {
+        id: true,
+        amount: true,
+        label: true,
+        transactionDate: true,
+      },
+      orderBy: { transactionDate: "desc" },
+      take: 100,
+    }),
+    prisma.payment.findMany({
+      where: {
+        isReconciled: false,
+        invoice: { societyId },
+      },
+      select: {
+        id: true,
+        amount: true,
+        paidAt: true,
+        reference: true,
+        invoice: {
+          select: {
+            tenant: { select: { companyName: true, firstName: true, lastName: true } },
+          },
+        },
+      },
+      take: 200,
+    }),
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+        status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        totalTTC: true,
+        dueDate: true,
+        status: true,
+        payments: { select: { amount: true } },
+        tenant: { select: { companyName: true, firstName: true, lastName: true } },
+      },
+      take: 200,
+    }),
+    prisma.supplierInvoice.findMany({
+      where: {
+        societyId,
+        status: { in: ["VALIDATED", "PAID"] },
+      },
+      select: {
+        id: true,
+        supplierName: true,
+        amountTTC: true,
+        dueDate: true,
+        status: true,
+        paymentReference: true,
+      },
+      take: 200,
+    }),
+    prisma.loanAmortizationLine.findMany({
+      where: {
+        isPaid: false,
+        loan: { societyId, status: "EN_COURS" },
+      },
+      select: {
+        id: true,
+        period: true,
+        dueDate: true,
+        principalPayment: true,
+        interestPayment: true,
+        insurancePayment: true,
+        totalPayment: true,
+        principalPaidAt: true,
+        interestPaidAt: true,
+        insurancePaidAt: true,
+        loan: { select: { id: true, label: true, lender: true } },
+      },
+      take: 200,
+    }),
+    prisma.journalEntry.findMany({
+      where: {
+        societyId,
+        journalType: "BQUE",
+        bankTransaction: null,
+      },
+      select: {
+        id: true,
+        label: true,
+        entryDate: true,
+        reference: true,
+        lines: {
+          select: {
+            debit: true,
+            credit: true,
+            account: { select: { code: true, label: true } },
+          },
+        },
+      },
+      take: 200,
+    }),
+  ]);
+
+  return transactions.map((transaction) => {
+    const candidates: ReconciliationCandidate[] = [];
+    const addCandidate = (
+      kind: ReconciliationCandidateKind,
+      targetId: string,
+      label: string,
+      amount: number,
+      date: Date | null,
+      expectedDirection: "credit" | "debit" | "any"
+    ) => {
+      const { score, reason } = computeSuggestionScore({
+        transactionAmount: transaction.amount,
+        candidateAmount: amount,
+        transactionDate: transaction.transactionDate,
+        candidateDate: date,
+        transactionLabel: transaction.label,
+        candidateLabel: label,
+        expectedDirection,
+      });
+      if (score >= 55) candidates.push({ kind, targetId, label, amount, date, score, reason });
+    };
+
+    for (const payment of payments) {
+      addCandidate("payment", payment.id, tenantDisplayName(payment.invoice.tenant), payment.amount, payment.paidAt, "credit");
+    }
+    for (const invoice of invoices) {
+      const amount = getOutstandingAmount(invoice);
+      addCandidate(
+        "invoice",
+        invoice.id,
+        `${invoice.invoiceNumber ?? "Facture"} ${tenantDisplayName(invoice.tenant)}`,
+        amount,
+        invoice.dueDate,
+        "credit"
+      );
+    }
+    for (const supplierInvoice of supplierInvoices) {
+      addCandidate(
+        "supplierInvoice",
+        supplierInvoice.id,
+        supplierInvoice.supplierName ?? supplierInvoice.paymentReference ?? "Facture fournisseur",
+        supplierInvoice.amountTTC ?? 0,
+        supplierInvoice.dueDate,
+        "debit"
+      );
+    }
+    for (const loanLine of loanLines) {
+      const match = transaction.amount < 0 ? findLoanComponentMatch(loanLine, Math.abs(transaction.amount)) : null;
+      if (match) {
+        addCandidate(
+          "loanLine",
+          loanLine.id,
+          `${loanLine.loan.label} échéance ${loanLine.period}`,
+          Math.abs(transaction.amount),
+          loanLine.dueDate,
+          "debit"
+        );
+      }
+    }
+    for (const entry of journalEntries) {
+      const bankAmount = entry.lines.reduce((sum, line) => {
+        if (!line.account.code.startsWith("512")) return sum;
+        return sum + line.debit - line.credit;
+      }, 0);
+      addCandidate("journalEntry", entry.id, entry.label, bankAmount, entry.entryDate, "any");
+    }
+
+    const sortedCandidates = candidates.sort((a, b) => b.score - a.score).slice(0, 5);
+    return {
+      transactionId: transaction.id,
+      candidates: sortedCandidates,
+      bestCandidate: sortedCandidates[0] ?? null,
+    };
+  });
+}
+
 // ─── Rapprochement avec une facture (crée le paiement auto) ──────────────────
 
 export async function reconcileWithInvoice(

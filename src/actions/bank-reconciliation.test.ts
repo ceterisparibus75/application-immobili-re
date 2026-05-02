@@ -23,6 +23,7 @@ import {
   reconcileWithLoanLine,
   getSupplierInvoicesToReconcile,
   reconcileWithSupplierInvoice,
+  getBankReconciliationSuggestions,
   generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
@@ -1193,6 +1194,106 @@ describe("reconcileWithSupplierInvoice", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/montant/i);
+  });
+});
+
+// ─── Suggestions de rapprochement ───────────────────────────────────────────
+
+describe("getBankReconciliationSuggestions", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({
+        id: "ctxsuggest1",
+        amount: -450,
+        label: "PRLV EDF PRO",
+        transactionDate: new Date("2026-05-05"),
+      }),
+      buildTransaction({
+        id: "ctxsuggest2",
+        amount: 1200,
+        label: "VIR MARTIN LOYER",
+        transactionDate: new Date("2026-05-03"),
+      }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        id: "cpaysugg1",
+        amount: 1200,
+        paidAt: new Date("2026-05-02"),
+        reference: null,
+        invoice: {
+          tenant: { companyName: null, firstName: "Jean", lastName: "Martin" },
+        },
+      },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: "cinvsugg1",
+        invoiceNumber: "FAC-2026-001",
+        totalTTC: 1200,
+        dueDate: new Date("2026-05-01"),
+        status: "ENVOYEE",
+        tenant: { companyName: null, firstName: "Jean", lastName: "Martin" },
+        payments: [],
+      },
+    ] as never);
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([
+      {
+        id: "csuppsugg1",
+        supplierName: "EDF",
+        amountTTC: 450,
+        dueDate: new Date("2026-05-05"),
+        status: "VALIDATED",
+        paymentStatus: null,
+        paymentReference: null,
+      },
+    ] as never);
+    prismaMock.loanAmortizationLine.findMany.mockResolvedValue([
+      {
+        id: "cloansugg1",
+        period: 4,
+        dueDate: new Date("2026-05-05"),
+        principalPayment: 400,
+        interestPayment: 50,
+        insurancePayment: 0,
+        totalPayment: 450,
+        principalPaidAt: null,
+        interestPaidAt: null,
+        insurancePaidAt: null,
+        loan: { id: "cloan01", label: "Prêt BNP", lender: "BNP" },
+      },
+    ] as never);
+    prismaMock.journalEntry.findMany.mockResolvedValue([
+      {
+        id: "cjournalsugg1",
+        label: "Frais EDF",
+        entryDate: new Date("2026-05-05"),
+        reference: null,
+        lines: [
+          { debit: 450, credit: 0, account: { code: "606100", label: "Energie" } },
+          { debit: 0, credit: 450, account: { code: "512", label: "Banque" } },
+        ],
+      },
+    ] as never);
+  });
+
+  it("classe les meilleurs candidats par transaction bancaire avec un score exploitable en UI", async () => {
+    const result = await getBankReconciliationSuggestions(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        transactionId: "ctxsuggest1",
+        bestCandidate: expect.objectContaining({
+          kind: "supplierInvoice",
+          targetId: "csuppsugg1",
+          score: expect.any(Number),
+        }),
+      })
+    );
+    expect(result[1].candidates.map((candidate) => candidate.kind)).toContain("payment");
+    expect(result[1].bestCandidate?.score).toBeGreaterThanOrEqual(80);
   });
 });
 

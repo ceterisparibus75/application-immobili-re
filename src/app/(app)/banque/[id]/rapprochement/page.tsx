@@ -5,6 +5,7 @@ import {
   getPendingInvoices,
   getUpcomingLoanLines,
   getSupplierInvoicesToReconcile,
+  getBankReconciliationSuggestions,
 } from "@/actions/bank-reconciliation";
 import { getBankAccountSummaryById } from "@/actions/bank";
 import { headers } from "next/headers";
@@ -39,12 +40,13 @@ export default async function RapprochementPage({
     getPendingInvoices(societyId),
     getUpcomingLoanLines(societyId),
     getSupplierInvoicesToReconcile(societyId),
+    getBankReconciliationSuggestions(societyId, id),
   ]);
 
   const account = await accountPromise;
   if (!account) notFound();
 
-  const [transactions, payments, pendingInvoices, loanLines, supplierInvoices] = await reconciliationDataPromise;
+  const [transactions, payments, pendingInvoices, loanLines, supplierInvoices, suggestions] = await reconciliationDataPromise;
 
   const totalRight = payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
 
@@ -119,6 +121,7 @@ export default async function RapprochementPage({
         pendingInvoices={pendingInvoices}
         loanLines={loanLines}
         supplierInvoices={supplierInvoices}
+        suggestions={suggestions}
       />
 
       <Suspense fallback={<ReconciledItemsSkeleton />}>

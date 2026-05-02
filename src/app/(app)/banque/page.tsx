@@ -93,6 +93,12 @@ export default async function BanquePage() {
               Fournisseurs
             </Button>
           </Link>
+          <Link href="/banque/controle-comptable">
+            <Button variant="outline" className="gap-1.5">
+              <ShieldCheck className="h-4 w-4" />
+              Contrôle
+            </Button>
+          </Link>
           {hasAccounts && <SyncAllButton societyId={societyId} />}
           <Link href="/banque/nouveau-compte">
             <Button className="bg-brand-gradient-soft hover:opacity-90 text-white rounded-lg gap-1.5">
@@ -213,9 +219,9 @@ export default async function BanquePage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Partenaires bancaires</h2>
-          <Link href="/banque/connexion">
+          <Link href="/banque/partenaires">
             <Button variant="outline" size="sm" className="gap-1.5">
-              Connecter
+              Vue détaillée
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
@@ -332,7 +338,12 @@ export default async function BanquePage() {
 
         <Card className="border-0 bg-card shadow-brand">
           <CardHeader>
-            <CardTitle className="text-base">Contrôle comptable</CardTitle>
+            <CardTitle className="flex items-center justify-between text-base">
+              <span>Contrôle comptable</span>
+              <Link href="/banque/controle-comptable" className="text-xs font-normal text-muted-foreground hover:text-foreground">
+                Détail
+              </Link>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
