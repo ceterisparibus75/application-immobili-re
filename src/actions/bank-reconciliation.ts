@@ -402,10 +402,11 @@ export async function manualReconcile(
     const transaction = await prisma.bankTransaction.findFirst({
       where: {
         id: parsed.data.transactionId,
+        isReconciled: false,
         bankAccount: { societyId },
       },
     });
-    if (!transaction) return { success: false, error: "Transaction introuvable" };
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
     if (transaction.amount <= 0) {
       return { success: false, error: "Un paiement locataire doit être rapproché avec une transaction bancaire créditrice" };
     }

@@ -295,7 +295,21 @@ describe("manualReconcile", () => {
     prismaMock.bankTransaction.findFirst.mockResolvedValue(null);
     const r = await manualReconcile(SOCIETY_ID, validInput);
     expect(r.success).toBe(false);
-    expect(r.error).toBe("Transaction introuvable");
+    expect(r.error).toBe("Transaction introuvable ou déjà rapprochée");
+  });
+
+  it("ne charge que les transactions non rapprochées", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    const r = await manualReconcile(SOCIETY_ID, validInput);
+    expect(r.success).toBe(true);
+    expect(prismaMock.bankTransaction.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: TX_ID,
+          isReconciled: false,
+        }),
+      })
+    );
   });
 
   it("refuse de rapprocher un paiement locataire avec un débit bancaire", async () => {
