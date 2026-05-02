@@ -24,6 +24,8 @@ function pushSection(rows: string[][], section: string, lines: AnnualStatementLi
 export function annualStatementsToCsv(statements: AnnualStatements): string {
   const rows: string[][] = [
     ["Exercice", String(statements.fiscalYear.year)],
+    ["Nature", "Bilan de gestion et résultat simplifié"],
+    ["Usage", "Document de pilotage interne hors liasse fiscale"],
     ["Période", `${formatCsvDate(statements.fiscalYear.startDate)} au ${formatCsvDate(statements.fiscalYear.endDate)}`],
     [],
     ["Section", "Compte", "Intitulé", "Montant"],
@@ -39,5 +41,5 @@ export function annualStatementsToCsv(statements: AnnualStatements): string {
 }
 
 export function annualStatementsCsvFilename(statements: AnnualStatements): string {
-  return `etats-annuels-${statements.fiscalYear.year}.csv`;
+  return `bilan-gestion-${statements.fiscalYear.year}.csv`;
 }

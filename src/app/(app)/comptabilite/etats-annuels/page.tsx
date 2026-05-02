@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Download, FileSpreadsheet, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { Download, FileSpreadsheet, Info, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { getAnnualStatements, type AnnualStatementLine, type AnnualStatements } from "@/actions/annual-statements";
@@ -121,9 +121,9 @@ export default function AnnualStatementsPage() {
         <div className="flex items-center gap-3">
           <FileSpreadsheet className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">États annuels</h1>
+            <h1 className="text-2xl font-semibold">Bilan de gestion</h1>
             <p className="text-sm text-muted-foreground">
-              Bilan simplifié et compte de résultat par exercice
+              Résultat simplifié et situation patrimoniale par exercice
             </p>
           </div>
         </div>
@@ -153,8 +153,16 @@ export default function AnnualStatementsPage() {
       {data && (
         <>
           <Card className="border-muted bg-muted/20">
-            <CardContent className="py-3 text-sm text-muted-foreground">
-              Exercice {data.fiscalYear.year} : {formatDate(data.fiscalYear.startDate)} au {formatDate(data.fiscalYear.endDate)}
+            <CardContent className="flex items-start gap-3 py-3 text-sm text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p>
+                  Exercice {data.fiscalYear.year} : {formatDate(data.fiscalYear.startDate)} au {formatDate(data.fiscalYear.endDate)}
+                </p>
+                <p>
+                  Document de pilotage interne hors liasse fiscale. À utiliser pour préparer le dossier annuel ou l’export expert-comptable.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

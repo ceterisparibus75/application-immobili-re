@@ -35,6 +35,8 @@ describe("annualStatementsToCsv", () => {
     const csv = annualStatementsToCsv(statements);
 
     expect(csv).toContain("Exercice;2025");
+    expect(csv).toContain("Nature;Bilan de gestion et résultat simplifié");
+    expect(csv).toContain("Usage;Document de pilotage interne hors liasse fiscale");
     expect(csv).toContain("Période;2025-01-01 au 2025-12-31");
     expect(csv).toContain("Section;Compte;Intitulé;Montant");
     expect(csv).toContain("Actif;512000;Banque;1234,50");
@@ -47,6 +49,6 @@ describe("annualStatementsToCsv", () => {
 
 describe("annualStatementsCsvFilename", () => {
   it("nomme le fichier avec l'exercice", () => {
-    expect(annualStatementsCsvFilename(statements)).toBe("etats-annuels-2025.csv");
+    expect(annualStatementsCsvFilename(statements)).toBe("bilan-gestion-2025.csv");
   });
 });
