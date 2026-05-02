@@ -44,6 +44,8 @@ export default function ImportGrandLivrePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
   const [source, setSource] = useState<string>("");
+  const [selectedFilename, setSelectedFilename] = useState<string>("");
+  const [parseError, setParseError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [result, setResult] = useState<{
@@ -63,26 +65,37 @@ export default function ImportGrandLivrePage() {
       return;
     }
     startParsing(async () => {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/comptabilite/import-grand-livre", {
-        method: "POST",
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        toast.error(data.error?.message ?? "Erreur d'analyse");
-        return;
+      try {
+        setSelectedFilename(file.name);
+        setParseError(null);
+        setResult(null);
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/comptabilite/import-grand-livre", {
+          method: "POST",
+          body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          const message = data.error?.message ?? "Erreur d'analyse du fichier";
+          setParseError(message);
+          toast.error(message);
+          return;
+        }
+        setEntries(data.entries);
+        setSource(data.source);
+        const allIdx = new Set<number>(
+          data.entries.map((_: ParsedEntry, i: number) => i)
+        );
+        setSelected(allIdx);
+        setExpanded(new Set());
+        toast.success(data.total + " écriture(s) détectée(s)");
+      } catch {
+        const message =
+          "Impossible d'analyser ce fichier. Vérifiez le format ou réessayez.";
+        setParseError(message);
+        toast.error(message);
       }
-      setEntries(data.entries);
-      setSource(data.source);
-      setResult(null);
-      const allIdx = new Set<number>(
-        data.entries.map((_: ParsedEntry, i: number) => i)
-      );
-      setSelected(allIdx);
-      setExpanded(new Set());
-      toast.success(data.total + " écriture(s) détectée(s)");
     });
   }
 
@@ -177,6 +190,8 @@ export default function ImportGrandLivrePage() {
       {entries.length === 0 && (
         <Card
           className={["border-2 border-dashed transition-colors cursor-pointer", isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"].join(" ")}
+          role="button"
+          tabIndex={0}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -184,6 +199,12 @@ export default function ImportGrandLivrePage() {
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileRef.current?.click();
+            }
+          }}
         >
           <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
             <input
@@ -203,7 +224,7 @@ export default function ImportGrandLivrePage() {
                 {isParsing ? "Analyse en cours..." : "Glissez votre fichier ici"}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                ou cliquez pour choisir un fichier
+                {selectedFilename ? selectedFilename : "ou cliquez pour choisir un fichier"}
               </p>
             </div>
             <div className="flex gap-3 mt-2">
@@ -218,6 +239,12 @@ export default function ImportGrandLivrePage() {
               Le format FEC est le standard français exporté depuis Sage, EBP,
               Ciel, QuadraCompta...
             </p>
+            {parseError && (
+              <div className="mt-3 flex max-w-xl items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{parseError}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

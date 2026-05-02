@@ -38,12 +38,82 @@ function normHeader(s: string): string {
     .trim();
 }
 
-function parseFec(text: string): ParsedEntry[] {
-  const lines = text.split(/\r?\n/).filter(Boolean);
+function stripWrappingQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/""/g, '"');
+  }
+  return trimmed;
+}
+
+function parseDelimitedLine(line: string, separator: string): string[] {
+  const cols: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      i++;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      current += char;
+      continue;
+    }
+
+    if (char === separator && !inQuotes) {
+      cols.push(stripWrappingQuotes(current));
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  cols.push(stripWrappingQuotes(current));
+  return cols;
+}
+
+export function decodeTextBuffer(buffer: Buffer): string {
+  if (buffer.length >= 2) {
+    const b0 = buffer[0];
+    const b1 = buffer[1];
+    if (b0 === 0xff && b1 === 0xfe) return buffer.toString("utf16le").replace(/^\uFEFF/, "");
+    if (b0 === 0xfe && b1 === 0xff) {
+      return new TextDecoder("utf-16be").decode(buffer).replace(/^\uFEFF/, "");
+    }
+  }
+
+  const probeLength = Math.min(buffer.length, 200);
+  let oddNulls = 0;
+  let evenNulls = 0;
+  for (let i = 0; i < probeLength; i++) {
+    if (buffer[i] !== 0) continue;
+    if (i % 2 === 0) evenNulls++;
+    else oddNulls++;
+  }
+  if (oddNulls > probeLength / 4 || evenNulls > probeLength / 4) {
+    return buffer.toString("utf16le").replace(/^\uFEFF/, "");
+  }
+
+  const utf8 = buffer.toString("utf8").replace(/^\uFEFF/, "");
+  if (!utf8.includes("\uFFFD")) return utf8;
+
+  return new TextDecoder("windows-1252").decode(buffer).replace(/^\uFEFF/, "");
+}
+
+export function parseFec(text: string): ParsedEntry[] {
+  const lines = text.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
   const firstLine = lines[0];
   const sep = firstLine.includes("	") ? "	" : firstLine.includes("|") ? "|" : ";";
-  const headers = firstLine.split(sep).map((h) => h.trim().replace(/^"|"$/g, ""));
+  const headers = parseDelimitedLine(firstLine, sep);
   const idx = (names: string[]) => {
     for (const n of names) {
       const i = headers.findIndex((h) => normHeader(h) === normHeader(n));
@@ -63,7 +133,7 @@ function parseFec(text: string): ParsedEntry[] {
   if (iJournal < 0 || iDate < 0 || iCompte < 0) return [];
   const rawEntries = new Map<string, ParsedEntry>();
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map((c) => c.trim().replace(/^"|"$/g, ""));
+    const cols = parseDelimitedLine(lines[i], sep);
     const journalCode = cols[iJournal] ?? "";
     const num = iNum >= 0 ? (cols[iNum] ?? `L${i}`) : `L${i}`;
     const dateRaw = cols[iDate] ?? "";
@@ -213,7 +283,7 @@ export async function POST(req: NextRequest) {
       entries = await parseExcel(fileArrayBuffer);
       source = "excel";
     } else {
-      const text = buffer.toString("utf8").replace(/^\uFEFF/, "");
+      const text = decodeTextBuffer(buffer);
       entries = parseFec(text);
       source = entries.length > 0 ? "fec" : "unknown";
       if (source === "unknown") {
