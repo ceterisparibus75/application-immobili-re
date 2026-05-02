@@ -988,6 +988,49 @@ describe("bulkImportJournalEntries", () => {
     });
   });
 
+  it("importe les écritures grand-livre non équilibrées quand la révision est prévue", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "119000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: ENTRY_ID } as never);
+
+    const result = await bulkImportJournalEntries(
+      SOCIETY_ID,
+      [
+        {
+          journalType: "AN",
+          entryDate: "2025-01-01",
+          label: "Solde à nouveau",
+          lines: [{ accountCode: "119000", debit: 98422.97, credit: 0 }],
+        },
+      ],
+      { allowUnbalancedEntries: true }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(1);
+    expect(result.data?.skipped).toBe(0);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "BROUILLON",
+          lines: {
+            create: [
+              expect.objectContaining({
+                accountId: ACCOUNT_ID_1,
+                debit: 98422.97,
+                credit: 0,
+              }),
+            ],
+          },
+        }),
+      })
+    );
+  });
+
   it("saute une écriture importée si son exercice est clôturé", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([

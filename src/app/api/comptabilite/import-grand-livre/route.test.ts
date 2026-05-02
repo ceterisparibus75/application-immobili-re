@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeTextBuffer, parseFec, parseGrandLivreText } from "./route";
+import { decodeTextBuffer, isGrandLivreDelimitedText, parseFec, parseGrandLivreText } from "./route";
 
 const fecRows = [
   "JournalCode\tJournalLib\tEcritureNum\tEcritureDate\tCompteNum\tCompteLib\tPieceRef\tEcritureLib\tDebit\tCredit",
@@ -7,7 +7,7 @@ const fecRows = [
   "BQ\tBanque\tECR1\t20260430\t411100\tClient locataire\tP1\tVirement reçu\t\t100,00",
 ];
 
-describe("import-grand-livre FEC parser", () => {
+describe("import-grand-livre parsers", () => {
   it("parse un FEC txt UTF-16LE avec fins de ligne CRLF", () => {
     const buffer = Buffer.from(`\uFEFF${fecRows.join("\r\n")}`, "utf16le");
     const entries = parseFec(decodeTextBuffer(buffer));
@@ -81,7 +81,7 @@ describe("import-grand-livre FEC parser", () => {
     ]);
   });
 
-  it("ajoute une contrepartie 471000 sur les écritures grand-livre isolées", () => {
+  it("signale les écritures grand-livre isolées sans ajouter de contrepartie", () => {
     const text = [
       "Compte        Libellé compte                                     Journal  Date écriture Pièce            Libellé écriture                                   Débit origine Crédit origine Débit euro  Crédit euro  Lettrage N Lettrage N+1 Lettrage partiel Révision Année      Mois       Jour       Monnaie ISO Monnaie Taux change Type règlement Quantité 1 Unité 1    Quantité 2 Unité 2 ",
       "119000        REPORT A NOUVEAU DEBITEUR                          AN       01/01/2026                     Solde à nouveau                                    98422,97      0              98422,97    0                       Faux         Faux             N        2026       1          1          E                   1           R              0                     0                  ",
@@ -92,15 +92,10 @@ describe("import-grand-livre FEC parser", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       totalDebit: 98422.97,
-      totalCredit: 98422.97,
-      isBalanced: true,
+      totalCredit: 0,
+      isBalanced: false,
     });
-    expect(entries[0]?.lines.at(-1)).toEqual({
-      accountCode: "471000",
-      accountLabel: "Compte d'attente import grand livre",
-      debit: 0,
-      credit: 98422.97,
-    });
+    expect(entries[0]?.lines).toHaveLength(1);
   });
 
   it("parse un export grand-livre CSV avec les colonnes débit/crédit euro", () => {
@@ -112,6 +107,7 @@ describe("import-grand-livre FEC parser", () => {
 
     const entries = parseFec(text);
 
+    expect(isGrandLivreDelimitedText(text)).toBe(true);
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       journalCode: "INV",
@@ -125,5 +121,9 @@ describe("import-grand-livre FEC parser", () => {
       accountLabel: "PRET 82 000 €",
       debit: 459.16,
     });
+  });
+
+  it("ne classe pas un FEC DGFiP comme un import grand-livre", () => {
+    expect(isGrandLivreDelimitedText(fecRows.join("\r\n"))).toBe(false);
   });
 });

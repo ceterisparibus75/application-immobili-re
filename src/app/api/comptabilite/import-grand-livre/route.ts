@@ -179,6 +179,26 @@ export function parseFec(text: string): ParsedEntry[] {
   return result;
 }
 
+export function isGrandLivreDelimitedText(text: string): boolean {
+  const firstLine = text.split(/\r\n|\n|\r/).find((line) => line.trim().length > 0);
+  if (!firstLine) return false;
+  const separator = firstLine.includes("	")
+    ? "	"
+    : firstLine.includes("|")
+      ? "|"
+      : firstLine.includes(";")
+        ? ";"
+        : ",";
+  const headers = parseDelimitedLine(firstLine, separator).map(normHeader);
+  return (
+    headers.includes("compte") &&
+    headers.includes("libelle compte") &&
+    (headers.includes("date ecriture") || headers.includes("date")) &&
+    (headers.includes("debit euro") || headers.includes("debit origine") || headers.includes("debit")) &&
+    (headers.includes("credit euro") || headers.includes("credit origine") || headers.includes("credit"))
+  );
+}
+
 function findHeaderPosition(header: string, label: string): number {
   return normHeader(header).indexOf(normHeader(label));
 }
@@ -194,26 +214,6 @@ function roundAmount(value: number): number {
 
 function isGrandLivreAccountCode(value: string): boolean {
   return /^[A-Z0-9][A-Z0-9 ._/-]{1,}$/i.test(value.trim());
-}
-
-function balanceGrandLivreEntry(entry: ParsedEntry): void {
-  const difference = roundAmount(entry.totalDebit - entry.totalCredit);
-  if (Math.abs(difference) < 0.02) {
-    entry.isBalanced = true;
-    return;
-  }
-
-  const debit = difference < 0 ? Math.abs(difference) : 0;
-  const credit = difference > 0 ? difference : 0;
-  entry.lines.push({
-    accountCode: "471000",
-    accountLabel: "Compte d'attente import grand livre",
-    debit,
-    credit,
-  });
-  entry.totalDebit = roundAmount(entry.totalDebit + debit);
-  entry.totalCredit = roundAmount(entry.totalCredit + credit);
-  entry.isBalanced = Math.abs(entry.totalDebit - entry.totalCredit) < 0.02;
 }
 
 function getFixedWidthColumns(header: string): Array<{ key: string; start: number; end?: number }> | null {
@@ -299,7 +299,9 @@ export function parseGrandLivreText(text: string): ParsedEntry[] {
   }
 
   const result = Array.from(rawEntries.values());
-  result.forEach(balanceGrandLivreEntry);
+  result.forEach((entry) => {
+    entry.isBalanced = Math.abs(entry.totalDebit - entry.totalCredit) < 0.02;
+  });
   return result;
 }
 
@@ -414,12 +416,13 @@ export async function POST(req: NextRequest) {
       filename.endsWith(".ods")
     ) {
       entries = await parseExcel(fileArrayBuffer);
-      source = "excel";
+      source = entries.length > 0 ? "grand_livre" : "unknown";
     } else {
       const text = decodeTextBuffer(buffer);
-      entries = parseFec(text);
-      source = entries.length > 0 ? "fec" : "unknown";
-      if (entries.length === 0) {
+      if (isGrandLivreDelimitedText(text)) {
+        entries = parseFec(text);
+        source = entries.length > 0 ? "grand_livre" : "unknown";
+      } else {
         entries = parseGrandLivreText(text);
         source = entries.length > 0 ? "grand_livre" : "unknown";
       }
@@ -429,7 +432,7 @@ export async function POST(req: NextRequest) {
             error: {
               code: "PARSE_ERROR",
               message:
-                "Format non reconnu. Utilisez un export FEC, grand-livre texte (.txt, .csv) ou Excel (.xlsx).",
+                "Format non reconnu. Utilisez un export Grand Livre texte/CSV ou Excel (.xlsx).",
             },
           },
           { status: 400 }

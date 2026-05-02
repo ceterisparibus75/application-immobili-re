@@ -57,10 +57,10 @@ export default function ImportGrandLivrePage() {
 
   function parseFile(file: File) {
     const ext = file.name.toLowerCase();
-    const allowed = [".fec", ".txt", ".csv", ".xlsx", ".xls", ".ods"];
+    const allowed = [".txt", ".csv", ".xlsx", ".xls", ".ods"];
     if (!allowed.some((e) => ext.endsWith(e))) {
       toast.error(
-        "Format non supporté. Utilisez FEC, Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)."
+        "Format non supporté. Utilisez un Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)."
       );
       return;
     }
@@ -158,6 +158,7 @@ export default function ImportGrandLivrePage() {
     }
     startImporting(async () => {
       const res = await bulkImportJournalEntries(activeSociety.id, toImport, {
+        allowUnbalancedEntries: source === "grand_livre",
         createMissingAccounts: source === "grand_livre",
       });
       if (res.success && res.data) {
@@ -182,10 +183,10 @@ export default function ImportGrandLivrePage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Importer des écritures
+            Importer un grand livre
           </h1>
           <p className="text-muted-foreground text-sm">
-            Format FEC, Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)
+            Export Grand Livre (.txt, .csv) ou Excel (.xlsx, .xls)
           </p>
         </div>
       </div>
@@ -213,7 +214,7 @@ export default function ImportGrandLivrePage() {
             <input
               ref={fileRef}
               type="file"
-              accept=".fec,.txt,.csv,.xlsx,.xls,.ods"
+              accept=".txt,.csv,.xlsx,.xls,.ods"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -232,14 +233,14 @@ export default function ImportGrandLivrePage() {
             </div>
             <div className="flex gap-3 mt-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <FileText className="h-4 w-4" /> FEC / Grand Livre (.txt, .csv)
+                <FileText className="h-4 w-4" /> Grand Livre (.txt, .csv)
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <FileSpreadsheet className="h-4 w-4" /> Excel (.xlsx, .xls)
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2 max-w-md text-center">
-              Formats acceptés : FEC DGFiP, grand-livre comptable texte/CSV, Excel.
+              Formats acceptés : export grand-livre comptable texte/CSV ou Excel.
             </p>
             {parseError && (
               <div className="mt-3 flex max-w-xl items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -293,11 +294,6 @@ export default function ImportGrandLivrePage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 {entries.length} écriture(s) — {balancedCount} équilibrée(s)
-                {source === "fec" && (
-                  <Badge variant="secondary" className="ml-2">
-                    Format FEC
-                  </Badge>
-                )}
                 {source === "grand_livre" && (
                   <Badge variant="secondary" className="ml-2">
                     Grand Livre
@@ -458,7 +454,7 @@ export default function ImportGrandLivrePage() {
                 Import en cours...
               </>
             ) : (
-              "Importer " + selected.size + " écriture(s)"
+              "Importer le grand livre (" + selected.size + ")"
             )}
           </Button>
         </div>

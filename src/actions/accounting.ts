@@ -1251,6 +1251,7 @@ export type ImportJournalEntryInput = {
 
 export type BulkImportJournalEntriesOptions = {
   createMissingAccounts?: boolean;
+  allowUnbalancedEntries?: boolean;
 };
 
 function normalizeJournalType(code: string): JournalType | null {
@@ -1323,7 +1324,7 @@ export async function bulkImportJournalEntries(
           skipped++;
           continue;
         }
-        if (entry.lines.length < 2) {
+        if (!options.allowUnbalancedEntries && entry.lines.length < 2) {
           if (errors.length < 20) errors.push(`Écriture ${entry.piece ?? entry.label}: Au moins 2 lignes requises`);
           skipped++;
           continue;
@@ -1372,7 +1373,7 @@ export async function bulkImportJournalEntries(
 
         const totalDebit = resolvedLines.reduce((sum, line) => sum + line.debit, 0);
         const totalCredit = resolvedLines.reduce((sum, line) => sum + line.credit, 0);
-        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        if (!options.allowUnbalancedEntries && Math.abs(totalDebit - totalCredit) > 0.01) {
           if (errors.length < 20) {
             errors.push(`Écriture ${entry.piece ?? entry.label}: non équilibrée`);
           }
