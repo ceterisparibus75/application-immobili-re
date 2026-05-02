@@ -103,7 +103,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
         where: { societyId, status: "VALIDATED", createdAt: { gte: startOfMonth } },
       }),
     ]),
-    getSupplierPaymentDashboard(societyId, now),
+    getSupplierPaymentDashboard(societyId, now, { bankAccountIds: bankAccountIdsFilter }),
   ]);
 
   const [totalCount, pendingCount, validatedThisMonth] = kpis;

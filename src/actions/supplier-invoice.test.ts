@@ -214,6 +214,31 @@ describe("getSupplierPaymentDashboard", () => {
     expect(result.overdueCount).toBe(0);
     expect(prismaMock.supplierInvoice.aggregate).not.toHaveBeenCalled();
   });
+
+  it("filtre les indicateurs par comptes bancaires fournisseurs", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.aggregate.mockResolvedValue({ _sum: { amountTTC: 0 } } as never);
+    prismaMock.supplierInvoice.count.mockResolvedValue(0 as never);
+
+    await getSupplierPaymentDashboard(SOCIETY_ID, new Date("2026-05-02T00:00:00.000Z"), {
+      bankAccountIds: ["bank-1", "bank-2"],
+    });
+
+    expect(prismaMock.supplierInvoice.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bankAccountId: { in: ["bank-1", "bank-2"] },
+        }),
+      })
+    );
+    expect(prismaMock.supplierInvoice.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bankAccountId: { in: ["bank-1", "bank-2"] },
+        }),
+      })
+    );
+  });
 });
 
 describe("updateSupplierInvoiceData", () => {

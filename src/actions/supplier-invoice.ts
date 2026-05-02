@@ -180,7 +180,8 @@ export async function getSupplierInvoicesPaginated(
 
 export async function getSupplierPaymentDashboard(
   societyId: string,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  options: { bankAccountIds?: string[] } = {}
 ): Promise<SupplierPaymentDashboard> {
   if (!(await getOptionalSocietyActionContext(societyId))) return EMPTY_SUPPLIER_PAYMENT_DASHBOARD;
 
@@ -190,10 +191,15 @@ export async function getSupplierPaymentDashboard(
   dueSoonEnd.setDate(dueSoonEnd.getDate() + 7);
   dueSoonEnd.setHours(23, 59, 59, 999);
 
+  const bankAccountFilter =
+    options.bankAccountIds && options.bankAccountIds.length > 0
+      ? { bankAccountId: { in: options.bankAccountIds } }
+      : {};
   const payableWhere = {
     societyId,
     status: "VALIDATED",
     paymentStatus: { not: "SUBMITTED" },
+    ...bankAccountFilter,
   } as const;
   const overdueWhere = {
     ...payableWhere,
@@ -207,6 +213,7 @@ export async function getSupplierPaymentDashboard(
     societyId,
     status: "VALIDATED",
     paymentStatus: "SUBMITTED",
+    ...bankAccountFilter,
   } as const;
 
   const [
