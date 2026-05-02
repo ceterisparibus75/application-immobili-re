@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "@/test/mocks/prisma";
+import { CW } from "../constants";
 
 const pdfCtx = vi.hoisted(() => ({
   save: vi.fn().mockResolvedValue(Buffer.from("pdf-buffer")),
@@ -138,6 +139,21 @@ describe("generateBalanceAgee", () => {
     });
 
     expect(result.contentType).toBe("application/pdf");
+    const tableHeaderCalls = helperMocks.drawTableHeader.mock.calls as unknown as Array<[
+      unknown,
+      unknown,
+      number,
+      string[],
+      number[],
+      string[],
+    ]>;
+    const tableHeaderCall = tableHeaderCalls.find((call) =>
+      Array.isArray(call[3]) && call[3][0] === "Locataire"
+    );
+    expect(tableHeaderCall?.[3]).toHaveLength(8);
+    expect(tableHeaderCall?.[4]).toHaveLength(8);
+    expect(tableHeaderCall?.[5]).toHaveLength(8);
+    expect(tableHeaderCall?.[4].reduce((sum, width) => sum + width, 0)).toBeCloseTo(CW);
     expect(helperMocks.drawTotalsRow).toHaveBeenCalledWith(
       { id: "page-1" },
       pdfCtx.bold,

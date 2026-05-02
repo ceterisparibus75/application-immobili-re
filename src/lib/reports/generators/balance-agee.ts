@@ -83,8 +83,8 @@ export async function generateBalanceAgee(opts: ReportOptions): Promise<ReportRe
   y -= 16;
 
   // Table
-  const WS = [90, 85, 52, 52, 52, 52, CW - 383];
-  const WA: ColAlign[] = ["left", "left", "right", "right", "right", "right", "right"];
+  const WS = [85, 90, 45, 45, 45, 45, 45, CW - 400];
+  const WA: ColAlign[] = ["left", "left", "right", "right", "right", "right", "right", "right"];
   const hdr = ["Locataire", "Immeuble/Lot", ...BUCKETS.map(String), "Total"];
 
   // Group by building
