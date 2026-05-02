@@ -406,7 +406,7 @@ describe("unreconcile", () => {
     id: RECONCIL_ID,
     transactionId: TX_ID,
     paymentId: PAYMENT_ID,
-    transaction: { bankAccountId: ACCOUNT_ID },
+    transaction: { bankAccountId: ACCOUNT_ID, journalEntryId: null, journalEntry: null },
   });
 
   beforeEach(() => {
@@ -443,6 +443,49 @@ describe("unreconcile", () => {
     expect(createAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "DELETE", entity: "BankReconciliation" })
     );
+  });
+
+  it("supprime l'écriture BQUE brouillon liée lors du dérapprochement", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankReconciliation.findFirst.mockResolvedValue({
+      ...buildReconciliation(),
+      transaction: {
+        bankAccountId: ACCOUNT_ID,
+        journalEntryId: JOURNAL_ID,
+        journalEntry: { id: JOURNAL_ID, status: "BROUILLON", isValidated: false },
+      },
+    } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+
+    const r = await unreconcile(SOCIETY_ID, RECONCIL_ID);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: false, journalEntryId: null },
+    });
+    expect(prismaMock.journalEntry.delete).toHaveBeenCalledWith({ where: { id: JOURNAL_ID } });
+  });
+
+  it("refuse le dérapprochement si l'écriture BQUE liée est validée", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankReconciliation.findFirst.mockResolvedValue({
+      ...buildReconciliation(),
+      transaction: {
+        bankAccountId: ACCOUNT_ID,
+        journalEntryId: JOURNAL_ID,
+        journalEntry: { id: JOURNAL_ID, status: "VALIDEE", isValidated: true },
+      },
+    } as never);
+
+    const r = await unreconcile(SOCIETY_ID, RECONCIL_ID);
+
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/écriture comptable est validée/);
+    expect(prismaMock.bankReconciliation.delete).not.toHaveBeenCalled();
+    expect(prismaMock.journalEntry.delete).not.toHaveBeenCalled();
   });
 
   it("retourne une erreur générique si la BDD échoue dans unreconcile (lignes 318-319)", async () => {

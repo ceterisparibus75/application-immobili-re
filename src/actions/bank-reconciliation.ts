@@ -511,21 +511,31 @@ export async function unreconcile(
         id: reconciliationId,
         transaction: { bankAccount: { societyId } },
       },
-      include: { transaction: true },
+      include: { transaction: { include: { journalEntry: true } } },
     });
     if (!reconciliation) return { success: false, error: "Rapprochement introuvable" };
 
-    await prisma.$transaction([
-      prisma.bankReconciliation.delete({ where: { id: reconciliationId } }),
-      prisma.bankTransaction.update({
+    if (
+      reconciliation.transaction.journalEntry &&
+      (reconciliation.transaction.journalEntry.isValidated || reconciliation.transaction.journalEntry.status !== "BROUILLON")
+    ) {
+      return { success: false, error: "Impossible d'annuler un rapprochement dont l'écriture comptable est validée" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.bankReconciliation.delete({ where: { id: reconciliationId } });
+      await tx.bankTransaction.update({
         where: { id: reconciliation.transactionId },
-        data: { isReconciled: false },
-      }),
-      prisma.payment.update({
+        data: { isReconciled: false, journalEntryId: null },
+      });
+      await tx.payment.update({
         where: { id: reconciliation.paymentId },
         data: { isReconciled: false },
-      }),
-    ]);
+      });
+      if (reconciliation.transaction.journalEntryId) {
+        await tx.journalEntry.delete({ where: { id: reconciliation.transaction.journalEntryId } });
+      }
+    });
 
     await createAuditLog({
       societyId,
@@ -537,6 +547,7 @@ export async function unreconcile(
 
     revalidatePath(`/banque/${reconciliation.transaction.bankAccountId}/rapprochement`);
     revalidatePath(`/banque/${reconciliation.transaction.bankAccountId}`);
+    revalidatePath("/comptabilite");
     revalidatePath("/facturation");
     revalidatePath("/locataires");
 
