@@ -83,6 +83,20 @@
   --color-sidebar-muted: #94A3B8;
   --color-sidebar-accent: #1E293B;
   --color-sidebar-border: #1E293B;
+
+  /* Brand — mode sombre */
+  --color-brand-deep: #C4D6ED;
+  --color-brand-blue: #60A5FA;
+  --color-brand-cyan: #22D3EE;
+  --color-brand-light: #1E3A4A;
+
+  /* Status — mode sombre */
+  --color-status-positive: #4ADE80;
+  --color-status-caution: #FCD34D;
+  --color-status-negative: #F87171;
+  --color-status-positive-bg: #052E16;
+  --color-status-caution-bg: #1C1300;
+  --color-status-negative-bg: #1A0505;
 }
 
 @layer base {

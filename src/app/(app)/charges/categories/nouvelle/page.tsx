@@ -107,7 +107,11 @@ export default function NouvelleCategorieChargePage() {
     setIsLoading(false);
 
     if (result.success) {
-      router.push("/charges");
+      if (data.allocationMethod === "PERSONNALISE" && result.data?.id) {
+        router.push(`/charges/categories/${result.data.id}/cles`);
+      } else {
+        router.push("/charges");
+      }
     } else {
       setError(result.error ?? "Erreur inconnue");
     }

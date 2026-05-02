@@ -54,8 +54,8 @@ const LEASE_STATUS_LABELS: Record<LeaseStatus, string> = {
 
 const LEASE_STATUS_COLORS: Record<LeaseStatus, string> = {
   EN_COURS: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]",
-  RESILIE: "bg-gray-100 text-gray-500",
-  RENOUVELE: "bg-blue-50 text-blue-600",
+  RESILIE: "bg-muted text-muted-foreground",
+  RENOUVELE: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
   EN_NEGOCIATION: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)]",
   CONTENTIEUX: "bg-[var(--color-status-negative-bg)] text-[var(--color-status-negative)]",
 };
@@ -78,8 +78,8 @@ const DESTINATION_LABELS: Record<LeaseDestination, string> = {
 
 const LOAN_STATUS_LABELS: Record<LoanStatus, { label: string; color: string }> = {
   EN_COURS: { label: "En cours", color: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" },
-  TERMINE: { label: "Terminé", color: "bg-gray-100 text-gray-500" },
-  REMBOURSE_ANTICIPE: { label: "Remboursé", color: "bg-blue-50 text-blue-600" },
+  TERMINE: { label: "Terminé", color: "bg-muted text-muted-foreground" },
+  REMBOURSE_ANTICIPE: { label: "Remboursé", color: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
 };
 
 const LOAN_TYPE_LABELS: Record<string, string> = {
@@ -158,7 +158,7 @@ export default async function ProprietaireDashboardPage({
     <div className="space-y-6">
       {/* ── KPI Cards (identiques au dashboard société) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Revenus du mois</p>
           <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.currentMonthRevenue)}</p>
           <div className="flex items-center gap-1.5 mt-1.5">
@@ -174,19 +174,19 @@ export default async function ProprietaireDashboardPage({
             <span className="text-[10px] text-muted-foreground">vs mois dernier</span>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Occupation</p>
           <p className="text-2xl font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupancyRate}%</p>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+          <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div className="h-full rounded-full bg-brand-gradient-soft transition-all" style={{ width: `${data.kpis.occupancyRate}%` }} />
           </div>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Impayés</p>
           <p className={"text-2xl font-semibold tabular-nums " + (data.kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]")}>{fmt(data.kpis.totalOverdueAmount)}</p>
           <p className="text-[10px] text-muted-foreground mt-1">en attente de règlement</p>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-brand">
+        <div className="bg-card rounded-xl p-5 shadow-brand">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
             {data.kpis.grossYield !== null ? "Rendement brut" : "Trésorerie"}
           </p>
@@ -206,7 +206,7 @@ export default async function ProprietaireDashboardPage({
 
       {/* ── Performance par société ── */}
       {ownerSocieties.length > 0 && (
-        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+        <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-positive-bg)]">
@@ -219,7 +219,7 @@ export default async function ProprietaireDashboardPage({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-y border-gray-100 bg-muted/30">
+                  <tr className="border-y border-border bg-muted/30">
                     <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
                     <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Revenus mois</th>
                     <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Trésorerie</th>
@@ -228,10 +228,10 @@ export default async function ProprietaireDashboardPage({
                 </thead>
                 <tbody>
                   {ownerSocieties.map((s) => (
-                    <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <tr key={s.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                          <div className="h-7 w-7 rounded-lg bg-muted text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
                             {s.name.slice(0, 2).toUpperCase()}
                           </div>
                           <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
@@ -248,7 +248,7 @@ export default async function ProprietaireDashboardPage({
                 </tbody>
                 {ownerSocieties.length > 1 && (
                   <tfoot>
-                    <tr className="bg-muted/30 border-t border-gray-100">
+                    <tr className="bg-muted/30 border-t border-border">
                       <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
                       <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.currentMonthRevenue)}</td>
                       <td className={`py-3 px-4 text-right tabular-nums font-bold ${data.kpis.availableCash < 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.kpis.availableCash)}</td>
@@ -270,7 +270,7 @@ export default async function ProprietaireDashboardPage({
         <div className="grid gap-5 lg:grid-cols-3">
           {/* KPI + tableau par société (2/3) */}
           <div className="lg:col-span-2">
-            <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+            <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand-blue)]/10">
@@ -281,16 +281,16 @@ export default async function ProprietaireDashboardPage({
                 <CardDescription>Capital restant dû et mensualités — toutes sociétés</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="grid grid-cols-3 gap-px bg-gray-100">
-                  <div className="bg-white p-4">
+                <div className="grid grid-cols-3 gap-px bg-border">
+                  <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</p>
                   </div>
-                  <div className="bg-white p-4">
+                  <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyLoanPayment)}</p>
                   </div>
-                  <div className="bg-white p-4">
+                  <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">LTV</p>
                     <p className={"text-lg font-semibold tabular-nums " + (data.kpis.ltv !== null && data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv !== null && data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]")}>
                       {data.kpis.ltv !== null ? `${data.kpis.ltv}%` : "—"}
@@ -302,7 +302,7 @@ export default async function ProprietaireDashboardPage({
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-y border-gray-100 bg-muted/30">
+                        <tr className="border-y border-border bg-muted/30">
                           <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Restant dû</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Mensualité</th>
@@ -311,10 +311,10 @@ export default async function ProprietaireDashboardPage({
                       </thead>
                       <tbody>
                         {ownerSocieties.filter((s) => s.totalDebt > 0).map((s) => (
-                          <tr key={s.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                          <tr key={s.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2.5">
-                                <div className="h-7 w-7 rounded-lg bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                                <div className="h-7 w-7 rounded-lg bg-muted text-[var(--color-brand-deep)] text-[10px] font-bold flex items-center justify-center shrink-0">
                                   {s.name.slice(0, 2).toUpperCase()}
                                 </div>
                                 <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
@@ -324,7 +324,7 @@ export default async function ProprietaireDashboardPage({
                             <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.monthlyLoanPayment)}<span className="text-[10px] text-muted-foreground">/mois</span></td>
                             <td className="py-3 px-4 text-center">
                               {s.ltv !== null ? (
-                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{s.ltv}%</span>
+                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{s.ltv}%</span>
                               ) : <span className="text-muted-foreground">—</span>}
                             </td>
                           </tr>
@@ -332,13 +332,13 @@ export default async function ProprietaireDashboardPage({
                       </tbody>
                       {ownerSocieties.filter((s) => s.totalDebt > 0).length > 1 && (
                         <tfoot>
-                          <tr className="bg-muted/30 border-t border-gray-100">
+                          <tr className="bg-muted/30 border-t border-border">
                             <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.totalDebt)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-muted-foreground">{fmt(data.kpis.monthlyLoanPayment)}</td>
                             <td className="py-3 px-4 text-center">
                               {data.kpis.ltv !== null && (
-                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F3F4F6] ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{data.kpis.ltv}%</span>
+                                <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{data.kpis.ltv}%</span>
                               )}
                             </td>
                           </tr>
@@ -353,7 +353,7 @@ export default async function ProprietaireDashboardPage({
 
           {/* Par établissement bancaire (1/3) — cartes empilées lisibles */}
           {data.lenderSummaries.length > 0 && (
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className="border-0 shadow-brand bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-status-negative-bg)]">
@@ -364,7 +364,7 @@ export default async function ProprietaireDashboardPage({
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.lenderSummaries.map((ls) => (
-                  <div key={ls.lender} className="rounded-lg bg-gray-50/80 p-3.5 space-y-2">
+                  <div key={ls.lender} className="rounded-lg bg-muted/50 p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-[var(--color-brand-deep)]">{ls.lender}</span>
                       <span className="text-[10px] font-medium text-muted-foreground">{ls.loanCount} emprunt{ls.loanCount > 1 ? "s" : ""}</span>
@@ -380,7 +380,7 @@ export default async function ProprietaireDashboardPage({
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-muted-foreground">Remboursé</span>
                       <div className="flex items-center gap-2 flex-1 max-w-[140px]">
-                        <div className="h-1.5 flex-1 rounded-full bg-gray-200 overflow-hidden">
+                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
                           <div className="h-full rounded-full bg-brand-gradient-soft" style={{ width: ls.pctRepaid + "%" }} />
                         </div>
                         <span className="tabular-nums text-xs font-semibold text-[var(--color-brand-deep)] w-8 text-right">{ls.pctRepaid}%</span>
@@ -398,14 +398,14 @@ export default async function ProprietaireDashboardPage({
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Colonne gauche : Graphiques (2/3) */}
         <div className="lg:col-span-2 space-y-5">
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Revenus mensuels</CardTitle>
               <CardDescription>Facturation TTC sur les 12 derniers mois — toutes sociétés</CardDescription>
             </CardHeader>
             <CardContent><RevenueChart data={data.monthlyRevenue} /></CardContent>
           </Card>
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Occupation par immeuble</CardTitle>
               <CardDescription>Lots occupés vs vacants — toutes sociétés</CardDescription>
@@ -413,14 +413,14 @@ export default async function ProprietaireDashboardPage({
             <CardContent><OccupancyChart data={data.buildingOccupancy} globalRate={data.kpis.occupancyRate} /></CardContent>
           </Card>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className="border-0 shadow-brand bg-card rounded-xl">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Impayés par ancienneté</CardTitle>
                 <CardDescription>Montants en souffrance</CardDescription>
               </CardHeader>
               <CardContent><OverdueChart data={data.overdueByAge} /></CardContent>
             </Card>
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className="border-0 shadow-brand bg-card rounded-xl">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Évolution patrimoine</CardTitle>
                 <CardDescription>Valeur cumulée</CardDescription>
@@ -429,14 +429,14 @@ export default async function ProprietaireDashboardPage({
             </Card>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className="border-0 shadow-brand bg-card rounded-xl">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Division du risque</CardTitle>
                 <CardDescription>Concentration des revenus locatifs</CardDescription>
               </CardHeader>
               <CardContent><RiskConcentrationChart data={data.riskConcentration} /></CardContent>
             </Card>
-            <Card className="border-0 shadow-brand bg-white rounded-xl">
+            <Card className="border-0 shadow-brand bg-card rounded-xl">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Échéancier des baux</CardTitle>
                 <CardDescription>Progression et fin</CardDescription>
@@ -451,7 +451,7 @@ export default async function ProprietaireDashboardPage({
           <TodayTasks societyIds={ownerSocietyIds} />
 
           {/* Panneau de suivi complet */}
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-[var(--color-brand-deep)]">Suivi</CardTitle>
               <CardDescription>Vue complète — toutes sociétés</CardDescription>
@@ -462,15 +462,15 @@ export default async function ProprietaireDashboardPage({
                 <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                   <Home className="h-3 w-3" /> Patrimoine
                 </h4>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Sociétés</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{ownerSocieties.length}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Immeubles</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.totalBuildings}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Lots (occupés / vacants)</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupiedLots} / {data.kpis.vacantLots}</span>
@@ -479,7 +479,7 @@ export default async function ProprietaireDashboardPage({
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Taux d&apos;occupation</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.occupancyRate}%</span>
@@ -489,13 +489,13 @@ export default async function ProprietaireDashboardPage({
                   </div>
                 </div>
                 {data.kpis.patrimonyValue > 0 && (
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                     <span className="text-sm text-[var(--color-brand-deep)]">Valeur patrimoine</span>
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.patrimonyValue)}</span>
                   </div>
                 )}
                 {data.kpis.grossYield !== null && (
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                     <span className="text-sm text-[var(--color-brand-deep)]">Rendement brut</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.grossYield.toFixed(1)}%</span>
@@ -508,19 +508,19 @@ export default async function ProprietaireDashboardPage({
               </div>
 
               {/* Locataires & Baux */}
-              <div className="border-t border-gray-100 pt-4 space-y-2">
+              <div className="border-t border-border pt-4 space-y-2">
                 <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                   <Users className="h-3 w-3" /> Locataires &amp; Baux
                 </h4>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Locataires actifs</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.totalTenants}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Baux en cours</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.activeLeaseCount}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Baux expirant sous 90j</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.expiringLeaseCount}</span>
@@ -532,15 +532,15 @@ export default async function ProprietaireDashboardPage({
               </div>
 
               {/* Facturation */}
-              <div className="border-t border-gray-100 pt-4 space-y-2">
+              <div className="border-t border-border pt-4 space-y-2">
                 <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                   <FileText className="h-3 w-3" /> Facturation
                 </h4>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Loyers mensuels HT</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyRentHT)}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Factures impayées</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.unpaidInvoiceCount}</span>
@@ -549,22 +549,22 @@ export default async function ProprietaireDashboardPage({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Montant impayé</span>
                   <span className={`text-sm font-semibold tabular-nums ${data.kpis.totalOverdueAmount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-brand-deep)]"}`}>{fmt(data.kpis.totalOverdueAmount)}</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Charges récup.</span>
                   <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.recoverableCharges)}</span>
                 </div>
               </div>
 
               {/* Trésorerie */}
-              <div className="border-t border-gray-100 pt-4 space-y-2">
+              <div className="border-t border-border pt-4 space-y-2">
                 <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                   <Wallet className="h-3 w-3" /> Trésorerie
                 </h4>
-                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-[var(--color-brand-deep)]">Solde disponible</span>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-semibold tabular-nums ${data.kpis.availableCash >= 0 ? "text-[var(--color-brand-deep)]" : "text-[var(--color-status-negative)]"}`}>{fmt(data.kpis.availableCash)}</span>
@@ -577,12 +577,12 @@ export default async function ProprietaireDashboardPage({
 
               {/* Technique */}
               {(data.kpis.expiringDiagnosticCount > 0 || data.kpis.openMaintenanceCount > 0) && (
-                <div className="border-t border-gray-100 pt-4 space-y-2">
+                <div className="border-t border-border pt-4 space-y-2">
                   <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                     <Wrench className="h-3 w-3" /> Technique
                   </h4>
                   {data.kpis.expiringDiagnosticCount > 0 && (
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                       <span className="text-sm text-[var(--color-brand-deep)]">Diagnostics expirant 90j</span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.expiringDiagnosticCount}</span>
@@ -591,7 +591,7 @@ export default async function ProprietaireDashboardPage({
                     </div>
                   )}
                   {data.kpis.openMaintenanceCount > 0 && (
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                       <span className="text-sm text-[var(--color-brand-deep)]">Maintenances en cours</span>
                       <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.openMaintenanceCount}</span>
                     </div>
@@ -601,24 +601,24 @@ export default async function ProprietaireDashboardPage({
 
               {/* Dette */}
               {data.kpis.activeLoanCount > 0 && (
-                <div className="border-t border-gray-100 pt-4 space-y-2">
+                <div className="border-t border-border pt-4 space-y-2">
                   <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                     <Landmark className="h-3 w-3" /> Endettement
                   </h4>
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                     <span className="text-sm text-[var(--color-brand-deep)]">Capital restant dû</span>
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</span>
                   </div>
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                     <span className="text-sm text-[var(--color-brand-deep)]">Mensualité totale</span>
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyLoanPayment)}</span>
                   </div>
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                     <span className="text-sm text-[var(--color-brand-deep)]">Emprunts actifs</span>
                     <span className="text-sm font-semibold tabular-nums text-[var(--color-brand-deep)]">{data.kpis.activeLoanCount}</span>
                   </div>
                   {data.kpis.ltv !== null && (
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                       <span className="text-sm text-[var(--color-brand-deep)]">LTV</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-semibold tabular-nums ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>{data.kpis.ltv}%</span>
@@ -633,14 +633,14 @@ export default async function ProprietaireDashboardPage({
 
               {/* Détail par société */}
               {ownerSocieties.length > 1 && (
-                <div className="border-t border-gray-100 pt-4 space-y-2">
+                <div className="border-t border-border pt-4 space-y-2">
                   <h4 className="text-[11px] font-semibold text-[var(--color-brand-blue)] uppercase tracking-[0.1em] flex items-center gap-1.5">
                     <Building2 className="h-3 w-3" /> Par société
                   </h4>
                   {ownerSocieties.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50/80">
+                    <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="h-6 w-6 rounded-md bg-[#F3F4F6] text-[var(--color-brand-deep)] text-[9px] font-bold flex items-center justify-center shrink-0">
+                        <div className="h-6 w-6 rounded-md bg-muted text-[var(--color-brand-deep)] text-[9px] font-bold flex items-center justify-center shrink-0">
                           {s.name.slice(0, 2).toUpperCase()}
                         </div>
                         <span className="text-sm text-[var(--color-brand-deep)] truncate">{s.name}</span>
@@ -702,7 +702,7 @@ export default async function ProprietaireDashboardPage({
 
       {/* Table */}
       {consolidatedBuildings.length === 0 ? (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
+        <Card className="border-0 shadow-brand bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-10 w-10 text-muted-foreground/30 mb-3" />
             <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun immeuble</h3>
@@ -710,7 +710,7 @@ export default async function ProprietaireDashboardPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+        <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
           <CardContent className="p-0">
             <div className="hidden md:grid md:grid-cols-[1fr_100px_75px_110px_110px_110px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Immeuble</span>
@@ -831,7 +831,7 @@ export default async function ProprietaireDashboardPage({
       )}
 
       {consolidatedLeases.length === 0 ? (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
+        <Card className="border-0 shadow-brand bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="h-10 w-10 text-muted-foreground/30 mb-3" />
             <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun bail</h3>
@@ -839,7 +839,7 @@ export default async function ProprietaireDashboardPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+        <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
           <CardContent className="p-0">
             <div className="hidden md:grid md:grid-cols-[1fr_120px_100px_90px_100px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Locataire / Lot</span>
@@ -879,7 +879,7 @@ export default async function ProprietaireDashboardPage({
                       {lease.endDate ? formatDate(lease.endDate) : "—"}
                     </span>
                     <div className="flex justify-center">
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-muted text-muted-foreground"}`}>
                         {LEASE_STATUS_LABELS[lease.status as LeaseStatus] ?? lease.status}
                       </span>
                     </div>
@@ -897,7 +897,7 @@ export default async function ProprietaireDashboardPage({
                   <div className="md:hidden px-4 py-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">{lease.tenantName}</span>
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LEASE_STATUS_COLORS[lease.status as LeaseStatus] ?? "bg-muted text-muted-foreground"}`}>
                         {LEASE_STATUS_LABELS[lease.status as LeaseStatus] ?? lease.status}
                       </span>
                     </div>
@@ -947,7 +947,7 @@ export default async function ProprietaireDashboardPage({
       )}
 
       {consolidatedLoans.length === 0 ? (
-        <Card className="border-0 shadow-brand bg-white rounded-xl">
+        <Card className="border-0 shadow-brand bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Landmark className="h-10 w-10 text-muted-foreground/30 mb-3" />
             <h3 className="text-lg font-semibold text-[var(--color-brand-deep)] mb-1">Aucun emprunt</h3>
@@ -955,7 +955,7 @@ export default async function ProprietaireDashboardPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-0 shadow-brand bg-white rounded-xl overflow-hidden">
+        <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
           <CardContent className="p-0">
             <div className="hidden md:grid md:grid-cols-[1fr_100px_100px_100px_100px_80px_80px] gap-2 px-5 py-3 border-b bg-muted/30">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Emprunt</span>
@@ -992,14 +992,14 @@ export default async function ProprietaireDashboardPage({
                     <span className="text-sm tabular-nums text-right">{loan.monthlyPayment > 0 ? fmt(loan.monthlyPayment) : "—"}</span>
                     <div className="flex justify-center">
                       <div className="flex items-center gap-1.5">
-                        <div className="h-1.5 w-12 rounded-full bg-gray-200 overflow-hidden">
+                        <div className="h-1.5 w-12 rounded-full bg-muted overflow-hidden">
                           <div className="h-full rounded-full bg-primary" style={{ width: `${pctRepaid}%` }} />
                         </div>
                         <span className="text-[10px] tabular-nums text-muted-foreground">{pctRepaid}%</span>
                       </div>
                     </div>
                     <div className="flex justify-center">
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-muted text-muted-foreground"}`}>
                         {LOAN_STATUS_LABELS[loan.status as LoanStatus]?.label ?? loan.status}
                       </span>
                     </div>
@@ -1008,7 +1008,7 @@ export default async function ProprietaireDashboardPage({
                   <div className="md:hidden px-4 py-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">{loan.label}</span>
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-gray-100 text-gray-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${LOAN_STATUS_LABELS[loan.status as LoanStatus]?.color ?? "bg-muted text-muted-foreground"}`}>
                         {LOAN_STATUS_LABELS[loan.status as LoanStatus]?.label ?? loan.status}
                       </span>
                     </div>
@@ -1048,7 +1048,7 @@ export default async function ProprietaireDashboardPage({
         </div>
 
         {societies.length === 0 ? (
-          <Card className="border-0 shadow-brand bg-white rounded-xl">
+          <Card className="border-0 shadow-brand bg-card rounded-xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-brand-light)] mb-4">
                 <Building2 className="h-7 w-7 text-[var(--color-brand-blue)]" />
@@ -1069,11 +1069,11 @@ export default async function ProprietaireDashboardPage({
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {societies.map((society) => (
               <Link key={society.id} href={`/societes/${society.id}`}>
-                <Card className="border-0 shadow-brand bg-white rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
+                <Card className="border-0 shadow-brand bg-card rounded-xl hover:shadow-brand-lg transition-shadow cursor-pointer">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg text-[var(--color-brand-deep)]">{society.name}</CardTitle>
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-gray-100 text-gray-500"}`}>
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${society.isActive ? "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)]" : "bg-muted text-muted-foreground"}`}>
                         {society.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
