@@ -1,4 +1,4 @@
-import { getChargeRegularizations } from "@/actions/charge";
+﻿import { getChargeRegularizations } from "@/actions/charge";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { GenerateReportButton } from "./_components/generate-button";
 import { ChargeReportsEmptyState } from "./_components/charge-reports-empty-state";
 import { SendStatementButton } from "./_components/send-statement-button";
+import { GenerateInvoiceButton } from "./_components/generate-invoice-button";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -118,6 +119,9 @@ export default async function ComptesRendusPage() {
                                 <><Clock className="h-3 w-3" /> Brouillon</>
                               )}
                             </Badge>
+                            {report.isFinalized && report.balance > 0 && (
+                              <GenerateInvoiceButton regularizationId={report.id} />
+                            )}
                           </div>
                         </div>
                       );

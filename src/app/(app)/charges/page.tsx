@@ -1,7 +1,7 @@
-import { getChargesPaginated } from "@/actions/charge";
+﻿import { getChargesPaginated } from "@/actions/charge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Euro, Plus, Receipt, BookOpen, FileBarChart2 } from "lucide-react";
+import { Euro, Plus, Receipt, BookOpen, FileBarChart2, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -69,6 +69,9 @@ export default async function ChargesPage({ searchParams }: PageProps) {
           }))} />
           <Link href="/charges/bibliotheque">
             <Button variant="outline" size="sm"><BookOpen className="h-4 w-4" />Bibliothèque</Button>
+          </Link>
+          <Link href="/charges/budget">
+            <Button variant="outline" size="sm"><BarChart3 className="h-4 w-4" />Budget</Button>
           </Link>
           <Link href="/charges/comptes-rendus">
             <Button variant="outline" size="sm"><FileBarChart2 className="h-4 w-4" />Comptes rendus</Button>
