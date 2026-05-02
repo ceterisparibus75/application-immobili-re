@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { createInternalNotification as createNotification } from "@/lib/notifications-internal";
+import { sendNewTicketEmail, sendTicketReplyToTenantEmail } from "@/lib/email";
 import {
   createTicketSchema,
   createTicketMessageSchema,
@@ -215,6 +216,26 @@ export async function addTicketMessageFromManager(
         where: { id: ticket.id },
         data: { status: "EN_COURS", assignedToId: context.userId },
       });
+    }
+
+    // Email de notification au locataire (fire-and-forget)
+    const tenantToNotify = await prisma.tenant.findFirst({
+      where: { id: ticket.tenantId },
+      select: { email: true, firstName: true, lastName: true, entityType: true, companyName: true },
+    });
+    if (tenantToNotify?.email) {
+      const tName =
+        tenantToNotify.entityType === "PERSONNE_MORALE"
+          ? (tenantToNotify.companyName ?? "Locataire")
+          : `${tenantToNotify.firstName ?? ""} ${tenantToNotify.lastName ?? ""}`.trim() || "Locataire";
+      sendTicketReplyToTenantEmail({
+        to: tenantToNotify.email,
+        tenantName: tName,
+        ticketNumber: ticket.ticketNumber,
+        ticketSubject: ticket.subject,
+        ticketId: ticket.id,
+        managerName: user?.name ?? user?.email ?? "Votre gestionnaire",
+      }).catch((err) => console.error("[addTicketMessageFromManager] Email locataire:", err));
     }
 
     revalidatePath(`/tickets/${ticket.id}`);

@@ -888,3 +888,105 @@ export async function sendWelcomeTrialEmail(
 
   return sendMail(to, title, baseTemplate(title, content));
 }
+
+
+// ============================================================
+// NOTIFICATIONS TICKETS
+// ============================================================
+
+interface TicketReplyEmailParams {
+  to: string;
+  tenantName: string;
+  ticketNumber: string;
+  ticketSubject: string;
+  ticketId: string;
+  managerName: string;
+}
+
+export async function sendTicketReplyToTenantEmail(params: TicketReplyEmailParams): Promise<EmailResult> {
+  const { to, tenantName, ticketNumber, ticketSubject, ticketId, managerName } = params;
+  const title = `Reponse a votre demande — ${ticketNumber}`;
+  const content = `
+    ${heading("Votre gestionnaire a repondu")}
+    ${para(`Bonjour <strong>${tenantName}</strong>,`)}
+    ${para(`<strong>${managerName}</strong> a repondu a votre demande <strong>${ticketNumber}</strong> : &laquo;&nbsp;${ticketSubject}&nbsp;&raquo;.`)}
+    ${infoTable([
+      { label: "Reference", value: ticketNumber },
+      { label: "Sujet", value: ticketSubject },
+    ])}
+    ${ctaButton("Voir la reponse", `${SITE_URL}/portal/tickets/${ticketId}`)}
+    ${para("Si ce ticket est resolu, vous pouvez le clore depuis votre espace locataire.", { muted: true, small: true })}
+    ${signature(APP_NAME)}
+  `;
+  return sendMail(to, title, baseTemplate(title, content));
+}
+
+interface NewTicketEmailParams {
+  to: string;
+  managerName: string;
+  tenantName: string;
+  ticketNumber: string;
+  ticketSubject: string;
+  category: string;
+  ticketId: string;
+  societyName: string;
+}
+
+export async function sendNewTicketEmail(params: NewTicketEmailParams): Promise<EmailResult> {
+  const { to, managerName, tenantName, ticketNumber, ticketSubject, category, ticketId, societyName } = params;
+  const title = `Nouvelle demande locataire — ${ticketNumber}`;
+  const content = `
+    ${heading("Nouvelle demande")}
+    ${para(`Bonjour <strong>${managerName}</strong>,`)}
+    ${para(`Le locataire <strong>${tenantName}</strong> a ouvert une nouvelle demande.`)}
+    ${infoTable([
+      { label: "N° Ticket", value: ticketNumber, bold: true },
+      { label: "Sujet", value: ticketSubject },
+      { label: "Categorie", value: category },
+      { label: "Societe", value: societyName },
+    ])}
+    ${ctaButton("Voir la demande", `${SITE_URL}/tickets/${ticketId}`)}
+    ${signature(APP_NAME)}
+  `;
+  return sendMail(to, title, baseTemplate(title, content, { societyName }));
+}
+
+// ============================================================
+// ASSURANCE — EXPIRATION
+// ============================================================
+
+interface InsuranceExpiryEmailParams {
+  to: string;
+  tenantName: string;
+  societyName: string;
+  expiresAt: Date;
+  portalUrl: string;
+  daysLeft: number;
+}
+
+export async function sendInsuranceExpiryEmail(params: InsuranceExpiryEmailParams): Promise<EmailResult> {
+  const { to, tenantName, societyName, expiresAt, portalUrl, daysLeft } = params;
+  const isExpired = daysLeft <= 0;
+  const expiryDateStr = expiresAt.toLocaleDateString("fr-FR");
+
+  const title = isExpired
+    ? "Attestation d'assurance expiree — Action requise"
+    : `Votre attestation d'assurance expire dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`;
+
+  const alertText = isExpired
+    ? `Votre attestation d'assurance a <strong>expire le ${expiryDateStr}</strong>. Vous devez deposer un nouveau document des que possible.`
+    : `Votre attestation d'assurance arrive a expiration le <strong>${expiryDateStr}</strong> (dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}). Pensez a la renouveler et a deposer votre nouvelle attestation.`;
+
+  const content = `
+    ${heading(isExpired ? "Attestation d'assurance expiree" : "Renouvellement d'assurance")}
+    ${para(`Bonjour <strong>${tenantName}</strong>,`)}
+    ${para(alertText)}
+    ${infoBox(
+      "Conformement a votre bail, une attestation d'assurance en cours de validite est obligatoire.",
+      isExpired ? "warning" : "info"
+    )}
+    ${ctaButton("Deposer mon attestation", `${portalUrl}/portal/assurance`)}
+    ${signature(societyName)}
+  `;
+  return sendMail(to, title, baseTemplate(title, content, { societyName, borderLeftColor: isExpired ? "#DC2626" : "#F59E0B" }));
+}
