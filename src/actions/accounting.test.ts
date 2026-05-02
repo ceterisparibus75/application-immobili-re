@@ -1052,7 +1052,7 @@ describe("bulkImportJournalEntries", () => {
     expect(result.data?.skipped).toBe(1);
   });
 
-  it("normalise un type de journal inconnu en OD", async () => {
+  it("refuse un type de journal inconnu", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
       { id: ACCOUNT_ID_1, code: "411000" },
@@ -1073,10 +1073,10 @@ describe("bulkImportJournalEntries", () => {
       },
     ]);
     expect(result.success).toBe(true);
-    expect(result.data?.imported).toBe(1);
-    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ journalType: "OD" }) })
-    );
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toContain("Journal MISC non supporté");
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 });
 

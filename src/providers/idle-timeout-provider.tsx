@@ -27,7 +27,7 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
 
   const logout = useCallback(() => {
     setShowWarning(false);
-    signOut({ callbackUrl: "/login?reason=idle" });
+    signOut({ redirectTo: "/login?reason=idle" });
   }, []);
 
   const scheduleTimers = useCallback(() => {

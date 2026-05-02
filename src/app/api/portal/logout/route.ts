@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { clearPortalSession } from "@/lib/portal-auth";
 
-export async function POST() {
+export async function POST(request: Request) {
   await clearPortalSession();
-  return NextResponse.json({ success: true });
+  return NextResponse.redirect(new URL("/portal/login", request.url), { status: 303 });
+}
+
+export async function GET(request: Request) {
+  await clearPortalSession();
+  return NextResponse.redirect(new URL("/portal/login", request.url));
 }

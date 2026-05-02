@@ -1113,14 +1113,15 @@ export type ImportJournalEntryInput = {
   }>;
 };
 
-function normalizeJournalType(code: string): string {
+function normalizeJournalType(code: string): JournalType | null {
   const c = code.toUpperCase().trim();
   if (c === "AN") return "AN";
   if (c === "AC" || c.startsWith("ACH")) return "AC";
   if (c === "BQUE" || c === "BQ" || c === "BNQ" || c.startsWith("BAN")) return "BQUE";
   if (c === "INV" || c.startsWith("INV")) return "INV";
   if (c === "VT" || c.startsWith("VEN") || c === "FAC") return "VT";
-  return "OD";
+  if (c === "OD" || c.startsWith("OP")) return "OD";
+  return null;
 }
 
 export async function bulkImportJournalEntries(
@@ -1145,7 +1146,12 @@ export async function bulkImportJournalEntries(
 
     for (const entry of entries) {
       try {
-        const journalType = normalizeJournalType(entry.journalType) as never;
+        const journalType = normalizeJournalType(entry.journalType);
+        if (!journalType) {
+          if (errors.length < 20) errors.push(`Journal ${entry.journalType} non supporté`);
+          skipped++;
+          continue;
+        }
         const entryDate = new Date(entry.entryDate);
         const fiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, entryDate);
 

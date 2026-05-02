@@ -98,7 +98,7 @@ export default function ProprietaireSetupPage() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-destructive"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ redirectTo: "/login" })}
           >
             <LogOut className="h-3.5 w-3.5 mr-1.5" />
             Se déconnecter

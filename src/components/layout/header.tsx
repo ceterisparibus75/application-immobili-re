@@ -182,7 +182,7 @@ export function Header() {
                       Centre d&apos;aide
                     </Link>
                     <button
-                      onClick={() => { setProfileOpen(false); signOut({ callbackUrl: "/login" }); }}
+                      onClick={() => { setProfileOpen(false); signOut({ redirectTo: "/login" }); }}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />

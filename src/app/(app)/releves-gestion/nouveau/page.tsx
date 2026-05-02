@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
 } from "@/components/ui/card";
@@ -364,10 +363,13 @@ export default function NouveauDecompteGestionPage() {
                       }`}
                       onClick={() => toggleLease(lease.id)}
                     >
-                      <Checkbox
+                      <input
+                        type="checkbox"
                         checked={isSelected}
-                        onCheckedChange={() => toggleLease(lease.id)}
+                        onChange={() => toggleLease(lease.id)}
                         onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 shrink-0 rounded border-primary accent-primary"
+                        aria-label={`Sélectionner le bail ${tenantName}`}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
