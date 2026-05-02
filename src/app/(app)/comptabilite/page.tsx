@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   BookOpen, Plus, Scale, Archive, FileBarChart, PenLine,
   List, TrendingUp, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardCheck, Link2, FileSpreadsheet,
-  BookMarked,
+  BookMarked, Landmark,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { ValidateJournalEntryButton } from "./_components/validate-journal-entry
 import { DeleteJournalEntryButton } from "./_components/delete-journal-entry-button";
 import { LinkJournalEntryDocumentSelect } from "./_components/link-journal-entry-document-select";
 import { ACCOUNTING_JOURNAL_LABELS, isAccountingJournalType } from "@/lib/accounting-journals";
+import { getBankTransactionSourceLink } from "@/lib/accounting-bank-source";
 
 export const metadata = { title: "Comptabilité" };
 
@@ -48,6 +49,7 @@ export default async function ComptabilitePage() {
       include: {
         lines: { select: { debit: true, credit: true } },
         document: { select: { id: true, fileName: true, storagePath: true, fileUrl: true } },
+        bankTransaction: { select: { bankAccountId: true, transactionDate: true, amount: true } },
       },
       orderBy: { entryDate: "desc" },
       take: 20,
@@ -57,6 +59,7 @@ export default async function ComptabilitePage() {
       include: {
         lines: { select: { debit: true, credit: true } },
         document: { select: { id: true, fileName: true, storagePath: true, fileUrl: true } },
+        bankTransaction: { select: { bankAccountId: true, transactionDate: true, amount: true } },
       },
       orderBy: { entryDate: "asc" },
       take: 10,
@@ -196,7 +199,17 @@ export default async function ComptabilitePage() {
                             {getJournalLabel(entry.journalType)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm max-w-64 truncate">{entry.label}</TableCell>
+                        <TableCell className="text-sm max-w-64">
+                          <div className="truncate">{entry.label}</div>
+                          {entry.bankTransaction && (
+                            <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                              <Link href={getBankTransactionSourceLink(entry.bankTransaction)}>
+                                <Landmark className="h-3 w-3" />
+                                Transaction bancaire
+                              </Link>
+                            </Button>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <LinkJournalEntryDocumentSelect
                             societyId={societyId}
@@ -281,7 +294,17 @@ export default async function ComptabilitePage() {
                           {getJournalLabel(e.journalType)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm max-w-64 truncate">{e.label}</TableCell>
+                      <TableCell className="text-sm max-w-64">
+                        <div className="truncate">{e.label}</div>
+                        {e.bankTransaction && (
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                            <Link href={getBankTransactionSourceLink(e.bankTransaction)}>
+                              <Landmark className="h-3 w-3" />
+                              Transaction bancaire
+                            </Link>
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <LinkJournalEntryDocumentSelect
                           societyId={societyId}
