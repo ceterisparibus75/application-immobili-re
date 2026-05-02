@@ -683,6 +683,8 @@ export async function getGrandLivre(
     dateFrom?: string;
     dateTo?: string;
     nonLettered?: boolean;
+    letteringStatus?: "all" | "lettered" | "unlettered";
+    letteringCode?: string;
   }
 ): Promise<ActionResult<GrandLivreRow[]>> {
   try {
@@ -705,11 +707,20 @@ export async function getGrandLivre(
         ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
         : {}),
     };
+    const letteringCode = filters.letteringCode?.trim() || undefined;
+    const letteringFilter: Prisma.JournalEntryLineWhereInput =
+      letteringCode
+        ? { OR: [{ letteringCode }, { lettrage: letteringCode }] }
+        : filters.nonLettered || filters.letteringStatus === "unlettered"
+          ? { letteringCode: null, lettrage: null }
+          : filters.letteringStatus === "lettered"
+            ? { OR: [{ letteringCode: { not: null } }, { lettrage: { not: null } }] }
+            : {};
 
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         ...(filters.accountId ? { accountId: filters.accountId } : {}),
-        ...(filters.nonLettered ? { letteringCode: null, lettrage: null } : {}),
+        ...letteringFilter,
         account: { societyId },
         journalEntry: journalEntryWhere,
       },

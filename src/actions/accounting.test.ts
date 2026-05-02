@@ -1306,6 +1306,32 @@ describe("getGrandLivre — filtres accountId, fiscalYearId, journalType (lignes
     );
   });
 
+  it("filtre les lignes lettrées uniquement sur champs moderne et legacy", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { letteringStatus: "lettered" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ letteringCode: { not: null } }, { lettrage: { not: null } }],
+        }),
+      })
+    );
+  });
+
+  it("filtre par code de lettrage sur champs moderne et legacy", async () => {
+    const result = await getGrandLivre(SOCIETY_ID, { letteringCode: "AB" });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ letteringCode: "AB" }, { lettrage: "AB" }],
+        }),
+      })
+    );
+  });
+
   it("refuse un journalType inconnu", async () => {
     const result = await getGrandLivre(SOCIETY_ID, { journalType: "BANQUE_LEGACY" });
     expect(result).toEqual({ success: false, error: "Journal comptable non supporté" });

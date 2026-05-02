@@ -45,7 +45,8 @@ export default function GrandLivrePage() {
   const [journalType, setJournalType] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [nonLettered, setNonLettered] = useState(false);
+  const [letteringStatus, setLetteringStatus] = useState<"all" | "lettered" | "unlettered">("all");
+  const [letteringCode, setLetteringCode] = useState("");
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -63,7 +64,8 @@ export default function GrandLivrePage() {
         journalType: journalType === "all" ? undefined : journalType,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-        nonLettered,
+        letteringStatus,
+        letteringCode: letteringCode || undefined,
       });
       if (res.success && res.data) setRows(res.data);
       else toast.error(res.error ?? "Erreur");
@@ -100,7 +102,7 @@ export default function GrandLivrePage() {
       <Card>
         <CardHeader><CardTitle className="text-sm font-medium flex items-center gap-2"><Filter className="h-4 w-4" />Filtres</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <select value={fiscalYearId} onChange={e => setFiscalYearId(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
               <option value="all">Tous les exercices</option>
               {fiscalYears.map(fy => <option key={fy.id} value={fy.id}>{fy.year}</option>)}
@@ -115,17 +117,19 @@ export default function GrandLivrePage() {
             </select>
             <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Du" />
             <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Au" />
+            <select value={letteringStatus} onChange={e => setLetteringStatus(e.target.value as "all" | "lettered" | "unlettered")} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+              <option value="all">Tous lettrages</option>
+              <option value="lettered">Lettrées uniquement</option>
+              <option value="unlettered">Non lettrées uniquement</option>
+            </select>
           </div>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={nonLettered}
-                onChange={e => setNonLettered(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              Non lettrées uniquement
-            </label>
+            <Input
+              value={letteringCode}
+              onChange={e => setLetteringCode(e.target.value.toUpperCase())}
+              placeholder="Code de lettrage, ex. AB"
+              className="max-w-xs font-mono"
+            />
             <Button onClick={load} disabled={isPending}>{isPending ? "Chargement..." : "Afficher"}</Button>
           </div>
         </CardContent>
