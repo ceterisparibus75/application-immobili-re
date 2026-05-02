@@ -32,6 +32,28 @@ type SupplierInvoiceAccountLookup = {
   findFirst: typeof prisma.accountingAccount.findFirst;
 };
 
+export type SupplierPaymentDashboard = {
+  totalToPayAmount: number;
+  totalToPayCount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  dueSoonAmount: number;
+  dueSoonCount: number;
+  submittedAmount: number;
+  submittedCount: number;
+};
+
+const EMPTY_SUPPLIER_PAYMENT_DASHBOARD: SupplierPaymentDashboard = {
+  totalToPayAmount: 0,
+  totalToPayCount: 0,
+  overdueAmount: 0,
+  overdueCount: 0,
+  dueSoonAmount: 0,
+  dueSoonCount: 0,
+  submittedAmount: 0,
+  submittedCount: 0,
+};
+
 async function resolveSupplierInvoiceChargeAccount(
   accountingAccount: SupplierInvoiceAccountLookup,
   societyId: string,
@@ -154,6 +176,69 @@ export async function getSupplierInvoicesPaginated(
   ]);
 
   return { data, total };
+}
+
+export async function getSupplierPaymentDashboard(
+  societyId: string,
+  referenceDate: Date = new Date()
+): Promise<SupplierPaymentDashboard> {
+  if (!(await getOptionalSocietyActionContext(societyId))) return EMPTY_SUPPLIER_PAYMENT_DASHBOARD;
+
+  const startOfDay = new Date(referenceDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const dueSoonEnd = new Date(startOfDay);
+  dueSoonEnd.setDate(dueSoonEnd.getDate() + 7);
+  dueSoonEnd.setHours(23, 59, 59, 999);
+
+  const payableWhere = {
+    societyId,
+    status: "VALIDATED",
+    paymentStatus: { not: "SUBMITTED" },
+  } as const;
+  const overdueWhere = {
+    ...payableWhere,
+    dueDate: { lt: startOfDay },
+  } as const;
+  const dueSoonWhere = {
+    ...payableWhere,
+    dueDate: { gte: startOfDay, lte: dueSoonEnd },
+  } as const;
+  const submittedWhere = {
+    societyId,
+    status: "VALIDATED",
+    paymentStatus: "SUBMITTED",
+  } as const;
+
+  const [
+    totalToPayAgg,
+    overdueAgg,
+    dueSoonAgg,
+    submittedAgg,
+    totalToPayCount,
+    overdueCount,
+    dueSoonCount,
+    submittedCount,
+  ] = await Promise.all([
+    prisma.supplierInvoice.aggregate({ where: payableWhere, _sum: { amountTTC: true } }),
+    prisma.supplierInvoice.aggregate({ where: overdueWhere, _sum: { amountTTC: true } }),
+    prisma.supplierInvoice.aggregate({ where: dueSoonWhere, _sum: { amountTTC: true } }),
+    prisma.supplierInvoice.aggregate({ where: submittedWhere, _sum: { amountTTC: true } }),
+    prisma.supplierInvoice.count({ where: payableWhere }),
+    prisma.supplierInvoice.count({ where: overdueWhere }),
+    prisma.supplierInvoice.count({ where: dueSoonWhere }),
+    prisma.supplierInvoice.count({ where: submittedWhere }),
+  ]);
+
+  return {
+    totalToPayAmount: totalToPayAgg._sum.amountTTC ?? 0,
+    totalToPayCount,
+    overdueAmount: overdueAgg._sum.amountTTC ?? 0,
+    overdueCount,
+    dueSoonAmount: dueSoonAgg._sum.amountTTC ?? 0,
+    dueSoonCount,
+    submittedAmount: submittedAgg._sum.amountTTC ?? 0,
+    submittedCount,
+  };
 }
 
 // ─── Détail d'une facture ─────────────────────────────────────────────────────

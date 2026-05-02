@@ -19,6 +19,7 @@ import {
   rejectSupplierInvoice,
   markSupplierInvoicePaid,
   initiateQontoPayment,
+  getSupplierPaymentDashboard,
 } from "./supplier-invoice";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
@@ -163,6 +164,55 @@ describe("getSupplierInvoiceById", () => {
 
     const result = await getSupplierInvoiceById(SOCIETY_ID, INVOICE_ID);
     expect(result?.id).toBe(INVOICE_ID);
+  });
+});
+
+describe("getSupplierPaymentDashboard", () => {
+  it("retourne les indicateurs de paiement fournisseurs pour la société", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.supplierInvoice.aggregate
+      .mockResolvedValueOnce({ _sum: { amountTTC: 3200 } } as never)
+      .mockResolvedValueOnce({ _sum: { amountTTC: 900 } } as never)
+      .mockResolvedValueOnce({ _sum: { amountTTC: 1200 } } as never)
+      .mockResolvedValueOnce({ _sum: { amountTTC: 700 } } as never);
+    prismaMock.supplierInvoice.count
+      .mockResolvedValueOnce(4 as never)
+      .mockResolvedValueOnce(1 as never)
+      .mockResolvedValueOnce(2 as never)
+      .mockResolvedValueOnce(1 as never);
+
+    const result = await getSupplierPaymentDashboard(SOCIETY_ID, new Date("2026-05-02T00:00:00.000Z"));
+
+    expect(result).toEqual({
+      totalToPayAmount: 3200,
+      totalToPayCount: 4,
+      overdueAmount: 900,
+      overdueCount: 1,
+      dueSoonAmount: 1200,
+      dueSoonCount: 2,
+      submittedAmount: 700,
+      submittedCount: 1,
+    });
+    expect(prismaMock.supplierInvoice.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          societyId: SOCIETY_ID,
+          status: "VALIDATED",
+          paymentStatus: { not: "SUBMITTED" },
+        }),
+      })
+    );
+    expect(prismaMock.supplierInvoice.count).toHaveBeenCalledTimes(4);
+  });
+
+  it("retourne des zéros si l'utilisateur n'a pas accès à la société", async () => {
+    mockUnauthenticated();
+
+    const result = await getSupplierPaymentDashboard(SOCIETY_ID);
+
+    expect(result.totalToPayAmount).toBe(0);
+    expect(result.overdueCount).toBe(0);
+    expect(prismaMock.supplierInvoice.aggregate).not.toHaveBeenCalled();
   });
 });
 

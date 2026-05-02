@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { parsePaginationParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
+import { getSupplierPaymentDashboard } from "@/actions/supplier-invoice";
 import {
   FileText,
   Plus,
@@ -44,6 +45,14 @@ const STATUS_VARIANTS: Record<
   ARCHIVED: "secondary",
 };
 
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: "À exécuter",
+  SUBMITTED: "Soumis",
+  CONFIRMED: "Confirmé",
+  FAILED: "Échec",
+  CANCELLED: "Annulé",
+};
+
 export default async function FacturesFournisseursPage({ searchParams }: PageProps) {
   const h = await headers();
   const societyId = h.get("x-society-id");
@@ -71,7 +80,7 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [invoices, total, kpis] = await Promise.all([
+  const [invoices, total, kpis, paymentDashboard] = await Promise.all([
     prisma.supplierInvoice.findMany({
       where,
       include: {
@@ -88,15 +97,11 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
       prisma.supplierInvoice.count({
         where: { societyId, status: "VALIDATED", createdAt: { gte: startOfMonth } },
       }),
-      prisma.supplierInvoice.aggregate({
-        where: { societyId, status: "PENDING_REVIEW" },
-        _sum: { amountTTC: true },
-      }),
     ]),
+    getSupplierPaymentDashboard(societyId, now),
   ]);
 
-  const [totalCount, pendingCount, validatedThisMonth, pendingAmountAgg] = kpis;
-  const pendingAmount = pendingAmountAgg._sum.amountTTC ?? 0;
+  const [totalCount, pendingCount, validatedThisMonth] = kpis;
 
   const isEmpty = total === 0 && !pagination.search && !statusFilter;
 
@@ -146,13 +151,13 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle2 className="h-4 w-4 text-[var(--color-status-positive)]" />
-              <p className="text-xs text-muted-foreground">Validées ce mois</p>
+              <p className="text-xs text-muted-foreground">Validées à payer</p>
             </div>
             <p className="text-xl font-bold text-[var(--color-status-positive)]">
-              {validatedThisMonth}
+              {paymentDashboard.totalToPayCount}
             </p>
             <p className="text-xs text-muted-foreground">
-              {now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+              {formatCurrency(paymentDashboard.totalToPayAmount)}
             </p>
           </CardContent>
         </Card>
@@ -160,14 +165,31 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">
               <Euro className="h-4 w-4 text-[var(--color-status-negative)]" />
-              <p className="text-xs text-muted-foreground">Montant en attente</p>
+              <p className="text-xs text-muted-foreground">Échéances en retard</p>
             </div>
             <p className="text-xl font-bold text-[var(--color-status-negative)]">
-              {formatCurrency(pendingAmount)}
+              {paymentDashboard.overdueCount}
             </p>
-            <p className="text-xs text-muted-foreground">à payer</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(paymentDashboard.overdueAmount)}</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-[var(--color-brand-deep)]">File de paiement fournisseurs</p>
+          <p className="text-xs text-muted-foreground">
+            {paymentDashboard.dueSoonCount} échéance(s) à 7 jours, {paymentDashboard.submittedCount} paiement(s) soumis. {validatedThisMonth} facture(s) validée(s) ce mois.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/banque/factures-fournisseurs?status=VALIDATED">
+            <Button variant="outline" size="sm">Préparer les paiements</Button>
+          </Link>
+          <Link href="/banque/controle-comptable">
+            <Button variant="ghost" size="sm">Contrôle comptable</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtres */}
@@ -209,10 +231,16 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
                           Montant TTC
                         </th>
                         <th className="text-left font-medium text-muted-foreground px-4 py-3">
+                          Échéance
+                        </th>
+                        <th className="text-left font-medium text-muted-foreground px-4 py-3">
                           Immeuble
                         </th>
                         <th className="text-left font-medium text-muted-foreground px-4 py-3">
                           Statut
+                        </th>
+                        <th className="text-left font-medium text-muted-foreground px-4 py-3">
+                          Paiement
                         </th>
                         <th className="text-right font-medium text-muted-foreground px-4 py-3">
                           Actions
@@ -242,12 +270,20 @@ export default async function FacturesFournisseursPage({ searchParams }: PagePro
                               : "—"}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
+                            {invoice.dueDate ? formatDate(invoice.dueDate) : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
                             {invoice.building?.name ?? "—"}
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant={STATUS_VARIANTS[invoice.status] ?? "outline"}>
                               {STATUS_LABELS[invoice.status] ?? invoice.status}
                             </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {invoice.paymentStatus
+                              ? PAYMENT_STATUS_LABELS[invoice.paymentStatus] ?? invoice.paymentStatus
+                              : "Non soumis"}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link href={`/banque/factures-fournisseurs/${invoice.id}`}>
