@@ -25,6 +25,7 @@ import {
   reconcileWithSupplierInvoice,
   getBankReconciliationSuggestions,
   reconcileWithJournalEntry,
+  generateMissingBankJournalEntries,
   generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
@@ -1354,6 +1355,71 @@ describe("reconcileWithJournalEntry", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/montant/i);
     expect(prismaMock.bankTransaction.update).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Génération en masse des BQUE manquantes ────────────────────────────────
+
+describe("generateMissingBankJournalEntries", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        ...buildTransaction({ id: "ctxbulk001", amount: -25, category: "frais_bancaires", journalEntryId: null }),
+        reconciliations: [],
+      },
+      {
+        ...buildTransaction({ id: "ctxbulk002", amount: 1200, category: "loyers", journalEntryId: null }),
+        reconciliations: [],
+      },
+    ] as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "account-default" } as never);
+    prismaMock.journalEntry.create
+      .mockResolvedValueOnce({ id: "cjournalbulk1" } as never)
+      .mockResolvedValueOnce({ id: "cjournalbulk2" } as never);
+    prismaMock.bankTransaction.update.mockResolvedValue({} as never);
+  });
+
+  it("génère les écritures BQUE manquantes pour les transactions du compte demandé", async () => {
+    const result = await generateMissingBankJournalEntries(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ generated: 2, skipped: 0 });
+    expect(prismaMock.bankTransaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bankAccountId: ACCOUNT_ID,
+          journalEntryId: null,
+          bankAccount: { societyId: SOCIETY_ID },
+        }),
+      })
+    );
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledTimes(2);
+    expect(createAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CREATE",
+        entity: "JournalEntry",
+        details: expect.objectContaining({
+          action: "bulk_generate_missing_bque",
+          generated: 2,
+        }),
+      })
+    );
+  });
+
+  it("ignore les transactions à montant nul lors de la génération en masse", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      {
+        ...buildTransaction({ id: "ctxzero001", amount: 0, journalEntryId: null }),
+        reconciliations: [],
+      },
+    ] as never);
+
+    const result = await generateMissingBankJournalEntries(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ generated: 0, skipped: 1 });
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 });
 

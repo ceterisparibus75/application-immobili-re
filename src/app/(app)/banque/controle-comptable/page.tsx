@@ -1,4 +1,5 @@
 import { getBankOperationsDashboard } from "@/actions/bank-dashboard";
+import { GenerateMissingBqueButton } from "@/app/(app)/banque/_components/generate-missing-bque-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,10 @@ export default async function BankAccountingControlPage() {
 
   const dashboard = await getBankOperationsDashboard(societyId);
   if (!dashboard) redirect("/societes");
+  const missingJournalEntriesCount = dashboard.accountRows.reduce(
+    (sum, account) => sum + account.missingJournalEntryCount,
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -45,6 +50,11 @@ export default async function BankAccountingControlPage() {
             Ouvrir la comptabilité
           </Button>
         </Link>
+        <GenerateMissingBqueButton
+          societyId={societyId}
+          missingCount={missingJournalEntriesCount}
+          variant="default"
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -134,9 +144,18 @@ export default async function BankAccountingControlPage() {
                   <TableCell className="text-right">{account.unreconciledCount}</TableCell>
                   <TableCell className="text-right">{account.missingJournalEntryCount}</TableCell>
                   <TableCell className="text-right">
-                    <Link href={`/banque/${account.id}/rapprochement`}>
-                      <Button variant="ghost" size="sm">Traiter</Button>
-                    </Link>
+                    <div className="flex justify-end gap-2">
+                      <GenerateMissingBqueButton
+                        societyId={societyId}
+                        bankAccountId={account.id}
+                        missingCount={account.missingJournalEntryCount}
+                        size="sm"
+                        variant="ghost"
+                      />
+                      <Link href={`/banque/${account.id}/rapprochement`}>
+                        <Button variant="ghost" size="sm">Traiter</Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

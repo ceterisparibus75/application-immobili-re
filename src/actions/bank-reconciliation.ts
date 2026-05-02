@@ -695,6 +695,75 @@ export async function generateJournalEntry(
   }
 }
 
+export async function generateMissingBankJournalEntries(
+  societyId: string,
+  bankAccountId?: string
+): Promise<ActionResult<{ generated: number; skipped: number }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const transactions = await prisma.bankTransaction.findMany({
+      where: {
+        ...(bankAccountId ? { bankAccountId } : {}),
+        journalEntryId: null,
+        bankAccount: { societyId },
+      },
+      include: {
+        reconciliations: {
+          include: {
+            payment: { include: { invoice: true } },
+          },
+        },
+      },
+      orderBy: { transactionDate: "asc" },
+      take: 250,
+    });
+
+    let generated = 0;
+    let skipped = 0;
+
+    for (const transaction of transactions) {
+      if (Math.abs(transaction.amount) <= 0.01) {
+        skipped += 1;
+        continue;
+      }
+
+      await createBankJournalEntryForTransaction(prisma, societyId, transaction);
+      generated += 1;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "JournalEntry",
+      entityId: bankAccountId ?? "missing-bank-journal-entries",
+      details: {
+        action: "bulk_generate_missing_bque",
+        bankAccountId: bankAccountId ?? null,
+        generated,
+        skipped,
+        scanned: transactions.length,
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath("/banque/controle-comptable");
+    revalidatePath("/comptabilite");
+    if (bankAccountId) {
+      revalidatePath(`/banque/${bankAccountId}`);
+      revalidatePath(`/banque/${bankAccountId}/rapprochement`);
+    }
+
+    return { success: true, data: { generated, skipped } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[generateMissingBankJournalEntries]", error);
+    return { success: false, error: "Erreur lors de la génération des écritures BQUE manquantes" };
+  }
+}
+
 // ─── Helper interne ───────────────────────────────────────────────────────────
 
 async function createReconciliationRecord(
