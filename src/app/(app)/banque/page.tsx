@@ -393,6 +393,33 @@ export default async function BanquePage() {
             </Button>
           </Link>
         </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="border-0 bg-card shadow-brand">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">À payer</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{formatCurrency(dashboard.supplierPaymentControl.toPayAmount)}</p>
+              <p className="text-xs text-muted-foreground">{dashboard.supplierPaymentControl.toPayCount} facture{dashboard.supplierPaymentControl.toPayCount !== 1 ? "s" : ""}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 bg-card shadow-brand">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Retards fournisseurs</p>
+              <p className={`mt-1 text-xl font-bold tabular-nums ${dashboard.supplierPaymentControl.overdueCount > 0 ? "text-[var(--color-status-negative)]" : "text-[var(--color-status-positive)]"}`}>
+                {formatCurrency(dashboard.supplierPaymentControl.overdueAmount)}
+              </p>
+              <p className="text-xs text-muted-foreground">{dashboard.supplierPaymentControl.overdueCount} échéance{dashboard.supplierPaymentControl.overdueCount !== 1 ? "s" : ""}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 bg-card shadow-brand">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Paiements à rapprocher</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-status-caution)]">
+                {formatCurrency(dashboard.supplierPaymentControl.toReconcileAmount)}
+              </p>
+              <p className="text-xs text-muted-foreground">{dashboard.supplierPaymentControl.toReconcileCount} paiement{dashboard.supplierPaymentControl.toReconcileCount !== 1 ? "s" : ""}</p>
+            </CardContent>
+          </Card>
+        </div>
         <Card className="border-0 bg-card shadow-brand">
           <CardContent className="p-0">
             <div className="divide-y divide-border/60">

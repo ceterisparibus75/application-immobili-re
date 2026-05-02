@@ -90,6 +90,14 @@ export type BankOperationsDashboard = {
   partnerFlows: BankPartnerFlow[];
   accountRows: BankAccountPilotageRow[];
   supplierPayments: SupplierPaymentQueueItem[];
+  supplierPaymentControl: {
+    toPayAmount: number;
+    toPayCount: number;
+    overdueAmount: number;
+    overdueCount: number;
+    toReconcileAmount: number;
+    toReconcileCount: number;
+  };
   accountingControl: {
     bankAccountCount: number;
     bankJournalEntriesCount: number;
@@ -311,6 +319,31 @@ export async function getBankOperationsDashboard(
   });
   const supplierInvoicesToPay = supplierPayments.filter((invoice) => invoice.needsPayment).length;
   const supplierPaymentsToReconcile = supplierPayments.filter((invoice) => invoice.needsBankReconciliation).length;
+  const supplierPaymentControl = supplierPayments.reduce(
+    (control, invoice) => {
+      if (invoice.needsPayment) {
+        control.toPayAmount = addAmount(control.toPayAmount, invoice.amountTTC);
+        control.toPayCount += 1;
+        if (invoice.dueDate && invoice.dueDate.getTime() < periodEnd.getTime()) {
+          control.overdueAmount = addAmount(control.overdueAmount, invoice.amountTTC);
+          control.overdueCount += 1;
+        }
+      }
+      if (invoice.needsBankReconciliation) {
+        control.toReconcileAmount = addAmount(control.toReconcileAmount, invoice.amountTTC);
+        control.toReconcileCount += 1;
+      }
+      return control;
+    },
+    {
+      toPayAmount: 0,
+      toPayCount: 0,
+      overdueAmount: 0,
+      overdueCount: 0,
+      toReconcileAmount: 0,
+      toReconcileCount: 0,
+    }
+  );
 
   const partnerMap = new Map<string, BankPartnerFlow>();
   const accountRows: BankAccountPilotageRow[] = accounts.map((account) => {
@@ -475,6 +508,7 @@ export async function getBankOperationsDashboard(
     }),
     accountRows,
     supplierPayments,
+    supplierPaymentControl,
     accountingControl: {
       bankAccountCount: accounts.length,
       bankJournalEntriesCount: bankJournalEntries.length,

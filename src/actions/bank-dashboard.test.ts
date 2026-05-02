@@ -205,6 +205,14 @@ describe("getBankOperationsDashboard", () => {
     expect(dashboard?.actionQueues.supplierInvoicesToPay).toBe(1);
     expect(dashboard?.actionQueues.supplierPaymentsToReconcile).toBe(1);
     expect(dashboard?.actionQueues.bankingConnectionsAttention).toBe(1);
+    expect(dashboard?.supplierPaymentControl).toEqual({
+      toPayAmount: 450,
+      toPayCount: 1,
+      overdueAmount: 0,
+      overdueCount: 0,
+      toReconcileAmount: 900,
+      toReconcileCount: 1,
+    });
     expect(dashboard?.partnerFlows).toEqual([
       expect.objectContaining({
         provider: "POWENS",
