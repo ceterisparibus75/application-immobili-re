@@ -177,6 +177,7 @@ export default function ReconciliationClient({
                 " effectué" +
                 (n > 1 ? "s" : "")
         );
+        router.refresh();
       } else {
         toast.error(result.error ?? "Erreur rapprochement automatique");
       }
@@ -221,6 +222,7 @@ export default function ReconciliationClient({
       if (result.success) {
         toast.success("Rapprochement effectué");
         setSelectedTxId(null);
+        router.refresh();
       } else {
         toast.error(result.error ?? "Erreur rapprochement");
       }
@@ -447,8 +449,14 @@ export default function ReconciliationClient({
                 </p>
                 <div className="mt-2 space-y-2">
                   {selectedSuggestion.candidates.slice(0, 3).map((candidate) => (
-                    <div key={`${candidate.kind}-${candidate.targetId}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-status-caution-bg)]/60 p-3">
-                      <div>
+                    <button
+                      key={`${candidate.kind}-${candidate.targetId}`}
+                      type="button"
+                      onClick={() => handleApplySuggestion(candidate)}
+                      disabled={isPending}
+                      className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-status-caution-bg)]/60 p-3 text-left transition-colors hover:bg-[var(--color-status-caution-bg)] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <div className="min-w-0">
                         <p className="text-sm font-medium">{candidate.label}</p>
                         <p className="text-xs text-muted-foreground">
                           {candidate.kind} · {candidate.reason}
@@ -456,21 +464,16 @@ export default function ReconciliationClient({
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="warning">{candidate.score}%</Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleApplySuggestion(candidate)}
-                          disabled={isPending}
-                        >
+                        <span className="inline-flex h-8 items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs">
                           {isPending && reconcileTargetId === candidate.targetId ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Check className="h-3.5 w-3.5" />
                           )}
                           Appliquer
-                        </Button>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
