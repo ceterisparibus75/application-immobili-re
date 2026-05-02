@@ -33,7 +33,7 @@ function KpiCard({ href, label, value, icon, iconBg, borderColor, sub, trend }: 
   return (
     <Link href={href} className="block group">
       <div
-        className="bg-white rounded-xl p-5 shadow-brand hover:shadow-brand-lg transition-shadow border-l-4"
+        className="bg-card rounded-xl p-5 shadow-brand hover:shadow-brand-lg transition-shadow border-l-4"
         style={{ borderLeftColor: borderColor }}
       >
         <div className="flex items-start gap-3">
