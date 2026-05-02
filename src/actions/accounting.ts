@@ -1183,6 +1183,16 @@ export async function bulkImportJournalEntries(
         }
         if (lineError) { skipped++; continue; }
 
+        const totalDebit = resolvedLines.reduce((sum, line) => sum + line.debit, 0);
+        const totalCredit = resolvedLines.reduce((sum, line) => sum + line.credit, 0);
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+          if (errors.length < 20) {
+            errors.push(`Écriture ${entry.piece ?? entry.label}: non équilibrée`);
+          }
+          skipped++;
+          continue;
+        }
+
         await prisma.journalEntry.create({
           data: {
             societyId,

@@ -953,10 +953,39 @@ describe("bulkImportJournalEntries", () => {
     expect(result.data?.errors.length).toBeGreaterThan(0);
   });
 
+  it("saute une écriture importée non équilibrée", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.accountingAccount.findMany.mockResolvedValue([
+      { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
+    ] as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(makeFiscalYear() as never);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+
+    const result = await bulkImportJournalEntries(SOCIETY_ID, [
+      {
+        journalType: "VT",
+        entryDate: "2025-01-15",
+        label: "Facture déséquilibrée",
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 900 },
+        ],
+      },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imported).toBe(0);
+    expect(result.data?.skipped).toBe(1);
+    expect(result.data?.errors[0]).toContain("non équilibrée");
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("catch interne avec piece null et throw non-Error — branches ?? et instanceof (ligne 566)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.accountingAccount.findMany.mockResolvedValue([
       { id: ACCOUNT_ID_1, code: "411000" },
+      { id: ACCOUNT_ID_2, code: "706000" },
     ] as never);
     prismaMock.journalEntry.findFirst.mockResolvedValue(null);
     prismaMock.journalEntry.create.mockRejectedValue("string error");
@@ -966,7 +995,10 @@ describe("bulkImportJournalEntries", () => {
         journalType: "VT",
         entryDate: "2025-01-15",
         label: "Facture sans pièce",
-        lines: [{ accountCode: "411000", debit: 1000, credit: 0 }],
+        lines: [
+          { accountCode: "411000", debit: 1000, credit: 0 },
+          { accountCode: "706000", debit: 0, credit: 1000 },
+        ],
       },
     ]);
     expect(result.success).toBe(true);
