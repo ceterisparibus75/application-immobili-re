@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   BookOpen, Plus, Scale, Archive, FileBarChart, PenLine,
   List, TrendingUp, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardCheck, Link2, FileSpreadsheet,
+  BookMarked,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -63,6 +64,7 @@ export default async function ComptabilitePage() {
 
   const quickActions = [
     { href: "/comptabilite/nouvelle-ecriture", icon: PenLine, label: "Saisir une écriture", color: "text-blue-600" },
+    { href: "/comptabilite/journaux", icon: BookMarked, label: "Journaux", color: "text-sky-600" },
     { href: "/comptabilite/grand-livre", icon: BookOpen, label: "Grand Livre", color: "text-purple-600" },
     { href: "/comptabilite/balance", icon: Scale, label: "Balance", color: "text-[var(--color-status-positive)]" },
     { href: "/comptabilite/plan-comptable", icon: List, label: "Plan comptable", color: "text-[var(--color-status-caution)]" },
