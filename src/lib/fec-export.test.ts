@@ -280,6 +280,29 @@ describe("generateFec", () => {
     expect(result.content).toContain("Entrée label");
   });
 
+  it("signale les pièces manquantes, écritures non validées et lignes incohérentes", async () => {
+    const entry = makeEntry({
+      isValidated: false,
+      piece: null,
+      lines: [
+        { id: "l1", debit: 100, credit: 100, label: "Double montant", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "411", label: "Client" } },
+        { id: "l2", debit: 0, credit: 0, label: "Sans montant", letteringCode: null, lettrage: null, letteredAt: null, account: { code: "706", label: "Produit" } },
+      ],
+    });
+    prismaMock.journalEntry.findMany.mockResolvedValue([entry] as never);
+
+    const result = await generateFec(SOCIETY_ID);
+
+    expect(result.anomalies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ severity: "warning", message: expect.stringContaining("sans reference de piece") }),
+        expect.objectContaining({ severity: "warning", message: expect.stringContaining("non validee") }),
+        expect.objectContaining({ severity: "error", message: expect.stringContaining("debit et credit") }),
+        expect.objectContaining({ severity: "error", message: expect.stringContaining("sans montant") }),
+      ])
+    );
+  });
+
   it("filtre avec dateFrom uniquement (B8 arm0, B9 arm1: pas de dateTo)", async () => {
     prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
     await generateFec(SOCIETY_ID, { dateFrom: new Date("2025-01-01") });

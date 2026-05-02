@@ -184,10 +184,45 @@ export async function generateFec(
       });
     }
 
+    if (!entry.piece) {
+      anomalies.push({
+        entryId: entry.id,
+        piece: entry.piece,
+        message: `Ecriture ${ecritureNum} sans reference de piece`,
+        severity: "warning",
+      });
+    }
+
+    if (!entry.isValidated) {
+      anomalies.push({
+        entryId: entry.id,
+        piece: entry.piece,
+        message: `Ecriture ${ecritureNum} non validee`,
+        severity: "warning",
+      });
+    }
+
     const validDate = entry.isValidated ? fmtDate(entry.entryDate) : "";
     const pieceRef = entry.piece ? sanitize(entry.piece) : "";
     const pieceDate = fmtDate(entry.entryDate);
     for (const line of entry.lines) {
+      if (line.debit > 0 && line.credit > 0) {
+        anomalies.push({
+          entryId: entry.id,
+          piece: entry.piece,
+          message: `Ecriture ${ecritureNum} contient une ligne avec debit et credit renseignes`,
+          severity: "error",
+        });
+      }
+      if (line.debit === 0 && line.credit === 0) {
+        anomalies.push({
+          entryId: entry.id,
+          piece: entry.piece,
+          message: `Ecriture ${ecritureNum} contient une ligne sans montant`,
+          severity: "error",
+        });
+      }
+
       totalDebit += line.debit;
       totalCredit += line.credit;
 
