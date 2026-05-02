@@ -64,7 +64,19 @@ type CreditCandidate = {
   used: boolean;
 };
 
+type DebitCandidate = {
+  line: SuggestionEntryLine;
+  used: boolean;
+};
+
 type ScoredCreditCandidate = CreditCandidate & {
+  sharedReference: boolean;
+  relatedLabels: boolean;
+  closeDate: boolean;
+  score: number;
+};
+
+type ScoredDebitCandidate = DebitCandidate & {
   sharedReference: boolean;
   relatedLabels: boolean;
   closeDate: boolean;
@@ -178,6 +190,39 @@ function findCreditCombination(debitLine: SuggestionEntryLine, candidates: Credi
 
   search(0, [], 0);
   return best;
+}
+
+function findDebitCombination(creditLine: SuggestionEntryLine, candidates: DebitCandidate[]): ScoredDebitCandidate[] | null {
+  const target = roundCents(creditLine.credit);
+  const ranked: ScoredDebitCandidate[] = candidates
+    .filter((candidate) => !candidate.used && candidate.line.debit > 0 && candidate.line.debit < target + 0.01)
+    .map((candidate) => ({ ...candidate, ...scoreCreditCandidate(candidate.line, creditLine) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  let best: ScoredDebitCandidate[] | null = null;
+
+  function search(index: number, selected: ScoredDebitCandidate[], total: number): boolean {
+    const roundedTotal = roundCents(total);
+    if (selected.length >= 2 && Math.abs(roundedTotal - target) <= 0.01) {
+      best = selected;
+      return true;
+    }
+    if (selected.length >= 4 || roundedTotal > target + 0.01) return false;
+
+    for (let i = index; i < ranked.length; i += 1) {
+      if (search(i + 1, [...selected, ranked[i]], roundedTotal + ranked[i].line.debit)) return true;
+    }
+    return false;
+  }
+
+  search(0, [], 0);
+  return best;
+}
+
+function markLineUsed(candidates: Array<{ line: { id: string }; used: boolean }>, lineId: string): void {
+  const candidate = candidates.find((item) => item.line.id === lineId);
+  if (candidate) candidate.used = true;
 }
 
 function toSuggestionLine(line: SuggestionEntryLine): LetteringSuggestion["lines"][number] {
@@ -649,9 +694,14 @@ export async function getLetteringSuggestions(
     const availableCredits = lines
       .filter((line) => line.credit > 0 && line.debit === 0)
       .map((line) => ({ line, used: false }));
+    const availableDebits = lines
+      .filter((line) => line.debit > 0 && line.credit === 0)
+      .map((line) => ({ line, used: false }));
     const suggestions: LetteringSuggestion[] = [];
 
-    for (const debitLine of lines.filter((line) => line.debit > 0 && line.credit === 0)) {
+    for (const debitCandidate of availableDebits) {
+      if (debitCandidate.used) continue;
+      const debitLine = debitCandidate.line;
       const match = availableCredits
         .filter((candidate) => !candidate.used && Math.abs(roundCents(debitLine.debit - candidate.line.credit)) <= 0.01)
         .map((candidate) => {
@@ -659,7 +709,8 @@ export async function getLetteringSuggestions(
         })
         .sort((a, b) => b.score - a.score)[0];
       if (match) {
-        match.used = true;
+        markLineUsed(availableDebits, debitLine.id);
+        markLineUsed(availableCredits, match.line.id);
 
         const suggestionLines = [debitLine, match.line].map(toSuggestionLine);
 
@@ -676,8 +727,9 @@ export async function getLetteringSuggestions(
 
       const combination = findCreditCombination(debitLine, availableCredits);
       if (!combination) continue;
+      markLineUsed(availableDebits, debitLine.id);
       combination.forEach((candidate) => {
-        candidate.used = true;
+        markLineUsed(availableCredits, candidate.line.id);
       });
 
       const suggestionLines = [debitLine, ...combination.map((candidate) => candidate.line)].map(toSuggestionLine);
@@ -688,6 +740,28 @@ export async function getLetteringSuggestions(
         totalCredit,
         difference: roundCents(Math.abs(debitLine.debit - totalCredit)),
         reason: "Paiements cumulés",
+        lines: suggestionLines,
+      });
+    }
+
+    for (const creditCandidate of availableCredits) {
+      if (creditCandidate.used) continue;
+      const combination = findDebitCombination(creditCandidate.line, availableDebits);
+      if (!combination) continue;
+
+      markLineUsed(availableCredits, creditCandidate.line.id);
+      combination.forEach((candidate) => {
+        markLineUsed(availableDebits, candidate.line.id);
+      });
+
+      const suggestionLines = [...combination.map((candidate) => candidate.line), creditCandidate.line].map(toSuggestionLine);
+      const totalDebit = roundCents(combination.reduce((sum, candidate) => sum + candidate.line.debit, 0));
+      suggestions.push({
+        lineIds: suggestionLines.map((line) => line.id),
+        totalDebit,
+        totalCredit: roundCents(creditCandidate.line.credit),
+        difference: roundCents(Math.abs(totalDebit - creditCandidate.line.credit)),
+        reason: "Factures cumulées",
         lines: suggestionLines,
       });
     }

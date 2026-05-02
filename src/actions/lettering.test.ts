@@ -557,6 +557,63 @@ describe("getLetteringSuggestions", () => {
     );
   });
 
+  it("propose un lettrage multi-factures quand un crédit solde plusieurs débits", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const debitId2 = "clh3x2z4k0009qh8g7z1y2v3c";
+    const creditId = "clh3x2z4k0010qh8g7z1y2v3d";
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: LINE_ID_1,
+        debit: 300,
+        credit: 0,
+        label: "Facture loyer février",
+        journalEntry: {
+          entryDate: new Date("2026-02-01"),
+          piece: "FAC-2026-002",
+          reference: "BAIL-42",
+          label: "Facture février",
+        },
+      },
+      {
+        id: debitId2,
+        debit: 200,
+        credit: 0,
+        label: "Facture charges février",
+        journalEntry: {
+          entryDate: new Date("2026-02-01"),
+          piece: "FAC-2026-003",
+          reference: "BAIL-42",
+          label: "Charges février",
+        },
+      },
+      {
+        id: creditId,
+        debit: 0,
+        credit: 500,
+        label: "Paiement global février",
+        journalEntry: {
+          entryDate: new Date("2026-02-08"),
+          piece: "PAY-2026-002",
+          reference: "BAIL-42",
+          label: "Paiement février",
+        },
+      },
+    ] as never);
+
+    const result = await getLetteringSuggestions(SOCIETY_ID, ACCOUNT_ID);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.suggestions[0]).toEqual(
+      expect.objectContaining({
+        lineIds: [LINE_ID_1, debitId2, creditId],
+        totalDebit: 500,
+        totalCredit: 500,
+        difference: 0,
+        reason: "Factures cumulées",
+      })
+    );
+  });
+
   it("retourne une erreur de validation si l'accountId est invalide", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
 
