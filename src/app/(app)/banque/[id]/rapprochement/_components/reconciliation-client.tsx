@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, FileText, GitMerge, Loader2, Zap, Receipt, Banknote } from "lucide-react";
+import { Check, FileText, GitMerge, Loader2, Zap, Receipt, Banknote, Building2 } from "lucide-react";
 import {
   autoReconcile,
   generateJournalEntry,
   manualReconcile,
   reconcileWithInvoice,
   reconcileWithLoanLine,
+  reconcileWithSupplierInvoice,
 } from "@/actions/bank-reconciliation";
 import { toast } from "sonner";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -68,6 +69,18 @@ type LoanLine = {
   insuranceBankTransactionId: string | null;
   loan: { id: string; label: string; lender: string };
 };
+type SupplierInvoice = {
+  id: string;
+  supplierName: string | null;
+  amountTTC: number | null;
+  dueDate: Date | null;
+  status: string;
+  paymentStatus: string | null;
+  paymentMethod: string | null;
+  paymentReference: string | null;
+  bankAccountId: string | null;
+  bankJournalEntryId: string | null;
+};
 
 const INVOICE_TYPE_LABELS: Record<string, string> = {
   APPEL_LOYER: "Appel de loyer",
@@ -121,6 +134,7 @@ interface ReconciliationClientProps {
   payments: Payment[];
   pendingInvoices: PendingInvoice[];
   loanLines: LoanLine[];
+  supplierInvoices: SupplierInvoice[];
 }
 
 export default function ReconciliationClient({
@@ -130,6 +144,7 @@ export default function ReconciliationClient({
   payments,
   pendingInvoices,
   loanLines,
+  supplierInvoices,
 }: ReconciliationClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -179,7 +194,7 @@ export default function ReconciliationClient({
   }
 
   function handleReconcileInline(
-    kind: "payment" | "invoice" | "loanLine",
+    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
     rightId: string
   ) {
     if (!selectedTxId) return;
@@ -193,8 +208,10 @@ export default function ReconciliationClient({
         });
       } else if (kind === "invoice") {
         result = await reconcileWithInvoice(societyId, selectedTxId, rightId);
-      } else {
+      } else if (kind === "loanLine") {
         result = await reconcileWithLoanLine(societyId, selectedTxId, rightId);
+      } else {
+        result = await reconcileWithSupplierInvoice(societyId, selectedTxId, rightId);
       }
       if (result.success) {
         toast.success("Rapprochement effectué");
@@ -207,7 +224,7 @@ export default function ReconciliationClient({
   }
 
   const totalRight =
-    payments.length + pendingInvoices.length + loanLines.length;
+    payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
   const selectedTx = selectedTxId
     ? transactions.find((t) => t.id === selectedTxId)
     : null;
@@ -227,7 +244,7 @@ export default function ReconciliationClient({
   }
 
   const reconcileBtn = (
-    kind: "payment" | "invoice" | "loanLine",
+    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
     id: string
   ) => (
     <Button
@@ -408,6 +425,14 @@ export default function ReconciliationClient({
                       </Badge>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="suppliers" className="flex-1 gap-1.5">
+                    Fournisseurs
+                    {supplierInvoices.length > 0 && (
+                      <Badge className="text-xs px-1.5 py-0 h-4 bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] hover:bg-[var(--color-status-caution-bg)]">
+                        {supplierInvoices.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -550,6 +575,45 @@ export default function ReconciliationClient({
                             {formatCurrency(line.totalPayment)}
                           </span>
                           {selectedTxId && reconcileBtn("loanLine", line.id)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Factures fournisseurs */}
+              <TabsContent value="suppliers" className="mt-0 max-h-[520px] overflow-y-auto">
+                {supplierInvoices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Aucune facture fournisseur à rapprocher
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    {supplierInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <p className="text-sm font-medium truncate">
+                              {invoice.supplierName ?? "Fournisseur non renseigné"}
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {invoice.dueDate ? `Éch. ${formatDate(invoice.dueDate)}` : "Échéance non renseignée"}
+                            {invoice.paymentMethod && ` · ${invoice.paymentMethod}`}
+                            {invoice.paymentReference && ` · ${invoice.paymentReference}`}
+                            {invoice.bankJournalEntryId && " · BQUE"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 ml-2 shrink-0">
+                          <span className="text-sm font-medium tabular-nums text-destructive">
+                            {formatCurrency(invoice.amountTTC ?? 0)}
+                          </span>
+                          {selectedTxId && reconcileBtn("supplierInvoice", invoice.id)}
                         </div>
                       </div>
                     ))}

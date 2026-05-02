@@ -835,6 +835,168 @@ export async function getUpcomingLoanLines(societyId: string) {
   });
 }
 
+// ─── Factures fournisseurs à rapprocher ─────────────────────────────────────
+
+export async function getSupplierInvoicesToReconcile(societyId: string) {
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
+
+  return prisma.supplierInvoice.findMany({
+    where: {
+      societyId,
+      status: { in: ["VALIDATED", "PAID"] },
+      OR: [
+        { bankJournalEntryId: null },
+        { paymentStatus: null },
+        { paymentStatus: { in: ["PENDING", "SUBMITTED", "CONFIRMED"] } },
+      ],
+    },
+    select: {
+      id: true,
+      supplierName: true,
+      amountTTC: true,
+      dueDate: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      paymentReference: true,
+      bankAccountId: true,
+      bankJournalEntryId: true,
+    },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+    take: 100,
+  });
+}
+
+// ─── Rapprochement avec une facture fournisseur ─────────────────────────────
+
+export async function reconcileWithSupplierInvoice(
+  societyId: string,
+  transactionId: string,
+  supplierInvoiceId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const [transaction, invoice] = await Promise.all([
+      prisma.bankTransaction.findFirst({
+        where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+      }),
+      prisma.supplierInvoice.findFirst({
+        where: { id: supplierInvoiceId, societyId },
+      }),
+    ]);
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+    if (!invoice) return { success: false, error: "Facture fournisseur introuvable" };
+    if (transaction.amount >= 0) {
+      return { success: false, error: "Une facture fournisseur doit être rapprochée avec une transaction bancaire débitrice" };
+    }
+    if (invoice.amountTTC == null || Math.abs(Math.abs(transaction.amount) - invoice.amountTTC) > 0.01) {
+      return { success: false, error: "Le montant de la transaction ne correspond pas à la facture fournisseur sélectionnée" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      let journalEntryId = transaction.journalEntryId ?? invoice.bankJournalEntryId;
+
+      if (!journalEntryId) {
+        const [compte401, compte512] = await Promise.all([
+          tx.accountingAccount.findFirst({
+            where: { societyId, code: { startsWith: "401" }, isActive: true },
+            orderBy: { code: "asc" },
+          }),
+          tx.accountingAccount.findFirst({
+            where: { societyId, code: { startsWith: "512" }, isActive: true },
+            orderBy: { code: "asc" },
+          }),
+        ]);
+        if (!compte401 || !compte512) {
+          throw new Error("MISSING_SUPPLIER_BANK_ACCOUNTS");
+        }
+
+        const amount = roundCents(Math.abs(transaction.amount));
+        const entry = await tx.journalEntry.create({
+          data: {
+            societyId,
+            fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+            journalType: "BQUE",
+            entryDate: transaction.transactionDate,
+            piece: transaction.reference ?? undefined,
+            label: `Règlement fournisseur - ${invoice.supplierName ?? transaction.label}`,
+            reference: transaction.reference ?? undefined,
+            status: "BROUILLON",
+            lines: {
+              create: [
+                {
+                  accountId: compte401.id,
+                  debit: amount,
+                  credit: 0,
+                  label: invoice.supplierName ?? transaction.label,
+                },
+                {
+                  accountId: compte512.id,
+                  debit: 0,
+                  credit: amount,
+                  label: transaction.label,
+                },
+              ],
+            },
+          },
+        });
+        journalEntryId = entry.id;
+      }
+
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true, journalEntryId },
+      });
+      if (invoice.chargeId) {
+        await tx.charge.update({
+          where: { id: invoice.chargeId },
+          data: { isPaid: true },
+        });
+      }
+      await tx.supplierInvoice.update({
+        where: { id: supplierInvoiceId },
+        data: {
+          status: "PAID",
+          paymentStatus: "CONFIRMED",
+          paymentExecutedAt: transaction.transactionDate,
+          paymentReference: transaction.reference ?? invoice.paymentReference,
+          bankAccountId: transaction.bankAccountId,
+          bankJournalEntryId: journalEntryId,
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "SupplierInvoice",
+      entityId: supplierInvoiceId,
+      details: {
+        action: "reconcile_supplier_invoice",
+        transactionId,
+        journalType: "BQUE",
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/banque/factures-fournisseurs");
+    revalidatePath("/comptabilite");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof Error && error.message === "MISSING_SUPPLIER_BANK_ACCOUNTS") {
+      return { success: false, error: "Comptes 401 et 512 requis pour générer l'écriture fournisseur" };
+    }
+    console.error("[reconcileWithSupplierInvoice]", error);
+    return { success: false, error: "Erreur lors du rapprochement fournisseur" };
+  }
+}
+
 // ─── Rapprochement avec une facture (crée le paiement auto) ──────────────────
 
 export async function reconcileWithInvoice(

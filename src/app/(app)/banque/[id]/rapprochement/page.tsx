@@ -4,6 +4,7 @@ import {
   getReconciledItems,
   getPendingInvoices,
   getUpcomingLoanLines,
+  getSupplierInvoicesToReconcile,
 } from "@/actions/bank-reconciliation";
 import { getBankAccountSummaryById } from "@/actions/bank";
 import { headers } from "next/headers";
@@ -37,14 +38,15 @@ export default async function RapprochementPage({
     getUnreconciledPayments(societyId),
     getPendingInvoices(societyId),
     getUpcomingLoanLines(societyId),
+    getSupplierInvoicesToReconcile(societyId),
   ]);
 
   const account = await accountPromise;
   if (!account) notFound();
 
-  const [transactions, payments, pendingInvoices, loanLines] = await reconciliationDataPromise;
+  const [transactions, payments, pendingInvoices, loanLines, supplierInvoices] = await reconciliationDataPromise;
 
-  const totalRight = payments.length + pendingInvoices.length + loanLines.length;
+  const totalRight = payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
 
   return (
     <div className="space-y-6">
@@ -66,7 +68,7 @@ export default async function RapprochementPage({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Transactions non rapprochées</p>
@@ -99,6 +101,14 @@ export default async function RapprochementPage({
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground">Fournisseurs</p>
+            <p className={`text-2xl font-bold ${supplierInvoices.length > 0 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
+              {supplierInvoices.length}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <ReconciliationClient
@@ -108,6 +118,7 @@ export default async function RapprochementPage({
         payments={payments}
         pendingInvoices={pendingInvoices}
         loanLines={loanLines}
+        supplierInvoices={supplierInvoices}
       />
 
       <Suspense fallback={<ReconciledItemsSkeleton />}>

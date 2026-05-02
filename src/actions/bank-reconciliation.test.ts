@@ -21,6 +21,8 @@ import {
   getUpcomingLoanLines,
   reconcileWithInvoice,
   reconcileWithLoanLine,
+  getSupplierInvoicesToReconcile,
+  reconcileWithSupplierInvoice,
   generateJournalEntry,
 } from "./bank-reconciliation";
 import { createAuditLog } from "@/lib/audit";
@@ -1083,6 +1085,114 @@ describe("reconcileWithLoanLine", () => {
     prismaMock.bankTransaction.findFirst.mockRejectedValue(new Error("DB connection lost"));
     const r = await reconcileWithLoanLine(SOCIETY_ID, TX_ID, LOAN_LINE_ID);
     expect(r).toEqual({ success: false, error: "Erreur lors du rapprochement" });
+  });
+});
+
+// ─── Factures fournisseurs à rapprocher ─────────────────────────────────────
+
+const SUPPLIER_INVOICE_ID = "csupplier01";
+
+describe("getSupplierInvoicesToReconcile", () => {
+  it("retourne les factures fournisseurs payées ou validées à matcher avec les débits bancaires", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.supplierInvoice.findMany.mockResolvedValue([
+      {
+        id: SUPPLIER_INVOICE_ID,
+        supplierName: "EDF",
+        amountTTC: 450,
+        dueDate: new Date("2026-05-05"),
+        status: "VALIDATED",
+        paymentStatus: null,
+        paymentMethod: null,
+        paymentReference: null,
+        bankAccountId: ACCOUNT_ID,
+        bankJournalEntryId: null,
+      },
+    ] as never);
+
+    const result = await getSupplierInvoicesToReconcile(SOCIETY_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].supplierName).toBe("EDF");
+    expect(prismaMock.supplierInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          societyId: SOCIETY_ID,
+        }),
+      })
+    );
+  });
+});
+
+describe("reconcileWithSupplierInvoice", () => {
+  beforeEach(() => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue(
+      buildTransaction({ amount: -450, bankAccountId: ACCOUNT_ID, journalEntryId: null }) as never
+    );
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      societyId: SOCIETY_ID,
+      supplierName: "EDF",
+      amountTTC: 450,
+      status: "VALIDATED",
+      paymentStatus: null,
+      bankJournalEntryId: null,
+      chargeId: "ccharge001",
+    } as never);
+    prismaMock.accountingAccount.findFirst
+      .mockResolvedValueOnce({ id: "account-401", code: "401", label: "Fournisseurs" } as never)
+      .mockResolvedValueOnce({ id: "account-512", code: "512", label: "Banque" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({ id: JOURNAL_ID } as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
+  });
+
+  it("rapproche un débit bancaire avec une facture fournisseur et lie l'écriture BQUE", async () => {
+    const result = await reconcileWithSupplierInvoice(SOCIETY_ID, TX_ID, SUPPLIER_INVOICE_ID);
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          journalType: "BQUE",
+          lines: {
+            create: [
+              { accountId: "account-401", debit: 450, credit: 0, label: "EDF" },
+              { accountId: "account-512", debit: 0, credit: 450, label: "Virement entrant" },
+            ],
+          },
+        }),
+      })
+    );
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledWith({
+      where: { id: TX_ID },
+      data: { isReconciled: true, journalEntryId: JOURNAL_ID },
+    });
+    expect(prismaMock.supplierInvoice.update).toHaveBeenCalledWith({
+      where: { id: SUPPLIER_INVOICE_ID },
+      data: expect.objectContaining({
+        status: "PAID",
+        paymentStatus: "CONFIRMED",
+        bankJournalEntryId: JOURNAL_ID,
+        bankAccountId: ACCOUNT_ID,
+      }),
+    });
+  });
+
+  it("refuse une facture fournisseur si le montant ne correspond pas au débit bancaire", async () => {
+    prismaMock.supplierInvoice.findFirst.mockResolvedValue({
+      id: SUPPLIER_INVOICE_ID,
+      amountTTC: 300,
+      status: "VALIDATED",
+      bankJournalEntryId: null,
+    } as never);
+
+    const result = await reconcileWithSupplierInvoice(SOCIETY_ID, TX_ID, SUPPLIER_INVOICE_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/montant/i);
   });
 });
 
