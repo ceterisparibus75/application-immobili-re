@@ -1,21 +1,11 @@
 import { requirePortalAuth } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Receipt, FolderOpen } from "lucide-react";
 import { redirect } from "next/navigation";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import DocumentsTabs from "./_components/documents-tabs";
 
-function portalInvoiceStatus(status: string): { label: string; variant: "success" | "destructive" } {
-  if (status === "PAYE") return { label: "Payé", variant: "success" };
-  return { label: "En retard", variant: "destructive" };
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  bail: "Bail", avenant: "Avenant", diagnostic: "Diagnostic",
-  assurance: "Assurance", titre_propriete: "Titre de propriété",
-  contrat: "Contrat", etat_des_lieux: "État des lieux",
-};
+export const metadata = { title: "Mes documents" };
 
 export default async function PortalDocumentsPage() {
   let session;
@@ -25,28 +15,20 @@ export default async function PortalDocumentsPage() {
     redirect("/portal/login");
   }
 
-  // Trouver TOUS les locataires avec cet email (multi-société)
   const tenants = await prisma.tenant.findMany({
     where: { email: { equals: session.email, mode: "insensitive" }, isActive: true },
     select: { id: true },
   });
   const tenantIds = tenants.map((t) => t.id);
 
-  // 1. Baux de tous les locataires
   const leases = await prisma.lease.findMany({
     where: { tenantId: { in: tenantIds } },
     select: {
       id: true,
-      leaseType: true,
       status: true,
       startDate: true,
       leaseFileUrl: true,
-      lot: {
-        select: {
-          number: true,
-          building: { select: { name: true, city: true } },
-        },
-      },
+      lot: { select: { number: true, building: { select: { name: true, city: true } } } },
       society: { select: { name: true } },
     },
     orderBy: { startDate: "desc" },
@@ -54,7 +36,6 @@ export default async function PortalDocumentsPage() {
 
   const ownLeaseIds = leases.map((l) => l.id);
 
-  // 2. Documents GED liés à ces locataires ou à leurs baux
   const gedDocuments = await prisma.document.findMany({
     where: {
       OR: [
@@ -63,225 +44,88 @@ export default async function PortalDocumentsPage() {
       ],
     },
     select: {
-      id: true,
-      fileName: true,
-      fileUrl: true,
-      category: true,
-      description: true,
-      createdAt: true,
-      leaseId: true,
+      id: true, fileName: true, fileUrl: true, category: true,
+      description: true, createdAt: true, leaseId: true,
     },
     orderBy: { createdAt: "desc" },
   });
 
-  // 3. Factures de tous les locataires
   const invoices = await prisma.invoice.findMany({
     where: { tenantId: { in: tenantIds }, status: { not: "BROUILLON" } },
     select: {
-      id: true,
-      invoiceNumber: true,
-      invoiceType: true,
-      status: true,
-      totalHT: true,
-      totalTTC: true,
-      issueDate: true,
-      dueDate: true,
-      fileUrl: true,
+      id: true, invoiceNumber: true, invoiceType: true, status: true,
+      totalHT: true, totalTTC: true, issueDate: true, dueDate: true, fileUrl: true,
       payments: { select: { paidAt: true }, take: 1, orderBy: { paidAt: "desc" } },
     },
     orderBy: { issueDate: "desc" },
     take: 100,
   });
 
-  const appelLoyer = invoices.filter((i) => i.invoiceType === "APPEL_LOYER");
-  const quittances = invoices.filter((i) => i.invoiceType === "QUITTANCE");
+  // Shape data — convert Date to ISO strings for Client Component serialisation
+  const shapedLeases = leases.map((lease) => ({
+    id: lease.id,
+    status: lease.status,
+    startDate: lease.startDate.toISOString(),
+    leaseFileUrl: lease.leaseFileUrl,
+    lotName: `${lease.lot.building.name} — Lot ${lease.lot.number}`,
+    societyName: lease.society?.name ?? null,
+    docs: gedDocuments
+      .filter(
+        (d) => d.leaseId === lease.id && !["facture", "quittance"].includes(d.category ?? "")
+      )
+      .map((d) => ({
+        id: d.id, fileName: d.fileName, fileUrl: d.fileUrl,
+        category: d.category, description: d.description,
+        createdAt: d.createdAt.toISOString(),
+      })),
+  }));
+
+  const standaloneGedDocs = gedDocuments
+    .filter((d) => !d.leaseId)
+    .map((d) => ({
+      id: d.id, fileName: d.fileName, fileUrl: d.fileUrl,
+      category: d.category, description: d.description,
+      createdAt: d.createdAt.toISOString(),
+    }));
+
+  const toInvoiceRow = (inv: (typeof invoices)[number]) => ({
+    id: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    status: inv.status,
+    totalHT: inv.totalHT,
+    totalTTC: inv.totalTTC,
+    issueDate: inv.issueDate.toISOString(),
+    dueDate: inv.dueDate?.toISOString() ?? null,
+    fileUrl: inv.fileUrl,
+    paidAt: inv.payments?.[0]?.paidAt?.toISOString() ?? null,
+  });
+
+  const appelLoyer = invoices.filter((i) => i.invoiceType === "APPEL_LOYER").map(toInvoiceRow);
+  const quittances = invoices.filter((i) => i.invoiceType === "QUITTANCE").map(toInvoiceRow);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <Link
+        href="/portal/dashboard"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Accueil
+      </Link>
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Mes documents</h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Consultez vos baux, factures et quittances
         </p>
       </div>
 
-      {/* Baux */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4" />
-            Baux ({leases.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {leases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun bail</p>
-          ) : (
-            <div className="divide-y">
-              {leases.map((lease) => {
-                const leaseDocs = gedDocuments.filter(
-                  (d) => d.leaseId === lease.id && !["facture", "quittance"].includes(d.category ?? "")
-                );
-                const hasDownloads = lease.leaseFileUrl || leaseDocs.length > 0;
-                return (
-                  <div key={lease.id} className="py-3 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium truncate">
-                          {lease.lot.building.name} — Lot {lease.lot.number}
-                        </p>
-                        <Badge variant={lease.status === "EN_COURS" ? "success" : "secondary"} className="shrink-0">
-                          {lease.status === "EN_COURS" ? "Actif" : lease.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Depuis le {formatDate(lease.startDate)}
-                        {lease.society && <> &middot; {lease.society.name}</>}
-                      </p>
-                    </div>
-                    {hasDownloads && (
-                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                        {lease.leaseFileUrl && (
-                          <a href={lease.leaseFileUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:bg-accent transition-colors">
-                            <Download className="h-3 w-3" />
-                            Bail
-                          </a>
-                        )}
-                        {leaseDocs.map((doc) => (
-                          <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:bg-accent transition-colors">
-                            <Download className="h-3 w-3" />
-                            {CATEGORY_LABELS[doc.category ?? ""] ?? doc.fileName}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Autres documents (GED sans bail associé) */}
-      {gedDocuments.filter((d) => !d.leaseId).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FolderOpen className="h-4 w-4" />
-              Documents ({gedDocuments.filter((d) => !d.leaseId).length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {gedDocuments.filter((d) => !d.leaseId).map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">{doc.description ?? doc.fileName}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
-                  </div>
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                    <Download className="h-4 w-4 text-primary hover:text-primary/80" />
-                  </a>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Appels de loyer */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Receipt className="h-4 w-4" />
-            Appels de loyer ({appelLoyer.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {appelLoyer.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun appel de loyer</p>
-          ) : (
-            <div className="divide-y">
-              {appelLoyer.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Émise le {formatDate(inv.issueDate)} — Échéance {formatDate(inv.dueDate)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium tabular-nums">
-                      {formatCurrency(inv.totalTTC ?? inv.totalHT)}
-                    </span>
-                    <Badge variant={portalInvoiceStatus(inv.status).variant}>
-                      {portalInvoiceStatus(inv.status).label}
-                    </Badge>
-                    {inv.fileUrl && (
-                      <a href={`/api/portal/invoices/${inv.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4 text-primary hover:text-primary/80" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Quittances */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              Quittances ({quittances.length})
-            </CardTitle>
-            {quittances.some((q) => q.fileUrl) && (
-              <a
-                href="/api/portal/quittances/archive"
-                download
-                className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Telecharger tout
-              </a>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {quittances.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune quittance</p>
-          ) : (
-            <div className="divide-y">
-              {quittances.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inv.payments?.[0]?.paidAt ? `Payé le ${formatDate(inv.payments[0].paidAt)}` : formatDate(inv.issueDate)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium tabular-nums">
-                      {formatCurrency(inv.totalTTC ?? inv.totalHT)}
-                    </span>
-                    {inv.fileUrl && (
-                      <a href={`/api/portal/invoices/${inv.id}/pdf`} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4 text-primary hover:text-primary/80" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <DocumentsTabs
+        leases={shapedLeases}
+        standaloneGedDocs={standaloneGedDocs}
+        appelLoyer={appelLoyer}
+        quittances={quittances}
+      />
     </div>
   );
 }
