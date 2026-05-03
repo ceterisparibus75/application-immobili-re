@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Loader2, FileUp, FolderOpen, CheckCircle2, X, Upload, File as FileIcon } from "lucide-react";
 import Link from "next/link";
-import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORY_GROUPS } from "@/lib/document-categories";
 import { cn } from "@/lib/utils";
 import { isAllowedDocumentMimeType } from "@/lib/document-upload-security";
 
@@ -167,7 +167,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
           <p className="text-muted-foreground">Importer un fichier ou un dossier entier dans la GED</p>
         </div>
       </div>
-      <div className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-brand-deep)]">Pour que l'import soit vraiment utile</p>
         <div className="mt-2 space-y-2 text-sm text-muted-foreground">
           <p>Choisissez une catégorie claire pour faciliter la recherche et les rappels.</p>
@@ -268,16 +268,22 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
             <div className="space-y-2">
               <Label htmlFor="category">Catégorie *</Label>
               <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} required
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">Choisir une catégorie...</option>
-                {DOCUMENT_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {DOCUMENT_CATEGORY_GROUPS.map((group) => (
+                  <optgroup key={group.group} label={group.group}>
+                    {group.items.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="entityType">Rattacher à</Label>
               <select id="entityType" value={entityType}
                 onChange={(e) => { setEntityType(e.target.value as typeof entityType); setBuildingId(""); setLotId(""); setLeaseId(""); setTenantId(""); }}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                 <option value="">— Aucun rattachement —</option>
                 <option value="building">Un immeuble</option>
                 <option value="lot">Un lot</option>
@@ -289,7 +295,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
               <div className="space-y-2">
                 <Label htmlFor="buildingId">Immeuble *</Label>
                 <select id="buildingId" value={buildingId} onChange={(e) => setBuildingId(e.target.value)} required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                   <option value="">Sélectionner un immeuble...</option>
                   {buildings.map((b) => <option key={b.id} value={b.id}>{b.name} — {b.city}</option>)}
                 </select>
@@ -300,7 +306,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
                 <div className="space-y-2">
                   <Label>Immeuble (filtre)</Label>
                   <select value={buildingId} onChange={(e) => { setBuildingId(e.target.value); setLotId(""); }}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                     <option value="">Tous les immeubles</option>
                     {buildings.map((b) => <option key={b.id} value={b.id}>{b.name} — {b.city}</option>)}
                   </select>
@@ -308,7 +314,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
                 <div className="space-y-2">
                   <Label htmlFor="lotId">Lot *</Label>
                   <select id="lotId" value={lotId} onChange={(e) => setLotId(e.target.value)} required
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                     <option value="">Sélectionner un lot...</option>
                     {filteredLots.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
                   </select>
@@ -319,7 +325,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
               <div className="space-y-2">
                 <Label htmlFor="leaseId">Bail *</Label>
                 <select id="leaseId" value={leaseId} onChange={(e) => setLeaseId(e.target.value)} required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                   <option value="">Sélectionner un bail...</option>
                   {leases.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
                 </select>
@@ -329,7 +335,7 @@ export function UploadDocumentForm({ societyId, buildings, lots, leases, tenants
               <div className="space-y-2">
                 <Label htmlFor="tenantId">Locataire *</Label>
                 <select id="tenantId" value={tenantId} onChange={(e) => setTenantId(e.target.value)} required
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  className="flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm">
                   <option value="">Sélectionner un locataire...</option>
                   {tenants.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
