@@ -117,10 +117,12 @@ export function drawTotalsRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    // Absorb trailing empty cells to give more room to this cell's label
+    // Only absorb trailing empty cells for left-aligned labels (not numeric columns)
     let effectiveWidth = widths[i];
-    let j = i + 1;
-    while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    if (align === "left" && c) {
+      let j = i + 1;
+      while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    }
     const maxW = effectiveWidth - 6;
     let text = String(c).slice(0, 30);
     while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
@@ -128,8 +130,8 @@ export function drawTotalsRow(
     }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
-    if (align === "right") tx = x + effectiveWidth - tw - 6;
-    else if (align === "center") tx = x + (effectiveWidth - tw) / 2;
+    if (align === "right") tx = x + widths[i] - tw - 6;
+    else if (align === "center") tx = x + (widths[i] - tw) / 2;
     p.drawText(text, { x: tx, y: y - h + 5, size: FONT_TABLE_HD, font: bold, color: WHITE });
     x += widths[i];
   });
@@ -153,10 +155,12 @@ export function drawMoyennesRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    // Absorb trailing empty cells to give more room to this cell's label
+    // Only absorb trailing empty cells for left-aligned labels (not numeric columns)
     let effectiveWidth = widths[i];
-    let j = i + 1;
-    while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    if (align === "left" && c) {
+      let j = i + 1;
+      while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    }
     const maxW = effectiveWidth - 6;
     let text = String(c).slice(0, 30);
     while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
@@ -164,8 +168,8 @@ export function drawMoyennesRow(
     }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
-    if (align === "right") tx = x + effectiveWidth - tw - 6;
-    else if (align === "center") tx = x + (effectiveWidth - tw) / 2;
+    if (align === "right") tx = x + widths[i] - tw - 6;
+    else if (align === "center") tx = x + (widths[i] - tw) / 2;
     p.drawText(text, { x: tx, y: y - h + 5, size: FONT_TABLE_HD, font: bold, color: WHITE });
     x += widths[i];
   });
