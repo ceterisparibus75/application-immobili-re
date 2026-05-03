@@ -95,7 +95,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     for (const inv of bInvoices) {
       const m = new Date(inv.issueDate).getMonth();
-      monthlyFact[m] += inv.totalTTC;
+      monthlyFact[m] += inv.totalHT;
     }
     for (const payment of bPayments) {
       const m = new Date(payment.paidAt).getMonth();
@@ -134,7 +134,9 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     ], WIDTHS, ALIGNS, { rowIndex: 2 }, 841.89);
 
     // Taux de recouvrement
-    const monthlyRec = monthlyFact.map((f, i) => f > 0 ? (monthlyEnc[i] / f) * 100 : 0);
+    const cumulFact = monthlyFact.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
+    const cumulEnc = monthlyEnc.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
+    const monthlyRec = cumulFact.map((f, i) => f > 0 ? (cumulEnc[i] / f) * 100 : 0);
     const annRec = annFact > 0 ? (annEnc / annFact) * 100 : 0;
     y = drawTableRow(p, ctx.reg, y, [
       "Taux recouvrement",
