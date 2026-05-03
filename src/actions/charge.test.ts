@@ -895,6 +895,45 @@ describe("generateAnnualChargeReport", () => {
     expect(r.success).toBe(true)
   })
 
+  it("proratise les charges et stocke la période d'occupation quand le locataire arrive en cours d'année", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([
+      {
+        ...makeCharge(),
+        amount: 1200,
+        periodStart: new Date("2024-01-01"),
+        periodEnd: new Date("2024-12-31"),
+      },
+    ] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        startDate: new Date("2024-07-01"),
+        chargeProvisions: [{ monthlyAmount: 100, startDate: new Date("2024-07-01"), endDate: null }],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          totalCharges: 603.28,
+          totalProvisions: 600,
+          balance: 3.28,
+          details: expect.objectContaining({
+            prorataDays: 184,
+            occupancyStart: "2024-07-01",
+            occupancyEnd: "2024-12-31",
+          }),
+        }),
+      })
+    )
+  })
+
   it("retourne une erreur si rôle insuffisant pour generateAnnualChargeReport (ForbiddenError lignes 663-665)", async () => {
     mockAuthSession(UserRole.LECTURE)
     const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
@@ -1058,6 +1097,45 @@ describe("autoRegularizeCharges", () => {
           totalCharges: 1200,
           totalProvisions: 600,
           balance: 600,
+        }),
+      })
+    )
+  })
+
+  it("proratise les charges automatiques quand le bail commence en cours d'exercice", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([
+      {
+        ...makeCharge(),
+        amount: 1200,
+        periodStart: new Date("2024-01-01"),
+        periodEnd: new Date("2024-12-31"),
+      },
+    ] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        startDate: new Date("2024-07-01"),
+        chargeProvisions: [{ monthlyAmount: 100, startDate: new Date("2024-07-01"), endDate: null }],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+
+    expect(r.success).toBe(true)
+    expect(r.data?.totalBalance).toBe(3.28)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          totalCharges: 603.28,
+          totalProvisions: 600,
+          balance: 3.28,
+          details: expect.objectContaining({
+            prorataDays: 184,
+            occupancyStart: "2024-07-01",
+            occupancyEnd: "2024-12-31",
+          }),
         }),
       })
     )

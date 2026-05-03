@@ -68,6 +68,17 @@ function inclusiveDays(start: Date, end: Date): number {
   return Math.max(0, Math.floor((endTime - startTime) / MS_PER_DAY) + 1);
 }
 
+function dateOnlyIso(date: Date): string {
+  const normalized = dayStart(date);
+  const month = String(normalized.getMonth() + 1).padStart(2, "0");
+  const day = String(normalized.getDate()).padStart(2, "0");
+  return `${normalized.getFullYear()}-${month}-${day}`;
+}
+
+function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
 function overlapDays(startA: Date, endA: Date, startB: Date, endB: Date): number {
   const start = new Date(Math.max(dayStart(startA).getTime(), dayStart(startB).getTime()));
   const end = new Date(Math.min(dayStart(endA).getTime(), dayStart(endB).getTime()));
@@ -621,10 +632,6 @@ export async function generateAnnualChargeReport(
       };
     }
 
-    const totalPeriodCharges = charges.reduce((sum, charge) => {
-      return sum + chargeAmountForPeriod(charge, periodStart, periodEnd);
-    }, 0);
-
     // 2. Lots de l'immeuble
     const buildingLots = await prisma.lot.findMany({
       where: { buildingId },
@@ -667,9 +674,7 @@ export async function generateAnnualChargeReport(
       const leaseStart = lease.startDate > periodStart ? lease.startDate : periodStart;
       const leaseEndRaw = lease.endDate ?? periodEnd;
       const leaseEnd = leaseEndRaw < periodEnd ? leaseEndRaw : periodEnd;
-      const totalDaysInYear = inclusiveDays(periodStart, periodEnd);
       const leaseDays = inclusiveDays(leaseStart, leaseEnd);
-      const prorata = leaseDays / totalDaysInYear;
 
       // Calcul des charges récupérables par catégorie
       const categoryDetails: Array<{
@@ -701,7 +706,8 @@ export async function generateAnnualChargeReport(
 
         const allocationRate = allocationRateForCategory(category, lease, { totalTantiemes, totalSurface, nbLots });
 
-        const tenantShare = recoverableAmount * allocationRate * prorata;
+        const occupiedAmount = catCharges.reduce((s, c) => s + chargeAmountForPeriod(c, leaseStart, leaseEnd), 0);
+        const tenantShare = occupiedAmount * recoverableRate * allocationRate;
         totalTenantShare += tenantShare;
 
         categoryDetails.push({
@@ -733,16 +739,18 @@ export async function generateAnnualChargeReport(
           societyId,
           periodStart,
           periodEnd,
-          totalCharges: Math.round(totalPeriodCharges * 100) / 100,
-          totalProvisions: Math.round(totalProvisions * 100) / 100,
-          balance: Math.round(balance * 100) / 100,
+          totalCharges: roundMoney(totalTenantShare),
+          totalProvisions: roundMoney(totalProvisions),
+          balance: roundMoney(balance),
           details: {
             tenantName,
             lotNumber: lease.lot.number,
             buildingId,
             prorataDays: leaseDays,
+            occupancyStart: dateOnlyIso(leaseStart),
+            occupancyEnd: dateOnlyIso(leaseEnd),
             categories: categoryDetails,
-            totalRecoverableAllocated: Math.round(totalTenantShare * 100) / 100,
+            totalRecoverableAllocated: roundMoney(totalTenantShare),
           },
           isFinalized: false,
         },
@@ -752,16 +760,18 @@ export async function generateAnnualChargeReport(
           fiscalYear: year,
           periodStart,
           periodEnd,
-          totalCharges: Math.round(totalPeriodCharges * 100) / 100,
-          totalProvisions: Math.round(totalProvisions * 100) / 100,
-          balance: Math.round(balance * 100) / 100,
+          totalCharges: roundMoney(totalTenantShare),
+          totalProvisions: roundMoney(totalProvisions),
+          balance: roundMoney(balance),
           details: {
             tenantName,
             lotNumber: lease.lot.number,
             buildingId,
             prorataDays: leaseDays,
+            occupancyStart: dateOnlyIso(leaseStart),
+            occupancyEnd: dateOnlyIso(leaseEnd),
             categories: categoryDetails,
-            totalRecoverableAllocated: Math.round(totalTenantShare * 100) / 100,
+            totalRecoverableAllocated: roundMoney(totalTenantShare),
           },
           isFinalized: false,
         },
@@ -917,16 +927,37 @@ export async function autoRegularizeCharges(
       }, 0);
 
       // Détails par catégorie de charge
-      const details = charges.reduce<Record<string, { label: string; amount: number; recoverable: number }>>((acc, c) => {
+      const leaseDays = inclusiveDays(leaseStart, leaseEnd);
+      const details = charges.reduce<Record<string, {
+        categoryName: string;
+        nature: string;
+        totalAmount: number;
+        recoverableAmount: number;
+        allocationMethod: string;
+        allocationRate: number;
+        tenantShare: number;
+      }>>((acc, c) => {
         const key = c.category.name;
-        if (!acc[key]) acc[key] = { label: key, amount: 0, recoverable: 0 };
+        const allocationRate = allocationRateForCategory(c.category, lease, { totalTantiemes: totalShares, totalSurface, nbLots });
+        if (!acc[key]) {
+          acc[key] = {
+            categoryName: key,
+            nature: c.category.nature,
+            totalAmount: 0,
+            recoverableAmount: 0,
+            allocationMethod: c.category.allocationMethod,
+            allocationRate: roundMoney(allocationRate * 100),
+            tenantShare: 0,
+          };
+        }
         const amount = chargeAmountForPeriod(c, start, end);
         const recoverableAmount = amount * recoverableRateFor(c.category.nature, c.category.recoverableRate);
-        const allocationRate = allocationRateForCategory(c.category, lease, { totalTantiemes: totalShares, totalSurface, nbLots });
-        const allocatedAmount = recoverableAmount * allocationRate;
+        const occupiedAmount = chargeAmountForPeriod(c, leaseStart, leaseEnd);
+        const allocatedAmount = occupiedAmount * recoverableRateFor(c.category.nature, c.category.recoverableRate) * allocationRate;
         leaseChargeShare += allocatedAmount;
-        acc[key].amount += amount;
-        acc[key].recoverable += allocatedAmount;
+        acc[key].totalAmount += amount;
+        acc[key].recoverableAmount += recoverableAmount;
+        acc[key].tenantShare += allocatedAmount;
         return acc;
       }, {});
 
@@ -939,15 +970,23 @@ export async function autoRegularizeCharges(
         update: {
           periodStart: start,
           periodEnd: end,
-          totalCharges: Math.round(leaseChargeShare * 100) / 100,
-          totalProvisions: Math.round(totalProvisions * 100) / 100,
-          balance: Math.round(balance * 100) / 100,
+          totalCharges: roundMoney(leaseChargeShare),
+          totalProvisions: roundMoney(totalProvisions),
+          balance: roundMoney(balance),
           details: {
             shareRatio: Math.round(shareRatio * 10000) / 10000,
             lotShares,
             totalShares,
             monthsCovered,
-            categories: Object.values(details),
+            prorataDays: leaseDays,
+            occupancyStart: dateOnlyIso(leaseStart),
+            occupancyEnd: dateOnlyIso(leaseEnd),
+            categories: Object.values(details).map((detail) => ({
+              ...detail,
+              totalAmount: roundMoney(detail.totalAmount),
+              recoverableAmount: roundMoney(detail.recoverableAmount),
+              tenantShare: roundMoney(detail.tenantShare),
+            })),
           },
           isFinalized: false,
         },
@@ -957,15 +996,23 @@ export async function autoRegularizeCharges(
           fiscalYear,
           periodStart: start,
           periodEnd: end,
-          totalCharges: Math.round(leaseChargeShare * 100) / 100,
-          totalProvisions: Math.round(totalProvisions * 100) / 100,
-          balance: Math.round(balance * 100) / 100,
+          totalCharges: roundMoney(leaseChargeShare),
+          totalProvisions: roundMoney(totalProvisions),
+          balance: roundMoney(balance),
           details: {
             shareRatio: Math.round(shareRatio * 10000) / 10000,
             lotShares,
             totalShares,
             monthsCovered,
-            categories: Object.values(details),
+            prorataDays: leaseDays,
+            occupancyStart: dateOnlyIso(leaseStart),
+            occupancyEnd: dateOnlyIso(leaseEnd),
+            categories: Object.values(details).map((detail) => ({
+              ...detail,
+              totalAmount: roundMoney(detail.totalAmount),
+              recoverableAmount: roundMoney(detail.recoverableAmount),
+              tenantShare: roundMoney(detail.tenantShare),
+            })),
           },
         },
       });
@@ -979,7 +1026,7 @@ export async function autoRegularizeCharges(
       action: "CREATE",
       entity: "ChargeRegularization",
       entityId: buildingId,
-      details: { fiscalYear, regularizationCount, totalBalance: Math.round(totalBalance * 100) / 100 },
+      details: { fiscalYear, regularizationCount, totalBalance: roundMoney(totalBalance) },
     });
 
     revalidatePath("/charges");
@@ -987,7 +1034,7 @@ export async function autoRegularizeCharges(
       success: true,
       data: {
         regularizations: regularizationCount,
-        totalBalance: Math.round(totalBalance * 100) / 100,
+        totalBalance: roundMoney(totalBalance),
       },
     };
   } catch (error) {

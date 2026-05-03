@@ -15,6 +15,8 @@ export type ChargeStatementPdfData = {
   fiscalYear: number;
   periodStart: string;
   periodEnd: string;
+  occupancyStart?: string | null;
+  occupancyEnd?: string | null;
   tenantName: string;
   lotNumber: string;
   buildingName: string;
@@ -66,7 +68,7 @@ function inclusivePeriodDays(startIso: string, endIso: string) {
 }
 
 const NATURE_LABELS: Record<string, string> = {
-  RECUPERABLE: "Recuper.",
+  RECUPERABLE: "Récupér.",
   PARTIELLE: "Partielle",
   PROPRIETAIRE: "Propr.",
 };
@@ -97,6 +99,7 @@ const s = StyleSheet.create({
   infoCell: { flex: 1, padding: 8 },
   infoLabel: { fontSize: 7.5, color: GRAY, fontFamily: "Helvetica-Bold", textTransform: "uppercase", marginBottom: 2 },
   infoValue: { fontSize: 9, color: DARK },
+  infoSubValue: { fontSize: 7.5, color: GRAY, marginTop: 3 },
   sectionTitle: {
     fontSize: 8.5,
     fontFamily: "Helvetica-Bold",
@@ -170,9 +173,16 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
   const isDebt = data.balance > 0;
   const isZeroBalance = Math.abs(data.balance) < 0.01;
   const balanceColor = isZeroBalance ? DARK : isDebt ? NEGATIVE : POSITIVE;
-  const balanceLabel = isZeroBalance ? "Solde nul" : isDebt ? "Complement a payer" : "Avoir a rembourser";
+  const balanceLabel = isZeroBalance ? "Solde nul" : isDebt ? "Complément à payer" : "Avoir à rembourser";
   const periodDays = inclusivePeriodDays(data.periodStart, data.periodEnd);
   const hasProrata = data.prorataDays > 0 && data.prorataDays < periodDays;
+  const occupancyStart = data.occupancyStart ?? data.periodStart;
+  const occupancyEnd = data.occupancyEnd ?? data.periodEnd;
+  const hasCustomOccupancy =
+    data.occupancyStart != null &&
+    data.occupancyEnd != null &&
+    (data.occupancyStart.slice(0, 10) !== data.periodStart.slice(0, 10) ||
+      data.occupancyEnd.slice(0, 10) !== data.periodEnd.slice(0, 10));
 
   return (
     <Document>
@@ -188,7 +198,7 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
             {soc?.email && <Text style={s.societyAddr}>{soc.email}</Text>}
           </View>
           <View style={s.titleBlock}>
-            <Text style={s.title}>Decompte annuel{"\n"}de charges</Text>
+            <Text style={s.title}>Décompte annuel{"\n"}de charges</Text>
             <Text style={s.titleYear}>Exercice {data.fiscalYear}</Text>
           </View>
         </View>
@@ -204,21 +214,26 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
             <Text style={s.infoValue}>{data.lotNumber} — {data.buildingName}</Text>
           </View>
           <View style={s.infoCell}>
-            <Text style={s.infoLabel}>Periode</Text>
-            <Text style={s.infoValue}>{fmtDate(data.periodStart)} – {fmtDate(data.periodEnd)}</Text>
+            <Text style={s.infoLabel}>{hasCustomOccupancy ? "Période d'occupation" : "Période"}</Text>
+            <Text style={s.infoValue}>{fmtDate(occupancyStart)} – {fmtDate(occupancyEnd)}</Text>
+            {hasCustomOccupancy && (
+              <Text style={s.infoSubValue}>
+                Exercice régul. {fmtDate(data.periodStart)} – {fmtDate(data.periodEnd)}
+              </Text>
+            )}
           </View>
         </View>
 
         {/* Categories table */}
         {data.categories.length > 0 && (
           <>
-            <Text style={s.sectionTitle}>Detail des charges recuperables</Text>
+            <Text style={s.sectionTitle}>Détail des charges récupérables</Text>
             <View style={s.tableHeader}>
               <View style={s.colCat}><Text style={s.thText}>Categorie</Text></View>
               <View style={s.colNat}><Text style={s.thText}>Nature</Text></View>
               <View style={s.colAmt}><Text style={s.thText}>Total</Text></View>
-              <View style={s.colRecov}><Text style={s.thText}>Recuper.</Text></View>
-              <View style={s.colKey}><Text style={s.thText}>Cle (%)</Text></View>
+              <View style={s.colRecov}><Text style={s.thText}>Récupér.</Text></View>
+              <View style={s.colKey}><Text style={s.thText}>Clé (%)</Text></View>
               <View style={s.colShare}><Text style={s.thText}>Votre part</Text></View>
             </View>
             {data.categories.map((cat, i) => (
@@ -235,13 +250,13 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
         )}
 
         {/* Summary */}
-        <Text style={s.sectionTitle}>Recapitulatif</Text>
+        <Text style={s.sectionTitle}>Récapitulatif</Text>
         <View style={s.summaryRow}>
-          <Text style={s.sumLabel}>Charges recuperables (votre part)</Text>
+          <Text style={s.sumLabel}>Charges récupérables (votre part)</Text>
           <Text style={s.sumValue}>{fmt(data.totalCharges)}</Text>
         </View>
         <View style={s.summaryRow}>
-          <Text style={s.sumLabel}>Provisions versees</Text>
+          <Text style={s.sumLabel}>Provisions versées</Text>
           <Text style={s.sumValue}>{fmt(data.totalProvisions)}</Text>
         </View>
         <View style={s.summaryRow}>
@@ -255,21 +270,21 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
         {hasProrata && (
           <View style={s.noteBox}>
             <Text style={s.noteText}>
-              Note : votre occupation couvre {data.prorataDays} jours sur {periodDays} (prorata {Math.round((data.prorataDays / periodDays) * 100)} %). Les charges ont ete calculees au prorata de votre presence.
+              Note : votre occupation couvre {data.prorataDays} jours sur {periodDays} (prorata {Math.round((data.prorataDays / periodDays) * 100)} %). Les charges ont été calculées au prorata de votre présence.
             </Text>
           </View>
         )}
 
         <View style={s.noteBox}>
           <Text style={s.noteText}>
-            Les justificatifs de charges sont tenus a votre disposition pendant le delai legal de consultation. Les montants presentes correspondent aux charges recuperables et aux cles de repartition applicables a votre lot.
+            Les justificatifs de charges sont tenus à votre disposition pendant le délai légal de consultation. Les montants présentés correspondent aux charges récupérables et aux clés de répartition applicables à votre lot.
           </Text>
         </View>
 
         {/* Footer */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>
-            {soc?.name ?? "Votre gestionnaire"} — Decompte annuel de charges {data.fiscalYear} — {data.tenantName}
+            {soc?.name ?? "Votre gestionnaire"} — Décompte annuel de charges {data.fiscalYear} — {data.tenantName}
           </Text>
         </View>
       </Page>

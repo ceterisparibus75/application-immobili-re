@@ -24,9 +24,32 @@ type ChargeStatementDetails = {
   lotNumber?: string;
   buildingId?: string;
   prorataDays?: number;
+  occupancyStart?: string;
+  occupancyEnd?: string;
   categories?: ChargeCategory[];
   totalRecoverableAllocated?: number;
 };
+
+function dayStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dateOnlyIso(date: Date): string {
+  const normalized = dayStart(date);
+  const month = String(normalized.getMonth() + 1).padStart(2, "0");
+  const day = String(normalized.getDate()).padStart(2, "0");
+  return `${normalized.getFullYear()}-${month}-${day}`;
+}
+
+function clampOccupancyStart(periodStart: Date, leaseStart?: Date | null): string {
+  const rawStart = leaseStart ?? periodStart;
+  return dateOnlyIso(new Date(Math.max(dayStart(periodStart).getTime(), dayStart(rawStart).getTime())));
+}
+
+function clampOccupancyEnd(periodEnd: Date, leaseEnd?: Date | null): string {
+  const rawEnd = leaseEnd ?? periodEnd;
+  return dateOnlyIso(new Date(Math.min(dayStart(periodEnd).getTime(), dayStart(rawEnd).getTime())));
+}
 
 export async function sendChargeRegularization(
   societyId: string,
@@ -90,6 +113,8 @@ export async function sendChargeRegularization(
       fiscalYear: reg.fiscalYear,
       periodStart: reg.periodStart.toISOString(),
       periodEnd: reg.periodEnd.toISOString(),
+      occupancyStart: details?.occupancyStart ?? clampOccupancyStart(reg.periodStart, reg.lease.startDate),
+      occupancyEnd: details?.occupancyEnd ?? clampOccupancyEnd(reg.periodEnd, reg.lease.endDate),
       tenantName,
       lotNumber: reg.lease.lot.number,
       buildingName: reg.lease.lot.building.name,
