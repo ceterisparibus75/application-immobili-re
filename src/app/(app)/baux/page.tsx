@@ -1,4 +1,4 @@
-import { getLeases } from "@/actions/lease";
+﻿import { getLeases } from "@/actions/lease";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,14 +15,14 @@ import { redirect } from "next/navigation";
 import type { LeaseStatus, LeaseType, LeaseDestination, TenantEntityType } from "@/generated/prisma/client";
 import { BauxViewToggle, type BuildingGroupSummary, type LeaseSummary } from "./_components/baux-view-toggle";
 
-export const metadata = { title: "Baux" };
+export const metadata = { title: "Gestion des baux" };
 
 function NewLeaseMenu({ align = "end" }: { align?: "start" | "center" | "end" }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={buttonVariants({ size: "sm" })}>
         <Plus className="h-4 w-4" />
-        Ajouter un bail
+        Nouveau bail
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-80">
         <DropdownMenuItem asChild>
@@ -326,7 +326,7 @@ export default async function BauxPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Baux</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Gestion des baux</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {actifs.length} {actifs.length > 1 ? "baux actifs" : "bail actif"}
             {actifs.length > 0 && (

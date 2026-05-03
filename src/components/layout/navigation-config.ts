@@ -1,4 +1,4 @@
-import {
+﻿import {
   Activity,
   BarChart,
   BarChart3,
@@ -72,8 +72,7 @@ export const PRIMARY_NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Vue d'ensemble", href: "/location", icon: Home },
       { name: "Mise en location", href: "/location/mise-en-location", icon: ClipboardCheck },
-      { name: "Baux", href: "/baux", icon: FileText },
-      { name: "Nouveau bail", href: "/baux/nouveau", icon: FileText },
+      { name: "Gestion des baux", href: "/baux", icon: FileText },
       { name: "Import bail PDF", href: "/baux/import", icon: Upload },
       { name: "Modèles de bail", href: "/baux/modeles", icon: FileText },
       { name: "Locataires", href: "/locataires", icon: Users },
@@ -146,8 +145,7 @@ export const TOP_NAV_GROUPS: NavGroup[] = [
   pickTopNavGroup("Location", [
     "Vue d'ensemble",
     "Mise en location",
-    "Baux",
-    "Nouveau bail",
+    "Gestion des baux",
     "Locataires",
     "Facturation",
     "Charges",
