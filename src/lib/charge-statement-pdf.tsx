@@ -49,12 +49,20 @@ function fmt(v: number) {
   );
 }
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("fr-FR");
+  return new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("fr-FR");
 }
 function fmtPct(v: number) {
   return sanitizeSpaces(
     new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(v) + " %"
   );
+}
+function dateOnly(iso: string) {
+  return new Date(`${iso.slice(0, 10)}T00:00:00`);
+}
+function inclusivePeriodDays(startIso: string, endIso: string) {
+  const start = dateOnly(startIso);
+  const end = dateOnly(endIso);
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 }
 
 const NATURE_LABELS: Record<string, string> = {
@@ -160,9 +168,11 @@ const s = StyleSheet.create({
 export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
   const soc = data.society;
   const isDebt = data.balance > 0;
-  const balanceColor = isDebt ? NEGATIVE : POSITIVE;
-  const balanceLabel = isDebt ? "Complement a payer" : "Avoir a rembourser";
-  const hasProrata = data.prorataDays > 0 && data.prorataDays < 365;
+  const isZeroBalance = Math.abs(data.balance) < 0.01;
+  const balanceColor = isZeroBalance ? DARK : isDebt ? NEGATIVE : POSITIVE;
+  const balanceLabel = isZeroBalance ? "Solde nul" : isDebt ? "Complement a payer" : "Avoir a rembourser";
+  const periodDays = inclusivePeriodDays(data.periodStart, data.periodEnd);
+  const hasProrata = data.prorataDays > 0 && data.prorataDays < periodDays;
 
   return (
     <Document>
@@ -245,10 +255,16 @@ export function ChargeStatementPdf({ data }: { data: ChargeStatementPdfData }) {
         {hasProrata && (
           <View style={s.noteBox}>
             <Text style={s.noteText}>
-              Note : votre occupation couvre {data.prorataDays} jours sur 365 (prorata {Math.round((data.prorataDays / 365) * 100)} %). Les charges ont ete calculees au prorata de votre presence.
+              Note : votre occupation couvre {data.prorataDays} jours sur {periodDays} (prorata {Math.round((data.prorataDays / periodDays) * 100)} %). Les charges ont ete calculees au prorata de votre presence.
             </Text>
           </View>
         )}
+
+        <View style={s.noteBox}>
+          <Text style={s.noteText}>
+            Les justificatifs de charges sont tenus a votre disposition pendant le delai legal de consultation. Les montants presentes correspondent aux charges recuperables et aux cles de repartition applicables a votre lot.
+          </Text>
+        </View>
 
         {/* Footer */}
         <View style={s.footer} fixed>
