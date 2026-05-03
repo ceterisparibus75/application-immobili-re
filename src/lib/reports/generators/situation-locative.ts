@@ -38,7 +38,7 @@ function hhiLabel(score: number): string {
 }
 
 // Partie 1 : colonnes tableau principal (Part % remplace Évol.%)
-const HEADERS = ["Étage", "Lot", "Type", "m2", "Locataire", "Effet", "Loyer an. HT", "Part", "Loyer/m2", "Prov.ch."];
+const HEADERS = ["Étage", "Lot", "Type", "m2", "Locataire", "Effet", "Loyer an. HT", "% imm.", "Loyer/m2", "Prov. ann."];
 const WIDTHS  = [28, 32, 45, 30, 90, 48, 60, 36, 42, CW - 411];
 const ALIGNS: ColAlign[] = ["left", "left", "left", "right", "left", "left", "right", "right", "right", "right"];
 
@@ -73,9 +73,9 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
     orderBy: { name: "asc" },
   });
 
-  const ctx = await initPdf("Situation & Vacance Locative", "État des lots, baux actifs et vacance", opts.society);
+  const ctx = await initPdf("Situation locative", "État des lots, baux actifs et vacance", opts.society);
 
-  drawCoverPage(ctx, "Situation & Vacance Locative", "État des lots, baux actifs et vacance du patrimoine", [
+  drawCoverPage(ctx, "Situation locative", "État des lots, baux actifs et vacance du patrimoine", [
     `Société : ${opts.society?.name ?? ""}`,
     `Date : ${new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
     buildingId ? `Immeuble filtré` : `Tous les immeubles`,
@@ -140,7 +140,8 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
       const loyerAnnuel = (lease?.currentRentHT ?? 0) * periods;
       const loyerMensuel = lease ? lease.currentRentHT * periods / 12 : 0;
       const loyerM2 = area > 0 && lease ? loyerMensuel / area : 0;
-      const provCharges = lease?.chargeProvisions?.reduce((s: number, cp: any) => s + cp.monthlyAmount, 0) ?? 0;
+      const provChargesMonthly = lease?.chargeProvisions?.reduce((s: number, cp: any) => s + cp.monthlyAmount, 0) ?? 0;
+      const provCharges = provChargesMonthly * 12;
       const partPct = bTotalLoyer > 0 && lease ? (loyerAnnuel / bTotalLoyer * 100).toFixed(1) + "%" : "-";
 
       totalLoyer += loyerAnnuel;
