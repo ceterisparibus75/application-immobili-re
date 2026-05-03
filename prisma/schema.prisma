@@ -1731,6 +1731,10 @@ model ChargeRegularization {
 
 enum ChargeStatementDeliveryStatus {
   SENT
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+  DELIVERY_DELAYED
   FAILED
 }
 
@@ -1759,6 +1763,11 @@ model ChargeStatementDelivery {
   providerMessageId String?
   status            ChargeStatementDeliveryStatus @default(SENT)
   errorMessage      String?                       @db.Text
+  deliveredAt       DateTime?
+  bouncedAt         DateTime?
+  complainedAt      DateTime?
+  lastEventAt       DateTime?
+  lastEventType     String?
 
   pdfSha256    String
   pdfSizeBytes Int
@@ -1769,6 +1778,7 @@ model ChargeStatementDelivery {
   lease          Lease                @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sentBy         User?                @relation("ChargeStatementDeliverySender", fields: [sentById], references: [id], onDelete: SetNull)
+  events         ChargeStatementDeliveryEvent[]
 
   @@index([regularizationId])
   @@index([societyId])
@@ -1777,6 +1787,24 @@ model ChargeStatementDelivery {
   @@index([sentById])
   @@index([societyId, fiscalYear])
   @@index([providerMessageId])
+}
+
+model ChargeStatementDeliveryEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  deliveryId String
+  provider   String @default("resend")
+  providerEventId String?
+  eventType  String
+  occurredAt DateTime
+  payload    Json?
+
+  delivery ChargeStatementDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@index([provider, eventType])
+  @@index([providerEventId])
 }
 
 /// Relevé de compteur individuel

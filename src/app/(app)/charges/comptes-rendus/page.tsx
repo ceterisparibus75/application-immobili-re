@@ -15,6 +15,7 @@ import { buildChargeReportPresentation } from "./_components/charge-report-prese
 import { MissingTenantEmailBadge } from "./_components/missing-tenant-email-badge";
 import { ChargeStatementPdfButton } from "./_components/charge-statement-pdf-button";
 import { DeliveryProofBadge } from "./_components/delivery-proof-badge";
+import { DeliveryProofPdfButton } from "./_components/delivery-proof-pdf-button";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -163,6 +164,7 @@ export default async function ComptesRendusPage() {
                                 )}
                               </Badge>
                               {latestDelivery && <DeliveryProofBadge sentAt={latestDelivery.createdAt} />}
+                              {latestDelivery && <DeliveryProofPdfButton deliveryId={latestDelivery.id} />}
                               <ChargeStatementPdfButton regularizationId={report.id} />
                               {report.isFinalized && report.lease.tenant.email && (
                                 <SendStatementButton
