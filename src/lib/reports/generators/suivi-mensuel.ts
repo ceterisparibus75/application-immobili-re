@@ -16,6 +16,14 @@ import {
 
 const MONTHS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
+function tenantLabel(
+  tenant: { firstName?: string | null; lastName?: string | null; companyName?: string | null } | null | undefined,
+): string {
+  if (!tenant) return "N/A";
+  if (tenant.companyName) return tenant.companyName;
+  return [tenant.firstName, tenant.lastName].filter(Boolean).join(" ") || "N/A";
+}
+
 export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportResult> {
   const { societyId } = opts;
   const year = opts.year ?? new Date().getFullYear();
@@ -32,7 +40,12 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
         status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
       },
       include: {
-        lease: { include: { lot: { select: { buildingId: true } } } },
+        lease: {
+          include: {
+            lot: { select: { buildingId: true, number: true } },
+            tenant: { select: { firstName: true, lastName: true, companyName: true } },
+          },
+        },
       },
     }),
     prisma.payment.findMany({
@@ -50,7 +63,12 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
         invoice: {
           select: {
             buildingId: true,
-            lease: { select: { lot: { select: { buildingId: true } } } },
+            lease: {
+              select: {
+                lot: { select: { buildingId: true, number: true } },
+                tenant: { select: { firstName: true, lastName: true, companyName: true } },
+              },
+            },
           },
         },
       },
@@ -67,16 +85,23 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     `Période : 01/01/${year} au 31/12/${year}`,
   ]);
 
-  // Landscape pages for 14 columns
+  // Level 1 — résumé par immeuble (label + 12 mois + année)
   const colW = 38;
-  const labelW = LCW - 12 * colW - colW; // remaining for label + annee
+  const labelW = LCW - 12 * colW - colW;
   const WIDTHS = [labelW, ...Array(12).fill(colW), colW];
   const ALIGNS: ColAlign[] = ["left", ...Array(13).fill("right") as ColAlign[]];
   const HDR = ["", ...MONTHS, "Année"];
+
+  // Level 2 — détail par locataire (label + 12 mois + facturé + encaissé + solde)
+  const tLabelW = LCW - 12 * 30 - 3 * 52;
+  const WIDTHS_T = [tLabelW, ...Array(12).fill(30), 52, 52, 52];
+  const ALIGNS_T: ColAlign[] = ["left", ...Array(15).fill("right") as ColAlign[]];
+  const HDR_T = ["Locataire — Lot", ...MONTHS, "Facturé", "Encaissé", "Solde"];
+
   const getInvoiceBuildingId = (invoice: { buildingId?: string | null; lease?: { lot?: { buildingId: string | null } | null } | null }) =>
     invoice.lease?.lot?.buildingId ?? invoice.buildingId ?? null;
-  const getPaymentBuildingId = (payment: typeof payments[number]) =>
-    payment.invoice.lease?.lot?.buildingId ?? payment.invoice.buildingId ?? null;
+  const getPaymentBuildingId = (pay: typeof payments[number]) =>
+    pay.invoice.lease?.lot?.buildingId ?? pay.invoice.buildingId ?? null;
 
   for (const building of buildings) {
     const p = ctx.np(true);
@@ -84,11 +109,11 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     y = drawSectionHeader(p, ctx.serifBold, y, building.name, 841.89);
 
-    // Compute monthly data
     const bInvoices = invoices.filter((i) => getInvoiceBuildingId(i) === building.id);
-    const bPayments = payments.filter((p) => getPaymentBuildingId(p) === building.id);
+    const bPayments = payments.filter((pay) => getPaymentBuildingId(pay) === building.id);
     const bCharges = charges.filter((c) => (c as any).buildingId === building.id);
 
+    // ── Level 1 : agrégats mensuels ──────────────────────────────────────────
     const monthlyFact: number[] = Array(12).fill(0);
     const monthlyEnc: number[] = Array(12).fill(0);
     const monthlyChg: number[] = Array(12).fill(0);
@@ -112,32 +137,29 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     y = drawTableHeader(p, ctx.bold, y, HDR, WIDTHS, ALIGNS, 841.89);
 
-    // Loyers facturés
     y = drawTableRow(p, ctx.reg, y, [
       "Loyers facturés",
       ...monthlyFact.map((v) => v > 0 ? pdfCur(v) : "-"),
       pdfCur(annFact),
     ], WIDTHS, ALIGNS, { rowIndex: 0 }, 841.89);
 
-    // Loyers encaissés
     y = drawTableRow(p, ctx.reg, y, [
       "Loyers encaissés",
       ...monthlyEnc.map((v) => v > 0 ? pdfCur(v) : "-"),
       pdfCur(annEnc),
     ], WIDTHS, ALIGNS, { rowIndex: 1 }, 841.89);
 
-    // Charges
     y = drawTableRow(p, ctx.reg, y, [
       "Charges",
       ...monthlyChg.map((v) => v > 0 ? pdfCur(v) : "-"),
       pdfCur(annChg),
     ], WIDTHS, ALIGNS, { rowIndex: 2 }, 841.89);
 
-    // Taux de recouvrement
     const cumulFact = monthlyFact.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
     const cumulEnc = monthlyEnc.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
     const monthlyRec = cumulFact.map((f, i) => f > 0 ? (cumulEnc[i] / f) * 100 : 0);
     const annRec = annFact > 0 ? (annEnc / annFact) * 100 : 0;
+
     y = drawTableRow(p, ctx.reg, y, [
       "Taux recouvrement",
       ...monthlyRec.map((v) => v > 0 ? v.toFixed(1) + "%" : "-"),
@@ -147,7 +169,6 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
       cellColors: [null, ...monthlyRec.map((v) => v < 80 ? CORAL : v >= 95 ? GREEN : null), annRec < 80 ? CORAL : annRec >= 95 ? GREEN : null],
     }, 841.89);
 
-    // Net result
     const monthlyNet = monthlyEnc.map((e, i) => e - monthlyChg[i]);
     const annNet = annEnc - annChg;
     y = drawTotalsRow(p, ctx.bold, y, [
@@ -155,6 +176,83 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
       ...monthlyNet.map((v) => pdfCur(v)),
       pdfCur(annNet),
     ], WIDTHS, ALIGNS, 841.89);
+
+    // ── Level 2 : détail par locataire ─────────────────────────────────────
+    if (bInvoices.length === 0) continue;
+
+    const tenantFact = new Map<string, { monthly: number[]; total: number }>();
+    for (const inv of bInvoices) {
+      const key = `${tenantLabel(inv.lease?.tenant)} — ${inv.lease?.lot?.number ?? ""}`;
+      if (!tenantFact.has(key)) tenantFact.set(key, { monthly: Array(12).fill(0), total: 0 });
+      const entry = tenantFact.get(key)!;
+      const m = new Date(inv.dueDate).getMonth();
+      entry.monthly[m] += inv.totalHT;
+      entry.total += inv.totalHT;
+    }
+
+    const tenantEnc = new Map<string, number>();
+    for (const payment of bPayments) {
+      const key = `${tenantLabel(payment.invoice.lease?.tenant)} — ${payment.invoice.lease?.lot?.number ?? ""}`;
+      tenantEnc.set(key, (tenantEnc.get(key) ?? 0) + (payment.amount ?? 0));
+    }
+
+    const tenantKeys = [...tenantFact.keys()].sort();
+    const ROW_H = 18;
+    const HDR_H = 24;
+    const BOTTOM_M = 40;
+    const needed = HDR_H + Math.min(tenantKeys.length, 3) * ROW_H;
+
+    let curP = p;
+    let curY = y + 10;
+
+    if (curY + needed > 841.89 - BOTTOM_M) {
+      curP = ctx.np(true);
+      curY = contentStartY(true);
+    }
+
+    curY = drawTableHeader(curP, ctx.bold, curY, HDR_T, WIDTHS_T, ALIGNS_T, 841.89);
+
+    for (let ri = 0; ri < tenantKeys.length; ri++) {
+      if (curY + ROW_H > 841.89 - BOTTOM_M) {
+        curP = ctx.np(true);
+        curY = contentStartY(true);
+        curY = drawTableHeader(curP, ctx.bold, curY, HDR_T, WIDTHS_T, ALIGNS_T, 841.89);
+      }
+      const key = tenantKeys[ri];
+      const fact = tenantFact.get(key)!;
+      const enc = tenantEnc.get(key) ?? 0;
+      const solde = enc - fact.total;
+      const soldeColor = solde < -0.005 ? CORAL : solde > 0.005 ? GREEN : null;
+      curY = drawTableRow(curP, ctx.reg, curY, [
+        key,
+        ...fact.monthly.map((v) => v > 0 ? pdfCur(v) : "-"),
+        pdfCur(fact.total),
+        pdfCur(enc),
+        pdfCur(solde),
+      ], WIDTHS_T, ALIGNS_T, {
+        rowIndex: ri,
+        cellColors: [null, ...Array(12).fill(null), null, null, soldeColor],
+      }, 841.89);
+    }
+
+    if (curY + ROW_H > 841.89 - BOTTOM_M) {
+      curP = ctx.np(true);
+      curY = contentStartY(true);
+    }
+    const totMonthly = Array(12).fill(0).map((_: unknown, m: number) =>
+      [...tenantFact.values()].reduce((s, e) => s + e.monthly[m], 0),
+    );
+    const totFact = [...tenantFact.values()].reduce((s, e) => s + e.total, 0);
+    const totEnc = [...tenantEnc.values()].reduce((s, v) => s + v, 0);
+    const totSolde = totEnc - totFact;
+    curY = drawTotalsRow(curP, ctx.bold, curY, [
+      "TOTAL",
+      ...totMonthly.map((v: number) => v > 0 ? pdfCur(v) : ""),
+      pdfCur(totFact),
+      pdfCur(totEnc),
+      pdfCur(totSolde),
+    ], WIDTHS_T, ALIGNS_T, 841.89);
+    void curY;
   }
 
   return {
