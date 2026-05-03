@@ -19,8 +19,7 @@ type ReportType =
   | "RECAP_CHARGES_LOCATAIRE"
   | "SUIVI_TRAVAUX"
   | "BALANCE_AGEE"
-  | "SUIVI_MENSUEL"
-  | "VACANCE_LOCATIVE";
+  | "SUIVI_MENSUEL";
 
 interface ReportDef {
   type: ReportType;
@@ -35,7 +34,7 @@ const REPORTS: ReportDef[] = [
   {
     type: "SITUATION_LOCATIVE",
     label: "Situation locative par immeuble",
-    description: "Liste tous les lots avec statut d'occupation, locataire et loyer actuel.",
+    description: "Lots actifs, baux, vacance locative et concentration du risque locatif (rapport complet en deux parties).",
     format: "pdf",
   },
   {
@@ -85,12 +84,6 @@ const REPORTS: ReportDef[] = [
     description: "Suivi mensuel par immeuble : loyers facturés/encaissés, charges et taux de recouvrement.",
     format: "pdf",
     requiresYear: true,
-  },
-  {
-    type: "VACANCE_LOCATIVE",
-    label: "Vacance locative et financière",
-    description: "Taux d'occupation/vacance par immeuble avec graphiques et analyse par surface.",
-    format: "pdf",
   },
 ];
 
@@ -223,7 +216,7 @@ function ReportCard({ report, year, tenantId, format }: ReportCardProps) {
 const CATEGORIES = [
   {
     label: "Patrimoine et occupation",
-    reports: ["SITUATION_LOCATIVE", "RENTABILITE_LOT", "VACANCE_LOCATIVE"] as ReportType[],
+    reports: ["SITUATION_LOCATIVE", "RENTABILITE_LOT"] as ReportType[],
   },
   {
     label: "Comptabilité et finances",

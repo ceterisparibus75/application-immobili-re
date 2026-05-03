@@ -6,6 +6,17 @@ import {
   REPORT_REVENUE_INVOICE_TYPES,
 } from "../invoice-metrics";
 import { getLeaseOverlapWhere } from "../lease-scope";
+const FREQ_PERIODS: Record<string, number> = {
+  MENSUEL: 12, TRIMESTRIEL: 4, SEMESTRIEL: 2, ANNUEL: 1,
+};
+const LOT_TYPE_LABELS: Record<string, string> = {
+  LOCAL_COMMERCIAL: "Local commercial", BUREAUX: "Bureaux", LOCAL_ACTIVITE: "Local d'activité",
+  APPARTEMENT: "Appartement", RESERVE: "Réserve", PARKING: "Parking",
+  CAVE: "Cave", TERRASSE: "Terrasse", ENTREPOT: "Entrepôt",
+};
+const LOT_STATUS_LABELS: Record<string, string> = {
+  VACANT: "Vacant", OCCUPE: "Occupé", EN_TRAVAUX: "En travaux", RESERVE: "Réservé",
+};
 
 export async function generateRentabiliteLot(opts: ReportOptions): Promise<ReportResult> {
   const { societyId, buildingId } = opts;
@@ -63,17 +74,22 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   for (const lot of lots) {
     const lease = lot.leases[0];
     const rev = lot.leases.reduce(
-      (sum, leaseItem) => sum + leaseItem.invoices.reduce((s, inv) => s + inv.totalTTC, 0),
+      (sum, leaseItem) => sum + leaseItem.invoices.reduce((s, inv) => s + inv.totalHT, 0),
       0
     );
     totRev += rev;
+    const monthlyRent = lease
+      ? (lease.currentRentHT * (FREQ_PERIODS[lease.paymentFrequency] ?? 12)) / 12
+      : 0;
     const row = ws.addRow([
-      lot.building.name, lot.number, lot.lotType.replace(/_/g, " "),
+      lot.building.name,
+      lot.number,
+      LOT_TYPE_LABELS[lot.lotType] ?? lot.lotType,
       lease ? "Occupé" : "Vacant",
-      lease?.currentRentHT ?? 0,
+      monthlyRent,
       rev,
       lot.marketRentValue ?? null,
-      lot.status.replace(/_/g, " "),
+      LOT_STATUS_LABELS[lot.status] ?? lot.status,
     ]);
     [5, 6, 7].forEach((ci) => { row.getCell(ci).numFmt = EUR; });
     row.getCell(4).font = { color: { argb: lease ? "FF187B46" : "FFC8302E" } };
