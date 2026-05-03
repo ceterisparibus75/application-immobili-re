@@ -67,6 +67,36 @@ describe("sendMail", () => {
     expect(result.error).toBe("Invalid API key");
   });
 
+  it("crée une preuve d'échec si Resend refuse l'envoi avec un contexte juridique", async () => {
+    mockEmailsSend.mockResolvedValue({ data: null, error: { message: "Invalid API key" } });
+
+    const result = await sendMail(
+      "to@example.com",
+      "Sujet échec",
+      "<p>Test</p>",
+      undefined,
+      undefined,
+      undefined,
+      {
+        societyId: "soc-1",
+        sentById: "user-1",
+        entityType: "INVOICE",
+        entityId: "invoice-1",
+        invoiceId: "invoice-1",
+      }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.proofId).toBe("proof-1");
+    expect(mockCreateEmailDeliveryProof).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "FAILED",
+        errorMessage: "Invalid API key",
+        providerMessageId: null,
+      })
+    );
+  });
+
   it("retourne success:false si une exception est levée", async () => {
     mockEmailsSend.mockRejectedValue(new Error("Network error"));
 

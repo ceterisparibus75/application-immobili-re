@@ -217,6 +217,18 @@ interface EmailResult {
   proofError?: string;
 }
 
+async function createProofSafely(input: Parameters<typeof createEmailDeliveryProof>[0]): Promise<{ proofId?: string; proofError?: string }> {
+  try {
+    const proof = await createEmailDeliveryProof(input);
+    return { proofId: proof.id };
+  } catch (proofException) {
+    console.error("[sendMail] proof exception:", proofException);
+    return {
+      proofError: proofException instanceof Error ? proofException.message : String(proofException),
+    };
+  }
+}
+
 export async function sendMail(
   to: string,
   subject: string,
@@ -244,32 +256,47 @@ export async function sendMail(
     );
     if (error) {
       console.error("[sendMail] Resend error:", error);
-      return { success: false, error: (error as { message?: string }).message ?? String(error) };
+      const errorMessage = (error as { message?: string }).message ?? String(error);
+      const failedProof = proofContext
+        ? await createProofSafely({
+            ...proofContext,
+            recipientEmail: to,
+            subject,
+            html,
+            providerMessageId: null,
+            replyTo: replyTo ?? fromAddress,
+            bcc: bccList,
+            attachments: attachments?.map((attachment) => ({
+              filename: attachment.filename,
+              content: attachment.content,
+              mimeType: attachment.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+            })),
+            status: "FAILED",
+            errorMessage,
+          })
+        : {};
+      return { success: false, error: errorMessage, ...failedProof };
     }
 
     let proofId: string | undefined;
     let proofError: string | undefined;
     if (proofContext) {
-      try {
-        const proof = await createEmailDeliveryProof({
-          ...proofContext,
-          recipientEmail: to,
-          subject,
-          html,
-          providerMessageId: data?.id ?? null,
-          replyTo: replyTo ?? fromAddress,
-          bcc: bccList,
-          attachments: attachments?.map((attachment) => ({
-            filename: attachment.filename,
-            content: attachment.content,
-            mimeType: attachment.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
-          })),
-        });
-        proofId = proof.id;
-      } catch (proofException) {
-        console.error("[sendMail] proof exception:", proofException);
-        proofError = proofException instanceof Error ? proofException.message : String(proofException);
-      }
+      const proofResult = await createProofSafely({
+        ...proofContext,
+        recipientEmail: to,
+        subject,
+        html,
+        providerMessageId: data?.id ?? null,
+        replyTo: replyTo ?? fromAddress,
+        bcc: bccList,
+        attachments: attachments?.map((attachment) => ({
+          filename: attachment.filename,
+          content: attachment.content,
+          mimeType: attachment.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+        })),
+      });
+      proofId = proofResult.proofId;
+      proofError = proofResult.proofError;
     }
 
     return { success: true, emailId: data?.id, proofId, proofError };

@@ -77,6 +77,8 @@ export async function createEmailDeliveryProof(input: {
   bcc?: string[];
   attachments?: EmailAttachmentEvidence[];
   evidence?: Prisma.InputJsonValue;
+  status?: "SENT" | "DELIVERED" | "BOUNCED" | "COMPLAINED" | "DELIVERY_DELAYED" | "FAILED";
+  errorMessage?: string | null;
 }) {
   const attachment = input.attachments?.[0] ?? null;
   return prisma.emailDeliveryProof.create({
@@ -95,7 +97,8 @@ export async function createEmailDeliveryProof(input: {
       bcc: input.bcc?.length ? input.bcc : undefined,
       provider: "resend",
       providerMessageId: input.providerMessageId ?? null,
-      status: "SENT",
+      status: input.status ?? "SENT",
+      errorMessage: input.errorMessage ?? null,
       htmlSha256: sha256(input.html),
       htmlSnapshot: input.html,
       attachmentFileName: attachment?.filename ?? null,

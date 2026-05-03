@@ -27,7 +27,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     prisma.invoice.findMany({
       where: {
         societyId,
-        issueDate: { gte: from, lte: to },
+        dueDate: { gte: from, lte: to },
         invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
         status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
       },
@@ -94,7 +94,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     const monthlyChg: number[] = Array(12).fill(0);
 
     for (const inv of bInvoices) {
-      const m = new Date(inv.issueDate).getMonth();
+      const m = new Date(inv.dueDate).getMonth();
       monthlyFact[m] += inv.totalHT;
     }
     for (const payment of bPayments) {
