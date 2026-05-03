@@ -1,8 +1,7 @@
-const _rawAppName = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
+﻿const _rawAppName = process.env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 export const APP_NAME = _rawAppName.toLowerCase() === "mygestia" ? "MyGestia" : _rawAppName;
 
 export const LEGAL_FORMS = [
-  { value: "PERSONNE_PHYSIQUE", label: "Personne physique" },
   { value: "EI", label: "EI – Entreprise individuelle" },
   { value: "EURL", label: "EURL – Entreprise Unipersonnelle à Responsabilité Limitée" },
   { value: "SASU", label: "SASU – Société par Actions Simplifiée Unipersonnelle" },

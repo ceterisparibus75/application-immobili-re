@@ -1,4 +1,4 @@
-﻿import { getChargesPaginated } from "@/actions/charge";
+import { getChargesPaginated } from "@/actions/charge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Euro, Plus, Receipt, BookOpen, FileBarChart2, BarChart3, LayoutDashboard } from "lucide-react";
@@ -86,7 +86,7 @@ export default async function ChargesPage({ searchParams }: PageProps) {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-1">

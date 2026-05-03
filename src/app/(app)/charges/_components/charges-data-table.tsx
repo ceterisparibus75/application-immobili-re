@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn, type FilterOption } from "@/components/ui/data-table";
@@ -45,7 +45,7 @@ const columns: DataTableColumn<ChargeRow>[] = [
     key: "date",
     label: "Date",
     sortable: true,
-    className: "w-[100px]",
+    className: "w-[90px]",
     render: (row) => (
       <span className="text-sm tabular-nums">{formatDate(row.date)}</span>
     ),
@@ -55,11 +55,11 @@ const columns: DataTableColumn<ChargeRow>[] = [
     label: "Description",
     sortable: true,
     render: (row) => (
-      <div className="min-w-0">
+      <div className="min-w-0 overflow-hidden">
         <p className="text-sm font-medium truncate">{row.description}</p>
         <p className="text-xs text-muted-foreground truncate">
           {row.categoryName}
-          {row.supplierName && ` · ${row.supplierName}`}
+          {row.supplierName && ` ${String.fromCharCode(183)} ${row.supplierName}`}
         </p>
       </div>
     ),
@@ -67,14 +67,18 @@ const columns: DataTableColumn<ChargeRow>[] = [
   {
     key: "buildingName",
     label: "Immeuble",
+    className: "w-[160px]",
     render: (row) => (
-      <span className="text-sm text-muted-foreground">{row.buildingName}</span>
+      <div className="w-[160px] truncate">
+        <span className="text-sm text-muted-foreground">{row.buildingName}</span>
+      </div>
     ),
   },
   {
     key: "nature",
     label: "Nature",
     align: "center",
+    className: "w-[110px]",
     render: (row) => (
       <Badge variant={NATURE_VARIANTS[row.nature] ?? "secondary"}>
         {NATURE_LABELS[row.nature] ?? row.nature}
@@ -86,6 +90,7 @@ const columns: DataTableColumn<ChargeRow>[] = [
     label: "Montant",
     sortable: true,
     align: "right",
+    className: "w-[110px]",
     render: (row) => (
       <span className="text-sm font-semibold tabular-nums">{formatCurrency(row.amount)}</span>
     ),
@@ -94,6 +99,7 @@ const columns: DataTableColumn<ChargeRow>[] = [
     key: "isPaid",
     label: "Statut",
     align: "center",
+    className: "w-[100px]",
     render: (row) => (
       <Badge variant={row.isPaid ? "success" : "destructive"}>
         {row.isPaid ? "Réglée" : "Non réglée"}
@@ -131,8 +137,8 @@ export function ChargesDataTable({
       key: "nature",
       label: "Nature",
       options: [
-        { value: "PROPRIETAIRE", label: "Propriétaire" },
-        { value: "RECUPERABLE", label: "Récupérable" },
+        { value: "Propriétaire", label: "Propriétaire" },
+        { value: "Récupérable", label: "Récupérable" },
         { value: "MIXTE", label: "Mixte" },
       ],
     },
@@ -153,6 +159,7 @@ export function ChargesDataTable({
       rowKey={(r) => r.id}
       rowHref={(r) => `/charges/${r.id}`}
       emptyMessage="Aucune charge trouvée"
+      tableFixed
     />
   );
 }

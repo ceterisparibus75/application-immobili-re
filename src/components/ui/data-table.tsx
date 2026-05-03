@@ -91,6 +91,8 @@ export interface DataTableProps<T> {
   showDensityToggle?: boolean;
   /** Card renderer for cards view mode */
   renderCard?: (row: T, index: number) => ReactNode;
+  /** Force table-layout: fixed so column widths and truncation are respected */
+  tableFixed?: boolean;
 }
 
 /* ────────────────────────── Component ────────────────────────── */
@@ -119,6 +121,7 @@ export function DataTable<T>({
   showViewToggle,
   showDensityToggle,
   renderCard,
+  tableFixed,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -356,7 +359,7 @@ export function DataTable<T>({
       {/* ── Table ── */}
       {(viewMode === "table" || viewMode === "compact") && (
       <div className="rounded-lg border bg-card overflow-hidden">
-        <Table>
+        <Table className={tableFixed ? "table-fixed" : undefined}>
           <TableHeader>
             <TableRow className={cn("bg-muted/40 hover:bg-muted/40", viewMode === "compact" && "text-xs")}>
               {selectable && (
