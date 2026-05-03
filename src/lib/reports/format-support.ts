@@ -7,6 +7,7 @@ export const PDF_ONLY_REPORT_TYPES = [
   "BALANCE_AGEE",
   "SUIVI_MENSUEL",
   "VACANCE_LOCATIVE",
+  "CASHFLOW_TRESORERIE",
 ] as const satisfies readonly ReportType[];
 
 export const XLSX_ONLY_REPORT_TYPES = [

@@ -7,7 +7,8 @@ export type ReportType =
   | "SUIVI_TRAVAUX"
   | "BALANCE_AGEE"
   | "SUIVI_MENSUEL"
-  | "VACANCE_LOCATIVE";
+  | "VACANCE_LOCATIVE"
+  | "CASHFLOW_TRESORERIE";
 
 export interface ReportSociety {
   name: string;

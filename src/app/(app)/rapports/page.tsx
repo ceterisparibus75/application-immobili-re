@@ -19,7 +19,9 @@ type ReportType =
   | "RECAP_CHARGES_LOCATAIRE"
   | "SUIVI_TRAVAUX"
   | "BALANCE_AGEE"
-  | "SUIVI_MENSUEL";
+  | "SUIVI_MENSUEL"
+  | "VACANCE_LOCATIVE"
+  | "CASHFLOW_TRESORERIE";
 
 interface ReportDef {
   type: ReportType;
@@ -82,6 +84,13 @@ const REPORTS: ReportDef[] = [
     type: "SUIVI_MENSUEL",
     label: "Tableau de suivi mensuel",
     description: "Suivi mensuel par immeuble : loyers facturés/encaissés, charges et taux de recouvrement.",
+    format: "pdf",
+    requiresYear: true,
+  },
+  {
+    type: "CASHFLOW_TRESORERIE",
+    label: "Rapport de trésorerie (cash-flow)",
+    description: "Flux de trésorerie annuels par catégorie : opérationnel, exceptionnel, financement. Soldes par compte bancaire.",
     format: "pdf",
     requiresYear: true,
   },
@@ -220,7 +229,7 @@ const CATEGORIES = [
   },
   {
     label: "Comptabilité et finances",
-    reports: ["COMPTE_RENDU_GESTION", "BALANCE_AGEE", "ETAT_IMPAYES", "SUIVI_MENSUEL"] as ReportType[],
+    reports: ["COMPTE_RENDU_GESTION", "BALANCE_AGEE", "ETAT_IMPAYES", "SUIVI_MENSUEL", "CASHFLOW_TRESORERIE"] as ReportType[],
   },
   {
     label: "Par locataire",

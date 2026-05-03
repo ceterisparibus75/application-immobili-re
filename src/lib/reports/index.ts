@@ -12,6 +12,7 @@ import { generateSuiviTravaux } from "./generators/suivi-travaux";
 import { generateBalanceAgee } from "./generators/balance-agee";
 import { generateSuiviMensuel } from "./generators/suivi-mensuel";
 import { generateVacanceLocative } from "./generators/vacance-locative";
+import { generateCashflowTresorerie } from "./generators/cashflow";
 
 export async function generateReport(options: ReportOptions): Promise<ReportResult> {
   try {
@@ -52,6 +53,7 @@ export async function generateReport(options: ReportOptions): Promise<ReportResu
       case "BALANCE_AGEE":            return await generateBalanceAgee(reportOptions);
       case "SUIVI_MENSUEL":           return await generateSuiviMensuel(reportOptions);
       case "VACANCE_LOCATIVE":        return await generateVacanceLocative(reportOptions);
+      case "CASHFLOW_TRESORERIE":     return await generateCashflowTresorerie(reportOptions);
       default: throw new Error("Type de rapport inconnu");
     }
   } catch (error) {

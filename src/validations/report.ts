@@ -19,6 +19,7 @@ export const REPORT_TYPES = [
   "BALANCE_AGEE",
   "SUIVI_MENSUEL",
   "VACANCE_LOCATIVE",
+  "CASHFLOW_TRESORERIE",
 ] as const;
 
 export const generateReportSchema = z
@@ -54,6 +55,7 @@ export const generateReportSchema = z
       "RECAP_CHARGES_LOCATAIRE",
       "SUIVI_TRAVAUX",
       "SUIVI_MENSUEL",
+      "CASHFLOW_TRESORERIE",
     ];
     if (yearRequired.includes(data.type) && !data.year) {
       ctx.addIssue({
