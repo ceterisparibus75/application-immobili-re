@@ -47,6 +47,10 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+export interface NavigationFeatureFlags {
+  showThirdPartyManagement: boolean;
+}
+
 export const DASHBOARD_ITEM: NavItem = {
   name: "Dashboard",
   href: "/dashboard",
@@ -192,4 +196,24 @@ export const MOBILE_NAV_GROUPS: NavGroup[] = [
   ...PRIMARY_NAV_GROUPS,
   ...SECONDARY_NAV_GROUPS,
 ];
+
+function filterNavigationGroups(groups: NavGroup[], flags: NavigationFeatureFlags): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (item.href === "/releves-gestion") return flags.showThirdPartyManagement;
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+export function getTopNavGroups(flags: NavigationFeatureFlags): NavGroup[] {
+  return filterNavigationGroups(TOP_NAV_GROUPS, flags);
+}
+
+export function getMobileNavGroups(flags: NavigationFeatureFlags): NavGroup[] {
+  return filterNavigationGroups(MOBILE_NAV_GROUPS, flags);
+}
 

@@ -10,6 +10,7 @@ import { useSociety } from "@/providers/society-provider";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import Link from "next/link";
+import type { NavigationFeatureFlags } from "./navigation-config";
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -23,7 +24,11 @@ function getInitials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-export function Header() {
+export function Header({
+  navigationFeatures = { showThirdPartyManagement: true },
+}: {
+  navigationFeatures?: NavigationFeatureFlags;
+}) {
   const { data: session } = useSession();
   const { activeSociety } = useSociety();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -196,7 +201,11 @@ export function Header() {
         </div>
       </header>
 
-      <MobileSidebar open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <MobileSidebar
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        navigationFeatures={navigationFeatures}
+      />
 
       {mobileSearchOpen && (
         <div className="lg:hidden">

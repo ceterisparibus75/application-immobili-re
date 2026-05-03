@@ -6,7 +6,8 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DASHBOARD_ITEM,
-  TOP_NAV_GROUPS,
+  getTopNavGroups,
+  type NavigationFeatureFlags,
   type NavGroup,
   type NavItem,
 } from "./navigation-config";
@@ -27,8 +28,13 @@ const GROUP_ROOTS: Record<string, string[]> = {
   Automatisation: ["/assistant", "/workflows", "/api-docs"],
 };
 
-export function TopNav() {
+export function TopNav({
+  navigationFeatures = { showThirdPartyManagement: true },
+}: {
+  navigationFeatures?: NavigationFeatureFlags;
+}) {
   const pathname = usePathname();
+  const navGroups = getTopNavGroups(navigationFeatures);
 
   return (
     <nav className="hidden border-b border-sidebar-border bg-sidebar lg:block">
@@ -47,7 +53,7 @@ export function TopNav() {
           <div className="flex items-center gap-0.5">
             <NavLink item={DASHBOARD_ITEM} pathname={pathname} />
 
-            {TOP_NAV_GROUPS.map((group) => (
+            {navGroups.map((group) => (
               <NavDropdown key={group.title} group={group} pathname={pathname} />
             ))}
           </div>

@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getSocieties } from "@/actions/society";
 import { SocietyProvider } from "@/providers/society-provider";
 import { TopNav } from "@/components/layout/top-nav";
@@ -15,6 +15,19 @@ import { WelcomeScreen } from "@/components/welcome-screen";
 import { SkipToContent, KeyboardFocusIndicator } from "@/components/ui/accessibility";
 import { requiresTwoFactor } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
+
+async function hasThirdPartyManagedLease(societyId: string): Promise<boolean> {
+  const lease = await prisma.lease.findFirst({
+    where: {
+      societyId,
+      deletedAt: null,
+      isThirdPartyManaged: true,
+    },
+    select: { id: true },
+  });
+
+  return Boolean(lease);
+}
 
 export default async function AppLayout({
   children,
@@ -62,6 +75,14 @@ export default async function AppLayout({
     }
   }
 
+  const cookieStore = await cookies();
+  const activeSocietyIdFromCookie = cookieStore.get("active-society-id")?.value;
+  const activeSocietyId =
+    societies.find((society) => society.id === activeSocietyIdFromCookie)?.id ?? societies[0]?.id ?? null;
+  const navigationFeatures = {
+    showThirdPartyManagement: activeSocietyId ? await hasThirdPartyManagedLease(activeSocietyId) : false,
+  };
+
   return (
     <SocietyProvider initialSocieties={societies}>
       <IdleTimeoutProvider>
@@ -69,8 +90,8 @@ export default async function AppLayout({
           <SkipToContent />
           <KeyboardFocusIndicator />
           <div className="flex flex-col h-screen overflow-hidden">
-            <TopNav />
-            <Header />
+            <TopNav navigationFeatures={navigationFeatures} />
+            <Header navigationFeatures={navigationFeatures} />
             <SubscriptionBanner />
             <Breadcrumb />
             <main id="main-content" className="flex-1 overflow-y-auto px-6 py-6 lg:px-8" role="main">

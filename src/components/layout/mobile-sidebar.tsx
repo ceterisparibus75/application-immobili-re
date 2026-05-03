@@ -5,12 +5,24 @@ import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { MOBILE_NAV_GROUPS } from "./navigation-config";
+import {
+  getMobileNavGroups,
+  type NavigationFeatureFlags,
+} from "./navigation-config";
 import { ProprietaireSwitcher } from "./proprietaire-switcher";
 import { SocietySwitcher } from "./society-switcher";
 
-export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function MobileSidebar({
+  open,
+  onClose,
+  navigationFeatures = { showThirdPartyManagement: true },
+}: {
+  open: boolean;
+  onClose: () => void;
+  navigationFeatures?: NavigationFeatureFlags;
+}) {
   const pathname = usePathname();
+  const navGroups = getMobileNavGroups(navigationFeatures);
   if (!open) return null;
 
   return (
@@ -47,7 +59,7 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
           <SocietySwitcher />
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" aria-label="Navigation mobile">
-          {MOBILE_NAV_GROUPS.map((group, gi) => (
+          {navGroups.map((group, gi) => (
             <div key={group.title} className={cn(gi > 0 && "mt-4")}>
               <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-muted/60 select-none">
                 {group.title}

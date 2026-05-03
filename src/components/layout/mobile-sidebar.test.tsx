@@ -50,4 +50,16 @@ describe("MobileSidebar", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("masque le lien décompte de gestion tiers quand la fonctionnalité est inactive", () => {
+    render(
+      <MobileSidebar
+        open
+        onClose={vi.fn()}
+        navigationFeatures={{ showThirdPartyManagement: false }}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: "Décompte de gestion tiers" })).not.toBeInTheDocument();
+  });
 });

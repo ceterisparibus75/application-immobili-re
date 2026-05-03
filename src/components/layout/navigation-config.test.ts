@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { MOBILE_NAV_GROUPS, TOP_NAV_GROUPS } from "./navigation-config";
+import {
+  getMobileNavGroups,
+  getTopNavGroups,
+  MOBILE_NAV_GROUPS,
+  TOP_NAV_GROUPS,
+} from "./navigation-config";
 
 function itemsForGroup(groups: typeof TOP_NAV_GROUPS, title: string) {
   const group = groups.find((navGroup) => navGroup.title === title);
@@ -31,6 +36,28 @@ describe("navigation-config", () => {
     );
     expect(itemsForGroup(MOBILE_NAV_GROUPS, "Automatisation")).toContainEqual(
       expect.objectContaining({ name: "Workflows", href: "/workflows" }),
+    );
+  });
+
+  it("masque les décomptes de gestion tiers quand aucun bail n'est sous gestion tiers", () => {
+    const flags = { showThirdPartyManagement: false };
+
+    expect(itemsForGroup(getTopNavGroups(flags), "Finances")).not.toContainEqual(
+      expect.objectContaining({ href: "/releves-gestion" }),
+    );
+    expect(itemsForGroup(getMobileNavGroups(flags), "Finances")).not.toContainEqual(
+      expect.objectContaining({ href: "/releves-gestion" }),
+    );
+  });
+
+  it("affiche les décomptes de gestion tiers quand un bail est sous gestion tiers", () => {
+    const flags = { showThirdPartyManagement: true };
+
+    expect(itemsForGroup(getTopNavGroups(flags), "Finances")).toContainEqual(
+      expect.objectContaining({
+        name: "Décompte de gestion tiers",
+        href: "/releves-gestion",
+      }),
     );
   });
 });
