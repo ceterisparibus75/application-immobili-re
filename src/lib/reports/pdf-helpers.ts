@@ -1,4 +1,4 @@
-import type { PDFFont, PDFPage, RGB } from "pdf-lib";
+﻿import type { PDFFont, PDFPage, RGB } from "pdf-lib";
 import {
   BRAND_DEEP, BRAND_LIGHT, WHITE, BLACK, GRAY, GRAY_LIGHT, GRAY_LINE, CORAL,
   MRG, CW, ROW_HEIGHT, SECTION_HEIGHT,
@@ -117,15 +117,19 @@ export function drawTotalsRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    const maxW = widths[i] - 6;
+    // Absorb trailing empty cells to give more room to this cell's label
+    let effectiveWidth = widths[i];
+    let j = i + 1;
+    while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    const maxW = effectiveWidth - 6;
     let text = String(c).slice(0, 30);
     while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
       text = text.slice(0, -1);
     }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
-    if (align === "right") tx = x + widths[i] - tw - 6;
-    else if (align === "center") tx = x + (widths[i] - tw) / 2;
+    if (align === "right") tx = x + effectiveWidth - tw - 6;
+    else if (align === "center") tx = x + (effectiveWidth - tw) / 2;
     p.drawText(text, { x: tx, y: y - h + 5, size: FONT_TABLE_HD, font: bold, color: WHITE });
     x += widths[i];
   });
@@ -149,15 +153,19 @@ export function drawMoyennesRow(
   let x = MRG + 3;
   cells.forEach((c, i) => {
     const align = aligns?.[i] ?? "left";
-    const maxW = widths[i] - 6;
+    // Absorb trailing empty cells to give more room to this cell's label
+    let effectiveWidth = widths[i];
+    let j = i + 1;
+    while (j < cells.length && !cells[j]) { effectiveWidth += widths[j]; j++; }
+    const maxW = effectiveWidth - 6;
     let text = String(c).slice(0, 30);
     while (text.length > 1 && bold.widthOfTextAtSize(text, FONT_TABLE_HD) > maxW) {
       text = text.slice(0, -1);
     }
     const tw = bold.widthOfTextAtSize(text, FONT_TABLE_HD);
     let tx = x;
-    if (align === "right") tx = x + widths[i] - tw - 6;
-    else if (align === "center") tx = x + (widths[i] - tw) / 2;
+    if (align === "right") tx = x + effectiveWidth - tw - 6;
+    else if (align === "center") tx = x + (effectiveWidth - tw) / 2;
     p.drawText(text, { x: tx, y: y - h + 5, size: FONT_TABLE_HD, font: bold, color: WHITE });
     x += widths[i];
   });
