@@ -127,6 +127,47 @@ describe("letter-template-email actions", () => {
     );
   });
 
+  it("rattache le chemin du PDF archivé à la preuve d'envoi du courrier", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.test";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role";
+    sendLetterEmail.mockResolvedValueOnce({ success: true, proofId: "proof-1" });
+
+    mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
+    prismaMock.tenant.findFirst.mockResolvedValue({
+      email: "alice@example.com",
+      firstName: "Alice",
+      lastName: "Durand",
+    } as never);
+    prismaMock.society.findUnique.mockResolvedValue({
+      name: "Ma Société",
+      siret: "12345678900011",
+    } as never);
+
+    const result = await sendLetterByEmail(SOCIETY_ID, {
+      templateId: "courrier_libre",
+      tenantId: TENANT_ID,
+      values: {
+        BAILLEUR_NOM: "Ma Société",
+        BAILLEUR_ADRESSE: "1 rue de Paris",
+        LOCATAIRE_NOM: "Alice Durand",
+        LOCATAIRE_ADRESSE: "2 avenue Victor Hugo",
+        DATE: "20/04/2026",
+        LIEU: "Paris",
+        OBJET: "Information",
+        CORPS: "Bonjour",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.document.create).toHaveBeenCalled();
+    expect(prismaMock.emailDeliveryProof.updateMany).toHaveBeenCalledWith({
+      where: { id: "proof-1", societyId: SOCIETY_ID },
+      data: {
+        attachmentStoragePath: expect.stringContaining(`documents/${SOCIETY_ID}/courriers/`),
+      },
+    });
+  });
+
   it("utilise la raison sociale d'une personne morale pour l'email de courrier", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE, SOCIETY_ID);
     prismaMock.tenant.findFirst.mockResolvedValue({

@@ -25,10 +25,10 @@ async function saveLetterDocument(
   filename: string,
   buffer: Buffer,
   subject: string,
-): Promise<void> {
+): Promise<string | null> {
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return; // Supabase non configuré, on skip
+  if (!supabaseUrl || !supabaseKey) return null; // Supabase non configuré, on skip
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
@@ -40,7 +40,7 @@ async function saveLetterDocument(
 
   if (uploadError) {
     console.error("[saveLetterDocument] Upload error:", uploadError.message);
-    return;
+    return null;
   }
 
   const { data: signedData } = await supabase.storage
@@ -60,6 +60,8 @@ async function saveLetterDocument(
       description: `Courrier : ${subject}`,
     },
   });
+
+  return storagePath;
 }
 
 /**
@@ -129,7 +131,7 @@ export async function sendLetterByEmail(
 
     // Envoyer l'email avec le template HTML professionnel
     const tenantName = getTenantDisplayName(tenant, "");
-    await sendLetterEmail({
+    const emailResult = await sendLetterEmail({
       to: tenant.email,
       tenantName,
       subject,
@@ -152,7 +154,13 @@ export async function sendLetterByEmail(
     });
 
     // Sauvegarder le PDF dans l'espace documents du locataire (portail)
-    await saveLetterDocument(societyId, input.tenantId, filename, buffer, subject);
+    const storagePath = await saveLetterDocument(societyId, input.tenantId, filename, buffer, subject);
+    if (emailResult?.proofId && storagePath) {
+      await prisma.emailDeliveryProof.updateMany({
+        where: { id: emailResult.proofId, societyId },
+        data: { attachmentStoragePath: storagePath },
+      });
+    }
 
     // Audit log
     await createAuditLog({
@@ -291,7 +299,7 @@ export async function sendLetterToBuilding(
         const filename = `courrier-${slug}-${ds}.pdf`;
 
         const tenantName = getTenantDisplayName(tenant, "");
-        await sendLetterEmail({
+        const emailResult = await sendLetterEmail({
           to: tenant.email!,
           tenantName,
           subject,
@@ -317,7 +325,13 @@ export async function sendLetterToBuilding(
         });
 
         // Sauvegarder dans l'espace documents du locataire
-        await saveLetterDocument(societyId, tenant.id, filename, buffer, subject);
+        const storagePath = await saveLetterDocument(societyId, tenant.id, filename, buffer, subject);
+        if (emailResult?.proofId && storagePath) {
+          await prisma.emailDeliveryProof.updateMany({
+            where: { id: emailResult.proofId, societyId },
+            data: { attachmentStoragePath: storagePath },
+          });
+        }
 
         sent++;
       } catch (e) {
