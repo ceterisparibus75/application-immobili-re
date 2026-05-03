@@ -98,16 +98,16 @@ function formatFileSize(bytes: number): string {
 function FileTypeIcon({ mimeType, fileName, className }: { mimeType: string | null; fileName?: string; className?: string }) {
   const ext = fileName?.split(".").pop()?.toLowerCase();
   if (mimeType === "application/pdf" || ext === "pdf")
-    return <FileText className={cn("text-red-500", className)} />;
+    return <FileText className={cn("text-red-500 dark:text-red-400", className)} />;
   if (mimeType?.startsWith("image/"))
-    return <FileImage className={cn("text-violet-500", className)} />;
+    return <FileImage className={cn("text-violet-500 dark:text-violet-400", className)} />;
   if (mimeType?.includes("word") || ext === "doc" || ext === "docx")
-    return <FileText className={cn("text-blue-600", className)} />;
+    return <FileText className={cn("text-blue-600 dark:text-blue-400", className)} />;
   if (mimeType?.includes("excel") || mimeType?.includes("spreadsheet") || ext === "xls" || ext === "xlsx")
-    return <FileSpreadsheet className={cn("text-green-600", className)} />;
+    return <FileSpreadsheet className={cn("text-green-600 dark:text-green-400", className)} />;
   if (mimeType?.includes("zip") || ext === "zip" || ext === "rar" || ext === "7z")
-    return <FileArchive className={cn("text-yellow-500", className)} />;
-  return <File className={cn("text-slate-400", className)} />;
+    return <FileArchive className={cn("text-yellow-500 dark:text-yellow-400", className)} />;
+  return <File className={cn("text-slate-400 dark:text-slate-300", className)} />;
 }
 
 
