@@ -30,6 +30,7 @@ import {
   sendConsolidatedReportEmail,
   sendLetterEmail,
   sendWelcomeTrialEmail,
+  sendChargeStatementEmail,
 } from "./email";
 
 beforeEach(() => {
@@ -195,6 +196,33 @@ describe("sendInvoiceEmail", () => {
         attachments: expect.arrayContaining([expect.objectContaining({ filename: "fac-2025-002.pdf" })]),
       })
     );
+  });
+});
+
+// ── sendChargeStatementEmail ──────────────────────────────────
+
+describe("sendChargeStatementEmail", () => {
+  it("envoie le décompte de charges avec les textes accentués et l'apostrophe lisible", async () => {
+    const result = await sendChargeStatementEmail({
+      to: "locataire@example.com",
+      tenantName: "Locataire test",
+      societyName: "SCI Test",
+      fiscalYear: 2026,
+      balance: 160.75,
+      pdfBuffer: Buffer.from("fake-pdf"),
+    });
+
+    expect(result.success).toBe(true);
+    const payload = mockEmailsSend.mock.calls[mockEmailsSend.mock.calls.length - 1][0];
+    const html = String(payload.html);
+
+    expect(payload.subject).toBe("Décompte annuel de charges 2026 — Locataire test");
+    expect(html).toContain("Décompte de charges 2026");
+    expect(html).toContain("Votre décompte annuel de charges pour l'exercice");
+    expect(html).toContain("pièce jointe");
+    expect(html).toContain("Vous avez un complément à régler");
+    expect(html).toContain("Le détail des charges récupérables et des provisions versées");
+    expect(html).not.toContain("&apos;");
   });
 });
 

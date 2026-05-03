@@ -992,7 +992,7 @@ export async function sendInsuranceExpiryEmail(params: InsuranceExpiryEmailParam
 }
 
 // ============================================================
-// DECOMPTE ANNUEL DE CHARGES (portail bailleur)
+// DÉCOMPTE ANNUEL DE CHARGES (portail bailleur)
 // ============================================================
 
 interface ChargeStatementEmailParams {
@@ -1007,23 +1007,23 @@ interface ChargeStatementEmailParams {
 export async function sendChargeStatementEmail(params: ChargeStatementEmailParams): Promise<EmailResult> {
   const { to, tenantName, societyName, fiscalYear, balance, pdfBuffer } = params;
   const isDebt = balance > 0;
-  const balanceLabel = isDebt ? "un complement a regler" : "un avoir a rembourser";
+  const balanceLabel = isDebt ? "un complément à régler" : "un avoir à rembourser";
   const balanceColor = isDebt ? "#DC2626" : "#059669";
 
   const content = `
-    ${heading(`Decompte de charges ${fiscalYear}`)}
+    ${heading(`Décompte de charges ${fiscalYear}`)}
     ${para(`Bonjour <strong>${tenantName}</strong>,`)}
-    ${para(`Votre decompte annuel de charges pour l&apos;exercice <strong>${fiscalYear}</strong> est disponible en piece jointe.`)}
+    ${para(`Votre décompte annuel de charges pour l'exercice <strong>${fiscalYear}</strong> est disponible en pièce jointe.`)}
     ${infoTable([
       { label: "Exercice", value: String(fiscalYear) },
       { label: "Solde", value: `<span style="color:${balanceColor};font-weight:700;">${isDebt ? "+" : ""}${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Math.abs(balance))}</span>`, bold: true },
       { label: "Statut", value: balance === 0 ? "Solde nul" : `Vous avez ${balanceLabel}` },
     ])}
-    ${infoBox("Le detail des charges recuperables et des provisions versees figure dans le document joint.", "info")}
+    ${infoBox("Le détail des charges récupérables et des provisions versées figure dans le document joint.", "info")}
     ${signature(societyName)}
   `;
 
-  const subject = `Decompte annuel de charges ${fiscalYear} — ${tenantName}`;
+  const subject = `Décompte annuel de charges ${fiscalYear} — ${tenantName}`;
   return sendMail(
     to,
     subject,
