@@ -982,7 +982,7 @@ export function DocumentsClient({
                 <button
                   key={c.value}
                   onClick={() => setCategoryFilter(categoryFilter === c.value ? "all" : c.value)}
-                  className={cn("h-6 px-2 rounded text-[11px] font-medium transition-colors border", categoryFilter === c.value ? "bg-[var(--color-brand-blue)] text-white border-[var(--color-brand-blue)]" : "bg-background text-muted-foreground border-border hover:border-[var(--color-brand-blue)]/50 hover:text-[var(--color-brand-deep)]")}
+                  className={cn("h-6 px-2 rounded text-[11px] font-medium transition-colors", CATEGORY_BADGE[c.value] ?? CATEGORY_BADGE.autre, categoryFilter === c.value ? "ring-2 ring-offset-1 font-semibold" : "opacity-80 hover:opacity-100")}
                 >
                   {c.label}
                 </button>
