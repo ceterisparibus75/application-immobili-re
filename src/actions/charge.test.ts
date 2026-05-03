@@ -1063,6 +1063,48 @@ describe("autoRegularizeCharges", () => {
     )
   })
 
+  it("répartit la régularisation automatique selon la méthode de la catégorie", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([
+      {
+        ...makeCharge(),
+        amount: 1000,
+        category: { name: "Entretien", nature: "RECUPERABLE", recoverableRate: 100, allocationMethod: "SURFACE", allocationKeys: [] },
+      },
+    ] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        id: "lease-small",
+        lot: { ...makeLot(), id: "lot-small", area: 25, commonShares: 100, number: "A101" },
+        chargeProvisions: [],
+      },
+      {
+        ...makeLease(),
+        id: "lease-large",
+        lot: { ...makeLot(), id: "lot-large", area: 75, commonShares: 100, number: "A102" },
+        chargeProvisions: [],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        update: expect.objectContaining({ totalCharges: 250, balance: 250 }),
+      })
+    )
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        update: expect.objectContaining({ totalCharges: 750, balance: 750 }),
+      })
+    )
+  })
+
   it("retourne une erreur si rôle insuffisant pour autoRegularizeCharges", async () => {
     mockAuthSession(UserRole.LECTURE)
     const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
@@ -1113,12 +1155,12 @@ describe("autoRegularizeCharges", () => {
     )
   })
 
-  it("commonShares 0 → totalShares=0 → shareRatio=0 (ligne 757 FALSE branch)", async () => {
+  it("commonShares 0 et surface 0 → fallback par nombre de lots", async () => {
     mockAuthSession(UserRole.COMPTABLE)
     prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
     prismaMock.lease.findMany.mockResolvedValue([{
       ...makeLease(),
-      lot: { ...makeLease().lot, commonShares: 0 },
+      lot: { ...makeLease().lot, area: 0, commonShares: 0 },
       chargeProvisions: [],
     }] as never)
     prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
@@ -1127,7 +1169,7 @@ describe("autoRegularizeCharges", () => {
     expect(r.success).toBe(true)
     expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ totalCharges: 0 }),
+        update: expect.objectContaining({ totalCharges: 1200 }),
       })
     )
   })

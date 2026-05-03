@@ -40,6 +40,22 @@ type ChargeProvisionLike = {
   endDate?: Date | null;
 };
 
+type AllocationCategoryLike = {
+  allocationMethod: string;
+  allocationKeys?: Array<{
+    entries: Array<{ lotId: string; percentage: number }>;
+  }>;
+};
+
+type AllocationLeaseLike = {
+  lotId?: string | null;
+  lot: {
+    id?: string;
+    area: number;
+    commonShares?: number | null;
+  };
+};
+
 type ChargeNatureLike = "PROPRIETAIRE" | "RECUPERABLE" | "MIXTE" | string;
 
 function dayStart(date: Date): Date {
@@ -84,6 +100,37 @@ function recoverableRateFor(nature: ChargeNatureLike, recoverableRate?: number |
   if (nature === "PROPRIETAIRE") return 0;
   if (nature === "RECUPERABLE") return 1;
   return (recoverableRate ?? 50) / 100;
+}
+
+function allocationRateForCategory(
+  category: AllocationCategoryLike,
+  lease: AllocationLeaseLike,
+  totals: { totalTantiemes: number; totalSurface: number; nbLots: number }
+): number {
+  if ((category.allocationMethod === "PERSONNALISE" || category.allocationMethod === "COMPTEUR") && (category.allocationKeys?.length ?? 0) > 0) {
+    const key = category.allocationKeys![0]!;
+    const lotId = lease.lotId ?? lease.lot.id;
+    const entry = key.entries.find((e) => e.lotId === lotId);
+    return entry ? entry.percentage / 100 : 0;
+  }
+
+  if (category.allocationMethod === "SURFACE" && totals.totalSurface > 0) {
+    return lease.lot.area / totals.totalSurface;
+  }
+
+  if (category.allocationMethod === "NB_LOTS" && totals.nbLots > 0) {
+    return 1 / totals.nbLots;
+  }
+
+  if (totals.totalTantiemes > 0 && (lease.lot.commonShares ?? 0) > 0) {
+    return (lease.lot.commonShares ?? 0) / totals.totalTantiemes;
+  }
+
+  if (totals.totalSurface > 0) {
+    return lease.lot.area / totals.totalSurface;
+  }
+
+  return totals.nbLots > 0 ? 1 / totals.nbLots : 0;
 }
 
 // ─── Catégories de charges ────────────────────────────────────────────────────
@@ -652,26 +699,7 @@ export async function generateAnnualChargeReport(
         const recoverableRate = recoverableRateFor(category.nature, category.recoverableRate);
         const recoverableAmount = totalAmount * recoverableRate;
 
-        // Clé de répartition (PERSONNALISE utilise les entrées stockées)
-        let allocationRate = 0;
-        if (category.allocationMethod === "PERSONNALISE" && category.allocationKeys.length > 0) {
-          const key = category.allocationKeys[0]!;
-          const entry = key.entries.find((e) => e.lotId === lease.lotId);
-          allocationRate = entry ? entry.percentage / 100 : 0;
-        } else if (category.allocationMethod === "SURFACE" && totalSurface > 0) {
-          allocationRate = lease.lot.area / totalSurface;
-        } else if (category.allocationMethod === "NB_LOTS" && nbLots > 0) {
-          allocationRate = 1 / nbLots;
-        } else {
-          // TANTIEME (default) - fallback sur SURFACE si pas de tantiemes
-          if (totalTantiemes > 0 && (lease.lot.commonShares ?? 0) > 0) {
-            allocationRate = (lease.lot.commonShares ?? 0) / totalTantiemes;
-          } else if (totalSurface > 0) {
-            allocationRate = lease.lot.area / totalSurface;
-          } else {
-            allocationRate = 1 / nbLots;
-          }
-        }
+        const allocationRate = allocationRateForCategory(category, lease, { totalTantiemes, totalSurface, nbLots });
 
         const tenantShare = recoverableAmount * allocationRate * prorata;
         totalTenantShare += tenantShare;
@@ -807,14 +835,34 @@ export async function autoRegularizeCharges(
         periodEnd: { gte: start },
       },
       include: {
-        category: { select: { nature: true, recoverableRate: true } },
+        category: {
+          include: {
+            allocationKeys: {
+              include: { entries: { select: { lotId: true, percentage: true } } },
+            },
+          },
+        },
       },
     });
 
-    const totalRealCharges = charges.reduce((sum, c) => {
-      const recoverableRate = recoverableRateFor(c.category.nature, c.category.recoverableRate);
-      return sum + chargeAmountForPeriod(c, start, end) * recoverableRate;
-    }, 0);
+    const categoriesWithoutExplicitKey = [
+      ...new Set(
+        charges
+          .filter((charge) => {
+            const method = charge.category.allocationMethod;
+            const keys = charge.category.allocationKeys ?? [];
+            return charge.category.nature !== "PROPRIETAIRE" && (method === "COMPTEUR" || method === "PERSONNALISE") && keys.length === 0;
+          })
+          .map((charge) => charge.category.name)
+      ),
+    ];
+
+    if (categoriesWithoutExplicitKey.length > 0) {
+      return {
+        success: false,
+        error: `Clé de répartition requise pour : ${categoriesWithoutExplicitKey.join(", ")}`,
+      };
+    }
 
     // 2. Baux actifs sur l'immeuble avec leurs lots (pour les tantièmes)
     const activeLeases = await prisma.lease.findMany({
@@ -826,7 +874,7 @@ export async function autoRegularizeCharges(
         endDate: { gte: start },
       },
       include: {
-        lot: { select: { id: true, commonShares: true, number: true } },
+        lot: { select: { id: true, area: true, commonShares: true, number: true } },
         chargeProvisions: {
           where: { isActive: true },
           select: { monthlyAmount: true, startDate: true, endDate: true },
@@ -842,6 +890,8 @@ export async function autoRegularizeCharges(
       (s, l) => s + (l.lot.commonShares ?? 1),
       0
     );
+    const totalSurface = activeLeases.reduce((s, l) => s + l.lot.area, 0);
+    const nbLots = activeLeases.length;
 
     let regularizationCount = 0;
     let totalBalance = 0;
@@ -852,7 +902,7 @@ export async function autoRegularizeCharges(
       const shareRatio = totalShares > 0 ? lotShares / totalShares : 0;
 
       // Quote-part des charges réelles
-      const leaseChargeShare = totalRealCharges * shareRatio;
+      let leaseChargeShare = 0;
 
       // Nombre de mois de la période couverte par le bail
       const leaseStart = new Date(Math.max(lease.startDate.getTime(), start.getTime()));
@@ -866,19 +916,23 @@ export async function autoRegularizeCharges(
         return sum + provisionAmountForPeriod(cp, leaseStart, leaseEnd);
       }, 0);
 
+      // Détails par catégorie de charge
+      const details = charges.reduce<Record<string, { label: string; amount: number; recoverable: number }>>((acc, c) => {
+        const key = c.category.name;
+        if (!acc[key]) acc[key] = { label: key, amount: 0, recoverable: 0 };
+        const amount = chargeAmountForPeriod(c, start, end);
+        const recoverableAmount = amount * recoverableRateFor(c.category.nature, c.category.recoverableRate);
+        const allocationRate = allocationRateForCategory(c.category, lease, { totalTantiemes: totalShares, totalSurface, nbLots });
+        const allocatedAmount = recoverableAmount * allocationRate;
+        leaseChargeShare += allocatedAmount;
+        acc[key].amount += amount;
+        acc[key].recoverable += allocatedAmount;
+        return acc;
+      }, {});
+
       // Convention ChargeRegularization.balance : positif = complément dû, négatif = avoir locataire.
       const balance = leaseChargeShare - totalProvisions;
       totalBalance += balance;
-
-      // Détails par catégorie de charge
-      const details = charges.reduce<Record<string, { label: string; amount: number; recoverable: number }>>((acc, c) => {
-        const key = c.category.nature;
-        if (!acc[key]) acc[key] = { label: key, amount: 0, recoverable: 0 };
-        const amount = chargeAmountForPeriod(c, start, end);
-        acc[key].amount += amount;
-        acc[key].recoverable += amount * recoverableRateFor(c.category.nature, c.category.recoverableRate) * shareRatio;
-        return acc;
-      }, {});
 
       await prisma.chargeRegularization.upsert({
         where: { leaseId_fiscalYear: { leaseId: lease.id, fiscalYear } },
