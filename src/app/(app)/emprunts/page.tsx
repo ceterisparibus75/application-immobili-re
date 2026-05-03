@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+﻿import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getLoans } from "@/actions/loan";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,10 @@ import { Plus, Landmark, TrendingDown, CheckCircle, CalendarCheck, Clock } from 
 import Link from "next/link";
 import { buildLenderMapping } from "@/lib/utils";
 import { EmpruntsEmptyState } from "./_components/emprunts-empty-state";
+import { getLoansForDebtProfile } from "@/actions/loan";
+import { buildDebtProfile } from "@/lib/loan-debt-profile";
+import { DebtProfileChart } from "./_components/debt-profile-chart";
+
 
 export const metadata = { title: "Emprunts" };
 
@@ -36,6 +40,9 @@ export default async function EmpruntsPage() {
   if (!societyId) redirect("/societes");
 
   const loans = await getLoans(societyId);
+
+  const loansForProfile = await getLoansForDebtProfile(societyId);
+  const debtProfile = buildDebtProfile(loansForProfile);
 
   const totalCapital = loans.reduce((s, l) => s + l.amount, 0);
   const totalRemaining = loans.reduce((s, l) => {
@@ -139,6 +146,11 @@ export default async function EmpruntsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Profil de la dette */}
+      {debtProfile.timeline.length > 0 && (
+        <DebtProfileChart profile={debtProfile} />
+      )}
 
       {/* Tableau récapitulatif encours par banque */}
       {sortedLenders.length > 1 && (

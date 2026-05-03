@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -367,6 +367,43 @@ export async function getLoans(societyId: string) {
       _count: { select: { amortizationLines: true, movements: true } },
     },
     orderBy: { startDate: "desc" },
+  });
+}
+
+export async function getLoansForDebtProfile(societyId: string) {
+  const context = await getOptionalSocietyActionContext(societyId);
+  if (!context) return [];
+
+  // Fetch lines from 2 months ago onward so we have the last paid line (for currentCrd)
+  // plus all future lines (for the extinction curve).
+  const twoMonthsAgo = new Date();
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+  twoMonthsAgo.setDate(1);
+  twoMonthsAgo.setHours(0, 0, 0, 0);
+
+  return prisma.loan.findMany({
+    where: {
+      societyId,
+      status: "EN_COURS",
+      loanType: { not: "COMPTE_COURANT" },
+    },
+    select: {
+      id: true,
+      label: true,
+      lender: true,
+      amount: true,
+      status: true,
+      loanType: true,
+      startDate: true,
+      endDate: true,
+      durationMonths: true,
+      amortizationLines: {
+        where: { dueDate: { gte: twoMonthsAgo } },
+        orderBy: { period: "asc" },
+        select: { period: true, dueDate: true, remainingBalance: true },
+      },
+    },
+    orderBy: { endDate: "asc" },
   });
 }
 
