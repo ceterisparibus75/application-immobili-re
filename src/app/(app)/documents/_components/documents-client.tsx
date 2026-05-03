@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  FileText, ExternalLink, FolderOpen, Building2, AlertTriangle,
+  FileText, FileSpreadsheet, FileArchive, ExternalLink, FolderOpen, Building2, AlertTriangle,
   Search, X, Sparkles, Loader2, Plus, FileImage,
   File, List, LayoutGrid, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Check,
   Download, Eye, Filter, FolderLock, Trash2, FileDown, Maximize2,
@@ -95,11 +95,43 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
-function FileTypeIcon({ mimeType, className }: { mimeType: string | null; className?: string }) {
-  if (mimeType === "application/pdf") return <FileText className={cn("text-[var(--color-brand-blue)]", className)} />;
-  if (mimeType?.startsWith("image/")) return <FileImage className={cn("text-[var(--color-brand-cyan)]", className)} />;
-  return <File className={cn("text-[#94A3B8]", className)} />;
+function FileTypeIcon({ mimeType, fileName, className }: { mimeType: string | null; fileName?: string; className?: string }) {
+  const ext = fileName?.split(".").pop()?.toLowerCase();
+  if (mimeType === "application/pdf" || ext === "pdf")
+    return <FileText className={cn("text-red-500", className)} />;
+  if (mimeType?.startsWith("image/"))
+    return <FileImage className={cn("text-violet-500", className)} />;
+  if (mimeType?.includes("word") || ext === "doc" || ext === "docx")
+    return <FileText className={cn("text-blue-600", className)} />;
+  if (mimeType?.includes("excel") || mimeType?.includes("spreadsheet") || ext === "xls" || ext === "xlsx")
+    return <FileSpreadsheet className={cn("text-green-600", className)} />;
+  if (mimeType?.includes("zip") || ext === "zip" || ext === "rar" || ext === "7z")
+    return <FileArchive className={cn("text-yellow-500", className)} />;
+  return <File className={cn("text-slate-400", className)} />;
 }
+
+
+const CATEGORY_BADGE: Record<string, string> = {
+  // Juridique / contractuel — brand blue muted
+  bail: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
+  avenant: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
+  titre_propriete: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
+  acte_acquisition: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
+  reglement_copro: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
+  // Financier — caution muted
+  facture: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] border border-[var(--color-status-caution)]/25",
+  quittance: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
+  // Technique / diagnostic — positive muted
+  diagnostic: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
+  plan: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
+  etat_des_lieux: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
+  assurance: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
+  // Communication / prestataire — brand cyan muted
+  courrier: "bg-[var(--color-brand-light)] text-[var(--color-brand-cyan)] border border-[var(--color-brand-cyan)]/25",
+  contrat: "bg-[var(--color-brand-light)] text-[var(--color-brand-cyan)] border border-[var(--color-brand-cyan)]/25",
+  // Autre
+  autre: "bg-muted text-muted-foreground border border-border",
+};
 
 function findDocumentById(documents: DocumentItem[], documentId?: string): DocumentItem | null {
   if (!documentId) return null;
@@ -139,7 +171,7 @@ function TreeSidebar({ tree, selected, onSelect }: { tree: TreeData; selected: s
       )}
     >
       {icon}
-      <span className="flex-1 truncate">{label}</span>
+      <span className="flex-1 break-words leading-tight">{label}</span>
       <span className={cn("text-xs tabular-nums", selected === key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>
         {count}
       </span>
@@ -188,7 +220,7 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
       >
         <Checkbox checked={checked} aria-label={`Sélectionner ${doc.fileName}`} />
       </div>
-      <FileTypeIcon mimeType={doc.mimeType} className="h-4 w-4 shrink-0" />
+      <FileTypeIcon mimeType={doc.mimeType} fileName={doc.fileName} className="h-4 w-4 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className={cn("text-sm truncate text-[var(--color-brand-deep)]", selected && "font-medium")}>{doc.fileName}</span>
@@ -196,9 +228,9 @@ function FileRow({ doc, selected, onSelect, societyId, checked, onCheckedChange 
           {expired && <span title="Expiré"><AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label="Expiré" /></span>}
           {expiringSoon && <span title="Expire bientôt"><AlertTriangle className="h-3.5 w-3.5 text-[var(--color-status-caution)] shrink-0" aria-label="Expire bientôt" /></span>}
         </div>
-        {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+        {(() => { const parts = [doc.description, getBuildingLabel(doc) || null, getTenantLabel(doc)].filter(Boolean); return parts.length > 0 ? <p className="text-xs text-muted-foreground truncate">{parts.join(String.fromCharCode(32) + "·" + String.fromCharCode(32))}</p> : null; })()}
       </div>
-      <span className="hidden md:block text-xs text-muted-foreground w-28 shrink-0 truncate">{getCategoryLabel(doc.category)}</span>
+      <span className={cn("hidden md:block text-[11px] font-medium w-28 shrink-0 truncate px-1.5 py-0.5 rounded", CATEGORY_BADGE[doc.category ?? "autre"] ?? CATEGORY_BADGE.autre)} title={getCategoryLabel(doc.category)}>{getCategoryLabel(doc.category)}</span>
       <span className="hidden sm:block text-xs text-muted-foreground w-24 shrink-0 tabular-nums">{formatDate(doc.createdAt)}</span>
       <span className="hidden lg:block text-xs text-muted-foreground w-16 shrink-0 text-right tabular-nums">{formatFileSize(doc.fileSize ?? 0)}</span>
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
@@ -222,7 +254,7 @@ function FileGridCard({ doc, selected, onSelect, societyId, checked, onCheckedCh
       >
         <Checkbox checked={checked} aria-label={`Sélectionner ${doc.fileName}`} />
       </div>
-      <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10" />
+      <FileTypeIcon mimeType={doc.mimeType} fileName={doc.fileName} className="h-10 w-10" />
       <p className="text-xs text-center truncate w-full font-medium leading-tight text-[var(--color-brand-deep)]">{doc.fileName}</p>
       <AiBadge status={doc.aiStatus} id={doc.id} />
       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
@@ -331,7 +363,7 @@ function FullscreenPreviewDialog({ doc, onClose }: { doc: DocumentItem; onClose:
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-[90vw] w-[90vw] h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-4 py-3 border-b border-gray-100 shrink-0 flex-row items-center gap-3">
-          <FileTypeIcon mimeType={doc.mimeType} className="h-5 w-5 shrink-0" />
+          <FileTypeIcon mimeType={doc.mimeType} fileName={doc.fileName} className="h-5 w-5 shrink-0" />
           <DialogTitle className="text-sm font-medium text-[var(--color-brand-deep)] flex-1 truncate text-left">{doc.fileName}</DialogTitle>
           <div className="flex items-center gap-1.5 shrink-0">
             <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
@@ -644,7 +676,7 @@ function DetailsPanel({ doc: initialDoc, societyId, onClose }: { doc: DocumentIt
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-100 flex items-start gap-2 shrink-0">
-        <FileTypeIcon mimeType={doc.mimeType} className="h-8 w-8 mt-0.5 shrink-0" />
+        <FileTypeIcon mimeType={doc.mimeType} fileName={doc.fileName} className="h-8 w-8 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold break-words leading-tight text-[var(--color-brand-deep)]">{doc.fileName}</p>
           <p className="text-xs text-[#94A3B8] mt-0.5">{formatFileSize(doc.fileSize ?? 0)} · {getCategoryLabel(doc.category)}</p>
@@ -942,24 +974,22 @@ export function DocumentsClient({
             {search && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setSearch("")}><X className="h-3.5 w-3.5" /></button>}
           </div>
           {usedCategories.length > 1 && (
-            <div className="hidden sm:flex items-center gap-1 shrink-0">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-7 text-xs w-36 border-0 bg-transparent shadow-none focus:ring-0 px-1">
-                  <SelectValue placeholder="Catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">Toutes catégories</SelectItem>
-                  {usedCategories.map((c) => (
-                    <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {categoryFilter !== "all" && (
-                <button onClick={() => setCategoryFilter("all")} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
+            <div className="hidden sm:flex items-center gap-1 shrink-0 flex-wrap">
+              <button
+                onClick={() => setCategoryFilter("all")}
+                className={cn("h-6 px-2 rounded text-[11px] font-medium transition-colors border", categoryFilter === "all" ? "bg-[var(--color-brand-blue)] text-white border-[var(--color-brand-blue)]" : "bg-background text-muted-foreground border-border hover:border-[var(--color-brand-blue)]/50 hover:text-[var(--color-brand-deep)]")}
+              >
+                Toutes
+              </button>
+              {usedCategories.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setCategoryFilter(categoryFilter === c.value ? "all" : c.value)}
+                  className={cn("h-6 px-2 rounded text-[11px] font-medium transition-colors border", categoryFilter === c.value ? "bg-[var(--color-brand-blue)] text-white border-[var(--color-brand-blue)]" : "bg-background text-muted-foreground border-border hover:border-[var(--color-brand-blue)]/50 hover:text-[var(--color-brand-deep)]")}
+                >
+                  {c.label}
                 </button>
-              )}
+              ))}
             </div>
           )}
           <div className="flex items-center gap-1 ml-auto">

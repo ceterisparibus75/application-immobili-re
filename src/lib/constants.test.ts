@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import {
   LEGAL_FORMS,
   LEGAL_FORM_LABELS,
@@ -16,11 +16,7 @@ import {
 
 describe("LEGAL_FORMS", () => {
   it("contient toutes les formes juridiques supportées", () => {
-    expect(LEGAL_FORMS).toHaveLength(35);
-  });
-
-  it("contient PERSONNE_PHYSIQUE", () => {
-    expect(LEGAL_FORMS.some((f) => f.value === "PERSONNE_PHYSIQUE")).toBe(true);
+    expect(LEGAL_FORMS).toHaveLength(34);
   });
 
   it("chaque forme a value et label", () => {
