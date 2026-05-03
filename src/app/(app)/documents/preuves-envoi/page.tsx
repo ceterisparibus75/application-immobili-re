@@ -110,6 +110,9 @@ export default async function EmailDeliveryProofsPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
+                      <Link href={`/documents/preuves-envoi/${proof.id}`}>
+                        <Button variant="outline" size="sm">Détails</Button>
+                      </Link>
                       {detailHref && (
                         <Link href={detailHref}>
                           <Button variant="outline" size="sm">Voir le document</Button>
