@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatDate } from "@/lib/utils";
+import { payloadSha256FromEventPayload } from "@/lib/email-delivery-proof-integrity";
 
 type EmailDeliveryProofPdf = {
   id: string;
@@ -42,15 +43,6 @@ function statusLabel(status: string): string {
 
 function drawLine(page: import("pdf-lib").PDFPage, text: string, x: number, y: number, size = 10) {
   page.drawText(text.replace(/\u202f/g, " "), { x, y, size, color: rgb(0.12, 0.18, 0.28) });
-}
-
-export function payloadSha256FromEventPayload(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const metadata = (payload as Record<string, unknown>)._mygestia;
-  if (!metadata || typeof metadata !== "object") return null;
-
-  const hash = (metadata as Record<string, unknown>).payloadSha256;
-  return typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash) ? hash : null;
 }
 
 export async function generateEmailDeliveryProofPdfBuffer(proof: EmailDeliveryProofPdf): Promise<Buffer> {

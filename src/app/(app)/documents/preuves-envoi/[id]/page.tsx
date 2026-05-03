@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import { buildRelatedEmailDeliveryProofWhere } from "@/lib/email-delivery-proof-related";
+import { payloadSha256FromEventPayload } from "@/lib/email-delivery-proof-integrity";
 
 const STATUS_LABELS: Record<string, string> = {
   SENT: "Envoyé",
@@ -44,6 +45,37 @@ function Field({ label, value }: { label: string; value: string | number | null 
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 break-all text-sm">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+type DeliveryEventView = {
+  id: string;
+  eventType: string;
+  occurredAt: Date;
+  providerEventId: string | null;
+  payload: unknown;
+};
+
+function DeliveryEventCard({ event }: { event: DeliveryEventView }) {
+  const payloadHash = payloadSha256FromEventPayload(event.payload);
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{event.eventType}</Badge>
+        <span className="text-xs text-muted-foreground">{formatDateTime(event.occurredAt)}</span>
+        {event.providerEventId && <span className="text-xs text-muted-foreground">ID {event.providerEventId}</span>}
+      </div>
+      {payloadHash && (
+        <div className="mb-2 rounded-md border bg-muted/50 px-3 py-2 text-xs">
+          <span className="font-medium">Empreinte payload webhook : </span>
+          <span className="break-all font-mono">{payloadHash}</span>
+        </div>
+      )}
+      <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
+        {jsonPreview(event.payload)}
+      </pre>
     </div>
   );
 }
@@ -208,16 +240,7 @@ export default async function EmailDeliveryProofDetailPage({ params }: { params:
           ) : (
             <div className="space-y-4">
               {proof.events.map((event) => (
-                <div key={event.id} className="rounded-lg border p-3">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{event.eventType}</Badge>
-                    <span className="text-xs text-muted-foreground">{formatDateTime(event.occurredAt)}</span>
-                    {event.providerEventId && <span className="text-xs text-muted-foreground">ID {event.providerEventId}</span>}
-                  </div>
-                  <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
-                    {jsonPreview(event.payload)}
-                  </pre>
-                </div>
+                <DeliveryEventCard key={event.id} event={event} />
               ))}
             </div>
           )}

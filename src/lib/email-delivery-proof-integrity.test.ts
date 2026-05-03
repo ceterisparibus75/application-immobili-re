@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { payloadSha256FromEventPayload } from "./email-delivery-proof-integrity";
 
-describe("email delivery proof PDF helpers", () => {
-  it("extrait l'empreinte du payload webhook enrichi", () => {
+describe("email delivery proof integrity", () => {
+  it("extrait l'empreinte SHA-256 du payload webhook enrichi", () => {
     expect(
       payloadSha256FromEventPayload({
         type: "email.delivered",
