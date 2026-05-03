@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { withRetry } from "@/lib/retryable";
 import { env } from "@/lib/env";
+import type { EmailDeliveryProofContext } from "@/lib/email-delivery-proof";
+import { createEmailDeliveryProof } from "@/lib/email-delivery-proof";
 
 function getResend() { return new Resend(env.RESEND_API_KEY ?? ""); }
 const _rawName = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
@@ -211,6 +213,8 @@ interface EmailResult {
   success: boolean;
   error?: string;
   emailId?: string;
+  proofId?: string;
+  proofError?: string;
 }
 
 export async function sendMail(
@@ -219,7 +223,8 @@ export async function sendMail(
   html: string,
   attachments?: Array<{ filename: string; content: Buffer }>,
   replyTo?: string,
-  bcc?: string | string[]
+  bcc?: string | string[],
+  proofContext?: EmailDeliveryProofContext
 ): Promise<EmailResult> {
   try {
     const fromAddress = env.EMAIL_FROM ?? "noreply@mygestia.immo";
@@ -241,7 +246,33 @@ export async function sendMail(
       console.error("[sendMail] Resend error:", error);
       return { success: false, error: (error as { message?: string }).message ?? String(error) };
     }
-    return { success: true, emailId: data?.id };
+
+    let proofId: string | undefined;
+    let proofError: string | undefined;
+    if (proofContext) {
+      try {
+        const proof = await createEmailDeliveryProof({
+          ...proofContext,
+          recipientEmail: to,
+          subject,
+          html,
+          providerMessageId: data?.id ?? null,
+          replyTo: replyTo ?? fromAddress,
+          bcc: bccList,
+          attachments: attachments?.map((attachment) => ({
+            filename: attachment.filename,
+            content: attachment.content,
+            mimeType: attachment.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+          })),
+        });
+        proofId = proof.id;
+      } catch (proofException) {
+        console.error("[sendMail] proof exception:", proofException);
+        proofError = proofException instanceof Error ? proofException.message : String(proofException);
+      }
+    }
+
+    return { success: true, emailId: data?.id, proofId, proofError };
   } catch (error) {
     console.error("[sendMail] exception:", error);
     return { success: false, error: String(error) };
@@ -316,6 +347,7 @@ interface InvoiceEmailParams {
   items?: Array<{ label: string; amount: number }>;
   pdfAttachment?: { filename: string; content: Buffer };
   bcc?: string | string[];
+  proofContext?: EmailDeliveryProofContext;
 }
 
 export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<EmailResult> {
@@ -338,7 +370,8 @@ export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<Emai
     baseTemplate(`${typeLabelCapitalized} ${params.period}`, content, { societyName: params.societyName }),
     params.pdfAttachment ? [params.pdfAttachment] : undefined,
     undefined,
-    params.bcc
+    params.bcc,
+    params.proofContext
   );
 }
 
@@ -356,6 +389,7 @@ interface ReceiptEmailParams {
   societyName: string;
   pdfAttachment?: { filename: string; content: Buffer };
   bcc?: string | string[];
+  proofContext?: EmailDeliveryProofContext;
 }
 
 export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<EmailResult> {
@@ -381,7 +415,8 @@ export async function sendReceiptEmail(params: ReceiptEmailParams): Promise<Emai
     baseTemplate(`Quittance de loyer ${params.period}`, content, { societyName: params.societyName }),
     params.pdfAttachment ? [params.pdfAttachment] : undefined,
     undefined,
-    params.bcc
+    params.bcc,
+    params.proofContext
   );
 }
 
@@ -787,6 +822,7 @@ interface SendLetterEmailParams {
   subject: string;
   societyName: string;
   attachment: { filename: string; content: Buffer };
+  proofContext?: EmailDeliveryProofContext;
 }
 
 export async function sendLetterEmail(params: SendLetterEmailParams): Promise<EmailResult> {
@@ -803,7 +839,10 @@ export async function sendLetterEmail(params: SendLetterEmailParams): Promise<Em
     params.to,
     `${params.subject} — ${params.societyName}`,
     baseTemplate(params.subject, content, { societyName: params.societyName }),
-    [params.attachment]
+    [params.attachment],
+    undefined,
+    undefined,
+    params.proofContext
   );
 }
 
@@ -1002,6 +1041,7 @@ interface ChargeStatementEmailParams {
   fiscalYear: number;
   balance: number;
   pdfBuffer: Buffer;
+  proofContext?: EmailDeliveryProofContext;
 }
 
 export async function sendChargeStatementEmail(params: ChargeStatementEmailParams): Promise<EmailResult> {
@@ -1028,6 +1068,9 @@ export async function sendChargeStatementEmail(params: ChargeStatementEmailParam
     to,
     subject,
     baseTemplate(subject, content, { societyName }),
-    [{ filename: `decompte-charges-${fiscalYear}.pdf`, content: pdfBuffer }]
+    [{ filename: `decompte-charges-${fiscalYear}.pdf`, content: pdfBuffer }],
+    undefined,
+    undefined,
+    params.proofContext
   );
 }

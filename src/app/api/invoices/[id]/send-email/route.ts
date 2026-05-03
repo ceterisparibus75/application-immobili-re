@@ -217,6 +217,25 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     const isQuittance = invoice.invoiceType === "QUITTANCE";
     const bcc = await getAllEmailCopyBcc(context.societyId);
+    const wasAlreadySent = !!invoice.sentAt;
+    const proofContext = {
+      societyId: context.societyId,
+      sentById: context.userId,
+      entityType: isQuittance ? "RECEIPT" : "INVOICE",
+      entityId: invoice.id,
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      leaseId: invoice.leaseId ?? null,
+      recipientName: tenantName,
+      evidence: {
+        route: "/api/invoices/[id]/send-email",
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceType: invoice.invoiceType,
+        period,
+        wasAlreadySent,
+        pdfFileName,
+      },
+    };
 
     const emailResult = isQuittance
       ? await sendReceiptEmail({
@@ -231,6 +250,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           societyName: soc?.name ?? "",
           pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
           bcc,
+          proofContext,
         })
       : await sendInvoiceEmail({
           to,
@@ -244,12 +264,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
           pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
           bcc,
+          proofContext,
         });
 
     if (!emailResult.success)
       return NextResponse.json({ error: { code: "EMAIL_ERROR", message: emailResult.error ?? "Erreur d'envoi" } }, { status: 500 });
 
-    const wasAlreadySent = !!invoice.sentAt;
     const sentAt = new Date();
     let uploadedStoragePath: string | null = null;
 
@@ -291,6 +311,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    if (emailResult.proofId && uploadedStoragePath) {
+      await prisma.emailDeliveryProof.updateMany({
+        where: { id: emailResult.proofId, societyId: context.societyId },
+        data: { attachmentStoragePath: uploadedStoragePath },
+      });
+    }
+
     const nextStatus =
       !wasAlreadySent && (invoice.status === "VALIDEE" || invoice.status === "EN_ATTENTE")
         ? "ENVOYEE"
@@ -318,13 +345,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         to,
         invoiceNumber: invoice.invoiceNumber,
         emailId: emailResult.emailId ?? null,
+        proofId: emailResult.proofId ?? null,
+        proofError: emailResult.proofError ?? null,
         event: wasAlreadySent ? "RESEND_INVOICE_EMAIL" : "SEND_INVOICE_EMAIL",
         sentAt: sentAt.toISOString(),
         previousSentAt: invoice.sentAt?.toISOString() ?? null,
       },
     });
 
-    return NextResponse.json({ success: true, emailId: emailResult.emailId, resent: wasAlreadySent });
+    return NextResponse.json({ success: true, emailId: emailResult.emailId, proofId: emailResult.proofId, resent: wasAlreadySent });
   } catch (error) {
     console.error("[send-email]", error);
     return NextResponse.json({ error: { code: "SEND_ERROR", message: "Erreur lors de l'envoi" } }, { status: 500 });

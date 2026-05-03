@@ -613,6 +613,7 @@ model Society {
   fixedAssets              FixedAsset[]
   legalEvents              LegalEvent[]
   chargeStatementDeliveries ChargeStatementDelivery[]
+  emailDeliveryProofs      EmailDeliveryProof[]
 
   // Numérotation baux
   leasePrefix     String? // Préfixe numérotation bail (ex: "BAIL")
@@ -761,6 +762,7 @@ model User {
   datarooms         Dataroom[]
   reportSchedules   ReportSchedule[]
   sentChargeStatementDeliveries ChargeStatementDelivery[] @relation("ChargeStatementDeliverySender")
+  sentEmailDeliveryProofs EmailDeliveryProof[] @relation("EmailDeliveryProofSender")
 
   @@index([email])
 }
@@ -1736,6 +1738,92 @@ enum ChargeStatementDeliveryStatus {
   COMPLAINED
   DELIVERY_DELAYED
   FAILED
+}
+
+enum EmailDeliveryProofStatus {
+  SENT
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+  DELIVERY_DELAYED
+  FAILED
+}
+
+model EmailDeliveryProof {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  societyId String?
+  sentById  String?
+
+  entityType String
+  entityId   String?
+  tenantId   String?
+  leaseId    String?
+  invoiceId  String?
+
+  recipientEmail String
+  recipientName  String?
+  subject        String
+  replyTo        String?
+  bcc            Json?
+
+  provider          String                   @default("resend")
+  providerMessageId String?
+  status            EmailDeliveryProofStatus @default(SENT)
+  errorMessage      String?                  @db.Text
+
+  sentAt             DateTime @default(now())
+  deliveredAt        DateTime?
+  bouncedAt          DateTime?
+  complainedAt       DateTime?
+  deliveryDelayedAt  DateTime?
+  lastEventAt        DateTime?
+  lastEventType      String?
+
+  htmlSha256   String?
+  htmlSnapshot String? @db.Text
+
+  attachmentFileName   String?
+  attachmentMimeType   String?
+  attachmentSha256     String?
+  attachmentSizeBytes  Int?
+  attachmentStoragePath String?
+
+  evidence Json?
+
+  society Society? @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  sentBy  User?    @relation("EmailDeliveryProofSender", fields: [sentById], references: [id], onDelete: SetNull)
+  events  EmailDeliveryEvent[]
+
+  @@index([societyId])
+  @@index([sentById])
+  @@index([entityType, entityId])
+  @@index([tenantId])
+  @@index([leaseId])
+  @@index([invoiceId])
+  @@index([providerMessageId])
+  @@index([status])
+}
+
+model EmailDeliveryEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  proofId String
+  provider String @default("resend")
+  providerEventId String?
+  eventType String
+  occurredAt DateTime
+  payload Json?
+
+  proof EmailDeliveryProof @relation(fields: [proofId], references: [id], onDelete: Cascade)
+
+  @@index([proofId])
+  @@index([provider, eventType])
+  @@index([providerEventId])
+  @@unique([proofId, providerEventId])
 }
 
 /// Preuve d'envoi d'un décompte annuel de charges.

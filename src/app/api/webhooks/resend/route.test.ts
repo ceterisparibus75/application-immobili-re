@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { prismaMock } from "@/test/mocks/prisma";
 
-const { verify, enforceWebhookRateLimit } = vi.hoisted(() => ({
+const { verify, enforceWebhookRateLimit, applyResendDeliveryEvent } = vi.hoisted(() => ({
   verify: vi.fn(),
   enforceWebhookRateLimit: vi.fn().mockResolvedValue(null),
+  applyResendDeliveryEvent: vi.fn().mockResolvedValue({ matched: 1 }),
 }));
 
 vi.mock("@/lib/env", () => ({ env: process.env }));
 vi.mock("@/lib/webhook-rate-limit", () => ({ enforceWebhookRateLimit }));
+vi.mock("@/lib/email-delivery-proof", () => ({ applyResendDeliveryEvent }));
 vi.mock("svix", () => ({
   Webhook: vi.fn().mockImplementation(function Webhook() {
     return { verify };
@@ -48,6 +50,14 @@ describe("POST /api/webhooks/resend", () => {
     const response = await POST(request({}));
 
     expect(response.status).toBe(200);
+    expect(applyResendDeliveryEvent).toHaveBeenCalledWith({
+      providerEventId: "evt_123",
+      event: {
+        type: "email.delivered",
+        created_at: "2026-05-03T10:00:00.000Z",
+        data: { email_id: "email-123", to: ["tenant@example.test"] },
+      },
+    });
     expect(prismaMock.chargeStatementDelivery.findMany).toHaveBeenCalledWith({
       where: { provider: "resend", providerMessageId: "email-123" },
       select: { id: true },

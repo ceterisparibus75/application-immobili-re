@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { enforceWebhookRateLimit } from "@/lib/webhook-rate-limit";
+import { applyResendDeliveryEvent } from "@/lib/email-delivery-proof";
 
 export const dynamic = "force-dynamic";
 
@@ -78,13 +79,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
+  const providerEventId = request.headers.get("svix-id") ?? request.headers.get("webhook-id") ?? null;
+  const genericProofResult = await applyResendDeliveryEvent({ providerEventId, event });
+
   const deliveries = await prisma.chargeStatementDelivery.findMany({
     where: { provider: "resend", providerMessageId: messageId },
     select: { id: true },
   });
 
   if (deliveries.length === 0) {
-    return NextResponse.json({ ok: true, matched: 0 });
+    return NextResponse.json({ ok: true, matched: 0, genericMatched: genericProofResult.matched });
   }
 
   const occurredAt = eventDate(event);
@@ -99,7 +103,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     },
   });
 
-  const providerEventId = request.headers.get("svix-id") ?? request.headers.get("webhook-id") ?? null;
   const payload = JSON.parse(JSON.stringify(event)) as Prisma.InputJsonValue;
   await prisma.chargeStatementDeliveryEvent.createMany({
     data: deliveryIds.map((deliveryId) => ({
@@ -113,5 +116,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     skipDuplicates: true,
   });
 
-  return NextResponse.json({ ok: true, matched: deliveryIds.length });
+  return NextResponse.json({ ok: true, matched: deliveryIds.length, genericMatched: genericProofResult.matched });
 }

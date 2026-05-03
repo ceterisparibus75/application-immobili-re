@@ -55,7 +55,7 @@ function clampOccupancyEnd(periodEnd: Date, leaseEnd?: Date | null): string {
 export async function sendChargeRegularization(
   societyId: string,
   regularizationId: string
-): Promise<ActionResult<{ emailId?: string; deliveryId?: string }>> {
+): Promise<ActionResult<{ emailId?: string; deliveryId?: string; proofId?: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
@@ -142,6 +142,24 @@ export async function sendChargeRegularization(
       fiscalYear: reg.fiscalYear,
       balance: reg.balance,
       pdfBuffer,
+      proofContext: {
+        societyId,
+        sentById: context.userId,
+        entityType: "CHARGE_STATEMENT",
+        entityId: reg.id,
+        tenantId: tenant.id,
+        leaseId: reg.lease.id,
+        recipientName: tenantName,
+        evidence: {
+          route: "sendChargeRegularization",
+          regularizationId: reg.id,
+          fiscalYear: reg.fiscalYear,
+          periodStart: reg.periodStart.toISOString(),
+          periodEnd: reg.periodEnd.toISOString(),
+          lotNumber: reg.lease.lot.number,
+          buildingName: reg.lease.lot.building.name,
+        },
+      },
     });
 
     if (!emailResult.success) {
@@ -186,6 +204,8 @@ export async function sendChargeRegularization(
       details: {
         event: "CHARGE_STATEMENT_SENT",
         emailId: emailResult.emailId,
+        proofId: emailResult.proofId ?? null,
+        proofError: emailResult.proofError ?? null,
         deliveryProofId: delivery.id,
         pdfSha256,
         fiscalYear: reg.fiscalYear,
@@ -194,7 +214,7 @@ export async function sendChargeRegularization(
     });
 
     revalidatePath("/charges/comptes-rendus");
-    return { success: true, data: { emailId: emailResult.emailId, deliveryId: delivery.id } };
+    return { success: true, data: { emailId: emailResult.emailId, deliveryId: delivery.id, proofId: emailResult.proofId } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

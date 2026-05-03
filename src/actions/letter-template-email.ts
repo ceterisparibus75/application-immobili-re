@@ -135,6 +135,20 @@ export async function sendLetterByEmail(
       subject,
       societyName: society?.name ?? "",
       attachment: { filename, content: buffer },
+      proofContext: {
+        societyId,
+        sentById: context.userId,
+        entityType: "LETTER",
+        entityId: parsed.data.templateId,
+        tenantId: input.tenantId,
+        recipientName: tenantName,
+        evidence: {
+          route: "sendLetterByEmail",
+          templateId: parsed.data.templateId,
+          subject,
+          filename,
+        },
+      },
     });
 
     // Sauvegarder le PDF dans l'espace documents du locataire (portail)
@@ -283,6 +297,23 @@ export async function sendLetterToBuilding(
           subject,
           societyName: society?.name ?? "",
           attachment: { filename, content: buffer },
+          proofContext: {
+            societyId,
+            sentById: context.userId,
+            entityType: "LETTER",
+            entityId: input.templateId,
+            tenantId: tenant.id,
+            leaseId,
+            recipientName: tenantName,
+            evidence: {
+              route: "sendLetterToBuilding",
+              templateId: input.templateId,
+              buildingId: input.buildingId,
+              buildingName: building.name,
+              subject,
+              filename,
+            },
+          },
         });
 
         // Sauvegarder dans l'espace documents du locataire

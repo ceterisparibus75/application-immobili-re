@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockEmailsSend = vi.hoisted(() => vi.fn());
+const mockCreateEmailDeliveryProof = vi.hoisted(() => vi.fn().mockResolvedValue({ id: "proof-1" }));
 
 vi.mock("resend", () => {
   const send = mockEmailsSend;
@@ -10,6 +11,9 @@ vi.mock("resend", () => {
     },
   };
 });
+vi.mock("@/lib/email-delivery-proof", () => ({
+  createEmailDeliveryProof: mockCreateEmailDeliveryProof,
+}));
 
 import {
   sendMail,
@@ -34,7 +38,9 @@ import {
 } from "./email";
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockEmailsSend.mockResolvedValue({ data: { id: "email-123" }, error: null });
+  mockCreateEmailDeliveryProof.mockResolvedValue({ id: "proof-1" });
 });
 
 // ── sendMail ───────────────────────────────────────────────────
@@ -99,6 +105,49 @@ describe("sendMail", () => {
     const result = await sendMail("to@example.com", "Sujet", "<p>Test</p>");
     expect(result.success).toBe(false);
     expect(result.error).toBeTruthy();
+  });
+
+  it("crée une preuve d'envoi si un contexte juridique est fourni", async () => {
+    const attachment = { filename: "facture.pdf", content: Buffer.from("pdf") };
+
+    const result = await sendMail(
+      "to@example.com",
+      "Sujet preuve",
+      "<p>Contenu exact</p>",
+      [attachment],
+      "reply@example.com",
+      ["bcc@example.com"],
+      {
+        societyId: "soc-1",
+        sentById: "user-1",
+        entityType: "INVOICE",
+        entityId: "invoice-1",
+        invoiceId: "invoice-1",
+        recipientName: "Jean Dupont",
+        evidence: { source: "test" },
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.proofId).toBe("proof-1");
+    expect(mockCreateEmailDeliveryProof).toHaveBeenCalledWith(
+      expect.objectContaining({
+        societyId: "soc-1",
+        sentById: "user-1",
+        entityType: "INVOICE",
+        entityId: "invoice-1",
+        invoiceId: "invoice-1",
+        recipientEmail: "to@example.com",
+        recipientName: "Jean Dupont",
+        subject: "Sujet preuve",
+        html: "<p>Contenu exact</p>",
+        providerMessageId: "email-123",
+        replyTo: "reply@example.com",
+        bcc: ["bcc@example.com"],
+        attachments: [expect.objectContaining({ filename: "facture.pdf" })],
+        evidence: { source: "test" },
+      })
+    );
   });
 });
 
