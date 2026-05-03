@@ -12,6 +12,7 @@ import {
   normalizeEmailDeliveryProofFilters,
   type EmailDeliveryProofSearchParams,
 } from "@/lib/email-delivery-proof-filters";
+import { buildEmailDeliveryProofStatusSummary, type EmailDeliveryProofStatusTone } from "@/lib/email-delivery-proof-status-summary";
 
 const STATUS_LABELS: Record<string, string> = {
   SENT: "Envoyé",
@@ -57,6 +58,19 @@ function buildExportHref(filters: ReturnType<typeof normalizeEmailDeliveryProofF
   return queryString ? `/api/email-delivery-proofs/export?${queryString}` : "/api/email-delivery-proofs/export";
 }
 
+function statusSummaryClassName(tone: EmailDeliveryProofStatusTone): string {
+  switch (tone) {
+    case "success":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "danger":
+      return "border-red-200 bg-red-50 text-red-900";
+    default:
+      return "border-border bg-card text-foreground";
+  }
+}
+
 export default async function EmailDeliveryProofsPage({ searchParams }: EmailDeliveryProofsPageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
@@ -66,6 +80,13 @@ export default async function EmailDeliveryProofsPage({ searchParams }: EmailDel
   const filters = normalizeEmailDeliveryProofFilters(resolvedSearchParams);
   const where = buildEmailDeliveryProofWhere(societyId, filters);
   const exportHref = buildExportHref(filters);
+
+  const statusCounts = await prisma.emailDeliveryProof.groupBy({
+    by: ["status"],
+    where: { societyId },
+    _count: { _all: true },
+  });
+  const statusSummary = buildEmailDeliveryProofStatusSummary(statusCounts);
 
   const proofs = await prisma.emailDeliveryProof.findMany({
     where,
@@ -101,6 +122,19 @@ export default async function EmailDeliveryProofsPage({ searchParams }: EmailDel
         <p className="mt-1 text-sm text-muted-foreground">
           Journal transversal des emails juridiquement sensibles : factures, quittances, décomptes et courriers.
         </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {statusSummary.map((item) => (
+          <Link
+            key={item.status}
+            href={`/documents/preuves-envoi?status=${item.status}`}
+            className={`rounded-lg border p-4 transition-colors hover:border-primary/50 ${statusSummaryClassName(item.tone)}`}
+          >
+            <p className="text-xs font-medium uppercase tracking-wide opacity-75">{item.label}</p>
+            <p className="mt-2 text-2xl font-semibold">{item.count}</p>
+          </Link>
+        ))}
       </div>
 
       <Card>
