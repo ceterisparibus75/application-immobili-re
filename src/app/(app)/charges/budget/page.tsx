@@ -60,7 +60,7 @@ export default async function ChargeBudgetPage({ searchParams }: PageProps) {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Budget prévisionnel des charges</h1>
-          <p className="text-muted-foreground">Provisions collectées vs charges réelles par immeuble</p>
+          <p className="text-muted-foreground">Provisions collectées vs charges récupérables par immeuble</p>
         </div>
       </div>
 
@@ -113,9 +113,9 @@ export default async function ChargeBudgetPage({ searchParams }: PageProps) {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Charges réelles</p>
+                <p className="text-sm text-muted-foreground">Charges récupérables</p>
                 <p className="mt-1 text-2xl font-bold">{formatCurrency(data.totals.actualCharges)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Dépenses enregistrées {year}</p>
+                <p className="text-xs text-muted-foreground mt-1">Quote-part récupérable {year}</p>
               </CardContent>
             </Card>
             <Card className={data.totals.balance >= 0 ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
@@ -153,7 +153,7 @@ export default async function ChargeBudgetPage({ searchParams }: PageProps) {
                       <tr className="border-b text-muted-foreground">
                         <th className="pb-3 text-left font-medium">Immeuble</th>
                         <th className="pb-3 text-right font-medium">Provisions</th>
-                        <th className="pb-3 text-right font-medium">Charges réelles</th>
+                        <th className="pb-3 text-right font-medium">Charges récupérables</th>
                         <th className="pb-3 text-right font-medium">Solde</th>
                         <th className="pb-3 text-right font-medium">Taux consommé</th>
                         <th className="pb-3" />
