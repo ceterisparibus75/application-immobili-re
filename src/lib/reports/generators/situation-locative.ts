@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import type { PaymentFrequency } from "@/generated/prisma/client";
@@ -94,7 +94,7 @@ export async function generateSituationLocative(opts: ReportOptions): Promise<Re
 
     y = drawSectionHeader(p, ctx.serifBold, y, `${b.name} - ${b.lots.length} lot(s)`);
     y = drawSubText(p, ctx.reg, y, `Occupation : ${occ}/${b.lots.length} | Loyers annuels HC : ${pdfCur(totalRentAnnuel)}`);
-    y -= 4;
+    y -= 10;
     y = drawTableHeader(p, ctx.bold, y, HEADERS, WIDTHS, ALIGNS);
 
     let totalLoyer = 0;
