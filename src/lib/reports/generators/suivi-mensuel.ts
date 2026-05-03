@@ -5,6 +5,7 @@ import { LCW, CORAL, GREEN } from "../constants";
 import { initPdf, drawCoverPage, pdfCur, contentStartY } from "../pdf-core";
 import {
   drawSectionHeader,
+  drawSubText,
   drawTableHeader,
   drawTableRow,
   drawTotalsRow,
@@ -83,6 +84,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   drawCoverPage(ctx, "Tableau de Suivi Mensuel", `Exercice ${year}`, [
     `Société : ${opts.society?.name ?? ""}`,
     `Période : 01/01/${year} au 31/12/${year}`,
+    "Note : les dépôts de garantie sont exclus des montants présentés.",
   ]);
 
   // Level 1 — résumé par immeuble (label + 12 mois + année)
@@ -176,6 +178,7 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
       ...monthlyNet.map((v) => pdfCur(v)),
       pdfCur(annNet),
     ], WIDTHS, ALIGNS, 841.89);
+    y = drawSubText(p, ctx.reg, y - 2, "Les dépôts de garantie ne sont pas inclus dans ces montants.");
 
     // ── Level 2 : détail par locataire ─────────────────────────────────────
     if (bInvoices.length === 0) continue;
