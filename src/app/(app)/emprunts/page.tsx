@@ -146,12 +146,6 @@ export default async function EmpruntsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Profil de la dette */}
-      {debtProfile.timeline.length > 0 && (
-        <DebtProfileChart profile={debtProfile} />
-      )}
-
       {/* Tableau récapitulatif encours par banque */}
       {sortedLenders.length > 1 && (
         <Card>
@@ -346,6 +340,12 @@ export default async function EmpruntsPage() {
           })}
         </div>
       )}
+
+      {/* Profil de la dette */}
+      {debtProfile.timeline.length > 0 && (
+        <DebtProfileChart profile={debtProfile} />
+      )}
+
     </div>
   );
 }
