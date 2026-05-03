@@ -25,6 +25,49 @@ import {
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+type ChargePeriodLike = {
+  amount: number;
+  date: Date;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+};
+
+type ChargeNatureLike = "PROPRIETAIRE" | "RECUPERABLE" | "MIXTE" | string;
+
+function dayStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function inclusiveDays(start: Date, end: Date): number {
+  const startTime = dayStart(start).getTime();
+  const endTime = dayStart(end).getTime();
+  return Math.max(0, Math.floor((endTime - startTime) / MS_PER_DAY) + 1);
+}
+
+function overlapDays(startA: Date, endA: Date, startB: Date, endB: Date): number {
+  const start = new Date(Math.max(dayStart(startA).getTime(), dayStart(startB).getTime()));
+  const end = new Date(Math.min(dayStart(endA).getTime(), dayStart(endB).getTime()));
+  return inclusiveDays(start, end);
+}
+
+function chargeAmountForPeriod(charge: ChargePeriodLike, periodStart: Date, periodEnd: Date): number {
+  const chargeStart = charge.periodStart ?? charge.date;
+  const chargeEnd = charge.periodEnd ?? charge.date;
+  const totalDays = inclusiveDays(chargeStart, chargeEnd);
+  if (totalDays === 0) return 0;
+
+  const coveredDays = overlapDays(chargeStart, chargeEnd, periodStart, periodEnd);
+  return charge.amount * (coveredDays / totalDays);
+}
+
+function recoverableRateFor(nature: ChargeNatureLike, recoverableRate?: number | null): number {
+  if (nature === "PROPRIETAIRE") return 0;
+  if (nature === "RECUPERABLE") return 1;
+  return (recoverableRate ?? 50) / 100;
+}
+
 // ─── Catégories de charges ────────────────────────────────────────────────────
 
 export async function createChargeCategory(
@@ -476,7 +519,8 @@ export async function generateAnnualChargeReport(
       where: {
         societyId,
         buildingId,
-        date: { gte: periodStart, lte: periodEnd },
+        periodStart: { lte: periodEnd },
+        periodEnd: { gte: periodStart },
       },
       include: {
         category: {
@@ -492,6 +536,10 @@ export async function generateAnnualChargeReport(
     if (charges.length === 0) {
       return { success: false, error: "Aucune charge trouvée pour cet immeuble sur cette période" };
     }
+
+    const totalPeriodCharges = charges.reduce((sum, charge) => {
+      return sum + chargeAmountForPeriod(charge, periodStart, periodEnd);
+    }, 0);
 
     // 2. Lots de l'immeuble
     const buildingLots = await prisma.lot.findMany({
@@ -535,8 +583,8 @@ export async function generateAnnualChargeReport(
       const leaseStart = lease.startDate > periodStart ? lease.startDate : periodStart;
       const leaseEndRaw = lease.endDate ?? periodEnd;
       const leaseEnd = leaseEndRaw < periodEnd ? leaseEndRaw : periodEnd;
-      const totalDaysInYear = 365;
-      const leaseDays = Math.max(1, Math.floor((leaseEnd.getTime() - leaseStart.getTime()) / (1000 * 60 * 60 * 24)));
+      const totalDaysInYear = inclusiveDays(periodStart, periodEnd);
+      const leaseDays = inclusiveDays(leaseStart, leaseEnd);
       const prorata = leaseDays / totalDaysInYear;
 
       // Calcul des charges récupérables par catégorie
@@ -563,8 +611,8 @@ export async function generateAnnualChargeReport(
       for (const { category, charges: catCharges } of Object.values(chargesByCategory)) {
         if (category.nature === "PROPRIETAIRE") continue;
 
-        const totalAmount = catCharges.reduce((s, c) => s + c.amount, 0);
-        const recoverableRate = category.nature === "RECUPERABLE" ? 1 : (category.recoverableRate ?? 50) / 100;
+        const totalAmount = catCharges.reduce((s, c) => s + chargeAmountForPeriod(c, periodStart, periodEnd), 0);
+        const recoverableRate = recoverableRateFor(category.nature, category.recoverableRate);
         const recoverableAmount = totalAmount * recoverableRate;
 
         // Clé de répartition (PERSONNALISE utilise les entrées stockées)
@@ -623,7 +671,7 @@ export async function generateAnnualChargeReport(
           societyId,
           periodStart,
           periodEnd,
-          totalCharges: charges.reduce((s, c) => s + c.amount, 0),
+          totalCharges: Math.round(totalPeriodCharges * 100) / 100,
           totalProvisions: Math.round(totalProvisions * 100) / 100,
           balance: Math.round(balance * 100) / 100,
           details: {
@@ -642,7 +690,7 @@ export async function generateAnnualChargeReport(
           fiscalYear: year,
           periodStart,
           periodEnd,
-          totalCharges: charges.reduce((s, c) => s + c.amount, 0),
+          totalCharges: Math.round(totalPeriodCharges * 100) / 100,
           totalProvisions: Math.round(totalProvisions * 100) / 100,
           balance: Math.round(balance * 100) / 100,
           details: {
@@ -721,7 +769,8 @@ export async function autoRegularizeCharges(
       where: {
         societyId,
         buildingId,
-        date: { gte: start, lte: end },
+        periodStart: { lte: end },
+        periodEnd: { gte: start },
       },
       include: {
         category: { select: { nature: true, recoverableRate: true } },
@@ -729,8 +778,8 @@ export async function autoRegularizeCharges(
     });
 
     const totalRealCharges = charges.reduce((sum, c) => {
-      const recoverableRate = (c.category.recoverableRate ?? 100) / 100;
-      return sum + c.amount * recoverableRate;
+      const recoverableRate = recoverableRateFor(c.category.nature, c.category.recoverableRate);
+      return sum + chargeAmountForPeriod(c, start, end) * recoverableRate;
     }, 0);
 
     // 2. Baux actifs sur l'immeuble avec leurs lots (pour les tantièmes)
@@ -787,18 +836,17 @@ export async function autoRegularizeCharges(
         return sum + cp.monthlyAmount * monthsCovered;
       }, 0);
 
-      // Solde : provisions - charges réelles
-      // Positif = trop-perçu (à rembourser au locataire)
-      // Négatif = complément à demander
-      const balance = totalProvisions - leaseChargeShare;
+      // Convention ChargeRegularization.balance : positif = complément dû, négatif = avoir locataire.
+      const balance = leaseChargeShare - totalProvisions;
       totalBalance += balance;
 
       // Détails par catégorie de charge
       const details = charges.reduce<Record<string, { label: string; amount: number; recoverable: number }>>((acc, c) => {
         const key = c.category.nature;
         if (!acc[key]) acc[key] = { label: key, amount: 0, recoverable: 0 };
-        acc[key].amount += c.amount;
-        acc[key].recoverable += c.amount * ((c.category.recoverableRate ?? 100) / 100) * shareRatio;
+        const amount = chargeAmountForPeriod(c, start, end);
+        acc[key].amount += amount;
+        acc[key].recoverable += amount * recoverableRateFor(c.category.nature, c.category.recoverableRate) * shareRatio;
         return acc;
       }, {});
 
@@ -865,4 +913,3 @@ export async function autoRegularizeCharges(
     return { success: false, error: "Erreur lors de la régularisation" };
   }
 }
-

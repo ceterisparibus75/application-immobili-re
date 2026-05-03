@@ -857,6 +857,26 @@ describe("generateAnnualChargeReport", () => {
     expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
   })
 
+  it("sélectionne les charges par période couverte et pas seulement par date de facture", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lot.findMany.mockResolvedValue([makeLot()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([makeLease()] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+
+    expect(r.success).toBe(true)
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          periodStart: { lte: expect.any(Date) },
+          periodEnd: { gte: expect.any(Date) },
+        }),
+      })
+    )
+  })
+
   it("calcule les provisions avec startDate > periodStart et endDate non-null < periodEnd (lignes 595-598)", async () => {
     mockAuthSession(UserRole.GESTIONNAIRE)
     prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
@@ -987,6 +1007,35 @@ describe("autoRegularizeCharges", () => {
     expect(r.success).toBe(true)
     expect(r.data?.regularizations).toBe(1)
     expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledTimes(1)
+  })
+
+  it("stocke un solde positif quand le locataire doit un complément et ignore les charges propriétaire", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([
+      { ...makeCharge(), id: "charge-rec", amount: 1200, category: { nature: "RECUPERABLE", recoverableRate: 100 } },
+      { ...makeCharge(), id: "charge-owner", amount: 10000, category: { nature: "PROPRIETAIRE", recoverableRate: 100 } },
+    ] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        chargeProvisions: [{ monthlyAmount: 50, startDate: new Date("2024-01-01"), endDate: null }],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+
+    expect(r.success).toBe(true)
+    expect(r.data?.totalBalance).toBe(600)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          totalCharges: 1200,
+          totalProvisions: 600,
+          balance: 600,
+        }),
+      })
+    )
   })
 
   it("retourne une erreur si rôle insuffisant pour autoRegularizeCharges", async () => {
