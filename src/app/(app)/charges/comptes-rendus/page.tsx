@@ -12,6 +12,7 @@ import { ChargeReportsEmptyState } from "./_components/charge-reports-empty-stat
 import { SendStatementButton } from "./_components/send-statement-button";
 import { GenerateInvoiceButton } from "./_components/generate-invoice-button";
 import { buildChargeReportPresentation } from "./_components/charge-report-presentation";
+import { MissingTenantEmailBadge } from "./_components/missing-tenant-email-badge";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -165,6 +166,7 @@ export default async function ComptesRendusPage() {
                                   tenantEmail={report.lease.tenant.email}
                                 />
                               )}
+                              {report.isFinalized && !report.lease.tenant.email && <MissingTenantEmailBadge />}
                               {report.isFinalized && report.balance > 0 && (
                                 <GenerateInvoiceButton regularizationId={report.id} />
                               )}
