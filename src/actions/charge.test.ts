@@ -1038,6 +1038,31 @@ describe("autoRegularizeCharges", () => {
     )
   })
 
+  it("proratise chaque provision sur sa propre période de validité", async () => {
+    mockAuthSession(UserRole.COMPTABLE)
+    prismaMock.charge.findMany.mockResolvedValue([makeCharge()] as never)
+    prismaMock.lease.findMany.mockResolvedValue([
+      {
+        ...makeLease(),
+        chargeProvisions: [{ monthlyAmount: 100, startDate: new Date("2024-07-01"), endDate: new Date("2024-12-31") }],
+      },
+    ] as never)
+    prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
+
+    const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
+
+    expect(r.success).toBe(true)
+    expect(prismaMock.chargeRegularization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          totalCharges: 1200,
+          totalProvisions: 600,
+          balance: 600,
+        }),
+      })
+    )
+  })
+
   it("retourne une erreur si rôle insuffisant pour autoRegularizeCharges", async () => {
     mockAuthSession(UserRole.LECTURE)
     const r = await autoRegularizeCharges(SOCIETY_ID, validInput)
@@ -1346,6 +1371,21 @@ describe("generateAnnualChargeReport — répartition PROPRIETAIRE, SURFACE, NB_
     prismaMock.chargeRegularization.upsert.mockResolvedValue({} as never)
     const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
     expect(r.success).toBe(true)
+  })
+
+  it("bloque une catégorie COMPTEUR sans clé de répartition explicite", async () => {
+    mockAuthSession(UserRole.GESTIONNAIRE)
+    const chargeCompteur = {
+      ...makeCharge(),
+      category: { ...makeCharge().category, name: "Eau froide", nature: "RECUPERABLE", allocationMethod: "COMPTEUR", allocationKeys: [] },
+    }
+    prismaMock.charge.findMany.mockResolvedValue([chargeCompteur] as never)
+
+    const r = await generateAnnualChargeReport(SOCIETY_ID, BUILDING_ID, 2024)
+
+    expect(r.success).toBe(false)
+    expect(r.error).toContain("Eau froide")
+    expect(prismaMock.chargeRegularization.upsert).not.toHaveBeenCalled()
   })
 
   it("TANTIEME fallback surface (ligne 573) : commonShares=0 mais area > 0", async () => {

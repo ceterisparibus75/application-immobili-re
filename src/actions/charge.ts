@@ -34,6 +34,12 @@ type ChargePeriodLike = {
   periodEnd?: Date | null;
 };
 
+type ChargeProvisionLike = {
+  monthlyAmount: number;
+  startDate: Date;
+  endDate?: Date | null;
+};
+
 type ChargeNatureLike = "PROPRIETAIRE" | "RECUPERABLE" | "MIXTE" | string;
 
 function dayStart(date: Date): Date {
@@ -52,6 +58,11 @@ function overlapDays(startA: Date, endA: Date, startB: Date, endB: Date): number
   return inclusiveDays(start, end);
 }
 
+function inclusiveMonths(start: Date, end: Date): number {
+  if (dayStart(end) < dayStart(start)) return 0;
+  return Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1);
+}
+
 function chargeAmountForPeriod(charge: ChargePeriodLike, periodStart: Date, periodEnd: Date): number {
   const chargeStart = charge.periodStart ?? charge.date;
   const chargeEnd = charge.periodEnd ?? charge.date;
@@ -60,6 +71,13 @@ function chargeAmountForPeriod(charge: ChargePeriodLike, periodStart: Date, peri
 
   const coveredDays = overlapDays(chargeStart, chargeEnd, periodStart, periodEnd);
   return charge.amount * (coveredDays / totalDays);
+}
+
+function provisionAmountForPeriod(provision: ChargeProvisionLike, periodStart: Date, periodEnd: Date): number {
+  const start = new Date(Math.max(dayStart(provision.startDate).getTime(), dayStart(periodStart).getTime()));
+  const rawEnd = provision.endDate ?? periodEnd;
+  const end = new Date(Math.min(dayStart(rawEnd).getTime(), dayStart(periodEnd).getTime()));
+  return provision.monthlyAmount * inclusiveMonths(start, end);
 }
 
 function recoverableRateFor(nature: ChargeNatureLike, recoverableRate?: number | null): number {
@@ -537,6 +555,25 @@ export async function generateAnnualChargeReport(
       return { success: false, error: "Aucune charge trouvée pour cet immeuble sur cette période" };
     }
 
+    const categoriesWithoutExplicitKey = [
+      ...new Set(
+        charges
+          .filter((charge) => {
+            const method = charge.category.allocationMethod;
+            const keys = charge.category.allocationKeys ?? [];
+            return charge.category.nature !== "PROPRIETAIRE" && (method === "COMPTEUR" || method === "PERSONNALISE") && keys.length === 0;
+          })
+          .map((charge) => charge.category.name)
+      ),
+    ];
+
+    if (categoriesWithoutExplicitKey.length > 0) {
+      return {
+        success: false,
+        error: `Clé de répartition requise pour : ${categoriesWithoutExplicitKey.join(", ")}`,
+      };
+    }
+
     const totalPeriodCharges = charges.reduce((sum, charge) => {
       return sum + chargeAmountForPeriod(charge, periodStart, periodEnd);
     }, 0);
@@ -652,10 +689,7 @@ export async function generateAnnualChargeReport(
 
       // 5. Total provisions versées
       const totalProvisions = lease.chargeProvisions.reduce((s, p) => {
-        const provStart = p.startDate > periodStart ? p.startDate : periodStart;
-        const provEnd = p.endDate ? (p.endDate < periodEnd ? p.endDate : periodEnd) : periodEnd;
-        const months = Math.max(0, (provEnd.getFullYear() - provStart.getFullYear()) * 12 + provEnd.getMonth() - provStart.getMonth() + 1);
-        return s + p.monthlyAmount * months;
+        return s + provisionAmountForPeriod(p, leaseStart, leaseEnd);
       }, 0);
 
       const balance = totalTenantShare - totalProvisions;
@@ -825,15 +859,11 @@ export async function autoRegularizeCharges(
       const leaseEnd = lease.endDate
         ? new Date(Math.min(lease.endDate.getTime(), end.getTime()))
         : end;
-      const monthsCovered = Math.max(
-        0,
-        (leaseEnd.getFullYear() - leaseStart.getFullYear()) * 12 +
-          leaseEnd.getMonth() - leaseStart.getMonth() + 1
-      );
+      const monthsCovered = inclusiveMonths(leaseStart, leaseEnd);
 
       // Total des provisions versées
       const totalProvisions = lease.chargeProvisions.reduce((sum, cp) => {
-        return sum + cp.monthlyAmount * monthsCovered;
+        return sum + provisionAmountForPeriod(cp, leaseStart, leaseEnd);
       }, 0);
 
       // Convention ChargeRegularization.balance : positif = complément dû, négatif = avoir locataire.
