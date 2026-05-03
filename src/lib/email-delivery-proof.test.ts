@@ -75,6 +75,11 @@ describe("email-delivery-proof", () => {
           providerEventId: "evt-1",
           eventType: "email.delivered",
           occurredAt: new Date("2026-05-04T08:00:00.000Z"),
+          payload: expect.objectContaining({
+            _mygestia: expect.objectContaining({
+              payloadSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            }),
+          }),
         }),
       ],
       skipDuplicates: true,

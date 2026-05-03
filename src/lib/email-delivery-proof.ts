@@ -35,6 +35,34 @@ function safeJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+function stableJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJsonStringify(item)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJsonStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+function payloadWithIntegrityHash(event: ResendDeliveryEvent): Prisma.InputJsonValue {
+  const payloadSha256 = sha256(stableJsonStringify(event));
+  return safeJson({
+    ...event,
+    _mygestia: {
+      payloadSha256,
+      payloadHashAlgorithm: "sha256",
+      payloadCanonicalization: "stable-json-v1",
+    },
+  });
+}
+
 function messageId(event: ResendDeliveryEvent): string | null {
   const raw = event.data?.email_id ?? event.data?.emailId ?? event.data?.id;
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
@@ -143,7 +171,7 @@ export async function applyResendDeliveryEvent(input: {
       providerEventId: input.providerEventId ?? null,
       eventType: input.event.type,
       occurredAt: date,
-      payload: safeJson(input.event),
+      payload: payloadWithIntegrityHash(input.event),
     })),
     skipDuplicates: true,
   });
