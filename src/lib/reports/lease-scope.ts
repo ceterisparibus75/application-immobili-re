@@ -6,10 +6,6 @@ export function getActiveLeaseWhere(asOf = new Date()) {
     deletedAt: null,
     status: { in: [...REPORT_ACTIVE_LEASE_STATUSES] },
     startDate: { lte: asOf },
-    OR: [
-      { endDate: null },
-      { endDate: { gte: asOf } },
-    ],
   };
 }
 
