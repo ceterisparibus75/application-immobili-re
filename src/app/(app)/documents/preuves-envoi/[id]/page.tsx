@@ -108,12 +108,20 @@ export default async function EmailDeliveryProofDetailPage({ params }: { params:
             <p className="mt-1 text-sm text-muted-foreground">{proof.subject}</p>
           </div>
         </div>
-        <a href={`/api/email-delivery-proofs/${proof.id}/pdf`} target="_blank" rel="noreferrer">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4" />
-            Attestation PDF
-          </Button>
-        </a>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <a href={`/api/email-delivery-proofs/${proof.id}/json`}>
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4" />
+              Archive JSON
+            </Button>
+          </a>
+          <a href={`/api/email-delivery-proofs/${proof.id}/pdf`} target="_blank" rel="noreferrer">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4" />
+              Attestation PDF
+            </Button>
+          </a>
+        </div>
       </div>
 
       <Card>
