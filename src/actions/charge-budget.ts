@@ -20,6 +20,43 @@ export type ChargeBudgetSummaryData = {
   totals: { totalProvisions: number; actualCharges: number; balance: number };
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function dayStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function inclusiveDays(start: Date, end: Date): number {
+  const startTime = dayStart(start).getTime();
+  const endTime = dayStart(end).getTime();
+  return Math.max(0, Math.floor((endTime - startTime) / MS_PER_DAY) + 1);
+}
+
+function overlapDays(startA: Date, endA: Date, startB: Date, endB: Date): number {
+  const start = new Date(Math.max(dayStart(startA).getTime(), dayStart(startB).getTime()));
+  const end = new Date(Math.min(dayStart(endA).getTime(), dayStart(endB).getTime()));
+  return inclusiveDays(start, end);
+}
+
+function chargeAmountForPeriod(
+  charge: { amount: number; date: Date; periodStart?: Date | null; periodEnd?: Date | null },
+  periodStart: Date,
+  periodEnd: Date
+): number {
+  const chargeStart = charge.periodStart ?? charge.date;
+  const chargeEnd = charge.periodEnd ?? charge.date;
+  const totalDays = inclusiveDays(chargeStart, chargeEnd);
+  if (totalDays === 0) return 0;
+
+  return charge.amount * (overlapDays(chargeStart, chargeEnd, periodStart, periodEnd) / totalDays);
+}
+
+function recoverableRateFor(nature: string, recoverableRate?: number | null): number {
+  if (nature === "PROPRIETAIRE") return 0;
+  if (nature === "RECUPERABLE") return 1;
+  return (recoverableRate ?? 50) / 100;
+}
+
 function calcProvisionMonths(
   provision: { monthlyAmount: number; startDate: Date; endDate: Date | null },
   year: number
@@ -69,9 +106,17 @@ export async function getChargeBudgetSummary(
         where: {
           societyId,
           buildingId: { in: buildingIds },
-          date: { gte: yearStart, lte: yearEnd },
+          periodStart: { lte: yearEnd },
+          periodEnd: { gte: yearStart },
         },
-        select: { buildingId: true, amount: true },
+        select: {
+          buildingId: true,
+          amount: true,
+          date: true,
+          periodStart: true,
+          periodEnd: true,
+          category: { select: { nature: true, recoverableRate: true } },
+        },
       }),
       prisma.lease.findMany({
         where: {
@@ -93,7 +138,10 @@ export async function getChargeBudgetSummary(
     const rows: BuildingBudgetRow[] = buildings.map((b) => {
       const buildingCharges = charges.filter((c) => c.buildingId === b.id);
       const actualCharges = Math.round(
-        buildingCharges.reduce((s, c) => s + c.amount, 0) * 100
+        buildingCharges.reduce((s, c) => {
+          const amount = chargeAmountForPeriod(c, yearStart, yearEnd);
+          return s + amount * recoverableRateFor(c.category.nature, c.category.recoverableRate);
+        }, 0) * 100
       ) / 100;
 
       const buildingLeases = leases.filter((l) => l.lot.building.id === b.id);

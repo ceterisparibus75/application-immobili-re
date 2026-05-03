@@ -20,9 +20,33 @@ const mockBuildings = [
 ];
 
 const mockCharges = [
-  { id: "c1", buildingId: "building-1", amount: 500, date: new Date("2024-03-15") },
-  { id: "c2", buildingId: "building-1", amount: 300, date: new Date("2024-07-20") },
-  { id: "c3", buildingId: "building-2", amount: 200, date: new Date("2024-05-10") },
+  {
+    id: "c1",
+    buildingId: "building-1",
+    amount: 500,
+    date: new Date("2024-03-15"),
+    periodStart: new Date("2024-03-01"),
+    periodEnd: new Date("2024-03-31"),
+    category: { nature: "RECUPERABLE", recoverableRate: 100 },
+  },
+  {
+    id: "c2",
+    buildingId: "building-1",
+    amount: 300,
+    date: new Date("2024-07-20"),
+    periodStart: new Date("2024-07-01"),
+    periodEnd: new Date("2024-07-31"),
+    category: { nature: "RECUPERABLE", recoverableRate: 100 },
+  },
+  {
+    id: "c3",
+    buildingId: "building-2",
+    amount: 200,
+    date: new Date("2024-05-10"),
+    periodStart: new Date("2024-05-01"),
+    periodEnd: new Date("2024-05-31"),
+    category: { nature: "RECUPERABLE", recoverableRate: 100 },
+  },
 ];
 
 const mockLeases = [
@@ -78,6 +102,56 @@ describe("getChargeBudgetSummary", () => {
     expect(b1?.actualCharges).toBe(800); // 500 + 300
     const b2 = result.data?.buildings.find((b) => b.buildingId === "building-2");
     expect(b2?.actualCharges).toBe(200);
+  });
+
+  it("sélectionne les charges par période couverte", async () => {
+    await getChargeBudgetSummary("soc-1", 2024);
+
+    expect(prismaMock.charge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          periodStart: { lte: expect.any(Date) },
+          periodEnd: { gte: expect.any(Date) },
+        }),
+      })
+    );
+  });
+
+  it("calcule uniquement la quote-part récupérable sur la période budgétaire", async () => {
+    prismaMock.charge.findMany.mockResolvedValue([
+      {
+        id: "c-overlap",
+        buildingId: "building-1",
+        amount: 620,
+        date: new Date("2023-12-15"),
+        periodStart: new Date("2023-12-01"),
+        periodEnd: new Date("2024-01-31"),
+        category: { nature: "RECUPERABLE", recoverableRate: 100 },
+      },
+      {
+        id: "c-owner",
+        buildingId: "building-1",
+        amount: 999,
+        date: new Date("2024-01-15"),
+        periodStart: new Date("2024-01-01"),
+        periodEnd: new Date("2024-01-31"),
+        category: { nature: "PROPRIETAIRE", recoverableRate: 100 },
+      },
+      {
+        id: "c-mixed",
+        buildingId: "building-1",
+        amount: 1000,
+        date: new Date("2024-02-15"),
+        periodStart: new Date("2024-02-01"),
+        periodEnd: new Date("2024-02-29"),
+        category: { nature: "MIXTE", recoverableRate: 40 },
+      },
+    ] as never);
+
+    const result = await getChargeBudgetSummary("soc-1", 2024, "building-1");
+
+    expect(result.success).toBe(true);
+    expect(result.data?.buildings[0]?.actualCharges).toBe(710);
   });
 
   it("calcule les provisions par immeuble pour l'annee", async () => {
