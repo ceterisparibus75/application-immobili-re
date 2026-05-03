@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
@@ -54,7 +55,7 @@ function clampOccupancyEnd(periodEnd: Date, leaseEnd?: Date | null): string {
 export async function sendChargeRegularization(
   societyId: string,
   regularizationId: string
-): Promise<ActionResult<{ emailId?: string }>> {
+): Promise<ActionResult<{ emailId?: string; deliveryId?: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
@@ -143,6 +144,39 @@ export async function sendChargeRegularization(
       pdfBuffer,
     });
 
+    if (!emailResult.success) {
+      return { success: false, error: emailResult.error ?? "Erreur lors de l'envoi du décompte" };
+    }
+
+    const pdfSha256 = createHash("sha256").update(pdfBuffer).digest("hex");
+    const delivery = await prisma.chargeStatementDelivery.create({
+      data: {
+        regularizationId: reg.id,
+        societyId,
+        leaseId: reg.lease.id,
+        tenantId: tenant.id,
+        sentById: context.userId,
+        fiscalYear: reg.fiscalYear,
+        periodStart: reg.periodStart,
+        periodEnd: reg.periodEnd,
+        balance: reg.balance,
+        recipientEmail: tenant.email,
+        recipientName: tenantName,
+        provider: "resend",
+        providerMessageId: emailResult.emailId,
+        status: "SENT",
+        pdfSha256,
+        pdfSizeBytes: pdfBuffer.length,
+        evidence: {
+          deliveryMethod: "EMAIL",
+          attachmentFilename: `decompte-charges-${reg.fiscalYear}.pdf`,
+          generatedAt: new Date().toISOString(),
+          lotNumber: reg.lease.lot.number,
+          buildingName: reg.lease.lot.building.name,
+        },
+      },
+    });
+
     await createAuditLog({
       societyId,
       userId: context.userId,
@@ -152,13 +186,15 @@ export async function sendChargeRegularization(
       details: {
         event: "CHARGE_STATEMENT_SENT",
         emailId: emailResult.emailId,
+        deliveryProofId: delivery.id,
+        pdfSha256,
         fiscalYear: reg.fiscalYear,
         tenantEmail: tenant.email,
       },
     });
 
     revalidatePath("/charges/comptes-rendus");
-    return { success: true, data: { emailId: emailResult.emailId } };
+    return { success: true, data: { emailId: emailResult.emailId, deliveryId: delivery.id } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

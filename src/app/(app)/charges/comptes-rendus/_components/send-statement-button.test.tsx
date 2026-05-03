@@ -11,8 +11,13 @@ const { toast } = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+const { refresh } = vi.hoisted(() => ({
+  refresh: vi.fn(),
+}));
+
 vi.mock("@/actions/charge-statement", () => ({ sendChargeRegularization }));
 vi.mock("sonner", () => ({ toast }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 describe("SendStatementButton", () => {
   it("envoie le décompte et affiche les libellés accentués", async () => {
@@ -32,6 +37,7 @@ describe("SendStatementButton", () => {
     await waitFor(() => {
       expect(sendChargeRegularization).toHaveBeenCalledWith("society-1", "reg-1");
       expect(toast.success).toHaveBeenCalledWith("Décompte envoyé à tenant@example.test");
+      expect(refresh).toHaveBeenCalled();
       expect(screen.getByRole("button", { name: "Envoyé" })).toBeDisabled();
     });
   });

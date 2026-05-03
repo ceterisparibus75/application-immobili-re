@@ -13,6 +13,8 @@ import { SendStatementButton } from "./_components/send-statement-button";
 import { GenerateInvoiceButton } from "./_components/generate-invoice-button";
 import { buildChargeReportPresentation } from "./_components/charge-report-presentation";
 import { MissingTenantEmailBadge } from "./_components/missing-tenant-email-badge";
+import { ChargeStatementPdfButton } from "./_components/charge-statement-pdf-button";
+import { DeliveryProofBadge } from "./_components/delivery-proof-badge";
 
 export const metadata = { title: "Comptes rendus de charges" };
 
@@ -107,6 +109,7 @@ export default async function ComptesRendusPage() {
                       const occupancyLabel = presentation.hasPartialOccupancy && presentation.occupancyStart && presentation.occupancyEnd
                         ? `${formatDate(presentation.occupancyStart)} – ${formatDate(presentation.occupancyEnd)}`
                         : null;
+                      const latestDelivery = report.deliveries[0] ?? null;
                       return (
                         <div key={report.id} className="py-4">
                           <div className="flex items-start justify-between gap-4">
@@ -159,6 +162,8 @@ export default async function ComptesRendusPage() {
                                   <><Clock className="h-3 w-3" /> Brouillon</>
                                 )}
                               </Badge>
+                              {latestDelivery && <DeliveryProofBadge sentAt={latestDelivery.createdAt} />}
+                              <ChargeStatementPdfButton regularizationId={report.id} />
                               {report.isFinalized && report.lease.tenant.email && (
                                 <SendStatementButton
                                   societyId={societyId}

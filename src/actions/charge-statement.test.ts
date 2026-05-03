@@ -87,6 +87,7 @@ describe("sendChargeRegularization", () => {
     requireSocietyActionContext.mockResolvedValue({ userId: "user-1" });
     prismaMock.chargeRegularization.findFirst.mockResolvedValue(baseRegularization as never);
     prismaMock.society.findUnique.mockResolvedValue(baseSociety as never);
+    prismaMock.chargeStatementDelivery.create.mockResolvedValue({ id: "delivery-1" } as never);
   });
 
   it("retourne une erreur si l'auth echoue", async () => {
@@ -128,6 +129,39 @@ describe("sendChargeRegularization", () => {
         balance: 200,
       })
     );
+  });
+
+  it("enregistre une preuve d'envoi avec l'empreinte du PDF", async () => {
+    const result = await sendChargeRegularization("soc-1", "reg-1");
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.chargeStatementDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        regularizationId: "reg-1",
+        societyId: "soc-1",
+        leaseId: "lease-1",
+        tenantId: "tenant-1",
+        sentById: "user-1",
+        fiscalYear: 2024,
+        recipientEmail: "jean.dupont@example.com",
+        recipientName: "Jean Dupont",
+        provider: "resend",
+        providerMessageId: "email-123",
+        status: "SENT",
+        pdfSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        pdfSizeBytes: Buffer.from("pdf-content").length,
+      }),
+    });
+  });
+
+  it("n'enregistre pas de preuve d'envoi si le prestataire email échoue", async () => {
+    sendChargeStatementEmail.mockResolvedValueOnce({ success: false, error: "provider down" });
+
+    const result = await sendChargeRegularization("soc-1", "reg-1");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("provider down");
+    expect(prismaMock.chargeStatementDelivery.create).not.toHaveBeenCalled();
   });
 
   it("cree un audit log avec l'event CHARGE_STATEMENT_SENT", async () => {

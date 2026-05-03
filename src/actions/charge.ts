@@ -574,6 +574,10 @@ export async function getChargeRegularizations(societyId: string) {
           lot: { include: { building: { select: { id: true, name: true, city: true } } } },
         },
       },
+      deliveries: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: [{ fiscalYear: "desc" }, { createdAt: "desc" }],
   });

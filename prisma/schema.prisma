@@ -612,6 +612,7 @@ model Society {
   supplierInvoices         SupplierInvoice[]
   fixedAssets              FixedAsset[]
   legalEvents              LegalEvent[]
+  chargeStatementDeliveries ChargeStatementDelivery[]
 
   // Numérotation baux
   leasePrefix     String? // Préfixe numérotation bail (ex: "BAIL")
@@ -759,6 +760,7 @@ model User {
   closedFiscalYears FiscalYear[]     @relation("FiscalYearCloser")
   datarooms         Dataroom[]
   reportSchedules   ReportSchedule[]
+  sentChargeStatementDeliveries ChargeStatementDelivery[] @relation("ChargeStatementDeliverySender")
 
   @@index([email])
 }
@@ -1109,6 +1111,7 @@ model Lease {
   thirdPartyStatementLeases ThirdPartyStatementLease[]
   supplierInvoices          SupplierInvoice[]
   legalEvents               LegalEvent[]
+  chargeStatementDeliveries ChargeStatementDelivery[]
 
   @@index([societyId])
   @@index([societyId, deletedAt])
@@ -1411,6 +1414,7 @@ model Tenant {
   contact              Contact?
   tickets              Ticket[]
   supplierInvoices     SupplierInvoice[]
+  chargeStatementDeliveries ChargeStatementDelivery[]
 
   @@index([societyId])
   @@index([societyId, deletedAt])
@@ -1718,10 +1722,61 @@ model ChargeRegularization {
   lease           Lease                @relation(fields: [leaseId], references: [id], onDelete: Cascade)
   society         Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
   sourceStatement ThirdPartyStatement? @relation(fields: [sourceStatementId], references: [id], onDelete: SetNull)
+  deliveries      ChargeStatementDelivery[]
 
   @@unique([leaseId, fiscalYear])
   @@index([leaseId])
   @@index([societyId])
+}
+
+enum ChargeStatementDeliveryStatus {
+  SENT
+  FAILED
+}
+
+/// Preuve d'envoi d'un décompte annuel de charges.
+/// Conserve l'empreinte du PDF effectivement envoyé et l'identifiant du prestataire email.
+model ChargeStatementDelivery {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  regularizationId String
+  societyId        String
+  leaseId          String
+  tenantId         String
+  sentById         String?
+
+  fiscalYear  Int
+  periodStart DateTime
+  periodEnd   DateTime
+  balance     Float
+
+  recipientEmail String
+  recipientName  String
+
+  provider          String                        @default("resend")
+  providerMessageId String?
+  status            ChargeStatementDeliveryStatus @default(SENT)
+  errorMessage      String?                       @db.Text
+
+  pdfSha256    String
+  pdfSizeBytes Int
+  evidence     Json?
+
+  regularization ChargeRegularization @relation(fields: [regularizationId], references: [id], onDelete: Cascade)
+  society        Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease          Lease                @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sentBy         User?                @relation("ChargeStatementDeliverySender", fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([regularizationId])
+  @@index([societyId])
+  @@index([tenantId])
+  @@index([leaseId])
+  @@index([sentById])
+  @@index([societyId, fiscalYear])
+  @@index([providerMessageId])
 }
 
 /// Relevé de compteur individuel

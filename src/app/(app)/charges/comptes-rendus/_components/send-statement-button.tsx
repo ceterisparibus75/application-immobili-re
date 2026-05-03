@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { sendChargeRegularization } from "@/actions/charge-statement";
 import { Send, Loader2, CheckCircle2 } from "lucide-react";
@@ -19,6 +20,7 @@ export function SendStatementButton({
   tenantEmail,
   disabled,
 }: SendStatementButtonProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -29,6 +31,7 @@ export function SendStatementButton({
       if (result.success) {
         setSent(true);
         toast.success(`Décompte envoyé à ${tenantEmail}`);
+        router.refresh();
       } else {
         toast.error(result.error ?? "Erreur lors de l'envoi");
       }
