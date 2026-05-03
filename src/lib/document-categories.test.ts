@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { DOCUMENT_CATEGORIES } from "./document-categories";
+import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_GROUPS } from "./document-categories";
 
 describe("DOCUMENT_CATEGORIES", () => {
-  it("contient 14 catégories", () => {
-    expect(DOCUMENT_CATEGORIES).toHaveLength(14);
+  it("expose toutes les catégories déclarées dans les groupes", () => {
+    const groupedCount = DOCUMENT_CATEGORY_GROUPS.reduce((count, group) => count + group.items.length, 0);
+    expect(DOCUMENT_CATEGORIES).toHaveLength(groupedCount);
   });
 
   it("contient les catégories clés", () => {
