@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import { generateAnnualChargeReport } from "@/actions/charge";
 type Building = { id: string; name: string; city: string };
 
 export function GenerateReportButton({ societyId }: { societyId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +49,7 @@ export function GenerateReportButton({ societyId }: { societyId: string }) {
     setIsLoading(false);
     if (result.success && result.data) {
       setSuccess(`${result.data.created} compte(s) rendu(s) généré(s) avec succès.`);
+      router.refresh();
     } else {
       setError(result.error ?? "Erreur inconnue");
     }
