@@ -11,16 +11,16 @@ import { generateAndSendQuittance } from "@/actions/invoice";
 import { getOutstandingAmount } from "@/lib/reports/invoice-metrics";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  getAccountingFallbackForCashflowCategory,
+  type AccountingAccountFallback,
+} from "@/lib/accounting-category-mapping";
+import {
   getOptionalSocietyActionContext,
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 
-type AccountFallback = {
-  code: string;
-  label: string;
-  type: string;
-};
+type AccountFallback = AccountingAccountFallback;
 
 type AccountingJournalClient = Pick<
   Prisma.TransactionClient,
@@ -50,38 +50,6 @@ type BankJournalTransaction = {
     } | null;
   }>;
 };
-
-const BANK_CATEGORY_ACCOUNT_FALLBACKS: Record<string, AccountFallback> = {
-  loyers: { code: "706100", label: "Loyers", type: "7" },
-  charges_locatives: { code: "706500", label: "Refacturation de charges locatives", type: "7" },
-  regularisation: { code: "758000", label: "Produits divers de gestion courante", type: "7" },
-  autres_revenus: { code: "758000", label: "Produits divers de gestion courante", type: "7" },
-  depot_garantie: { code: "165000", label: "Depots et cautionnements recus", type: "1" },
-  cession_immeuble: { code: "775000", label: "Produits des cessions d'elements d'actif", type: "7" },
-  charges_copro: { code: "614000", label: "Charges locatives et de copropriete", type: "6" },
-  assurance: { code: "616000", label: "Primes d'assurance", type: "6" },
-  entretien_courant: { code: "615000", label: "Entretien et reparations", type: "6" },
-  taxes: { code: "635000", label: "Autres impots et taxes", type: "6" },
-  frais_bancaires: { code: "627000", label: "Services bancaires et assimiles", type: "6" },
-  interets_emprunt: { code: "661100", label: "Interets des emprunts", type: "6" },
-  remboursement_emprunt: { code: "164000", label: "Emprunts aupres des etablissements de credit", type: "1" },
-  honoraires: { code: "622000", label: "Remunerations d'intermediaires et honoraires", type: "6" },
-  energie: { code: "606100", label: "Fournitures non stockables - eau, energie", type: "6" },
-  fournitures: { code: "606300", label: "Fournitures d'entretien et de petit equipement", type: "6" },
-  frais_gestion: { code: "622000", label: "Remunerations d'intermediaires et honoraires", type: "6" },
-  divers_depense: { code: "658000", label: "Charges diverses de gestion courante", type: "6" },
-  travaux: { code: "615000", label: "Entretien et reparations", type: "6" },
-  acquisition_immeuble: { code: "213000", label: "Constructions", type: "2" },
-  virement_interne: { code: "580000", label: "Virements internes", type: "5" },
-  apport_cca: { code: "455000", label: "Associes - comptes courants", type: "4" },
-  remboursement_cca: { code: "455000", label: "Associes - comptes courants", type: "4" },
-  souscription_emprunt: { code: "164000", label: "Emprunts aupres des etablissements de credit", type: "1" },
-};
-
-function getBankCategoryAccountFallback(category: string | null | undefined): AccountFallback | null {
-  if (!category) return null;
-  return BANK_CATEGORY_ACCOUNT_FALLBACKS[category] ?? null;
-}
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
@@ -257,7 +225,7 @@ async function createBankJournalEntryForTransaction(
   const hasInvoice = transaction.reconciliations.length > 0;
   const categoryContraFallback = hasInvoice
     ? null
-    : getBankCategoryAccountFallback(transaction.category);
+    : getAccountingFallbackForCashflowCategory(transaction.category);
 
   const bankAccountFallback = transaction.bankAccount
     ? buildBankAccountFallback(transaction.bankAccount)

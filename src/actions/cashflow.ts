@@ -15,6 +15,7 @@ import {
   isVirementInterne,
 } from "@/lib/cashflow-categories";
 import { normalizeLabel } from "@/lib/normalize-label";
+import { getAccountingFallbackForCashflowCategory } from "@/lib/accounting-category-mapping";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -540,6 +541,73 @@ export async function getUncategorizedTransactions(
 // categorizeTransactions — mettre à jour la catégorie de transactions
 // ═══════════════════════════════════════════════════════════════════════════
 
+async function syncSimpleBankJournalEntryCounterpart(
+  societyId: string,
+  transactionId: string,
+  category: string
+): Promise<void> {
+  const fallback = getAccountingFallbackForCashflowCategory(category);
+  if (!fallback) return;
+
+  const transaction = await prisma.bankTransaction.findFirst({
+    where: { id: transactionId, bankAccount: { societyId } },
+    select: {
+      amount: true,
+      label: true,
+      journalEntry: {
+        select: {
+          journalType: true,
+          lines: {
+            select: {
+              id: true,
+              debit: true,
+              credit: true,
+              account: { select: { code: true, type: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const journalEntry = transaction?.journalEntry;
+  if (!transaction || !journalEntry || journalEntry.journalType !== "BQUE") return;
+  if (journalEntry.lines.length !== 2) return;
+
+  const isIncome = transaction.amount > 0;
+  const bankLine = journalEntry.lines.find((line) =>
+    (line.account.code.startsWith("512") || line.account.type === "5") &&
+    (isIncome ? line.debit > 0 : line.credit > 0)
+  );
+  if (!bankLine) return;
+
+  const contraLine = journalEntry.lines.find((line) => line.id !== bankLine.id);
+  if (!contraLine) return;
+
+  const contraAccount = await prisma.accountingAccount.upsert({
+    where: { societyId_code: { societyId, code: fallback.code } },
+    update: { isActive: true },
+    create: {
+      societyId,
+      code: fallback.code,
+      label: fallback.label,
+      type: fallback.type,
+      isActive: true,
+    },
+  });
+
+  const amount = Math.abs(transaction.amount);
+  await prisma.journalEntryLine.update({
+    where: { id: contraLine.id },
+    data: {
+      accountId: contraAccount.id,
+      label: transaction.label,
+      debit: isIncome ? 0 : amount,
+      credit: isIncome ? amount : 0,
+    },
+  });
+}
+
 export async function categorizeTransactions(
   societyId: string,
   items: Array<{ transactionId: string; category: string }>
@@ -574,6 +642,11 @@ export async function categorizeTransactions(
         where: { id: item.transactionId },
         data: { category: item.category },
       });
+      try {
+        await syncSimpleBankJournalEntryCounterpart(societyId, item.transactionId, item.category);
+      } catch (e) {
+        console.error("[cashflow-accounting-sync] Failed to sync journal entry:", e);
+      }
       updated++;
 
       // ── Auto-tag : mémoriser le pattern pour catégorisation automatique future ──
@@ -616,6 +689,8 @@ export async function categorizeTransactions(
 
     revalidatePath("/cashflow");
     revalidatePath("/banque");
+    revalidatePath("/comptabilite/grand-livre");
+    revalidatePath("/comptabilite/journaux");
     return { success: true, data: { updated } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };

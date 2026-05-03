@@ -131,6 +131,57 @@ describe("categorizeTransactions", () => {
     );
   });
 
+  it("synchronise la contrepartie comptable d'une écriture bancaire simple", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankTransaction.findFirst.mockResolvedValue({
+      id: TX_ID_1,
+      amount: -150,
+      label: "EDF ELECTRICITE",
+      journalEntry: {
+        journalType: "BQUE",
+        lines: [
+          {
+            id: "line-expense",
+            debit: 150,
+            credit: 0,
+            account: { code: "658000", type: "6" },
+          },
+          {
+            id: "line-bank",
+            debit: 0,
+            credit: 150,
+            account: { code: "512000", type: "5" },
+          },
+        ],
+      },
+    } as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue({
+      id: "account-606100",
+      code: "606100",
+      label: "Fournitures non stockables - eau, énergie",
+      type: "6",
+    } as never);
+    prismaMock.journalEntryLine.update.mockResolvedValue({} as never);
+
+    const r = await categorizeTransactions(SOCIETY_ID, [{ transactionId: TX_ID_1, category: "energie" }]);
+
+    expect(r.success).toBe(true);
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "606100" } },
+      })
+    );
+    expect(prismaMock.journalEntryLine.update).toHaveBeenCalledWith({
+      where: { id: "line-expense" },
+      data: {
+        accountId: "account-606100",
+        label: "EDF ELECTRICITE",
+        debit: 150,
+        credit: 0,
+      },
+    });
+  });
+
   it("exclut les transactions n'appartenant pas à la société", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     // La DB ne retourne qu'une seule transaction (l'autre appartient à une autre société)
