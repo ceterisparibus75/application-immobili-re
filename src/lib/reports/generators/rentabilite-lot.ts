@@ -53,7 +53,7 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   const hFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
   const tFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0F7FA" } };
 
-  ws.mergeCells("A1:H1");
+  ws.mergeCells("A1:G1");
   const tc = ws.getCell("A1");
   tc.value = opts.society?.name
     ? `${opts.society.name} - Tableau de rentabilité par lot - ${year}`
@@ -62,8 +62,8 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
   tc.alignment = { horizontal: "center" };
   ws.getRow(1).height = 28;
 
-  const hdrs = ["Immeuble", "Lot", "Type", "Statut", "Loyer mensuel HC", "Revenus annuels", "Valeur locative marché", "Occupation"];
-  const cw = [25, 12, 18, 12, 18, 18, 22, 12];
+  const hdrs = ["Immeuble", "Lot", "Type", "Statut", "Loyer mensuel HC", "Revenus annuels", "Valeur locative marché"];
+  const cw = [25, 12, 18, 12, 18, 18, 22];
   const hr = ws.addRow(hdrs);
   hr.eachCell((c) => { c.fill = hFill; c.font = hFont; c.alignment = { horizontal: "center", vertical: "middle" }; c.border = { bottom: { style: "thin", color: { argb: "FF0C2340" } } }; });
   ws.getRow(2).height = 22;
@@ -89,13 +89,12 @@ export async function generateRentabiliteLot(opts: ReportOptions): Promise<Repor
       monthlyRent,
       rev,
       lot.marketRentValue ?? null,
-      LOT_STATUS_LABELS[lot.status] ?? lot.status,
     ]);
     [5, 6, 7].forEach((ci) => { row.getCell(ci).numFmt = EUR; });
     row.getCell(4).font = { color: { argb: lease ? "FF187B46" : "FFC8302E" } };
   }
 
-  const tRow = ws.addRow(["TOTAL", "", "", "", "", totRev, null, ""]);
+  const tRow = ws.addRow(["TOTAL", "", "", "", "", totRev, null]);
   tRow.eachCell((c, ci) => { c.fill = tFill; c.font = { bold: true }; if (ci === 6) c.numFmt = EUR; });
 
   if (lots.length > 0) {
