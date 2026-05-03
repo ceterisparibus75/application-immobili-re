@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { getTickets } from "@/actions/ticket";
 
-export const metadata: Metadata = { title: "Tickets" };
+export const metadata: Metadata = { title: "Tickets locataires" };
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ export default async function TicketsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tickets</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Tickets locataires</h1>
           <p className="text-muted-foreground">
             {openCount} ticket{openCount > 1 ? "s" : ""} ouvert{openCount > 1 ? "s" : ""}
           </p>

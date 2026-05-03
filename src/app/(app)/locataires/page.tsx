@@ -1,4 +1,4 @@
-import { getTenantsPaginated } from "@/actions/tenant";
+﻿import { getTenantsPaginated } from "@/actions/tenant";
 import { Button } from "@/components/ui/button";
 import { Plus, Upload } from "lucide-react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import type { RiskIndicator, TenantEntityType } from "@/generated/prisma/client"
 import { TenantsDataTable, type TenantGroupBy, type TenantViewSort } from "./_components/tenants-data-table";
 import { LocatairesEmptyState } from "./_components/locataires-empty-state";
 
-export const metadata = { title: "Locataires" };
+export const metadata = { title: "Gestion des locataires" };
 
 const RISK_VARIANTS: Record<RiskIndicator, "success" | "warning" | "destructive"> = {
   VERT: "success",
@@ -220,7 +220,7 @@ export default async function LocatairesPage({ searchParams }: PageProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Locataires</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Gestion des locataires</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {total} locataire{total !== 1 ? "s" : ""}
           </p>
