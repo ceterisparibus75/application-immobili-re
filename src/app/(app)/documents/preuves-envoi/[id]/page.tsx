@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import { buildRelatedEmailDeliveryProofWhere } from "@/lib/email-delivery-proof-related";
 
 const STATUS_LABELS: Record<string, string> = {
   SENT: "Envoyé",
@@ -64,6 +65,32 @@ export default async function EmailDeliveryProofDetailPage({ params }: { params:
 
   if (!proof) notFound();
 
+  const relatedProofs = await prisma.emailDeliveryProof.findMany({
+    where: buildRelatedEmailDeliveryProofWhere({
+      societyId,
+      currentProofId: proof.id,
+      invoiceId: proof.invoiceId,
+      entityType: proof.entityType,
+      entityId: proof.entityId,
+    }),
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      recipientEmail: true,
+      recipientName: true,
+      subject: true,
+      providerMessageId: true,
+      deliveredAt: true,
+      bouncedAt: true,
+      complainedAt: true,
+      deliveryDelayedAt: true,
+      _count: { select: { events: true } },
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -111,6 +138,55 @@ export default async function EmailDeliveryProofDetailPage({ params }: { params:
           <Field label="Taille pièce jointe" value={proof.attachmentSizeBytes ? `${proof.attachmentSizeBytes} octets` : null} />
           <Field label="Chemin archive" value={proof.attachmentStoragePath} />
           {proof.errorMessage && <Field label="Erreur" value={proof.errorMessage} />}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historique lié</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {relatedProofs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun autre envoi rattaché à ce document.</p>
+          ) : (
+            <div className="divide-y">
+              {relatedProofs.map((relatedProof) => {
+                const lastEventAt =
+                  relatedProof.deliveredAt ??
+                  relatedProof.bouncedAt ??
+                  relatedProof.complainedAt ??
+                  relatedProof.deliveryDelayedAt;
+
+                return (
+                  <div key={relatedProof.id} className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={STATUS_VARIANTS[relatedProof.status] ?? "secondary"}>
+                          {STATUS_LABELS[relatedProof.status] ?? relatedProof.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{formatDateTime(relatedProof.createdAt)}</span>
+                        {lastEventAt && (
+                          <span className="text-xs text-muted-foreground">Dernier statut : {formatDateTime(lastEventAt)}</span>
+                        )}
+                      </div>
+                      <p className="truncate text-sm font-medium">{relatedProof.subject}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {relatedProof.recipientName ? `${relatedProof.recipientName} — ` : ""}
+                        {relatedProof.recipientEmail}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Message : {relatedProof.providerMessageId ?? "non communiqué"}</span>
+                        <span>Événements : {relatedProof._count.events}</span>
+                      </div>
+                    </div>
+                    <Link href={`/documents/preuves-envoi/${relatedProof.id}`}>
+                      <Button variant="outline" size="sm">Voir la preuve</Button>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
