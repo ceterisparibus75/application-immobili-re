@@ -46,6 +46,17 @@ function formatDateInputValue(date: Date | undefined): string {
   return date ? date.toISOString().slice(0, 10) : "";
 }
 
+function buildExportHref(filters: ReturnType<typeof normalizeEmailDeliveryProofFilters>): string {
+  const params = new URLSearchParams();
+  if (filters.query) params.set("q", filters.query);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.entityType) params.set("type", filters.entityType);
+  if (filters.from) params.set("from", formatDateInputValue(filters.from));
+  if (filters.to) params.set("to", formatDateInputValue(filters.to));
+  const queryString = params.toString();
+  return queryString ? `/api/email-delivery-proofs/export?${queryString}` : "/api/email-delivery-proofs/export";
+}
+
 export default async function EmailDeliveryProofsPage({ searchParams }: EmailDeliveryProofsPageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
@@ -54,6 +65,7 @@ export default async function EmailDeliveryProofsPage({ searchParams }: EmailDel
   const resolvedSearchParams = (await searchParams) ?? {};
   const filters = normalizeEmailDeliveryProofFilters(resolvedSearchParams);
   const where = buildEmailDeliveryProofWhere(societyId, filters);
+  const exportHref = buildExportHref(filters);
 
   const proofs = await prisma.emailDeliveryProof.findMany({
     where,
@@ -95,7 +107,15 @@ export default async function EmailDeliveryProofsPage({ searchParams }: EmailDel
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Historique récent</CardTitle>
-            <p className="text-sm text-muted-foreground">{proofs.length} résultat{proofs.length > 1 ? "s" : ""}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-muted-foreground">{proofs.length} résultat{proofs.length > 1 ? "s" : ""}</p>
+              <a href={exportHref}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Exporter CSV
+                </Button>
+              </a>
+            </div>
           </div>
           <form className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_210px_150px_150px_auto_auto] lg:items-end">
             <label className="space-y-1 text-sm font-medium">
