@@ -33,6 +33,7 @@ import { DatesEditor } from "./_components/dates-editor";
 import { LinesEditor } from "./_components/lines-editor";
 import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
 import { DeleteDraftButton } from "./_components/delete-draft-button";
+import { EmailDeliveryProofsCard } from "./_components/email-delivery-proofs-card";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -82,6 +83,26 @@ export default async function FactureDetailPage({
 
   const invoice = await getInvoiceById(societyId, id);
   if (!invoice) notFound();
+
+  const deliveryProofs = await prisma.emailDeliveryProof.findMany({
+    where: { societyId, invoiceId: invoice.id },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      recipientEmail: true,
+      subject: true,
+      providerMessageId: true,
+      deliveredAt: true,
+      bouncedAt: true,
+      complainedAt: true,
+      deliveryDelayedAt: true,
+      htmlSha256: true,
+      attachmentSha256: true,
+      _count: { select: { events: true } },
+    },
+  });
 
   const totalPaid = invoice.payments.reduce((s, p) => s + p.amount, 0);
   const remaining = invoice.totalTTC - totalPaid;
@@ -478,6 +499,24 @@ export default async function FactureDetailPage({
             invoiceId={invoice.id}
             societyId={societyId}
             initialNote={invoice.note ?? null}
+          />
+
+          <EmailDeliveryProofsCard
+            proofs={deliveryProofs.map((proof) => ({
+              id: proof.id,
+              createdAt: proof.createdAt,
+              status: proof.status,
+              recipientEmail: proof.recipientEmail,
+              subject: proof.subject,
+              providerMessageId: proof.providerMessageId,
+              deliveredAt: proof.deliveredAt,
+              bouncedAt: proof.bouncedAt,
+              complainedAt: proof.complainedAt,
+              deliveryDelayedAt: proof.deliveryDelayedAt,
+              htmlSha256: proof.htmlSha256,
+              attachmentSha256: proof.attachmentSha256,
+              eventsCount: proof._count.events,
+            }))}
           />
 
           {/* Statut PA B2B */}
