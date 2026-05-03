@@ -28,7 +28,7 @@ export function SendStatementButton({
       const result = await sendChargeRegularization(societyId, regularizationId);
       if (result.success) {
         setSent(true);
-        toast.success(`Decompte envoye a ${tenantEmail}`);
+        toast.success(`Décompte envoyé à ${tenantEmail}`);
       } else {
         toast.error(result.error ?? "Erreur lors de l'envoi");
       }
@@ -41,7 +41,7 @@ export function SendStatementButton({
     return (
       <Button variant="ghost" size="sm" disabled className="text-[var(--color-status-positive)]">
         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-        Envoye
+        Envoyé
       </Button>
     );
   }
@@ -52,7 +52,7 @@ export function SendStatementButton({
       size="sm"
       onClick={handleSend}
       disabled={loading || disabled}
-      title={`Envoyer le decompte a ${tenantEmail}`}
+      title={`Envoyer le décompte à ${tenantEmail}`}
     >
       {loading ? (
         <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
