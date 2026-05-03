@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Download, MailCheck } from "lucide-react";
+import { Download, MailCheck, Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import {
+  buildEmailDeliveryProofWhere,
+  normalizeEmailDeliveryProofFilters,
+  type EmailDeliveryProofSearchParams,
+} from "@/lib/email-delivery-proof-filters";
 
 const STATUS_LABELS: Record<string, string> = {
   SENT: "Envoyé",
@@ -33,13 +38,25 @@ const ENTITY_LABELS: Record<string, string> = {
   LETTER: "Courrier",
 };
 
-export default async function EmailDeliveryProofsPage() {
+type EmailDeliveryProofsPageProps = {
+  searchParams?: Promise<EmailDeliveryProofSearchParams>;
+};
+
+function formatDateInputValue(date: Date | undefined): string {
+  return date ? date.toISOString().slice(0, 10) : "";
+}
+
+export default async function EmailDeliveryProofsPage({ searchParams }: EmailDeliveryProofsPageProps) {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
   if (!societyId) redirect("/societes");
 
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const filters = normalizeEmailDeliveryProofFilters(resolvedSearchParams);
+  const where = buildEmailDeliveryProofWhere(societyId, filters);
+
   const proofs = await prisma.emailDeliveryProof.findMany({
-    where: { societyId },
+    where,
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
@@ -75,12 +92,77 @@ export default async function EmailDeliveryProofsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Historique récent</CardTitle>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Historique récent</CardTitle>
+            <p className="text-sm text-muted-foreground">{proofs.length} résultat{proofs.length > 1 ? "s" : ""}</p>
+          </div>
+          <form className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_210px_150px_150px_auto_auto] lg:items-end">
+            <label className="space-y-1 text-sm font-medium">
+              Recherche
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  name="q"
+                  defaultValue={filters.query ?? ""}
+                  placeholder="Email, objet, message..."
+                  className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              Statut
+              <select
+                name="status"
+                defaultValue={filters.status ?? ""}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Tous les statuts</option>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              Type
+              <select
+                name="type"
+                defaultValue={filters.entityType ?? ""}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Tous les types</option>
+                {Object.entries(ENTITY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              Du
+              <input
+                type="date"
+                name="from"
+                defaultValue={formatDateInputValue(filters.from)}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+              />
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              Au
+              <input
+                type="date"
+                name="to"
+                defaultValue={formatDateInputValue(filters.to)}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+              />
+            </label>
+            <Button type="submit" className="h-10">Filtrer</Button>
+            <Link href="/documents/preuves-envoi">
+              <Button type="button" variant="outline" className="h-10 w-full">Réinitialiser</Button>
+            </Link>
+          </form>
         </CardHeader>
         <CardContent>
           {proofs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune preuve d&apos;envoi enregistrée.</p>
+            <p className="text-sm text-muted-foreground">Aucune preuve d&apos;envoi ne correspond aux critères.</p>
           ) : (
             <div className="divide-y">
               {proofs.map((proof) => {
