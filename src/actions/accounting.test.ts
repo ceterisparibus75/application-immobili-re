@@ -552,6 +552,55 @@ describe("getGrandLivre", () => {
     expect(rows[1].solde).toBe(600);
   });
 
+  it("réinitialise le solde cumulé pour chaque compte", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        id: "l1",
+        accountId: "acc-164100",
+        debit: 0,
+        credit: 39033.06,
+        label: "Solde à nouveau",
+        lettrage: null,
+        letteringCode: null,
+        account: { code: "164100", label: "PRET 82 000 €" },
+        journalEntry: { entryDate: new Date("2026-01-01"), piece: "AN-2026-01-01-164100", journalType: "AN", label: "Solde à nouveau", status: "BROUILLON" },
+      },
+      {
+        id: "l2",
+        accountId: "acc-164100",
+        debit: 459.16,
+        credit: 0,
+        label: "Emprunts échus - Capital",
+        lettrage: null,
+        letteringCode: null,
+        account: { code: "164100", label: "PRET 82 000 €" },
+        journalEntry: { entryDate: new Date("2026-01-20"), piece: "2601-REMP-000001", journalType: "INV", label: "Emprunts échus - Capital", status: "BROUILLON" },
+      },
+      {
+        id: "l3",
+        accountId: "acc-164110",
+        debit: 0,
+        credit: 219834.32,
+        label: "Solde à nouveau",
+        lettrage: null,
+        letteringCode: null,
+        account: { code: "164110", label: "PRET 352 580 €" },
+        journalEntry: { entryDate: new Date("2026-01-01"), piece: "AN-2026-01-01-164110", journalType: "AN", label: "Solde à nouveau", status: "BROUILLON" },
+      },
+    ] as never);
+
+    const result = await getGrandLivre(SOCIETY_ID, {});
+
+    expect(result.success).toBe(true);
+    const rows = result.data as Array<{ accountCode: string; solde: number }>;
+    expect(rows.map((row) => ({ accountCode: row.accountCode, solde: row.solde }))).toEqual([
+      { accountCode: "164100", solde: -39033.06 },
+      { accountCode: "164100", solde: -38573.9 },
+      { accountCode: "164110", solde: -219834.32 },
+    ]);
+  });
+
   it("filtre par dateTo seul (sans dateFrom)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
     prismaMock.journalEntryLine.findMany.mockResolvedValue([]);

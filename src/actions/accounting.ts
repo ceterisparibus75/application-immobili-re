@@ -734,10 +734,12 @@ export async function getGrandLivre(
       orderBy: [{ journalEntry: { entryDate: "asc" } }, { id: "asc" }],
     });
 
-    // Calcul du solde cumulé
-    let solde = 0;
+    // Calcul du solde cumulé indépendant par compte.
+    const soldesByAccount = new Map<string, number>();
     const data: GrandLivreRow[] = lines.map((line) => {
-      solde += line.debit - line.credit;
+      const previousSolde = soldesByAccount.get(line.accountId) ?? 0;
+      const solde = roundCents(previousSolde + line.debit - line.credit);
+      soldesByAccount.set(line.accountId, solde);
       return {
         id: line.id,
         accountId: line.accountId,
