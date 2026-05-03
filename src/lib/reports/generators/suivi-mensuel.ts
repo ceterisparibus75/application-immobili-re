@@ -159,26 +159,25 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
 
     const cumulFact = monthlyFact.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
     const cumulEnc = monthlyEnc.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
-    const monthlyRec = cumulFact.map((f, i) => f > 0 ? (cumulEnc[i] / f) * 100 : 0);
+    const monthlyRec = cumulFact.map((f, i) => f > 0 ? (cumulEnc[i] / f) * 100 : null);
     const annRec = annFact > 0 ? (annEnc / annFact) * 100 : 0;
 
     y = drawTableRow(p, ctx.reg, y, [
       "Taux recouvrement",
-      ...monthlyRec.map((v) => v > 0 ? v.toFixed(1) + "%" : "-"),
-      annRec > 0 ? annRec.toFixed(1) + "%" : "-",
+      ...monthlyRec.map((v) => v !== null ? v.toFixed(1) + "%" : "-"),
+      annFact > 0 ? annRec.toFixed(1) + "%" : "-",
     ], WIDTHS, ALIGNS, {
       rowIndex: 3,
-      cellColors: [null, ...monthlyRec.map((v) => v < 80 ? CORAL : v >= 95 ? GREEN : null), annRec < 80 ? CORAL : annRec >= 95 ? GREEN : null],
+      cellColors: [null, ...monthlyRec.map((v) => v === null ? null : v < 80 ? CORAL : v >= 95 ? GREEN : null), annFact > 0 && annRec < 80 ? CORAL : annRec >= 95 ? GREEN : null],
     }, 841.89);
 
-    const monthlyNet = monthlyEnc.map((e, i) => e - monthlyChg[i]);
-    const annNet = annEnc - annChg;
+    const monthlyNet = monthlyFact.map((f, i) => f - monthlyChg[i]);
+    const annNet = annFact - annChg;
     y = drawTotalsRow(p, ctx.bold, y, [
       "Résultat net",
       ...monthlyNet.map((v) => pdfCur(v)),
       pdfCur(annNet),
     ], WIDTHS, ALIGNS, 841.89);
-    y = drawSubText(p, ctx.reg, y - 2, "Les dépôts de garantie ne sont pas inclus dans ces montants.");
 
     // ── Level 2 : détail par locataire ─────────────────────────────────────
     if (bInvoices.length === 0) continue;
