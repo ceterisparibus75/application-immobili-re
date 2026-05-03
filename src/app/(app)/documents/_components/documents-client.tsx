@@ -66,10 +66,8 @@ function getCategoryLabel(cat: string | null): string {
   return DOCUMENT_CATEGORIES.find((c) => c.value === cat)?.label ?? "Autre";
 }
 function getBuildingKey(doc: DocumentItem): string | null {
-  if (doc.buildingId) return doc.buildingId;
-  if (doc.lot?.building) return "name:" + doc.lot.building.name;
-  if (doc.lease?.lot?.building) return "name:" + doc.lease.lot.building.name;
-  return null;
+  const name = getBuildingLabel(doc);
+  return name || null;
 }
 function getBuildingLabel(doc: DocumentItem): string {
   if (doc.building) return doc.building.name;
@@ -112,13 +110,12 @@ function FileTypeIcon({ mimeType, fileName, className }: { mimeType: string | nu
 
 
 const CATEGORY_BADGE: Record<string, string> = {
-  // Juridique / contractuel — brand blue muted
-  bail: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
-  avenant: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
-  titre_propriete: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
-  acte_acquisition: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
-  reglement_copro: "bg-[var(--color-accent)] text-[var(--color-brand-blue)] border border-[var(--color-brand-blue)]/25",
-  // Financier — caution muted
+  // Juridique / contractuel — blue visible
+  bail: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+  avenant: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+  titre_propriete: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+  acte_acquisition: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+  reglement_copro: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
   facture: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] border border-[var(--color-status-caution)]/25",
   quittance: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
   // Technique / diagnostic — positive muted
