@@ -169,6 +169,9 @@ export default function BanquePage() {
         <HelpStep number={3} title="Détecter les écarts bancaires">
           <p>Un bandeau d&apos;alerte s&apos;affiche si des transactions restent non catégorisées ou si des comptes bancaires ne sont pas synchronisés. Cliquez sur <strong>Voir les détails</strong> pour identifier les transactions manquantes.</p>
         </HelpStep>
+        <HelpStep number={4} title="Exporter le rapport annuel">
+          <p>Depuis le module <strong>Rapports</strong>, le rapport <strong>Cash-flow annuel</strong> reprend les flux catégorisés pour produire un état PDF de trésorerie par période et par nature de flux.</p>
+        </HelpStep>
 
         <InfoBox type="info">
           Les virements internes (de compte à compte) sont automatiquement exclus du calcul du cash-flow pour éviter les doublons comptables. Les apports et remboursements CCA apparaissent dans la section Financement, séparée de l&apos;opérationnel.

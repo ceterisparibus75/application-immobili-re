@@ -42,11 +42,11 @@ const searchableGuides = [
   { slug: "utilisateurs", title: "Utilisateurs et droits d'accès", description: "Gérez les utilisateurs, les rôles et les permissions par société et par module." },
   { slug: "patrimoine", title: "Gestion du patrimoine", description: "Immeubles, lots, diagnostics, maintenances et états des lieux." },
   { slug: "locatif", title: "Gestion locative", description: "Baux, vie du bail, changement de locataire, révisions de loyer, charges et contacts." },
-  { slug: "facturation", title: "Facturation et paiements", description: "À traiter, brouillons, factures, relances, quittances, paiements, SEPA et compte locataire." },
+  { slug: "facturation", title: "Facturation et paiements", description: "À traiter, brouillons, factures, relances, quittances, preuves d'envoi, paiements, SEPA et compte locataire." },
   { slug: "banque", title: "Banque, comptabilité et cash-flow", description: "Comptes bancaires, rapprochement, cash-flow par catégorie, écritures comptables et export FEC." },
   { slug: "proprietaire", title: "Vue Propriétaire", description: "Tableau de bord consolidé multi-sociétés et gestion des propriétaires." },
   { slug: "emprunts", title: "Évaluations IA et emprunts", description: "Estimation du patrimoine par IA, emprunts et tableaux d'amortissement." },
-  { slug: "documents", title: "Documents, Dataroom et signatures", description: "Stockage sécurisé, partage de documents et signatures électroniques." },
+  { slug: "documents", title: "Documents, Dataroom, preuves et signatures", description: "Stockage sécurisé, partage, preuves d'envoi et signatures électroniques." },
   { slug: "dashboard", title: "Tableau de bord et rapports", description: "KPI en temps réel, graphiques interactifs et rapports exportables." },
   { slug: "securite", title: "Sécurité et confidentialité", description: "Protection des données, RGPD, 2FA et portail locataire." },
   { slug: "candidatures", title: "Candidatures locataires", description: "Pipeline de sélection, scoring des dossiers et suivi des visites étape par étape." },
@@ -96,7 +96,7 @@ const guides = [
     slug: "facturation",
     icon: <FileText className="h-5 w-5" />,
     title: "Facturation et paiements",
-    description: "À traiter, brouillons, factures, relances, quittances et renvoi d'email.",
+    description: "À traiter, brouillons, factures, relances, quittances et preuves d'envoi.",
     color: "bg-rose-500/10 text-rose-600",
     popular: true,
   },
@@ -124,15 +124,15 @@ const guides = [
   {
     slug: "documents",
     icon: <FolderLock className="h-5 w-5" />,
-    title: "Documents et signatures",
-    description: "Stockage sécurisé, dataroom et signatures électroniques.",
+    title: "Documents, preuves et signatures",
+    description: "GED, dataroom, preuves d'envoi et signatures électroniques.",
     color: "bg-teal-500/10 text-teal-600",
   },
   {
     slug: "dashboard",
     icon: <BarChart3 className="h-5 w-5" />,
     title: "Tableau de bord et rapports",
-    description: "KPI en temps réel, graphiques et 9 types de rapports.",
+    description: "KPI en temps réel, graphiques et 10 types de rapports.",
     color: "bg-pink-500/10 text-pink-600",
   },
   {
@@ -225,7 +225,7 @@ const faqs = [
   // Facturation
   { q: "À quoi servent les onglets du module Facturation ?", a: "À traiter regroupe les actions de masse, Brouillons sert à contrôler les factures préparées, Factures est le registre des factures et avoirs, Relances synthétise les retards, et Quittances regroupe les reçus de paiement." },
   { q: "Comment générer une quittance de loyer ?", a: "Allez dans Facturation, sélectionnez une facture payée, puis cliquez sur « Générer la quittance ». Le PDF est généré automatiquement et peut être envoyé par email au locataire. Les quittances sont ensuite consultables dans l'onglet « Quittances »." },
-  { q: "Comment renvoyer une facture déjà envoyée ?", a: "Ouvrez la facture depuis le registre Factures, puis cliquez sur « Renvoyer au locataire ». La date du premier envoi est conservée et le renvoi est tracé dans l'audit." },
+  { q: "Comment renvoyer une facture déjà envoyée ?", a: "Ouvrez la facture depuis le registre Factures, puis cliquez sur « Renvoyer au locataire ». La date du premier envoi est conservée et le renvoi crée une nouvelle preuve d'envoi avec son propre statut de livraison." },
   { q: "Comment annuler une facture déjà validée ?", a: "Une facture validée ne peut pas être supprimée pour des raisons comptables. Vous devez créer un avoir (facture d'annulation) qui viendra compenser la facture initiale. Allez dans la facture concernée et cliquez sur « Générer un avoir »." },
   { q: "Comment gérer un paiement partiel ?", a: "Lors de l'enregistrement d'un paiement, saisissez le montant effectivement reçu même s'il est inférieur au total. La facture passera en statut « Partiellement payée » et le solde restant restera visible pour le suivi." },
   { q: "Comment importer l'historique d'un compte locataire ?", a: "Ouvrez la fiche du locataire, onglet « Compte locataire », puis utilisez « Importer un relevé ». Le fichier CSV/TSV peut contenir date, libellé, débit, crédit, solde, référence et période. Ces lignes restent des mouvements historiques et ne créent aucune facture." },
@@ -237,6 +237,7 @@ const faqs = [
   // Documents et portail
   { q: "Quels formats de fichiers sont acceptés ?", a: "L'application accepte les formats PDF, JPG, PNG et WEBP. La taille maximale par fichier est de 20 Mo. Les documents sont stockés de manière sécurisée dans un espace de stockage chiffré en Europe (Supabase Frankfurt)." },
   { q: "Comment partager des documents via la Dataroom ?", a: "Allez dans Documents > Dataroom. Créez un espace de partage, sélectionnez les documents à inclure et générez un lien sécurisé. Ce lien peut être envoyé à un tiers (acquéreur, notaire, comptable) avec une date d'expiration configurable." },
+  { q: "Comment prouver l'envoi d'un email important ?", a: "Allez dans Documents > Preuves d'envoi. Filtrez par destinataire, statut, période ou type de document, puis ouvrez la preuve pour télécharger une attestation PDF ou un export JSON avec les empreintes HTML, PDF et webhook." },
   { q: "Comment activer le portail pour un locataire ?", a: "Allez dans Locataires, ouvrez la fiche du locataire et cliquez sur « Activer le portail ». Un email d'invitation est envoyé automatiquement avec un lien d'accès sécurisé à son espace personnel." },
   { q: "Que peut faire le locataire sur son portail ?", a: "Le locataire peut consulter ses quittances et factures, télécharger ses documents (bail, courriers), suivre l'état de ses charges, mettre à jour son attestation d'assurance et créer des tickets de demande (maintenance, question, etc.)." },
   // Courriers et relances
@@ -246,7 +247,7 @@ const faqs = [
   { q: "Puis-je importer mes données depuis un autre logiciel ?", a: "Oui, Import données permet d'importer des locataires, contacts, immeubles et lots depuis un fichier CSV ou Excel. L'import IA (Enterprise) peut aussi extraire les données directement depuis un PDF de bail et préparer immeuble, lot, locataire et bail." },
   { q: "Comment exporter mes données en CSV ?", a: "Chaque page de données (locataires, baux, factures, charges, transactions…) dispose d'un bouton d'export en haut à droite. Le fichier CSV est compatible avec Excel (format français, séparateur point-virgule)." },
   // Rapports
-  { q: "Quels rapports puis-je générer ?", a: "9 types de rapports sont disponibles : balance âgée, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative. Vous pouvez aussi planifier des envois automatiques." },
+  { q: "Quels rapports puis-je générer ?", a: "10 types de rapports sont disponibles : balance âgée, cash-flow annuel, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative. Vous pouvez aussi planifier des envois automatiques." },
   // Sécurité et RGPD
   { q: "Mes données sont-elles sécurisées ?", a: "Oui. Les données bancaires sont chiffrées en AES-256-GCM, les mots de passe sont hachés avec bcrypt. L'application utilise HTTPS avec des en-têtes de sécurité stricts (CSP, HSTS, X-Frame-Options). L'hébergement est en Europe." },
   { q: "Que couvre la conformité RGPD ?", a: "La section RGPD permet de consulter, exporter et supprimer les données personnelles des locataires. Les durées de conservation légales sont respectées automatiquement et un registre des traitements est accessible." },

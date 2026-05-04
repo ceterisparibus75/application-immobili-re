@@ -184,7 +184,11 @@ export default function LocatifPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comptes rendus</p>
-            <p>Générez des rapports récapitulatifs par immeuble ou par catégorie, utiles pour la régularisation annuelle des charges.</p>
+            <p>Générez des décomptes annuels par locataire, immeuble ou catégorie, utiles pour la régularisation annuelle des charges. Les périodes d'occupation partielles sont prises en compte quand un locataire entre ou sort en cours d'année.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Preuve d'envoi</p>
+            <p>L'envoi d'un décompte annuel par email crée une preuve avec statut de livraison, empreinte du PDF joint et attestation exportable depuis <strong>Documents &gt; Preuves d'envoi</strong>.</p>
           </div>
         </div>
       </HelpSection>
@@ -249,7 +253,11 @@ export default function LocatifPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment faire la régularisation annuelle des charges ?</p>
-            <p>Comparez le total des provisions versées par le locataire au total réel des charges récupérables de l'année. Créez ensuite une facture de régularisation : positive si le locataire doit un complément, négative si un trop-perçu doit lui être remboursé.</p>
+            <p>Comparez le total des provisions versées par le locataire au total réel des charges récupérables de l'année. Si le locataire n'a occupé le lot qu'une partie de l'exercice, le calcul et le compte rendu annuel tiennent compte de sa période d'occupation. Créez ensuite une facture de régularisation ou un avoir selon le solde.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment prouver l'envoi du décompte annuel ?</p>
+            <p>Après l'envoi, ouvrez le décompte ou le registre <strong>Documents &gt; Preuves d'envoi</strong>. Vous y retrouvez le destinataire, les horodatages, le statut de livraison, l'empreinte du PDF et l'attestation PDF exportable.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment synchroniser les locataires dans le carnet de contacts ?</p>

@@ -14,7 +14,7 @@ const ALL_GUIDES: NavItem[] = [
   { slug: "banque", title: "Banque et comptabilité" },
   { slug: "proprietaire", title: "Vue Propriétaire" },
   { slug: "emprunts", title: "Évaluations IA et emprunts" },
-  { slug: "documents", title: "Documents, Dataroom et signatures" },
+  { slug: "documents", title: "Documents, preuves et signatures" },
   { slug: "dashboard", title: "Tableau de bord et rapports" },
   { slug: "securite", title: "Sécurité et confidentialité" },
   { slug: "candidatures", title: "Candidatures locataires" },

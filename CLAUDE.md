@@ -314,6 +314,13 @@ Client unique avec cache `globalThis` en dev. Logs `query`+`error`+`warn` en dev
 
 Via Resend. Templates HTML intégrés : relance (3 niveaux), facture, quittance, bienvenue utilisateur, bienvenue locataire.
 
+Les envois juridiquement sensibles utilisent une preuve d'envoi transversale :
+- Modèle : `EmailDeliveryProof` + `EmailDeliveryEvent`.
+- Service : `src/lib/email-delivery-proof.ts` crée la preuve avec snapshot HTML, empreinte SHA-256 du HTML, empreinte SHA-256 de la première pièce jointe PDF, stockage éventuel du chemin Storage, destinataire, sujet, `providerMessageId` Resend et contexte métier (`entityType`, `entityId`, `tenantId`, `leaseId`, `invoiceId`).
+- Intégrité : `src/lib/email-delivery-proof-integrity.ts` extrait l'empreinte SHA-256 des payloads webhook Resend. Les payloads sont conservés avec `_mygestia.payloadSha256` et une canonicalisation `stable-json-v1`.
+- Webhooks : les événements `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed` mettent à jour le statut et alimentent l'historique non destructif.
+- UI : registre `/documents/preuves-envoi`, détail `/documents/preuves-envoi/[id]`, carte de preuves sur la fiche facture, synthèse par statut, filtres, historique lié et exports CSV/JSON/PDF (`/api/email-delivery-proofs/export`, `/api/email-delivery-proofs/[id]/json`, `/api/email-delivery-proofs/[id]/pdf`).
+
 L'envoi d'une facture ou d'une quittance depuis l'interface passe par `POST /api/invoices/[id]/send-email` :
 - envoi initial : génère le PDF, envoie l'email, dépose le PDF dans Documents si Storage est configuré, renseigne `sentAt`, `sentBy`, `resendEmailId` et passe `VALIDEE`/`EN_ATTENTE` à `ENVOYEE` ;
 - renvoi manuel : disponible sur `/facturation/[id]` via `SendInvoiceButton` quand `invoice.sentAt` existe ; le libellé devient `Renvoyer au locataire`, `sentAt` reste la date du premier envoi, `resendEmailId` est mis à jour avec le dernier email Resend et l'audit log porte `event: RESEND_INVOICE_EMAIL`.
@@ -395,6 +402,8 @@ MyGestia est une **Solution Compatible (SC) certifiée DGFiP** — elle détient
 
 Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storage/signed-upload/route.ts` et `src/app/api/storage/view/route.ts` gèrent respectivement l'upload signé et la consultation sécurisée des fichiers.
 
+La GED regroupe les catégories par thèmes via `src/lib/document-categories.ts` : Patrimoine, Location, Juridique société, Financier, Assurance, Administratif. Le module Documents gère aussi les tags, la recherche plein texte, les dates d'expiration, le versioning, les actions de masse et la prévisualisation avec navigation par thèmes.
+
 ### Fonctionnalités IA
 
 - **Analyse de documents** (`src/lib/document-ai.ts`) : extrait résumé, tags et catégorie via Claude Opus 4.5. 9 catégories : bail, avenant, quittance, facture, diagnostic, assurance, titre_propriete, contrat, etat_des_lieux. Nécessite `ANTHROPIC_API_KEY`.
@@ -406,10 +415,12 @@ Les fichiers sont stockés dans Supabase Storage. Les routes `src/app/api/storag
 
 ### Rapports (`src/lib/report-generator.ts`, `src/lib/reports/`)
 
-9 types de rapports PDF : `balance-agee`, `compte-rendu-gestion`, `etat-impayes`, `rentabilite-lot`, `recap-charges-locataire`, `situation-locative`, `suivi-mensuel`, `suivi-travaux`, `vacance-locative`.
+10 types de rapports PDF : `balance-agee`, `cashflow`, `compte-rendu-gestion`, `etat-impayes`, `rentabilite-lot`, `recap-charges-locataire`, `situation-locative`, `suivi-mensuel`, `suivi-travaux`, `vacance-locative`.
 
 - Génération PDF avec graphiques (`pdf-charts.ts`, `pdf-core.ts`)
 - Rapports consolidés multi-sociétés (`reports/consolidated.ts`)
+- `suivi-mensuel` détaille les loyers, charges, encaissements, impayés et provisions par locataire ; le résultat net et le taux de recouvrement excluent les dépôts de garantie.
+- `cashflow` produit un rapport annuel de trésorerie par catégorie de flux.
 - Module `/rapports` pour consultation ; `/rapports/planification` pour envoi planifié
 - Cron `/api/cron/send-reports` pour envoi automatique
 
@@ -472,7 +483,7 @@ Tous les modules sont implémentés dans `src/app/(app)/` avec leur action (`src
 | Workflows (automatisation) | `/workflows` | `workflow.ts` |
 | Relevés de gestion tiers | `/baux/[id]/releves-gestion` | `management-report.ts` |
 | RGPD | `/rgpd` | `rgpd-export.ts`, via API routes |
-| Documents | `/documents` | `document.ts` |
+| Documents + preuves d'envoi | `/documents`, `/documents/preuves-envoi` | `document.ts`, `email-delivery-proof.ts` |
 | Dataroom | `/dataroom` | `dataroom.ts` |
 | Signatures | — | `signature.ts` |
 | SEPA | — | `sepa.ts` |
@@ -493,6 +504,7 @@ Notes UX récentes :
 - `À traiter` est la file d'actions de masse : brouillons, factures validées non envoyées, retards, génération. La carte `À envoyer` est inactive quand aucune facture n'est envoyable.
 - `Factures` est un registre de consultation des factures et avoirs ; `Quittances` est un registre séparé placé après `Relances`.
 - La fiche locataire expose un bloc `Documents` qui pointe vers `/documents?tenantId=...` et `/documents/nouveau?tenantId=...`.
+- Le registre `Documents > Preuves d'envoi` centralise les preuves Resend des factures, quittances, décomptes de charges et courriers. Il fournit filtres, synthèse par statut, exports CSV/JSON/PDF et historique webhook conservé.
 
 ## Cron Jobs (Vercel)
 

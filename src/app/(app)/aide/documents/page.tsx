@@ -4,7 +4,7 @@ import { HelpPageLayout, HelpSection, HelpStep, InfoBox } from "../_components/h
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
-  title: `Documents, Dataroom et signatures | Centre d'aide | ${APP_NAME}`,
+  title: `Documents, preuves et signatures | Centre d'aide | ${APP_NAME}`,
 };
 
 export default function DocumentsPage() {
@@ -12,8 +12,8 @@ export default function DocumentsPage() {
     <HelpPageLayout
       slug="documents"
       icon={<FolderLock className="h-6 w-6" />}
-      title="Documents, Dataroom et signatures"
-      description="Stockez, organisez, partagez et faites signer vos documents en toute sécurité."
+      title="Documents, Dataroom, preuves d'envoi et signatures"
+      description="Stockez, organisez, partagez, prouvez vos envois et faites signer vos documents en toute sécurité."
     >
       <HelpSection id="stockage" title="Stockage sécurisé des documents">
         <p>
@@ -28,15 +28,12 @@ export default function DocumentsPage() {
 
         <p className="font-semibold text-foreground mt-6 mb-2">Catégories de documents :</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Baux et avenants</strong> : contrats de location signés</li>
-          <li><strong>Diagnostics</strong> : DPE, amiante, plomb, gaz, électricité, etc.</li>
-          <li><strong>Factures et quittances</strong> : factures émises et quittances de loyer</li>
-          <li><strong>Pièces d'identité</strong> : copies des pièces des locataires</li>
-          <li><strong>Assurances</strong> : attestations d'assurance (propriétaire et locataire)</li>
-          <li><strong>États des lieux</strong> : rapports d'entrée et de sortie</li>
-          <li><strong>Courriers</strong> : correspondances officielles</li>
-          <li><strong>Comptabilité</strong> : relevés bancaires, FEC, bilans</li>
-          <li><strong>Autres</strong> : tout document ne rentrant pas dans les catégories précédentes</li>
+          <li><strong>Patrimoine</strong> : titres de propriété, actes d'acquisition, plans, diagnostics, permis et autorisations de travaux</li>
+          <li><strong>Location</strong> : baux, avenants, états des lieux et quittances</li>
+          <li><strong>Juridique société</strong> : statuts, PV d'assemblée, Kbis, mandats de gestion et règlements de copropriété</li>
+          <li><strong>Financier</strong> : comptes annuels, liasses fiscales, budgets, expertises et factures</li>
+          <li><strong>Assurance</strong> : attestations locataires, polices immeuble et attestations décennales</li>
+          <li><strong>Administratif</strong> : contrats prestataires, courriers, correspondances et autres documents</li>
         </ul>
       </HelpSection>
 
@@ -48,7 +45,7 @@ export default function DocumentsPage() {
           <p>Cliquez sur <strong>Ajouter un document</strong>. Sélectionnez le fichier sur votre ordinateur (PDF, JPG, PNG, DOCX acceptés). La taille maximale est de 20 Mo par fichier.</p>
         </HelpStep>
         <HelpStep number={3} title="Renseignez les métadonnées">
-          <p>Donnez un nom au document, sélectionnez la catégorie et, si applicable, la date d'expiration. Les documents avec date d'expiration déclenchent des alertes automatiques.</p>
+          <p>Donnez un nom au document, sélectionnez la catégorie groupée et, si applicable, la date d'expiration. Vous pouvez aussi ajouter des tags pour faciliter la recherche. Les documents avec date d'expiration déclenchent des alertes automatiques.</p>
         </HelpStep>
         <div className="rounded-lg border p-4 bg-muted/20">
           <p className="text-sm text-foreground mb-2 font-semibold">Exemple concret :</p>
@@ -58,6 +55,27 @@ export default function DocumentsPage() {
         </div>
         <InfoBox type="tip">
           Les documents sont uploadés via des URLs signées (upload direct vers le stockage sécurisé), ce qui garantit que le fichier ne transite jamais par nos serveurs applicatifs.
+        </InfoBox>
+      </HelpSection>
+
+      <HelpSection id="preuves-envoi" title="Preuves d'envoi et attestations">
+        <p>
+          Le registre <strong>Documents &gt; Preuves d'envoi</strong> centralise les preuves des emails importants : factures, quittances, décomptes annuels de charges, courriers et relances.
+        </p>
+        <p>
+          Chaque preuve conserve le destinataire, le sujet, la date d'envoi, l'identifiant Resend, le statut de livraison, l'empreinte du contenu HTML envoyé et, lorsqu'une pièce jointe existe, l'empreinte du PDF envoyé.
+        </p>
+        <HelpStep number={1} title="Suivre le statut">
+          <p>Les cartes de synthèse indiquent les emails envoyés, livrés, retardés, rejetés, en plainte ou échoués. Les filtres permettent d'isoler un statut, un module métier, un destinataire ou une période.</p>
+        </HelpStep>
+        <HelpStep number={2} title="Consulter une preuve">
+          <p>La page détail affiche l'historique complet des événements Resend, les horodatages, les empreintes SHA-256, le contexte métier lié et les preuves associées au même document ou au même destinataire.</p>
+        </HelpStep>
+        <HelpStep number={3} title="Exporter le dossier de preuve">
+          <p>Vous pouvez exporter une attestation PDF pour un envoi précis, un export JSON complet avec les données techniques ou un export CSV filtré pour un audit global.</p>
+        </HelpStep>
+        <InfoBox type="info">
+          Les payloads webhook Resend sont conservés avec leur propre empreinte. Cela permet de prouver que le statut affiché provient bien d'un événement reçu et horodaté.
         </InfoBox>
       </HelpSection>
 
@@ -101,9 +119,11 @@ export default function DocumentsPage() {
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Par entité</strong> : depuis la fiche d'un immeuble, bail ou locataire, section Documents</li>
           <li><strong>Par locataire</strong> : depuis la fiche locataire, cliquez sur <strong>Voir les documents</strong> pour ouvrir la GED filtrée sur ce locataire</li>
-          <li><strong>Par catégorie</strong> : filtrez par type de document (diagnostics, baux, factures, etc.)</li>
-          <li><strong>Par recherche</strong> : utilisez la barre de recherche globale pour retrouver un document par son nom</li>
+          <li><strong>Par catégorie</strong> : filtrez par thème puis par type de document (diagnostic, bail, facture, assurance, etc.)</li>
+          <li><strong>Par recherche</strong> : utilisez la barre de recherche globale ou la recherche plein texte pour retrouver un document par son nom, ses tags ou son contenu indexé</li>
           <li><strong>Par expiration</strong> : les documents arrivant à expiration sont signalés par un badge orange ou rouge</li>
+          <li><strong>Par version</strong> : remplacez un fichier tout en conservant l'historique des versions précédentes</li>
+          <li><strong>Par sélection multiple</strong> : appliquez des actions de masse aux documents cochés</li>
         </ul>
       </HelpSection>
 
@@ -115,7 +135,8 @@ export default function DocumentsPage() {
           <li><strong>Stockage chiffré</strong> : les fichiers sont stockés sur une infrastructure européenne sécurisée (Supabase Frankfurt)</li>
           <li><strong>URLs signées</strong> : les liens de téléchargement expirent après 5 minutes pour empêcher le partage non autorisé</li>
           <li><strong>Contrôle d'accès</strong> : seuls les utilisateurs ayant accès à la société peuvent voir les documents</li>
-          <li><strong>Audit trail</strong> : chaque consultation et téléchargement est enregistré dans les logs d'activité</li>
+          <li><strong>Audit trail</strong> : chaque consultation, téléchargement et preuve d'envoi est enregistré dans les logs d'activité</li>
+          <li><strong>Empreintes cryptographiques</strong> : les preuves d'envoi conservent les empreintes SHA-256 des contenus envoyés et des payloads webhook reçus</li>
           <li><strong>Dataroom isolée</strong> : les partenaires externes ne voient que les documents explicitement partagés</li>
         </ul>
       </HelpSection>
@@ -140,7 +161,11 @@ export default function DocumentsPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment retrouver un document précis ?</p>
-            <p>Utilisez la recherche globale (Ctrl+K), filtrez par catégorie ou par entité (immeuble, bail, locataire). Les documents arrivant à expiration sont également signalés par un badge.</p>
+            <p>Utilisez la recherche globale (Ctrl+K), filtrez par catégorie, par tag ou par entité (immeuble, bail, locataire). Les documents arrivant à expiration sont également signalés par un badge.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Comment prouver qu'un email important a été envoyé ?</p>
+            <p>Ouvrez <strong>Documents &gt; Preuves d'envoi</strong>, filtrez par destinataire, module ou période, puis ouvrez la preuve. Vous pouvez télécharger une attestation PDF ou un export JSON détaillé.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Les documents sont-ils sauvegardés automatiquement ?</p>

@@ -180,6 +180,24 @@ export default function FacturationPage() {
         </HelpStep>
       </HelpSection>
 
+      <HelpSection id="preuves-envoi" title="Preuves d'envoi des factures et quittances">
+        <p>
+          Chaque envoi de facture ou de quittance par email crée une preuve d'envoi consultable depuis la fiche facture et depuis <strong>Documents &gt; Preuves d'envoi</strong>.
+        </p>
+        <HelpStep number={1} title="Vérifier l'envoi">
+          <p>La fiche facture affiche les preuves liées : destinataire, date d'envoi, statut Resend, dernier événement reçu et accès au détail.</p>
+        </HelpStep>
+        <HelpStep number={2} title="Contrôler le contenu envoyé">
+          <p>La preuve conserve l'empreinte SHA-256 du HTML de l'email et du PDF joint. Si le PDF est archivé dans Documents, le chemin de stockage est également conservé.</p>
+        </HelpStep>
+        <HelpStep number={3} title="Gérer les échecs et renvois">
+          <p>Les statuts <strong>Rejeté</strong>, <strong>Plainte</strong>, <strong>Retardé</strong> ou <strong>Échec</strong> permettent d'identifier les emails à traiter. Un renvoi crée une nouvelle preuve sans modifier la date du premier envoi de la facture.</p>
+        </HelpStep>
+        <InfoBox type="info">
+          Pour un contrôle ou un litige, exportez l'attestation PDF de la preuve ou le JSON complet depuis la page détail.
+        </InfoBox>
+      </HelpSection>
+
       <HelpSection id="sepa" title="Prélèvement SEPA">
         <p>
           Le module SEPA vous permet de générer des mandats de prélèvement et des fichiers de prélèvement à transmettre à votre banque.
@@ -224,7 +242,11 @@ export default function FacturationPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment renvoyer une facture déjà envoyée ?</p>
-            <p>Ouvrez la facture depuis l'onglet <strong>Factures</strong>, puis cliquez sur <strong>Renvoyer au locataire</strong>. La date du premier envoi est conservée, et le renvoi est tracé dans l'audit avec la date du nouvel email.</p>
+            <p>Ouvrez la facture depuis l'onglet <strong>Factures</strong>, puis cliquez sur <strong>Renvoyer au locataire</strong>. La date du premier envoi est conservée, et le renvoi crée une nouvelle preuve d'envoi avec son propre statut de livraison.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="font-semibold text-foreground mb-1">Où trouver la preuve d'envoi d'une facture ou d'une quittance ?</p>
+            <p>Depuis la fiche facture, consultez la carte <strong>Preuves d'envoi</strong>. Vous pouvez aussi ouvrir <strong>Documents &gt; Preuves d'envoi</strong> pour rechercher par destinataire, statut, période ou type de document.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Les factures sont-elles générées automatiquement ?</p>

@@ -124,7 +124,8 @@ export default function DashboardPage() {
           <li><strong>Rapport de revenus</strong> : détail des loyers perçus par mois, par immeuble ou par locataire</li>
           <li><strong>Rapport d'occupation</strong> : taux d'occupation mensuel avec historique</li>
           <li><strong>Rapport d'impayés</strong> : analyse détaillée des retards de paiement</li>
-          <li><strong>Rapport de trésorerie</strong> : flux de trésorerie entrants et sortants</li>
+          <li><strong>Rapport de trésorerie / cash-flow annuel</strong> : flux entrants et sortants classés par catégorie</li>
+          <li><strong>Suivi mensuel</strong> : résultat net, taux de recouvrement, détail par locataire et exclusion des dépôts de garantie des indicateurs de recouvrement</li>
           <li><strong>Export FEC</strong> : fichier des écritures comptables au format réglementaire</li>
           <li><strong>Rapport de valorisation</strong> : évolution de la valeur du patrimoine</li>
         </ul>
@@ -156,7 +157,7 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Quels types de rapports sont disponibles ?</p>
-            <p>9 types : balance âgée, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative.</p>
+            <p>10 types : balance âgée, cash-flow annuel, compte-rendu de gestion, état des impayés, rentabilité par lot, récap charges locataire, situation locative, suivi mensuel, suivi travaux et vacance locative.</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="font-semibold text-foreground mb-1">Comment planifier l'envoi automatique de rapports ?</p>

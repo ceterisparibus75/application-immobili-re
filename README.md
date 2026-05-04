@@ -156,6 +156,9 @@ Voir [CLAUDE.md](CLAUDE.md) pour la documentation architecture complète destin�
 - **Facturation côté locataire** : la fiche locataire centralise les factures MyGestia et la situation du compte locataire.
 - **Compte locataire enrichi** : reprise de solde précédent et import de relevés historiques depuis un ancien logiciel, sans génération de facture.
 - **Documents côté locataire** : la fiche locataire donne accès aux documents filtrés sur ce locataire et permet d'ajouter une pièce déjà pré-rattachée.
+- **Preuves d'envoi transversales** : les emails sensibles (factures, quittances, décomptes de charges, courriers) créent une preuve consultable depuis `Documents > Preuves d'envoi`, avec statut Resend, horodatages, empreinte HTML/PDF, historique webhook et exports PDF/CSV/JSON.
+- **GED enrichie** : catégories regroupées par thème, recherche plein texte, tags, dates d'expiration, versioning, actions de masse, prévisualisation et navigation par thèmes.
+- **Rapports renforcés** : suivi mensuel enrichi par locataire, calculs corrigés du résultat net et du taux de recouvrement, situation locative, vacance locative et rapport annuel de trésorerie/cash-flow.
 
 ---
 
