@@ -1,5 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import React from "react";
+import { LEGAL_FORM_LABELS } from "@/lib/constants";
 
 export type InvoicePdfData = {
   invoiceNumber: string; invoiceType: string; issueDate: string; dueDate: string;
@@ -77,16 +78,6 @@ function fmt(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", {
 function fmtNum(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(v)); }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("fr-FR"); }
 
-const LEGAL_FORM_LABELS: Record<string, string> = {
-  SCI: "Societe Civile Immobiliere (SCI)", SARL: "SARL",
-  SAS: "SAS", SA: "SA", EURL: "EURL", SASU: "SASU", SNC: "SNC", AUTRE: "Societe",
-  ASSOCIATION: "Association", FONDATION: "Fondation", FONDS_DOTATION: "Fonds de dotation",
-  MUTUELLE: "Mutuelle", SYNDICAT: "Syndicat", SCOP: "SCOP", SCIC: "SCIC",
-  GIP: "GIP", EPIC: "EPIC", EPA: "EPA", SEM: "SEM", SPL: "SPL",
-  COLLECTIVITE: "Collectivite", CHAMBRE_CONSULAIRE: "Chambre consulaire",
-  PERSONNE_PHYSIQUE: "Proprietaire",
-};
-
 function typeTitle(invoiceType: string, isAvoir: boolean): string {
   if (isAvoir) return "AVOIR";
   if (invoiceType === "APPEL_LOYER") return "APPEL DE LOYER ET CHARGES";
@@ -114,7 +105,8 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   const totalToPay = data.previousBalance + data.totalTTC;
 
   // Mention légale : "{Forme juridique} au capital de {montant} €"
-  const legalFormLabel = soc?.legalForm ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null;
+  const _noFormLabel = soc?.legalForm === "AUTRE" || soc?.legalForm === "PERSONNE_PHYSIQUE";
+  const legalFormLabel = (!_noFormLabel && soc?.legalForm) ? (LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm) : null;
   const capitalMention = legalFormLabel && soc?.shareCapital
     ? legalFormLabel + " au capital de " + fmtNum(soc.shareCapital) + "\u20AC"
     : legalFormLabel
@@ -145,10 +137,12 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
             <Text style={s.companyName}>{soc?.name ?? "---"}</Text>
             {soc?.addressLine1 ? <Text style={s.smallText}>{soc.addressLine1}, {[soc.postalCode, soc.city].filter(Boolean).join(" ")}</Text> : null}
             {soc?.phone ? <Text style={s.smallText}>Tél. : {soc.phone}</Text> : null}
-            {soc?.legalForm && soc?.shareCapital ? (
-              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm} au capital de {fmtNum(soc.shareCapital)}{"\u20AC"}</Text>
-            ) : soc?.legalForm ? (
-              <Text style={s.smallText}>{LEGAL_FORM_LABELS[soc.legalForm] ?? soc.legalForm}</Text>
+            {legalFormLabel && soc?.shareCapital ? (
+              <Text style={s.smallText}>{legalFormLabel} au capital de {fmtNum(soc.shareCapital)}{"€"}</Text>
+            ) : legalFormLabel ? (
+              <Text style={s.smallText}>{legalFormLabel}</Text>
+            ) : soc?.shareCapital ? (
+              <Text style={s.smallText}>Capital social : {fmtNum(soc.shareCapital)}{"€"}</Text>
             ) : null}
             {soc?.siret ? <Text style={s.smallText}>SIRET : {soc.siret}</Text> : null}
             {soc?.vatNumber ? <Text style={s.smallText}>N° TVA : {soc.vatNumber}</Text> : null}
