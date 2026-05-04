@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,6 +144,7 @@ function findDocumentById(documents: DocumentItem[], documentId?: string): Docum
 type TreeData = {
   total: number;
   buildings: { key: string; name: string; count: number }[];
+  categories: { key: string; name: string; count: number }[];
   generalCount: number;
   expiredCount: number;
   expiringCount: number;
@@ -172,14 +173,26 @@ function buildTree(documents: DocumentItem[]): TreeData {
   const allTags = Array.from(tagMap.entries())
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count);
-  return { total: documents.length, buildings, generalCount, expiredCount, expiringCount, allTags };
+
+  const catMap = new Map<string, number>();
+  for (const doc of documents) {
+    const cat = doc.category ?? "autre";
+    catMap.set(cat, (catMap.get(cat) ?? 0) + 1);
+  }
+  const categories = Array.from(catMap.entries())
+    .map(([key, count]) => ({ key, name: getCategoryLabel(key), count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { total: documents.length, buildings, categories, generalCount, expiredCount, expiringCount, allTags };
 }
 
-function TreeSidebar({ tree, selected, onSelect, expirationFilter, onExpirationFilter, tagFilter, onTagFilter }: {
+function TreeSidebar({ tree, selected, onSelect, selectedCategory, onCategorySelect, expirationFilter, onExpirationFilter, tagFilter, onTagFilter }: {
   tree: TreeData; selected: string; onSelect: (key: string) => void;
+  selectedCategory: string; onCategorySelect: (key: string) => void;
   expirationFilter: ExpirationFilter; onExpirationFilter: (f: ExpirationFilter) => void;
   tagFilter: string; onTagFilter: (t: string) => void;
 }) {
+  const [groupMode, setGroupMode] = useState<"building" | "category">("building");
   const item = (key: string, label: string, count: number, icon: React.ReactNode) => (
     <button key={key} onClick={() => onSelect(key)}
       className={cn(
@@ -197,16 +210,46 @@ function TreeSidebar({ tree, selected, onSelect, expirationFilter, onExpirationF
   );
   return (
     <nav className="p-1.5 space-y-0.5">
+      {/* Toggle Immeubles / Themes */}
+      <div className="flex rounded-lg border border-border overflow-hidden mb-1">
+        <button onClick={() => setGroupMode("building")}
+          className={cn("flex-1 text-[10px] py-1 font-medium transition-colors",
+            groupMode === "building" ? "bg-[var(--color-brand-blue)] text-white" : "text-muted-foreground hover:bg-muted")}>
+          Immeubles
+        </button>
+        <button onClick={() => setGroupMode("category")}
+          className={cn("flex-1 text-[10px] py-1 font-medium transition-colors",
+            groupMode === "category" ? "bg-[var(--color-brand-blue)] text-white" : "text-muted-foreground hover:bg-muted")}>
+          Themes
+        </button>
+      </div>
       {item("all", "Tous les documents", tree.total, <FolderOpen className="h-4 w-4 shrink-0" />)}
-      {tree.buildings.length > 0 && (
+      {groupMode === "building" && tree.buildings.length > 0 && (
         <div className="pt-2">
           <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Immeubles</p>
           {tree.buildings.map((b) => item(b.key, b.name, b.count, <Building2 className="h-4 w-4 shrink-0" />))}
         </div>
       )}
-      {tree.generalCount > 0 && (
+      {groupMode === "building" && tree.generalCount > 0 && (
         <div className="pt-2">
           {item("general", "General", tree.generalCount, <FolderOpen className="h-4 w-4 shrink-0" />)}
+        </div>
+      )}
+      {groupMode === "category" && tree.categories.length > 0 && (
+        <div className="pt-2">
+          <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Themes</p>
+          {tree.categories.map((c) => (
+            <button key={c.key} onClick={() => onCategorySelect(selectedCategory === c.key ? "all" : c.key)}
+              className={cn(
+                "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left transition-colors",
+                selectedCategory === c.key
+                  ? "bg-[#F0F7FF] text-[var(--color-brand-deep)] font-medium border-l-[3px] border-l-[var(--color-brand-blue)]"
+                  : "hover:bg-[#F9FAFB] text-[#64748B] hover:text-[var(--color-brand-deep)]"
+              )}>
+              <span className="flex-1 text-sm">{c.name}</span>
+              <span className={cn("text-xs tabular-nums", selectedCategory === c.key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>{c.count}</span>
+            </button>
+          ))}
         </div>
       )}
       {(tree.expiredCount > 0 || tree.expiringCount > 0) && (
@@ -359,43 +402,19 @@ function FileGridCard({ doc, selected, onSelect, onOpen }: {
   );
 }
 
-function extractStoragePath(fileUrl: string): string | null {
-  if (!fileUrl) return null;
-  try {
-    const url = new URL(fileUrl);
-    const match = url.pathname.match(/\/storage\/v1\/object\/(?:sign|public)\/[^/]+\/(.+?)(?:\?|$)/);
-    if (match) return decodeURIComponent(match[1]);
-    const match2 = url.pathname.match(/\/object\/sign\/[^/]+\/(.+?)(?:\?|$)/);
-    if (match2) return decodeURIComponent(match2[1]);
-  } catch { /* not a URL */ }
-  if (!fileUrl.startsWith("http")) return fileUrl;
-  return null;
-}
-
 function PreviewContent({ doc }: { doc: DocumentItem }) {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const sp = doc.storagePath ?? extractStoragePath(doc.fileUrl);
-    if (!sp) {
-      // No storage path: use fileUrl directly (async via callback to satisfy linter)
-      void Promise.resolve().then(() => setSignedUrl(doc.fileUrl));
-      return;
-    }
-    fetch("/api/storage/view", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storagePath: sp }) })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setSignedUrl(d?.url ?? doc.fileUrl))
-      .catch(() => setSignedUrl(doc.fileUrl));
-  }, [doc.storagePath, doc.fileUrl]);
-  if (!signedUrl) return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  const sp = doc.storagePath;
+  const viewUrl = sp
+    ? `/api/storage/view?path=${encodeURIComponent(sp)}`
+    : doc.fileUrl;
   const mt = doc.mimeType ?? "";
-  if (mt.startsWith("image/")) return <img src={signedUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain mx-auto" />;
-  if (mt === "application/pdf") return <iframe src={signedUrl} className="w-full h-full border-0 rounded" title={doc.fileName} />;
+  if (mt.startsWith("image/")) return <img src={viewUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain mx-auto" />;
+  if (mt === "application/pdf") return <iframe src={viewUrl} className="w-full h-full border-0 rounded" title={doc.fileName} />;
   return (
     <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
       <FileTypeIcon mimeType={doc.mimeType} className="h-10 w-10 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">Prévisualisation non disponible pour ce type de fichier.</p>
-      <a href={signedUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer">
+      <a href={viewUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer">
         <Button size="sm" variant="outline"><Download className="h-4 w-4 mr-1.5" />Télécharger</Button>
       </a>
     </div>
@@ -907,7 +926,9 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
 
   return (
     <div className="flex h-full gap-0">
-      <TreeSidebar tree={tree} selected={building} onSelect={setBuilding}
+      <TreeSidebar tree={tree}
+        selected={building} onSelect={(k) => { setBuilding(k); setCategory("all"); }}
+        selectedCategory={category} onCategorySelect={(k) => { setCategory(k); setBuilding("all"); }}
         expirationFilter={expirationFilter} onExpirationFilter={setExpirationFilter}
         tagFilter={tagFilter} onTagFilter={setTagFilter} />
 
