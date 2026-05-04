@@ -14,11 +14,14 @@ export async function GET(req: NextRequest) {
   const documents = await prisma.document.findMany({
     where: {
       societyId,
+      deletedAt: null,
       OR: [
         { fileName: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
         { aiSummary: { contains: q, mode: "insensitive" } },
         { category: { contains: q, mode: "insensitive" } },
+        { fullText: { contains: q, mode: "insensitive" } },
+        { userTags: { has: q } },
       ],
     },
     select: {
@@ -27,6 +30,7 @@ export async function GET(req: NextRequest) {
       category: true,
       aiSummary: true,
       aiTags: true,
+      userTags: true,
       aiStatus: true,
       createdAt: true,
     },

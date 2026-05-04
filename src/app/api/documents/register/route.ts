@@ -10,6 +10,7 @@ import {
   validateDocumentUploadMetadata,
 } from "@/lib/document-upload-security";
 import { resolveDocumentLeaseAssociation } from "@/lib/document-lease-association";
+import { extractAndStoreFullText } from "@/lib/document-fulltext";
 
 export async function POST(req: NextRequest) {
   try {
@@ -104,14 +105,7 @@ export async function POST(req: NextRequest) {
       action: "CREATE",
       entity: "Document",
       entityId: doc.id,
-      details: {
-        fileName,
-        category,
-        buildingId: association.buildingId,
-        lotId: association.lotId,
-        leaseId: association.leaseId,
-        tenantId: association.tenantId,
-      },
+      details: { fileName, category, buildingId: association.buildingId, lotId: association.lotId, leaseId: association.leaseId, tenantId: association.tenantId },
     });
 
     // Déclencher l'analyse IA en arrière-plan
@@ -121,6 +115,11 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "x-cron-secret": env.CRON_SECRET ?? "" },
       }).catch(() => null);
+    }
+
+    // Extraction plein texte PDF en arrière-plan
+    if (metadataValidation.mimeType === "application/pdf") {
+      void extractAndStoreFullText(doc.id, storagePath);
     }
 
     return NextResponse.json({ success: true, document: { id: doc.id, fileUrl } });

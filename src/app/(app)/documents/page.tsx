@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getDocuments } from "@/actions/document";
+import { getDocuments, getExpiringDocuments } from "@/actions/document";
+import { getDatarooms } from "@/actions/dataroom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, FileStack, FileUp, FolderLock, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileStack, FileUp, FolderLock, Plus } from "lucide-react";
 import Link from "next/link";
 import { DocumentsClient } from "./_components/documents-client";
 
@@ -25,12 +26,20 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
 
   const params = (await searchParams) ?? {};
   const tenantId = params.tenantId;
-  const documents = await getDocuments(societyId, tenantId ? { tenantId } : undefined);
   const showUploadSuccess = params.uploaded === "1";
-  const initialDocumentId = params.documentId;
   const newDocumentHref = tenantId
     ? `/documents/nouveau?tenantId=${encodeURIComponent(tenantId)}`
     : "/documents/nouveau";
+
+  const [documents, { expired, expiringSoon }, allDatarooms] = await Promise.all([
+    getDocuments(societyId, tenantId ? { tenantId } : undefined),
+    getExpiringDocuments(societyId),
+    getDatarooms(societyId),
+  ]);
+
+  const datarooms = allDatarooms.map(d => ({ id: d.id, name: d.name }));
+  const expiredCount = expired.length;
+  const expiringSoonCount = expiringSoon.length;
 
   return (
     <div className="space-y-4">
@@ -58,6 +67,18 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
           </Link>
         </div>
       </div>
+      {(expiredCount > 0 || expiringSoonCount > 0) && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900">Documents à renouveler</p>
+            <p className="mt-0.5 text-xs text-amber-700">
+              {expiredCount > 0 && <span className="mr-2">{expiredCount} expiré{expiredCount > 1 ? "s" : ""}</span>}
+              {expiringSoonCount > 0 && <span>{expiringSoonCount} expirant dans 30 jours</span>}
+            </p>
+          </div>
+        </div>
+      )}
       {showUploadSuccess && (
         <div className="rounded-2xl border border-[var(--color-status-positive)]/20 bg-[var(--color-status-positive-bg)] px-4 py-3">
           <p className="text-sm font-medium text-[var(--color-brand-deep)]">Document importé</p>
@@ -120,11 +141,10 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         </Card>
       </div>
       <DocumentsClient
-        key={initialDocumentId ?? "documents"}
         societyId={societyId}
-        documents={documents}
-        initialDocumentId={initialDocumentId}
-        newDocumentHref={newDocumentHref}
+        initialDocuments={documents}
+        datarooms={datarooms}
+        tenantId={tenantId}
       />
     </div>
   );

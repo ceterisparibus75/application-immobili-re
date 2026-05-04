@@ -10,30 +10,10 @@ vi.mock("next/link", () => ({
     React.createElement("a", { href, className }, children),
 }));
 
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
-
 vi.mock("@/actions/document", () => ({
   updateDocument: vi.fn(),
   deleteDocument: vi.fn(),
-}));
-
-vi.mock("@/actions/dataroom", () => ({
-  getDatarooms: vi.fn().mockResolvedValue([]),
-  addDocumentToDataroom: vi.fn(),
-}));
-
-vi.mock("./delete-button", () => ({
-  DeleteDocumentButton: () => <button type="button">Supprimer</button>,
-}));
-
-vi.mock("./ai-badge", () => ({
-  AiBadge: () => <span>IA</span>,
-}));
-
-vi.mock("./document-chat", () => ({
-  DocumentChat: () => <div>Chat document</div>,
+  bulkUpdateCategory: vi.fn(),
 }));
 
 const documentItem = {
@@ -60,27 +40,23 @@ const documentItem = {
   lot: null,
   lease: null,
   tenant: null,
+  userTags: [],
+  versionOf: null,
+  versionNumber: 1,
+  versions: [],
 };
 
 describe("DocumentsClient", () => {
-  it("guide l'utilisateur quand la GED est vide", () => {
-    render(<DocumentsClient societyId="society-1" documents={[]} />);
-
-    expect(screen.getByText("Aucun document")).toBeInTheDocument();
-    expect(screen.getByText(/Ajoutez vos baux, diagnostics, factures/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ajouter un document/i })).toHaveAttribute("href", "/documents/nouveau");
+  it("affiche un état vide quand aucun document", () => {
+    render(<DocumentsClient societyId="society-1" initialDocuments={[]} datarooms={[]} />);
+    expect(screen.getByText("Aucun document trouvé")).toBeInTheDocument();
   });
 
-  it("distingue un résultat vide causé par les filtres et permet de réinitialiser", () => {
-    render(<DocumentsClient societyId="society-1" documents={[documentItem]} />);
-
-    fireEvent.change(screen.getByPlaceholderText("Rechercher..."), { target: { value: "introuvable" } });
-
-    expect(screen.getByText("Aucun résultat")).toBeInTheDocument();
-    expect(screen.getByText(/Aucun document ne correspond aux filtres actifs/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Réinitialiser" }));
-
+  it("affiche les documents et permet de chercher", () => {
+    render(<DocumentsClient societyId="society-1" initialDocuments={[documentItem]} datarooms={[]} />);
     expect(screen.getByText("Bail Marie Dupont.pdf")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Rechercher dans les documents/i), { target: { value: "introuvable" } });
+    expect(screen.getByText("Aucun document trouvé")).toBeInTheDocument();
   });
 });

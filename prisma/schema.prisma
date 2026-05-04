@@ -2593,6 +2593,7 @@ model Document {
   category    String? // titre_propriete, reglement_copro, plan, avenant, etc.
   description String?
   expiresAt   DateTime?
+  userTags    String[] // tags définis par l'utilisateur
 
   // GED IA
   storagePath  String? // chemin brut Supabase Storage (stable)
@@ -2601,12 +2602,19 @@ model Document {
   aiMetadata   Json? // metadonnees cles (loyer, dates, noms...)
   aiAnalyzedAt DateTime? // date derniere analyse IA
   aiStatus     String? // pending | done | error
+  fullText     String?   @db.Text // texte extrait du PDF (recherche plein texte)
+
+  // Versioning
+  versionOf     String? // id du document parent (null = version originale)
+  versionNumber Int     @default(1) // 1 = original, 2 = v2, etc.
 
   society                     Society              @relation(fields: [societyId], references: [id], onDelete: Cascade)
   building                    Building?            @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   lot                         Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
   lease                       Lease?               @relation(fields: [leaseId], references: [id], onDelete: SetNull)
   tenant                      Tenant?              @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  parentDocument              Document?            @relation("DocumentVersions", fields: [versionOf], references: [id])
+  versions                    Document[]           @relation("DocumentVersions")
   leaseTenantHistoryTransfers LeaseTenantHistory[]
   dataroomDocuments           DataroomDocument[]
   thirdPartyStatement         ThirdPartyStatement?
@@ -2620,6 +2628,7 @@ model Document {
   @@index([tenantId])
   @@index([expiresAt])
   @@index([aiStatus])
+  @@index([versionOf])
 }
 
 // ============================================================
