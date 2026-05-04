@@ -16,7 +16,7 @@ import {
   Download, Trash2, FileDown, Maximize2, Database, Save,
   History, Upload,
 } from "lucide-react";
-import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
+import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_GROUPS } from "@/lib/document-categories";
 import { updateDocument, deleteDocument, bulkUpdateCategory } from "@/actions/document";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -116,21 +116,26 @@ function FileTypeIcon({ mimeType, fileName, className }: { mimeType: string | nu
   return <File className={cn("text-slate-400 dark:text-slate-300", className)} />;
 }
 
+const _BLUE = "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
+const _GREEN = "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25";
+const _AMBER = "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] border border-[var(--color-status-caution)]/25";
+const _CYAN = "bg-[var(--color-brand-light)] text-[var(--color-brand-cyan)] border border-[var(--color-brand-cyan)]/25";
+const _PURPLE = "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800";
+const _GRAY = "bg-muted text-muted-foreground border border-border";
 const CATEGORY_BADGE: Record<string, string> = {
-  bail: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  avenant: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  titre_propriete: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  acte_acquisition: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  reglement_copro: "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  facture: "bg-[var(--color-status-caution-bg)] text-[var(--color-status-caution)] border border-[var(--color-status-caution)]/25",
-  quittance: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
-  diagnostic: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
-  plan: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
-  etat_des_lieux: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
-  assurance: "bg-[var(--color-status-positive-bg)] text-[var(--color-status-positive)] border border-[var(--color-status-positive)]/25",
-  courrier: "bg-[var(--color-brand-light)] text-[var(--color-brand-cyan)] border border-[var(--color-brand-cyan)]/25",
-  contrat: "bg-[var(--color-brand-light)] text-[var(--color-brand-cyan)] border border-[var(--color-brand-cyan)]/25",
-  autre: "bg-muted text-muted-foreground border border-border",
+  // Location
+  bail: _BLUE, avenant: _BLUE, etat_des_lieux: _BLUE, quittance: _BLUE,
+  // Patrimoine
+  titre_propriete: _GREEN, acte_acquisition: _GREEN, plan: _GREEN,
+  diagnostic: _GREEN, permis_construire: _GREEN, autorisation_travaux: _GREEN,
+  // Juridique société
+  statuts: _PURPLE, pv_ag: _PURPLE, kbis: _PURPLE, mandat_gestion: _PURPLE, reglement_copro: _PURPLE,
+  // Financier
+  comptes_annuels: _AMBER, liasse_fiscale: _AMBER, budget: _AMBER, expertise: _AMBER, facture: _AMBER,
+  // Assurance
+  assurance: _GREEN, police_assurance: _GREEN, attestation_decennale: _GREEN,
+  // Administratif
+  courrier: _CYAN, contrat: _CYAN, autre: _GRAY,
 };
 
 const CATEGORIES_OPTIONS = DOCUMENT_CATEGORIES.map(c => ({ value: c.value, label: c.label }));
@@ -141,10 +146,15 @@ function findDocumentById(documents: DocumentItem[], documentId?: string): Docum
 }
 
 // ─── Tree Sidebar ─────────────────────────────────────────────────────────────
+// Map from theme group name -> set of category values (used for filtering)
+const THEME_CATEGORY_MAP: Record<string, Set<string>> = Object.fromEntries(
+  DOCUMENT_CATEGORY_GROUPS.map(g => [g.group, new Set(g.items.map(i => i.value))])
+);
+
 type TreeData = {
   total: number;
   buildings: { key: string; name: string; count: number }[];
-  categories: { key: string; name: string; count: number }[];
+  themes: { key: string; name: string; count: number }[];
   generalCount: number;
   expiredCount: number;
   expiringCount: number;
@@ -174,25 +184,39 @@ function buildTree(documents: DocumentItem[]): TreeData {
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count);
 
-  const catMap = new Map<string, number>();
+  const themeCountMap = new Map<string, number>();
   for (const doc of documents) {
     const cat = doc.category ?? "autre";
-    catMap.set(cat, (catMap.get(cat) ?? 0) + 1);
+    for (const group of DOCUMENT_CATEGORY_GROUPS) {
+      if (group.items.some(i => i.value === cat)) {
+        themeCountMap.set(group.group, (themeCountMap.get(group.group) ?? 0) + 1);
+        break;
+      }
+    }
   }
-  const categories = Array.from(catMap.entries())
-    .map(([key, count]) => ({ key, name: getCategoryLabel(key), count }))
-    .sort((a, b) => b.count - a.count);
+  const themes = DOCUMENT_CATEGORY_GROUPS
+    .filter(g => themeCountMap.has(g.group))
+    .map(g => ({ key: g.group, name: g.group, count: themeCountMap.get(g.group) ?? 0 }));
 
-  return { total: documents.length, buildings, categories, generalCount, expiredCount, expiringCount, allTags };
+  return { total: documents.length, buildings, themes, generalCount, expiredCount, expiringCount, allTags };
 }
 
-function TreeSidebar({ tree, selected, onSelect, selectedCategory, onCategorySelect, expirationFilter, onExpirationFilter, tagFilter, onTagFilter }: {
+const THEME_ICONS: Record<string, React.ReactNode> = {
+  "Patrimoine": <Building2 className="h-4 w-4 shrink-0" />,
+  "Location": <FolderOpen className="h-4 w-4 shrink-0" />,
+  "Juridique société": <FileText className="h-4 w-4 shrink-0" />,
+  "Financier": <Database className="h-4 w-4 shrink-0" />,
+  "Assurance": <AlertTriangle className="h-4 w-4 shrink-0" />,
+  "Administratif": <FolderOpen className="h-4 w-4 shrink-0" />,
+};
+
+function TreeSidebar({ tree, selected, onSelect, selectedTheme, onThemeSelect, expirationFilter, onExpirationFilter, tagFilter, onTagFilter }: {
   tree: TreeData; selected: string; onSelect: (key: string) => void;
-  selectedCategory: string; onCategorySelect: (key: string) => void;
+  selectedTheme: string; onThemeSelect: (key: string) => void;
   expirationFilter: ExpirationFilter; onExpirationFilter: (f: ExpirationFilter) => void;
   tagFilter: string; onTagFilter: (t: string) => void;
 }) {
-  const [groupMode, setGroupMode] = useState<"building" | "category">("building");
+  const [groupMode, setGroupMode] = useState<"building" | "theme">("building");
   const item = (key: string, label: string, count: number, icon: React.ReactNode) => (
     <button key={key} onClick={() => onSelect(key)}
       className={cn(
@@ -210,17 +234,16 @@ function TreeSidebar({ tree, selected, onSelect, selectedCategory, onCategorySel
   );
   return (
     <nav className="p-1.5 space-y-0.5">
-      {/* Toggle Immeubles / Themes */}
       <div className="flex rounded-lg border border-border overflow-hidden mb-1">
         <button onClick={() => setGroupMode("building")}
           className={cn("flex-1 text-[10px] py-1 font-medium transition-colors",
             groupMode === "building" ? "bg-[var(--color-brand-blue)] text-white" : "text-muted-foreground hover:bg-muted")}>
           Immeubles
         </button>
-        <button onClick={() => setGroupMode("category")}
+        <button onClick={() => setGroupMode("theme")}
           className={cn("flex-1 text-[10px] py-1 font-medium transition-colors",
-            groupMode === "category" ? "bg-[var(--color-brand-blue)] text-white" : "text-muted-foreground hover:bg-muted")}>
-          Themes
+            groupMode === "theme" ? "bg-[var(--color-brand-blue)] text-white" : "text-muted-foreground hover:bg-muted")}>
+          Thèmes
         </button>
       </div>
       {item("all", "Tous les documents", tree.total, <FolderOpen className="h-4 w-4 shrink-0" />)}
@@ -232,26 +255,28 @@ function TreeSidebar({ tree, selected, onSelect, selectedCategory, onCategorySel
       )}
       {groupMode === "building" && tree.generalCount > 0 && (
         <div className="pt-2">
-          {item("general", "General", tree.generalCount, <FolderOpen className="h-4 w-4 shrink-0" />)}
+          {item("general", "Général", tree.generalCount, <FolderOpen className="h-4 w-4 shrink-0" />)}
         </div>
       )}
-      {groupMode === "category" && tree.categories.length > 0 && (
+      {groupMode === "theme" && tree.themes.length > 0 && (
         <div className="pt-2">
-          <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Themes</p>
-          {tree.categories.map((c) => (
-            <button key={c.key} onClick={() => onCategorySelect(selectedCategory === c.key ? "all" : c.key)}
+          <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Thèmes</p>
+          {tree.themes.map((t) => (
+            <button key={t.key} onClick={() => onThemeSelect(selectedTheme === t.key ? "all" : t.key)}
               className={cn(
                 "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left transition-colors",
-                selectedCategory === c.key
+                selectedTheme === t.key
                   ? "bg-[#F0F7FF] text-[var(--color-brand-deep)] font-medium border-l-[3px] border-l-[var(--color-brand-blue)]"
                   : "hover:bg-[#F9FAFB] text-[#64748B] hover:text-[var(--color-brand-deep)]"
               )}>
-              <span className="flex-1 text-sm">{c.name}</span>
-              <span className={cn("text-xs tabular-nums", selectedCategory === c.key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>{c.count}</span>
+              {THEME_ICONS[t.key] ?? <FolderOpen className="h-4 w-4 shrink-0" />}
+              <span className="flex-1 text-sm">{t.name}</span>
+              <span className={cn("text-xs tabular-nums", selectedTheme === t.key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>{t.count}</span>
             </button>
           ))}
         </div>
       )}
+
       {(tree.expiredCount > 0 || tree.expiringCount > 0) && (
         <div className="pt-2">
           <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#94A3B8]">Expiration</p>
@@ -408,7 +433,8 @@ function PreviewContent({ doc }: { doc: DocumentItem }) {
     ? `/api/storage/view?path=${encodeURIComponent(sp)}`
     : doc.fileUrl;
   const mt = doc.mimeType ?? "";
-  if (mt.startsWith("image/")) return <img src={viewUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain mx-auto" />;
+   
+  if (mt.startsWith("image/")) return <img src={viewUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain mx-auto" />; // eslint-disable-line @next/next/no-img-element
   if (mt === "application/pdf") return <iframe src={viewUrl} className="w-full h-full border-0 rounded" title={doc.fileName} />;
   return (
     <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
@@ -836,6 +862,7 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
   const [activeDoc, setActiveDoc] = useState<DocumentItem | null>(null);
   const [building, setBuilding] = useState(initBuildingId ?? "all");
   const [category, setCategory] = useState("all");
+  const [themeFilter, setThemeFilter] = useState("all");
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>("all");
   const [tagFilter, setTagFilter] = useState("");
   const [bulkRecatOpen, setBulkRecatOpen] = useState(false);
@@ -870,6 +897,10 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
         if (getBuildingKey(d) !== building) return false;
       }
       if (building === "general" && d.buildingId) return false;
+      if (themeFilter !== "all") {
+        const cats = THEME_CATEGORY_MAP[themeFilter];
+        if (cats && !cats.has(d.category ?? "autre")) return false;
+      }
       if (category !== "all" && d.category !== category) return false;
       if (expirationFilter === "expired" && !isExpired(d.expiresAt)) return false;
       if (expirationFilter === "expiring" && !isExpiringSoon(d.expiresAt)) return false;
@@ -893,7 +924,7 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
       return sortDir === "asc" ? v : -v;
     });
     return filtered;
-  }, [documents, building, category, search, sortKey, sortDir, expirationFilter, tagFilter]);
+  }, [documents, building, category, themeFilter, search, sortKey, sortDir, expirationFilter, tagFilter]);
   const handleBulkDelete = async () => {
     if (!confirm(`Supprimer ${selectedIds.size} document(s) ?`)) return;
     await Promise.all([...selectedIds].map(id => deleteDocument(societyId, id)));
@@ -927,8 +958,8 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
   return (
     <div className="flex h-full gap-0">
       <TreeSidebar tree={tree}
-        selected={building} onSelect={(k) => { setBuilding(k); setCategory("all"); }}
-        selectedCategory={category} onCategorySelect={(k) => { setCategory(k); setBuilding("all"); }}
+        selected={building} onSelect={(k) => { setBuilding(k); setThemeFilter("all"); }}
+        selectedTheme={themeFilter} onThemeSelect={(k) => { setThemeFilter(k); setBuilding("all"); }}
         expirationFilter={expirationFilter} onExpirationFilter={setExpirationFilter}
         tagFilter={tagFilter} onTagFilter={setTagFilter} />
 
