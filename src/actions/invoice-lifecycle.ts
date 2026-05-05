@@ -183,6 +183,7 @@ export async function generateAndSendQuittance(
         amount: paidInvoice.totalTTC,
         paidAt: paymentDate,
         method: "virement",
+        isReconciled: true,
       },
     });
     await prisma.invoice.update({
