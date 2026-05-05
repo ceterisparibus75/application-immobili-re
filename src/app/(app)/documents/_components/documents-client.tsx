@@ -1034,7 +1034,14 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
   const handleBulkDownload = () => {
     const ids = [...selectedIds];
     const docs = ids.map(id => findDocumentById(documents, id)).filter(Boolean) as DocumentItem[];
-    docs.forEach(d => { const a = document.createElement("a"); a.href = d.fileUrl; a.download = d.fileName; a.click(); });
+    docs.forEach((d, i) => {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = d.storagePath ? `/api/storage/view?path=${encodeURIComponent(d.storagePath)}&dl=1` : d.fileUrl;
+        a.download = d.fileName;
+        a.click();
+      }, i * 300);
+    });
   };
 
   const exportCsv = () => {
