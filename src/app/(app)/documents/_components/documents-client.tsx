@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -213,6 +213,41 @@ const THEME_ICONS: Record<string, React.ReactNode> = {
   "Administratif": <FolderOpen className="h-4 w-4 shrink-0" />,
 };
 
+// ─── Column resize ────────────────────────────────────────────────────────────
+type ColKey = "name" | "category" | "building" | "size" | "expires" | "added";
+const DEFAULT_COL_WIDTHS: Record<ColKey, number> = { name: 260, category: 140, building: 160, size: 80, expires: 120, added: 90 };
+
+function useColResize() {
+  const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_COL_WIDTHS);
+  const drag = useRef<{ key: ColKey; x0: number; w0: number } | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!drag.current) return;
+      const delta = e.clientX - drag.current.x0;
+      const key = drag.current.key;
+      setWidths(prev => ({ ...prev, [key]: Math.max(60, drag.current!.w0 + delta) }));
+    };
+    const onUp = () => { drag.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+  const startResize = (key: ColKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    drag.current = { key, x0: e.clientX, w0: widths[key] };
+  };
+  return { widths, startResize };
+}
+
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-blue-400/60 active:bg-blue-500/80 transition-colors"
+    />
+  );
+}
+
 function TreeSidebar({ tree, selected, onSelect, selectedTheme, onThemeSelect, expirationFilter, onExpirationFilter, tagFilter, onTagFilter }: {
   tree: TreeData; selected: string; onSelect: (key: string) => void;
   selectedTheme: string; onThemeSelect: (key: string) => void;
@@ -359,7 +394,7 @@ function FileRow({ doc, selected, onSelect, onOpen }: {
       <td className="py-2.5 pr-3">
         <div className="flex items-center gap-2">
           <FileTypeIcon mimeType={doc.mimeType} className="flex-shrink-0 text-muted-foreground" />
-          <span className="truncate max-w-[220px] font-medium">{doc.fileName}</span>
+          <span className="truncate font-medium min-w-0">{doc.fileName}</span>
           {doc.versions.length > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">
               v{doc.versionNumber + doc.versions.length}
@@ -930,6 +965,7 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
   const [tagFilter, setTagFilter] = useState("");
   const [bulkRecatOpen, setBulkRecatOpen] = useState(false);
   const [bulkDataroomOpen, setBulkDataroomOpen] = useState(false);
+  const { widths: colWidths, startResize } = useColResize();
 
   const tree = useMemo(() => buildTree(documents), [documents]);
 
@@ -1071,18 +1107,45 @@ export function DocumentsClient({ initialDocuments, societyId, datarooms, buildi
               ))}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: 32 }} />
+                <col style={{ width: colWidths.name }} />
+                <col className="hidden md:table-column" style={{ width: colWidths.category }} />
+                <col className="hidden lg:table-column" style={{ width: colWidths.building }} />
+                <col className="hidden xl:table-column" style={{ width: colWidths.size }} />
+                <col style={{ width: colWidths.expires }} />
+                <col className="hidden sm:table-column" style={{ width: colWidths.added }} />
+              </colgroup>
               <thead className="sticky top-0 bg-background z-10 border-b">
                 <tr>
                   <th className="w-8 px-3 py-2.5">
                     <Checkbox checked={allSelected} onCheckedChange={() => allSelected ? setSelectedIds(new Set()) : selectAll(sorted)} />
                   </th>
-                  <th className="py-2.5 pr-3 text-left"><SortHeader label="Nom" sortKey="fileName" current={sortKey} dir={sortDir} onSort={handleSort} /></th>
-                  <th className="py-2.5 pr-3 text-left hidden md:table-cell"><span className="text-xs font-medium text-muted-foreground">Catégorie</span></th>
-                  <th className="py-2.5 pr-3 text-left hidden lg:table-cell"><span className="text-xs font-medium text-muted-foreground">Immeuble</span></th>
-                  <th className="py-2.5 pr-3 text-left hidden xl:table-cell"><SortHeader label="Taille" sortKey="fileSize" current={sortKey} dir={sortDir} onSort={handleSort} /></th>
-                  <th className="py-2.5 pr-3 text-left"><SortHeader label="Expiration" sortKey="expiresAt" current={sortKey} dir={sortDir} onSort={handleSort} /></th>
-                  <th className="py-2.5 pr-3 text-left hidden sm:table-cell"><SortHeader label="Ajouté" sortKey="createdAt" current={sortKey} dir={sortDir} onSort={handleSort} /></th>
+                  <th className="py-2.5 pr-3 text-left relative" style={{ width: colWidths.name }}>
+                    <SortHeader label="Nom" sortKey="fileName" current={sortKey} dir={sortDir} onSort={handleSort} />
+                    <ResizeHandle onMouseDown={e => startResize("name", e)} />
+                  </th>
+                  <th className="py-2.5 pr-3 text-left hidden md:table-cell relative" style={{ width: colWidths.category }}>
+                    <span className="text-xs font-medium text-muted-foreground">Catégorie</span>
+                    <ResizeHandle onMouseDown={e => startResize("category", e)} />
+                  </th>
+                  <th className="py-2.5 pr-3 text-left hidden lg:table-cell relative" style={{ width: colWidths.building }}>
+                    <span className="text-xs font-medium text-muted-foreground">Immeuble</span>
+                    <ResizeHandle onMouseDown={e => startResize("building", e)} />
+                  </th>
+                  <th className="py-2.5 pr-3 text-left hidden xl:table-cell relative" style={{ width: colWidths.size }}>
+                    <SortHeader label="Taille" sortKey="fileSize" current={sortKey} dir={sortDir} onSort={handleSort} />
+                    <ResizeHandle onMouseDown={e => startResize("size", e)} />
+                  </th>
+                  <th className="py-2.5 pr-3 text-left relative" style={{ width: colWidths.expires }}>
+                    <SortHeader label="Expiration" sortKey="expiresAt" current={sortKey} dir={sortDir} onSort={handleSort} />
+                    <ResizeHandle onMouseDown={e => startResize("expires", e)} />
+                  </th>
+                  <th className="py-2.5 pr-3 text-left hidden sm:table-cell relative" style={{ width: colWidths.added }}>
+                    <SortHeader label="Ajouté" sortKey="createdAt" current={sortKey} dir={sortDir} onSort={handleSort} />
+                    <ResizeHandle onMouseDown={e => startResize("added", e)} />
+                  </th>
                 </tr>
               </thead>
               <tbody>

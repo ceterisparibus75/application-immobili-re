@@ -115,7 +115,20 @@ export async function GET(req: NextRequest) {
       return new NextResponse(null, { status: 404 });
     }
     if (mustForceDownload) {
-      return new NextResponse(null, { status: 404 });
+      // Cannot redirect for dl=1 (Content-Disposition not forwarded) — proxy through signed URL
+      const proxied = await fetch(signed.signedUrl).catch(() => null);
+      if (!proxied?.ok) return new NextResponse(null, { status: 404 });
+      const ab2 = await proxied.arrayBuffer();
+      const mimeMap2: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", pdf: "application/pdf" };
+      const ct2 = forceAttachmentExts.has(ext) ? "application/octet-stream" : (mimeMap2[ext] ?? proxied.headers.get("content-type") ?? "application/octet-stream");
+      const fn2 = cleanPath.split("/").pop() ?? "document";
+      return new NextResponse(ab2, { headers: {
+        "Content-Type": ct2,
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(fn2)}"`,
+        "Cache-Control": "private, max-age=3600",
+        "Content-Length": String(ab2.byteLength),
+        "X-Content-Type-Options": "nosniff",
+      }});
     }
     const response = NextResponse.redirect(signed.signedUrl);
     response.headers.set("Cache-Control", "private, max-age=3600");
