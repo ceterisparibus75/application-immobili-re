@@ -81,7 +81,7 @@ export default async function RapprochementPage({
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-xs text-muted-foreground">Paiements enregistrés</p>
+            <p className="text-xs text-muted-foreground">Règlements saisis</p>
             <p className={`text-2xl font-bold ${payments.length > 0 ? "text-[var(--color-status-caution)]" : "text-[var(--color-status-positive)]"}`}>
               {payments.length}
             </p>

@@ -341,6 +341,13 @@ export default function ReconciliationClient({
     );
   }
 
+const KIND_LABELS: Record<string, string> = {
+  payment: "règlement",
+  invoice: "loyer / facture",
+  loanLine: "prêt",
+  supplierInvoice: "fournisseur",
+};
+
   const reconcileBtn = (
     kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
     id: string
@@ -529,7 +536,7 @@ export default function ReconciliationClient({
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{candidate.label}</p>
                         <p className="text-xs text-muted-foreground">
-                          {candidate.kind} · {candidate.reason}
+                          {KIND_LABELS[candidate.kind] ?? candidate.kind} · {candidate.reason}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -552,7 +559,7 @@ export default function ReconciliationClient({
               <div className="px-4 pt-4">
                 <TabsList className="w-full">
                   <TabsTrigger value="payments" className="flex-1 gap-1.5">
-                    Paiements
+                    Règlements
                     {payments.length > 0 && (
                       <Badge
                         variant="secondary"
@@ -593,7 +600,7 @@ export default function ReconciliationClient({
               <TabsContent value="payments" className="mt-0 max-h-[520px] overflow-y-auto">
                 {payments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">
-                    Aucun paiement à rapprocher
+                    Aucun règlement à rapprocher
                   </p>
                 ) : (
                   <div className="divide-y">
