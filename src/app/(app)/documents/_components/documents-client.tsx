@@ -227,6 +227,7 @@ function TreeSidebar({ tree, selected, onSelect, selectedTheme, onThemeSelect, e
       )}
     >
       {icon}
+      <span className="flex-1 text-sm truncate">{label}</span>
       <span className={cn("text-xs tabular-nums", selected === key ? "text-[var(--color-brand-blue)]" : "text-[#94A3B8]")}>
         {count}
       </span>
@@ -579,7 +580,7 @@ function VersionsTab({ doc, societyId, onRefresh }: { doc: DocumentItem; society
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className="text-xs text-muted-foreground">v{v.versionNumber}</span>
               <span className="text-xs text-muted-foreground">{new Date(v.createdAt).toLocaleDateString("fr-FR")}</span>
-              <a href={v.fileUrl} download={v.fileName} target="_blank" rel="noopener noreferrer">
+              <a href={v.storagePath ? `/api/storage/view?path=${encodeURIComponent(v.storagePath)}&dl=1` : v.fileUrl} download={v.fileName} target="_blank" rel="noopener noreferrer">
                 <Button size="icon" variant="ghost" className="h-6 w-6"><Download className="h-3.5 w-3.5" /></Button>
               </a>
             </div>
@@ -815,7 +816,7 @@ function DetailsPanel({ doc, societyId, datarooms, onClose, onRefresh }: {
         {tab === "edit" && <EditForm doc={doc} societyId={societyId} onSuccess={onRefresh} />}
       </div>
       <div className="flex items-center gap-2 px-4 py-2 border-t flex-shrink-0 flex-wrap">
-        <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+        <a href={doc.storagePath ? `/api/storage/view?path=${encodeURIComponent(doc.storagePath)}&dl=1` : doc.fileUrl} download={doc.fileName} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
           <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"><Download className="h-3 w-3" />Télécharger</Button>
         </a>
         {datarooms.length > 0 && (
