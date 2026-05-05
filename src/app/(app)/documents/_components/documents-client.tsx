@@ -14,10 +14,13 @@ import {
   Search, X, Loader2, Tag, Clock, AlertTriangle,
   FolderOpen, Building2, List, ArrowUpDown, ArrowUp, ArrowDown,
   Download, Trash2, FileDown, Maximize2, Database, Save,
-  History, Upload,
+  History, Upload, Sparkles,
 } from "lucide-react";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_GROUPS } from "@/lib/document-categories";
 import { updateDocument, deleteDocument, bulkUpdateCategory } from "@/actions/document";
+import { Badge } from "@/components/ui/badge";
+import { AiBadge } from "./ai-badge";
+import { DocumentChat } from "./document-chat";
 import { Checkbox } from "@/components/ui/checkbox";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────────────────
@@ -720,6 +723,27 @@ function DetailsPanel({ doc, societyId, datarooms, onClose, onRefresh }: {
   const [fullscreen, setFullscreen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [dataroomOpen, setDataroomOpen] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{ summary?: string; tags?: string[]; category?: string } | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const display = analysisResult
+    ? { ...doc, aiSummary: analysisResult.summary ?? doc.aiSummary, aiTags: analysisResult.tags ?? doc.aiTags, aiCategory: analysisResult.category ?? doc.aiCategory, aiStatus: "done" as const }
+    : doc;
+  const hasAnalysis = display.aiStatus === "done" && (display.aiTags?.length ?? 0) > 0;
+  const canAnalyze = !analyzing && display.aiStatus !== "pending";
+
+  const triggerAnalysis = async () => {
+    setAnalyzing(true);
+    try {
+      const res = await fetch(`/api/documents/${doc.id}/analyze`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json() as { summary?: string; tags?: string[]; category?: string };
+        setAnalysisResult(data);
+      }
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm("Supprimer ce document ?")) return;
@@ -779,23 +803,61 @@ function DetailsPanel({ doc, societyId, datarooms, onClose, onRefresh }: {
         {tab === "versions" && <VersionsTab doc={doc} societyId={societyId} onRefresh={onRefresh} />}
         {tab === "ai" && (
           <div className="p-4 space-y-3">
-            {doc.aiStatus === "done" && doc.aiTags && doc.aiTags.length > 0 ? (
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-purple-500" />Analyse IA
+              </p>
+              <AiBadge status={display.aiStatus} id={doc.id} />
+            </div>
+            {(display.aiStatus === "pending" || analyzing) ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {analyzing ? "Analyse en cours…" : "Analyse planifiée…"}
+              </div>
+            ) : hasAnalysis ? (
               <>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags IA</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {doc.aiTags.map(t => <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">{t}</span>)}
-                </div>
-                {doc.aiSummary && <><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Résumé</p><p className="text-sm">{doc.aiSummary}</p></>}
-                {doc.aiCategory && <><p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Catégorie suggérée</p><p className="text-sm">{doc.aiCategory}</p></>}
+                {display.aiSummary && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Résumé</p>
+                    <p className="text-sm leading-relaxed">{display.aiSummary}</p>
+                  </div>
+                )}
+                {display.aiTags && display.aiTags.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags IA</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {display.aiTags.map(t => (
+                        <Badge key={t} variant="secondary" className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 hover:bg-purple-200">{t}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {display.aiCategory && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Catégorie suggérée</p>
+                    <Badge variant="outline" className="text-xs">{display.aiCategory}</Badge>
+                  </div>
+                )}
               </>
-            ) : doc.aiStatus === "pending" ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Analyse en cours…</div>
             ) : (
-              <p className="text-sm text-muted-foreground">Aucune analyse IA disponible pour ce document.</p>
+              <div className="py-4 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">Aucune analyse IA pour ce document.</p>
+              </div>
+            )}
+            {canAnalyze && (
+              <Button size="sm" variant="outline" onClick={triggerAnalysis} disabled={analyzing}
+                className="w-full gap-1.5 mt-2">
+                <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+                {hasAnalysis ? "Relancer l\'analyse" : "Analyser ce document"}
+              </Button>
             )}
           </div>
         )}
-        {tab === "chat" && <div className="p-4"><p className="text-sm text-muted-foreground">Assistant IA bientôt disponible.</p></div>}
+        {tab === "chat" && (
+          <div className="h-full">
+            <DocumentChat documentId={doc.id} />
+          </div>
+        )}
         {tab === "info" && (
           <div className="p-4 space-y-2 text-sm">
             <InfoRow label="Catégorie" value={getCategoryLabel(doc.category)} />
