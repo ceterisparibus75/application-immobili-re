@@ -1125,6 +1125,126 @@ export async function reconcileWithSupplierInvoice(
   }
 }
 
+// ─── Reprises de solde à rapprocher ──────────────────────────────────────────
+
+export async function getUnreconciledBalanceAdjustments(societyId: string) {
+  if (!(await getOptionalSocietyActionContext(societyId))) return [];
+
+  return prisma.tenantBalanceAdjustment.findMany({
+    where: {
+      societyId,
+      isReconciled: false,
+      amount: { gt: 0 },
+    },
+    select: {
+      id: true,
+      label: true,
+      amount: true,
+      dueDate: true,
+      reference: true,
+      periodLabel: true,
+      tenant: { select: { companyName: true, firstName: true, lastName: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+export async function reconcileWithBalanceAdjustment(
+  societyId: string,
+  transactionId: string,
+  adjustmentId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const [transaction, adjustment] = await Promise.all([
+      prisma.bankTransaction.findFirst({
+        where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+        include: { bankAccount: { select: { id: true, bankName: true, accountName: true } } },
+      }),
+      prisma.tenantBalanceAdjustment.findFirst({
+        where: { id: adjustmentId, societyId, isReconciled: false },
+        include: { tenant: { select: { companyName: true, firstName: true, lastName: true } } },
+      }),
+    ]);
+
+    if (!transaction) return { success: false, error: "Transaction introuvable ou déjà rapprochée" };
+    if (!adjustment) return { success: false, error: "Reprise de solde introuvable" };
+    if (transaction.amount <= 0) {
+      return { success: false, error: "Une reprise de solde doit être rapprochée avec une transaction bancaire créditrice" };
+    }
+    if (Math.abs(transaction.amount - adjustment.amount) > 0.01) {
+      return { success: false, error: "Le montant de la transaction ne correspond pas à la reprise de solde" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const bankAccountFallback = transaction.bankAccount
+        ? buildBankAccountFallback(transaction.bankAccount)
+        : { code: "512000", label: "Banques", type: "5" };
+
+      const [compte512, compte411] = await Promise.all([
+        upsertAccountingAccount(tx, societyId, bankAccountFallback),
+        upsertAccountingAccount(tx, societyId, { code: "411", label: "Clients", type: "4" }),
+      ]);
+
+      const amount = roundCents(transaction.amount);
+      const name = tenantDisplayName(adjustment.tenant);
+
+      const entry = await tx.journalEntry.create({
+        data: {
+          societyId,
+          fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+          journalType: "BQUE",
+          entryDate: transaction.transactionDate,
+          label: `${adjustment.label} - ${name}`,
+          reference: transaction.reference ?? undefined,
+          lines: {
+            create: [
+              { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
+              { accountId: compte411.id, debit: 0, credit: amount, label: name },
+            ],
+          },
+        },
+      });
+
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true, journalEntryId: entry.id },
+      });
+
+      await tx.tenantBalanceAdjustment.update({
+        where: { id: adjustmentId },
+        data: {
+          isReconciled: true,
+          reconciledAt: new Date(),
+          reconciledBankTransactionId: transactionId,
+        },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "TenantBalanceAdjustment",
+      entityId: adjustmentId,
+      details: { transactionId, action: "reconcile_balance_adjustment", journalType: "BQUE" },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/comptabilite");
+    revalidatePath("/locataires");
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileWithBalanceAdjustment]", error);
+    return { success: false, error: "Erreur lors du rapprochement" };
+  }
+}
+
 // ─── Suggestions de rapprochement ───────────────────────────────────────────
 
 export type ReconciliationCandidateKind =
@@ -1132,7 +1252,8 @@ export type ReconciliationCandidateKind =
   | "invoice"
   | "loanLine"
   | "supplierInvoice"
-  | "journalEntry";
+  | "journalEntry"
+  | "balanceAdjustment";
 
 export type ReconciliationCandidate = {
   kind: ReconciliationCandidateKind;
@@ -1226,7 +1347,7 @@ export async function getBankReconciliationSuggestions(
 ): Promise<BankReconciliationSuggestion[]> {
   if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
-  const [transactions, payments, invoices, supplierInvoices, loanLines, journalEntries] = await Promise.all([
+  const [transactions, payments, invoices, supplierInvoices, loanLines, journalEntries, balanceAdjustments] = await Promise.all([
     prisma.bankTransaction.findMany({
       where: {
         bankAccountId,
@@ -1335,6 +1456,17 @@ export async function getBankReconciliationSuggestions(
       },
       take: 200,
     }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, isReconciled: false, amount: { gt: 0 } },
+      select: {
+        id: true,
+        label: true,
+        amount: true,
+        dueDate: true,
+        tenant: { select: { companyName: true, firstName: true, lastName: true } },
+      },
+      take: 200,
+    }),
   ]);
 
   return transactions.map((transaction) => {
@@ -1402,6 +1534,16 @@ export async function getBankReconciliationSuggestions(
         return sum + line.debit - line.credit;
       }, 0);
       addCandidate("journalEntry", entry.id, entry.label, bankAmount, entry.entryDate, "any");
+    }
+    for (const adj of balanceAdjustments) {
+      addCandidate(
+        "balanceAdjustment",
+        adj.id,
+        `Reprise - ${tenantDisplayName(adj.tenant)}${adj.label ? " · " + adj.label : ""}`,
+        adj.amount,
+        adj.dueDate,
+        "credit"
+      );
     }
 
     const sortedCandidates = candidates.sort((a, b) => b.score - a.score).slice(0, 5);

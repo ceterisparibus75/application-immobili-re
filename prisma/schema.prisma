@@ -1933,6 +1933,10 @@ model TenantBalanceAdjustment {
   source        String    @default("MANUAL")
   importBatchId String?
 
+  isReconciled               Boolean   @default(false)
+  reconciledAt               DateTime?
+  reconciledBankTransactionId String?
+
   society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: SetNull)
@@ -1941,6 +1945,7 @@ model TenantBalanceAdjustment {
   @@index([tenantId])
   @@index([leaseId])
   @@index([societyId, tenantId])
+  @@index([societyId, isReconciled])
   @@index([societyId, dueDate])
   @@index([importBatchId])
 }

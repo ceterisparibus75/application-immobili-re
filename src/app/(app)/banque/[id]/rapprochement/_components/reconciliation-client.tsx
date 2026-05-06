@@ -15,6 +15,7 @@ import {
   reconcileWithInvoice,
   reconcileWithLoanLine,
   reconcileWithSupplierInvoice,
+  reconcileWithBalanceAdjustment,
   type ReconciliationCandidate,
   type BankReconciliationSuggestion,
 } from "@/actions/bank-reconciliation";
@@ -85,6 +86,20 @@ type SupplierInvoice = {
   bankJournalEntryId: string | null;
 };
 
+type BalanceAdjustment = {
+  id: string;
+  label: string;
+  amount: number;
+  dueDate: Date;
+  reference: string | null;
+  periodLabel: string | null;
+  tenant: {
+    companyName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+};
+
 const INVOICE_TYPE_LABELS: Record<string, string> = {
   APPEL_LOYER: "Appel de loyer",
   QUITTANCE: "Quittance",
@@ -139,6 +154,7 @@ interface ReconciliationClientProps {
   loanLines: LoanLine[];
   supplierInvoices: SupplierInvoice[];
   suggestions: BankReconciliationSuggestion[];
+  balanceAdjustments: BalanceAdjustment[];
 }
 
 export default function ReconciliationClient({
@@ -150,6 +166,7 @@ export default function ReconciliationClient({
   loanLines,
   supplierInvoices,
   suggestions,
+  balanceAdjustments,
 }: ReconciliationClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -216,7 +233,7 @@ export default function ReconciliationClient({
   }
 
   function handleReconcileInline(
-    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
+    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice" | "balanceAdjustment",
     rightId: string
   ) {
     const transactionId = selectedTxId;
@@ -241,6 +258,8 @@ export default function ReconciliationClient({
             result = await reconcileWithInvoice(societyId, transactionId, rightId);
           } else if (kind === "loanLine") {
             result = await reconcileWithLoanLine(societyId, transactionId, rightId);
+          } else if (kind === "balanceAdjustment") {
+            result = await reconcileWithBalanceAdjustment(societyId, transactionId, rightId);
           } else {
             result = await reconcileWithSupplierInvoice(societyId, transactionId, rightId);
           }
@@ -291,6 +310,8 @@ export default function ReconciliationClient({
             result = await reconcileWithLoanLine(societyId, transactionId, candidate.targetId);
           } else if (candidate.kind === "supplierInvoice") {
             result = await reconcileWithSupplierInvoice(societyId, transactionId, candidate.targetId);
+          } else if (candidate.kind === "balanceAdjustment") {
+            result = await reconcileWithBalanceAdjustment(societyId, transactionId, candidate.targetId);
           } else {
             result = await reconcileWithJournalEntry(societyId, transactionId, candidate.targetId);
           }
@@ -318,7 +339,7 @@ export default function ReconciliationClient({
   }
 
   const totalRight =
-    payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
+    payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length + balanceAdjustments.length;
   const selectedTx = selectedTxId
     ? transactions.find((t) => t.id === selectedTxId)
     : null;
@@ -346,10 +367,11 @@ const KIND_LABELS: Record<string, string> = {
   invoice: "loyer / facture",
   loanLine: "prêt",
   supplierInvoice: "fournisseur",
+  balanceAdjustment: "reprise de solde",
 };
 
   const reconcileBtn = (
-    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice",
+    kind: "payment" | "invoice" | "loanLine" | "supplierInvoice" | "balanceAdjustment",
     id: string
   ) => (
     <Button
@@ -593,6 +615,14 @@ const KIND_LABELS: Record<string, string> = {
                       </Badge>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="adjustments" className="flex-1 gap-1.5">
+                    Reprises
+                    {balanceAdjustments.length > 0 && (
+                      <Badge className="text-xs px-1.5 py-0 h-4 bg-purple-100 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-400">
+                        {balanceAdjustments.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -774,6 +804,40 @@ const KIND_LABELS: Record<string, string> = {
                             {formatCurrency(invoice.amountTTC ?? 0)}
                           </span>
                           {selectedTxId && reconcileBtn("supplierInvoice", invoice.id)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Reprises de solde */}
+              <TabsContent value="adjustments" className="mt-0 max-h-[520px] overflow-y-auto">
+                {balanceAdjustments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Aucune reprise de solde à rapprocher
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    {balanceAdjustments.map((adj) => (
+                      <div
+                        key={adj.id}
+                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{tenantLabel(adj.tenant)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {adj.label}
+                            {adj.periodLabel && ` · ${adj.periodLabel}`}
+                            {adj.reference && ` · Réf. ${adj.reference}`}
+                            {` · Éch. ${new Date(adj.dueDate).toLocaleDateString("fr-FR")}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 ml-2 shrink-0">
+                          <span className="text-sm font-medium tabular-nums text-purple-600 dark:text-purple-400">
+                            {formatCurrency(adj.amount)}
+                          </span>
+                          {selectedTxId && reconcileBtn("balanceAdjustment", adj.id)}
                         </div>
                       </div>
                     ))}

@@ -6,6 +6,7 @@ import {
   getUpcomingLoanLines,
   getSupplierInvoicesToReconcile,
   getBankReconciliationSuggestions,
+  getUnreconciledBalanceAdjustments,
 } from "@/actions/bank-reconciliation";
 import { getBankAccountSummaryById } from "@/actions/bank";
 import { headers } from "next/headers";
@@ -41,14 +42,15 @@ export default async function RapprochementPage({
     getUpcomingLoanLines(societyId),
     getSupplierInvoicesToReconcile(societyId),
     getBankReconciliationSuggestions(societyId, id),
+    getUnreconciledBalanceAdjustments(societyId),
   ]);
 
   const account = await accountPromise;
   if (!account) notFound();
 
-  const [transactions, payments, pendingInvoices, loanLines, supplierInvoices, suggestions] = await reconciliationDataPromise;
+  const [transactions, payments, pendingInvoices, loanLines, supplierInvoices, suggestions, balanceAdjustments] = await reconciliationDataPromise;
 
-  const totalRight = payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length;
+  const totalRight = payments.length + pendingInvoices.length + loanLines.length + supplierInvoices.length + balanceAdjustments.length;
 
   return (
     <div className="space-y-6">
@@ -111,6 +113,14 @@ export default async function RapprochementPage({
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground">Reprises de solde</p>
+            <p className={`text-2xl font-bold ${balanceAdjustments.length > 0 ? "text-purple-600" : "text-[var(--color-status-positive)]"}`}>
+              {balanceAdjustments.length}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <ReconciliationClient
@@ -122,6 +132,7 @@ export default async function RapprochementPage({
         loanLines={loanLines}
         supplierInvoices={supplierInvoices}
         suggestions={suggestions}
+        balanceAdjustments={balanceAdjustments}
       />
 
       <Suspense fallback={<ReconciledItemsSkeleton />}>
