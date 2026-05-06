@@ -244,48 +244,68 @@ export default function ImportStatement({
 
   if (step === "analyzing") {
     return (
-      <div className="border-2 border-dashed border-[var(--color-brand-blue)]/40 rounded-xl p-6 text-center bg-[var(--color-brand-blue)]/5">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Loader2 className="h-5 w-5 animate-spin text-[var(--color-brand-blue)]" />
-          <Sparkles className="h-5 w-5 text-[var(--color-brand-blue)]" />
-        </div>
-        <p className="text-sm font-medium text-[var(--color-brand-deep)]">
-          Analyse IA en cours…
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Claude lit votre relevé PDF et extrait les transactions
-        </p>
-      </div>
+      <Card className="border-0 shadow-brand bg-card rounded-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Upload className="h-4 w-4" />
+            Importer un relevé
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border-2 border-dashed border-[var(--color-brand-blue)]/40 rounded-xl p-6 text-center bg-[var(--color-brand-blue)]/5">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--color-brand-blue)]" />
+              <Sparkles className="h-5 w-5 text-[var(--color-brand-blue)]" />
+            </div>
+            <p className="text-sm font-medium text-[var(--color-brand-deep)]">
+              Analyse IA en cours…
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Claude lit votre relevé PDF et extrait les transactions
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (step === "upload") {
     return (
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-        className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center hover:border-[var(--color-brand-blue)]/40 transition-colors cursor-pointer"
-        onClick={() => document.getElementById("csv-upload")?.click()}
-      >
-        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-        <p className="text-sm font-medium text-[var(--color-brand-deep)]">
-          Importer un relevé bancaire
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          CSV, XLSX — glisser-déposer ou cliquer
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-          <Sparkles className="h-3 w-3 text-[var(--color-brand-blue)]" />
-          PDF analysé automatiquement par IA
-        </p>
-        <input
-          id="csv-upload"
-          type="file"
-          accept=".csv,.xlsx,.xls,.pdf"
-          className="hidden"
-          onChange={handleInputChange}
-        />
-      </div>
+      <Card className="border-0 shadow-brand bg-card rounded-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Upload className="h-4 w-4" />
+            Importer un relevé
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center hover:border-[var(--color-brand-blue)]/40 transition-colors cursor-pointer"
+            onClick={() => document.getElementById("csv-upload")?.click()}
+          >
+            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm font-medium text-[var(--color-brand-deep)]">
+              Glisser-déposer ou cliquer
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              CSV, XLSX, PDF
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+              <Sparkles className="h-3 w-3 text-[var(--color-brand-blue)]" />
+              PDF analysé automatiquement par IA
+            </p>
+            <input
+              id="csv-upload"
+              type="file"
+              accept=".csv,.xlsx,.xls,.pdf"
+              className="hidden"
+              onChange={handleInputChange}
+            />
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 

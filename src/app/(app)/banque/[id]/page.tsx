@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Clock,
   GitMerge,
-  Plus,
   RefreshCw,
   TrendingDown,
   TrendingUp,
@@ -27,7 +26,6 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import AddTransactionForm from "./_components/add-transaction-form";
 import { TransactionFilters } from "./_components/transaction-filters";
 import ImportStatement from "./_components/import-statement";
 import SyncButton from "./_components/sync-button";
@@ -167,9 +165,9 @@ export default async function BankAccountDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Transactions */}
-        <div className="lg:col-span-2">
+        <div>
           <Card className="border-0 shadow-brand bg-card rounded-xl overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base font-semibold text-foreground">
@@ -269,21 +267,6 @@ export default async function BankAccountDetailPage({
 
         {/* Panneau latéral */}
         <div className="space-y-6">
-          <Card className="border-0 shadow-brand bg-card rounded-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                <Plus className="h-4 w-4" />
-                Ajouter une transaction
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AddTransactionForm
-                bankAccountId={account.id}
-                societyId={societyId}
-              />
-            </CardContent>
-          </Card>
-
           <ImportStatement bankAccountId={account.id} societyId={societyId} />
 
           <Card className="border-0 shadow-brand bg-card rounded-xl">
