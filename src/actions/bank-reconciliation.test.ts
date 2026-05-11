@@ -1324,6 +1324,7 @@ describe("getBankReconciliationSuggestions", () => {
         ],
       },
     ] as never);
+    prismaMock.tenantBalanceAdjustment.findMany.mockResolvedValue([] as never);
   });
 
   it("classe les meilleurs candidats par transaction bancaire avec un score exploitable en UI", async () => {
