@@ -301,7 +301,7 @@ export function LoanActionsClient({
       if ("error" in result) {
         toast.error(result.error);
       } else {
-        toast.success("Tableau rÃ©gÃ©nÃ©rÃ© (" + (result.data?.linesCount ?? 0) + " Ã©chÃ©ances)");
+        toast.success(`Tableau reconstruit (${result.data?.linesCount ?? 0} échéances)`);
         router.refresh();
       }
       setAction(null);
@@ -330,7 +330,7 @@ export function LoanActionsClient({
           <RefreshCw
             className={"h-4 w-4 " + (action === "regen" && isPending ? "animate-spin" : "")}
           />
-          RÃ©gÃ©nÃ©rer le tableau
+          Reconstruire le tableau
         </Button>
 
         <AlertDialog>
