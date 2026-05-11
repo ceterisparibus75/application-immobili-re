@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import {
+  Building2,
   FileText,
   Receipt,
   TrendingUp,
@@ -24,6 +25,7 @@ import { LeaseAmendments } from "./lease-amendments";
 import { LeasePdfUpload } from "@/components/lease-pdf-upload";
 import { LeaseSignaturePanel } from "@/components/lease-signature-panel";
 import { LeaseStatusCard } from "./lease-status-card";
+import { LeaseLotManagement } from "./lease-lot-management";
 import type {
   PaymentFrequency,
   IndexType,
@@ -81,6 +83,9 @@ type AmendmentData = {
   previousEndDate: Date | null;
   newEndDate: Date | null;
   createdAt: Date;
+  documentId: string | null;
+  document: { id: string; fileName: string; fileUrl: string; storagePath: string | null } | null;
+  otherChanges: unknown;
 };
 
 type AmendmentDocument = {
@@ -195,6 +200,14 @@ type LoyerData = {
   paymentFrequency: PaymentFrequency;
 };
 
+type LeaseLotRow = {
+  id: string;
+  number: string;
+  area: number;
+  isPrimary: boolean;
+  building: { id: string; name: string; city: string; postalCode: string | null };
+};
+
 type VieData = {
   currentStatus: LeaseStatus;
   tenants: TenantOption[];
@@ -203,6 +216,7 @@ type VieData = {
   legalEventsCount: number;
   inspections: InspectionRow[];
   inspectionsCount: number;
+  leaseLots: LeaseLotRow[];
 };
 
 type DocumentsData = {
@@ -523,6 +537,23 @@ export function LeaseDetailTabs({
           inspections={vie.inspections}
           inspectionsCount={vie.inspectionsCount}
         />
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              Lots du bail
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LeaseLotManagement
+              leaseId={leaseId}
+              societyId={societyId}
+              isActive={isActive}
+              leaseLots={vie.leaseLots}
+              leaseDocuments={documents.leaseDocuments}
+            />
+          </CardContent>
+        </Card>
       </TabsContent>
 
       {/* ── Onglet Documents ───────────────────────────────────────────────── */}
@@ -565,6 +596,7 @@ export function LeaseDetailTabs({
             <LeaseAmendments
               amendments={documents.amendments}
               amendmentDocuments={documents.amendmentDocuments}
+              leaseDocuments={documents.leaseDocuments}
               leaseId={leaseId}
               societyId={societyId}
               isActive={isActive}

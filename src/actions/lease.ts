@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
@@ -712,6 +712,11 @@ export async function getLeaseById(societyId: string, leaseId: string) {
           previousEndDate: true,
           newEndDate: true,
           createdAt: true,
+          documentId: true,
+          document: {
+            select: { id: true, fileName: true, fileUrl: true, storagePath: true },
+          },
+          otherChanges: true,
         },
       },
       documents: {

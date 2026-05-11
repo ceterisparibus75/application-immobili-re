@@ -281,6 +281,13 @@ export default async function BailDetailPage({
               legalEventsCount: lease._count.legalEvents,
               inspections: lease.inspections,
               inspectionsCount: lease._count.inspections,
+              leaseLots: lease.leaseLots.map((ll) => ({
+                id: ll.lot.id,
+                number: ll.lot.number,
+                area: ll.lot.area,
+                isPrimary: ll.isPrimary,
+                building: ll.lot.building,
+              })),
             }}
             documents={{
               leaseFileUrl,

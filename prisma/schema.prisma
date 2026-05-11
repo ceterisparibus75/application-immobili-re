@@ -569,6 +569,7 @@ model Society {
   leases                   Lease[]
   leaseTenantHistories     LeaseTenantHistory[]
   invoices                 Invoice[]
+  invoiceGenerationExclusions InvoiceGenerationExclusion[]
   tenantBalanceAdjustments TenantBalanceAdjustment[]
   bankAccounts             BankAccount[]
   bankConnections          BankConnection[]
@@ -1114,6 +1115,7 @@ model Lease {
   supplierInvoices          SupplierInvoice[]
   legalEvents               LegalEvent[]
   chargeStatementDeliveries ChargeStatementDelivery[]
+  invoiceGenerationExclusions InvoiceGenerationExclusion[]
 
   @@index([societyId])
   @@index([societyId, deletedAt])
@@ -1205,6 +1207,7 @@ enum AmendmentType {
   AVENANT_LOYER
   AVENANT_DUREE
   AVENANT_DIVERS
+  AVENANT_LOT
   RESILIATION
 }
 
@@ -1213,7 +1216,8 @@ model LeaseAmendment {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  leaseId   String
+  leaseId    String
+  documentId String?
 
   amendmentNumber Int
   effectiveDate   DateTime
@@ -1225,10 +1229,12 @@ model LeaseAmendment {
   newEndDate      DateTime?
   otherChanges    Json?
 
-  lease Lease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  lease    Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   @@unique([leaseId, amendmentNumber])
   @@index([leaseId])
+  @@index([documentId])
 }
 
 /// Type d'événement juridique bail commercial
@@ -2026,6 +2032,27 @@ model Invoice {
   @@index([creditNoteForId])
 }
 
+/// Exclusion ponctuelle d'un bail de la génération d'appels de loyers pour une période donnée.
+/// Utilisé quand la période a été facturée hors MyGestia.
+model InvoiceGenerationExclusion {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  societyId   String
+  leaseId     String
+  periodStart DateTime
+  periodEnd   DateTime
+  reason      String   @default("Facturé dans un autre logiciel") @db.Text
+  createdBy   String
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lease   Lease   @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, leaseId, periodStart, periodEnd])
+  @@index([societyId, periodStart, periodEnd])
+  @@index([leaseId])
+}
+
 /// Ligne de facture
 model InvoiceLine {
   id        String @id @default(cuid())
@@ -2624,6 +2651,7 @@ model Document {
   dataroomDocuments           DataroomDocument[]
   thirdPartyStatement         ThirdPartyStatement?
   journalEntries              JournalEntry[]       @relation("JournalEntryDocument")
+  leaseAmendments             LeaseAmendment[]
 
   @@index([societyId])
   @@index([societyId, deletedAt])
