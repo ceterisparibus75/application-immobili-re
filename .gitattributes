@@ -1,0 +1,41 @@
+# Force LF line endings for source/text files (cross-platform consistency).
+# macOS / Linux / Windows checkouts will all see LF. Existing CRLF files
+# are normalized incrementally as they are touched.
+
+* text=auto eol=lf
+
+# Explicit overrides for source files
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.css       text eol=lf
+*.scss      text eol=lf
+*.html      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.sql       text eol=lf
+*.prisma    text eol=lf
+*.svg       text eol=lf
+
+# Windows-only artefacts (laissés tels quels au cas où)
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binaires
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+*.zip       binary
+*.gz        binary

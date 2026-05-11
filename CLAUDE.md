@@ -6,7 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environnement de développement
 
-⚠️ **Ne pas lancer le dev server depuis un dossier Google Drive File Stream** (ex. `G:\Mon Drive\…`). Next.js 16 + Turbopack crée des junction points Windows dans `.next/dev/node_modules/` qui échouent sur Google Drive (`os error 1`). Cloner le repo sur disque local (ex. `C:\dev\mygestia`) et y travailler.
+**Plateforme cible : macOS.** Dev exclusivement sur macOS (Darwin) — l'historique du repo a démarré sur Windows mais le développement actuel se fait sur Mac.
+
+⚠️ **Ne pas lancer le dev server depuis un dossier Google Drive File Stream** (ex. `/Users/<user>/Mon Drive/…`). Next.js 16 + Turbopack crée des liens symboliques dans `.next/dev/node_modules/` qui peuvent échouer sur Google Drive. Cloner le repo sur disque local (ex. `~/dev/mygestia`) et y travailler.
+
+### Line endings
+
+Le repo conserve un mix CRLF/LF hérité. Un `.gitattributes` à la racine impose `eol=lf` pour les nouveaux fichiers. Pour normaliser progressivement, ne pas exécuter `git add --renormalize .` en masse — préférer la normalisation au fil des modifications.
+
+### Outils requis
+
+- Node.js 20+ (via `nvm`, `fnm` ou `brew install node@20`)
+- `npm` (utiliser `--legacy-peer-deps` configuré dans `.npmrc`)
+- Git, accès Supabase, Vercel CLI optionnel
 
 ## MCP Context7
 
@@ -524,6 +536,8 @@ Protégés par `CRON_SECRET`. Le projet Vercel est en Pro : les jobs métier son
 | `/api/cron/sync-einvoices` | Toutes les heures | Sync factures électroniques reçues (PA B2B) |
 | `/api/cron/sync-indices` | 1er du mois 7h | MAJ indices INSEE |
 | `/api/cron/sync-subscriptions` | Quotidien 6h30 | Expiration trials + sync statuts Stripe |
+| `/api/cron/data-retention-cleanup` | Dimanche 3h | Purge RGPD (audit logs >1 an, locataires archivés >5 ans, etc.) |
+| `/api/cron/document-alerts` | Lundi 8h | Alertes documents expirant à 30 jours |
 
 ## Monitoring (Sentry)
 

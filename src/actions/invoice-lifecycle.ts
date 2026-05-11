@@ -16,6 +16,7 @@ import type { InvoiceStatus } from "@/generated/prisma/client";
 import { decrypt } from "@/lib/encryption";
 import { sendInvoiceEmail } from "@/lib/email";
 import { buildStorageFileName } from "@/lib/storage-path";
+import { logNonBlocking } from "@/lib/non-blocking-log";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -245,7 +246,7 @@ async function generateQuittancePdfAndSend(
   try {
     if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
     if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
-  } catch { /* non bloquant */ }
+  } catch (e) { logNonBlocking("invoice-lifecycle.decryptBank", e); }
 
   let logoSignedUrl: string | null = null;
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -270,7 +271,7 @@ async function generateQuittancePdfAndSend(
           logoSignedUrl = `data:${mime};base64,${b64}`;
         }
       }
-    } catch { /* non bloquant */ }
+    } catch (e) { logNonBlocking("invoice-lifecycle.fetchLogo", e); }
   }
 
   const tenantName = tenant.entityType === "PERSONNE_MORALE"

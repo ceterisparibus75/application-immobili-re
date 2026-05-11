@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { logNonBlocking } from "@/lib/non-blocking-log";
 import type { PaymentFrequency, BillingTerm, Prisma } from "@/generated/prisma/client";
 
 // ============================================================
@@ -58,6 +59,9 @@ export type InvoicePreview = {
   totalVAT: number;
   totalTTC: number;
   alreadyExists: boolean;
+  generationExcluded: boolean;
+  generationExclusionId: string | null;
+  generationExclusionReason: string | null;
   society: InvoicePreviewSociety | null;
   iban: string | null;
   bic: string | null;
@@ -408,7 +412,7 @@ export async function computeInvoicePreview(
   try {
     if (society?.ibanEncrypted) iban = decrypt(society.ibanEncrypted);
     if (society?.bicEncrypted)  bic  = decrypt(society.bicEncrypted);
-  } catch { /* non bloquant */ }
+  } catch (e) { logNonBlocking("invoice-shared.decryptBank", e); }
 
   let logoResolvedUrl: string | null = null;
   if (society?.logoUrl) {
@@ -435,7 +439,7 @@ export async function computeInvoicePreview(
           if (data?.signedUrl) logoResolvedUrl = data.signedUrl;
         }
       }
-    } catch { /* non bloquant */ }
+    } catch (e) { logNonBlocking("invoice-shared.signedLogoUrl", e); }
   }
 
   let previousBalance = 0;
@@ -563,6 +567,19 @@ export async function computeInvoicePreview(
     },
   });
 
+  const generationExclusion = await prisma.invoiceGenerationExclusion.findFirst({
+    where: {
+      societyId,
+      leaseId: lease.id,
+      periodStart,
+      periodEnd,
+    },
+    select: {
+      id: true,
+      reason: true,
+    },
+  });
+
   const tenantAddress =
     lease.tenant.entityType === "PERSONNE_MORALE"
       ? (lease.tenant.companyAddress ?? null)
@@ -606,6 +623,9 @@ export async function computeInvoicePreview(
     totalVAT,
     totalTTC: totalHT + totalVAT,
     alreadyExists: !!existing,
+    generationExcluded: !!generationExclusion,
+    generationExclusionId: generationExclusion?.id ?? null,
+    generationExclusionReason: generationExclusion?.reason ?? null,
     society: societyClean,
     iban,
     bic,
