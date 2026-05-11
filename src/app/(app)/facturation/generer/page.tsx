@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useTransition } from "react";
 import {
+  cancelInvoiceGenerationExclusion,
+  excludeInvoiceGenerationPeriod,
   generateBatchInvoices,
   getActiveLeasesForInvoicing,
   previewBatchInvoices,
@@ -57,20 +59,35 @@ function tenantLabel(t: LeaseOption["tenant"]) {
 
 // ── Composant carte prévisualisation d'une facture ────────────────────────
 
-function PreviewCard({ p, onPreview }: { p: InvoicePreview; onPreview: (p: InvoicePreview) => void }) {
+function PreviewCard({
+  p,
+  onPreview,
+  onExclude,
+  onCancelExclusion,
+  isExclusionPending,
+}: {
+  p: InvoicePreview;
+  onPreview: (p: InvoicePreview) => void;
+  onExclude: (p: InvoicePreview) => void;
+  onCancelExclusion: (p: InvoicePreview) => void;
+  isExclusionPending: boolean;
+}) {
   return (
-    <div className={`rounded-lg border p-3 ${p.alreadyExists ? "opacity-50 bg-muted/30" : "bg-background"}`}>
-      <div className="flex items-center justify-between">
+    <div className={`rounded-lg border p-3 ${(p.alreadyExists || p.generationExcluded) ? "opacity-70 bg-muted/30" : "bg-background"}`}>
+      <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium">{p.tenantName}</span>
             {p.alreadyExists && (
               <Badge variant="secondary" className="text-xs">Déjà facturé</Badge>
             )}
+            {p.generationExcluded && (
+              <Badge variant="outline" className="text-xs">Facturé ailleurs</Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">{p.lotLabel} · {p.periodLabel}</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0 ml-2">
+        <div className="flex items-center gap-2 shrink-0 ml-2">
           <span className="text-sm font-semibold tabular-nums">{fmt(p.totalTTC)}</span>
           <button
             type="button"
@@ -80,6 +97,33 @@ function PreviewCard({ p, onPreview }: { p: InvoicePreview; onPreview: (p: Invoi
             <Eye className="h-3 w-3" />
             Aperçu
           </button>
+          {!p.alreadyExists && (
+            p.generationExcluded ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={() => onCancelExclusion(p)}
+                disabled={isExclusionPending || !p.generationExclusionId}
+              >
+                {isExclusionPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                Réactiver
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={() => onExclude(p)}
+                disabled={isExclusionPending}
+              >
+                {isExclusionPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                Facturé ailleurs
+              </Button>
+            )
+          )}
         </div>
       </div>
     </div>
@@ -102,8 +146,11 @@ export default function GenererFacturesPage() {
   const [step, setStep] = useState<"form" | "preview">("form");
   const [previews, setPreviews] = useState<InvoicePreview[]>([]);
   const [sheetPreview, setSheetPreview] = useState<InvoicePreview | null>(null);
+  const [exclusionPendingLeaseId, setExclusionPendingLeaseId] = useState<string | null>(null);
+  const [exclusionError, setExclusionError] = useState<string | null>(null);
   const [isPreviewing, startPreviewing] = useTransition();
   const [isPending, startTransition] = useTransition();
+  const [isExclusionPending, startExclusionTransition] = useTransition();
   const [result, setResult] = useState<{
     created: number;
     skipped: number;
@@ -151,6 +198,46 @@ export default function GenererFacturesPage() {
         setPreviews(res.data);
         setStep("preview");
       }
+    });
+  }
+
+  function refreshPreview() {
+    if (!activeSociety) return;
+    return previewBatchInvoices(activeSociety.id, {
+      periodMonth,
+      leaseIds: selectAll ? undefined : [...selectedIds],
+    }).then((res) => {
+      if (res.success && res.data) setPreviews(res.data);
+    });
+  }
+
+  function handleExclude(p: InvoicePreview) {
+    if (!activeSociety) return;
+    setExclusionError(null);
+    setExclusionPendingLeaseId(p.leaseId);
+    startExclusionTransition(async () => {
+      const res = await excludeInvoiceGenerationPeriod(activeSociety.id, {
+        leaseId: p.leaseId,
+        periodMonth,
+      });
+      if (!res.success) setExclusionError(res.error ?? "Erreur lors de l'exclusion");
+      await refreshPreview();
+      setExclusionPendingLeaseId(null);
+    });
+  }
+
+  function handleCancelExclusion(p: InvoicePreview) {
+    if (!activeSociety || !p.generationExclusionId) return;
+    const exclusionId = p.generationExclusionId;
+    setExclusionError(null);
+    setExclusionPendingLeaseId(p.leaseId);
+    startExclusionTransition(async () => {
+      const res = await cancelInvoiceGenerationExclusion(activeSociety.id, {
+        exclusionId,
+      });
+      if (!res.success) setExclusionError(res.error ?? "Erreur lors de la réactivation");
+      await refreshPreview();
+      setExclusionPendingLeaseId(null);
     });
   }
 
@@ -221,8 +308,8 @@ export default function GenererFacturesPage() {
 
   // ── Étape prévisualisation ──
   if (step === "preview") {
-    const toCreate = previews.filter((p) => !p.alreadyExists);
-    const toSkip = previews.filter((p) => p.alreadyExists);
+    const toCreate = previews.filter((p) => !p.alreadyExists && !p.generationExcluded);
+    const toSkip = previews.filter((p) => p.alreadyExists || p.generationExcluded);
     const totalTTC = toCreate.reduce((s, p) => s + p.totalTTC, 0);
 
     return (
@@ -247,7 +334,7 @@ export default function GenererFacturesPage() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <p className="text-xs text-muted-foreground">Déjà existantes</p>
+              <p className="text-xs text-muted-foreground">Déjà existantes / ignorées</p>
               <p className="text-2xl font-bold text-muted-foreground">{toSkip.length}</p>
             </CardContent>
           </Card>
@@ -262,7 +349,14 @@ export default function GenererFacturesPage() {
         {toCreate.length === 0 && (
           <div className="flex items-center gap-3 rounded-md border border-[var(--color-status-caution)]/30 bg-[var(--color-status-caution-bg)] p-4 text-sm text-[var(--color-status-caution)]">
             <AlertTriangle className="h-5 w-5 shrink-0" />
-            Toutes les factures de cette période existent déjà. Aucune nouvelle facture ne sera créée.
+            Toutes les factures de cette période existent déjà ou sont ignorées. Aucune nouvelle facture ne sera créée.
+          </div>
+        )}
+
+        {exclusionError && (
+          <div className="flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            {exclusionError}
           </div>
         )}
 
@@ -282,7 +376,14 @@ export default function GenererFacturesPage() {
               />
             )}
             {previews.map((p) => (
-              <PreviewCard key={p.leaseId} p={p} onPreview={setSheetPreview} />
+              <PreviewCard
+                key={p.leaseId}
+                p={p}
+                onPreview={setSheetPreview}
+                onExclude={handleExclude}
+                onCancelExclusion={handleCancelExclusion}
+                isExclusionPending={isExclusionPending && exclusionPendingLeaseId === p.leaseId}
+              />
             ))}
           </CardContent>
         </Card>

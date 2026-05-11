@@ -61,6 +61,7 @@ function setupCoreMocks({
   latestValuations = [] as Array<{ buildingId: string; estimatedValueMid: number | null }>,
   riskLeases = [] as Array<unknown>,
   activeLeases = [] as Array<unknown>,
+  activeUnmanagedLeasesForIssue = [] as Array<{ id: string; paymentFrequency: "MENSUEL" | "TRIMESTRIEL" | "SEMESTRIEL" | "ANNUEL" }>,
   bankBalance = null as number | null,
   expiringLeaseCount = 0,
   activeLeasesForRent = [] as Array<{ currentRentHT: number }>,
@@ -74,7 +75,8 @@ function setupCoreMocks({
   unpaidInvoiceCount = 0,
   managementFeesTTC = null as number | null,
   pendingRevisionCount = 0,
-  leasesWithCurrentInvoice = [] as Array<{ leaseId: string | null }>,
+  leasesWithCurrentInvoice = [] as Array<{ leaseId: string | null; periodStart?: Date | null; periodEnd?: Date | null }>,
+  generationExclusions = [] as Array<{ leaseId: string; periodStart: Date; periodEnd: Date }>,
   invoicesToIssueCount = 0,
 } = {}) {
   // $queryRaw #1: monthly revenue; #2: top tenants (only if includeTopTenants)
@@ -103,7 +105,8 @@ function setupCoreMocks({
   prismaMock.lease.findMany
     .mockResolvedValueOnce(riskLeases as never)
     .mockResolvedValueOnce(activeLeases as never)
-    .mockResolvedValueOnce(activeLeasesForRent as never);
+    .mockResolvedValueOnce(activeLeasesForRent as never)
+    .mockResolvedValueOnce(activeUnmanagedLeasesForIssue as never);
 
   prismaMock.bankAccount.aggregate.mockResolvedValueOnce({ _sum: { currentBalance: bankBalance } } as never);
 
@@ -123,6 +126,7 @@ function setupCoreMocks({
   prismaMock.maintenance.count.mockResolvedValueOnce(openMaintenanceCount);
   prismaMock.invoice.count.mockResolvedValueOnce(unpaidInvoiceCount);
   prismaMock.rentRevision.count.mockResolvedValueOnce(pendingRevisionCount);
+  prismaMock.invoiceGenerationExclusion.findMany.mockResolvedValueOnce(generationExclusions as never);
 }
 
 describe("fetchAnalyticsCore — via getAnalyticsData", () => {
@@ -336,14 +340,37 @@ describe("fetchAnalyticsCore — via getAnalyticsData", () => {
     expect(result!.lenderSummaries[0].lender).toBe("Autre");
   });
 
-  it("leaseIdsWithInvoice.size>0 → ajoute le filtre notIn (B arm0)", async () => {
-    setupCoreMocks({ leasesWithCurrentInvoice: [{ leaseId: "lease-abc" }], invoicesToIssueCount: 0 });
+  it("ne compte pas un bail déjà facturé pour la période courante", async () => {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setupCoreMocks({
+      activeUnmanagedLeasesForIssue: [
+        { id: "lease-abc", paymentFrequency: "MENSUEL" },
+        { id: "lease-def", paymentFrequency: "MENSUEL" },
+      ],
+      leasesWithCurrentInvoice: [{ leaseId: "lease-abc", periodStart, periodEnd }],
+    });
     const result = await getAnalyticsData(S);
-    expect(result).not.toBeNull();
-    // Vérifie que lease.count a bien été appelé (3e appel = invoicesToIssue)
-    const calls = prismaMock.lease.count.mock.calls;
-    const lastCall = calls[calls.length - 1][0] as { where?: { id?: unknown } };
-    expect(lastCall?.where).toHaveProperty("id.notIn");
+    expect(result!.kpis.invoicesToIssueCount).toBe(1);
+  });
+
+  it("retire du compteur dashboard les baux exclus pour la période de génération", async () => {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setupCoreMocks({
+      activeUnmanagedLeasesForIssue: [
+        { id: "lease-a", paymentFrequency: "MENSUEL" },
+        { id: "lease-b", paymentFrequency: "MENSUEL" },
+      ],
+      generationExclusions: [{ leaseId: "lease-a", periodStart, periodEnd }],
+      invoicesToIssueCount: 2,
+    });
+
+    const result = await getAnalyticsData(S);
+
+    expect(result!.kpis.invoicesToIssueCount).toBe(1);
   });
 
   it("leaseTimeline — progressPct=0 si endDate<=startDate (B: end>start arm1)", async () => {

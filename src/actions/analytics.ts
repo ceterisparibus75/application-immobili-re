@@ -15,6 +15,7 @@ import {
   toRiskItems,
   truncateBuildingName,
 } from "./analytics-helpers";
+import type { PaymentFrequency } from "@/generated/prisma/client";
 
 export type MonthlyRevenue = { month: string; revenue: number };
 export type BuildingOccupancy = { name: string; occupied: number; vacant: number; total: number; rate: number };
@@ -28,6 +29,38 @@ export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: num
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 type AnalyticsCoreOptions = { includeTopTenants?: boolean };
+
+function computeCurrentInvoicePeriod(
+  periodMonth: string,
+  frequency: PaymentFrequency
+): { periodStart: Date; periodEnd: Date } {
+  const [year, month] = periodMonth.split("-").map(Number);
+
+  if (frequency === "TRIMESTRIEL") {
+    const quarter = Math.floor((month - 1) / 3);
+    return {
+      periodStart: new Date(year, quarter * 3, 1),
+      periodEnd: new Date(year, quarter * 3 + 3, 0),
+    };
+  }
+  if (frequency === "SEMESTRIEL") {
+    const semester = Math.floor((month - 1) / 6);
+    return {
+      periodStart: new Date(year, semester * 6, 1),
+      periodEnd: new Date(year, semester * 6 + 6, 0),
+    };
+  }
+  if (frequency === "ANNUEL") {
+    return {
+      periodStart: new Date(year, 0, 1),
+      periodEnd: new Date(year, 12, 0),
+    };
+  }
+  return {
+    periodStart: new Date(year, month - 1, 1),
+    periodEnd: new Date(year, month, 0),
+  };
+}
 
 async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOptions = {}): Promise<AnalyticsData> {
   const now = new Date();
@@ -190,14 +223,13 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const pendingRevisionCountPromise = prisma.rentRevision.count({
     where: { isValidated: false, lease: { societyId: { in: societyIds }, status: "EN_COURS" } },
   });
-  const leasesWithCurrentInvoicePromise = prisma.invoice.findMany({
+  const activeUnmanagedLeasesForIssuePromise = prisma.lease.findMany({
     where: {
       societyId: { in: societyIds },
-      issueDate: { gte: currentMonthStart },
-      invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
+      status: "EN_COURS",
+      isThirdPartyManaged: false,
     },
-    select: { leaseId: true },
-    distinct: ["leaseId"],
+    select: { id: true, paymentFrequency: true },
   });
   const [
     rawMonthly,
@@ -216,7 +248,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     [totalBuildings, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount],
     managementFeesAgg,
     pendingRevisionCount,
-    leasesWithCurrentInvoice,
+    activeUnmanagedLeasesForIssue,
   ] = await Promise.all([
     monthlyRevenuePromise,
     revenueAggPromise,
@@ -234,7 +266,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     dashboardCountsPromise,
     managementFeesAggPromise,
     pendingRevisionCountPromise,
-    leasesWithCurrentInvoicePromise,
+    activeUnmanagedLeasesForIssuePromise,
   ]);
 
   // 1. Revenus mensuels (SQL raw — ANY fonctionne aussi avec un seul élément)
@@ -429,16 +461,53 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
 
   // 16. Révisions de loyer en attente
 
-  // 17. Baux sans facture émise ce mois
-  const leaseIdsWithInvoice = new Set(leasesWithCurrentInvoice.map(i => i.leaseId).filter(Boolean));
-  const invoicesToIssueCount = await prisma.lease.count({
-    where: {
-      societyId: { in: societyIds },
-      status: "EN_COURS",
-      isThirdPartyManaged: false,
-      ...(leaseIdsWithInvoice.size > 0 ? { id: { notIn: [...leaseIdsWithInvoice] as string[] } } : {}),
-    },
-  });
+  // 17. Baux sans appel de loyer/quittance ni exclusion sur la période courante
+  const periodKey = (leaseId: string, periodStart: Date | null, periodEnd: Date | null) =>
+    `${leaseId}:${periodStart?.getTime() ?? "null"}:${periodEnd?.getTime() ?? "null"}`;
+  const currentPeriodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const leasePeriods = activeUnmanagedLeasesForIssue.map((lease) => ({
+    leaseId: lease.id,
+    ...computeCurrentInvoicePeriod(currentPeriodMonth, lease.paymentFrequency),
+  }));
+  const periodStarts = leasePeriods.map((period) => period.periodStart.getTime());
+  const periodEnds = leasePeriods.map((period) => period.periodEnd.getTime());
+  const [currentPeriodInvoices, currentPeriodExclusions] = leasePeriods.length > 0
+    ? await Promise.all([
+        prisma.invoice.findMany({
+          where: {
+            societyId: { in: societyIds },
+            leaseId: { in: leasePeriods.map((period) => period.leaseId) },
+            invoiceType: { in: ["APPEL_LOYER", "QUITTANCE"] },
+            periodStart: { gte: new Date(Math.min(...periodStarts)) },
+            periodEnd: { lte: new Date(Math.max(...periodEnds)) },
+          },
+          select: { leaseId: true, periodStart: true, periodEnd: true },
+        }),
+        prisma.invoiceGenerationExclusion.findMany({
+          where: {
+            societyId: { in: societyIds },
+            leaseId: { in: leasePeriods.map((period) => period.leaseId) },
+            periodStart: { gte: new Date(Math.min(...periodStarts)) },
+            periodEnd: { lte: new Date(Math.max(...periodEnds)) },
+          },
+          select: { leaseId: true, periodStart: true, periodEnd: true },
+        }),
+      ])
+    : [[], []];
+  const periodInvoiceKeys = new Set(
+    currentPeriodInvoices
+      .filter((invoice) => invoice.leaseId)
+      .map((invoice) => periodKey(invoice.leaseId!, invoice.periodStart, invoice.periodEnd))
+  );
+  const periodExclusionKeys = new Set(
+    currentPeriodExclusions.map((exclusion) =>
+      periodKey(exclusion.leaseId, exclusion.periodStart, exclusion.periodEnd)
+    )
+  );
+  const invoicesToIssueCount = leasePeriods.filter((period) => {
+    const key = periodKey(period.leaseId, period.periodStart, period.periodEnd);
+    return !periodInvoiceKeys.has(key) && !periodExclusionKeys.has(key);
+  }).length;
 
   return {
     kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },

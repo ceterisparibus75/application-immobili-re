@@ -49,9 +49,9 @@ export function ActionsBar({
     ...(invoicesToIssueCount > 0
       ? [
           {
-            href: "/facturation",
+            href: "/facturation/generer",
             icon: <Receipt className="h-3.5 w-3.5 shrink-0" />,
-            label: `${invoicesToIssueCount} facture${invoicesToIssueCount > 1 ? "s" : ""} à émettre`,
+            label: `${invoicesToIssueCount} appel${invoicesToIssueCount > 1 ? "s" : ""} de loyer à générer`,
             color: "var(--color-brand-blue)",
             bg: "var(--color-brand-light)",
             border: "color-mix(in oklab, var(--color-brand-blue) 25%, transparent)",

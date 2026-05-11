@@ -15,6 +15,7 @@ import {
   type CreateCreditNoteInput,
 } from "@/validations/invoice";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { ActionResult } from "@/actions/society";
 import {
   requireSocietyActionContext,
@@ -31,6 +32,19 @@ import {
   computeInvoicePreview,
   type InvoicePreview,
 } from "./invoice-shared";
+
+const invoiceGenerationExclusionSchema = z.object({
+  leaseId: z.string().cuid(),
+  periodMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+
+const cancelInvoiceGenerationExclusionSchema = z.object({
+  exclusionId: z.string().cuid(),
+});
+
+const invoicePeriodKey = (leaseId: string, periodStart: Date | null, periodEnd: Date | null) =>
+  `${leaseId}:${periodStart?.getTime() ?? "null"}:${periodEnd?.getTime() ?? "null"}`;
 
 export async function createInvoice(
   societyId: string,
@@ -227,6 +241,22 @@ export async function generateInvoiceFromLease(
       return {
         success: false,
         error: `Une facture existe déjà pour ce bail sur cette période (${existing.invoiceNumber})`,
+      };
+    }
+
+    const exclusion = await prisma.invoiceGenerationExclusion.findFirst({
+      where: {
+        societyId,
+        leaseId: lease.id,
+        periodStart,
+        periodEnd,
+      },
+      select: { id: true },
+    });
+    if (exclusion) {
+      return {
+        success: false,
+        error: "Ce bail est marqué comme facturé ailleurs pour cette période",
       };
     }
 
@@ -491,17 +521,32 @@ export async function generateBatchInvoices(
           select: { leaseId: true, periodStart: true, periodEnd: true },
         })
       : [];
-    const invoicePeriodKey = (leaseId: string, periodStart: Date | null, periodEnd: Date | null) =>
-      `${leaseId}:${periodStart?.getTime() ?? "null"}:${periodEnd?.getTime() ?? "null"}`;
+    const existingExclusions = leaseWithPeriods.length > 0
+      ? await prisma.invoiceGenerationExclusion.findMany({
+          where: {
+            societyId,
+            leaseId: { in: leaseWithPeriods.map((l) => l.lease.id) },
+            periodStart: { gte: new Date(Math.min(...periodStarts)) },
+            periodEnd: { lte: new Date(Math.max(...periodEnds)) },
+          },
+          select: { leaseId: true, periodStart: true, periodEnd: true },
+        })
+      : [];
     const alreadyInvoicedPeriods = new Set(
       existingInvoices
         .filter((inv) => inv.leaseId)
         .map((inv) => invoicePeriodKey(inv.leaseId!, inv.periodStart, inv.periodEnd))
     );
+    const excludedPeriods = new Set(
+      existingExclusions.map((exclusion) =>
+        invoicePeriodKey(exclusion.leaseId, exclusion.periodStart, exclusion.periodEnd)
+      )
+    );
 
     for (const { lease, periodStart, periodEnd } of leaseWithPeriods) {
       try {
-        if (alreadyInvoicedPeriods.has(invoicePeriodKey(lease.id, periodStart, periodEnd))) {
+        const periodKey = invoicePeriodKey(lease.id, periodStart, periodEnd);
+        if (alreadyInvoicedPeriods.has(periodKey) || excludedPeriods.has(periodKey)) {
           skipped++;
           continue;
         }
@@ -669,6 +714,157 @@ export async function generateBatchInvoices(
       return { success: false, error: error.message };
     console.error("[generateBatchInvoices]", error);
     return { success: false, error: "Erreur lors de la génération en masse" };
+  }
+}
+
+export async function excludeInvoiceGenerationPeriod(
+  societyId: string,
+  input: z.infer<typeof invoiceGenerationExclusionSchema>
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = invoiceGenerationExclusionSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
+      };
+    }
+
+    const lease = await prisma.lease.findFirst({
+      where: {
+        id: parsed.data.leaseId,
+        societyId,
+        status: "EN_COURS",
+      },
+      select: {
+        id: true,
+        paymentFrequency: true,
+      },
+    });
+    if (!lease) return { success: false, error: "Bail actif introuvable" };
+
+    const { periodStart, periodEnd } = computePeriodDates(
+      parsed.data.periodMonth,
+      lease.paymentFrequency
+    );
+    const reason = parsed.data.reason?.trim() || "Facturé dans un autre logiciel";
+
+    const exclusion = await prisma.invoiceGenerationExclusion.upsert({
+      where: {
+        societyId_leaseId_periodStart_periodEnd: {
+          societyId,
+          leaseId: lease.id,
+          periodStart,
+          periodEnd,
+        },
+      },
+      update: {
+        reason,
+        createdBy: context.userId,
+      },
+      create: {
+        societyId,
+        leaseId: lease.id,
+        periodStart,
+        periodEnd,
+        reason,
+        createdBy: context.userId,
+      },
+      select: { id: true },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "InvoiceGenerationExclusion",
+      entityId: exclusion.id,
+      details: {
+        leaseId: lease.id,
+        periodMonth: parsed.data.periodMonth,
+        periodStart,
+        periodEnd,
+        reason,
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/facturation");
+    revalidatePath("/facturation/generer");
+
+    return { success: true, data: { id: exclusion.id } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: error.message };
+    console.error("[excludeInvoiceGenerationPeriod]", error);
+    return { success: false, error: "Erreur lors de l'exclusion de la période" };
+  }
+}
+
+export async function cancelInvoiceGenerationExclusion(
+  societyId: string,
+  input: z.infer<typeof cancelInvoiceGenerationExclusionSchema>
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = cancelInvoiceGenerationExclusionSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((e: { message: string }) => e.message).join(", "),
+      };
+    }
+
+    const exclusion = await prisma.invoiceGenerationExclusion.findFirst({
+      where: {
+        id: parsed.data.exclusionId,
+        societyId,
+      },
+      select: {
+        id: true,
+        leaseId: true,
+        periodStart: true,
+        periodEnd: true,
+        reason: true,
+      },
+    });
+    if (!exclusion) return { success: false, error: "Exclusion introuvable" };
+
+    await prisma.invoiceGenerationExclusion.delete({
+      where: { id: exclusion.id },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "InvoiceGenerationExclusion",
+      entityId: exclusion.id,
+      details: {
+        leaseId: exclusion.leaseId,
+        periodStart: exclusion.periodStart,
+        periodEnd: exclusion.periodEnd,
+        reason: exclusion.reason,
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/facturation");
+    revalidatePath("/facturation/generer");
+
+    return { success: true, data: { id: exclusion.id } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError)
+      return { success: false, error: error.message };
+    if (error instanceof ForbiddenError)
+      return { success: false, error: error.message };
+    console.error("[cancelInvoiceGenerationExclusion]", error);
+    return { success: false, error: "Erreur lors de la réactivation de la période" };
   }
 }
 

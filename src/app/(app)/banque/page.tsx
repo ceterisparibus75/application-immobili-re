@@ -15,7 +15,6 @@ import {
   Clock,
   FileText,
   GitMerge,
-  Landmark,
   Link2,
   Plus,
   RefreshCw,
@@ -70,6 +69,21 @@ export default async function BanquePage() {
     dashboard.actionQueues.supplierInvoicesToPay +
     dashboard.actionQueues.supplierPaymentsToReconcile +
     dashboard.actionQueues.bankingConnectionsAttention;
+  const latestSyncAt = dashboard.accountRows.reduce<Date | null>((latest, account) => {
+    if (!account.lastSyncAt) return latest;
+    if (!latest || account.lastSyncAt.getTime() > latest.getTime()) return account.lastSyncAt;
+    return latest;
+  }, null);
+  const accountToProcess = dashboard.accountRows
+    .filter((account) => account.unreconciledCount > 0 || account.missingJournalEntryCount > 0)
+    .sort(
+      (a, b) =>
+        b.unreconciledCount +
+        b.missingJournalEntryCount -
+        (a.unreconciledCount + a.missingJournalEntryCount)
+    )[0];
+  const connectedPartnerCount = dashboard.partnerFlows.filter((partner) => partner.provider !== "MANUAL").length;
+  const connectionsAttention = dashboard.actionQueues.bankingConnectionsAttention;
 
   return (
     <div className="space-y-6">
@@ -208,66 +222,57 @@ export default async function BanquePage() {
         </Card>
       </div>
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Partenaires bancaires</h2>
-          <Link href="/banque/partenaires">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              Vue détaillée
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {dashboard.partnerFlows.map((partner) => (
-            <Card key={partner.key} className="border-0 bg-card shadow-brand">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-base">{partner.institutionName}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{PROVIDER_LABELS[partner.provider]}</p>
-                  </div>
-                  <Badge variant={statusBadgeVariant(partner.status)}>{partner.status === "manual" ? "manuel" : partner.status}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Solde</p>
-                    <p className="font-semibold tabular-nums">{formatCurrency(partner.totalBalance)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Flux net</p>
-                    <p className={`font-semibold tabular-nums ${partner.periodNet >= 0 ? "text-[var(--color-status-positive)]" : "text-[var(--color-status-negative)]"}`}>
-                      {formatSignedCurrency(partner.periodNet)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Transactions</p>
-                    <p className="font-semibold">{partner.transactionCount}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Non rapprochées</p>
-                    <p className="font-semibold text-[var(--color-status-caution)]">{partner.unreconciledCount}</p>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {partner.lastSyncAt ? `Dernière sync : ${formatDate(partner.lastSyncAt)}` : "Synchronisation manuelle ou non initialisée"}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-          {dashboard.partnerFlows.length === 0 && (
-            <Card className="border-0 bg-card shadow-brand lg:col-span-3">
-              <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                <Landmark className="mb-3 h-8 w-8 text-muted-foreground" />
-                <p className="font-medium">Aucun partenaire bancaire connecté</p>
-                <p className="mt-1 text-sm text-muted-foreground">Ajoutez un compte manuel ou connectez un partenaire bancaire pour démarrer le pilotage.</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </section>
+      <Card className="border-0 bg-card shadow-brand">
+        <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg bg-muted/40 p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Priorité du jour</p>
+            {accountToProcess ? (
+              <>
+                <p className="mt-2 font-semibold">{accountToProcess.accountName}</p>
+                <p className="text-sm text-muted-foreground">{accountToProcess.bankName}</p>
+                <Link href={`/banque/${accountToProcess.id}/rapprochement`}>
+                  <Button variant="outline" size="sm" className="mt-3 gap-1.5">
+                    Rapprocher
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 font-semibold text-[var(--color-status-positive)]">Aucun compte en attente</p>
+                <p className="text-sm text-muted-foreground">Les flux sont à jour sur la période.</p>
+              </>
+            )}
+          </div>
+          <div className="rounded-lg bg-muted/40 p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Dernière synchro</p>
+            <p className="mt-2 text-lg font-semibold">{latestSyncAt ? formatDate(latestSyncAt) : "Non initialisée"}</p>
+            <p className="text-sm text-muted-foreground">
+              {hasAccounts
+                ? `${dashboard.accountingControl.bankAccountCount} compte${dashboard.accountingControl.bankAccountCount !== 1 ? "s" : ""} suivi${dashboard.accountingControl.bankAccountCount !== 1 ? "s" : ""}`
+                : "Ajoutez un compte pour démarrer"}
+            </p>
+          </div>
+          <div className="rounded-lg bg-muted/40 p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Connexions</p>
+            <p className={`mt-2 text-lg font-semibold ${connectionsAttention > 0 ? "text-[var(--color-status-caution)]" : ""}`}>
+              {connectionsAttention > 0 ? `${connectionsAttention} à vérifier` : "Stables"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {connectedPartnerCount} partenaire{connectedPartnerCount !== 1 ? "s" : ""} connecté{connectedPartnerCount !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="rounded-lg bg-muted/40 p-4">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Période analysée</p>
+            <p className="mt-2 text-lg font-semibold">
+              {formatDate(dashboard.periodStart)} - {formatDate(dashboard.periodEnd)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {dashboard.kpis.transactionCount} opération{dashboard.kpis.transactionCount !== 1 ? "s" : ""} importée{dashboard.kpis.transactionCount !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 xl:grid-cols-3">
         <Card className="border-0 bg-card shadow-brand xl:col-span-2">
