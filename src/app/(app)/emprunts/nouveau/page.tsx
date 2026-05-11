@@ -485,12 +485,14 @@ function PdfImportForm({
   const [buildingId, setBuildingId] = useState("");
   const [purchaseValue, setPurchaseValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
     setIsAnalyzing(true);
+    setPdfFile(file);
 
     const fd = new FormData();
     fd.append("file", file);
@@ -527,6 +529,32 @@ function PdfImportForm({
   async function doSave() {
     if (!parsed) return;
     setStep("saving");
+
+    // Upload PDF to GED storage if file is available
+    let pdfDoc: { fileName: string; fileUrl: string; storagePath: string; fileSize: number } | undefined;
+    if (pdfFile) {
+      try {
+        const sigRes = await fetch("/api/storage/signed-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: pdfFile.name,
+            contentType: "application/pdf",
+            fileSize: pdfFile.size,
+            societyId: activeSocietyId,
+            entityFolder: "emprunts",
+          }),
+        });
+        if (sigRes.ok) {
+          const { signedUrl, storagePath, fileUrl } = await sigRes.json();
+          await fetch(signedUrl, { method: "PUT", body: pdfFile, headers: { "Content-Type": "application/pdf" } });
+          pdfDoc = { fileName: pdfFile.name, fileUrl, storagePath, fileSize: pdfFile.size };
+        }
+      } catch {
+        // Storage upload failure is non-blocking — loan is still created
+      }
+    }
+
     const data = {
       label,
       lender,
@@ -541,12 +569,12 @@ function PdfImportForm({
       notes: notes || null,
       schedule: parsed.schedule,
     };
-    const result = await createLoanFromPdf(activeSocietyId, data);
+    const result = await createLoanFromPdf(activeSocietyId, data, pdfDoc);
     if ("error" in result) {
-      setError(result.error ?? "Erreur lors de la création");
+      setError(result.error ?? "Erreur lors de la creation");
       setStep("preview");
     } else if ("data" in result && result.data) {
-      router.push(`/emprunts/${result.data.id}`);
+      router.push("/emprunts/" + result.data.id);
     }
   }
 

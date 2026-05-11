@@ -188,7 +188,11 @@ const createLoanFromPdfSchema = z.object({
 // ACTIONS CRUD
 // ============================================================
 
-export async function createLoanFromPdf(societyId: string, data: unknown) {
+export async function createLoanFromPdf(
+  societyId: string,
+  data: unknown,
+  pdfDoc?: { fileName: string; fileUrl: string; storagePath: string; fileSize: number }
+) {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
 
@@ -242,6 +246,22 @@ export async function createLoanFromPdf(societyId: string, data: unknown) {
       entityId: loan.id,
       details: { label: d.label, amount: d.amount, lender: d.lender, source: "PDF" },
     });
+
+    if (pdfDoc) {
+      await prisma.document.create({
+        data: {
+          societyId,
+          fileName: pdfDoc.fileName,
+          fileUrl: pdfDoc.fileUrl,
+          storagePath: pdfDoc.storagePath,
+          fileSize: pdfDoc.fileSize,
+          mimeType: "application/pdf",
+          category: "financier",
+          description: "Tableau d'amortissement — " + d.label,
+          buildingId: d.buildingId ?? null,
+        },
+      });
+    }
 
     revalidatePath("/emprunts");
     return { data: loan };
@@ -511,6 +531,164 @@ export async function updateAmortizationLine(
     if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { error: "Accès refusé" };
     throw error;
+  }
+}
+
+
+// ============================================================
+// UPDATE LOAN
+// ============================================================
+
+const updateLoanSchema = z.object({
+  label: z.string().min(1, "Libellé requis"),
+  lender: z.string().min(1, "Établissement prêteur requis"),
+  amount: z.number().positive("Le capital emprunté doit être positif"),
+  interestRate: z.number().min(0, "Le taux nominal doit être >= 0"),
+  insuranceRate: z.number().min(0).default(0),
+  durationMonths: z.number().int().positive("La durée doit être positive"),
+  startDate: z.string().min(1, "La date de début est requise"),
+  purchaseValue: z.number().positive().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  partnerName: z.string().optional().nullable(),
+  partnerShare: z.number().min(0).max(100).optional().nullable(),
+  maxAmount: z.number().positive().optional().nullable(),
+  conventionDate: z.string().optional().nullable(),
+  nominalValue: z.number().positive().optional().nullable(),
+  bondCount: z.number().int().positive().optional().nullable(),
+  couponFrequency: z.enum(["MENSUEL", "TRIMESTRIEL", "SEMESTRIEL", "ANNUEL"]).optional().nullable(),
+  issuePrice: z.number().positive().optional().nullable(),
+});
+
+export async function updateLoan(societyId: string, loanId: string, data: unknown) {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const parsed = updateLoanSchema.safeParse(data);
+    if (!parsed.success) {
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+    }
+
+    const existing = await prisma.loan.findFirst({
+      where: { id: loanId, societyId },
+      select: {
+        id: true, amount: true, interestRate: true, insuranceRate: true,
+        durationMonths: true, startDate: true, loanType: true, label: true,
+      },
+    });
+    if (!existing) return { error: "Emprunt introuvable" };
+
+    const d = parsed.data;
+    const startDate = new Date(d.startDate);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + d.durationMonths);
+
+    const isCC = existing.loanType === "COMPTE_COURANT";
+    const needsRegen = !isCC && (
+      Math.abs(d.amount - existing.amount) > 0.01 ||
+      Math.abs(d.interestRate - existing.interestRate) > 0.0001 ||
+      Math.abs(d.insuranceRate - existing.insuranceRate) > 0.0001 ||
+      d.durationMonths !== existing.durationMonths ||
+      startDate.getTime() !== new Date(existing.startDate).getTime()
+    );
+
+    await prisma.loan.update({
+      where: { id: loanId },
+      data: {
+        label: d.label,
+        lender: d.lender,
+        amount: d.amount,
+        interestRate: d.interestRate,
+        insuranceRate: d.insuranceRate,
+        durationMonths: d.durationMonths,
+        startDate,
+        endDate,
+        purchaseValue: d.purchaseValue ?? null,
+        notes: d.notes ?? null,
+        partnerName: d.partnerName ?? null,
+        partnerShare: d.partnerShare ?? null,
+        maxAmount: d.maxAmount ?? null,
+        conventionDate: d.conventionDate ? new Date(d.conventionDate) : null,
+        nominalValue: d.nominalValue ?? null,
+        bondCount: d.bondCount ?? null,
+        couponFrequency: d.couponFrequency ?? null,
+        issuePrice: d.issuePrice ?? null,
+      },
+    });
+
+    let linesCount: number | null = null;
+
+    if (needsRegen) {
+      const existingLines = await prisma.loanAmortizationLine.findMany({
+        where: { loanId },
+        select: {
+          period: true, isPaid: true, paidAt: true,
+          principalPaidAt: true, interestPaidAt: true, insurancePaidAt: true,
+          principalBankTransactionId: true, interestBankTransactionId: true, insuranceBankTransactionId: true,
+        },
+      });
+
+      const paidMap = new Map<number, typeof existingLines[number]>();
+      for (const line of existingLines) {
+        if (line.isPaid || line.principalPaidAt || line.interestPaidAt || line.insurancePaidAt) {
+          paidMap.set(line.period, line);
+        }
+      }
+
+      await prisma.loanAmortizationLine.deleteMany({ where: { loanId } });
+
+      const newLines = generateAmortizationTable({
+        amount: d.amount,
+        annualRate: d.interestRate,
+        annualInsuranceRate: d.insuranceRate,
+        durationMonths: d.durationMonths,
+        startDate,
+        loanType: existing.loanType as AmortizationInput["loanType"],
+      });
+
+      await prisma.loanAmortizationLine.createMany({
+        data: newLines.map((line) => {
+          const paid = paidMap.get(line.period);
+          return {
+            loanId,
+            period: line.period,
+            dueDate: line.dueDate,
+            principalPayment: line.principalPayment,
+            interestPayment: line.interestPayment,
+            insurancePayment: line.insurancePayment,
+            totalPayment: line.totalPayment,
+            remainingBalance: line.remainingBalance,
+            isPaid: paid?.isPaid ?? false,
+            paidAt: paid?.paidAt ?? null,
+            principalPaidAt: paid?.principalPaidAt ?? null,
+            interestPaidAt: paid?.interestPaidAt ?? null,
+            insurancePaidAt: paid?.insurancePaidAt ?? null,
+            principalBankTransactionId: paid?.principalBankTransactionId ?? null,
+            interestBankTransactionId: paid?.interestBankTransactionId ?? null,
+            insuranceBankTransactionId: paid?.insuranceBankTransactionId ?? null,
+          };
+        }),
+      });
+
+      linesCount = newLines.length;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "Loan",
+      entityId: loanId,
+      details: { label: d.label, interestRate: d.interestRate, regenerated: needsRegen, linesCount },
+    });
+
+    revalidatePath(`/emprunts/${loanId}`);
+    revalidatePath("/emprunts");
+    return { success: true, data: { regenerated: needsRegen, linesCount } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { error: "Accès refusé" };
+    console.error("[updateLoan]", error);
+    return { error: "Erreur lors de la mise à jour" };
   }
 }
 

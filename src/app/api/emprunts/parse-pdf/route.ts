@@ -8,54 +8,66 @@ const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse
 
 Analyse ce document PDF et extrais les informations suivantes au format JSON strict.
 
-ÉTAPE 1 — IDENTIFIER LES COLONNES :
-Avant d'extraire les données, identifie TOUTES les colonnes du tableau d'amortissement. Liste-les dans le champ "_rawColumns".
-Exemples de colonnes fréquentes dans les tableaux bancaires français :
-  - "N°", "Rang", "Période", "Échéance n°"
-  - "Date", "Date d'échéance", "Échéance"
-  - "Capital amorti", "Amortissement", "Remboursement capital", "Part capital", "Amort. Capital"
-  - "Intérêts", "Part intérêts", "Frais financiers", "Int."
-  - "Assurance", "Prime assurance", "Cotisation assurance", "Ass."
-  - "Échéance", "Mensualité", "Annuité", "Total", "Échéance totale", "Ech. totale"
-  - "Capital restant dû", "CRD", "Solde", "Restant dû", "Capital restant", "CRD après"
+REGLE ABSOLUE N1 — PRECISION EXACTE, AUCUN RECALCUL
+Copie les montants EXACTEMENT tels qu'ils apparaissent dans le PDF, chiffre par chiffre.
+- NE JAMAIS arrondir, tronquer ou recalculer un montant
+- NE JAMAIS calculer un champ a partir d'un autre (ex: ne pas calculer balance = balance_precedent - principal)
+- Si une valeur dans le PDF est "4 808,45" => ecrire 4808.45 (pas 4808.4 ni 4808.5)
+- Si le PDF affiche "249 280,13" => ecrire 249280.13 exactement
+- La valeur extraite doit etre IDENTIQUE au centieme pres a la valeur imprimee dans le tableau
+- En cas de doute entre deux lectures possibles, lis plus attentivement — ne devine pas
 
-ÉTAPE 2 — MAPPER LES COLONNES :
-Chaque colonne du PDF doit correspondre à un champ JSON :
-  - La colonne qui montre la PART DU CAPITAL REMBOURSÉ à chaque échéance → "principal"
-    (C'est le montant qui, soustrait du solde précédent, donne le nouveau solde)
-  - La colonne qui montre les INTÉRÊTS payés → "interest"
-  - La colonne qui montre l'ASSURANCE → "insurance" (0 si absente)
-  - La colonne qui montre le MONTANT TOTAL de l'échéance → "total"
-    (total = principal + interest + insurance)
-  - La colonne qui montre le CAPITAL RESTANT DÛ après paiement → "balance"
-    (le solde diminue au fil des échéances dans un prêt amortissable)
+ETAPE 1 — IDENTIFIER LES COLONNES :
+Avant d'extraire les donnees, identifie TOUTES les colonnes du tableau d'amortissement. Liste-les dans le champ "_rawColumns".
+Exemples de colonnes frequentes dans les tableaux bancaires francais :
+  - "N°", "Rang", "Periode", "Echeance n°"
+  - "Date", "Date d'echeance", "Echeance"
+  - "Capital amorti", "Amortissement", "Remboursement capital", "Part capital", "Amort. Capital"
+  - "Interets", "Part interets", "Frais financiers", "Int."
+  - "Assurance", "Prime assurance", "Cotisation assurance", "Ass."
+  - "Echeance", "Mensualite", "Annuite", "Total", "Echeance totale", "Ech. totale"
+  - "Capital restant du", "CRD", "Solde", "Restant du", "Capital restant", "CRD apres"
+
+ETAPE 2 — MAPPER LES COLONNES :
+Chaque colonne du PDF doit correspondre a un champ JSON :
+  - La colonne qui montre la PART DU CAPITAL REMBOURSE a chaque echeance => "principal"
+    (montant qui, soustrait du solde precedent, donne le nouveau solde)
+  - La colonne qui montre les INTERETS payes => "interest"
+  - La colonne qui montre l'ASSURANCE => "insurance" (0 si absente ou colonne absente)
+  - La colonne qui montre le MONTANT TOTAL de l'echeance => "total"
+    LIS ce montant DIRECTEMENT dans le tableau — ne le calcule jamais
+  - La colonne qui montre le CAPITAL RESTANT DU apres paiement => "balance"
+    LIS ce montant DIRECTEMENT dans le tableau — ne le calcule jamais
 
 IMPORTANT — NE PAS CONFONDRE :
-  - "Capital restant dû" (= balance, le solde qui diminue) ≠ "Capital amorti" (= principal, la part remboursée)
-  - Si le tableau montre que le total de chaque échéance = intérêts seuls (pas de remboursement de capital), le prêt est IN_FINE
-  - Si le tableau montre un capital amorti > 0 chaque mois et un solde qui diminue, le prêt est AMORTISSABLE
-  - Vérifie que : balance[ligne N] = balance[ligne N-1] - principal[ligne N]
+  - "Capital restant du" (= balance, le solde qui diminue) N'EST PAS "Capital amorti" (= principal, la part remboursee)
+  - Si le tableau montre que le total de chaque echeance = interets seuls (pas de remboursement de capital), le pret est IN_FINE
+  - Si le tableau montre un capital amorti > 0 chaque mois et un solde qui diminue, le pret est AMORTISSABLE
+  - Verifie que : balance[ligne N] = balance[ligne N-1] - principal[ligne N] (a quelques centimes pres)
+  - Un ecart de quelques centimes est NORMAL en raison des arrondis bancaires — garder la valeur telle qu'elle apparait
 
-RÈGLES :
+REGLES :
 - Si une information est absente, utilise null
-- Les montants sont en euros avec POINT décimal (pas virgule) : "1 234,56" → 1234.56
+- Les montants sont en euros avec POINT decimal (pas virgule) : "1 234,56" -> 1234.56
+- Les espaces de milliers sont ignores : "249 280,13" -> 249280.13
 - Les taux sont en pourcentage (3.5 pour 3,5%)
 - Les dates au format "YYYY-MM-DD"
-- Type de prêt : "AMORTISSABLE" | "IN_FINE" | "BULLET"
-- La durée = nombre total de lignes dans le tableau
-- Exclure les lignes de résumé/total
-- EXTRAIRE TOUTES les lignes, même si le tableau fait plus de 200 lignes
+- Type de pret : "AMORTISSABLE" | "IN_FINE" | "BULLET"
+- La duree = nombre total de lignes dans le tableau
+- Exclure les lignes de resume/total
+- EXTRAIRE TOUTES les lignes, meme si le tableau fait plus de 200 lignes
 
-VÉRIFICATION FINALE :
-- Si toutes les valeurs "principal" sont 0 et que le "balance" ne change jamais → vérifie que tu n'as pas omis une colonne du tableau
-- Si principal est toujours 0 mais que "total" > "interest" + "insurance" → principal = total - interest - insurance
+VERIFICATION FINALE :
+- Si toutes les valeurs "principal" sont 0 et que le "balance" ne change jamais => verifie que tu n'as pas omis une colonne du tableau
+- Si principal est toujours 0 mais que "total" > "interest" + "insurance" => principal = total - interest - insurance
+- Le champ "total" DOIT etre identique au montant imprime dans le tableau bancaire
 
 Retourne UNIQUEMENT ce JSON (sans markdown, sans explication) :
 {
-  "_rawColumns": ["liste", "des", "en-têtes", "de", "colonnes", "trouvés"],
+  "_rawColumns": ["liste", "des", "en-tetes", "de", "colonnes", "trouves"],
   "_rawFirstRow": {"col1_name": "val1", "col2_name": "val2"},
-  "label": "libellé suggéré pour cet emprunt",
-  "lender": "nom de l'établissement prêteur",
+  "label": "libelle suggere pour cet emprunt",
+  "lender": "nom de l'etablissement preteur",
   "loanType": "AMORTISSABLE|IN_FINE|BULLET",
   "amount": 250000.00,
   "interestRate": 3.50,
@@ -75,7 +87,8 @@ Retourne UNIQUEMENT ce JSON (sans markdown, sans explication) :
   ]
 }
 
-Si ce document n'est PAS un tableau d'amortissement bancaire, retourne : {"error": "Ce document ne semble pas être un tableau d'amortissement bancaire"}`;
+Si ce document n'est PAS un tableau d'amortissement bancaire, retourne : {"error": "Ce document ne semble pas etre un tableau d'amortissement bancaire"}
+`;
 
 export interface ParsedLoan {
   label: string | null;

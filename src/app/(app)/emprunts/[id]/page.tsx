@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AmortizationTableClient } from "./amortization-table-client";
-import { LoanActionsClient } from "./loan-actions-client";
+import { LoanActionsClient, type LoanEditData } from "./loan-actions-client";
 import { MovementsClient } from "./movements-client";
 import { calculateLoanRepaymentMetrics } from "@/lib/loan-metrics";
 
@@ -117,7 +117,32 @@ export default async function EmpruntDetailPage({
         </div>
         <Badge variant={statusInfo?.variant ?? "outline"}>{statusInfo?.label ?? loan.status}</Badge>
         <Badge variant="secondary">{TYPE_LABELS[loan.loanType] ?? loan.loanType}</Badge>
-        <LoanActionsClient loanId={loan.id} societyId={societyId} loanLabel={loan.label} />
+        <LoanActionsClient
+          loanId={loan.id}
+          societyId={societyId}
+          loanLabel={loan.label}
+          loan={{
+            id: loan.id,
+            label: loan.label,
+            lender: loan.lender,
+            amount: loan.amount,
+            interestRate: loan.interestRate,
+            insuranceRate: loan.insuranceRate,
+            durationMonths: loan.durationMonths,
+            startDate: loan.startDate.toISOString(),
+            purchaseValue: loan.purchaseValue,
+            notes: loan.notes,
+            loanType: loan.loanType,
+            partnerName: loan.partnerName ?? null,
+            partnerShare: loan.partnerShare ?? null,
+            maxAmount: loan.maxAmount ?? null,
+            conventionDate: loan.conventionDate?.toISOString() ?? null,
+            nominalValue: loan.nominalValue ?? null,
+            bondCount: loan.bondCount ?? null,
+            couponFrequency: (loan.couponFrequency as LoanEditData["couponFrequency"]) ?? null,
+            issuePrice: loan.issuePrice ?? null,
+          } satisfies LoanEditData}
+        />
       </div>
 
       {/* Résumé */}
