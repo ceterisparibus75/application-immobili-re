@@ -4,6 +4,7 @@ import config from "../../../../vercel.json";
 const expectedBusinessCrons = new Map([
   ["/api/cron/ai-retry", "0 * * * *"],
   ["/api/cron/data-retention-cleanup", "0 3 * * 0"],
+  ["/api/cron/document-alerts", "0 8 * * 1"],
   ["/api/cron/generate-drafts", "0 7 * * *"],
   ["/api/cron/insurance-reminder", "0 9 * * 1"],
   ["/api/cron/invoice-reminder", "0 8 * * 1"],

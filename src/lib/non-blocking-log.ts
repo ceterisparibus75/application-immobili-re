@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 
 /**
  * Loggue une erreur non bloquante : ajoute un breadcrumb Sentry et un
- * console.warn pour rester visible en dev sans interrompre le flux.
+ * console.error visible en dev sans interrompre le flux d'exécution.
  * Usage : `} catch (e) { logNonBlocking("invoice.logo.fetch", e); }`
  */
 export function logNonBlocking(label: string, error: unknown): void {
@@ -19,6 +19,6 @@ export function logNonBlocking(label: string, error: unknown): void {
     // Sentry indisponible — on continue.
   }
   if (process.env.NODE_ENV !== "production") {
-    console.warn(`[non-blocking:${label}]`, error);
+    console.error(`[non-blocking:${label}]`, error);
   }
 }
