@@ -6,9 +6,10 @@
 //   - tenant-queries.ts   : lectures (getXxx) — "use server"
 //   - tenant-mutations.ts : créations / modifications / mutations financières — "use server"
 
-export { computeTenantBalance } from "@/actions/tenant-shared";
+
 
 export {
+  computeTenantBalance,
   getTenantsPaginated,
   getTenants,
   getActiveTenants,

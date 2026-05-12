@@ -3,10 +3,110 @@
 import { prisma } from "@/lib/prisma";
 import {
   getOptionalSocietyActionContext,
+  requireSocietyActionContext,
 } from "@/lib/action-society";
 import { getOptionalAuthenticatedActionContext } from "@/lib/action-auth";
 import { getOptionalAccessibleActiveSocietyId } from "@/lib/active-society";
-import { computeTenantBalances, getCreditNoteAmount } from "@/actions/tenant-shared";
+import { getCreditNoteAmount } from "@/actions/tenant-shared";
+
+/**
+ * Calcule le solde d'un locataire (montant dû).
+ * Solde = ajustements manuels + factures TTC (hors annulées) - paiements - avoirs.
+ * Un solde positif = le locataire doit de l'argent.
+ */
+export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
+  await requireSocietyActionContext(societyId);
+
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        tenantId,
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+        invoiceType: { not: "QUITTANCE" },
+      },
+      select: {
+        totalTTC: true,
+        invoiceType: true,
+        payments: { select: { amount: true } },
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId },
+      select: { amount: true },
+    }),
+  ]);
+
+  let balance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
+  for (const inv of invoices) {
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      balance -= getCreditNoteAmount(inv.totalTTC);
+    } else {
+      balance += inv.totalTTC - paid;
+    }
+  }
+
+  return Math.round(balance * 100) / 100;
+}
+
+/**
+ * Calcule les soldes de plusieurs locataires en une seule requête optimisée.
+ */
+export async function computeTenantBalances(societyId: string, tenantIds: string[]): Promise<Map<string, number>> {
+  if (tenantIds.length === 0) return new Map();
+
+  const [invoices, adjustments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        tenantId: { in: tenantIds },
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+        invoiceType: { not: "QUITTANCE" },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        totalTTC: true,
+        invoiceType: true,
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId: { in: tenantIds } },
+      select: { tenantId: true, amount: true },
+    }),
+  ]);
+
+  const paymentTotals = invoices.length > 0
+    ? await prisma.payment.groupBy({
+        by: ["invoiceId"],
+        where: { invoiceId: { in: invoices.map((inv) => inv.id) } },
+        _sum: { amount: true },
+      })
+    : [];
+  const paidByInvoice = new Map(paymentTotals.map((p) => [p.invoiceId, p._sum.amount ?? 0]));
+
+  const balances = new Map<string, number>();
+  for (const adjustment of adjustments) {
+    balances.set(adjustment.tenantId, (balances.get(adjustment.tenantId) ?? 0) + adjustment.amount);
+  }
+  for (const inv of invoices) {
+    const current = balances.get(inv.tenantId) ?? 0;
+    const paid = paidByInvoice.get(inv.id) ?? 0;
+    if (inv.invoiceType === "AVOIR") {
+      balances.set(inv.tenantId, current - getCreditNoteAmount(inv.totalTTC));
+    } else {
+      balances.set(inv.tenantId, current + (inv.totalTTC - paid));
+    }
+  }
+
+  // Arrondir
+  for (const [id, val] of balances) {
+    balances.set(id, Math.round(val * 100) / 100);
+  }
+
+  return balances;
+}
 
 export async function getTenantsPaginated(
   societyId: string,
