@@ -126,6 +126,68 @@ async function createInvoiceFromLease(page: Page, leaseId: string) {
   return { id: resourceIdFromUrl(page.url(), "facturation") }
 }
 
+/**
+ * Reads the invoice TTC amount from the detail page (parses a "€" string).
+ * Robust to fr-FR formatting like "1 800,00 €" or "1800,00 €".
+ */
+async function readInvoiceTotalTTC(page: Page): Promise<number> {
+  const text = await page
+    .getByText(/Total TTC/i)
+    .first()
+    .locator("..")
+    .innerText()
+  const match = text.match(/([\d\s ]+(?:,\d{1,2})?)\s*€/)
+  expect(match, `Could not parse Total TTC from: ${text}`).toBeTruthy()
+  const normalized = match![1].replace(/[\s ]/g, "").replace(",", ".")
+  const value = parseFloat(normalized)
+  expect(Number.isFinite(value) && value > 0, `Parsed invalid TTC: ${value}`).toBe(true)
+  return value
+}
+
+async function recordFullPayment(page: Page, invoiceId: string) {
+  await page.goto(`/facturation/${invoiceId}`)
+  await expect(page).toHaveURL(new RegExp(`/facturation/${invoiceId}$`))
+
+  // Read the TTC amount before clicking — we need it to fill the payment form
+  const totalTTC = await readInvoiceTotalTTC(page)
+
+  await page.getByRole("button", { name: /enregistrer un paiement/i }).click()
+  await expect(page.getByText("Nouveau paiement")).toBeVisible()
+
+  await page.locator("#amount").fill(totalTTC.toFixed(2))
+  await page.locator("#paidAt").fill(todayISO())
+  await page.locator("#method").selectOption("Virement")
+  await page.locator("#reference").fill(`E2E-PAY-${Date.now()}`)
+
+  await page.getByRole("button", { name: /^valider$/i }).click()
+
+  // After router.refresh(), the form unmounts and the page shows the payment in the timeline
+  await expect(page.getByText("Nouveau paiement")).toBeHidden({ timeout: 15_000 })
+
+  // The invoice should be flagged as PAYE (badge or status text)
+  await expect(page.getByText(/^pay(é|e|ee)$/i).first()).toBeVisible({ timeout: 15_000 })
+
+  return { totalTTC }
+}
+
+/**
+ * Auto-receipt is fired async by recordPayment → may take a few seconds.
+ * Polls the receipts list of the same tenant.
+ */
+async function waitForAutoReceipt(page: Page, tenantId: string) {
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    await page.goto(`/locataires/${tenantId}`)
+    // Receipts/Quittances usually appear as QUITTANCE-prefixed invoiceNumber
+    const receiptBadge = page.getByText(/quittance/i).first()
+    if (await receiptBadge.isVisible().catch(() => false)) {
+      return
+    }
+    await page.waitForTimeout(2_000)
+  }
+  throw new Error("Auto-receipt (quittance) was not generated within 30 s after full payment")
+}
+
 test.describe("parcours métier staging", () => {
   test("crée un immeuble, un lot, un locataire, un bail puis une facture", async ({ page }) => {
     const suffix = `${Date.now()}`
@@ -147,5 +209,27 @@ test.describe("parcours métier staging", () => {
       lease: { id: expect.any(String) },
       invoice: { id: expect.any(String) },
     })
+  })
+
+  test("encaissement complet : facture → paiement total → quittance auto", async ({ page }) => {
+    const suffix = `${Date.now()}`
+
+    await signIn(page)
+
+    const building = await test.step("créer un immeuble", () => createBuilding(page, suffix))
+    const lot = await test.step("créer un lot vacant", () => createLot(page, building.id, suffix))
+    const tenant = await test.step("créer un locataire", () => createTenant(page, suffix))
+    const lease = await test.step("créer un bail actif", () => createLease(page, lot.id, tenant.id))
+    const invoice = await test.step("générer un appel de loyer", () =>
+      createInvoiceFromLease(page, lease.id)
+    )
+    const payment = await test.step("encaisser le paiement total", () =>
+      recordFullPayment(page, invoice.id)
+    )
+    await test.step("vérifier la génération auto de la quittance", () =>
+      waitForAutoReceipt(page, tenant.id)
+    )
+
+    expect(payment.totalTTC).toBeGreaterThan(0)
   })
 })
