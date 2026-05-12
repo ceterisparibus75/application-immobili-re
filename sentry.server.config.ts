@@ -16,6 +16,15 @@ Sentry.init({
   // Ne jamais envoyer de PII (IPs, cookies, corps de requête) à Sentry
   sendDefaultPii: false,
 
+  // Server Actions dont le hash a changé entre deux déploiements lèvent
+  // UnrecognizedActionError côté client/server. C'est attendu : un user actif
+  // au moment d'un déploiement voit cette erreur tant qu'il n'a pas rechargé.
+  // On les filtre pour ne pas polluer Sentry.
+  ignoreErrors: [
+    /UnrecognizedActionError/i,
+    /Server Action ".+" was not found on the server/i,
+  ],
+
   beforeSend(event) {
     if (event.request) {
       delete event.request.cookies;
