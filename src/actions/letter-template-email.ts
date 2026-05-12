@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
@@ -28,8 +29,31 @@ const TENANT_AUTO_FILL_KEYS = [
   "charges_amount",
   "destination_bien",
 ];
+const GROUP_EMAIL_CONCURRENCY = 4;
 
 type TemplateVariableForEmail = { key: string; autoFill?: string };
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  async function runNext() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runNext())
+  );
+
+  return results;
+}
 
 function applyAutoFillValues(
   values: Record<string, string>,
@@ -77,7 +101,7 @@ async function saveLetterDocument(
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
-  const storagePath = `documents/${societyId}/courriers/${Date.now()}_${filename}`;
+  const storagePath = `documents/${societyId}/courriers/${Date.now()}_${randomUUID()}_${filename}`;
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
@@ -508,79 +532,86 @@ export async function sendLetterToOwnerTenants(
       return { success: false, error: "Aucun locataire avec email pour ce propriétaire" };
     }
 
-    let sent = 0;
-    const errors: string[] = [];
+    const sendResults = await mapWithConcurrency(
+      tenantLeases,
+      GROUP_EMAIL_CONCURRENCY,
+      async (lease) => {
+        const { tenant } = lease;
+        const society = societyById.get(lease.societyId);
 
-    for (const lease of tenantLeases) {
-      const { tenant } = lease;
-      const society = societyById.get(lease.societyId);
+        try {
+          const autoFillResult = await getAutoFillData(lease.societyId, tenant.id, lease.id);
+          const autoFillData = autoFillResult.success ? autoFillResult.data : null;
 
-      try {
-        const autoFillResult = await getAutoFillData(lease.societyId, tenant.id, lease.id);
-        const autoFillData = autoFillResult.success ? autoFillResult.data : null;
+          const values: Record<string, string> = { ...input.commonValues };
+          if (autoFillData) {
+            applyAutoFillValues(values, templateVariables, autoFillData, { preserveCommonValues: false });
+          }
 
-        const values: Record<string, string> = { ...input.commonValues };
-        if (autoFillData) {
-          applyAutoFillValues(values, templateVariables, autoFillData, { preserveCommonValues: false });
-        }
-
-        const interpolated = interpolateTemplate(bodyHtml, values);
-        const buffer = await generateLetterPdf({
-          senderName: values.BAILLEUR_NOM ?? society?.name ?? "",
-          senderAddress: values.BAILLEUR_ADRESSE ?? "",
-          recipientName: values.LOCATAIRE_NOM ?? "",
-          recipientAddress: values.LOCATAIRE_ADRESSE ?? "",
-          date: values.DATE ?? new Date().toLocaleDateString("fr-FR"),
-          lieu: values.LIEU ?? "",
-          subject,
-          bodyHtml: interpolated,
-          societyName: society?.name,
-          societySiret: society?.siret ?? undefined,
-        });
-
-        const ds = new Date().toISOString().slice(0, 10);
-        const slug = input.templateId.replace(/_/g, "-");
-        const filename = `courrier-${slug}-${ds}.pdf`;
-
-        const tenantName = getTenantDisplayName(tenant, "");
-        const emailResult = await sendLetterEmail({
-          to: tenant.email!,
-          tenantName,
-          subject,
-          societyName: society?.name ?? "",
-          attachment: { filename, content: buffer },
-          proofContext: {
-            societyId: lease.societyId,
-            sentById: context.userId,
-            entityType: "LETTER",
-            entityId: input.templateId,
-            tenantId: tenant.id,
-            leaseId: lease.id,
-            recipientName: tenantName,
-            evidence: {
-              route: "sendLetterToOwnerTenants",
-              templateId: input.templateId,
-              ownerSocietyId: societyId,
-              subject,
-              filename,
-            },
-          },
-        });
-
-        const storagePath = await saveLetterDocument(lease.societyId, tenant.id, filename, buffer, subject);
-        if (emailResult?.proofId && storagePath) {
-          await prisma.emailDeliveryProof.updateMany({
-            where: { id: emailResult.proofId, societyId: lease.societyId },
-            data: { attachmentStoragePath: storagePath },
+          const interpolated = interpolateTemplate(bodyHtml, values);
+          const buffer = await generateLetterPdf({
+            senderName: values.BAILLEUR_NOM ?? society?.name ?? "",
+            senderAddress: values.BAILLEUR_ADRESSE ?? "",
+            recipientName: values.LOCATAIRE_NOM ?? "",
+            recipientAddress: values.LOCATAIRE_ADRESSE ?? "",
+            date: values.DATE ?? new Date().toLocaleDateString("fr-FR"),
+            lieu: values.LIEU ?? "",
+            subject,
+            bodyHtml: interpolated,
+            societyName: society?.name,
+            societySiret: society?.siret ?? undefined,
           });
-        }
 
-        sent++;
-      } catch (e) {
-        const tenantName = getTenantDisplayName(tenant, "");
-        errors.push(`${tenantName}: ${e instanceof Error ? e.message : "Erreur inconnue"}`);
+          const ds = new Date().toISOString().slice(0, 10);
+          const slug = input.templateId.replace(/_/g, "-");
+          const filename = `courrier-${slug}-${ds}.pdf`;
+
+          const tenantName = getTenantDisplayName(tenant, "");
+          const emailResult = await sendLetterEmail({
+            to: tenant.email!,
+            tenantName,
+            subject,
+            societyName: society?.name ?? "",
+            attachment: { filename, content: buffer },
+            proofContext: {
+              societyId: lease.societyId,
+              sentById: context.userId,
+              entityType: "LETTER",
+              entityId: input.templateId,
+              tenantId: tenant.id,
+              leaseId: lease.id,
+              recipientName: tenantName,
+              evidence: {
+                route: "sendLetterToOwnerTenants",
+                templateId: input.templateId,
+                ownerSocietyId: societyId,
+                subject,
+                filename,
+              },
+            },
+          });
+
+          const storagePath = await saveLetterDocument(lease.societyId, tenant.id, filename, buffer, subject);
+          if (emailResult?.proofId && storagePath) {
+            await prisma.emailDeliveryProof.updateMany({
+              where: { id: emailResult.proofId, societyId: lease.societyId },
+              data: { attachmentStoragePath: storagePath },
+            });
+          }
+
+          return { ok: true as const };
+        } catch (e) {
+          const tenantName = getTenantDisplayName(tenant, "");
+          return {
+            ok: false as const,
+            error: `${tenantName}: ${e instanceof Error ? e.message : "Erreur inconnue"}`,
+          };
+        }
       }
-    }
+    );
+
+    const sent = sendResults.filter((result) => result.ok).length;
+    const errors = sendResults.flatMap((result) => result.ok ? [] : [result.error]);
 
     await createAuditLog({
       societyId,

@@ -643,7 +643,7 @@ export default function GenerateLetterPage() {
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {sendMode === "individual" && (
               <>
                 <Button onClick={handleGenerate} disabled={generating || sending} className="gap-2">
@@ -696,8 +696,13 @@ export default function GenerateLetterPage() {
                 ) : (
                   <Users className="h-4 w-4" />
                 )}
-                Envoyer à tous les locataires ({ownerTenants.length})
+                {sending ? "Envoi en cours..." : `Envoyer à tous les locataires (${ownerTenants.length})`}
               </Button>
+            )}
+            {sending && isGroupedMode && (
+              <p className="text-xs text-muted-foreground">
+                Envoi en cours, chaque locataire reçoit un email séparé.
+              </p>
             )}
           </div>
         </div>
