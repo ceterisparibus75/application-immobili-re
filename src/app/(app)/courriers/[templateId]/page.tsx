@@ -23,11 +23,12 @@ import {
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { BUILTIN_TEMPLATES } from "@/lib/letter-templates";
-import { generateLetter, getAutoFillData, getTenantsWithLease, getBuildingsWithTenants } from "@/actions/letter-template";
-import { sendLetterByEmail, sendLetterToBuilding } from "@/actions/letter-template-email";
+import { generateLetter, getAutoFillData, getTenantsWithLease, getBuildingsWithTenants, getOwnerTenantsWithLease } from "@/actions/letter-template";
+import { sendLetterByEmail, sendLetterToBuilding, sendLetterToOwnerTenants } from "@/actions/letter-template-email";
 import type { BuildingForLetter } from "@/actions/letter-template";
 
-type SendMode = "individual" | "building";
+type SendMode = "individual" | "building" | "owner";
+type OwnerTenantForLetter = { id: string; name: string; leaseId?: string; societyId?: string; societyName?: string };
 
 export default function GenerateLetterPage() {
   const params = useParams();
@@ -56,6 +57,7 @@ export default function GenerateLetterPage() {
   // Mode d'envoi
   const [sendMode, setSendMode] = useState<SendMode>("individual");
   const [buildings, setBuildings] = useState<BuildingForLetter[]>([]);
+  const [ownerTenants, setOwnerTenants] = useState<OwnerTenantForLetter[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState("");
 
   // Charger la liste des locataires et des immeubles
@@ -63,6 +65,7 @@ export default function GenerateLetterPage() {
     if (!societyId) {
       setTenants([]);
       setBuildings([]);
+      setOwnerTenants([]);
       setRecipientsLoading(false);
       setRecipientsError(null);
       return;
@@ -72,8 +75,8 @@ export default function GenerateLetterPage() {
     setRecipientsLoading(true);
     setRecipientsError(null);
 
-    Promise.all([getTenantsWithLease(societyId), getBuildingsWithTenants(societyId)])
-      .then(([tenantsResult, buildingsResult]) => {
+    Promise.all([getTenantsWithLease(societyId), getBuildingsWithTenants(societyId), getOwnerTenantsWithLease(societyId)])
+      .then(([tenantsResult, buildingsResult, ownerTenantsResult]) => {
         if (cancelled) return;
 
         const errors: string[] = [];
@@ -98,12 +101,20 @@ export default function GenerateLetterPage() {
           errors.push(buildingsResult.error ?? "Erreur lors du chargement des immeubles");
         }
 
+        if (ownerTenantsResult.success && ownerTenantsResult.data) {
+          setOwnerTenants(ownerTenantsResult.data);
+        } else {
+          setOwnerTenants([]);
+          errors.push(ownerTenantsResult.error ?? "Erreur lors du chargement des locataires du propriétaire");
+        }
+
         setRecipientsError(errors.length > 0 ? errors.join("\n") : null);
       })
       .catch(() => {
         if (cancelled) return;
         setTenants([]);
         setBuildings([]);
+        setOwnerTenants([]);
         setRecipientsError("Erreur lors du chargement des destinataires");
       })
       .finally(() => {
@@ -172,6 +183,32 @@ export default function GenerateLetterPage() {
     if (!societyId || !buildingId) return;
 
     // Auto-remplir les champs société (pas les champs locataire)
+    setError(null);
+    const result = await getAutoFillData(societyId);
+    if (result.success && result.data && template) {
+      const d = result.data;
+      const today = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
+      const newValues: Record<string, string> = { ...values };
+      for (const v of template.variables) {
+        switch (v.autoFill) {
+          case "society_name": newValues[v.key] = d.societyName; break;
+          case "society_address": newValues[v.key] = d.societyAddress; break;
+          case "society_siret": newValues[v.key] = d.societySiret; break;
+          case "today": newValues[v.key] = today; break;
+        }
+      }
+      setValues(newValues);
+    } else if (!result.success) {
+      setError(result.error ?? "Erreur lors du pré-remplissage");
+    }
+  }, [societyId, values, template]);
+
+  const handleOwnerMode = useCallback(async () => {
+    setSendMode("owner");
+    setSelectedTenantId("");
+    setSelectedBuildingId("");
+    if (!societyId) return;
+
     setError(null);
     const result = await getAutoFillData(societyId);
     if (result.success && result.data && template) {
@@ -285,6 +322,32 @@ export default function GenerateLetterPage() {
     setSending(false);
   };
 
+  // Envoyer à tous les locataires du propriétaire
+  const handleSendToOwner = async () => {
+    if (!societyId || !template) return;
+    setError(null);
+    setSuccess(null);
+
+    setSending(true);
+    const result = await sendLetterToOwnerTenants(societyId, {
+      templateId,
+      commonValues: values,
+    });
+
+    if (result.success && result.data) {
+      const { sent, errors: sendErrors } = result.data;
+      if (sendErrors.length > 0) {
+        setSuccess(`${sent} courrier(s) envoyé(s). ${sendErrors.length} erreur(s).`);
+        setError(sendErrors.join("\n"));
+      } else {
+        setSuccess(`${sent} courrier(s) envoyé(s) avec succès aux locataires du propriétaire`);
+      }
+    } else {
+      setError(result.error ?? "Erreur lors de l'envoi aux locataires du propriétaire");
+    }
+    setSending(false);
+  };
+
   if (!template) {
     return (
       <div className="space-y-6">
@@ -304,6 +367,7 @@ export default function GenerateLetterPage() {
   }
 
   const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
+  const isGroupedMode = sendMode === "building" || sendMode === "owner";
 
   return (
     <div className="space-y-6">
@@ -347,6 +411,15 @@ export default function GenerateLetterPage() {
                 >
                   <Building2 className="h-4 w-4" />
                   Par immeuble
+                </Button>
+                <Button
+                  variant={sendMode === "owner" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleOwnerMode}
+                >
+                  <Users className="h-4 w-4" />
+                  Tout le propriétaire
                 </Button>
               </div>
             </CardContent>
@@ -397,7 +470,7 @@ export default function GenerateLetterPage() {
                 )}
               </CardContent>
             </Card>
-          ) : (
+          ) : sendMode === "building" ? (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -452,13 +525,58 @@ export default function GenerateLetterPage() {
                 )}
               </CardContent>
             </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Envoi à tous les locataires du propriétaire
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Un email séparé sera envoyé à chaque locataire éligible. Les locataires gérés par un tiers sont exclus.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {recipientsLoading && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Chargement des destinataires...
+                  </p>
+                )}
+                {recipientsError && (
+                  <p className="text-xs text-destructive flex items-start gap-1">
+                    <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span className="whitespace-pre-line">{recipientsError}</span>
+                  </p>
+                )}
+                {!recipientsLoading && !recipientsError && ownerTenants.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun locataire éligible avec email pour ce propriétaire.
+                  </p>
+                )}
+                {ownerTenants.length > 0 && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      {ownerTenants.length} locataire{ownerTenants.length > 1 ? "s" : ""} recevront un email individuel :
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {ownerTenants.map((tenant) => (
+                        <li key={`${tenant.societyId ?? ""}-${tenant.id}`}>
+                          • {tenant.name}{tenant.societyName ? ` — ${tenant.societyName}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Champs du courrier */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Informations du courrier</CardTitle>
-              {sendMode === "building" && (
+              {isGroupedMode && (
                 <CardDescription className="text-xs">
                   Les champs locataire seront remplis automatiquement pour chaque destinataire
                 </CardDescription>
@@ -467,19 +585,19 @@ export default function GenerateLetterPage() {
             <CardContent className="space-y-4">
               {template.variables.map((v) => {
                 const isTenantField = ["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount", "destination_bien"].includes(v.autoFill ?? "");
-                const disabledInBuilding = sendMode === "building" && isTenantField;
+                const disabledInGroupedMode = isGroupedMode && isTenantField;
 
                 return (
                   <div key={v.key} className="space-y-1.5">
                     <Label className="text-xs flex items-center gap-1.5">
                       {v.label}
-                      {v.required && !disabledInBuilding && <span className="text-destructive">*</span>}
+                      {v.required && !disabledInGroupedMode && <span className="text-destructive">*</span>}
                       {v.autoFill && values[v.key] && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                           auto
                         </Badge>
                       )}
-                      {disabledInBuilding && (
+                      {disabledInGroupedMode && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                           par locataire
                         </Badge>
@@ -487,21 +605,21 @@ export default function GenerateLetterPage() {
                     </Label>
                     {v.type === "textarea" ? (
                       <Textarea
-                        value={disabledInBuilding ? "" : (values[v.key] ?? "")}
+                        value={disabledInGroupedMode ? "" : (values[v.key] ?? "")}
                         onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
-                        placeholder={disabledInBuilding ? "Rempli automatiquement pour chaque locataire" : v.placeholder}
+                        placeholder={disabledInGroupedMode ? "Rempli automatiquement pour chaque locataire" : v.placeholder}
                         rows={4}
-                        disabled={disabledInBuilding}
-                        className={disabledInBuilding ? "opacity-50" : ""}
+                        disabled={disabledInGroupedMode}
+                        className={disabledInGroupedMode ? "opacity-50" : ""}
                       />
                     ) : (
                       <Input
                         type={v.type === "date" ? "date" : v.type === "number" ? "number" : "text"}
-                        value={disabledInBuilding ? "" : (values[v.key] ?? "")}
+                        value={disabledInGroupedMode ? "" : (values[v.key] ?? "")}
                         onChange={(e) => setValues({ ...values, [v.key]: e.target.value })}
-                        placeholder={disabledInBuilding ? "Rempli automatiquement" : v.placeholder}
-                        disabled={disabledInBuilding}
-                        className={disabledInBuilding ? "opacity-50" : ""}
+                        placeholder={disabledInGroupedMode ? "Rempli automatiquement" : v.placeholder}
+                        disabled={disabledInGroupedMode}
+                        className={disabledInGroupedMode ? "opacity-50" : ""}
                       />
                     )}
                   </div>
@@ -567,6 +685,20 @@ export default function GenerateLetterPage() {
                 Envoyer à tout l&apos;immeuble ({selectedBuilding?.tenants.length ?? 0} locataire{(selectedBuilding?.tenants.length ?? 0) > 1 ? "s" : ""})
               </Button>
             )}
+            {sendMode === "owner" && ownerTenants.length > 0 && (
+              <Button
+                onClick={handleSendToOwner}
+                disabled={generating || sending}
+                className="gap-2 bg-brand-gradient-soft hover:opacity-90 text-white"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Users className="h-4 w-4" />
+                )}
+                Envoyer à tous les locataires ({ownerTenants.length})
+              </Button>
+            )}
           </div>
         </div>
 
@@ -586,10 +718,10 @@ export default function GenerateLetterPage() {
                 </p>
                 <div className="text-right mt-2">
                   <p className="font-medium">
-                    {sendMode === "building" ? "[Chaque locataire]" : (values.LOCATAIRE_NOM || "Destinataire")}
+                    {isGroupedMode ? "[Chaque locataire]" : (values.LOCATAIRE_NOM || "Destinataire")}
                   </p>
                   <p className="text-[10px] text-muted-foreground whitespace-pre-line">
-                    {sendMode === "building" ? "[Adresse du locataire]" : (values.LOCATAIRE_ADRESSE || "Adresse destinataire")}
+                    {isGroupedMode ? "[Adresse du locataire]" : (values.LOCATAIRE_ADRESSE || "Adresse destinataire")}
                   </p>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-3">
@@ -603,7 +735,7 @@ export default function GenerateLetterPage() {
                 <div
                   className="mt-2 prose prose-xs text-[10px] leading-relaxed"
                   dangerouslySetInnerHTML={{
-                    __html: previewHtml(template.bodyHtml, values, sendMode === "building"),
+                    __html: previewHtml(template.bodyHtml, values, isGroupedMode),
                   }}
                 />
               </div>
@@ -619,11 +751,11 @@ export default function GenerateLetterPage() {
                 Ce modèle de courrier est conforme à la législation en vigueur
                 (loi n°89-462 du 6 juillet 1989).
               </p>
-              {sendMode === "building" ? (
+              {isGroupedMode ? (
                 <p>
-                  En mode immeuble, un courrier personnalisé est généré pour
-                  chaque locataire, envoyé par email et sauvegardé dans
-                  son espace personnel (portail locataire).
+                  En mode groupé, un courrier personnalisé est généré pour
+                  chaque locataire éligible, envoyé dans un email séparé et
+                  sauvegardé dans son espace personnel (portail locataire).
                 </p>
               ) : (
                 <p>

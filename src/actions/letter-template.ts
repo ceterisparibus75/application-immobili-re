@@ -23,6 +23,8 @@ interface TenantForLetter {
   firstName: string;
   lastName: string;
   leaseId?: string;
+  societyId?: string;
+  societyName?: string;
 }
 
 export async function getTenantsWithLease(
@@ -40,7 +42,7 @@ export async function getTenantsWithLease(
         firstName: true,
         lastName: true,
         leases: {
-          where: { status: "EN_COURS", deletedAt: null },
+          where: { status: "EN_COURS", deletedAt: null, isThirdPartyManaged: false },
           select: { id: true },
           take: 1,
           orderBy: { startDate: "desc" },
@@ -88,7 +90,7 @@ export async function getBuildingsWithTenants(
         lots: {
           select: {
             leases: {
-              where: { status: "EN_COURS", deletedAt: null },
+              where: { status: "EN_COURS", deletedAt: null, isThirdPartyManaged: false },
               select: {
                 id: true,
                 tenant: { select: { id: true, firstName: true, lastName: true, companyName: true, entityType: true } },
@@ -123,6 +125,89 @@ export async function getBuildingsWithTenants(
     if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors du chargement des immeubles" };
+  }
+}
+
+// ── Locataires du propriétaire actif (toutes sociétés rattachées) ───
+
+export async function getOwnerTenantsWithLease(
+  societyId: string
+): Promise<ActionResult<TenantForLetter[]>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "LECTURE");
+
+    const activeSociety = await prisma.society.findUnique({
+      where: { id: societyId },
+      select: { proprietaireId: true, ownerId: true },
+    });
+    if (!activeSociety) return { success: false, error: "Société introuvable" };
+
+    const ownerScope = activeSociety.proprietaireId
+      ? { proprietaireId: activeSociety.proprietaireId }
+      : activeSociety.ownerId
+        ? { ownerId: activeSociety.ownerId }
+        : { id: societyId };
+
+    const societies = await prisma.society.findMany({
+      where: {
+        ...ownerScope,
+        OR: [
+          { ownerId: context.userId },
+          { proprietaire: { userId: context.userId } },
+          { userSocieties: { some: { userId: context.userId } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        tenants: {
+          where: {
+            isActive: true,
+            deletedAt: null,
+            email: { not: "" },
+            leases: {
+              some: { status: "EN_COURS", deletedAt: null, isThirdPartyManaged: false },
+            },
+          },
+          select: {
+            id: true,
+            entityType: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+            leases: {
+              where: { status: "EN_COURS", deletedAt: null, isThirdPartyManaged: false },
+              select: { id: true },
+              take: 1,
+              orderBy: { startDate: "desc" },
+            },
+          },
+          orderBy: [{ companyName: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return {
+      success: true,
+      data: societies.flatMap((society) =>
+        society.tenants
+          .filter((tenant) => tenant.leases[0])
+          .map((tenant) => ({
+            id: tenant.id,
+            name: getTenantDisplayName(tenant),
+            firstName: tenant.firstName ?? "",
+            lastName: tenant.lastName ?? "",
+            leaseId: tenant.leases[0]?.id,
+            societyId: society.id,
+            societyName: society.name,
+          }))
+      ),
+    };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors du chargement des locataires du propriétaire" };
   }
 }
 
@@ -192,7 +277,7 @@ const DESTINATION_LABELS: Record<string, string> = {
   AUTRE: "bien immobilier",
 };
 
-interface AutoFillData {
+export interface AutoFillData {
   societyName: string;
   societyAddress: string;
   societySiret: string;

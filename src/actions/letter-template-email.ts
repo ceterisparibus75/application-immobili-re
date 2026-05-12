@@ -10,12 +10,57 @@ import { generateLetterPdf } from "@/lib/letter-pdf";
 import { sendLetterEmail } from "@/lib/email";
 import { getTenantDisplayName } from "@/lib/tenant-format";
 import { getAutoFillData } from "./letter-template";
+import type { AutoFillData } from "./letter-template";
 import { createClient } from "@supabase/supabase-js";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 import { env } from "@/lib/env";
+
+const TENANT_AUTO_FILL_KEYS = [
+  "tenant_name",
+  "tenant_address",
+  "lot_address",
+  "lease_start",
+  "lease_end",
+  "rent_amount",
+  "charges_amount",
+  "destination_bien",
+];
+
+type TemplateVariableForEmail = { key: string; autoFill?: string };
+
+function applyAutoFillValues(
+  values: Record<string, string>,
+  templateVariables: TemplateVariableForEmail[],
+  autoFillData: AutoFillData,
+  options: { preserveCommonValues: boolean }
+) {
+  for (const v of templateVariables) {
+    if (
+      options.preserveCommonValues &&
+      values[v.key] &&
+      !TENANT_AUTO_FILL_KEYS.includes(v.autoFill ?? "")
+    ) {
+      continue; // Garder les valeurs communes déjà saisies (bailleur, date, lieu…)
+    }
+    switch (v.autoFill) {
+      case "society_name": values[v.key] = autoFillData.societyName; break;
+      case "society_address": values[v.key] = autoFillData.societyAddress; break;
+      case "society_siret": values[v.key] = autoFillData.societySiret; break;
+      case "today": values[v.key] = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }); break;
+      case "tenant_name": if (autoFillData.tenantName) values[v.key] = autoFillData.tenantName; break;
+      case "tenant_address": if (autoFillData.tenantAddress) values[v.key] = autoFillData.tenantAddress; break;
+      case "lot_address": if (autoFillData.lotAddress) values[v.key] = autoFillData.lotAddress; break;
+      case "lease_start": if (autoFillData.leaseStart) values[v.key] = autoFillData.leaseStart; break;
+      case "lease_end": if (autoFillData.leaseEnd) values[v.key] = autoFillData.leaseEnd; break;
+      case "rent_amount": if (autoFillData.rentAmount) values[v.key] = autoFillData.rentAmount; break;
+      case "charges_amount": if (autoFillData.chargesAmount) values[v.key] = autoFillData.chargesAmount; break;
+      case "destination_bien": values[v.key] = autoFillData.destinationBien ?? "logement"; break;
+    }
+  }
+}
 
 // ── Upload PDF courrier dans Supabase + création Document ───────
 
@@ -100,9 +145,25 @@ export async function sendLetterByEmail(
     // Récupérer l'email du locataire
     const tenant = await prisma.tenant.findFirst({
       where: { id: input.tenantId, societyId, deletedAt: null },
-      select: { email: true, entityType: true, companyName: true, firstName: true, lastName: true },
+      select: {
+        email: true,
+        entityType: true,
+        companyName: true,
+        firstName: true,
+        lastName: true,
+        leases: {
+          where: { status: "EN_COURS", deletedAt: null },
+          select: { isThirdPartyManaged: true },
+        },
+      },
     });
     if (!tenant?.email) return { success: false, error: "Le locataire n'a pas d'adresse email" };
+    if (
+      tenant.leases?.length > 0 &&
+      tenant.leases.every((lease) => lease.isThirdPartyManaged)
+    ) {
+      return { success: false, error: "Ce locataire est géré par un tiers et ne peut pas recevoir de courrier depuis MyGestia" };
+    }
 
     // Récupérer les infos société
     const society = await prisma.society.findUnique({
@@ -220,7 +281,7 @@ export async function sendLetterToBuilding(
         lots: {
           select: {
             leases: {
-              where: { status: "EN_COURS", deletedAt: null },
+              where: { status: "EN_COURS", deletedAt: null, isThirdPartyManaged: false },
               select: {
                 id: true,
                 tenant: { select: { id: true, entityType: true, companyName: true, firstName: true, lastName: true, email: true } },
@@ -258,25 +319,7 @@ export async function sendLetterToBuilding(
 
         const values: Record<string, string> = { ...input.commonValues };
         if (autoFillData) {
-          for (const v of templateVariables) {
-            if (values[v.key] && !["tenant_name", "tenant_address", "lot_address", "lease_start", "lease_end", "rent_amount", "charges_amount", "destination_bien"].includes(v.autoFill ?? "")) {
-              continue; // Garder les valeurs communes déjà saisies (bailleur, date, lieu…)
-            }
-            switch (v.autoFill) {
-              case "society_name": values[v.key] = autoFillData.societyName; break;
-              case "society_address": values[v.key] = autoFillData.societyAddress; break;
-              case "society_siret": values[v.key] = autoFillData.societySiret; break;
-              case "today": values[v.key] = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }); break;
-              case "tenant_name": if (autoFillData.tenantName) values[v.key] = autoFillData.tenantName; break;
-              case "tenant_address": if (autoFillData.tenantAddress) values[v.key] = autoFillData.tenantAddress; break;
-              case "lot_address": if (autoFillData.lotAddress) values[v.key] = autoFillData.lotAddress; break;
-              case "lease_start": if (autoFillData.leaseStart) values[v.key] = autoFillData.leaseStart; break;
-              case "lease_end": if (autoFillData.leaseEnd) values[v.key] = autoFillData.leaseEnd; break;
-              case "rent_amount": if (autoFillData.rentAmount) values[v.key] = autoFillData.rentAmount; break;
-              case "charges_amount": if (autoFillData.chargesAmount) values[v.key] = autoFillData.chargesAmount; break;
-              case "destination_bien": values[v.key] = autoFillData.destinationBien ?? "logement"; break;
-            }
-          }
+          applyAutoFillValues(values, templateVariables, autoFillData, { preserveCommonValues: true });
         }
 
         // Générer le PDF personnalisé
@@ -361,5 +404,202 @@ export async function sendLetterToBuilding(
     if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     return { success: false, error: "Erreur lors de l'envoi groupé" };
+  }
+}
+
+// ── Envoi groupé à tous les locataires d'un propriétaire ────────
+
+export async function sendLetterToOwnerTenants(
+  societyId: string,
+  input: {
+    templateId: string;
+    commonValues: Record<string, string>;
+  }
+): Promise<ActionResult<{ sent: number; errors: string[] }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const builtin = BUILTIN_TEMPLATES.find((t) => t.id === input.templateId);
+    let subject: string;
+    let bodyHtml: string;
+    let templateVariables: TemplateVariableForEmail[] = [];
+
+    if (builtin) {
+      subject = builtin.subject;
+      bodyHtml = builtin.bodyHtml;
+      templateVariables = builtin.variables;
+    } else {
+      const custom = await prisma.letterTemplate.findFirst({
+        where: { id: input.templateId, societyId },
+      });
+      if (!custom) return { success: false, error: "Modèle introuvable" };
+      subject = custom.subject;
+      bodyHtml = custom.bodyHtml;
+    }
+
+    const activeSociety = await prisma.society.findUnique({
+      where: { id: societyId },
+      select: { proprietaireId: true, ownerId: true },
+    });
+    if (!activeSociety) return { success: false, error: "Société introuvable" };
+
+    const ownerScope = activeSociety.proprietaireId
+      ? { proprietaireId: activeSociety.proprietaireId }
+      : activeSociety.ownerId
+        ? { ownerId: activeSociety.ownerId }
+        : { id: societyId };
+
+    const societies = await prisma.society.findMany({
+      where: {
+        ...ownerScope,
+        OR: [
+          { ownerId: context.userId },
+          { proprietaire: { userId: context.userId } },
+          {
+            userSocieties: {
+              some: {
+                userId: context.userId,
+                role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE", "GESTIONNAIRE"] },
+              },
+            },
+          },
+        ],
+      },
+      select: { id: true, name: true, siret: true },
+      orderBy: { name: "asc" },
+    });
+
+    const societyIds = societies.map((society) => society.id);
+    if (societyIds.length === 0) {
+      return { success: false, error: "Aucune société accessible pour ce propriétaire" };
+    }
+
+    const societyById = new Map(societies.map((society) => [society.id, society]));
+    const leases = await prisma.lease.findMany({
+      where: {
+        societyId: { in: societyIds },
+        status: "EN_COURS",
+        deletedAt: null,
+        isThirdPartyManaged: false,
+        tenant: { isActive: true, deletedAt: null, email: { not: "" } },
+      },
+      select: {
+        id: true,
+        societyId: true,
+        tenant: {
+          select: {
+            id: true,
+            entityType: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: [{ societyId: "asc" }, { startDate: "desc" }],
+    });
+
+    const tenantLeases = Array.from(
+      new Map(leases.map((lease) => [lease.tenant.id, lease])).values()
+    );
+
+    if (tenantLeases.length === 0) {
+      return { success: false, error: "Aucun locataire avec email pour ce propriétaire" };
+    }
+
+    let sent = 0;
+    const errors: string[] = [];
+
+    for (const lease of tenantLeases) {
+      const { tenant } = lease;
+      const society = societyById.get(lease.societyId);
+
+      try {
+        const autoFillResult = await getAutoFillData(lease.societyId, tenant.id, lease.id);
+        const autoFillData = autoFillResult.success ? autoFillResult.data : null;
+
+        const values: Record<string, string> = { ...input.commonValues };
+        if (autoFillData) {
+          applyAutoFillValues(values, templateVariables, autoFillData, { preserveCommonValues: false });
+        }
+
+        const interpolated = interpolateTemplate(bodyHtml, values);
+        const buffer = await generateLetterPdf({
+          senderName: values.BAILLEUR_NOM ?? society?.name ?? "",
+          senderAddress: values.BAILLEUR_ADRESSE ?? "",
+          recipientName: values.LOCATAIRE_NOM ?? "",
+          recipientAddress: values.LOCATAIRE_ADRESSE ?? "",
+          date: values.DATE ?? new Date().toLocaleDateString("fr-FR"),
+          lieu: values.LIEU ?? "",
+          subject,
+          bodyHtml: interpolated,
+          societyName: society?.name,
+          societySiret: society?.siret ?? undefined,
+        });
+
+        const ds = new Date().toISOString().slice(0, 10);
+        const slug = input.templateId.replace(/_/g, "-");
+        const filename = `courrier-${slug}-${ds}.pdf`;
+
+        const tenantName = getTenantDisplayName(tenant, "");
+        const emailResult = await sendLetterEmail({
+          to: tenant.email!,
+          tenantName,
+          subject,
+          societyName: society?.name ?? "",
+          attachment: { filename, content: buffer },
+          proofContext: {
+            societyId: lease.societyId,
+            sentById: context.userId,
+            entityType: "LETTER",
+            entityId: input.templateId,
+            tenantId: tenant.id,
+            leaseId: lease.id,
+            recipientName: tenantName,
+            evidence: {
+              route: "sendLetterToOwnerTenants",
+              templateId: input.templateId,
+              ownerSocietyId: societyId,
+              subject,
+              filename,
+            },
+          },
+        });
+
+        const storagePath = await saveLetterDocument(lease.societyId, tenant.id, filename, buffer, subject);
+        if (emailResult?.proofId && storagePath) {
+          await prisma.emailDeliveryProof.updateMany({
+            where: { id: emailResult.proofId, societyId: lease.societyId },
+            data: { attachmentStoragePath: storagePath },
+          });
+        }
+
+        sent++;
+      } catch (e) {
+        const tenantName = getTenantDisplayName(tenant, "");
+        errors.push(`${tenantName}: ${e instanceof Error ? e.message : "Erreur inconnue"}`);
+      }
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Letter",
+      entityId: input.templateId,
+      details: {
+        action: "owner_email_sent",
+        sent,
+        errors: errors.length,
+        societyCount: societies.length,
+      },
+    });
+
+    return { success: true, data: { sent, errors } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    return { success: false, error: "Erreur lors de l'envoi aux locataires du propriétaire" };
   }
 }
