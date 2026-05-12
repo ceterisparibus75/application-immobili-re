@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteTenant } from "@/actions/tenant";
+import { deleteTenant } from "@/actions/tenant-mutations";
 import { Button } from "@/components/ui/button";
 import { useSociety } from "@/providers/society-provider";
 import { Loader2, Trash2 } from "lucide-react";

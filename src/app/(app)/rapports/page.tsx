@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Download, FileSpreadsheet, FileText, Loader2, AlertCircle, CheckCircle2, CalendarClock } from "lucide-react";
-import { getTenantsForSelect } from "@/actions/tenant";
+import { getTenantsForSelect } from "@/actions/tenant-queries";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────

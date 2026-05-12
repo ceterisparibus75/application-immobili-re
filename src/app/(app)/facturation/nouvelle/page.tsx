@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createInvoice } from "@/actions/invoice";
-import { getTenantById } from "@/actions/tenant";
+import { getTenantById } from "@/actions/tenant-queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

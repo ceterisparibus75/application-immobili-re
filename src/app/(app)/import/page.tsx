@@ -25,7 +25,7 @@ import { useSociety } from "@/providers/society-provider";
 import { importFromPdf, type ImportInput, type ImportResult } from "@/actions/import";
 import { AiConfirmDialog } from "@/components/ai-confirm-dialog";
 import { getBuildings } from "@/actions/building";
-import { getActiveTenants } from "@/actions/tenant";
+import { getActiveTenants } from "@/actions/tenant-queries";
 import { getLots } from "@/actions/lot";
 import { cn } from "@/lib/utils";
 import {
@@ -648,4 +648,3 @@ export default function ImportPage() {
     </div>
   );
 }
-

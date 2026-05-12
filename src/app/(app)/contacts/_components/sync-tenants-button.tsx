@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2, Check } from "lucide-react";
-import { syncTenantsToContacts } from "@/actions/tenant";
+import { syncTenantsToContacts } from "@/actions/tenant-mutations";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { importFromPdf, type ImportInput } from "@/actions/import";
 import { getBuildings } from "@/actions/building";
-import { getActiveTenants } from "@/actions/tenant";
+import { getActiveTenants } from "@/actions/tenant-queries";
 import { getLots } from "@/actions/lot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { inviteOrReinviteTenant } from "@/actions/tenant";
+import { inviteOrReinviteTenant } from "@/actions/tenant-mutations";
 import { Button } from "@/components/ui/button";
 import { useSociety } from "@/providers/society-provider";
 import { Loader2, Mail } from "lucide-react";

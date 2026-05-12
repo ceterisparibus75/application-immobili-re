@@ -11,7 +11,7 @@ import {
   createTenantContact,
   updateTenantContact,
   deleteTenantContact,
-} from "@/actions/tenant";
+} from "@/actions/tenant-mutations";
 import { useSociety } from "@/providers/society-provider";
 
 type Contact = {

@@ -44,7 +44,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { createTenantBalanceAdjustment, importTenantLedgerStatement } from "@/actions/tenant";
+import { createTenantBalanceAdjustment, importTenantLedgerStatement } from "@/actions/tenant-mutations";
 import { duplicateInvoiceAsDraft, validateInvoice } from "@/actions/invoice";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
