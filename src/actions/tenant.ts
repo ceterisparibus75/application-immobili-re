@@ -1,3 +1,5 @@
+"use server";
+
 // Barrel — agrège les Server Actions liées aux locataires.
 // API publique inchangée après le découpage en :
 //   - tenant-shared.ts    : helpers, schémas Zod et calculs de solde
