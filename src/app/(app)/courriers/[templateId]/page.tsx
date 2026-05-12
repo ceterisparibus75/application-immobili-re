@@ -368,6 +368,17 @@ export default function GenerateLetterPage() {
 
   const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
   const isGroupedMode = sendMode === "building" || sendMode === "owner";
+  const previewRecipientName =
+    sendMode === "owner"
+      ? ownerTenants[0]?.name ?? "Chaque locataire"
+      : sendMode === "building"
+        ? selectedBuilding?.tenants[0]?.name ?? "Chaque locataire"
+        : values.LOCATAIRE_NOM || "Destinataire";
+  const groupedRecipientCount =
+    sendMode === "owner"
+      ? ownerTenants.length
+      : selectedBuilding?.tenants.length ?? 0;
+  const previewSubject = values.OBJET || template.subject;
 
   return (
     <div className="space-y-6">
@@ -711,10 +722,30 @@ export default function GenerateLetterPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Aperçu</CardTitle>
+              <CardTitle className="text-sm font-semibold">
+                {isGroupedMode ? "Aperçu d'un envoi" : "Aperçu"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border bg-white p-4 text-xs space-y-2 max-h-[600px] overflow-y-auto">
+                {isGroupedMode && (
+                  <div className="mb-3 rounded-md border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Mail className="h-3.5 w-3.5 text-primary" />
+                      {groupedRecipientCount} email{groupedRecipientCount > 1 ? "s" : ""} individuel{groupedRecipientCount > 1 ? "s" : ""}
+                    </div>
+                    <div className="grid gap-1 text-[10px] text-muted-foreground">
+                      <div className="flex justify-between gap-3">
+                        <span>Exemple affiché</span>
+                        <span className="text-right font-medium text-foreground">{previewRecipientName}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span>Destinataires visibles</span>
+                        <span className="text-right font-medium text-foreground">Uniquement le locataire</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <p className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
                   {values.BAILLEUR_NOM || "Expéditeur"}
                 </p>
@@ -723,10 +754,10 @@ export default function GenerateLetterPage() {
                 </p>
                 <div className="text-right mt-2">
                   <p className="font-medium">
-                    {isGroupedMode ? "[Chaque locataire]" : (values.LOCATAIRE_NOM || "Destinataire")}
+                    {previewRecipientName}
                   </p>
                   <p className="text-[10px] text-muted-foreground whitespace-pre-line">
-                    {isGroupedMode ? "[Adresse du locataire]" : (values.LOCATAIRE_ADRESSE || "Adresse destinataire")}
+                    {isGroupedMode ? "Adresse personnalisée du locataire" : (values.LOCATAIRE_ADRESSE || "Adresse destinataire")}
                   </p>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-3">
@@ -734,7 +765,7 @@ export default function GenerateLetterPage() {
                 </p>
                 <div className="border-t pt-2 mt-2">
                   <p className="font-semibold text-primary text-[11px]">
-                    Objet : {template.subject}
+                    Objet : {previewSubject}
                   </p>
                 </div>
                 <div
