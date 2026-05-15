@@ -109,6 +109,13 @@ enum LotStatus {
   RESERVE
 }
 
+/// Régime de propriété d'un lot (démembrement)
+enum OwnershipType {
+  PLEINE_PROPRIETE
+  USUFRUIT
+  NUE_PROPRIETE
+}
+
 enum LeaseType {
   // Baux d'habitation
   HABITATION // Bail vide — loi du 6 juillet 1989 (3 ans / 6 ans)
@@ -615,6 +622,7 @@ model Society {
   legalEvents              LegalEvent[]
   chargeStatementDeliveries ChargeStatementDelivery[]
   emailDeliveryProofs      EmailDeliveryProof[]
+  lotOwnerships            LotOwnership[]
 
   // Numérotation baux
   leasePrefix     String? // Préfixe numérotation bail (ex: "BAIL")
@@ -674,6 +682,9 @@ model Proprietaire {
 
   // Associés (co-propriétaires personnes physiques)
   associes ProprietaireAssocie[]
+
+  // Démembrement / quote-parts sur les lots
+  lotOwnerships LotOwnership[]
 
   @@index([userId])
 }
@@ -978,10 +989,47 @@ model Lot {
   allocationKeyEntries AllocationKeyEntry[]
   chargeProvisions     ChargeProvision[]
   meterReadings        MeterReading[]
+  ownerships           LotOwnership[]
 
   @@unique([buildingId, number])
   @@index([buildingId])
   @@index([status])
+}
+
+/// Régime de propriété d'un lot — supporte démembrement et indivision.
+/// Plusieurs lignes par lot (une par quote-part / par type). La somme des
+/// `share` actifs à une date donnée doit être ~= 1 par type (PLEINE_PROPRIETE
+/// d'un côté, USUFRUIT + NUE_PROPRIETE = couple complémentaire de l'autre).
+model LotOwnership {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  societyId      String
+  lotId          String
+  proprietaireId String
+
+  type      OwnershipType
+  share     Float         @default(1) // Quote-part 0..1
+  startDate DateTime
+  endDate   DateTime? // Fin de l'usufruit temporaire / réunion
+
+  // Usufruit viager : la fin est conditionnée au décès, pas à une date fixe.
+  // Conserver la date de naissance permet d'appliquer le barème art. 669 CGI.
+  isViager             Boolean   @default(false)
+  usufruitierBirthDate DateTime?
+
+  notes String? @db.Text
+
+  society      Society      @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  lot          Lot          @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  proprietaire Proprietaire @relation(fields: [proprietaireId], references: [id], onDelete: Restrict)
+
+  @@index([societyId])
+  @@index([lotId])
+  @@index([proprietaireId])
+  @@index([lotId, type])
+  @@index([lotId, startDate, endDate])
 }
 
 /// Intervention / travaux
