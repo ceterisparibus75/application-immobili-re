@@ -15,6 +15,7 @@
  *   ici : cela nécessite les tantièmes / clés de répartition, hors scope.
  */
 
+import { getLotChargesAllocated } from "@/lib/lot-charges-allocated";
 import { buildLotRevenueBreakdown } from "@/lib/lot-revenue-breakdown";
 import {
   allocateAmount,
@@ -55,6 +56,8 @@ export interface LotFiscalSummary {
     grosseReparation: number;
     amelioration: number;
   };
+  /** Total des charges immeuble à la charge du propriétaire, allouées à ce lot. */
+  buildingChargesAllocated: number;
   /** Guides et alertes affichés à l'utilisateur. */
   notes: FiscalGuidanceNote[];
 }
@@ -73,7 +76,7 @@ export async function buildLotFiscalSummary(
   const from = new Date(year, 0, 1);
   const to = new Date(year, 11, 31, 23, 59, 59);
 
-  const [revenueBreakdown, maintenances, ownershipRows] = await Promise.all([
+  const [revenueBreakdown, maintenances, ownershipRows, buildingCharges] = await Promise.all([
     buildLotRevenueBreakdown(societyId, lotId, from, to),
     prisma.maintenance.findMany({
       where: {
@@ -100,6 +103,7 @@ export async function buildLotFiscalSummary(
       where: { societyId, lotId },
       include: { proprietaire: { select: { id: true, label: true } } },
     }),
+    getLotChargesAllocated(societyId, lotId, from, to),
   ]);
 
   const ownerships: OwnershipShare[] = ownershipRows.map((row) => ({
@@ -157,6 +161,29 @@ export async function buildLotFiscalSummary(
     const flowDate = m.completedAt ?? m.scheduledAt ?? to;
     const allocations = allocateAmount(cost, imputation, ownerships, flowDate);
 
+    for (const line of allocations) {
+      const existing = chargesByBeneficiary.get(line.proprietaireId) ?? {
+        role: line.role,
+        charges: 0,
+      };
+      existing.charges += line.amount;
+      existing.role = line.role;
+      chargesByBeneficiary.set(line.proprietaireId, existing);
+    }
+  }
+
+  // Allocation des charges immeuble (taxe foncière, copropriété, assurance,
+  // entretien commun…) — traitées comme CHARGE_COURANTE par défaut.
+  // En démembrement → usufruitier (art. 608 CC pour la taxe foncière, art. 605
+  // CC pour les charges courantes). Le coût est déjà filtré "à la charge du
+  // propriétaire" par `getLotChargesAllocated`.
+  for (const chargeLine of buildingCharges.charges) {
+    const allocations = allocateAmount(
+      chargeLine.allocatedToLot,
+      "CHARGE_COURANTE",
+      ownerships,
+      chargeLine.date,
+    );
     for (const line of allocations) {
       const existing = chargesByBeneficiary.get(line.proprietaireId) ?? {
         role: line.role,
@@ -250,6 +277,7 @@ export async function buildLotFiscalSummary(
       grosseReparation: round2(maintenanceByNature.grosseReparation),
       amelioration: round2(maintenanceByNature.amelioration),
     },
+    buildingChargesAllocated: round2(buildingCharges.total),
     notes,
   };
 }

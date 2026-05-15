@@ -73,19 +73,32 @@ export function LotFiscalSummaryCard({ summary }: { summary: LotFiscalSummary })
           </div>
         )}
 
-        {summary.maintenanceCount > 0 && (
-          <div className="rounded-md bg-muted/50 p-2.5 text-xs space-y-0.5">
-            <p>
-              <span className="font-medium text-foreground">Maintenance {summary.year} :</span>{" "}
-              <span className="text-muted-foreground">
-                {summary.maintenanceCount} opération(s), total {fmt(summary.maintenanceCostTotal)}
-              </span>
-            </p>
-            <p className="text-muted-foreground">
-              · Entretien courant : {fmt(summary.maintenanceByNature.entretienCourant)} ·
-              Grosses réparations : {fmt(summary.maintenanceByNature.grosseReparation)} ·
-              Améliorations : {fmt(summary.maintenanceByNature.amelioration)}
-            </p>
+        {(summary.maintenanceCount > 0 || summary.buildingChargesAllocated > 0) && (
+          <div className="rounded-md bg-muted/50 p-2.5 text-xs space-y-1">
+            {summary.maintenanceCount > 0 && (
+              <>
+                <p>
+                  <span className="font-medium text-foreground">Maintenance {summary.year} :</span>{" "}
+                  <span className="text-muted-foreground">
+                    {summary.maintenanceCount} opération(s), total {fmt(summary.maintenanceCostTotal)}
+                  </span>
+                </p>
+                <p className="text-muted-foreground">
+                  · Entretien courant : {fmt(summary.maintenanceByNature.entretienCourant)} ·
+                  Grosses réparations : {fmt(summary.maintenanceByNature.grosseReparation)} ·
+                  Améliorations : {fmt(summary.maintenanceByNature.amelioration)}
+                </p>
+              </>
+            )}
+            {summary.buildingChargesAllocated > 0 && (
+              <p>
+                <span className="font-medium text-foreground">Charges immeuble allouées :</span>{" "}
+                <span className="text-muted-foreground">
+                  {fmt(summary.buildingChargesAllocated)} (part propriétaire selon clé de
+                  répartition)
+                </span>
+              </p>
+            )}
           </div>
         )}
 
