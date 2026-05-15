@@ -26,6 +26,10 @@ import { redirect } from "next/navigation";
 import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
 import { DeleteLotButton } from "./_components/delete-lot-button";
 import { LotOwnershipSection } from "./_components/lot-ownership-section";
+import { LotRevenueBreakdownCard } from "./_components/lot-revenue-breakdown-card";
+import { buildLotRevenueBreakdown } from "@/lib/lot-revenue-breakdown";
+import { LotFiscalSummaryCard } from "./_components/lot-fiscal-summary-card";
+import { buildLotFiscalSummary } from "@/lib/lot-fiscal-summary";
 
 const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   MENSUEL: "mois",
@@ -82,13 +86,21 @@ export default async function LotDetailPage({
     notFound();
   }
 
-  const [ownerships, societyProprietaires] = await Promise.all([
+  const currentYear = new Date().getFullYear();
+  const [ownerships, societyProprietaires, revenueBreakdown, fiscalSummary] = await Promise.all([
     getLotOwnerships(societyId, lotId),
     prisma.proprietaire.findMany({
       where: { societies: { some: { id: societyId } } },
       select: { id: true, label: true },
       orderBy: { label: "asc" },
     }),
+    buildLotRevenueBreakdown(
+      societyId,
+      lotId,
+      new Date(currentYear, 0, 1),
+      new Date(currentYear, 11, 31, 23, 59, 59),
+    ),
+    buildLotFiscalSummary(societyId, lotId, currentYear),
   ]);
 
   const activeLease = lot.leases[0] ?? null;
@@ -264,6 +276,10 @@ export default async function LotDetailPage({
         }))}
         proprietaires={societyProprietaires}
       />
+
+      <LotRevenueBreakdownCard breakdown={revenueBreakdown} year={currentYear} />
+
+      <LotFiscalSummaryCard summary={fiscalSummary} />
     </div>
   );
 }
