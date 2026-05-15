@@ -1,4 +1,6 @@
 import { getLotById } from "@/actions/lot";
+import { getLotOwnerships } from "@/actions/lot-ownership";
+import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +25,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LotType, LotStatus, PaymentFrequency } from "@/generated/prisma/client";
 import { DeleteLotButton } from "./_components/delete-lot-button";
+import { LotOwnershipSection } from "./_components/lot-ownership-section";
 
 const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   MENSUEL: "mois",
@@ -78,6 +81,15 @@ export default async function LotDetailPage({
   if (!lot) {
     notFound();
   }
+
+  const [ownerships, societyProprietaires] = await Promise.all([
+    getLotOwnerships(societyId, lotId),
+    prisma.proprietaire.findMany({
+      where: { societies: { some: { id: societyId } } },
+      select: { id: true, label: true },
+      orderBy: { label: "asc" },
+    }),
+  ]);
 
   const activeLease = lot.leases[0] ?? null;
   const freqLabel = activeLease
@@ -235,6 +247,23 @@ export default async function LotDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <LotOwnershipSection
+        societyId={societyId}
+        lotId={lotId}
+        ownerships={ownerships.map((o) => ({
+          id: o.id,
+          type: o.type,
+          share: o.share,
+          startDate: o.startDate,
+          endDate: o.endDate,
+          isViager: o.isViager,
+          usufruitierBirthDate: o.usufruitierBirthDate,
+          notes: o.notes,
+          proprietaire: { id: o.proprietaire.id, label: o.proprietaire.label },
+        }))}
+        proprietaires={societyProprietaires}
+      />
     </div>
   );
 }
