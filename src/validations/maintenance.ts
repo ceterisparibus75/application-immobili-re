@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const MAINTENANCE_NATURES = [
+  "ENTRETIEN_COURANT",
+  "GROSSE_REPARATION",
+  "AMELIORATION",
+] as const;
+
 export const createMaintenanceSchema = z.object({
   buildingId: z.string().cuid(),
   lotId: z.string().cuid().optional().nullable(),
@@ -13,6 +19,7 @@ export const createMaintenanceSchema = z.object({
     .transform((v) => v === true || v === "true" || v === "on")
     .default(false),
   notes: z.string().optional(),
+  nature: z.enum(MAINTENANCE_NATURES).optional(),
 });
 
 export const updateMaintenanceSchema = createMaintenanceSchema.partial().extend({

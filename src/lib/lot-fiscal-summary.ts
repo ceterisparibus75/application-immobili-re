@@ -5,15 +5,23 @@
  * En l'absence de démembrement, tous les flux sont déclarés par le plein
  * propriétaire — la synthèse retombe alors sur un unique bénéficiaire.
  *
- * Limites volontaires :
- * - Aucune classification automatique gros travaux (art. 606 CC) vs charges
- *   courantes : le schéma `Maintenance` n'expose pas la nature. On les
- *   présente donc comme "à ventiler" et on laisse un flag d'avertissement.
+ * Classification des maintenances via `Maintenance.nature` :
+ *  - ENTRETIEN_COURANT (art. 605 CC) → charge courante de l'usufruitier
+ *  - GROSSE_REPARATION (art. 606 CC) → charge du nu-propriétaire
+ *  - AMELIORATION → capital, non déductible des revenus fonciers
+ *
+ * Limites :
  * - Les charges au niveau immeuble (`Charge`) ne sont pas allouées au lot
- *   ici : cela nécessite les tantièmes / clés de répartition, hors scope L4.
+ *   ici : cela nécessite les tantièmes / clés de répartition, hors scope.
  */
 
 import { buildLotRevenueBreakdown } from "@/lib/lot-revenue-breakdown";
+import {
+  allocateAmount,
+  snapshotOwnership,
+  type CashflowImputation,
+  type OwnershipShare,
+} from "@/lib/ownership";
 import { prisma } from "@/lib/prisma";
 
 export interface FiscalBeneficiaryLine {
@@ -41,9 +49,21 @@ export interface LotFiscalSummary {
   maintenanceCostTotal: number;
   /** Nombre d'opérations de maintenance sur la période. */
   maintenanceCount: number;
+  /** Détail par nature (gros travaux, entretien, amélioration). */
+  maintenanceByNature: {
+    entretienCourant: number;
+    grosseReparation: number;
+    amelioration: number;
+  };
   /** Guides et alertes affichés à l'utilisateur. */
   notes: FiscalGuidanceNote[];
 }
+
+const NATURE_TO_IMPUTATION: Record<string, CashflowImputation> = {
+  ENTRETIEN_COURANT: "CHARGE_COURANTE",
+  GROSSE_REPARATION: "GROS_TRAVAUX",
+  AMELIORATION: "ACQUISITION",
+};
 
 export async function buildLotFiscalSummary(
   societyId: string,
@@ -53,7 +73,7 @@ export async function buildLotFiscalSummary(
   const from = new Date(year, 0, 1);
   const to = new Date(year, 11, 31, 23, 59, 59);
 
-  const [revenueBreakdown, maintenances, activeOwnerships] = await Promise.all([
+  const [revenueBreakdown, maintenances, ownershipRows] = await Promise.all([
     buildLotRevenueBreakdown(societyId, lotId, from, to),
     prisma.maintenance.findMany({
       where: {
@@ -67,33 +87,125 @@ export async function buildLotFiscalSummary(
           },
         ],
       },
-      select: { id: true, cost: true, completedAt: true, scheduledAt: true, title: true },
+      select: {
+        id: true,
+        cost: true,
+        completedAt: true,
+        scheduledAt: true,
+        title: true,
+        nature: true,
+      },
     }),
     prisma.lotOwnership.findMany({
-      where: {
-        societyId,
-        lotId,
-        startDate: { lte: to },
-        OR: [{ endDate: null }, { endDate: { gt: to } }],
-      },
-      select: { type: true },
+      where: { societyId, lotId },
+      include: { proprietaire: { select: { id: true, label: true } } },
     }),
   ]);
 
-  const ppCount = activeOwnerships.filter((o) => o.type === "PLEINE_PROPRIETE").length;
+  const ownerships: OwnershipShare[] = ownershipRows.map((row) => ({
+    proprietaireId: row.proprietaireId,
+    type: row.type,
+    share: row.share,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    isViager: row.isViager,
+    usufruitierBirthDate: row.usufruitierBirthDate,
+  }));
+  const proprietaireLabels = new Map<string, string>();
+  for (const row of ownershipRows) {
+    proprietaireLabels.set(row.proprietaireId, row.proprietaire.label);
+  }
+
+  const snapshotAtYearEnd = snapshotOwnership(ownerships, to);
+  const ppCount = snapshotAtYearEnd.full.length;
+
+  // Agrégation maintenances par nature
+  const maintenanceByNature = {
+    entretienCourant: 0,
+    grosseReparation: 0,
+    amelioration: 0,
+  };
+  // Allocation des charges déductibles par bénéficiaire
+  // (Map<proprietaireId, { role, charges }>)
+  const chargesByBeneficiary = new Map<
+    string,
+    { role: FiscalBeneficiaryLine["role"]; charges: number }
+  >();
+
+  for (const m of maintenances) {
+    const cost = m.cost ?? 0;
+    if (cost === 0) continue;
+
+    switch (m.nature) {
+      case "ENTRETIEN_COURANT":
+        maintenanceByNature.entretienCourant += cost;
+        break;
+      case "GROSSE_REPARATION":
+        maintenanceByNature.grosseReparation += cost;
+        break;
+      case "AMELIORATION":
+        maintenanceByNature.amelioration += cost;
+        break;
+    }
+
+    // AMELIORATION = capital, non déductible des revenus fonciers
+    if (m.nature === "AMELIORATION") continue;
+
+    const imputation = NATURE_TO_IMPUTATION[m.nature];
+    if (!imputation) continue;
+
+    const flowDate = m.completedAt ?? m.scheduledAt ?? to;
+    const allocations = allocateAmount(cost, imputation, ownerships, flowDate);
+
+    for (const line of allocations) {
+      const existing = chargesByBeneficiary.get(line.proprietaireId) ?? {
+        role: line.role,
+        charges: 0,
+      };
+      existing.charges += line.amount;
+      existing.role = line.role;
+      chargesByBeneficiary.set(line.proprietaireId, existing);
+    }
+  }
+
+  // Construire byBeneficiary en fusionnant recettes (revenue breakdown) et
+  // charges (maintenance allocation). On part de tous les propriétaires
+  // mentionnés dans l'un ou l'autre.
+  const allProprietaireIds = new Set<string>([
+    ...revenueBreakdown.byBeneficiary.map((b) => b.proprietaireId),
+    ...chargesByBeneficiary.keys(),
+  ]);
+
+  const byBeneficiary: FiscalBeneficiaryLine[] = Array.from(allProprietaireIds).map((proprietaireId) => {
+    const revenueLine = revenueBreakdown.byBeneficiary.find((b) => b.proprietaireId === proprietaireId);
+    const chargeLine = chargesByBeneficiary.get(proprietaireId);
+    const role: FiscalBeneficiaryLine["role"] = revenueLine?.role ?? chargeLine?.role ?? "PLEIN_PROPRIETAIRE";
+    return {
+      proprietaireId,
+      proprietaireLabel: proprietaireLabels.get(proprietaireId) ?? proprietaireId,
+      role,
+      recettes: revenueLine?.encaisse ?? 0,
+      chargesDeductibles: round2(chargeLine?.charges ?? 0),
+    };
+  });
+
+  // Tri stable : usufruitier > nu-propriétaire > plein propriétaire > alpha.
+  const roleOrder: Record<FiscalBeneficiaryLine["role"], number> = {
+    USUFRUITIER: 0,
+    NU_PROPRIETAIRE: 1,
+    PLEIN_PROPRIETAIRE: 2,
+  };
+  byBeneficiary.sort((a, b) => {
+    const r = roleOrder[a.role] - roleOrder[b.role];
+    if (r !== 0) return r;
+    return a.proprietaireLabel.localeCompare(b.proprietaireLabel, "fr");
+  });
 
   const maintenanceCostTotal = round2(
-    maintenances.reduce((s, m) => s + (m.cost ?? 0), 0),
+    maintenanceByNature.entretienCourant +
+      maintenanceByNature.grosseReparation +
+      maintenanceByNature.amelioration,
   );
-
-  const byBeneficiary: FiscalBeneficiaryLine[] = revenueBreakdown.byBeneficiary.map((line) => ({
-    proprietaireId: line.proprietaireId,
-    proprietaireLabel: line.proprietaireLabel,
-    role: line.role,
-    recettes: line.encaisse,
-    // Sans catégorisation des maintenances, on n'attribue rien automatiquement.
-    chargesDeductibles: 0,
-  }));
 
   const notes: FiscalGuidanceNote[] = [];
 
@@ -105,7 +217,7 @@ export async function buildLotFiscalSummary(
   } else if (revenueBreakdown.isDismembered) {
     notes.push({
       level: "info",
-      text: "Loyers et charges courantes : à déclarer par l'usufruitier (art. 578 et 605 CC). Gros travaux (art. 606 CC : grosses réparations) : à déclarer par le nu-propriétaire.",
+      text: "Loyers et charges courantes : à déclarer par l'usufruitier (art. 578 et 605 CC). Grosses réparations art. 606 CC : à déclarer par le nu-propriétaire.",
     });
     notes.push({
       level: "info",
@@ -118,18 +230,11 @@ export async function buildLotFiscalSummary(
     });
   }
 
-  if (maintenanceCostTotal > 0) {
-    if (revenueBreakdown.isDismembered) {
-      notes.push({
-        level: "warning",
-        text: `${maintenances.length} opération(s) de maintenance pour un total de ${formatEur(maintenanceCostTotal)} : à ventiler manuellement entre charges courantes (usufruitier) et grosses réparations art. 606 CC (nu-propriétaire). Le module ne classe pas automatiquement.`,
-      });
-    } else {
-      notes.push({
-        level: "info",
-        text: `${maintenances.length} opération(s) de maintenance pour un total de ${formatEur(maintenanceCostTotal)} : déductibles dans les limites du 2044 (frais de réparation et d'entretien).`,
-      });
-    }
+  if (maintenanceByNature.amelioration > 0) {
+    notes.push({
+      level: "info",
+      text: `Travaux d'amélioration pour ${formatEur(maintenanceByNature.amelioration)} : non déductibles des revenus fonciers (capital). À immobiliser, augmente la base du nu-propriétaire en cas de démembrement.`,
+    });
   }
 
   return {
@@ -140,6 +245,11 @@ export async function buildLotFiscalSummary(
     byBeneficiary,
     maintenanceCostTotal,
     maintenanceCount: maintenances.length,
+    maintenanceByNature: {
+      entretienCourant: round2(maintenanceByNature.entretienCourant),
+      grosseReparation: round2(maintenanceByNature.grosseReparation),
+      amelioration: round2(maintenanceByNature.amelioration),
+    },
     notes,
   };
 }

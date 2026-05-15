@@ -79,6 +79,7 @@ describe("maintenance actions", () => {
         cost: 320,
         isPaid: true,
         notes: "Urgent",
+        nature: "ENTRETIEN_COURANT",
       },
     });
     expect(createAuditLog).toHaveBeenCalledWith(

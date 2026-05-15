@@ -52,6 +52,7 @@ export async function createMaintenance(
         cost: data.cost ?? null,
         isPaid: data.isPaid,
         notes: data.notes ?? null,
+        nature: data.nature ?? "ENTRETIEN_COURANT",
       },
     });
 

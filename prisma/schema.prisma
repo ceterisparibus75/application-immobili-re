@@ -116,6 +116,19 @@ enum OwnershipType {
   NUE_PROPRIETE
 }
 
+/// Nature d'une intervention de maintenance — détermine l'imputation
+/// en cas de démembrement (Code civil art. 605 et 606) :
+/// - ENTRETIEN_COURANT : réparations d'usage → usufruitier
+/// - GROSSE_REPARATION : grosses réparations art. 606 CC (gros murs, voûtes,
+///   poutres, couvertures, digues, murs de soutènement, clôtures) → nu-propriétaire
+/// - AMELIORATION : travaux qui augmentent la valeur ou modifient la substance
+///   du bien (extension, surélévation, équipement neuf) → nu-propriétaire
+enum MaintenanceNature {
+  ENTRETIEN_COURANT
+  GROSSE_REPARATION
+  AMELIORATION
+}
+
 enum LeaseType {
   // Baux d'habitation
   HABITATION // Bail vide — loi du 6 juillet 1989 (3 ans / 6 ans)
@@ -1049,11 +1062,13 @@ model Maintenance {
   isPaid      Boolean   @default(false)
   invoiceUrl  String?
   notes       String?   @db.Text
+  nature      MaintenanceNature @default(ENTRETIEN_COURANT)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   @@index([buildingId])
+  @@index([nature])
 }
 
 /// Bail commercial

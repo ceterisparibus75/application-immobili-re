@@ -47,6 +47,9 @@ export default function NouvelleMaintenancePage() {
       cost: data.cost ? parseFloat(data.cost) : undefined,
       isPaid: data.isPaid === "on",
       notes: data.notes,
+      nature:
+        (data.nature as "ENTRETIEN_COURANT" | "GROSSE_REPARATION" | "AMELIORATION") ||
+        "ENTRETIEN_COURANT",
     });
 
     setIsLoading(false);
@@ -120,6 +123,29 @@ export default function NouvelleMaintenancePage() {
                 <Label htmlFor="completedAt">Date de réalisation</Label>
                 <Input id="completedAt" name="completedAt" type="date" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nature">Nature de l&apos;intervention</Label>
+              <select
+                id="nature"
+                name="nature"
+                defaultValue="ENTRETIEN_COURANT"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="ENTRETIEN_COURANT">
+                  Entretien courant (art. 605 CC — usufruitier)
+                </option>
+                <option value="GROSSE_REPARATION">
+                  Grosse réparation art. 606 CC (toiture, gros murs… — nu-propriétaire)
+                </option>
+                <option value="AMELIORATION">
+                  Amélioration / extension (nu-propriétaire)
+                </option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Détermine l&apos;imputation fiscale en cas de démembrement.
+              </p>
             </div>
           </CardContent>
         </Card>

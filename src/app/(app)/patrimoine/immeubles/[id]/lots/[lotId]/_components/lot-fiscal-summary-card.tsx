@@ -48,6 +48,7 @@ export function LotFiscalSummaryCard({ summary }: { summary: LotFiscalSummary })
                   <th className="pb-2 font-normal">Déclarant</th>
                   <th className="pb-2 font-normal">Rôle</th>
                   <th className="pb-2 font-normal text-right">Recettes {summary.year}</th>
+                  <th className="pb-2 font-normal text-right">Charges déductibles</th>
                 </tr>
               </thead>
               <tbody>
@@ -58,6 +59,13 @@ export function LotFiscalSummaryCard({ summary }: { summary: LotFiscalSummary })
                       {ROLE_LABEL[line.role]}
                     </td>
                     <td className="py-2 text-right">{fmt(line.recettes)}</td>
+                    <td className="py-2 text-right">
+                      {line.chargesDeductibles > 0 ? (
+                        fmt(line.chargesDeductibles)
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -66,11 +74,18 @@ export function LotFiscalSummaryCard({ summary }: { summary: LotFiscalSummary })
         )}
 
         {summary.maintenanceCount > 0 && (
-          <div className="rounded-md bg-muted/50 p-2.5 text-xs">
-            <span className="font-medium text-foreground">Maintenance enregistrée :</span>{" "}
-            <span className="text-muted-foreground">
-              {summary.maintenanceCount} opération(s), total {fmt(summary.maintenanceCostTotal)}
-            </span>
+          <div className="rounded-md bg-muted/50 p-2.5 text-xs space-y-0.5">
+            <p>
+              <span className="font-medium text-foreground">Maintenance {summary.year} :</span>{" "}
+              <span className="text-muted-foreground">
+                {summary.maintenanceCount} opération(s), total {fmt(summary.maintenanceCostTotal)}
+              </span>
+            </p>
+            <p className="text-muted-foreground">
+              · Entretien courant : {fmt(summary.maintenanceByNature.entretienCourant)} ·
+              Grosses réparations : {fmt(summary.maintenanceByNature.grosseReparation)} ·
+              Améliorations : {fmt(summary.maintenanceByNature.amelioration)}
+            </p>
           </div>
         )}
 
