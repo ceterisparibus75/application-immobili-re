@@ -35,6 +35,8 @@ import { DuplicateInvoiceButton } from "./_components/duplicate-invoice-button";
 import { DeleteDraftButton } from "./_components/delete-draft-button";
 import { EmailDeliveryProofsCard } from "./_components/email-delivery-proofs-card";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
+import { resolveActiveOwnership } from "@/lib/lot-ownership-resolver";
+import { Crown } from "lucide-react";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
@@ -116,6 +118,11 @@ export default async function FactureDetailPage({
         orderBy: { name: "asc" },
       })
     : [];
+
+  // Régime de propriété actif à la date d'émission (démembrement éventuel)
+  const ownershipAtIssue = invoice.lease?.lot.id
+    ? await resolveActiveOwnership(societyId, invoice.lease.lot.id, invoice.issueDate)
+    : null;
 
   let previousBalance = 0;
   if (invoice.lease?.id) {
@@ -490,6 +497,32 @@ export default async function FactureDetailPage({
                     Voir le bail
                   </Button>
                 </Link>
+
+                {ownershipAtIssue?.snapshot.isDismembered && (
+                  <div className="mt-3 rounded-md border bg-muted/30 p-2.5 space-y-1">
+                    <p className="text-xs font-medium flex items-center gap-1.5">
+                      <Crown className="h-3 w-3" />
+                      Lot démembré au {invoice.issueDate.toLocaleDateString("fr-FR")}
+                    </p>
+                    {ownershipAtIssue.snapshot.usufruit.map((u) => (
+                      <p key={u.proprietaireId} className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Usufruitier&nbsp;:</span>{" "}
+                        {ownershipAtIssue.proprietaires.get(u.proprietaireId)?.label ?? "—"}
+                        {u.share < 1 && ` (${Math.round(u.share * 100)} %)`}
+                      </p>
+                    ))}
+                    {ownershipAtIssue.snapshot.nuePropriete.map((n) => (
+                      <p key={n.proprietaireId} className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Nu-propriétaire&nbsp;:</span>{" "}
+                        {ownershipAtIssue.proprietaires.get(n.proprietaireId)?.label ?? "—"}
+                        {n.share < 1 && ` (${Math.round(n.share * 100)} %)`}
+                      </p>
+                    ))}
+                    <p className="text-[11px] text-muted-foreground pt-0.5">
+                      Bénéficiaire effectif du loyer : l&apos;usufruitier (art. 578 CC)
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

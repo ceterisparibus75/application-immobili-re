@@ -124,6 +124,7 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           id: true,
           lot: {
             select: {
+              id: true,
               number: true,
               building: {
                 select: {
