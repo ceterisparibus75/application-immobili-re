@@ -686,6 +686,13 @@ model Proprietaire {
   representativeName String? // Nom du représentant légal
   representativeRole String? // Fonction (Gérant, Président, DG...)
 
+  // Coordonnées bancaires — IBAN/BIC chiffrés AES-256
+  // Utilisées sur les factures émises pour les lots dont ce propriétaire
+  // est usufruitier (les loyers lui sont versés en démembrement).
+  bankName      String?
+  ibanEncrypted String?
+  bicEncrypted  String?
+
   // Lien vers l'utilisateur créateur
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -3,6 +3,7 @@
 import {
   getOptionalAuthenticatedActionContext,
 } from "@/lib/action-auth";
+import { encrypt } from "@/lib/encryption";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
@@ -63,6 +64,12 @@ export type ProprietaireDetail = {
   registrationCity: string | null;
   representativeName: string | null;
   representativeRole: string | null;
+  // Coordonnées bancaires — IBAN/BIC NE SONT JAMAIS exposés en clair côté
+  // client. On envoie uniquement un indicateur "renseigné ou non" pour
+  // permettre à l'UI d'afficher "•••• renseigné".
+  bankName: string | null;
+  hasIban: boolean;
+  hasBic: boolean;
   // Associés
   associes: ProprietaireAssocie[];
 };
@@ -106,6 +113,10 @@ export type CreateProprietaireInput = {
   registrationCity?: string;
   representativeName?: string;
   representativeRole?: string;
+  // Coordonnées bancaires (utilisées pour l'usufruitier en démembrement)
+  bankName?: string;
+  iban?: string; // brut, sera chiffré côté action
+  bic?: string;  // brut, sera chiffré côté action
   // Associés
   associes?: AssocieInput[];
 };
@@ -212,6 +223,9 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
       registrationCity: true,
       representativeName: true,
       representativeRole: true,
+      bankName: true,
+      ibanEncrypted: true,
+      bicEncrypted: true,
       associes: {
         select: {
           id: true,
@@ -232,7 +246,18 @@ export async function getProprietaire(proprietaireId: string): Promise<ActionRes
   });
 
   if (!proprietaire) return { success: false, error: "Propriétaire introuvable" };
-  return { success: true, data: proprietaire };
+
+  // Ne pas exposer les valeurs chiffrées au client ; ne renvoyer que des
+  // booléens indiquant si l'IBAN/BIC sont renseignés.
+  const { ibanEncrypted, bicEncrypted, ...rest } = proprietaire;
+  return {
+    success: true,
+    data: {
+      ...rest,
+      hasIban: Boolean(ibanEncrypted),
+      hasBic: Boolean(bicEncrypted),
+    },
+  };
 }
 
 export async function createProprietaire(input: CreateProprietaireInput): Promise<ActionResult<{ id: string }>> {
@@ -270,6 +295,10 @@ export async function createProprietaire(input: CreateProprietaireInput): Promis
       registrationCity: input.registrationCity?.trim() || null,
       representativeName: input.representativeName?.trim() || null,
       representativeRole: input.representativeRole?.trim() || null,
+      // Coordonnées bancaires (chiffrement AES-256)
+      bankName: input.bankName?.trim() || null,
+      ibanEncrypted: input.iban?.trim() ? encrypt(input.iban.replace(/\s+/g, "")) : null,
+      bicEncrypted: input.bic?.trim() ? encrypt(input.bic.replace(/\s+/g, "")) : null,
       // Associés
       ...(input.associes && input.associes.length > 0
         ? {
@@ -356,6 +385,14 @@ export async function updateProprietaire(input: UpdateProprietaireInput): Promis
       registrationCity: input.registrationCity?.trim() || null,
       representativeName: input.representativeName?.trim() || null,
       representativeRole: input.representativeRole?.trim() || null,
+      // Coordonnées bancaires — undefined = ne pas toucher, null/string = mettre à jour
+      ...(input.bankName !== undefined && { bankName: input.bankName?.trim() || null }),
+      ...(input.iban !== undefined && {
+        ibanEncrypted: input.iban?.trim() ? encrypt(input.iban.replace(/\s+/g, "")) : null,
+      }),
+      ...(input.bic !== undefined && {
+        bicEncrypted: input.bic?.trim() ? encrypt(input.bic.replace(/\s+/g, "")) : null,
+      }),
     },
   });
 

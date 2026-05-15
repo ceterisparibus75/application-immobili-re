@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
+import { resolveInvoiceBankDetails } from "@/lib/invoice-bank-details";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
@@ -56,7 +56,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         lines: true,
         payments: { orderBy: { paidAt: "asc" } },
         creditNoteFor: { select: { invoiceNumber: true } },
-        lease: { select: { id: true, lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } } } },
+        lease: { select: { id: true, lot: { select: { id: true, number: true, building: { select: { name: true, addressLine1: true } } } } } },
       },
     });
     if (!invoice)
@@ -71,13 +71,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     const soc = invoice.society;
 
-    // Dechiffrement IBAN/BIC
-    let iban: string | null = null;
-    let bic: string | null = null;
-    try {
-      if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
-      if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
-    } catch { /* non bloquant */ }
+    // Coordonnées bancaires (substitution usufruitier si démembrement)
+    const bankDetails = await resolveInvoiceBankDetails(
+      context.societyId,
+      {
+        ibanEncrypted: soc?.ibanEncrypted ?? null,
+        bicEncrypted: soc?.bicEncrypted ?? null,
+        bankName: soc?.bankName ?? null,
+      },
+      invoice.lease?.lot?.id ?? null,
+      invoice.issueDate,
+    );
+    const iban = bankDetails.iban;
+    const bic = bankDetails.bic;
 
     // Logo societe (base64)
     let logoSignedUrl: string | null = null;

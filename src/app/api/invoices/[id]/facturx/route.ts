@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
+import { resolveInvoiceBankDetails } from "@/lib/invoice-bank-details";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 import { generateFacturX } from "@/lib/einvoice-generator";
@@ -76,13 +76,19 @@ export async function GET(
 
     const soc = invoice.society;
 
-    // 5. Déchiffrement IBAN/BIC
-    let iban: string | null = null;
-    let bic: string | null = null;
-    try {
-      if (soc?.ibanEncrypted) iban = decrypt(soc.ibanEncrypted);
-      if (soc?.bicEncrypted) bic = decrypt(soc.bicEncrypted);
-    } catch {}
+    // 5. Coordonnées bancaires (substitution usufruitier si démembrement)
+    const bankDetails = await resolveInvoiceBankDetails(
+      context.societyId,
+      {
+        ibanEncrypted: soc?.ibanEncrypted ?? null,
+        bicEncrypted: soc?.bicEncrypted ?? null,
+        bankName: soc?.bankName ?? null,
+      },
+      invoice.lease?.lot?.id ?? null,
+      invoice.issueDate,
+    );
+    const iban = bankDetails.iban;
+    const bic = bankDetails.bic;
 
     // 6. Logo société (base64)
     let logoSignedUrl: string | null = null;

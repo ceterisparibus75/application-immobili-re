@@ -38,6 +38,11 @@ type ProprietaireData = {
   registrationCity: string | null;
   representativeName: string | null;
   representativeRole: string | null;
+  // Coordonnées bancaires (chiffrées en BDD ; jamais exposées en clair côté
+  // client — on n'envoie ici qu'un indicateur "renseigné ou non").
+  bankName: string | null;
+  hasIban: boolean;
+  hasBic: boolean;
   associes: ProprietaireAssocie[];
 };
 
@@ -133,6 +138,9 @@ export function ProprietaireProfileForm({ proprietaire }: Props) {
     registrationCity: proprietaire.registrationCity ?? "",
     representativeName: proprietaire.representativeName ?? "",
     representativeRole: proprietaire.representativeRole ?? "",
+    bankName: proprietaire.bankName ?? "",
+    iban: "",
+    bic: "",
   });
 
   const [associes, setAssocies] = useState<AssocieForm[]>(
@@ -163,6 +171,9 @@ export function ProprietaireProfileForm({ proprietaire }: Props) {
       registrationCity: proprietaire.registrationCity ?? "",
       representativeName: proprietaire.representativeName ?? "",
       representativeRole: proprietaire.representativeRole ?? "",
+      bankName: proprietaire.bankName ?? "",
+      iban: "",
+      bic: "",
     });
     setAssocies(proprietaire.associes.map(associeToForm));
     setEditing(false);
@@ -215,6 +226,11 @@ export function ProprietaireProfileForm({ proprietaire }: Props) {
         registrationCity: form.registrationCity || undefined,
         representativeName: form.representativeName || undefined,
         representativeRole: form.representativeRole || undefined,
+        bankName: form.bankName || undefined,
+        // iban/bic envoyés UNIQUEMENT si l'utilisateur les a remplis (l'action
+        // distingue undefined = ne pas toucher vs string vide = effacer).
+        ...(form.iban.trim() ? { iban: form.iban.trim() } : {}),
+        ...(form.bic.trim() ? { bic: form.bic.trim() } : {}),
         associes: associes
           .filter((a) => a.firstName.trim() && a.lastName.trim())
           .map((a) => ({
@@ -369,6 +385,32 @@ export function ProprietaireProfileForm({ proprietaire }: Props) {
                 <div>
                   <p className="text-sm text-muted-foreground">Ville</p>
                   <p className="text-sm font-medium">{proprietaire.city || "\u2014"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Coordonn\u00e9es bancaires */}
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="text-sm font-semibold mb-3">Coordonn\u00e9es bancaires</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Utilis\u00e9es sur les factures \u00e9mises pour les lots dont ce propri\u00e9taire est usufruitier.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Banque</p>
+                  <p className="text-sm font-medium">{proprietaire.bankName || "\u2014"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">IBAN</p>
+                  <p className="text-sm font-medium">
+                    {proprietaire.hasIban ? "\u2022\u2022\u2022\u2022 renseign\u00e9" : "\u2014"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">BIC</p>
+                  <p className="text-sm font-medium">
+                    {proprietaire.hasBic ? "\u2022\u2022\u2022\u2022 renseign\u00e9" : "\u2014"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -621,6 +663,54 @@ export function ProprietaireProfileForm({ proprietaire }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="city">Ville</Label>
                   <Input id="city" name="city" value={form.city} onChange={handleChange} />
+                </div>
+              </div>
+            </div>
+
+            {/* Coordonnées bancaires */}
+            <div className="pt-4 border-t">
+              <h4 className="text-sm font-semibold mb-1">Coordonnées bancaires</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Pour les factures émises lorsque ce propriétaire est usufruitier d&apos;un lot
+                démembré. L&apos;IBAN/BIC sont chiffrés AES-256 ; laissez vide pour conserver les
+                valeurs actuelles.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="bankName">Banque</Label>
+                  <Input
+                    id="bankName"
+                    name="bankName"
+                    value={form.bankName}
+                    onChange={handleChange}
+                    placeholder="Ex. La Banque Postale"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="iban">
+                    IBAN {proprietaire.hasIban && <span className="text-xs text-muted-foreground">(actuellement renseigné)</span>}
+                  </Label>
+                  <Input
+                    id="iban"
+                    name="iban"
+                    value={form.iban}
+                    onChange={handleChange}
+                    placeholder={proprietaire.hasIban ? "Laisser vide pour conserver" : "FR…"}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bic">
+                    BIC {proprietaire.hasBic && <span className="text-xs text-muted-foreground">(actuellement renseigné)</span>}
+                  </Label>
+                  <Input
+                    id="bic"
+                    name="bic"
+                    value={form.bic}
+                    onChange={handleChange}
+                    placeholder={proprietaire.hasBic ? "Laisser vide pour conserver" : "BNPAFRPP…"}
+                    autoComplete="off"
+                  />
                 </div>
               </div>
             </div>
