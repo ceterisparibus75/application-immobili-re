@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     // 1. Passer en EN_RETARD les factures dont l'échéance est dépassée (hors quittances)
     const overdueResult = await prisma.invoice.updateMany({
       where: {
-        status: { in: ["ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] },
+        status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] },
         invoiceType: { not: "QUITTANCE" },
         dueDate: { lt: now },
       },

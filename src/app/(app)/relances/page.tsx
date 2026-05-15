@@ -46,7 +46,11 @@ export default async function RelancesPage() {
   const overdueInvoices = await prisma.invoice.findMany({
     where: {
       societyId,
-      status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] },
+      // Certaines factures validées/envoyées peuvent être échues avant que le cron
+      // ne les marque EN_RETARD. Elles doivent rester relançables.
+      status: {
+        in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"],
+      },
       invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: new Date() },
     },

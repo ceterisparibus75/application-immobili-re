@@ -153,6 +153,19 @@ describe("sendManualReminder", () => {
     );
   });
 
+  it("met aussi une facture validée échue en RELANCEE si l'email est envoyé", async () => {
+    mockAuthSession("GESTIONNAIRE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ status: "VALIDEE" }) as never);
+    prismaMock.reminder.create.mockResolvedValue({ id: REMINDER_ID } as never);
+    prismaMock.reminder.update.mockResolvedValue({} as never);
+    prismaMock.invoice.update.mockResolvedValue({} as never);
+
+    await sendManualReminder(SOCIETY_ID, INVOICE_ID, "RELANCE_1");
+    expect(prismaMock.invoice.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "RELANCEE" } })
+    );
+  });
+
   it("retourne success avec avertissement si l'email échoue", async () => {
     const { sendReminderEmail } = await import("@/lib/email");
     vi.mocked(sendReminderEmail).mockResolvedValueOnce({ success: false });

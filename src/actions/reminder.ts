@@ -122,7 +122,9 @@ export async function sendManualReminder(
     // Une relance effectivement envoyée sort la facture de la simple file "en retard".
     if (
       emailResult.success &&
-      ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(invoice.status)
+      ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"].includes(
+        invoice.status,
+      )
     ) {
       await prisma.invoice.update({
         where: { id: invoiceId },

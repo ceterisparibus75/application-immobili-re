@@ -38,6 +38,15 @@ describe("GET /api/cron/invoice-reminder", () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body).toEqual({ success: true, overdueMarked: 3, remindersCreated: 0 });
+    expect(prismaMock.invoice.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: {
+            in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE"],
+          },
+        }),
+      })
+    );
   });
 
   it("crée une relance si le scénario s'applique", async () => {
