@@ -12,6 +12,7 @@ const {
   buildPowensWebviewUrl,
   getPowensConnectors,
   getQontoOrganization,
+  getQontoTransactions,
 } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   createAuditLog: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +22,7 @@ const {
   buildPowensWebviewUrl: vi.fn(),
   getPowensConnectors: vi.fn(),
   getQontoOrganization: vi.fn(),
+  getQontoTransactions: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -39,7 +41,7 @@ vi.mock("@/lib/powens", () => ({
 }));
 vi.mock("@/lib/qonto", () => ({
   getQontoOrganization,
-  getQontoTransactions: vi.fn(),
+  getQontoTransactions,
 }));
 vi.mock("@/actions/cashflow", () => ({
   applyAutoTag: vi.fn(),
@@ -51,6 +53,7 @@ import {
   deleteBankConnection,
   getGocardlessInstitutions,
   initiateOpenBanking,
+  syncQontoTransactionsInternal,
 } from "./bank-connection";
 
 describe("bank connection actions", () => {
@@ -153,6 +156,32 @@ describe("bank connection actions", () => {
     expect(prismaMock.bankAccount.updateMany).toHaveBeenCalledWith({
       where: { connectionId: "connection-1" },
       data: { connectionId: null, powensAccountId: null },
+    });
+  });
+
+  it("resynchronise Qonto avec 14 jours de recouvrement", async () => {
+    const lastSyncAt = new Date("2026-05-15T14:17:43.710Z");
+    prismaMock.bankAccount.findUnique.mockResolvedValue({ lastSyncAt } as never);
+    getQontoTransactions.mockResolvedValue([]);
+
+    const imported = await syncQontoTransactionsInternal(
+      "society-1",
+      "bank-account-1",
+      "qonto-account-1",
+      "slug",
+      "secret"
+    );
+
+    expect(imported).toBe(0);
+    expect(getQontoTransactions).toHaveBeenCalledWith(
+      "slug",
+      "secret",
+      "qonto-account-1",
+      "2026-05-01T14:17:43.710Z"
+    );
+    expect(prismaMock.bankAccount.update).toHaveBeenCalledWith({
+      where: { id: "bank-account-1" },
+      data: { lastSyncAt: expect.any(Date) },
     });
   });
 });

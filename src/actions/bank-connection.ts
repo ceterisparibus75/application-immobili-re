@@ -611,9 +611,10 @@ export async function syncQontoTransactionsInternal(
     select: { lastSyncAt: true },
   });
   const isFirstSync = !row?.lastSyncAt;
-  const dateFrom = row?.lastSyncAt
-    ? row.lastSyncAt.toISOString()
-    : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const dateFromDate = row?.lastSyncAt
+    ? new Date(row.lastSyncAt.getTime() - 14 * 24 * 60 * 60 * 1000)
+    : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const dateFrom = dateFromDate.toISOString();
 
   const transactions = await getQontoTransactions(slug, secretKey, qontoAccountSlug, dateFrom);
 
