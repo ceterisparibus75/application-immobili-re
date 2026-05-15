@@ -349,4 +349,99 @@ describe("generateFec", () => {
     expect(callArgs.where?.entryDate?.lte).toBeDefined(); // dateTo set
     expect(callArgs.where?.entryDate?.gte).toBeUndefined(); // no dateFrom
   });
+
+  describe("CompAuxNum (tier auxiliaire — démembrement)", () => {
+    it("ligne sans auxiliaire : CompAuxNum/CompAuxLib vides (comportement legacy)", async () => {
+      prismaMock.journalEntry.findMany.mockResolvedValue([makeEntry()] as never);
+
+      const result = await generateFec(SOCIETY_ID);
+      const dataLines = result.content.split("\n").slice(1); // skip header
+      // CompAuxNum est la 7e colonne (index 6), CompAuxLib la 8e (index 7)
+      for (const row of dataLines.filter(Boolean)) {
+        const cols = row.split("\t");
+        expect(cols[6]).toBe(""); // CompAuxNum
+        expect(cols[7]).toBe(""); // CompAuxLib
+      }
+    });
+
+    it("ligne avec auxiliaire : CompAuxNum = AUX-{8 char id}, CompAuxLib = label", async () => {
+      const entryWithAux = makeEntry({
+        lines: [
+          {
+            id: "line-1",
+            debit: 1200,
+            credit: 0,
+            label: "Encaissement loyer",
+            letteringCode: null,
+            lettrage: null,
+            letteredAt: null,
+            account: { code: "411000", label: "Clients" },
+            auxiliaryProprietaire: { id: "clxabcdef123456789", label: "Bob (usufruitier)" },
+          },
+          {
+            id: "line-2",
+            debit: 0,
+            credit: 1200,
+            label: "Loyer encaissé",
+            letteringCode: null,
+            lettrage: null,
+            letteredAt: null,
+            account: { code: "706000", label: "Loyers" },
+            auxiliaryProprietaire: { id: "clxabcdef123456789", label: "Bob (usufruitier)" },
+          },
+        ],
+      });
+      prismaMock.journalEntry.findMany.mockResolvedValue([entryWithAux] as never);
+
+      const result = await generateFec(SOCIETY_ID);
+      const dataLines = result.content.split("\n").slice(1).filter(Boolean);
+
+      expect(dataLines).toHaveLength(2);
+      for (const row of dataLines) {
+        const cols = row.split("\t");
+        expect(cols[6]).toBe("AUX-CLXABCDE"); // 8 premiers car du CUID en majuscule
+        expect(cols[7]).toBe("Bob (usufruitier)");
+      }
+    });
+
+    it("mélange auxiliaire/non-auxiliaire dans une même écriture", async () => {
+      const mixed = makeEntry({
+        lines: [
+          {
+            id: "line-1",
+            debit: 1200,
+            credit: 0,
+            label: "Encaissement",
+            letteringCode: null,
+            lettrage: null,
+            letteredAt: null,
+            account: { code: "512000", label: "Banque" },
+            auxiliaryProprietaire: null,
+          },
+          {
+            id: "line-2",
+            debit: 0,
+            credit: 1200,
+            label: "Loyer usufruitier",
+            letteringCode: null,
+            lettrage: null,
+            letteredAt: null,
+            account: { code: "706000", label: "Loyers" },
+            auxiliaryProprietaire: { id: "ctyZ1234567890ab", label: "Alice SCI" },
+          },
+        ],
+      });
+      prismaMock.journalEntry.findMany.mockResolvedValue([mixed] as never);
+
+      const result = await generateFec(SOCIETY_ID);
+      const dataLines = result.content.split("\n").slice(1).filter(Boolean);
+
+      const bankCols = dataLines[0].split("\t");
+      const rentCols = dataLines[1].split("\t");
+      expect(bankCols[6]).toBe("");
+      expect(bankCols[7]).toBe("");
+      expect(rentCols[6]).toBe("AUX-CTYZ1234");
+      expect(rentCols[7]).toBe("Alice SCI");
+    });
+  });
 });

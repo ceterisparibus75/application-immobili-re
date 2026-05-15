@@ -706,6 +706,9 @@ model Proprietaire {
   // Démembrement / quote-parts sur les lots
   lotOwnerships LotOwnership[]
 
+  // Lignes d'écriture comptable où ce propriétaire est l'auxiliaire (CompAuxNum FEC)
+  journalEntryLines JournalEntryLine[] @relation("JournalLineAuxiliary")
+
   @@index([userId])
 }
 
@@ -2391,13 +2394,21 @@ model JournalEntryLine {
   letteringCode String?
   letteredAt    DateTime?
 
-  journalEntry JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account      AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  // Compte auxiliaire (DGFiP art. A.47 A-1) : permet de tracer la ligne au
+  // bénéfice/à la charge d'un Proprietaire spécifique en cas de démembrement
+  // (loyer encaissé pour l'usufruitier, gros travaux portés par le nu-propriétaire).
+  // Renseigné manuellement par le comptable ou par un futur automate.
+  auxiliaryProprietaireId String?
+
+  journalEntry           JournalEntry      @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account                AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  auxiliaryProprietaire  Proprietaire?     @relation("JournalLineAuxiliary", fields: [auxiliaryProprietaireId], references: [id], onDelete: SetNull)
 
   @@index([journalEntryId])
   @@index([accountId])
   @@index([lettrage])
   @@index([letteringCode])
+  @@index([auxiliaryProprietaireId])
 }
 
 /// Exercice comptable

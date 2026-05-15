@@ -152,6 +152,7 @@ export async function generateFec(
       lines: {
         include: {
           account: { select: { code: true, label: true } },
+          auxiliaryProprietaire: { select: { id: true, label: true } },
         },
       },
     },
@@ -261,6 +262,17 @@ export async function generateFec(
       // DateLet : date du lettrage si disponible
       const dateLet = line.letteredAt ? fmtDate(line.letteredAt) : "";
 
+      // Tier auxiliaire (DGFiP CompAuxNum / CompAuxLib) : renseigné si la ligne
+      // est rattachée à un Proprietaire (usufruitier / nu-propriétaire en
+      // démembrement par exemple). Format AUX-XXXXXXXX (8 premiers caractères
+      // du CUID, en majuscules).
+      const auxCode = line.auxiliaryProprietaire
+        ? "AUX-" + line.auxiliaryProprietaire.id.slice(0, 8).toUpperCase()
+        : "";
+      const auxLib = line.auxiliaryProprietaire
+        ? sanitize(line.auxiliaryProprietaire.label)
+        : "";
+
       rows.push([
         journalCode,
         sanitize(journalLib),
@@ -268,8 +280,8 @@ export async function generateFec(
         fmtDate(entry.entryDate),
         sanitize(line.account.code),
         sanitize(line.account.label),
-        "", // CompAuxNum
-        "", // CompAuxLib
+        auxCode,
+        auxLib,
         pieceRef,
         pieceDate,
         lineLabel,
