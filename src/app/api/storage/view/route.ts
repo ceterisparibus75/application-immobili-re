@@ -39,10 +39,15 @@ async function hasAccessToStoragePath(userId: string, cleanPath: string): Promis
   const rootFolder = pathSegments[0];
   const secondSegment = pathSegments[1];
 
-  if (!secondSegment) {
-    return true;
+  // Refuser tout chemin de moins de 2 segments : on ne peut pas autoriser
+  // un objet à la racine du bucket sans contexte de propriété.
+  if (!rootFolder || !secondSegment) {
+    return false;
   }
 
+  // Whitelist explicite des préfixes connus. Tout préfixe inconnu est
+  // refusé (closed by default) — empêche qu'un objet hors conventions
+  // (`secret/...`) soit téléchargeable.
   const SOCIETY_ID_FOLDERS = new Set([
     "documents",
     "logos",
@@ -58,17 +63,17 @@ async function hasAccessToStoragePath(userId: string, cleanPath: string): Promis
     return true;
   }
 
-  // Temp files are stored either under temp/<userId>/... or temp/<societyId>/...
+  // Temp files : temp/<userId>/... (propre à l'utilisateur) ou temp/<societyId>/...
   if (rootFolder === "temp") {
     if (secondSegment === userId) {
       return true;
     }
-
     await requireSocietyAccess(userId, secondSegment);
     return true;
   }
 
-  return true;
+  // Préfixe inconnu → refuser explicitement.
+  return false;
 }
 
 export async function GET(req: NextRequest) {
@@ -92,7 +97,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await hasAccessToStoragePath(context.userId, cleanPath);
+    const allowed = await hasAccessToStoragePath(context.userId, cleanPath);
+    if (!allowed) {
+      return new NextResponse(null, { status: 403 });
+    }
   } catch {
     return new NextResponse(null, { status: 403 });
   }

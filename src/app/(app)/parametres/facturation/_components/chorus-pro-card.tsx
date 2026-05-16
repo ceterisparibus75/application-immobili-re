@@ -17,7 +17,7 @@ export function ChorusProCard({ isConfigured }: ChorusProCardProps) {
   async function handleTestConnection() {
     setTesting(true);
     try {
-      const res = await fetch("/api/debug/piste-test");
+      const res = await fetch("/api/chorus-pro/test-connection");
       const data = await res.json();
       if (data.ok) {
         toast.success("Connexion PISTE réussie — le token OAuth2 a été obtenu.");

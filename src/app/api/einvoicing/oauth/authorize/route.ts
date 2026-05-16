@@ -10,6 +10,7 @@
  *   - L'utilisateur doit être ADMIN_SOCIETE de la société cible
  */
 
+import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { randomPKCECodeVerifier, calculatePKCECodeChallenge } from "openid-client";
 import { prisma } from "@/lib/prisma";
@@ -51,9 +52,14 @@ export async function GET(req: NextRequest) {
   const codeVerifier = randomPKCECodeVerifier();
   const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
 
-  // Stocker le code_verifier en DB (usage unique, expire dans 10 min)
+  // State opaque aléatoire — lie le callback à cette session/société.
+  const opaqueState = randomBytes(32).toString("hex");
+
+  // Stocker le code_verifier + state + userId en DB (usage unique, expire dans 10 min)
   await prisma.pAOAuthState.create({
     data: {
+      state: opaqueState,
+      userId: authCtx.userId,
       societyId,
       codeVerifier,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
@@ -66,7 +72,7 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", env.PA_AUTH_CLIENT_ID);
   authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("state", societyId);
+  authUrl.searchParams.set("state", opaqueState);
   authUrl.searchParams.set("code_challenge", codeChallenge);
   authUrl.searchParams.set("code_challenge_method", "S256");
   // Scopes : aucun requis par SUPER PDP

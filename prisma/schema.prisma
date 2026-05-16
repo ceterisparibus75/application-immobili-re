@@ -798,6 +798,7 @@ model User {
   reportSchedules   ReportSchedule[]
   sentChargeStatementDeliveries ChargeStatementDelivery[] @relation("ChargeStatementDeliverySender")
   sentEmailDeliveryProofs EmailDeliveryProof[] @relation("EmailDeliveryProofSender")
+  paOAuthStates     PAOAuthState[]   @relation("UserPAOAuthState")
 
   @@index([email])
 }
@@ -4518,10 +4519,21 @@ model FixedAssetDepreciationLine {
 
 model PAOAuthState {
   id           String   @id @default(cuid())
+  /// Identifiant opaque envoyé à la PA comme `state`. Lie le callback à
+  /// la requête authorize d'origine — empêche un autre utilisateur authentifié
+  /// de finaliser l'OAuth sur une société qu'il ne possède pas.
+  state        String   @unique
+  /// Utilisateur ayant initié l'authorize. Vérifié contre la session
+  /// active dans le callback (CSRF / fixation de session).
+  userId       String
   societyId    String
   codeVerifier String // PKCE code_verifier — usage unique
   expiresAt    DateTime // 10 min max
 
+  user User @relation("UserPAOAuthState", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([state])
+  @@index([userId])
   @@index([societyId])
   @@index([expiresAt])
 }

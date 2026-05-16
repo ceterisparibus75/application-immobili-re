@@ -4,12 +4,16 @@
  * Callback OAuth 2.1 SUPER PDP — échange le code d'autorisation contre des tokens,
  * les chiffre (AES-256-GCM) et les stocke dans la société concernée.
  *
- * state = societyId (passé dans l'authorize, retourné par SUPER PDP)
+ * state = identifiant opaque aléatoire généré dans l'authorize, lié à
+ *         { userId, societyId, codeVerifier } via PAOAuthState. Vérifié
+ *         contre la session NextAuth pour empêcher qu'un autre utilisateur
+ *         finalise l'OAuth d'une société qu'il ne possède pas.
  *
  * Après succès, redirige vers /parametres/facturation?pa_connected=true
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storeSocietyTokens } from "@/lib/pa-oauth";
 import { env } from "@/lib/env";
@@ -19,7 +23,7 @@ const SETTINGS_URL = "/parametres/facturation";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const state = searchParams.get("state"); // societyId
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -34,17 +38,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${env.AUTH_URL}${SETTINGS_URL}?pa_error=missing_params`);
   }
 
-  const societyId = state;
-
-  // Récupérer et valider le code_verifier PKCE (usage unique)
-  const oauthState = await prisma.pAOAuthState.findFirst({
-    where: { societyId, expiresAt: { gt: new Date() } },
-    orderBy: { expiresAt: "desc" },
+  // Charger l'état OAuth par son state opaque (single-use, expiration 10 min).
+  const oauthState = await prisma.pAOAuthState.findUnique({
+    where: { state },
   });
 
-  if (!oauthState) {
+  if (!oauthState || oauthState.expiresAt < new Date()) {
     return NextResponse.redirect(`${env.AUTH_URL}${SETTINGS_URL}?pa_error=expired_state`);
   }
+
+  // Vérifier que la session active correspond à l'utilisateur ayant initié
+  // l'authorize. Empêche un autre utilisateur authentifié de finaliser
+  // l'OAuth sur une société qu'il ne possède pas (CSRF / fixation).
+  const session = await auth();
+  if (!session?.user?.id || session.user.id !== oauthState.userId) {
+    console.warn(
+      `[oauth/callback] User mismatch ou pas de session — state=${state} expectedUserId=${oauthState.userId} sessionUserId=${session?.user?.id ?? "none"}`
+    );
+    // Ne pas supprimer le state — laisser expirer naturellement.
+    return NextResponse.redirect(`${env.AUTH_URL}${SETTINGS_URL}?pa_error=user_mismatch`);
+  }
+
+  const societyId = oauthState.societyId;
 
   // Supprimer l'état immédiatement (single-use)
   await prisma.pAOAuthState.delete({ where: { id: oauthState.id } });

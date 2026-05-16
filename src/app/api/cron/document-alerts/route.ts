@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { sendMail } from "@/lib/email";
+import { verifyCronSecret } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret");
-  if (secret !== env.CRON_SECRET) {
+  // Vercel Cron envoie `Authorization: Bearer <CRON_SECRET>`. Le helper gère
+  // également le format brut (pour les tests / triggers manuels), en
+  // comparaison constante (timingSafeEqual).
+  if (!verifyCronSecret(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

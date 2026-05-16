@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedRouteContext } from "@/lib/api-auth";
+import { ForbiddenError, requireSocietyAccess } from "@/lib/permissions";
 import { checkSubscriptionActive } from "@/lib/plan-limits";
 
 export async function GET(request: NextRequest) {
@@ -11,6 +12,18 @@ export async function GET(request: NextRequest) {
   const societyId = request.nextUrl.searchParams.get("societyId");
   if (!societyId) {
     return NextResponse.json({ type: null, message: "" });
+  }
+
+  // Empêche un utilisateur d'inspecter l'état d'abonnement d'une autre société
+  // en passant un societyId arbitraire. Sans accès → réponse neutre (pas 403
+  // pour ne pas fuiter l'existence de la société).
+  try {
+    await requireSocietyAccess(context.userId, societyId);
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ type: null, message: "" });
+    }
+    throw error;
   }
 
   const result = await checkSubscriptionActive(societyId);
