@@ -121,7 +121,7 @@ export function Hero() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 text-[var(--color-brand-deep)]">
-            Pilotez vos sociétés
+            Pilotez votre patrimoine immobilier
             <br />
             <span className="text-brand-gradient">comme un portefeuille.</span>
           </h1>
