@@ -37,6 +37,7 @@ import { EmailDeliveryProofsCard } from "./_components/email-delivery-proofs-car
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 import { resolveActiveOwnership } from "@/lib/lot-ownership-resolver";
 import { Crown } from "lucide-react";
+import { EInvoicingBetaBanner } from "@/components/einvoicing-beta-banner";
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
   BROUILLON: "Brouillon", VALIDEE: "Validée", ENVOYEE: "Envoyée",
@@ -556,12 +557,15 @@ export default async function FactureDetailPage({
           {isEInvoicingConfigured() &&
             invoice.einvoiceXmlUrl &&
             !invoice.einvoiceXmlUrl.startsWith("invoices/") && (
-              <PaStatusCard
-                invoiceId={invoice.id}
-                societyId={societyId}
-                flowId={invoice.einvoiceXmlUrl}
-                submittedAt={invoice.einvoiceGeneratedAt}
-              />
+              <>
+                <EInvoicingBetaBanner variant="compact" />
+                <PaStatusCard
+                  invoiceId={invoice.id}
+                  societyId={societyId}
+                  flowId={invoice.einvoiceXmlUrl}
+                  submittedAt={invoice.einvoiceGeneratedAt}
+                />
+              </>
             )}
         </div>
       </div>

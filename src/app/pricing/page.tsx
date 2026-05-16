@@ -56,7 +56,7 @@ const plans = [
       "Assistant IA (chatbot, courriers, prédiction)",
       "Signature électronique",
       "Import IA de documents",
-      "Facturation électronique B2B 2026",
+      "Facturation électronique B2B 2026 (intégration en cours)",
       "Accès API & intégrations",
       "Support dédié & SLA 99,9%",
     ],

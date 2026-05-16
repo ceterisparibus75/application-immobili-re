@@ -12,6 +12,7 @@ import { InboxConfigForm } from "./_components/inbox-config-form";
 import { PPFActivationCard } from "./_components/ppf-activation-card";
 import { ChorusProCard } from "./_components/chorus-pro-card";
 import { InvoicePrefixForm } from "./_components/invoice-prefix-form";
+import { EInvoicingBetaBanner } from "@/components/einvoicing-beta-banner";
 
 export const metadata = { title: "Paramètres de facturation" };
 
@@ -65,6 +66,8 @@ export default async function ParametresFacturationPage() {
 
       {/* Numérotation des factures */}
       <InvoicePrefixForm societyId={societyId} initialPrefix={society?.invoicePrefix ?? ""} />
+
+      <EInvoicingBetaBanner />
 
       {/* Chorus Pro — Facturation B2G (secteur public) */}
       <ChorusProCard isConfigured={isChorusProConfigured()} />
