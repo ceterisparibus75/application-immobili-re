@@ -11,8 +11,8 @@ import {
 const VALID_CUID = "clh3x2z4k0000qh8g7z1y2v3t";
 
 describe("REPORT_TYPES", () => {
-  it("contient 9 types de rapports", () => {
-    expect(REPORT_TYPES).toHaveLength(9);
+  it("contient 10 types de rapports", () => {
+    expect(REPORT_TYPES).toHaveLength(10);
     expect(REPORT_TYPES).toContain("SITUATION_LOCATIVE");
     expect(REPORT_TYPES).toContain("BALANCE_AGEE");
   });

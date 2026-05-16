@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
 import { prismaMock } from "@/test/mocks/prisma";

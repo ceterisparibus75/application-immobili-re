@@ -138,10 +138,10 @@ export async function createLeaseAmendment(
       data: { id: amendment.id, amendmentNumber: amendment.amendmentNumber },
     };
   } catch (error) {
-    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[createLeaseAmendment]", error);
-    return { success: false, error: "Erreur lors de la creation de l'avenant" };
+    return { success: false, error: "Erreur lors de la création de l'avenant" };
   }
 }
 
@@ -192,7 +192,7 @@ export async function renewLease(
 
     const newEnd = new Date(input.newEndDate);
     if (newEnd <= lease.endDate) {
-      return { success: false, error: "La nouvelle date de fin doit etre posterieure a l'actuelle" };
+      return { success: false, error: "La nouvelle date de fin doit être postérieure à l'actuelle" };
     }
 
     const result = await createLeaseAmendment(societyId, {
@@ -207,7 +207,7 @@ export async function renewLease(
     if (!result.success) return { success: false as const, error: result.error };
     return { success: true, data: { id: input.leaseId, amendmentId: result.data!.id } };
   } catch (error) {
-    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifie" };
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: "Non authentifié" };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[renewLease]", error);
     return { success: false, error: "Erreur lors du renouvellement" };

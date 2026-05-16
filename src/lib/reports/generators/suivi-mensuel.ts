@@ -34,9 +34,12 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
   const [buildings, invoices, payments, charges] = await Promise.all([
     prisma.building.findMany({ where: { societyId }, orderBy: { name: "asc" } }),
     prisma.invoice.findMany({
+      // Le suivi mensuel groupe les facturations par date d'émission (`issueDate`),
+      // pas par date d'échéance — c'est l'activité de l'exercice qui compte,
+      // pas la fenêtre d'encaissement.
       where: {
         societyId,
-        dueDate: { gte: from, lte: to },
+        issueDate: { gte: from, lte: to },
         invoiceType: { in: [...REPORT_REVENUE_INVOICE_TYPES] },
         status: { in: [...REPORT_ACTIVE_INVOICE_STATUSES] },
       },
@@ -121,8 +124,8 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
     const monthlyChg: number[] = Array(12).fill(0);
 
     for (const inv of bInvoices) {
-      const m = new Date(inv.dueDate).getMonth();
-      monthlyFact[m] += inv.totalHT;
+      const m = new Date(inv.issueDate).getMonth();
+      monthlyFact[m] += inv.totalTTC;
     }
     for (const payment of bPayments) {
       const m = new Date(payment.paidAt).getMonth();
@@ -157,22 +160,31 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
       pdfCur(annChg),
     ], WIDTHS, ALIGNS, { rowIndex: 2 }, 841.89);
 
-    const cumulFact = monthlyFact.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
-    const cumulEnc = monthlyEnc.reduce((acc, v, i) => { acc[i] = (acc[i - 1] ?? 0) + v; return acc; }, [] as number[]);
-    const monthlyRec = cumulFact.map((f, i) => f > 0 ? (cumulEnc[i] / f) * 100 : null);
-    const annRec = annFact > 0 ? (annEnc / annFact) * 100 : 0;
+    // Taux de recouvrement MENSUEL (pas cumulé) : encaissé[m] / facturé[m].
+    // Permet d'identifier les mois à problème indépendamment des suivants.
+    // null = pas de données affichables (rien encaissé ou rien facturé).
+    const monthlyRec = monthlyFact.map((f, i) =>
+      f > 0 && monthlyEnc[i] > 0 ? (monthlyEnc[i] / f) * 100 : null,
+    );
+    const annRec = annFact > 0 && annEnc > 0 ? (annEnc / annFact) * 100 : null;
 
     y = drawTableRow(p, ctx.reg, y, [
       "Taux recouvrement",
       ...monthlyRec.map((v) => v !== null ? v.toFixed(1) + "%" : "-"),
-      annFact > 0 ? annRec.toFixed(1) + "%" : "-",
+      annRec !== null ? annRec.toFixed(1) + "%" : "-",
     ], WIDTHS, ALIGNS, {
       rowIndex: 3,
-      cellColors: [null, ...monthlyRec.map((v) => v === null ? null : v < 80 ? CORAL : v >= 95 ? GREEN : null), annFact > 0 && annRec < 80 ? CORAL : annRec >= 95 ? GREEN : null],
+      cellColors: [
+        null,
+        ...monthlyRec.map((v) => v === null ? null : v < 80 ? CORAL : v >= 95 ? GREEN : null),
+        annRec === null ? null : annRec < 80 ? CORAL : annRec >= 95 ? GREEN : null,
+      ],
     }, 841.89);
 
-    const monthlyNet = monthlyFact.map((f, i) => f - monthlyChg[i]);
-    const annNet = annFact - annChg;
+    // Résultat net = encaissement effectif - charges (vision cash-flow).
+    // Le facturé non encaissé n'entre pas dans le net du mois.
+    const monthlyNet = monthlyEnc.map((e, i) => e - monthlyChg[i]);
+    const annNet = annEnc - annChg;
     y = drawTotalsRow(p, ctx.bold, y, [
       "Résultat net",
       ...monthlyNet.map((v) => pdfCur(v)),
@@ -187,9 +199,9 @@ export async function generateSuiviMensuel(opts: ReportOptions): Promise<ReportR
       const key = `${tenantLabel(inv.lease?.tenant)} — ${inv.lease?.lot?.number ?? ""}`;
       if (!tenantFact.has(key)) tenantFact.set(key, { monthly: Array(12).fill(0), total: 0 });
       const entry = tenantFact.get(key)!;
-      const m = new Date(inv.dueDate).getMonth();
-      entry.monthly[m] += inv.totalHT;
-      entry.total += inv.totalHT;
+      const m = new Date(inv.issueDate).getMonth();
+      entry.monthly[m] += inv.totalTTC;
+      entry.total += inv.totalTTC;
     }
 
     const tenantEnc = new Map<string, number>();

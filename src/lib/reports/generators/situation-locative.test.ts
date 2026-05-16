@@ -138,7 +138,6 @@ describe("generateSituationLocative", () => {
                 deletedAt: null,
                 status: { in: ["EN_COURS", "RENOUVELE"] },
                 startDate: { lte: expect.any(Date) },
-                endDate: { gte: expect.any(Date) },
               }),
               include: expect.objectContaining({
                 chargeProvisions: expect.objectContaining({

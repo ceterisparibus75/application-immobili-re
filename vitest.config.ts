@@ -7,6 +7,10 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // jsdom : nécessaire pour tester les composants React (localStorage, window, document).
+    // Les tests purs (src/lib/**) peuvent s'exécuter en node — opt-out possible par
+    // fichier via `/// @vitest-environment node` si performance critique.
+    environment: "jsdom",
     testTimeout: 60_000,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**", "**/e2e/**"],

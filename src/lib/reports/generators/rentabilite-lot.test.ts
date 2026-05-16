@@ -119,7 +119,9 @@ describe("generateRentabiliteLot", () => {
             deletedAt: null,
             status: { in: ["EN_COURS", "RENOUVELE", "RESILIE", "CONTENTIEUX"] },
             startDate: { lte: expect.any(Date) },
-            endDate: { gte: expect.any(Date) },
+            OR: expect.arrayContaining([
+              expect.objectContaining({ endDate: { gte: expect.any(Date) } }),
+            ]),
           }),
           orderBy: { startDate: "desc" },
         }),

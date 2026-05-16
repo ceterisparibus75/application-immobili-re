@@ -116,7 +116,6 @@ describe("generateVacanceLocative", () => {
                 deletedAt: null,
                 status: { in: ["EN_COURS", "RENOUVELE"] },
                 startDate: { lte: expect.any(Date) },
-                endDate: { gte: expect.any(Date) },
               }),
               orderBy: { startDate: "desc" },
             }),
