@@ -1,32 +1,39 @@
-// This file configures the initialization of Sentry on the client.
-// The added config here will be used whenever a users loads a page in their browser.
+// Configuration Sentry côté client (Next.js 15+ : ce fichier est chargé en priorité).
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: "https://78c59210d2aac155c9997058d4f4a374@o4511207272808448.ingest.de.sentry.io/4511207273988176",
+  // DSN via env publique — pas de DSN hardcodé.
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // Désactivé en dev pour éviter le bruit / la consommation de quota.
+  enabled: process.env.NODE_ENV === "production",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+  debug: false,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  // Sampling : 10 % en prod, 100 % en dev (sans effet si désactivé).
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+  // RGPD : ne pas envoyer d'IP / cookies / headers d'authentification.
+  // L'application manipule locataires, factures, banque, documents — toute
+  // capture PII non maîtrisée crée un risque de conformité.
+  sendDefaultPii: false,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  // Session Replay désactivé : capture des entrées utilisateur (clics, saisies,
+  // contenu DOM) → incompatible RGPD sans politique de masquage explicite.
+  // Réactivable plus tard avec maskAllText: true + maskAllInputs: true.
+  integrations: [],
 
+  // Server Action hashes change between deploys — a client loaded on an older
+  // build will trigger UnrecognizedActionError on the next interaction until
+  // it hard-reloads. Don't report this transient noise.
+  ignoreErrors: [
+    /UnrecognizedActionError/i,
+    /Server Action ".+" was not found on the server/i,
+  ],
+
+  // Browser/network interruptions during NextAuth session refresh are non-actionable.
   beforeSend(event, hint) {
     const message =
       hint.originalException instanceof Error
@@ -37,7 +44,6 @@ Sentry.init({
       message === "Failed to fetch" &&
       frames.some((frame) => frame.filename?.includes("next-auth/react"));
 
-    // Browser/network interruptions during NextAuth session refresh are non-actionable.
     if (isNextAuthSessionFetchFailure) return null;
 
     return event;
