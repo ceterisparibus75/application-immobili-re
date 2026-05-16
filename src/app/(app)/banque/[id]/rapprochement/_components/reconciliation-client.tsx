@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, FileText, GitMerge, Loader2, Zap, Receipt, Banknote, Building2 } from "lucide-react";
+import { Check, FileText, GitMerge, Loader2, Zap, Receipt, Banknote, Building2, Split } from "lucide-react";
+import { AllocationSheet } from "./allocation-sheet";
 import {
   autoReconcile,
   generateJournalEntry,
@@ -175,6 +176,7 @@ export default function ReconciliationClient({
   );
   const [journalTargetId, setJournalTargetId] = useState<string | null>(null);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+  const [allocationTxId, setAllocationTxId] = useState<string | null>(null);
   const [operationNotice, setOperationNotice] = useState<{
     type: "info" | "success" | "error";
     message: string;
@@ -541,6 +543,22 @@ const KIND_LABELS: Record<string, string> = {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {selectedTx && selectedTx.amount > 0 && (
+              <div className="border-b border-border/60 px-4 py-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setAllocationTxId(selectedTx.id)}
+                >
+                  <Split className="h-3.5 w-3.5" />
+                  Ventiler ce virement sur plusieurs factures
+                </Button>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Pour un virement couvrant plusieurs loyers ou avec trop-perçu
+                </p>
+              </div>
+            )}
             {selectedSuggestion?.bestCandidate && (
               <div className="border-b border-border/60 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -848,6 +866,12 @@ const KIND_LABELS: Record<string, string> = {
           </CardContent>
         </Card>
       </div>
+
+      <AllocationSheet
+        societyId={societyId}
+        transactionId={allocationTxId}
+        onClose={() => setAllocationTxId(null)}
+      />
     </div>
   );
 }

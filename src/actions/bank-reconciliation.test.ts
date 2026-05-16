@@ -425,12 +425,19 @@ describe("unreconcile", () => {
     id: RECONCIL_ID,
     transactionId: TX_ID,
     paymentId: PAYMENT_ID,
-    transaction: { bankAccountId: ACCOUNT_ID, journalEntryId: null, journalEntry: null },
+    transaction: {
+      bankAccountId: ACCOUNT_ID,
+      journalEntryId: null,
+      journalEntry: null,
+      reconciliations: [{ id: RECONCIL_ID }],
+    },
   });
 
   beforeEach(() => {
     prismaMock.bankReconciliation.findFirst.mockResolvedValue(buildReconciliation() as never);
-    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+    prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
+      Array.isArray(fnOrQueries) ? fnOrQueries : fnOrQueries(prismaMock)
+    );
   });
 
   it("erreur si non authentifié", async () => {
@@ -472,6 +479,7 @@ describe("unreconcile", () => {
         bankAccountId: ACCOUNT_ID,
         journalEntryId: JOURNAL_ID,
         journalEntry: { id: JOURNAL_ID, status: "BROUILLON", isValidated: false },
+        reconciliations: [{ id: RECONCIL_ID }],
       },
     } as never);
     prismaMock.$transaction.mockImplementation(async (fnOrQueries: ((tx: typeof prismaMock) => Promise<unknown>) | unknown[]) =>
@@ -496,6 +504,7 @@ describe("unreconcile", () => {
         bankAccountId: ACCOUNT_ID,
         journalEntryId: JOURNAL_ID,
         journalEntry: { id: JOURNAL_ID, status: "VALIDEE", isValidated: true },
+        reconciliations: [{ id: RECONCIL_ID }],
       },
     } as never);
 

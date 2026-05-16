@@ -167,6 +167,7 @@ export async function POST() {
     data: {
       transactionId: transaction.id,
       paymentId: payment.id,
+      amount: payment.amount,
       isValidated: true,
       validatedAt: dueDate,
       notes: "Rapprochement de démonstration",

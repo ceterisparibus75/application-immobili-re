@@ -11,6 +11,10 @@ import {
   type ReconciliationCandidate,
   type ReconciliationCandidateKind,
 } from "@/actions/bank-reconciliation-shared";
+import {
+  suggestAllocations,
+  type SuggestedAllocation,
+} from "@/lib/invoice-allocation-suggest";
 
 // ─── Données pour le rapprochement ────────────────────────────────────────────
 
@@ -427,4 +431,183 @@ export async function getBankReconciliationSuggestions(
       bestCandidate: sortedCandidates[0] ?? null,
     };
   });
+}
+
+// ─── Données pour la ventilation d'un virement sur plusieurs factures ─────────
+
+export interface AllocationCandidateInvoice {
+  id: string;
+  invoiceNumber: string | null;
+  invoiceType: string;
+  totalTTC: number;
+  paidSoFar: number;
+  remaining: number;
+  dueDate: Date;
+  status: string;
+}
+
+export interface AllocationTenantGroup {
+  tenantId: string;
+  tenantLabel: string;
+  invoices: AllocationCandidateInvoice[];
+  /** Combinaisons suggérées de factures pour ce locataire (target = transaction.amount). */
+  suggestions: SuggestedAllocation[];
+}
+
+export interface AllocationContext {
+  transactionId: string;
+  transactionAmount: number;
+  transactionLabel: string;
+  transactionDate: Date;
+  /** Total déjà ventilé sur la transaction. */
+  alreadyAllocated: number;
+  /** Reste à ventiler. */
+  remaining: number;
+  groups: AllocationTenantGroup[];
+}
+
+/**
+ * Retourne, pour une transaction donnée, les locataires candidats à la
+ * ventilation (= locataires ayant des factures impayées), leurs factures et
+ * une liste de suggestions automatiques de combinaisons exactes.
+ *
+ * Limite par défaut : 100 factures impayées les plus anciennes par locataire.
+ */
+export async function getAllocationContextForTransaction(
+  societyId: string,
+  transactionId: string,
+): Promise<AllocationContext | null> {
+  if (!(await getOptionalSocietyActionContext(societyId))) return null;
+
+  const transaction = await prisma.bankTransaction.findFirst({
+    where: { id: transactionId, bankAccount: { societyId } },
+    select: {
+      id: true,
+      amount: true,
+      label: true,
+      transactionDate: true,
+      reconciliations: { select: { amount: true } },
+    },
+  });
+  if (!transaction) return null;
+  if (transaction.amount <= 0) return null;
+
+  const alreadyAllocated = round2(
+    transaction.reconciliations.reduce((s, r) => s + r.amount, 0),
+  );
+  const remaining = round2(transaction.amount - alreadyAllocated);
+
+  if (remaining <= 0.01) {
+    return {
+      transactionId: transaction.id,
+      transactionAmount: transaction.amount,
+      transactionLabel: transaction.label,
+      transactionDate: transaction.transactionDate,
+      alreadyAllocated,
+      remaining: 0,
+      groups: [],
+    };
+  }
+
+  const pendingInvoices = await prisma.invoice.findMany({
+    where: {
+      societyId,
+      invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
+      status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
+    },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      invoiceType: true,
+      totalTTC: true,
+      dueDate: true,
+      status: true,
+      tenantId: true,
+      payments: { select: { amount: true } },
+      tenant: {
+        select: {
+          id: true,
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: { dueDate: "asc" },
+    take: 500,
+  });
+
+  const groupsByTenant = new Map<string, AllocationTenantGroup>();
+  for (const inv of pendingInvoices) {
+    const paidSoFar = inv.payments.reduce((s, p) => s + (p.amount ?? 0), 0);
+    const remainingInv = round2(inv.totalTTC - paidSoFar);
+    if (remainingInv <= 0.01) continue;
+
+    if (!groupsByTenant.has(inv.tenantId)) {
+      groupsByTenant.set(inv.tenantId, {
+        tenantId: inv.tenantId,
+        tenantLabel: tenantDisplayName({
+          companyName: inv.tenant.companyName,
+          firstName: inv.tenant.firstName,
+          lastName: inv.tenant.lastName,
+        }),
+        invoices: [],
+        suggestions: [],
+      });
+    }
+    groupsByTenant.get(inv.tenantId)!.invoices.push({
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      invoiceType: inv.invoiceType,
+      totalTTC: inv.totalTTC,
+      paidSoFar: round2(paidSoFar),
+      remaining: remainingInv,
+      dueDate: inv.dueDate,
+      status: inv.status,
+    });
+  }
+
+  // Calcul des suggestions auto-match par locataire
+  for (const group of groupsByTenant.values()) {
+    group.suggestions = suggestAllocations(
+      remaining,
+      group.invoices.map((i) => ({
+        id: i.id,
+        remaining: i.remaining,
+        dueDate: i.dueDate,
+        tenantId: group.tenantId,
+      })),
+      {
+        toleranceExact: 0.01,
+        maxCombinationSize: 4,
+        maxResults: 3,
+        // Petit excédent toléré (jusqu'à 10% du virement) pour proposer
+        // les cas légèrement sous-couverts.
+        allowExcessUpTo: Math.min(remaining * 0.1, 500),
+      },
+    );
+  }
+
+  // Trier les groupes : ceux ayant au moins une suggestion exacte d'abord.
+  const groups = Array.from(groupsByTenant.values()).sort((a, b) => {
+    const aExact = a.suggestions.some((s) => s.delta === 0);
+    const bExact = b.suggestions.some((s) => s.delta === 0);
+    if (aExact !== bExact) return aExact ? -1 : 1;
+    return a.tenantLabel.localeCompare(b.tenantLabel, "fr");
+  });
+
+  return {
+    transactionId: transaction.id,
+    transactionAmount: transaction.amount,
+    transactionLabel: transaction.label,
+    transactionDate: transaction.transactionDate,
+    alreadyAllocated,
+    remaining,
+    groups,
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

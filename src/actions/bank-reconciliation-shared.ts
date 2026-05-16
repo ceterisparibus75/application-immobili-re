@@ -393,6 +393,7 @@ export async function createBankJournalEntryForTransaction(
 export async function createReconciliationRecord(
   transactionId: string,
   paymentId: string,
+  amount: number,
   isValidated: boolean,
   notes?: string,
   validatedBy?: string,
@@ -413,6 +414,7 @@ export async function createReconciliationRecord(
         data: {
           transactionId,
           paymentId,
+          amount,
           isValidated,
           validatedAt: isValidated ? new Date() : null,
           validatedBy: validatedBy ?? null,
@@ -447,6 +449,7 @@ export async function createReconciliationRecord(
       data: {
         transactionId,
         paymentId,
+        amount,
         isValidated,
         validatedAt: isValidated ? new Date() : null,
         validatedBy: validatedBy ?? null,

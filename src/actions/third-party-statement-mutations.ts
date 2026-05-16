@@ -791,6 +791,7 @@ export async function reconcileWithStatement(
             data: {
               transactionId,
               paymentId: payment.id,
+              amount: info.netAmount,
               statementId: statement.id,
               isValidated: true,
               validatedAt: new Date(),

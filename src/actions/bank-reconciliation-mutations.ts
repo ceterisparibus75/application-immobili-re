@@ -78,7 +78,7 @@ export async function autoReconcile(
       );
 
       if (exactMatch) {
-        await createReconciliationRecord(tx.id, exactMatch.id, true, undefined, context.userId, {
+        await createReconciliationRecord(tx.id, exactMatch.id, exactMatch.amount, true, undefined, context.userId, {
           societyId,
           transaction: tx,
           payment: exactMatch,
@@ -101,7 +101,7 @@ export async function autoReconcile(
       });
 
       if (approxMatch) {
-        await createReconciliationRecord(tx.id, approxMatch.id, true, undefined, context.userId, {
+        await createReconciliationRecord(tx.id, approxMatch.id, approxMatch.amount, true, undefined, context.userId, {
           societyId,
           transaction: tx,
           payment: approxMatch,
@@ -120,7 +120,7 @@ export async function autoReconcile(
       });
 
       if (netMatch) {
-        await createReconciliationRecord(tx.id, netMatch.id, true, undefined, context.userId, {
+        await createReconciliationRecord(tx.id, netMatch.id, netMatch.amount, true, undefined, context.userId, {
           societyId,
           transaction: tx,
           payment: netMatch,
@@ -212,6 +212,7 @@ export async function manualReconcile(
         data: {
           transactionId: parsed.data.transactionId,
           paymentId: parsed.data.paymentId,
+          amount: payment.amount,
           isValidated: true,
           validatedAt: new Date(),
           validatedBy: context.userId,
@@ -286,7 +287,14 @@ export async function unreconcile(
         id: reconciliationId,
         transaction: { bankAccount: { societyId } },
       },
-      include: { transaction: { include: { journalEntry: true } } },
+      include: {
+        transaction: {
+          include: {
+            journalEntry: true,
+            reconciliations: { select: { id: true } },
+          },
+        },
+      },
     });
     if (!reconciliation) return { success: false, error: "Rapprochement introuvable" };
 
@@ -297,18 +305,32 @@ export async function unreconcile(
       return { success: false, error: "Impossible d'annuler un rapprochement dont l'écriture comptable est validée" };
     }
 
+    // S'il reste d'autres réconciliations sur la transaction (cas ventilé),
+    // on ne supprime que ce lien et on garde la transaction rapprochée.
+    const hasOtherReconciliations = reconciliation.transaction.reconciliations.length > 1;
+
     await prisma.$transaction(async (tx) => {
       await tx.bankReconciliation.delete({ where: { id: reconciliationId } });
-      await tx.bankTransaction.update({
-        where: { id: reconciliation.transactionId },
-        data: { isReconciled: false, journalEntryId: null },
-      });
       await tx.payment.update({
         where: { id: reconciliation.paymentId },
         data: { isReconciled: false },
       });
-      if (reconciliation.transaction.journalEntryId) {
-        await tx.journalEntry.delete({ where: { id: reconciliation.transaction.journalEntryId } });
+
+      if (!hasOtherReconciliations) {
+        await tx.bankTransaction.update({
+          where: { id: reconciliation.transactionId },
+          data: { isReconciled: false, journalEntryId: null },
+        });
+        if (reconciliation.transaction.journalEntryId) {
+          await tx.journalEntry.delete({ where: { id: reconciliation.transaction.journalEntryId } });
+        }
+        // Si la suppression annule un trop-perçu, ré-ouvrir l'éventuel ajustement
+        await tx.tenantBalanceAdjustment.deleteMany({
+          where: {
+            reconciledBankTransactionId: reconciliation.transactionId,
+            source: "BANK_RECONCILIATION",
+          },
+        });
       }
     });
 
@@ -823,6 +845,7 @@ export async function reconcileWithInvoice(
         data: {
           transactionId,
           paymentId: payment.id,
+          amount: transaction.amount,
           isValidated: true,
           validatedAt: new Date(),
           validatedBy: context.userId,
@@ -1053,4 +1076,207 @@ export async function reconcileWithLoanLine(
     console.error("[reconcileWithLoanLine]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
   }
+}
+
+// ─── Ventilation d'un virement sur plusieurs factures ─────────────────────────
+
+export interface AllocationInput {
+  invoiceId: string;
+  amount: number;
+}
+
+/**
+ * Ventile un virement bancaire sur plusieurs factures du même locataire.
+ *
+ * Couvre :
+ *   - 1 virement → 1 facture (somme = montant)
+ *   - 1 virement → N factures (somme = montant)
+ *   - Trop-perçu (somme < montant transaction) → avoir créé via
+ *     `TenantBalanceAdjustment` négatif sur le locataire commun
+ *   - Paiement partiel (somme < montant transaction sans excédent à crédit)
+ *     → la transaction reste partiellement rapprochée
+ *
+ * Règles :
+ *   - Toutes les factures doivent appartenir à la même société et au même
+ *     locataire (pour pouvoir attribuer l'éventuel excédent).
+ *   - La somme allouée ne peut pas dépasser le montant du virement.
+ *   - Une seule allocation par invoiceId (pas de double imputation).
+ */
+export async function reconcileTransactionWithAllocations(
+  societyId: string,
+  transactionId: string,
+  allocations: AllocationInput[],
+  options?: { creditExcessToTenant?: boolean }
+): Promise<ActionResult<{ paymentIds: string[]; balanceAdjustmentId: string | null }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    if (!allocations.length) {
+      return { success: false, error: "Aucune facture sélectionnée pour la ventilation" };
+    }
+    const dedupSet = new Set(allocations.map((a) => a.invoiceId));
+    if (dedupSet.size !== allocations.length) {
+      return { success: false, error: "Une même facture ne peut pas apparaître plusieurs fois dans la ventilation" };
+    }
+    for (const a of allocations) {
+      if (!Number.isFinite(a.amount) || a.amount <= 0) {
+        return { success: false, error: "Tous les montants alloués doivent être strictement positifs" };
+      }
+    }
+
+    const transaction = await prisma.bankTransaction.findFirst({
+      where: { id: transactionId, bankAccount: { societyId } },
+      include: {
+        reconciliations: { select: { amount: true } },
+      },
+    });
+    if (!transaction) return { success: false, error: "Transaction introuvable" };
+    if (transaction.amount <= 0) {
+      return { success: false, error: "Une ventilation locataire nécessite une transaction créditrice (encaissement)" };
+    }
+
+    const alreadyAllocated = transaction.reconciliations.reduce((s, r) => s + r.amount, 0);
+    const totalAllocated = allocations.reduce((s, a) => s + a.amount, 0);
+    if (alreadyAllocated + totalAllocated > transaction.amount + 0.01) {
+      return {
+        success: false,
+        error: `Ventilation totale (${(alreadyAllocated + totalAllocated).toFixed(2)} €) dépasse le montant du virement (${transaction.amount.toFixed(2)} €)`,
+      };
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where: { id: { in: allocations.map((a) => a.invoiceId) }, societyId },
+      select: {
+        id: true,
+        tenantId: true,
+        leaseId: true,
+        totalTTC: true,
+        invoiceType: true,
+        isThirdPartyManaged: true,
+        expectedNetAmount: true,
+      },
+    });
+    if (invoices.length !== allocations.length) {
+      return { success: false, error: "Une ou plusieurs factures sont introuvables pour cette société" };
+    }
+
+    const uniqueTenants = new Set(invoices.map((i) => i.tenantId));
+    if (uniqueTenants.size !== 1) {
+      return { success: false, error: "Les factures ventilées doivent appartenir au même locataire" };
+    }
+    const tenantId = invoices[0].tenantId;
+    const leaseId = invoices.find((i) => i.leaseId)?.leaseId ?? null;
+
+    const excess = round2(transaction.amount - alreadyAllocated - totalAllocated);
+    const creditExcess = options?.creditExcessToTenant !== false; // défaut: true
+    const willCreditExcess = excess > 0.01 && creditExcess;
+    const willFullyReconcile = willCreditExcess || Math.abs(excess) <= 0.01;
+
+    const created = await prisma.$transaction(async (tx) => {
+      const paymentIds: string[] = [];
+
+      for (const allocation of allocations) {
+        const invoice = invoices.find((i) => i.id === allocation.invoiceId)!;
+        const payment = await tx.payment.create({
+          data: {
+            invoiceId: allocation.invoiceId,
+            amount: allocation.amount,
+            paidAt: transaction.transactionDate,
+            method: "virement",
+            reference: transaction.reference ?? undefined,
+            isReconciled: true,
+          },
+        });
+        paymentIds.push(payment.id);
+
+        await tx.bankReconciliation.create({
+          data: {
+            transactionId,
+            paymentId: payment.id,
+            amount: allocation.amount,
+            isValidated: true,
+            validatedAt: new Date(),
+            validatedBy: context.userId,
+          },
+        });
+
+        const paidAgg = await tx.payment.aggregate({
+          where: { invoiceId: allocation.invoiceId },
+          _sum: { amount: true },
+        });
+        const paidSoFar = paidAgg._sum.amount ?? 0;
+        const target = invoice.isThirdPartyManaged && invoice.expectedNetAmount
+          ? invoice.expectedNetAmount
+          : invoice.totalTTC;
+        const newStatus = paidSoFar >= target - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+        await tx.invoice.update({
+          where: { id: allocation.invoiceId },
+          data: { status: newStatus },
+        });
+      }
+
+      let balanceAdjustmentId: string | null = null;
+      if (willCreditExcess) {
+        const adj = await tx.tenantBalanceAdjustment.create({
+          data: {
+            societyId,
+            tenantId,
+            leaseId,
+            label: "Avoir — trop-perçu sur virement",
+            amount: -excess,
+            dueDate: transaction.transactionDate,
+            notes: `Virement de ${transaction.amount.toFixed(2)} € ventilé sur ${allocations.length} facture(s). Excédent crédité.`,
+            reference: transaction.reference ?? null,
+            source: "BANK_RECONCILIATION",
+            reconciledBankTransactionId: transactionId,
+          },
+        });
+        balanceAdjustmentId = adj.id;
+      }
+
+      if (willFullyReconcile) {
+        await tx.bankTransaction.update({
+          where: { id: transactionId },
+          data: { isReconciled: true },
+        });
+      }
+
+      return { paymentIds, balanceAdjustmentId };
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "BankReconciliation",
+      entityId: transactionId,
+      details: {
+        action: "reconcile_transaction_allocations",
+        transactionId,
+        allocations: allocations.length,
+        totalAllocated: round2(totalAllocated),
+        excess: willCreditExcess ? excess : 0,
+        tenantId,
+        invoiceIds: allocations.map((a) => a.invoiceId),
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath("/comptabilite");
+    revalidatePath("/facturation");
+    revalidatePath(`/locataires/${tenantId}`);
+
+    return { success: true, data: created };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[reconcileTransactionWithAllocations]", error);
+    return { success: false, error: "Erreur lors de la ventilation du virement" };
+  }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

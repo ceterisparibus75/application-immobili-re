@@ -11,6 +11,12 @@ export type {
   ReconciliationCandidateKind,
 } from "@/actions/bank-reconciliation-shared";
 
+export type {
+  AllocationContext,
+  AllocationTenantGroup,
+  AllocationCandidateInvoice,
+} from "@/actions/bank-reconciliation-queries";
+
 export {
   getUnreconciledTransactions,
   getUnreconciledPayments,
@@ -20,7 +26,10 @@ export {
   getSupplierInvoicesToReconcile,
   getUnreconciledBalanceAdjustments,
   getBankReconciliationSuggestions,
+  getAllocationContextForTransaction,
 } from "@/actions/bank-reconciliation-queries";
+
+export type { AllocationInput } from "@/actions/bank-reconciliation-mutations";
 
 export {
   autoReconcile,
@@ -33,4 +42,5 @@ export {
   reconcileWithJournalEntry,
   reconcileWithInvoice,
   reconcileWithLoanLine,
+  reconcileTransactionWithAllocations,
 } from "@/actions/bank-reconciliation-mutations";

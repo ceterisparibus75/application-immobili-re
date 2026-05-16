@@ -2263,6 +2263,10 @@ model BankReconciliation {
   transactionId String
   paymentId     String
   statementId   String? // Lien vers décompte de gestion (ventilation auto)
+  /// Montant alloué par cette liaison. Permet de ventiler un virement sur
+  /// plusieurs factures (somme des liens = montant de la transaction) ou
+  /// d'enregistrer un paiement partiel (somme < montant transaction).
+  amount        Float
 
   isValidated Boolean   @default(false)
   validatedAt DateTime?
