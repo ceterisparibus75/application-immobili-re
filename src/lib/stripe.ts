@@ -7,7 +7,7 @@ function getStripeClient(): Stripe {
     throw new Error("STRIPE_SECRET_KEY est requis");
   }
   return new Stripe(key, {
-    apiVersion: "2025-04-30.basil",
+    apiVersion: "2026-02-25.clover",
     typescript: true,
   });
 }
