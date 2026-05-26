@@ -124,11 +124,9 @@ describe("createLoan", () => {
     expect(r.data).toBeDefined()
     expect(r.error).toBeUndefined()
 
-    // Verify prisma.loan.create was called with amortizationLines
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ period: number; remainingBalance: number; principalPayment: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ period: number; remainingBalance: number; principalPayment: number }>
+    }).data
     expect(lines).toHaveLength(12)
     // Last line remaining balance should be 0
     expect(lines[lines.length - 1].remainingBalance).toBe(0)
@@ -153,10 +151,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ principalPayment: number; interestPayment: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ principalPayment: number; interestPayment: number }>
+    }).data
     expect(lines).toHaveLength(4)
     // Each principal payment should be 250
     expect(lines[0].principalPayment).toBeCloseTo(250, 2)
@@ -177,10 +174,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ totalPayment: number; interestPayment: number; principalPayment: number; remainingBalance: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ totalPayment: number; interestPayment: number; principalPayment: number; remainingBalance: number }>
+    }).data
 
     // PMT = P * r(1+r)^n / ((1+r)^n - 1) where r = 6/100/12 = 0.005
     const r_rate = 0.005
@@ -208,10 +204,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ period: number; principalPayment: number; interestPayment: number; remainingBalance: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ period: number; principalPayment: number; interestPayment: number; remainingBalance: number }>
+    }).data
     expect(lines).toHaveLength(6)
 
     // Monthly interest = 120000 * 6/100/12 = 600
@@ -237,10 +232,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ insurancePayment: number; totalPayment: number; principalPayment: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ insurancePayment: number; totalPayment: number; principalPayment: number }>
+    }).data
     // Monthly insurance = 60000 * 1.2/100/12 = 60
     // Monthly interest = 60000 * 12/100/12 = 600
     for (let i = 0; i < 2; i++) {
@@ -261,10 +255,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ period: number; principalPayment: number; interestPayment: number; insurancePayment: number; totalPayment: number; remainingBalance: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ period: number; principalPayment: number; interestPayment: number; insurancePayment: number; totalPayment: number; remainingBalance: number }>
+    }).data
     expect(lines).toHaveLength(1)
 
     const line = lines[0]
@@ -289,10 +282,9 @@ describe("createLoan", () => {
     const r = await createLoan("society-1", input)
 
     expect(r.data).toBeDefined()
-    const createCall = prismaMock.loan.create.mock.calls[0][0] as {
-      data: { amortizationLines: { create: Array<{ remainingBalance: number; principalPayment: number }> } }
-    }
-    const lines = createCall.data.amortizationLines.create
+    const lines = (prismaMock.loanAmortizationLine.createMany.mock.calls[0][0] as {
+      data: Array<{ remainingBalance: number; principalPayment: number }>
+    }).data
     expect(lines).toHaveLength(36)
     // Last line must have exactly 0 remaining balance
     expect(lines[35].remainingBalance).toBe(0)
@@ -932,9 +924,9 @@ describe("createLoan — types OBLIGATION et COMPTE_COURANT", () => {
       data: Record<string, unknown>
     }
     // No amortizationLines for COMPTE_COURANT
-    expect(createCall.data.amortizationLines).toBeUndefined()
-    // Initial movement created
-    expect(createCall.data.movements).toBeDefined()
+    expect(prismaMock.loanAmortizationLine.createMany).not.toHaveBeenCalled()
+    // Initial movement created (separate call)
+    expect(prismaMock.loanMovement.create).toHaveBeenCalledTimes(1)
     expect(createCall.data.partnerName).toBe("Jean Dupont")
     expect(createCall.data.currentBalance).toBe(20000)
   })

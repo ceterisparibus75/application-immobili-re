@@ -48,25 +48,30 @@ export async function createLoanFromPdf(
       remainingBalance: line.balance,
     }));
 
-    const loan = await prisma.loan.create({
-      data: {
-        societyId,
-        label: d.label,
-        lender: d.lender,
-        loanType: d.loanType,
-        amount: d.amount,
-        interestRate: d.interestRate,
-        insuranceRate: d.insuranceRate,
-        durationMonths: d.durationMonths,
-        startDate,
-        endDate,
-        buildingId: d.buildingId,
-        purchaseValue: d.purchaseValue ?? null,
-        notes: d.notes ?? null,
-        amortizationLines: {
-          create: amortLines,
+    const loan = await prisma.$transaction(async (tx) => {
+      const created = await tx.loan.create({
+        data: {
+          societyId,
+          label: d.label,
+          lender: d.lender,
+          loanType: d.loanType,
+          amount: d.amount,
+          interestRate: d.interestRate,
+          insuranceRate: d.insuranceRate,
+          durationMonths: d.durationMonths,
+          startDate,
+          endDate,
+          buildingId: d.buildingId,
+          purchaseValue: d.purchaseValue ?? null,
+          notes: d.notes ?? null,
         },
-      },
+      });
+      if (amortLines.length > 0) {
+        await tx.loanAmortizationLine.createMany({
+          data: amortLines.map((line) => ({ ...line, loanId: created.id })),
+        });
+      }
+      return created;
     });
 
     await createAuditLog({
@@ -161,26 +166,28 @@ export async function createLoan(societyId: string, data: unknown) {
     loanData.currentBalance = d.amount; // Solde initial = montant apporté
   }
 
-  // Ajouter les lignes d'amortissement seulement si elles existent
-  if (amortLines.length > 0) {
-    (loanData as Record<string, unknown>).amortizationLines = { create: amortLines };
-  }
-
-  // Créer le mouvement initial pour un compte courant
-  if (d.loanType === "COMPTE_COURANT") {
-    (loanData as Record<string, unknown>).movements = {
-      create: [{
-        date: startDate,
-        type: "APPORT" as const,
-        amount: d.amount,
-        balanceAfter: d.amount,
-        description: "Apport initial",
-      }],
-    };
-  }
-
-    const loan = await prisma.loan.create({
-      data: loanData as Parameters<typeof prisma.loan.create>[0]["data"],
+    const loan = await prisma.$transaction(async (tx) => {
+      const created = await tx.loan.create({
+        data: loanData as Parameters<typeof prisma.loan.create>[0]["data"],
+      });
+      if (amortLines.length > 0) {
+        await tx.loanAmortizationLine.createMany({
+          data: amortLines.map((line) => ({ ...line, loanId: created.id })),
+        });
+      }
+      if (d.loanType === "COMPTE_COURANT") {
+        await tx.loanMovement.create({
+          data: {
+            loanId: created.id,
+            date: startDate,
+            type: "APPORT",
+            amount: d.amount,
+            balanceAfter: d.amount,
+            description: "Apport initial",
+          },
+        });
+      }
+      return created;
     });
 
     await createAuditLog({
