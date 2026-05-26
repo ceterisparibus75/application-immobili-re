@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonrepair } from "jsonrepair";
+import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
 const EXTRACTION_PROMPT = `Tu es un expert comptable spécialisé dans l'analyse de tableaux d'amortissement de prêts immobiliers français.
@@ -134,28 +135,60 @@ export async function POST(req: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    let fileBuffer: Buffer;
+    const contentType = req.headers.get("content-type") ?? "";
 
-    if (!file) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+    if (contentType.includes("application/json")) {
+      const { storagePath } = (await req.json()) as { storagePath?: string };
+      if (!storagePath || typeof storagePath !== "string") {
+        return NextResponse.json({ error: "storagePath requis" }, { status: 400 });
+      }
+      const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !supabaseKey) {
+        return NextResponse.json({ error: "Stockage non configuré" }, { status: 503 });
+      }
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const bucket = env.SUPABASE_STORAGE_BUCKET ?? "documents";
+      const { data, error } = await supabase.storage.from(bucket).download(storagePath);
+      if (error || !data) {
+        return NextResponse.json(
+          { error: `Téléchargement Supabase impossible : ${error?.message ?? "données vides"}` },
+          { status: 404 }
+        );
+      }
+      fileBuffer = Buffer.from(await data.arrayBuffer());
+      if (fileBuffer.byteLength > 20 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Fichier trop volumineux (max 20 Mo)" },
+          { status: 400 }
+        );
+      }
+    } else {
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+
+      if (!file) {
+        return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+      }
+
+      if (file.type !== "application/pdf") {
+        return NextResponse.json(
+          { error: "Seuls les fichiers PDF sont acceptés" },
+          { status: 400 }
+        );
+      }
+
+      if (file.size > 20 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Fichier trop volumineux (max 20 Mo)" },
+          { status: 400 }
+        );
+      }
+
+      fileBuffer = Buffer.from(await file.arrayBuffer());
     }
 
-    if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "Seuls les fichiers PDF sont acceptés" },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Fichier trop volumineux (max 20 Mo)" },
-        { status: 400 }
-      );
-    }
-
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
     const pdfBase64 = fileBuffer.toString("base64");
 
     // Utiliser le streaming pour supporter les réponses longues (65536 tokens)

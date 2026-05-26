@@ -485,22 +485,57 @@ function PdfImportForm({
   const [buildingId, setBuildingId] = useState("");
   const [purchaseValue, setPurchaseValue] = useState("");
   const [notes, setNotes] = useState("");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploadedPdf, setUploadedPdf] = useState<{
+    fileName: string;
+    fileUrl: string;
+    storagePath: string;
+    fileSize: number;
+  } | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
     setIsAnalyzing(true);
-    setPdfFile(file);
-
-    const fd = new FormData();
-    fd.append("file", file);
+    setUploadedPdf(null);
 
     try {
+      // Étape 1 : upload signé Supabase (contourne la limite ~4.5 Mo de Vercel)
+      const sigRes = await fetch("/api/storage/signed-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: "application/pdf",
+          fileSize: file.size,
+          societyId: activeSocietyId,
+          entityFolder: "emprunts",
+        }),
+      });
+      if (!sigRes.ok) {
+        const j = await sigRes.json().catch(() => ({}));
+        setError(j.error ?? "Impossible d'initialiser l'upload du PDF");
+        setIsAnalyzing(false);
+        return;
+      }
+      const { signedUrl, storagePath, fileUrl } = await sigRes.json();
+      const putRes = await fetch(signedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": "application/pdf" },
+      });
+      if (!putRes.ok) {
+        setError("Échec du téléversement du PDF vers le stockage");
+        setIsAnalyzing(false);
+        return;
+      }
+      setUploadedPdf({ fileName: file.name, fileUrl, storagePath, fileSize: file.size });
+
+      // Étape 2 : appel parse-pdf avec le storagePath (pas le fichier brut)
       const res = await fetch("/api/emprunts/parse-pdf", {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storagePath }),
       });
       const json = await res.json();
       if (!res.ok || json.error) {
@@ -530,30 +565,8 @@ function PdfImportForm({
     if (!parsed) return;
     setStep("saving");
 
-    // Upload PDF to GED storage if file is available
-    let pdfDoc: { fileName: string; fileUrl: string; storagePath: string; fileSize: number } | undefined;
-    if (pdfFile) {
-      try {
-        const sigRes = await fetch("/api/storage/signed-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: pdfFile.name,
-            contentType: "application/pdf",
-            fileSize: pdfFile.size,
-            societyId: activeSocietyId,
-            entityFolder: "emprunts",
-          }),
-        });
-        if (sigRes.ok) {
-          const { signedUrl, storagePath, fileUrl } = await sigRes.json();
-          await fetch(signedUrl, { method: "PUT", body: pdfFile, headers: { "Content-Type": "application/pdf" } });
-          pdfDoc = { fileName: pdfFile.name, fileUrl, storagePath, fileSize: pdfFile.size };
-        }
-      } catch {
-        // Storage upload failure is non-blocking — loan is still created
-      }
-    }
+    // Le PDF a déjà été uploadé pendant l'analyse — on réutilise le storagePath.
+    const pdfDoc = uploadedPdf ?? undefined;
 
     const data = {
       label,
