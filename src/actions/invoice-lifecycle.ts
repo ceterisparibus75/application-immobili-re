@@ -320,9 +320,18 @@ async function generateQuittancePdfAndSend(
     ? new Date(quittance.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
     : new Date(quittance.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-  const lotAddress = quittance.lease?.lot?.building?.addressLine1 ?? "";
+  // Même nomenclature que les factures (route /api/invoices/[id]/pdf) :
+  // {numéro}_{nom-immeuble-ou-adresse}_{locataire}_{MM-YYYY}.pdf
+  const buildingName =
+    quittance.lease?.lot?.building?.name ??
+    quittance.lease?.lot?.building?.addressLine1 ??
+    "";
+  const periodDate = quittance.periodStart
+    ? new Date(quittance.periodStart)
+    : new Date(quittance.issueDate);
+  const periodFile = `${String(periodDate.getMonth() + 1).padStart(2, "0")}-${periodDate.getFullYear()}`;
   const pdfFileName = buildStorageFileName(
-    [quittance.invoiceNumber, lotAddress, tenantName],
+    [quittance.invoiceNumber, buildingName, tenantName, periodFile],
     "pdf",
     "quittance"
   );
