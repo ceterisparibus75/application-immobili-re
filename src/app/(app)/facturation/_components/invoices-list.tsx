@@ -13,6 +13,7 @@ import {
   Building2,
   CheckCircle2,
   Clock,
+  Download,
   FileText,
   FilterX,
   Loader2,
@@ -123,6 +124,10 @@ function canSendInvoice(invoice: InvoiceItem): boolean {
   return hasEmail(invoice) && !!invoice.invoiceNumber && SENDABLE_STATUSES.has(invoice.status);
 }
 
+function canDownloadInvoice(invoice: InvoiceItem): boolean {
+  return !!invoice.invoiceNumber;
+}
+
 function getDisplayStatus(invoice: InvoiceItem): InvoiceStatus {
   if (
     invoice.invoiceType === "QUITTANCE" &&
@@ -200,6 +205,7 @@ type InvoicesListProps = {
   itemLabel?: string;
   itemLabelPlural?: string;
   enableBulkSend?: boolean;
+  enableBulkDownload?: boolean;
 };
 
 export function InvoicesList({
@@ -209,10 +215,13 @@ export function InvoicesList({
   itemLabel = "facture",
   itemLabelPlural = "factures",
   enableBulkSend = false,
+  enableBulkDownload = false,
 }: InvoicesListProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const enableSelection = enableBulkSend || enableBulkDownload;
   const [localSentIds, setLocalSentIds] = useState<Set<string>>(new Set());
   const [deliveryStatuses, setDeliveryStatuses] = useState<Record<string, DeliveryStatus>>({});
   const [query, setQuery] = useState("");
@@ -322,6 +331,21 @@ export function InvoicesList({
     [visibleInvoices]
   );
 
+  const visibleSelectableIds = useMemo(() => {
+    if (enableBulkSend) return visibleInvoices.filter(canSendInvoice).map((i) => i.id);
+    if (enableBulkDownload) return visibleInvoices.filter(canDownloadInvoice).map((i) => i.id);
+    return [];
+  }, [enableBulkSend, enableBulkDownload, visibleInvoices]);
+
+  const isInvoiceSelectable = useCallback(
+    (invoice: InvoiceItem): boolean => {
+      if (enableBulkSend) return canSendInvoice(invoice);
+      if (enableBulkDownload) return canDownloadInvoice(invoice);
+      return false;
+    },
+    [enableBulkSend, enableBulkDownload]
+  );
+
   const selectedInvoices = useMemo(
     () => invoices.filter((invoice) => selected.has(invoice.id)),
     [invoices, selected]
@@ -333,8 +357,8 @@ export function InvoicesList({
   const sentCount = invoices.filter((invoice) => invoice.sentAt || localSentIds.has(invoice.id)).length;
   const missingEmailCount = visibleInvoices.filter((invoice) => !hasEmail(invoice)).length;
   const allVisibleSelected =
-    visibleSendableIds.length > 0 &&
-    visibleSendableIds.every((id) => selected.has(id));
+    visibleSelectableIds.length > 0 &&
+    visibleSelectableIds.every((id) => selected.has(id));
 
   const resetFilters = () => {
     setQuery("");
@@ -346,14 +370,14 @@ export function InvoicesList({
   const toggleAllVisible = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (visibleSendableIds.every((id) => next.has(id))) {
-        visibleSendableIds.forEach((id) => next.delete(id));
+      if (visibleSelectableIds.every((id) => next.has(id))) {
+        visibleSelectableIds.forEach((id) => next.delete(id));
       } else {
-        visibleSendableIds.forEach((id) => next.add(id));
+        visibleSelectableIds.forEach((id) => next.add(id));
       }
       return next;
     });
-  }, [visibleSendableIds]);
+  }, [visibleSelectableIds]);
 
   const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
@@ -394,6 +418,59 @@ export function InvoicesList({
     if (ok > 0) toast.success(`${ok} email${ok > 1 ? "s" : ""} envoyé${ok > 1 ? "s" : ""}`);
     if (errors.length > 0) toast.error(errors.join(" | "), { duration: 10000 });
     router.refresh();
+  };
+
+  const downloadBulk = async () => {
+    if (selectedInvoices.length === 0) return;
+    setDownloading(true);
+    try {
+      const JSZipModule = await import("jszip");
+      const zip = new JSZipModule.default();
+      const errors: string[] = [];
+
+      const fetchOne = async (invoice: InvoiceItem) => {
+        try {
+          const response = await fetch(`/api/invoices/${invoice.id}/pdf`);
+          if (!response.ok) {
+            errors.push(`${invoice.invoiceNumber ?? invoice.id} : HTTP ${response.status}`);
+            return;
+          }
+          const blob = await response.blob();
+          const safeName = (invoice.invoiceNumber ?? invoice.id).replace(/[^a-zA-Z0-9._-]/g, "_");
+          zip.file(`${safeName}.pdf`, blob);
+        } catch (err) {
+          errors.push(`${invoice.invoiceNumber ?? invoice.id} : ${String(err)}`);
+        }
+      };
+
+      const batchSize = 4;
+      for (let i = 0; i < selectedInvoices.length; i += batchSize) {
+        await Promise.all(selectedInvoices.slice(i, i + batchSize).map(fetchOne));
+      }
+
+      const fileCount = Object.keys(zip.files).length;
+      if (fileCount === 0) {
+        toast.error("Aucun PDF récupéré");
+      } else {
+        const archive = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(archive);
+        const link = document.createElement("a");
+        link.href = url;
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.download = `factures-${stamp}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success(`${fileCount} ${itemLabelPlural} téléchargée${fileCount > 1 ? "s" : ""}`);
+      }
+
+      if (errors.length > 0) {
+        toast.error(`${errors.length} échec(s) : ${errors.slice(0, 3).join(" | ")}`, { duration: 10000 });
+      }
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -463,20 +540,20 @@ export function InvoicesList({
             </Button>
           </div>
 
-          {enableBulkSend && (
+          {enableSelection && (
             <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
               <Checkbox
                 checked={allVisibleSelected}
                 onCheckedChange={toggleAllVisible}
-                disabled={visibleSendableIds.length === 0 || sending}
+                disabled={visibleSelectableIds.length === 0 || sending || downloading}
                 id="select-visible-invoices"
-                aria-label={`Sélectionner les ${itemLabelPlural} envoyables affichées`}
+                aria-label={`Sélectionner les ${itemLabelPlural} affichées`}
               />
               <label htmlFor="select-visible-invoices" className="cursor-pointer select-none text-sm">
-                Sélectionner les factures envoyables
+                {enableBulkSend ? "Sélectionner les factures envoyables" : `Sélectionner les ${itemLabelPlural}`}
               </label>
               <span className="text-xs text-muted-foreground">
-                {visibleSendableIds.length} disponible{visibleSendableIds.length > 1 ? "s" : ""}
+                {visibleSelectableIds.length} disponible{visibleSelectableIds.length > 1 ? "s" : ""}
               </span>
               {selectedCount > 0 && (
                 <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -484,15 +561,19 @@ export function InvoicesList({
                     {selectedCount} sélectionnée{selectedCount > 1 ? "s" : ""}
                   </Badge>
                   <span className="text-sm font-medium tabular-nums">{formatCurrency(selectedTotal)}</span>
-                  <Button size="sm" onClick={sendBulk} disabled={sending}>
-                    {sending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Send className="size-4" />
-                    )}
-                    {sending ? "Envoi..." : "Envoyer"}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending}>
+                  {enableBulkSend && (
+                    <Button size="sm" onClick={sendBulk} disabled={sending || downloading}>
+                      {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                      {sending ? "Envoi..." : "Envoyer"}
+                    </Button>
+                  )}
+                  {enableBulkDownload && (
+                    <Button size="sm" variant={enableBulkSend ? "outline" : "default"} onClick={downloadBulk} disabled={sending || downloading}>
+                      {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                      {downloading ? "Préparation..." : "Télécharger (ZIP)"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={sending || downloading}>
                     Annuler
                   </Button>
                 </div>
@@ -537,24 +618,29 @@ export function InvoicesList({
                 const isSent = !!invoice.sentAt || localSentIds.has(invoice.id);
                 const delivery = deliveryStatuses[invoice.id] ?? null;
                 const displayStatus = getDisplayStatus(invoice);
-                const sendable = canSendInvoice(invoice);
                 const buildingName = getBuildingName(invoice);
-
+                const selectable = isInvoiceSelectable(invoice);
                 return (
                   <div
                     key={invoice.id}
                     className={`grid gap-3 px-4 py-3 transition-colors hover:bg-accent/30 ${
-                      enableBulkSend
+                      enableSelection
                         ? "md:grid-cols-[auto_minmax(0,1fr)_auto]"
                         : "md:grid-cols-[minmax(0,1fr)_auto]"
                     }`}
                   >
-                    {enableBulkSend && (
+                    {enableSelection && (
                       <Checkbox
                         checked={selected.has(invoice.id)}
                         onCheckedChange={() => toggleOne(invoice.id)}
-                        disabled={!sendable || sending}
-                        title={!hasEmail(invoice) ? "Aucun email pour ce locataire" : !sendable ? "Statut non envoyable" : undefined}
+                        disabled={!selectable || sending || downloading}
+                        title={
+                          enableBulkSend && !hasEmail(invoice)
+                            ? "Aucun email pour ce locataire"
+                            : !selectable
+                              ? (enableBulkSend ? "Statut non envoyable" : "Aucun numéro de facture")
+                              : undefined
+                        }
                         aria-label={`Sélectionner ${invoice.invoiceNumber ?? `${itemLabel} sans numéro`}`}
                         className="mt-1"
                       />

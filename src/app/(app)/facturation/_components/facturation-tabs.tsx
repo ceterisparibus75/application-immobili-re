@@ -352,6 +352,7 @@ export function FacturationTabs({
               title="Registre des factures"
               itemLabel="facture"
               itemLabelPlural="factures"
+              enableBulkDownload
             />
           )}
         </div>
@@ -415,6 +416,7 @@ export function FacturationTabs({
               title="Registre des quittances"
               itemLabel="quittance"
               itemLabelPlural="quittances"
+              enableBulkDownload
             />
           )}
         </div>
