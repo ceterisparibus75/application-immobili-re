@@ -436,8 +436,13 @@ export function InvoicesList({
             return;
           }
           const blob = await response.blob();
-          const safeName = (invoice.invoiceNumber ?? invoice.id).replace(/[^a-zA-Z0-9._-]/g, "_");
-          zip.file(`${safeName}.pdf`, blob);
+          // Le serveur fixe déjà le nom canonique {numero}_{adresse}_{locataire}_{periode}.pdf
+          // dans Content-Disposition — on le réutilise pour la cohérence avec les autres exports.
+          const disposition = response.headers.get("content-disposition") ?? "";
+          const dispoMatch = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+          const fallback = `${(invoice.invoiceNumber ?? invoice.id).replace(/[^a-zA-Z0-9._-]/g, "_")}.pdf`;
+          const filename = dispoMatch?.[1] ? decodeURIComponent(dispoMatch[1]) : fallback;
+          zip.file(filename, blob);
         } catch (err) {
           errors.push(`${invoice.invoiceNumber ?? invoice.id} : ${String(err)}`);
         }
