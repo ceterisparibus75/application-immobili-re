@@ -117,6 +117,34 @@ export async function getNextInvoiceNumber(
   return `${prefix}-${currentYear}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
 }
 
+/** Numérotation atomique des quittances de loyer — séquence séparée des factures.
+ *  Les quittances sont des reçus de paiement, pas des titres de créance : elles
+ *  ne doivent pas consommer la séquence facture. Préfixe fixe "QIT" (indépendant
+ *  du préfixe société) pour rester lisible dans la liste consolidée. */
+export async function getNextReceiptNumber(
+  societyId: string,
+  tx: Prisma.TransactionClient
+): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  const current = await tx.society.findUnique({
+    where: { id: societyId },
+    select: { receiptNumberYear: true, nextReceiptNumber: true },
+  });
+
+  const yearChanged = !current || current.receiptNumberYear !== currentYear;
+
+  const society = await tx.society.update({
+    where: { id: societyId },
+    data: yearChanged
+      ? { receiptNumberYear: currentYear, nextReceiptNumber: 1 }
+      : { nextReceiptNumber: { increment: 1 } },
+    select: { nextReceiptNumber: true },
+  });
+
+  return `QIT-${currentYear}-${String(society.nextReceiptNumber).padStart(4, "0")}`;
+}
+
 /** Numérotation atomique des avoirs — séquence séparée des factures. */
 export async function getNextCreditNoteNumber(
   societyId: string,

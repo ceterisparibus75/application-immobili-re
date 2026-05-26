@@ -26,7 +26,7 @@ import {
   createCustomerPaymentJournalEntry,
 } from "@/lib/accounting-automation";
 import { env } from "@/lib/env";
-import { getNextInvoiceNumber, getNextCreditNoteNumber } from "./invoice-shared";
+import { getNextInvoiceNumber, getNextCreditNoteNumber, getNextReceiptNumber } from "./invoice-shared";
 
 // Numéro alloué à la validation, pas à la création du brouillon.
 
@@ -147,7 +147,7 @@ export async function generateAndSendQuittance(
     if (existingQuittance) return { success: true, data: { quittanceId: existingQuittance.id } };
 
     const quittance = await prisma.$transaction(async (tx) => {
-      const invoiceNumber = await getNextInvoiceNumber(societyId, tx);
+      const invoiceNumber = await getNextReceiptNumber(societyId, tx);
       return tx.invoice.create({
         data: {
           societyId,

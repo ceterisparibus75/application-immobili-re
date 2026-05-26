@@ -562,6 +562,8 @@ model Society {
   invoiceNumberYear    Int     @default(0) // Année du compteur — réinitialise nextInvoiceNumber chaque année
   nextCreditNoteNumber Int     @default(0) // Compteur séparé pour les avoirs
   creditNoteNumberYear Int     @default(0) // Année du compteur avoir
+  nextReceiptNumber    Int     @default(0) // Compteur séparé pour les quittances de loyer (préfixe QIT)
+  receiptNumberYear    Int     @default(0) // Année du compteur quittance
 
   // Configuration
   isActive Boolean @default(true)
