@@ -778,7 +778,8 @@ describe("reconcileWithInvoice", () => {
     prismaMock.invoice.update.mockResolvedValue({ invoiceType: "APPEL_LOYER", status: "PAYE" } as never);
     prismaMock.bankReconciliation.create.mockResolvedValue({} as never);
     prismaMock.bankTransaction.update.mockResolvedValue({} as never);
-    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 500 } } as never);
+    // tx 500 + paidSoFar 0 + target 500 => alloue 500 => statut PAYE => déclenche quittance auto
+    prismaMock.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await reconcileWithInvoice(SOCIETY_ID, TX_ID, INVOICE_ID);
     expect(r.success).toBe(true);

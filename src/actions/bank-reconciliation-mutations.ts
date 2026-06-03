@@ -812,6 +812,7 @@ export async function reconcileWithInvoice(
     const [transaction, invoice, paidAgg] = await Promise.all([
       prisma.bankTransaction.findFirst({
         where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
+        include: { reconciliations: { select: { amount: true } } },
       }),
       prisma.invoice.findFirst({ where: { id: invoiceId, societyId } }),
       prisma.payment.aggregate({ where: { invoiceId }, _sum: { amount: true } }),
@@ -823,17 +824,30 @@ export async function reconcileWithInvoice(
     }
 
     const paidSoFar = paidAgg._sum.amount ?? 0;
-    const newTotal = paidSoFar + transaction.amount;
     const targetAmount = invoice.isThirdPartyManaged && invoice.expectedNetAmount
       ? invoice.expectedNetAmount
       : invoice.totalTTC;
-    const newStatus = newTotal >= targetAmount - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+    const invoiceUnpaid = Math.max(0, targetAmount - paidSoFar);
+    if (invoiceUnpaid <= 0.01) {
+      return { success: false, error: "Cette facture est déjà soldée" };
+    }
+    // Reste à allouer sur la transaction (peut être < transaction.amount si déjà ventilée).
+    const alreadyAllocatedOnTx = (transaction.reconciliations ?? []).reduce((s, r) => s + r.amount, 0);
+    const txRemaining = round2(transaction.amount - alreadyAllocatedOnTx);
+    if (txRemaining <= 0.01) {
+      return { success: false, error: "Cette transaction est déjà entièrement ventilée" };
+    }
+    // On ne surpaye jamais la facture, on n'alloue jamais plus que ce qu'il reste sur la tx.
+    const allocAmount = round2(Math.min(txRemaining, invoiceUnpaid));
+    const newInvoiceTotalPaid = paidSoFar + allocAmount;
+    const newStatus = newInvoiceTotalPaid >= targetAmount - 0.01 ? "PAYE" : "PARTIELLEMENT_PAYE";
+    const fullyConsumesTx = allocAmount >= txRemaining - 0.01;
 
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
           invoiceId,
-          amount: transaction.amount,
+          amount: allocAmount,
           paidAt: transaction.transactionDate,
           method: "virement",
           reference: transaction.reference ?? undefined,
@@ -845,25 +859,29 @@ export async function reconcileWithInvoice(
         data: {
           transactionId,
           paymentId: payment.id,
-          amount: transaction.amount,
+          amount: allocAmount,
           isValidated: true,
           validatedAt: new Date(),
           validatedBy: context.userId,
         },
       });
-      const journalEntryId = await createBankJournalEntryForTransaction(
-        tx,
-        societyId,
-        {
-          ...transaction,
-          reconciliations: [{ payment: { invoice } }],
-        },
-        { linkTransaction: false }
-      );
-      await tx.bankTransaction.update({
-        where: { id: transactionId },
-        data: { isReconciled: true, journalEntryId },
-      });
+      // Journal BQUE : créé uniquement quand la tx est totalement ventilée
+      // (sinon on aurait une écriture partielle puis une autre — pas propre).
+      if (fullyConsumesTx) {
+        const journalEntryId = await createBankJournalEntryForTransaction(
+          tx,
+          societyId,
+          {
+            ...transaction,
+            reconciliations: [{ payment: { invoice } }],
+          },
+          { linkTransaction: false }
+        );
+        await tx.bankTransaction.update({
+          where: { id: transactionId },
+          data: { isReconciled: true, journalEntryId },
+        });
+      }
     });
 
     await createAuditLog({
