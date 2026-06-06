@@ -143,6 +143,13 @@ export async function getUpcomingLoanLines(societyId: string) {
       isPaid: false,
       dueDate: { lte: new Date() },
       loan: { societyId, status: "EN_COURS" },
+      // Exclut les lignes techniques (cap + int + ass = 0) — typiquement issues
+      // d'un import PDF où une colonne du tableau n'a pas été extraite.
+      OR: [
+        { principalPayment: { gt: 0.01 } },
+        { interestPayment: { gt: 0.01 } },
+        { insurancePayment: { gt: 0.01 } },
+      ],
     },
     select: {
       id: true,
@@ -297,6 +304,12 @@ export async function getBankReconciliationSuggestions(
       where: {
         isPaid: false,
         loan: { societyId, status: "EN_COURS" },
+        // Idem getUpcomingLoanLines : on ignore les lignes sans rien à payer.
+        OR: [
+          { principalPayment: { gt: 0.01 } },
+          { interestPayment: { gt: 0.01 } },
+          { insurancePayment: { gt: 0.01 } },
+        ],
       },
       select: {
         id: true,
