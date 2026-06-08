@@ -44,6 +44,7 @@ async function checkDowngradeAllowed(
 }
 import type { ActionResult } from "@/actions/society";
 import type { PlanId } from "@/lib/stripe";
+import { checkCoveredByOwnerSubscription } from "@/lib/plan-limits";
 import { env } from "@/lib/env";
 import {
   requireSocietyActionContext,
@@ -232,6 +233,20 @@ export async function createCheckout(
 
     // Vérifier si cette société a déjà bénéficié d'un trial — si oui, pas de nouveau trial
     const existingSub = await prisma.subscription.findUnique({ where: { societyId } });
+
+    // Garde-fou anti-doublon : refuser si la société est déjà couverte par un
+    // autre abonnement ACTIVE souscrit par un admin (même user OU autre admin).
+    // Évite que deux admins de la même société paient en parallèle.
+    if (!existingSub?.stripeSubscriptionId) {
+      const coverage = await checkCoveredByOwnerSubscription(societyId);
+      if (coverage.covered && !coverage.overLimit) {
+        return {
+          success: false,
+          error: `Cette société est déjà couverte par un abonnement ${coverage.planName ?? "actif"}. Aucun nouvel abonnement n'est nécessaire — utilisez le portail Stripe de l'abonnement existant pour gérer votre plan.`,
+        };
+      }
+    }
+
     const trialDays = existingSub?.trialUsed ? 0 : 14;
 
     const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
@@ -274,6 +289,14 @@ export async function changeSubscriptionPlan(
 
     // Pas d'abonnement Stripe actif → Checkout (première souscription)
     if (!existingSub?.stripeSubscriptionId) {
+      // Garde-fou anti-doublon (idem createCheckout).
+      const coverage = await checkCoveredByOwnerSubscription(societyId);
+      if (coverage.covered && !coverage.overLimit) {
+        return {
+          success: false,
+          error: `Cette société est déjà couverte par un abonnement ${coverage.planName ?? "actif"}. Aucun nouvel abonnement n'est nécessaire — utilisez le portail Stripe de l'abonnement existant pour gérer votre plan.`,
+        };
+      }
       const trialDays = existingSub?.trialUsed ? 0 : 14;
       const baseUrl = env.AUTH_URL ?? "http://localhost:3000";
       const url = await createCheckoutSession({

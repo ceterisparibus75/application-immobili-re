@@ -240,7 +240,7 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
  *   - overLimit: true → l'utilisateur a un plan actif mais cette société dépasse le quota
  *   - (les deux false) → pas de plan actif trouvé
  */
-async function checkCoveredByOwnerSubscription(societyId: string): Promise<{
+export async function checkCoveredByOwnerSubscription(societyId: string): Promise<{
   covered: boolean;
   overLimit: boolean;
   planName?: string;
