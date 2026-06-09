@@ -337,8 +337,13 @@ export async function requiresTwoFactor(userId: string): Promise<boolean> {
     },
   });
 
+  // L'obligation 2FA Enterprise ne s'applique qu'aux rôles d'administration
+  // (ADMIN_SOCIETE / SUPER_ADMIN). Les COMPTABLE, GESTIONNAIRE et LECTURE
+  // ne sont pas forcés à activer le 2FA, même si une de leurs sociétés
+  // est sous plan Enterprise.
   return memberships.some(
     (m) =>
+      ["ADMIN_SOCIETE", "SUPER_ADMIN"].includes(m.role) &&
       m.society.subscription?.planId === "ENTERPRISE" &&
       ["ACTIVE", "TRIALING"].includes(m.society.subscription?.status ?? "")
   );

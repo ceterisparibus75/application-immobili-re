@@ -227,6 +227,40 @@ describe("requiresTwoFactor", () => {
     const result = await requiresTwoFactor(USER_ID);
     expect(result).toBe(true);
   });
+
+  it("retourne false si ENTERPRISE ACTIVE mais rôle COMPTABLE (l'obligation 2FA ne vise que ADMIN/SUPER_ADMIN)", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      {
+        userId: USER_ID,
+        societyId: SOCIETY_ID,
+        role: "COMPTABLE",
+        society: {
+          subscription: { planId: "ENTERPRISE", status: "ACTIVE" },
+        },
+      },
+    ] as never);
+    const result = await requiresTwoFactor(USER_ID);
+    expect(result).toBe(false);
+  });
+
+  it("retourne true si l'user est COMPTABLE sur une société ENTERPRISE ET ADMIN_SOCIETE sur une autre ENTERPRISE", async () => {
+    prismaMock.userSociety.findMany.mockResolvedValue([
+      {
+        userId: USER_ID,
+        societyId: SOCIETY_ID,
+        role: "COMPTABLE",
+        society: { subscription: { planId: "ENTERPRISE", status: "ACTIVE" } },
+      },
+      {
+        userId: USER_ID,
+        societyId: "society-2",
+        role: "ADMIN_SOCIETE",
+        society: { subscription: { planId: "ENTERPRISE", status: "ACTIVE" } },
+      },
+    ] as never);
+    const result = await requiresTwoFactor(USER_ID);
+    expect(result).toBe(true);
+  });
 });
 
 // ── checkSocietyLimit ─────────────────────────────────────────────
