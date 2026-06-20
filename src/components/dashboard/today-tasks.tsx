@@ -45,7 +45,7 @@ async function getTodayTasks(societyId: string | string[]) {
       where: {
         societyId: societyFilter,
         invoiceType: { not: "QUITTANCE" },
-        status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] },
+        status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] },
         dueDate: { lt: ago30days },
       },
       select: {

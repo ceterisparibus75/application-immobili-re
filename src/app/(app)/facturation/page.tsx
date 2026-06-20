@@ -55,7 +55,10 @@ async function getOverdueInvoices(societyId: string) {
   return prisma.invoice.findMany({
     where: {
       societyId,
-      status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] },
+      // RELANCEE inclus : une facture relancée reste impayée tant qu'elle n'a
+      // pas basculé en PAYE / ANNULEE / IRRECOUVRABLE — sinon elle disparaîtrait
+      // de la vue "en retard" dès le 1er envoi de relance.
+      status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] },
       invoiceType: { notIn: ["AVOIR", "QUITTANCE"] },
       dueDate: { lt: new Date() },
     },

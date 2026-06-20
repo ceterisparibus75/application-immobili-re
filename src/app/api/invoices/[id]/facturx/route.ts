@@ -140,7 +140,7 @@ export async function GET(
             societyId: context.societyId,
             leaseId: invoice.lease.id,
             id: { not: invoice.id },
-            status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE"] },
+            status: { in: ["EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] },
           },
           select: { totalTTC: true, payments: { select: { amount: true } } },
         }),

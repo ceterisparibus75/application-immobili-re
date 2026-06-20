@@ -68,8 +68,15 @@ export async function recordPayment(
 
     const totalPaid =
       invoice.payments.reduce((s, p) => s + p.amount, 0) + parsed.data.amount;
+    // En gestion tiers, le locataire ne nous verse que le net (loyer - honoraires).
+    // On compare donc totalPaid à expectedNetAmount plutôt qu'à totalTTC, sinon
+    // une facture entièrement payée resterait à PARTIELLEMENT_PAYE.
+    const targetAmount = invoice.isThirdPartyManaged && invoice.expectedNetAmount
+      ? invoice.expectedNetAmount
+      : invoice.totalTTC;
     let newStatus: InvoiceStatus = invoice.status;
-    if (totalPaid >= invoice.totalTTC) {
+    // Tolérance 0.01 € pour absorber les arrondis flottants (ex. 1499,99 vs 1500).
+    if (totalPaid >= targetAmount - 0.01) {
       newStatus = "PAYE";
     } else if (totalPaid > 0) {
       newStatus = "PARTIELLEMENT_PAYE";

@@ -35,7 +35,7 @@ export default async function LocationPage() {
   const [activeLeases, activeTenants, lateInvoices, openTickets, rentAggregate] = await Promise.all([
     prisma.lease.count({ where: { societyId, status: "EN_COURS" } }),
     prisma.tenant.count({ where: { societyId, isActive: true } }),
-    prisma.invoice.count({ where: { societyId, status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE"] } } }),
+    prisma.invoice.count({ where: { societyId, status: { in: ["EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE"] } } }),
     prisma.ticket.count({ where: { societyId, status: { in: ["OUVERT", "EN_COURS", "EN_ATTENTE"] } } }),
     prisma.lease.aggregate({
       where: { societyId, status: "EN_COURS" },
