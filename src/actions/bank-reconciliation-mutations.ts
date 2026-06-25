@@ -635,7 +635,10 @@ export async function reconcileWithBalanceAdjustment(
     const [transaction, adjustment] = await Promise.all([
       prisma.bankTransaction.findFirst({
         where: { id: transactionId, bankAccount: { societyId }, isReconciled: false },
-        include: { bankAccount: { select: { id: true, bankName: true, accountName: true } } },
+        include: {
+          bankAccount: { select: { id: true, bankName: true, accountName: true } },
+          reconciliations: { select: { amount: true } },
+        },
       }),
       prisma.tenantBalanceAdjustment.findFirst({
         where: { id: adjustmentId, societyId, isReconciled: false },
@@ -648,44 +651,69 @@ export async function reconcileWithBalanceAdjustment(
     if (transaction.amount <= 0) {
       return { success: false, error: "Une reprise de solde doit être rapprochée avec une transaction bancaire créditrice" };
     }
-    if (Math.abs(transaction.amount - adjustment.amount) > 0.01) {
-      return { success: false, error: "Le montant de la transaction ne correspond pas à la reprise de solde" };
+    // Reste à allouer sur la transaction = montant initial - BankReconciliation
+    // existantes - reprises déjà rapprochées sur cette même tx.
+    const alreadyAllocatedReconciliations = (transaction.reconciliations ?? []).reduce(
+      (s, r) => s + r.amount,
+      0
+    );
+    const otherAdjustments = await prisma.tenantBalanceAdjustment.aggregate({
+      where: { societyId, reconciledBankTransactionId: transactionId, id: { not: adjustmentId } },
+      _sum: { amount: true },
+    });
+    const alreadyAllocatedAdjustments = otherAdjustments._sum.amount ?? 0;
+    const txRemaining = roundCents(
+      transaction.amount - alreadyAllocatedReconciliations - alreadyAllocatedAdjustments
+    );
+    if (txRemaining < adjustment.amount - 0.01) {
+      return {
+        success: false,
+        error: `Solde restant de la transaction (${txRemaining.toFixed(2)} €) insuffisant pour cette reprise (${adjustment.amount.toFixed(2)} €).`,
+      };
     }
+    const fullyConsumesTx = adjustment.amount >= txRemaining - 0.01;
 
     await prisma.$transaction(async (tx) => {
-      const bankAccountFallback = transaction.bankAccount
-        ? buildBankAccountFallback(transaction.bankAccount)
-        : { code: "512000", label: "Banques", type: "5" };
+      // Le journal BQUE n'est créé que si la transaction est entièrement
+      // consommée (sinon on aurait plusieurs écritures partielles pour la
+      // même tx, cf. reconcileWithInvoice).
+      let entryId: string | null = null;
+      if (fullyConsumesTx) {
+        const bankAccountFallback = transaction.bankAccount
+          ? buildBankAccountFallback(transaction.bankAccount)
+          : { code: "512000", label: "Banques", type: "5" };
 
-      const [compte512, compte411] = await Promise.all([
-        upsertAccountingAccount(tx, societyId, bankAccountFallback),
-        upsertAccountingAccount(tx, societyId, { code: "411", label: "Clients", type: "4" }),
-      ]);
+        const [compte512, compte411] = await Promise.all([
+          upsertAccountingAccount(tx, societyId, bankAccountFallback),
+          upsertAccountingAccount(tx, societyId, { code: "411", label: "Clients", type: "4" }),
+        ]);
 
-      const amount = roundCents(transaction.amount);
-      const name = tenantDisplayName(adjustment.tenant);
+        const amount = roundCents(transaction.amount);
+        const name = tenantDisplayName(adjustment.tenant);
 
-      const entry = await tx.journalEntry.create({
-        data: {
-          societyId,
-          fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
-          journalType: "BQUE",
-          entryDate: transaction.transactionDate,
-          label: `${adjustment.label} - ${name}`,
-          reference: transaction.reference ?? undefined,
-          lines: {
-            create: [
-              { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
-              { accountId: compte411.id, debit: 0, credit: amount, label: name },
-            ],
+        const entry = await tx.journalEntry.create({
+          data: {
+            societyId,
+            fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+            journalType: "BQUE",
+            entryDate: transaction.transactionDate,
+            label: `${adjustment.label} - ${name}`,
+            reference: transaction.reference ?? undefined,
+            lines: {
+              create: [
+                { accountId: compte512.id, debit: amount, credit: 0, label: transaction.label },
+                { accountId: compte411.id, debit: 0, credit: amount, label: name },
+              ],
+            },
           },
-        },
-      });
+        });
+        entryId = entry.id;
 
-      await tx.bankTransaction.update({
-        where: { id: transactionId },
-        data: { isReconciled: true, journalEntryId: entry.id },
-      });
+        await tx.bankTransaction.update({
+          where: { id: transactionId },
+          data: { isReconciled: true, journalEntryId: entryId },
+        });
+      }
 
       await tx.tenantBalanceAdjustment.update({
         where: { id: adjustmentId },
