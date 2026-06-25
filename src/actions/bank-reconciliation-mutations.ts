@@ -1200,6 +1200,7 @@ export async function reconcileTransactionWithAllocations(
         invoiceType: true,
         isThirdPartyManaged: true,
         expectedNetAmount: true,
+        status: true,
       },
     });
     if (invoices.length !== allocations.length) {
@@ -1217,6 +1218,11 @@ export async function reconcileTransactionWithAllocations(
     const creditExcess = options?.creditExcessToTenant !== false; // défaut: true
     const willCreditExcess = excess > 0.01 && creditExcess;
     const willFullyReconcile = willCreditExcess || Math.abs(excess) <= 0.01;
+
+    // Collecte les factures APPEL_LOYER qui basculent à PAYE pour déclencher
+    // la génération de quittance (en dehors de la transaction pour éviter
+    // d'allonger le lock et permettre la génération async via @react-pdf).
+    const invoicesNewlyPaid: string[] = [];
 
     const created = await prisma.$transaction(async (tx) => {
       const paymentIds: string[] = [];
@@ -1259,6 +1265,14 @@ export async function reconcileTransactionWithAllocations(
           where: { id: allocation.invoiceId },
           data: { status: newStatus },
         });
+
+        if (
+          newStatus === "PAYE" &&
+          invoice.invoiceType === "APPEL_LOYER" &&
+          invoice.status !== "PAYE"
+        ) {
+          invoicesNewlyPaid.push(allocation.invoiceId);
+        }
       }
 
       let balanceAdjustmentId: string | null = null;
@@ -1306,6 +1320,16 @@ export async function reconcileTransactionWithAllocations(
         invoiceIds: allocations.map((a) => a.invoiceId),
       },
     });
+
+    // Quittances auto pour les loyers fraîchement soldés. Non bloquant : si
+    // la génération échoue (Storage indispo, etc.) on log et on continue.
+    // Même protection que reconcileWithInvoice : la fonction interne vérifie
+    // l'existence d'une quittance pour la période avant d'en créer une.
+    for (const invoiceId of invoicesNewlyPaid) {
+      generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate).catch((err) => {
+        console.error("[reconcileTransactionWithAllocations] Quittance auto échouée:", err);
+      });
+    }
 
     revalidatePath("/banque");
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
