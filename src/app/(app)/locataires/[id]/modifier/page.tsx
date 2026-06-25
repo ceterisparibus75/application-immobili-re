@@ -36,6 +36,7 @@ type Tenant = {
   mobile?: string | null;
   riskIndicator: string;
   notes?: string | null;
+  defaultInvoiceNote?: string | null;
   companyName?: string | null;
   companyLegalForm?: string | null;
   siret?: string | null;
@@ -98,6 +99,7 @@ export default function ModifierLocatairePage() {
       mobile: data.mobile || null,
       riskIndicator: data.riskIndicator as "VERT" | "ORANGE" | "ROUGE",
       notes: data.notes || null,
+      defaultInvoiceNote: data.defaultInvoiceNote || null,
       // Morale
       companyName: data.companyName || null,
       companyLegalForm: data.companyLegalForm || null,
@@ -295,6 +297,20 @@ export default function ModifierLocatairePage() {
             <div className="space-y-2">
               <Label htmlFor="notes">Notes internes</Label>
               <Textarea id="notes" name="notes" rows={3} defaultValue={tenant.notes ?? ""} />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="defaultInvoiceNote">Mention récurrente sur les factures</Label>
+              <Textarea
+                id="defaultInvoiceNote"
+                name="defaultInvoiceNote"
+                rows={3}
+                defaultValue={tenant.defaultInvoiceNote ?? ""}
+                placeholder="Ex : « Loyer payable d'avance avant le 5 de chaque mois »"
+              />
+              <p className="text-xs text-muted-foreground">
+                Cette mention sera reprise par défaut sur chaque nouvelle facture émise pour ce locataire et imprimée sur le PDF. Elle reste modifiable au cas par cas.
+              </p>
             </div>
           </CardContent>
         </Card>

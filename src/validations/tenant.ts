@@ -8,6 +8,7 @@ const baseSchema = z.object({
   mobile: z.string().optional().nullable(),
   riskIndicator: z.enum(["VERT", "ORANGE", "ROUGE"]).default("VERT"),
   notes: z.string().optional().nullable(),
+  defaultInvoiceNote: z.string().optional().nullable(),
 });
 
 const moralSchema = baseSchema.extend({
@@ -58,6 +59,7 @@ export const updateTenantSchema = z.object({
   mobile: z.string().optional().nullable(),
   riskIndicator: z.enum(["VERT", "ORANGE", "ROUGE"]).optional(),
   notes: z.string().optional().nullable(),
+  defaultInvoiceNote: z.string().optional().nullable(),
   // Morale
   companyName: z.string().optional().nullable(),
   companyLegalForm: z.string().optional().nullable(),

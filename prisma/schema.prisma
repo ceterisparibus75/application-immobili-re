@@ -1476,6 +1476,10 @@ model Tenant {
   language      String        @default("fr")
   riskIndicator RiskIndicator @default(VERT)
   notes         String?       @db.Text
+  // Note récurrente imprimée par défaut sur toutes les factures émises pour
+  // ce locataire (champ Invoice.note). Modifiable au cas par cas sur chaque
+  // facture, ce champ n'est qu'une valeur de pré-remplissage.
+  defaultInvoiceNote String? @db.Text
 
   // Assurance locataire
   insuranceFileUrl        String?

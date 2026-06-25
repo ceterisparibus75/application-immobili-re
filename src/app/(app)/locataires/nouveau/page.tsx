@@ -73,6 +73,7 @@ export default function NouveauLocatairePage() {
             mobile: data.mobile || undefined,
             riskIndicator: (data.riskIndicator as "VERT" | "ORANGE" | "ROUGE") || "VERT",
             notes: data.notes || undefined,
+            defaultInvoiceNote: data.defaultInvoiceNote || undefined,
           }
         : {
             entityType: "PERSONNE_PHYSIQUE" as const,
@@ -88,6 +89,7 @@ export default function NouveauLocatairePage() {
             mobile: data.mobile || undefined,
             riskIndicator: (data.riskIndicator as "VERT" | "ORANGE" | "ROUGE") || "VERT",
             notes: data.notes || undefined,
+            defaultInvoiceNote: data.defaultInvoiceNote || undefined,
           };
 
     const result = await createTenant(activeSociety.id, input);
@@ -348,6 +350,19 @@ export default function NouveauLocatairePage() {
                 rows={3}
                 placeholder="Observations, historique, informations importantes..."
               />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="defaultInvoiceNote">Mention récurrente sur les factures</Label>
+              <Textarea
+                id="defaultInvoiceNote"
+                name="defaultInvoiceNote"
+                rows={3}
+                placeholder="Ex : « Loyer payable d'avance avant le 5 de chaque mois »"
+              />
+              <p className="text-xs text-muted-foreground">
+                Reprise par défaut sur chaque nouvelle facture émise pour ce locataire et imprimée sur le PDF.
+              </p>
             </div>
           </CardContent>
         </Card>

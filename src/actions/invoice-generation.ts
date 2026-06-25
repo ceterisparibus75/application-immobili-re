@@ -88,6 +88,7 @@ export async function createInvoice(
         totalHT,
         totalVAT,
         totalTTC,
+        note: tenant.defaultInvoiceNote ?? null,
         lines: { create: computedLines },
       },
     });
@@ -190,6 +191,7 @@ export async function generateInvoiceFromLease(
       select: {
         id: true,
         tenantId: true,
+        tenant: { select: { defaultInvoiceNote: true } },
         startDate: true,
         entryDate: true,
         paymentFrequency: true,
@@ -389,6 +391,7 @@ export async function generateInvoiceFromLease(
         totalHT,
         totalVAT,
         totalTTC,
+        note: lease.tenant?.defaultInvoiceNote ?? null,
         lines: { create: invoiceLines },
       },
     });
@@ -470,6 +473,7 @@ export async function generateBatchInvoices(
       select: {
         id: true,
         tenantId: true,
+        tenant: { select: { defaultInvoiceNote: true } },
         startDate: true,
         entryDate: true,
         paymentFrequency: true,
@@ -678,6 +682,7 @@ export async function generateBatchInvoices(
             totalHT,
             totalVAT,
             totalTTC,
+            note: lease.tenant?.defaultInvoiceNote ?? null,
             lines: { create: invoiceLines },
           },
         });
@@ -903,6 +908,7 @@ export async function refreshDraftInvoice(
       select: {
         id: true,
         tenantId: true,
+        tenant: { select: { defaultInvoiceNote: true } },
         startDate: true,
         entryDate: true,
         paymentFrequency: true,
