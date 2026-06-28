@@ -396,6 +396,8 @@ export async function computeInvoicePreview(
       entryDate: true,
       paymentFrequency: true,
       billingTerm: true,
+      billingAnchorMonth: true,
+      billingAnchorDay: true,
       currentRentHT: true,
       vatApplicable: true,
       vatRate: true,
@@ -504,7 +506,11 @@ export async function computeInvoicePreview(
     }, 0);
   }
 
-  const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency);
+  const billingAnchor =
+    lease.billingAnchorMonth != null && lease.billingAnchorDay != null
+      ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
+      : null;
+  const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency, billingAnchor);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
   const effectiveStart = lease.entryDate ?? lease.startDate;
 
@@ -552,6 +558,25 @@ export async function computeInvoicePreview(
       prorataLabel = prorataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
     }
   }
+
+  // Prorata annuel custom : si la période ANNUEL avec anchor démarre avant
+  // l'entrée effective dans les lieux (fallback startDate si entryDate vide),
+  // la 1ère facture ne couvre que la fraction réellement louée.
+  if (
+    lease.paymentFrequency === "ANNUEL" &&
+    billingAnchor &&
+    lease.currentRentHT > 0
+  ) {
+    const entry = new Date(lease.entryDate ?? lease.startDate);
+    if (entry > periodStart && entry <= periodEnd) {
+      const dayMs = 86400000;
+      const daysTotal = Math.round((periodEnd.getTime() - periodStart.getTime()) / dayMs) + 1;
+      const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
+      rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
+      prorataLabel = prorataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
+    }
+  }
+
   const vatRate = lease.vatApplicable ? lease.vatRate : 0;
   const freqMultiplier: Record<string, number> = { MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12 };
   const mult = freqMultiplier[lease.paymentFrequency] ?? 1;
