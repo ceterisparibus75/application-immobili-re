@@ -160,21 +160,38 @@ export function LeaseIndexationPanel({
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <IndexRow label="Indice" value={indexation.indexType ?? "—"} />
                 <IndexRow
-                  label="Référence du bail"
+                  label="Indice"
                   value={
-                    indexation.baseIndexValue
-                      ? `${indexation.baseIndexValue}${indexation.baseIndexQuarter ? ` · ${indexation.baseIndexQuarter}` : ""}`
-                      : "À compléter"
+                    indexation.indexType === "POURCENTAGE_FIXE"
+                      ? "Taux fixe annuel"
+                      : (indexation.indexType ?? "—")
                   }
                 />
                 <IndexRow
-                  label="Indice utilisé"
+                  label="Référence du bail"
                   value={
-                    indexation.referenceIndexValue
-                      ? `${indexation.referenceIndexValue} · ${indexation.referenceIndexQuarter} ${indexation.referenceIndexYear}`
-                      : "Indisponible"
+                    indexation.indexType === "POURCENTAGE_FIXE"
+                      ? "Contractuelle (pas d'indice INSEE)"
+                      : indexation.baseIndexValue
+                        ? `${indexation.baseIndexValue}${indexation.baseIndexQuarter ? ` · ${indexation.baseIndexQuarter}` : ""}`
+                        : "À compléter"
+                  }
+                />
+                <IndexRow
+                  label={indexation.indexType === "POURCENTAGE_FIXE" ? "Taux appliqué" : "Indice utilisé"}
+                  value={
+                    indexation.indexType === "POURCENTAGE_FIXE"
+                      ? (indexation.referenceIndexQuarter ?? "—")
+                      : indexation.referenceIndexValue
+                        ? [
+                            indexation.referenceIndexValue,
+                            indexation.referenceIndexQuarter,
+                            indexation.referenceIndexYear,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : "Indisponible"
                   }
                 />
                 <IndexRow
