@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers"
 import { prismaMock } from "@/test/mocks/prisma"
 import { UserRole } from "@/generated/prisma/client"
@@ -1069,9 +1069,18 @@ describe("previewCatchUpRevisions — branches manquantes", () => {
 })
 
 describe("detectPendingRevisions — DATE_PERSONNALISEE", () => {
+  beforeEach(() => {
+    // Date figée pour rendre le test déterministe : début février, donc la
+    // prochaine révision du 15 juin tombera hors de la fenêtre de détection
+    // (3 mois avant / 30 jours après "now"), quelle que soit la date du jour.
+    vi.setSystemTime(new Date("2026-02-01T10:00:00Z"))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it("utilise DATE_PERSONNALISEE comme date d'ancrage (lignes 544-548)", async () => {
-    const startDate = new Date()
-    startDate.setFullYear(startDate.getFullYear() - 1)
+    const startDate = new Date("2025-02-01T10:00:00Z")
     prismaMock.lease.findMany.mockResolvedValue([
       {
         ...VALID_LEASE_BASE,
@@ -1083,7 +1092,7 @@ describe("detectPendingRevisions — DATE_PERSONNALISEE", () => {
         rentRevisions: [],
       },
     ] as never)
-    // Computed revision date is likely outside the detection window → no extra DB calls needed
+    // Computed revision date is outside the detection window → no extra DB calls needed
     const r = await detectPendingRevisions()
     expect(r.errors).toHaveLength(0)
   })
