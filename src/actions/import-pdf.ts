@@ -174,6 +174,8 @@ export async function importFromPdf(
           baseIndexValue: input.lease.baseIndexValue ?? null,
           baseIndexQuarter: input.lease.baseIndexQuarter ?? null,
           fixedAnnualIndexationRate: input.lease.fixedAnnualIndexationRate ?? null,
+          billingAnchorMonth: input.lease.billingAnchorMonth ?? null,
+          billingAnchorDay: input.lease.billingAnchorDay ?? null,
           revisionFrequency: input.lease.revisionFrequency ?? 12,
           revisionDateBasis: input.lease.revisionDateBasis ?? "DATE_SIGNATURE",
           revisionCustomMonth: input.lease.revisionCustomMonth ?? null,

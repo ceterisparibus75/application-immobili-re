@@ -167,6 +167,8 @@ type LeaseData = {
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
   fixedAnnualIndexationRate?: number | null;
+  billingAnchorMonth?: number | null;
+  billingAnchorDay?: number | null;
   revisionFrequency: number;
   revisionDateBasis?: string | null;
   revisionCustomMonth?: number | null;
@@ -283,6 +285,8 @@ export default function ModifierBailPage() {
       fixedAnnualIndexationRate: d.fixedAnnualIndexationRate
         ? parseFloat(d.fixedAnnualIndexationRate)
         : null,
+      billingAnchorMonth: d.billingAnchorMonth ? parseInt(d.billingAnchorMonth) : null,
+      billingAnchorDay: d.billingAnchorDay ? parseInt(d.billingAnchorDay) : null,
       revisionFrequency: parseInt(d.revisionFrequency) || 12,
       revisionDateBasis: (d.revisionDateBasis as "DATE_SIGNATURE" | "DATE_ENTREE" | "PREMIER_JANVIER" | "DATE_PERSONNALISEE") || "DATE_SIGNATURE",
       revisionCustomMonth: d.revisionCustomMonth ? parseInt(d.revisionCustomMonth) : null,
@@ -597,6 +601,47 @@ export default function ModifierBailPage() {
                 />
               </div>
             </div>
+
+            {frequency === "ANNUEL" && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <div>
+                  <Label className="font-medium">
+                    Date contractuelle d'échéance annuelle
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Laisser vide pour un cycle calendaire (1er janvier — 31 décembre).
+                    Sinon, indiquez la date contractuelle (ex : 1er juillet). La 1ère facture
+                    sera proratisée automatiquement entre la date d'entrée et cette échéance.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="billingAnchorDay">Jour</Label>
+                    <Input
+                      id="billingAnchorDay"
+                      name="billingAnchorDay"
+                      type="number"
+                      min={1}
+                      max={31}
+                      defaultValue={lease.billingAnchorDay ?? ""}
+                      placeholder="1"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billingAnchorMonth">Mois</Label>
+                    <Input
+                      id="billingAnchorMonth"
+                      name="billingAnchorMonth"
+                      type="number"
+                      min={1}
+                      max={12}
+                      defaultValue={lease.billingAnchorMonth ?? ""}
+                      placeholder="7 (juillet)"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <input

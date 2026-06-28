@@ -46,6 +46,8 @@ async function generateDraftInvoices() {
       endDate: true,
       paymentFrequency: true,
       billingTerm: true,
+      billingAnchorMonth: true,
+      billingAnchorDay: true,
       currentRentHT: true,
       vatApplicable: true,
       vatRate: true,
@@ -74,8 +76,13 @@ async function generateDraftInvoices() {
 
   for (const lease of activeLeases) {
     try {
+      const billingAnchor =
+        lease.billingAnchorMonth != null && lease.billingAnchorDay != null
+          ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
+          : null;
+
       // Determiner la prochaine echeance de facturation
-      const nextDue = computeNextDueDate(lease.startDate, lease.paymentFrequency, now);
+      const nextDue = computeNextDueDate(lease.startDate, lease.paymentFrequency, now, billingAnchor);
       if (!nextDue || nextDue > horizon) {
         skipped++;
         continue;
@@ -83,7 +90,7 @@ async function generateDraftInvoices() {
 
       // Calculer la periode correspondante
       const periodMonth = `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, "0")}`;
-      const { periodStart, periodEnd } = computePeriod(periodMonth, lease.paymentFrequency);
+      const { periodStart, periodEnd } = computePeriod(periodMonth, lease.paymentFrequency, billingAnchor, nextDue);
 
       // Verifier si une facture existe deja pour cette periode
       const existing = await prisma.invoice.findFirst({
@@ -135,6 +142,27 @@ async function generateDraftInvoices() {
           const paidDays = daysInMonth - freeDays;
           rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
           cronProrataLabel = cronProrataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+        }
+      }
+
+      // Prorata annuel custom : si la période ANNUEL avec anchor démarre avant
+      // l'entrée effective dans les lieux, la 1ère facture ne couvre que la
+      // fraction réellement louée (ex: bail entré le 3 mars, anchor 1er juillet
+      // → 1ère facture = 3 mars → 30 juin sur la période 1er juillet année
+      // précédente → 30 juin année courante).
+      if (
+        lease.paymentFrequency === "ANNUEL" &&
+        billingAnchor &&
+        rentHT > 0 &&
+        lease.entryDate
+      ) {
+        const entry = new Date(lease.entryDate);
+        if (entry > periodStart && entry <= periodEnd) {
+          const dayMs = 86400000;
+          const daysTotal = Math.round((periodEnd.getTime() - periodStart.getTime()) / dayMs) + 1;
+          const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
+          rentHT = Math.round((rentHT * daysEffective / daysTotal) * 100) / 100;
+          cronProrataLabel = cronProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
         }
       }
 
@@ -259,7 +287,8 @@ async function generateDraftInvoices() {
 function computeNextDueDate(
   startDate: Date,
   frequency: string,
-  referenceDate: Date
+  referenceDate: Date,
+  billingAnchor?: { month: number; day: number } | null
 ): Date | null {
   // Les fréquences trimestrielle / semestrielle / annuelle sont alignées sur
   // le calendrier civil par computePeriod (Q1 = jan-mar, etc.). Si on partait
@@ -281,9 +310,25 @@ function computeNextDueDate(
       candidate = new Date(refYear + Math.floor(nextSemesterStartMonth / 12), nextSemesterStartMonth % 12, 1);
       break;
     }
-    case "ANNUEL":
-      candidate = new Date(refYear + 1, 0, 1);
+    case "ANNUEL": {
+      // Anchor personnalisé (ex: bail à terme échu au 1er juillet). Le cycle
+      // court de (anchor+1j) à anchor de l'année suivante. La prochaine
+      // "due date" = prochain jour anchor après referenceDate.
+      if (billingAnchor) {
+        const anchorMonth = billingAnchor.month - 1;
+        const anchorDay = billingAnchor.day;
+        // Tentative dans l'année courante
+        const thisYearAnchor = new Date(refYear, anchorMonth, anchorDay);
+        if (thisYearAnchor > referenceDate) {
+          candidate = thisYearAnchor;
+        } else {
+          candidate = new Date(refYear + 1, anchorMonth, anchorDay);
+        }
+      } else {
+        candidate = new Date(refYear + 1, 0, 1);
+      }
       break;
+    }
     case "MENSUEL":
     default: {
       const nextMonth = refMonth + 1;
@@ -302,7 +347,9 @@ function computeNextDueDate(
 
 function computePeriod(
   periodMonth: string,
-  frequency: string
+  frequency: string,
+  billingAnchor?: { month: number; day: number } | null,
+  dueDate?: Date
 ): { periodStart: Date; periodEnd: Date } {
   const [y, m] = periodMonth.split("-").map(Number);
   switch (frequency) {
@@ -314,8 +361,19 @@ function computePeriod(
       const s = Math.floor((m - 1) / 6);
       return { periodStart: new Date(y, s * 6, 1), periodEnd: new Date(y, s * 6 + 6, 0) };
     }
-    case "ANNUEL":
+    case "ANNUEL": {
+      // Période annuelle alignée sur un anchor contractuel (ex: terme échu
+      // au 1er juillet) : le cycle court de (anchor de l'année précédente
+      // + 1 jour) au jour anchor. dueDate représente le jour anchor.
+      if (billingAnchor && dueDate) {
+        const periodEnd = new Date(dueDate);
+        const periodStart = new Date(dueDate);
+        periodStart.setFullYear(periodStart.getFullYear() - 1);
+        periodStart.setDate(periodStart.getDate() + 1);
+        return { periodStart, periodEnd };
+      }
       return { periodStart: new Date(y, 0, 1), periodEnd: new Date(y, 12, 0) };
+    }
     default:
       return { periodStart: new Date(y, m - 1, 1), periodEnd: new Date(y, m, 0) };
   }

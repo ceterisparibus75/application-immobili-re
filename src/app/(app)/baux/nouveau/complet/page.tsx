@@ -255,6 +255,8 @@ export default function BailCompletPage() {
   const [baseIndexValue, setBaseIndexValue] = useState("");
   const [baseIndexQuarter, setBaseIndexQuarter] = useState("");
   const [fixedAnnualIndexationRate, setFixedAnnualIndexationRate] = useState("");
+  const [billingAnchorMonth, setBillingAnchorMonth] = useState("");
+  const [billingAnchorDay, setBillingAnchorDay] = useState("");
   const [revisionFrequency, setRevisionFrequency] = useState("12");
   const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
   const [revisionCustomMonth, setRevisionCustomMonth] = useState("1");
@@ -424,6 +426,8 @@ export default function BailCompletPage() {
         baseIndexValue: baseIndexValue ? parseFloat(baseIndexValue) : null,
         baseIndexQuarter: baseIndexQuarter || null,
         fixedAnnualIndexationRate: fixedAnnualIndexationRate ? parseFloat(fixedAnnualIndexationRate) : null,
+        billingAnchorMonth: billingAnchorMonth ? parseInt(billingAnchorMonth) : null,
+        billingAnchorDay: billingAnchorDay ? parseInt(billingAnchorDay) : null,
         revisionFrequency: revisionFrequency ? parseInt(revisionFrequency) : 12,
         revisionDateBasis: revisionDateBasis as ImportInput["lease"]["revisionDateBasis"],
         revisionCustomMonth: revisionCustomMonth ? parseInt(revisionCustomMonth) : null,
@@ -738,6 +742,26 @@ export default function BailCompletPage() {
                   <NativeSelect options={BILLING_TERMS} defaultValue="A_ECHOIR" />
                 </div>
               </div>
+              {frequency === "ANNUEL" && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                  <div>
+                    <Label className="font-medium">Date contractuelle d'échéance annuelle</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Laisser vide pour un cycle calendaire (1er janvier — 31 décembre). Sinon, indiquez la date contractuelle (ex : 1er juillet). La 1ère facture sera proratisée automatiquement entre la date d'entrée et cette échéance.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Jour</Label>
+                      <Input type="number" min={1} max={31} value={billingAnchorDay} onChange={(e) => setBillingAnchorDay(e.target.value)} placeholder="1" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mois</Label>
+                      <Input type="number" min={1} max={12} value={billingAnchorMonth} onChange={(e) => setBillingAnchorMonth(e.target.value)} placeholder="7 (juillet)" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

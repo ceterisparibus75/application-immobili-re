@@ -1135,6 +1135,13 @@ model Lease {
   // uniquement quand indexType = POURCENTAGE_FIXE.
   fixedAnnualIndexationRate Float?
 
+  // Période de facturation annuelle non alignée sur l'année civile. Spécifie
+  // le mois/jour de fin d'exercice (ex: 1er juillet). Le cycle annuel court
+  // de (anchor + 1 jour) à anchor de l'année suivante. Si null, on retombe
+  // sur le calendrier civil (1er janvier — 31 décembre).
+  billingAnchorMonth Int? // 1-12
+  billingAnchorDay   Int? // 1-31
+
   // Clauses particulières
   rentFreeMonths     Float?  @default(0) // Franchise de loyer (mois, peut être décimal)
   progressiveRent    Json? // {periods: [{months, rentHT}]}

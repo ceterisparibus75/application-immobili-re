@@ -215,6 +215,8 @@ export const createLeaseSchema = z.object({
   revisionCustomMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
   revisionCustomDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
   fixedAnnualIndexationRate: z.coerce.number().min(-50).max(50).optional().nullable(),
+  billingAnchorMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
+  billingAnchorDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
   rentFreeMonths: z.coerce.number().min(0).default(0),
   entryFee: z.coerce.number().min(0).default(0),
   tenantWorksClauses: z.string().optional().nullable(),
@@ -258,6 +260,8 @@ export const updateLeaseSchema = z.object({
   revisionCustomMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
   revisionCustomDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
   fixedAnnualIndexationRate: z.coerce.number().min(-50).max(50).optional().nullable(),
+  billingAnchorMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
+  billingAnchorDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
   billingTerm: z.enum(["ECHU", "A_ECHOIR"]).optional(),
   paymentFrequency: z
     .enum(["MENSUEL", "TRIMESTRIEL", "SEMESTRIEL", "ANNUEL"])
