@@ -203,6 +203,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         amount: p.amount,
       })),
       creditNoteForNumber: invoice.creditNoteFor?.invoiceNumber ?? null,
+      note: invoice.note ?? null,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
