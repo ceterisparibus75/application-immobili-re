@@ -261,20 +261,42 @@ function computeNextDueDate(
   frequency: string,
   referenceDate: Date
 ): Date | null {
-  const start = new Date(startDate);
-  start.setDate(1);
+  // Les fréquences trimestrielle / semestrielle / annuelle sont alignées sur
+  // le calendrier civil par computePeriod (Q1 = jan-mar, etc.). Si on partait
+  // du startDate du bail, un bail démarré au milieu d'un trimestre (ex. 1er
+  // février) atterrirait sur des bornes décalées (02, 05, 08, 11) et le cron
+  // skiperait des périodes civiles entières. On aligne donc explicitement.
+  const refYear = referenceDate.getFullYear();
+  const refMonth = referenceDate.getMonth();
 
-  const monthStep: Record<string, number> = {
-    MENSUEL: 1, TRIMESTRIEL: 3, SEMESTRIEL: 6, ANNUEL: 12,
-  };
-  const step = monthStep[frequency] ?? 1;
-
-  // Avancer depuis le debut du bail par pas de frequence
-  const candidate = new Date(start);
-  while (candidate <= referenceDate) {
-    candidate.setMonth(candidate.getMonth() + step);
+  let candidate: Date;
+  switch (frequency) {
+    case "TRIMESTRIEL": {
+      const nextQuarterStartMonth = Math.floor(refMonth / 3) * 3 + 3;
+      candidate = new Date(refYear + Math.floor(nextQuarterStartMonth / 12), nextQuarterStartMonth % 12, 1);
+      break;
+    }
+    case "SEMESTRIEL": {
+      const nextSemesterStartMonth = Math.floor(refMonth / 6) * 6 + 6;
+      candidate = new Date(refYear + Math.floor(nextSemesterStartMonth / 12), nextSemesterStartMonth % 12, 1);
+      break;
+    }
+    case "ANNUEL":
+      candidate = new Date(refYear + 1, 0, 1);
+      break;
+    case "MENSUEL":
+    default: {
+      const nextMonth = refMonth + 1;
+      candidate = new Date(refYear + Math.floor(nextMonth / 12), nextMonth % 12, 1);
+      break;
+    }
   }
 
+  // Ne jamais retourner une date antérieure au début du bail
+  const startFloor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  if (candidate < startFloor) {
+    return startFloor;
+  }
   return candidate;
 }
 
