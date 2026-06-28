@@ -797,7 +797,7 @@ export default function ModifierBailPage() {
                       { value: "9", label: "Septembre" }, { value: "10", label: "Octobre" },
                       { value: "11", label: "Novembre" }, { value: "12", label: "Décembre" },
                     ]}
-                    value={String(lease.revisionCustomMonth ?? 1)}
+                    defaultValue={String(lease.revisionCustomMonth ?? 1)}
                   />
                 </div>
               </div>
