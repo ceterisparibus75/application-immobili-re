@@ -204,10 +204,15 @@ export function computePeriodDates(
       if (billingAnchor) {
         const anchorMonth = billingAnchor.month - 1;
         const anchorDay = billingAnchor.day;
-        // Année cible : si periodMonth est avant ou égal à l'anchor, l'échéance
+        // Année cible de l'échéance : si periodMonth ≤ mois anchor, l'échéance
         // tombe dans l'année courante. Sinon, dans l'année suivante.
         const targetYear = m <= billingAnchor.month ? y : y + 1;
+        // Le cycle couvre [anchor année précédente, anchor - 1 jour] : la
+        // facture émise au jour anchor solde la période qui s'achève la veille.
+        // Ex: anchor = 1er juillet → cycle [01/07/N-1, 30/06/N], facture due
+        // le 01/07/N (terme échu via computeIssueDueDate).
         const periodEnd = new Date(targetYear, anchorMonth, anchorDay);
+        periodEnd.setDate(periodEnd.getDate() - 1);
         const periodStart = new Date(periodEnd);
         periodStart.setFullYear(periodStart.getFullYear() - 1);
         periodStart.setDate(periodStart.getDate() + 1);

@@ -363,11 +363,12 @@ function computePeriod(
     }
     case "ANNUEL": {
       // Période annuelle alignée sur un anchor contractuel (ex: terme échu
-      // au 1er juillet) : le cycle court de (anchor de l'année précédente
-      // + 1 jour) au jour anchor. dueDate représente le jour anchor.
+      // au 1er juillet) : la facture émise au jour anchor solde la période
+      // qui s'achève la veille. Cycle : [anchor N-1, anchor N - 1 jour].
       if (billingAnchor && dueDate) {
         const periodEnd = new Date(dueDate);
-        const periodStart = new Date(dueDate);
+        periodEnd.setDate(periodEnd.getDate() - 1);
+        const periodStart = new Date(periodEnd);
         periodStart.setFullYear(periodStart.getFullYear() - 1);
         periodStart.setDate(periodStart.getDate() + 1);
         return { periodStart, periodEnd };
