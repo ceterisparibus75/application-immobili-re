@@ -168,6 +168,7 @@ export async function importFromPdf(
           currentRentHT: input.lease.baseRentHT,
           depositAmount: input.lease.depositAmount,
           paymentFrequency: input.lease.paymentFrequency,
+          billingTerm: input.lease.billingTerm ?? "A_ECHOIR",
           vatApplicable: input.lease.vatApplicable,
           vatRate: input.lease.vatRate,
           indexType: input.lease.indexType ?? null,

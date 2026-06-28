@@ -173,10 +173,15 @@ export async function getNextCreditNoteNumber(
   const prefix = invoicePrefix.length >= 2 ? invoicePrefix.slice(0, -2) + "AV" : invoicePrefix + "AV";
   return `${prefix}-${currentYear}-${String(society.nextCreditNoteNumber).padStart(4, "0")}`;
 }
-/** Calcule les dates de début/fin d'une période à partir d'un mois (ex: "2025-01"). */
+/** Calcule les dates de début/fin d'une période à partir d'un mois (ex: "2025-01").
+ *  Pour ANNUEL avec un billingAnchor (date contractuelle d'échéance non
+ *  alignée sur l'année civile, ex: 1er juillet), la période est calée sur
+ *  l'anchor : periodEnd = jour anchor de l'année cible, periodStart =
+ *  periodEnd - 1 an + 1 jour. */
 export function computePeriodDates(
   periodMonth: string,
-  frequency: PaymentFrequency
+  frequency: PaymentFrequency,
+  billingAnchor?: { month: number; day: number } | null
 ): { periodStart: Date; periodEnd: Date } {
   const [y, m] = periodMonth.split("-").map(Number);
 
@@ -195,11 +200,24 @@ export function computePeriodDates(
         periodEnd: new Date(y, s * 6 + 6, 0),
       };
     }
-    case "ANNUEL":
+    case "ANNUEL": {
+      if (billingAnchor) {
+        const anchorMonth = billingAnchor.month - 1;
+        const anchorDay = billingAnchor.day;
+        // Année cible : si periodMonth est avant ou égal à l'anchor, l'échéance
+        // tombe dans l'année courante. Sinon, dans l'année suivante.
+        const targetYear = m <= billingAnchor.month ? y : y + 1;
+        const periodEnd = new Date(targetYear, anchorMonth, anchorDay);
+        const periodStart = new Date(periodEnd);
+        periodStart.setFullYear(periodStart.getFullYear() - 1);
+        periodStart.setDate(periodStart.getDate() + 1);
+        return { periodStart, periodEnd };
+      }
       return {
         periodStart: new Date(y, 0, 1),
         periodEnd: new Date(y, 12, 0),
       };
+    }
     default: // MENSUEL
       return {
         periodStart: new Date(y, m - 1, 1),

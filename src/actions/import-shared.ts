@@ -59,6 +59,7 @@ export type ImportLeaseInput = {
   baseRentHT: number;
   depositAmount: number;
   paymentFrequency: PaymentFrequency;
+  billingTerm?: "A_ECHOIR" | "ECHU";
   vatApplicable: boolean;
   vatRate: number;
   indexType?: IndexType | null;

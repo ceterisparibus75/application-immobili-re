@@ -478,6 +478,8 @@ export async function generateBatchInvoices(
         entryDate: true,
         paymentFrequency: true,
         billingTerm: true,
+        billingAnchorMonth: true,
+        billingAnchorDay: true,
         currentRentHT: true,
         vatApplicable: true,
         vatRate: true,
@@ -504,11 +506,18 @@ export async function generateBatchInvoices(
     let skipped = 0;
     const errors: string[] = [];
 
-    // Calcul des périodes par bail (varie selon la fréquence de paiement)
-    const leaseWithPeriods = leases.map((lease) => ({
-      lease,
-      ...computePeriodDates(parsed.data.periodMonth, lease.paymentFrequency),
-    }));
+    // Calcul des périodes par bail (varie selon la fréquence de paiement
+    // et l'éventuel anchor contractuel pour ANNUEL).
+    const leaseWithPeriods = leases.map((lease) => {
+      const anchor =
+        lease.billingAnchorMonth != null && lease.billingAnchorDay != null
+          ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
+          : null;
+      return {
+        lease,
+        ...computePeriodDates(parsed.data.periodMonth, lease.paymentFrequency, anchor),
+      };
+    });
 
     // Vérification de doublons en 1 requête groupée (au lieu de N requêtes)
     const periodStarts = leaseWithPeriods.map((l) => l.periodStart.getTime());
@@ -598,6 +607,29 @@ export async function generateBatchInvoices(
             const paidDays = daysInMonth - freeDays;
             rentHT = Math.round((rentHT * paidDays / daysInMonth) * 100) / 100;
             batchProrataLabel = batchProrataLabel + " (franchise " + freeDays + "/" + daysInMonth + " j.)";
+          }
+        }
+
+        // Prorata annuel custom : si la période ANNUEL avec anchor démarre
+        // avant l'entrée effective dans les lieux, la 1ère facture ne couvre
+        // que la fraction réellement louée.
+        const batchAnchor =
+          lease.billingAnchorMonth != null && lease.billingAnchorDay != null
+            ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
+            : null;
+        if (
+          lease.paymentFrequency === "ANNUEL" &&
+          batchAnchor &&
+          rentHT > 0 &&
+          lease.entryDate
+        ) {
+          const entry = new Date(lease.entryDate);
+          if (entry > periodStart && entry <= periodEnd) {
+            const dayMs = 86400000;
+            const daysTotal = Math.round((periodEnd.getTime() - periodStart.getTime()) / dayMs) + 1;
+            const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
+            rentHT = Math.round((rentHT * daysEffective / daysTotal) * 100) / 100;
+            batchProrataLabel = batchProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
           }
         }
 

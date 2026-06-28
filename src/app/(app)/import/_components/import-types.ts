@@ -61,6 +61,7 @@ export type BailForm = {
   baseRentHT: string;
   depositAmount: string;
   paymentFrequency: string;
+  billingTerm: string;
   vatApplicable: boolean;
   vatRate: string;
   indexType: string;
@@ -152,6 +153,11 @@ export const DESTINATION_OPTIONS = [
   { value: "HOTELLERIE", label: "Hôtellerie / Tourisme" },
   { value: "EQUIPEMENT", label: "Équipement (salle, crèche…)" },
   { value: "AUTRE", label: "Autre" },
+];
+
+export const BILLING_TERM_OPTIONS = [
+  { value: "A_ECHOIR", label: "À échoir (début de période)" },
+  { value: "ECHU", label: "Échu (fin de période)" },
 ];
 
 export const PAYMENT_FREQ_OPTIONS = [

@@ -11,6 +11,7 @@ import {
   LEASE_TYPE_OPTIONS,
   DESTINATION_OPTIONS,
   PAYMENT_FREQ_OPTIONS,
+  BILLING_TERM_OPTIONS,
   FREQ_PERIOD_LABELS,
   INDEX_TYPE_OPTIONS,
   REVISION_DATE_BASIS_OPTIONS,
@@ -340,9 +341,12 @@ export function SectionBail({ form, onChange, agencies }: { form: BailForm; onCh
             <Input type="number" value={form.depositAmount} onChange={(e) => onChange({ depositAmount: e.target.value })} placeholder="0" className="h-8 text-sm" />
           </FieldRow>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <FieldRow label="Périodicité">
             <NativeSelect value={form.paymentFrequency} onChange={(e) => onChange({ paymentFrequency: e.target.value })} options={PAYMENT_FREQ_OPTIONS} />
+          </FieldRow>
+          <FieldRow label="Terme">
+            <NativeSelect value={form.billingTerm} onChange={(e) => onChange({ billingTerm: e.target.value })} options={BILLING_TERM_OPTIONS} />
           </FieldRow>
           <FieldRow label="Indice révision">
             <NativeSelect value={form.indexType} onChange={(e) => onChange({ indexType: e.target.value })} options={INDEX_TYPE_OPTIONS} />

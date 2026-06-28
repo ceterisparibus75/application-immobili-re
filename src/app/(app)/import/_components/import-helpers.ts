@@ -22,7 +22,7 @@ export function emptyReview(): ReviewForm {
     bail: {
       leaseType: "COMMERCIAL_369", destination: "", startDate: "", durationMonths: "108",
       baseRentHT: "", depositAmount: "0",
-      paymentFrequency: "MENSUEL", vatApplicable: true, vatRate: "20",
+      paymentFrequency: "MENSUEL", billingTerm: "A_ECHOIR", vatApplicable: true, vatRate: "20",
       indexType: "", baseIndexValue: "", baseIndexQuarter: "",
       fixedAnnualIndexationRate: "", billingAnchorMonth: "", billingAnchorDay: "",
       revisionFrequency: "12",
@@ -80,6 +80,7 @@ export function aiToForm(ai: Record<string, unknown>): ReviewForm {
       baseRentHT: bail.baseRentHT != null ? String(bail.baseRentHT) : "",
       depositAmount: bail.depositAmount != null ? String(bail.depositAmount) : "0",
       paymentFrequency: String(bail.paymentFrequency ?? "MENSUEL"),
+      billingTerm: String(bail.billingTerm ?? "A_ECHOIR"),
       vatApplicable: bail.vatApplicable !== false,
       vatRate: bail.vatRate != null ? String(bail.vatRate) : "20",
       indexType: bail.indexType != null && bail.indexType !== "null" ? String(bail.indexType) : "",

@@ -278,6 +278,7 @@ export default function ImportPage() {
         baseRentHT: parseFloat(form.bail.baseRentHT),
         depositAmount: parseFloat(form.bail.depositAmount) || 0,
         paymentFrequency: form.bail.paymentFrequency as ImportInput["lease"]["paymentFrequency"],
+        billingTerm: form.bail.billingTerm as ImportInput["lease"]["billingTerm"],
         vatApplicable: form.bail.vatApplicable,
         vatRate: parseFloat(form.bail.vatRate) || 20,
         indexType: (form.bail.indexType || null) as ImportInput["lease"]["indexType"],
