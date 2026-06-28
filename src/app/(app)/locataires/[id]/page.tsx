@@ -361,6 +361,13 @@ export default async function LocataireDetailPage({
                 dueDate: adjustment.dueDate.toISOString(),
                 periodStart: adjustment.periodStart?.toISOString() ?? null,
                 periodEnd: adjustment.periodEnd?.toISOString() ?? null,
+                reconciledAt: adjustment.reconciledAt?.toISOString() ?? null,
+                bankTransaction: adjustment.bankTransaction
+                  ? {
+                      ...adjustment.bankTransaction,
+                      transactionDate: adjustment.bankTransaction.transactionDate.toISOString(),
+                    }
+                  : null,
               }))}
               balance={accountData.balance}
               tenantName={name}

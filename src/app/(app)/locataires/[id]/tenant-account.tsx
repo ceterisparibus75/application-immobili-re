@@ -84,6 +84,16 @@ interface BalanceAdjustment {
   periodEnd: string | null;
   balanceAfter: number | null;
   source: string;
+  isReconciled?: boolean;
+  reconciledAt?: string | null;
+  reconciledBankTransactionId?: string | null;
+  bankTransaction?: {
+    id: string;
+    transactionDate: string;
+    amount: number;
+    label: string;
+    reference: string | null;
+  } | null;
 }
 
 interface LedgerImportLine {
@@ -301,6 +311,19 @@ function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustme
       amount: Math.abs(adjustment.amount),
       balanceAfter: adjustment.balanceAfter,
     });
+
+    // Si la reprise a été soldée par un virement, on affiche aussi la ligne
+    // de paiement pour expliciter la sortie de solde.
+    if (adjustment.isReconciled && adjustment.bankTransaction) {
+      const tx = adjustment.bankTransaction;
+      const ref = tx.reference ? ` — Réf: ${tx.reference}` : "";
+      movements.push({
+        date: tx.transactionDate,
+        label: `Paiement reprise — ${adjustment.label}${ref}`,
+        type: adjustment.amount >= 0 ? "credit" : "debit",
+        amount: Math.abs(adjustment.amount),
+      });
+    }
   }
 
   for (const inv of invoices) {
@@ -381,16 +404,20 @@ export function TenantAccount({
     .filter((invoice) => matchesInvoiceSearch(invoice, invoiceSearch))
     .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
 
-  // Résumé
+  // Résumé — inclut les reprises de solde (TenantBalanceAdjustment) à débit
+  // et leur paiement éventuel à crédit, pour rester en phase avec le tableau.
   const totalFacture = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "AVOIR" && i.invoiceType !== "QUITTANCE")
-    .reduce((s, i) => s + i.totalTTC, 0);
+    .reduce((s, i) => s + i.totalTTC, 0)
+    + adjustments.filter((a) => a.amount > 0).reduce((s, a) => s + a.amount, 0);
   const totalAvoir = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType === "AVOIR")
-    .reduce((s, i) => s + getCreditNoteAmount(i.totalTTC), 0);
+    .reduce((s, i) => s + getCreditNoteAmount(i.totalTTC), 0)
+    + adjustments.filter((a) => a.amount < 0).reduce((s, a) => s + Math.abs(a.amount), 0);
   const totalPaiements = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
-    .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0);
+    .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0)
+    + adjustments.filter((a) => a.isReconciled && a.amount > 0).reduce((s, a) => s + a.amount, 0);
 
   // Import de solde précédent
   const [showDebitDialog, setShowDebitDialog] = useState(false);

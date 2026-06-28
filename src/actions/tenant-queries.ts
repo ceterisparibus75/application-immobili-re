@@ -461,13 +461,42 @@ export async function getTenantAccountStatement(
         periodEnd: true,
         balanceAfter: true,
         source: true,
+        isReconciled: true,
+        reconciledAt: true,
+        reconciledBankTransactionId: true,
       },
       orderBy: { dueDate: "desc" },
     }),
   ]);
 
-  // Calculer le solde courant
-  let balance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
+  // Charger les transactions bancaires liées aux reprises rapprochées pour
+  // afficher la ligne "Paiement reprise" dans le compte locataire et calculer
+  // un Total paiements / solde corrects.
+  const reconciledTxIds = adjustments
+    .map((adj) => adj.reconciledBankTransactionId)
+    .filter((id): id is string => Boolean(id));
+  const bankTransactions = reconciledTxIds.length
+    ? await prisma.bankTransaction.findMany({
+        where: { id: { in: reconciledTxIds } },
+        select: { id: true, transactionDate: true, amount: true, label: true, reference: true },
+      })
+    : [];
+  const txById = new Map(bankTransactions.map((tx) => [tx.id, tx]));
+
+  // Enrichit chaque adjustment avec sa transaction bancaire éventuelle.
+  const enrichedAdjustments = adjustments.map((adj) => ({
+    ...adj,
+    bankTransaction: adj.reconciledBankTransactionId
+      ? txById.get(adj.reconciledBankTransactionId) ?? null
+      : null,
+  }));
+
+  // Calculer le solde courant. Un adjustment réconcilié est considéré soldé
+  // (le virement bancaire l'a réglé) et ne contribue plus au solde.
+  let balance = enrichedAdjustments.reduce((sum, adjustment) => {
+    if (adjustment.isReconciled) return sum;
+    return sum + adjustment.amount;
+  }, 0);
   for (const inv of invoices) {
     if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
     if (inv.invoiceType === "QUITTANCE") continue;
@@ -481,7 +510,7 @@ export async function getTenantAccountStatement(
 
   return {
     invoices,
-    adjustments,
+    adjustments: enrichedAdjustments,
     balance: Math.round(balance * 100) / 100,
   };
 }
