@@ -66,6 +66,9 @@ export type BailForm = {
   indexType: string;
   baseIndexValue: string;
   baseIndexQuarter: string;
+  fixedAnnualIndexationRate: string;
+  billingAnchorMonth: string;
+  billingAnchorDay: string;
   revisionFrequency: string;
   revisionDateBasis: string;
   revisionCustomMonth: string;
@@ -171,6 +174,7 @@ export const INDEX_TYPE_OPTIONS = [
   { value: "ILC", label: "ILC — Loyers Commerciaux" },
   { value: "ILAT", label: "ILAT — Activités tertiaires" },
   { value: "ICC", label: "ICC — Construction" },
+  { value: "POURCENTAGE_FIXE", label: "Taux fixe annuel (contractuel)" },
 ];
 
 export const REVISION_DATE_BASIS_OPTIONS = [

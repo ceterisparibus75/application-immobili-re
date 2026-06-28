@@ -348,7 +348,57 @@ export function SectionBail({ form, onChange, agencies }: { form: BailForm; onCh
             <NativeSelect value={form.indexType} onChange={(e) => onChange({ indexType: e.target.value })} options={INDEX_TYPE_OPTIONS} />
           </FieldRow>
         </div>
-        {form.indexType && (
+        {form.paymentFrequency === "ANNUEL" && (
+          <div className="rounded border bg-muted/30 p-2 space-y-2">
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Date contractuelle d'échéance annuelle (laisser vide pour un cycle calendaire 1er janvier — 31 décembre). La 1ère facture sera proratisée entre la date d'entrée et cette échéance.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Jour anchor">
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={form.billingAnchorDay}
+                  onChange={(e) => onChange({ billingAnchorDay: e.target.value })}
+                  placeholder="1"
+                  className="h-8 text-sm"
+                />
+              </FieldRow>
+              <FieldRow label="Mois anchor">
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={form.billingAnchorMonth}
+                  onChange={(e) => onChange({ billingAnchorMonth: e.target.value })}
+                  placeholder="7 (juillet)"
+                  className="h-8 text-sm"
+                />
+              </FieldRow>
+            </div>
+          </div>
+        )}
+        {form.indexType === "POURCENTAGE_FIXE" && (
+          <div className="grid grid-cols-2 gap-2">
+            <FieldRow label="Taux annuel (%)">
+              <Input
+                type="number"
+                step="0.01"
+                min={-50}
+                max={50}
+                value={form.fixedAnnualIndexationRate}
+                onChange={(e) => onChange({ fixedAnnualIndexationRate: e.target.value })}
+                placeholder="2"
+                className="h-8 text-sm"
+              />
+            </FieldRow>
+            <FieldRow label="Fréq. révision (mois)">
+              <Input type="number" value={form.revisionFrequency} onChange={(e) => onChange({ revisionFrequency: e.target.value })} placeholder="12" className="h-8 text-sm" />
+            </FieldRow>
+          </div>
+        )}
+        {form.indexType && form.indexType !== "POURCENTAGE_FIXE" && (
           <>
             <div className="grid grid-cols-3 gap-2">
               <FieldRow label="Valeur indice de base">
