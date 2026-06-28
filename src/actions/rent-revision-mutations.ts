@@ -267,7 +267,12 @@ export async function detectPendingRevisions(): Promise<{
       where: {
         status: "EN_COURS",
         indexType: { not: null },
-        baseIndexValue: { not: null },
+        // Soit un indice INSEE avec son baseIndexValue, soit POURCENTAGE_FIXE
+        // avec son taux annuel — sinon on ne peut rien calculer.
+        OR: [
+          { baseIndexValue: { not: null } },
+          { AND: [{ indexType: "POURCENTAGE_FIXE" }, { fixedAnnualIndexationRate: { not: null } }] },
+        ],
       },
       include: {
         rentRevisions: {
@@ -302,7 +307,12 @@ export async function detectPendingRevisions(): Promise<{
 
     for (const lease of leases) {
       try {
-        if (!lease.indexType || !lease.baseIndexValue) continue;
+        if (!lease.indexType) continue;
+        // Indices INSEE : requièrent baseIndexValue ; POURCENTAGE_FIXE : requiert
+        // fixedAnnualIndexationRate. On laisse passer chaque cas valable.
+        const isFixedRate = lease.indexType === "POURCENTAGE_FIXE";
+        if (!isFixedRate && !lease.baseIndexValue) continue;
+        if (isFixedRate && lease.fixedAnnualIndexationRate == null) continue;
 
         const nextRevisionDate = getNextRevisionDate(
           lease.startDate,
@@ -321,6 +331,51 @@ export async function detectPendingRevisions(): Promise<{
         });
         if (existingPending) continue;
 
+        // ── Branche taux fixe : pas d'indice INSEE à interroger ─────────────
+        if (isFixedRate) {
+          const rate = lease.fixedAnnualIndexationRate!;
+          const baseRef = 100;
+          const newRef = 100 + rate;
+          const newRentHT = calculateNewRent(lease.currentRentHT, baseRef, newRef, "POURCENTAGE_FIXE");
+          const formula = `${lease.currentRentHT.toFixed(2)} × (1 + ${rate}%) = ${newRentHT.toFixed(2)} [${rate >= 0 ? "+" : ""}${rate.toFixed(2)}%]`;
+
+          await prisma.rentRevision.create({
+            data: {
+              leaseId: lease.id,
+              effectiveDate: nextRevisionDate,
+              previousRentHT: lease.currentRentHT,
+              newRentHT,
+              indexType: "POURCENTAGE_FIXE",
+              baseIndexValue: baseRef,
+              newIndexValue: newRef,
+              formula,
+              isValidated: false,
+            },
+          });
+
+          const tenantNameFR =
+            lease.tenant.entityType === "PERSONNE_MORALE"
+              ? (lease.tenant.companyName ?? "—")
+              : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "—";
+          const buildingNameFR = lease.lot?.building?.name ?? "—";
+          const lotNumberFR = lease.lot?.number ?? "—";
+          for (const userSociety of lease.society.userSocieties) {
+            await prisma.notification.create({
+              data: {
+                userId: userSociety.userId,
+                societyId: lease.societyId,
+                type: "RENT_REVISION",
+                title: "Révision de loyer à valider",
+                message: `${buildingNameFR} — Lot ${lotNumberFR} (${tenantNameFR}) : révision contractuelle +${rate}% le ${nextRevisionDate.toLocaleDateString("fr-FR")}. Nouveau loyer : ${newRentHT.toFixed(2)} € HT.`,
+                link: "/baux/revisions",
+              },
+            });
+          }
+          results.created++;
+          continue;
+        }
+
+        // ── Branche INSEE (existante) ───────────────────────────────────────
         // Déterminer le trimestre de référence et l'année cible
         const baseQuarterInfo = parseBaseIndexQuarter(lease.baseIndexQuarter);
         let newIndex: { value: number; year: number; quarter: number } | null = null;
@@ -354,12 +409,15 @@ export async function detectPendingRevisions(): Promise<{
           continue;
         }
 
-        if (newIndex.value === lease.baseIndexValue) continue;
+        // Guard TS : la branche INSEE n'est atteinte que si baseIndexValue est non-null
+        // (vérifié plus haut quand isFixedRate=false).
+        const baseIdx = lease.baseIndexValue!;
+        if (newIndex.value === baseIdx) continue;
 
-        const newRentHT = calculateNewRent(lease.currentRentHT, lease.baseIndexValue, newIndex.value, lease.indexType ?? undefined);
-        const variationPct = ((newIndex.value - lease.baseIndexValue) / lease.baseIndexValue) * 100;
+        const newRentHT = calculateNewRent(lease.currentRentHT, baseIdx, newIndex.value, lease.indexType ?? undefined);
+        const variationPct = ((newIndex.value - baseIdx) / baseIdx) * 100;
         const quarterLabel = `T${newIndex.quarter} ${newIndex.year}`;
-        const formula = `${lease.currentRentHT.toFixed(2)} × (${newIndex.value} [${quarterLabel}] / ${lease.baseIndexValue}) = ${newRentHT.toFixed(2)} [${variationPct >= 0 ? "+" : ""}${variationPct.toFixed(2)}%]`;
+        const formula = `${lease.currentRentHT.toFixed(2)} × (${newIndex.value} [${quarterLabel}] / ${baseIdx}) = ${newRentHT.toFixed(2)} [${variationPct >= 0 ? "+" : ""}${variationPct.toFixed(2)}%]`;
 
         await prisma.rentRevision.create({
           data: {
@@ -368,7 +426,7 @@ export async function detectPendingRevisions(): Promise<{
             previousRentHT: lease.currentRentHT,
             newRentHT,
             indexType: lease.indexType as IndexType,
-            baseIndexValue: lease.baseIndexValue,
+            baseIndexValue: baseIdx,
             newIndexValue: newIndex.value,
             formula,
             isValidated: false,

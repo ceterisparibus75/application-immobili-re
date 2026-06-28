@@ -111,6 +111,7 @@ export async function createLease(
         revisionDateBasis: data.revisionDateBasis ?? "DATE_SIGNATURE",
         revisionCustomMonth: data.revisionCustomMonth ?? null,
         revisionCustomDay: data.revisionCustomDay ?? null,
+        fixedAnnualIndexationRate: data.fixedAnnualIndexationRate ?? null,
         rentFreeMonths: data.rentFreeMonths,
         entryFee: data.entryFee,
         tenantWorksClauses: data.tenantWorksClauses ?? null,

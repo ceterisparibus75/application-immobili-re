@@ -133,6 +133,7 @@ export async function getLeaseIndexationOverview(
         revisionDateBasis: true,
         revisionCustomMonth: true,
         revisionCustomDay: true,
+        fixedAnnualIndexationRate: true,
         rentRevisions: {
           orderBy: { effectiveDate: "desc" },
           take: 20,
@@ -177,6 +178,72 @@ export async function getLeaseIndexationOverview(
     } satisfies LeaseIndexationOverview;
 
     if (!lease.indexType) return { success: true, data: baseOverview };
+
+    // ── Branche POURCENTAGE_FIXE : taux contractuel annuel, pas d'indice INSEE
+    if (lease.indexType === "POURCENTAGE_FIXE") {
+      if (lease.fixedAnnualIndexationRate == null) {
+        return {
+          success: true,
+          data: {
+            ...baseOverview,
+            blockReason: "Indexation à taux fixe : renseignez le pourcentage annuel sur le bail.",
+          },
+        };
+      }
+      const lastValidated = lease.rentRevisions.find((r) => r.isValidated);
+      const pendingRevision = lease.rentRevisions.find((r) => !r.isValidated);
+      const revisionFrequency = lease.revisionFrequency ?? 12;
+      const nextRevisionDate = getNextRevisionDate(
+        lease.startDate,
+        revisionFrequency,
+        lastValidated?.effectiveDate,
+        lease.entryDate,
+        lease.revisionDateBasis,
+        lease.revisionCustomMonth,
+        lease.revisionCustomDay,
+      );
+      const missedRevisions = getMissedRevisionsCount(
+        lease.startDate,
+        revisionFrequency,
+        lastValidated?.effectiveDate,
+        lease.entryDate,
+        lease.revisionDateBasis,
+        lease.revisionCustomMonth,
+        lease.revisionCustomDay,
+      );
+      const status = getRevisionStatus(nextRevisionDate);
+      const rate = lease.fixedAnnualIndexationRate;
+      const estimatedNewRentHT = calculateNewRent(lease.currentRentHT, 100, 100 + rate, "POURCENTAGE_FIXE");
+      const formula = `${lease.currentRentHT.toFixed(2)} × (1 + ${rate}%) = ${estimatedNewRentHT.toFixed(2)}`;
+      return {
+        success: true,
+        data: {
+          ...baseOverview,
+          nextRevisionDate: nextRevisionDate.toISOString(),
+          statusLabel: pendingRevision ? "Révision en attente" : status.label,
+          statusVariant: pendingRevision ? "warning" : status.variant,
+          missedRevisions,
+          pendingRevision: pendingRevision
+            ? {
+                id: pendingRevision.id,
+                effectiveDate: pendingRevision.effectiveDate.toISOString(),
+                newRentHT: pendingRevision.newRentHT,
+                formula: pendingRevision.formula,
+              }
+            : null,
+          lastValidatedRevisionDate: lastValidated?.effectiveDate.toISOString() ?? null,
+          referenceIndexValue: 100 + rate,
+          referenceIndexQuarter: `+${rate}%`,
+          referenceIndexYear: null,
+          estimatedNewRentHT,
+          formula,
+          canGenerateRevision: !pendingRevision && missedRevisions > 0 && missedRevisions <= 1,
+          canCatchUp: !pendingRevision && missedRevisions > 1,
+          blockReason: pendingRevision ? "Une révision est déjà en attente de validation." : null,
+        },
+      };
+    }
+
     if (!lease.baseIndexValue) {
       return {
         success: true,

@@ -112,6 +112,7 @@ const INDEX_TYPES_LIST = [
   { value: "ILC", label: "ILC — Indice des Loyers Commerciaux" },
   { value: "ILAT", label: "ILAT — Indice des Loyers des Activités Tertiaires" },
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
+  { value: "POURCENTAGE_FIXE", label: "Taux fixe annuel (contractuel)" },
 ];
 
 const REVISION_DATE_BASIS_OPTIONS = [
@@ -253,6 +254,7 @@ export default function BailCompletPage() {
   const [indexType, setIndexType] = useState<string>("IRL");
   const [baseIndexValue, setBaseIndexValue] = useState("");
   const [baseIndexQuarter, setBaseIndexQuarter] = useState("");
+  const [fixedAnnualIndexationRate, setFixedAnnualIndexationRate] = useState("");
   const [revisionFrequency, setRevisionFrequency] = useState("12");
   const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
   const [revisionCustomMonth, setRevisionCustomMonth] = useState("1");
@@ -421,6 +423,7 @@ export default function BailCompletPage() {
         indexType: (indexType || null) as ImportInput["lease"]["indexType"],
         baseIndexValue: baseIndexValue ? parseFloat(baseIndexValue) : null,
         baseIndexQuarter: baseIndexQuarter || null,
+        fixedAnnualIndexationRate: fixedAnnualIndexationRate ? parseFloat(fixedAnnualIndexationRate) : null,
         revisionFrequency: revisionFrequency ? parseInt(revisionFrequency) : 12,
         revisionDateBasis: revisionDateBasis as ImportInput["lease"]["revisionDateBasis"],
         revisionCustomMonth: revisionCustomMonth ? parseInt(revisionCustomMonth) : null,
@@ -783,14 +786,34 @@ export default function BailCompletPage() {
                   <Label>Indice</Label>
                   <NativeSelect options={INDEX_TYPES_LIST} value={indexType} onChange={(e) => setIndexType(e.target.value)} placeholder="Sans indexation" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Valeur</Label>
-                  <Input type="number" step={0.01} placeholder="132.45" value={baseIndexValue} onChange={(e) => setBaseIndexValue(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Trimestre</Label>
-                  <Input placeholder="T1 2024" value={baseIndexQuarter} onChange={(e) => setBaseIndexQuarter(e.target.value)} />
-                </div>
+                {indexType === "POURCENTAGE_FIXE" ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Taux annuel (%)</Label>
+                    <Input
+                      type="number"
+                      step={0.01}
+                      min={-50}
+                      max={50}
+                      placeholder="Ex: 2 pour +2%/an"
+                      value={fixedAnnualIndexationRate}
+                      onChange={(e) => setFixedAnnualIndexationRate(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pourcentage appliqué au loyer à chaque révision (centrales photovoltaïques, baux emphytéotiques, etc.).
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Valeur</Label>
+                      <Input type="number" step={0.01} placeholder="132.45" value={baseIndexValue} onChange={(e) => setBaseIndexValue(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Trimestre</Label>
+                      <Input placeholder="T1 2024" value={baseIndexQuarter} onChange={(e) => setBaseIndexQuarter(e.target.value)} />
+                    </div>
+                  </>
+                )}
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">

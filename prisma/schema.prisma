@@ -202,6 +202,9 @@ enum IndexType {
   ILC
   ILAT
   ICC
+  POURCENTAGE_FIXE // Indexation contractuelle à taux annuel fixe (ex: +2%/an
+  //                  sur des baux longue durée — centrales photovoltaïques,
+  //                  baux emphytéotiques). Utilise lease.fixedAnnualIndexationRate.
 }
 
 enum RevisionDateBasis {
@@ -1128,6 +1131,9 @@ model Lease {
   revisionDateBasis   RevisionDateBasis? @default(DATE_SIGNATURE)
   revisionCustomMonth Int? // 1-12, utilisé si DATE_PERSONNALISEE
   revisionCustomDay   Int? // 1-31, utilisé si DATE_PERSONNALISEE
+  // Taux d'indexation annuel fixe (en %, ex: 2.0 pour +2%/an). Utilisé
+  // uniquement quand indexType = POURCENTAGE_FIXE.
+  fixedAnnualIndexationRate Float?
 
   // Clauses particulières
   rentFreeMonths     Float?  @default(0) // Franchise de loyer (mois, peut être décimal)

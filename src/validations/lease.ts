@@ -45,7 +45,7 @@ export const LEASE_DESTINATIONS = [
   "AUTRE",
 ] as const;
 
-export const INDEX_TYPES = ["IRL", "ILC", "ILAT", "ICC"] as const;
+export const INDEX_TYPES = ["IRL", "ILC", "ILAT", "ICC", "POURCENTAGE_FIXE"] as const;
 export const REVISION_DATE_BASIS = ["DATE_SIGNATURE", "DATE_ENTREE", "PREMIER_JANVIER", "DATE_PERSONNALISEE"] as const;
 
 export type LeaseType = (typeof LEASE_TYPES)[number];
@@ -214,6 +214,7 @@ export const createLeaseSchema = z.object({
   revisionDateBasis: z.enum(REVISION_DATE_BASIS).default("DATE_SIGNATURE").optional().nullable(),
   revisionCustomMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
   revisionCustomDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
+  fixedAnnualIndexationRate: z.coerce.number().min(-50).max(50).optional().nullable(),
   rentFreeMonths: z.coerce.number().min(0).default(0),
   entryFee: z.coerce.number().min(0).default(0),
   tenantWorksClauses: z.string().optional().nullable(),
@@ -256,6 +257,7 @@ export const updateLeaseSchema = z.object({
   revisionDateBasis: z.enum(REVISION_DATE_BASIS).optional().nullable(),
   revisionCustomMonth: z.coerce.number().int().min(1).max(12).optional().nullable(),
   revisionCustomDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
+  fixedAnnualIndexationRate: z.coerce.number().min(-50).max(50).optional().nullable(),
   billingTerm: z.enum(["ECHU", "A_ECHOIR"]).optional(),
   paymentFrequency: z
     .enum(["MENSUEL", "TRIMESTRIEL", "SEMESTRIEL", "ANNUEL"])

@@ -77,6 +77,7 @@ const INDEX_TYPES = [
     label: "ILAT — Indice des Loyers des Activités Tertiaires",
   },
   { value: "ICC", label: "ICC — Indice du Coût de la Construction" },
+  { value: "POURCENTAGE_FIXE", label: "Taux fixe annuel (contractuel)" },
 ];
 
 const REVISION_DATE_BASIS_OPTIONS = [
@@ -165,6 +166,7 @@ type LeaseData = {
   indexType?: string | null;
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
+  fixedAnnualIndexationRate?: number | null;
   revisionFrequency: number;
   revisionDateBasis?: string | null;
   revisionCustomMonth?: number | null;
@@ -196,6 +198,7 @@ export default function ModifierBailPage() {
   const [vatApplicable, setVatApplicable] = useState(false);
   const [frequency, setFrequency] = useState("MENSUEL");
   const [revisionDateBasis, setRevisionDateBasis] = useState("DATE_SIGNATURE");
+  const [indexType, setIndexType] = useState<string>("");
   const [isThirdPartyManaged, setIsThirdPartyManaged] = useState(false);
   const [agencies, setAgencies] = useState<AgencyOption[]>([]);
   const [managingContactId, setManagingContactId] = useState("");
@@ -215,6 +218,7 @@ export default function ModifierBailPage() {
           setVatApplicable(json.data.vatApplicable);
           setFrequency(json.data.paymentFrequency);
           setRevisionDateBasis(json.data.revisionDateBasis ?? "DATE_SIGNATURE");
+          setIndexType(json.data.indexType ?? "");
           setIsThirdPartyManaged(json.data.isThirdPartyManaged ?? false);
           setManagingContactId(json.data.managingContactId ?? "");
           setManagementFeeType((json.data.managementFeeType as "POURCENTAGE" | "FORFAIT") ?? "POURCENTAGE");
@@ -271,11 +275,14 @@ export default function ModifierBailPage() {
       vatApplicable: d.vatApplicable === "on",
       vatRate: parseFloat(d.vatRate) || 20,
       indexType:
-        (d.indexType as "IRL" | "ILC" | "ILAT" | "ICC") || null,
+        (d.indexType as "IRL" | "ILC" | "ILAT" | "ICC" | "POURCENTAGE_FIXE") || null,
       baseIndexValue: d.baseIndexValue
         ? parseFloat(d.baseIndexValue)
         : null,
       baseIndexQuarter: d.baseIndexQuarter || null,
+      fixedAnnualIndexationRate: d.fixedAnnualIndexationRate
+        ? parseFloat(d.fixedAnnualIndexationRate)
+        : null,
       revisionFrequency: parseInt(d.revisionFrequency) || 12,
       revisionDateBasis: (d.revisionDateBasis as "DATE_SIGNATURE" | "DATE_ENTREE" | "PREMIER_JANVIER" | "DATE_PERSONNALISEE") || "DATE_SIGNATURE",
       revisionCustomMonth: d.revisionCustomMonth ? parseInt(d.revisionCustomMonth) : null,
@@ -637,34 +644,58 @@ export default function ModifierBailPage() {
                   id="indexType"
                   name="indexType"
                   options={INDEX_TYPES}
-                  defaultValue={lease.indexType ?? ""}
+                  value={indexType}
+                  onChange={(e) => setIndexType(e.target.value)}
                   placeholder="Sans indexation"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="baseIndexValue">
-                  Valeur de référence
-                </Label>
-                <Input
-                  id="baseIndexValue"
-                  name="baseIndexValue"
-                  type="number"
-                  step={0.01}
-                  defaultValue={lease.baseIndexValue ?? ""}
-                  placeholder="Ex: 132.45"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="baseIndexQuarter">
-                  Trimestre de référence
-                </Label>
-                <Input
-                  id="baseIndexQuarter"
-                  name="baseIndexQuarter"
-                  defaultValue={lease.baseIndexQuarter ?? ""}
-                  placeholder="Ex: T1 2024"
-                />
-              </div>
+              {indexType === "POURCENTAGE_FIXE" ? (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="fixedAnnualIndexationRate">
+                    Taux annuel (%)
+                  </Label>
+                  <Input
+                    id="fixedAnnualIndexationRate"
+                    name="fixedAnnualIndexationRate"
+                    type="number"
+                    step={0.01}
+                    min={-50}
+                    max={50}
+                    defaultValue={lease.fixedAnnualIndexationRate ?? ""}
+                    placeholder="Ex: 2 pour +2%/an"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Pourcentage appliqué au loyer à chaque révision (ex : centrale photovoltaïque +2 %/an pendant 25 ans).
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="baseIndexValue">
+                      Valeur de référence
+                    </Label>
+                    <Input
+                      id="baseIndexValue"
+                      name="baseIndexValue"
+                      type="number"
+                      step={0.01}
+                      defaultValue={lease.baseIndexValue ?? ""}
+                      placeholder="Ex: 132.45"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="baseIndexQuarter">
+                      Trimestre de référence
+                    </Label>
+                    <Input
+                      id="baseIndexQuarter"
+                      name="baseIndexQuarter"
+                      defaultValue={lease.baseIndexQuarter ?? ""}
+                      placeholder="Ex: T1 2024"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

@@ -64,6 +64,7 @@ export type ImportLeaseInput = {
   indexType?: IndexType | null;
   baseIndexValue?: number | null;
   baseIndexQuarter?: string | null;
+  fixedAnnualIndexationRate?: number | null;
   revisionFrequency?: number;
   revisionDateBasis?: RevisionDateBasis | null;
   revisionCustomMonth?: number | null;
