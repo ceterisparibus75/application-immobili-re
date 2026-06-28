@@ -556,7 +556,10 @@ export async function generateBatchInvoices(
       )
     );
 
-    for (const { lease, periodStart, periodEnd } of leaseWithPeriods) {
+    for (const { lease, periodStart: cyclePeriodStart, periodEnd } of leaseWithPeriods) {
+      // periodStart est ajusté à la date d'entrée si la 1ère facture est proratisée
+      // (cf. branche "Prorata annuel custom" plus bas).
+      let periodStart = cyclePeriodStart;
       try {
         const periodKey = invoicePeriodKey(lease.id, periodStart, periodEnd);
         if (alreadyInvoicedPeriods.has(periodKey) || excludedPeriods.has(periodKey)) {
@@ -632,6 +635,8 @@ export async function generateBatchInvoices(
             // peut renvoyer 0 si la période est entièrement avant startDate).
             rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
             batchProrataLabel = batchProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
+            // La facture porte la période réellement facturée, pas le cycle.
+            periodStart = entry;
           }
         }
 

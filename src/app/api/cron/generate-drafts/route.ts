@@ -90,7 +90,8 @@ async function generateDraftInvoices() {
 
       // Calculer la periode correspondante
       const periodMonth = `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, "0")}`;
-      const { periodStart, periodEnd } = computePeriod(periodMonth, lease.paymentFrequency, billingAnchor, nextDue);
+      // eslint-disable-next-line prefer-const
+      let { periodStart, periodEnd } = computePeriod(periodMonth, lease.paymentFrequency, billingAnchor, nextDue);
 
       // Verifier si une facture existe deja pour cette periode
       const existing = await prisma.invoice.findFirst({
@@ -163,6 +164,9 @@ async function generateDraftInvoices() {
           const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
           rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
           cronProrataLabel = cronProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
+          // La facture porte la période réellement facturée (entry → anchor - 1j)
+          // et non le cycle complet.
+          periodStart = entry;
         }
       }
 

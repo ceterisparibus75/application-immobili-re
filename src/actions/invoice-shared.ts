@@ -515,7 +515,8 @@ export async function computeInvoicePreview(
     lease.billingAnchorMonth != null && lease.billingAnchorDay != null
       ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
       : null;
-  const { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency, billingAnchor);
+  // eslint-disable-next-line prefer-const
+  let { periodStart, periodEnd } = computePeriodDates(periodMonth, lease.paymentFrequency, billingAnchor);
   const { issueDate, dueDate } = computeIssueDueDate(periodStart, periodEnd, lease.billingTerm);
   const effectiveStart = lease.entryDate ?? lease.startDate;
 
@@ -566,7 +567,9 @@ export async function computeInvoicePreview(
 
   // Prorata annuel custom : si la période ANNUEL avec anchor démarre avant
   // l'entrée effective dans les lieux (fallback startDate si entryDate vide),
-  // la 1ère facture ne couvre que la fraction réellement louée.
+  // la 1ère facture ne couvre que la fraction réellement louée. On recale
+  // periodStart sur la date d'entrée pour que la facture affiche la période
+  // réellement facturée (et non le cycle complet).
   if (
     lease.paymentFrequency === "ANNUEL" &&
     billingAnchor &&
@@ -579,6 +582,7 @@ export async function computeInvoicePreview(
       const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
       rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
       prorataLabel = prorataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
+      periodStart = entry;
     }
   }
 
