@@ -445,7 +445,8 @@ describe("computeInvoicePreview", () => {
 
     const result = await computeInvoicePreview(SOCIETY_ID, PREVIEW_LEASE_ID, "2025-03");
     expect(result?.lines).toHaveLength(2);
-    expect(result?.lines[1].label).toBe("Charges locatives");
+    // Label aligné sur generateBatchInvoices : "<charge> — <période>"
+    expect(result?.lines[1].label).toBe("Charges locatives — mars 2025");
     expect(result?.lines[1].totalHT).toBe(100);
   });
 

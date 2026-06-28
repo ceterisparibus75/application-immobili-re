@@ -40,6 +40,30 @@ export type InvoicePreviewSociety = {
   email: string | null;
 };
 
+// Type des données rendues par InvoicePdf — réexporté pour éviter une
+// dépendance circulaire client/serveur sur invoice-pdf.tsx.
+export type InvoicePdfData = {
+  invoiceNumber: string; invoiceType: string; issueDate: string; dueDate: string;
+  periodStart?: string | null; periodEnd?: string | null;
+  totalHT: number; totalVAT: number; totalTTC: number;
+  previousBalance: number; isAvoir: boolean;
+  society: {
+    name: string; addressLine1?: string | null; postalCode?: string | null;
+    city?: string | null; country?: string | null; phone?: string | null;
+    siret?: string | null; vatNumber?: string | null; legalForm?: string | null;
+    shareCapital?: number | null; bankName?: string | null;
+    vatRegime?: string | null; legalMentions?: string | null;
+    signatoryName?: string | null; logoSignedUrl?: string | null;
+    iban?: string | null; bic?: string | null; email?: string | null;
+  } | null;
+  tenant: { name: string; address?: string | null; email?: string | null };
+  lotLabel?: string | null;
+  lines: Array<{ label: string; lotNumber?: string | null; totalHT: number; vatRate: number; totalTTC: number }>;
+  payments: Array<{ paidAt: string; method?: string | null; amount: number }>;
+  creditNoteForNumber?: string | null;
+  note?: string | null;
+};
+
 export type InvoicePreview = {
   leaseId: string;
   invoiceType: string;
@@ -67,6 +91,9 @@ export type InvoicePreview = {
   bic: string | null;
   logoResolvedUrl: string | null;
   previousBalance: number;
+  // Données canoniques utilisées par le composant <InvoicePdf> — garantissent
+  // que l'aperçu rend EXACTEMENT ce qui sera émis à la confirmation.
+  pdfData: InvoicePdfData;
 };
 
 // ============================================================
@@ -609,8 +636,9 @@ export async function computeInvoicePreview(
     lines.push(...revisionProrata.lines);
   } else {
     const rentVAT = rentHT * (vatRate / 100);
+    // Format identique à generateBatchInvoices : "Loyer <lot> — <période>(prorata...)"
     lines.push({
-      label: `Loyer${prorataLabel}`,
+      label: `Loyer ${lotLabel} — ${periodLabel}${prorataLabel}`,
       quantity: 1,
       unitPrice: rentHT,
       vatRate,
@@ -624,7 +652,7 @@ export async function computeInvoicePreview(
     const cpVatRate = cp.vatRate;
     const vat = ht * (cpVatRate / 100);
     lines.push({
-      label: cp.label,
+      label: `${cp.label} — ${periodLabel}`,
       quantity: 1,
       unitPrice: ht,
       vatRate: cpVatRate,
@@ -684,12 +712,59 @@ export async function computeInvoicePreview(
     email: society.email,
   } : null;
 
+  const tenantEmailValue = lease.tenant.billingEmail || lease.tenant.email || null;
+  const pdfData: InvoicePdfData = {
+    invoiceNumber: "",
+    invoiceType: "APPEL_LOYER",
+    issueDate: issueDate.toISOString(),
+    dueDate: dueDate.toISOString(),
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString(),
+    totalHT,
+    totalVAT,
+    totalTTC: totalHT + totalVAT,
+    previousBalance,
+    isAvoir: false,
+    society: society ? {
+      name: society.name,
+      addressLine1: society.addressLine1,
+      postalCode: society.postalCode,
+      city: society.city,
+      country: null,
+      phone: society.phone,
+      siret: society.siret,
+      vatNumber: society.vatNumber,
+      legalForm: society.legalForm,
+      shareCapital: society.shareCapital,
+      bankName: society.bankName,
+      vatRegime: society.vatRegime,
+      legalMentions: society.legalMentions,
+      signatoryName: society.signatoryName,
+      logoSignedUrl: logoResolvedUrl,
+      iban,
+      bic,
+      email: society.email,
+    } : null,
+    tenant: { name: tenantName, address: tenantAddress, email: tenantEmailValue },
+    lotLabel,
+    lines: lines.map((l) => ({
+      label: l.label,
+      lotNumber: lotNumber || null,
+      totalHT: l.totalHT,
+      vatRate: l.vatRate,
+      totalTTC: l.totalTTC,
+    })),
+    payments: [],
+    creditNoteForNumber: null,
+    note: null,
+  };
+
   return {
     leaseId: lease.id,
     invoiceType: "APPEL_LOYER",
     tenantName,
     tenantAddress,
-    tenantEmail: lease.tenant.billingEmail || lease.tenant.email || null,
+    tenantEmail: tenantEmailValue,
     tenantPhone: lease.tenant.phone ?? null,
     lotLabel,
     lotNumber,
@@ -711,5 +786,6 @@ export async function computeInvoicePreview(
     bic,
     logoResolvedUrl,
     previousBalance,
+    pdfData,
   };
 }
