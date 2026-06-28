@@ -612,7 +612,8 @@ export async function generateBatchInvoices(
 
         // Prorata annuel custom : si la période ANNUEL avec anchor démarre
         // avant l'entrée effective dans les lieux, la 1ère facture ne couvre
-        // que la fraction réellement louée.
+        // que la fraction réellement louée. Fallback startDate si entryDate
+        // n'est pas saisie (cas fréquent pour les baux importés).
         const batchAnchor =
           lease.billingAnchorMonth != null && lease.billingAnchorDay != null
             ? { month: lease.billingAnchorMonth, day: lease.billingAnchorDay }
@@ -620,15 +621,16 @@ export async function generateBatchInvoices(
         if (
           lease.paymentFrequency === "ANNUEL" &&
           batchAnchor &&
-          rentHT > 0 &&
-          lease.entryDate
+          lease.currentRentHT > 0
         ) {
-          const entry = new Date(lease.entryDate);
+          const entry = new Date(lease.entryDate ?? lease.startDate);
           if (entry > periodStart && entry <= periodEnd) {
             const dayMs = 86400000;
             const daysTotal = Math.round((periodEnd.getTime() - periodStart.getTime()) / dayMs) + 1;
             const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
-            rentHT = Math.round((rentHT * daysEffective / daysTotal) * 100) / 100;
+            // Le loyer "plein" est currentRentHT (annuel direct, computeRent
+            // peut renvoyer 0 si la période est entièrement avant startDate).
+            rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
             batchProrataLabel = batchProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
           }
         }

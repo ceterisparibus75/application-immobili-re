@@ -153,15 +153,15 @@ async function generateDraftInvoices() {
       if (
         lease.paymentFrequency === "ANNUEL" &&
         billingAnchor &&
-        rentHT > 0 &&
-        lease.entryDate
+        lease.currentRentHT > 0
       ) {
-        const entry = new Date(lease.entryDate);
+        // Fallback startDate si entryDate n'est pas saisie.
+        const entry = new Date(lease.entryDate ?? lease.startDate);
         if (entry > periodStart && entry <= periodEnd) {
           const dayMs = 86400000;
           const daysTotal = Math.round((periodEnd.getTime() - periodStart.getTime()) / dayMs) + 1;
           const daysEffective = Math.round((periodEnd.getTime() - entry.getTime()) / dayMs) + 1;
-          rentHT = Math.round((rentHT * daysEffective / daysTotal) * 100) / 100;
+          rentHT = Math.round((lease.currentRentHT * daysEffective / daysTotal) * 100) / 100;
           cronProrataLabel = cronProrataLabel + ` (prorata ${daysEffective}/${daysTotal} j.)`;
         }
       }
