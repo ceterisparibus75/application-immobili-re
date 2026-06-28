@@ -161,7 +161,11 @@ export default auth(async (req) => {
   const cspValue = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://static.zdassets.com https://*.zendesk.com https://*.zopim.com`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    // 'unsafe-inline' est ignoré dès qu'un nonce est présent dans le source-list
+    // (spec CSP3). Radix UI / @react-pdf / tooltips injectent des styles inline
+    // sans nonce — on garde donc 'unsafe-inline' seul pour les styles. Le risque
+    // d'injection XSS reste contenu par strict-dynamic + nonce sur script-src.
+    `style-src 'self' 'unsafe-inline'`,
     "img-src 'self' blob: data: https:",
     "font-src 'self' https://static.zdassets.com",
     "object-src 'none'",
