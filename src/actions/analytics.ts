@@ -25,7 +25,7 @@ export type TopTenant = { name: string; total: number };
 export type RiskConcentrationItem = { name: string; annualRent: number; pct: number };
 export type RiskConcentration = { byBuilding: RiskConcentrationItem[]; byTenant: RiskConcentrationItem[]; hhiBuilding: number; hhiTenant: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; principalAmortizedMonth: number; principalAmortizedYTD: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 type AnalyticsCoreOptions = { includeTopTenants?: boolean };
@@ -66,6 +66,8 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const now = new Date();
   const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const currentYearStart = new Date(now.getFullYear(), 0, 1);
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -203,6 +205,13 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
       },
     },
   });
+  const amortizationLinesPromise = prisma.loanAmortizationLine.findMany({
+    where: {
+      loan: { societyId: { in: societyIds }, status: "EN_COURS" },
+      dueDate: { gte: currentYearStart, lte: currentMonthEnd },
+    },
+    select: { dueDate: true, principalPayment: true },
+  });
   const dashboardCountsPromise = Promise.all([
     prisma.building.count({ where: { societyId: { in: societyIds } } }),
     prisma.tenant.count({ where: { societyId: { in: societyIds }, isActive: true } }),
@@ -249,6 +258,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     managementFeesAgg,
     pendingRevisionCount,
     activeUnmanagedLeasesForIssue,
+    amortizationLinesForKpi,
   ] = await Promise.all([
     monthlyRevenuePromise,
     revenueAggPromise,
@@ -267,6 +277,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     managementFeesAggPromise,
     pendingRevisionCountPromise,
     activeUnmanagedLeasesForIssuePromise,
+    amortizationLinesPromise,
   ]);
 
   // 1. Revenus mensuels (SQL raw — ANY fonctionne aussi avec un seul élément)
@@ -418,6 +429,17 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   }
   const activeLoanCount = activeLoansForDebt.length;
 
+  // Amortissement capital : mois courant + cumul depuis le 1er janvier
+  let principalAmortizedMonth = 0;
+  let principalAmortizedYTD = 0;
+  for (const line of amortizationLinesForKpi ?? []) {
+    const amount = Number(line.principalPayment);
+    principalAmortizedYTD += amount;
+    if (line.dueDate >= currentMonthStart && line.dueDate <= currentMonthEnd) {
+      principalAmortizedMonth += amount;
+    }
+  }
+
   // LTV basé sur le coût complet (prix + frais + taxes + travaux + acquisitions complémentaires)
   const totalCostForLtv = buildingsForPatrimony.reduce((s, b) => {
     let cost = (b.acquisitionPrice ?? 0) + (b.acquisitionFees ?? 0) + (b.acquisitionTaxes ?? 0) + (b.acquisitionOtherCosts ?? 0) + (b.worksCost ?? 0);
@@ -510,7 +532,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   }).length;
 
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, principalAmortizedMonth, principalAmortizedYTD, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, riskConcentration, leaseTimeline, lenderSummaries,
   };
 }

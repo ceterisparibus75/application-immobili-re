@@ -281,7 +281,7 @@ export default async function ProprietaireDashboardPage({
                 <CardDescription>Capital restant dû et mensualités — toutes sociétés</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="grid grid-cols-3 gap-px bg-border">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border">
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</p>
@@ -289,6 +289,16 @@ export default async function ProprietaireDashboardPage({
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.monthlyLoanPayment)}</p>
+                  </div>
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Capital amorti — mois</p>
+                    <p className="text-lg font-semibold tabular-nums text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedMonth)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Échéances dues ce mois-ci</p>
+                  </div>
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Capital amorti — YTD</p>
+                    <p className="text-lg font-semibold tabular-nums text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedYTD)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Depuis le 1<sup>er</sup> janvier</p>
                   </div>
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">LTV</p>
@@ -306,6 +316,8 @@ export default async function ProprietaireDashboardPage({
                           <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Restant dû</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Mensualité</th>
+                          <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Amorti mois</th>
+                          <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Amorti YTD</th>
                           <th className="text-center py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">LTV</th>
                         </tr>
                       </thead>
@@ -322,6 +334,8 @@ export default async function ProprietaireDashboardPage({
                             </td>
                             <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">{fmt(s.totalDebt)}</td>
                             <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.monthlyLoanPayment)}<span className="text-[10px] text-muted-foreground">/mois</span></td>
+                            <td className="py-3 px-4 text-right tabular-nums text-[var(--color-status-positive)] font-medium">{fmt(s.principalAmortizedMonth)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums text-[var(--color-status-positive)] font-semibold">{fmt(s.principalAmortizedYTD)}</td>
                             <td className="py-3 px-4 text-center">
                               {s.ltv !== null ? (
                                 <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted ${s.ltv > 80 ? "text-[var(--color-status-negative)]" : s.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{s.ltv}%</span>
@@ -336,6 +350,8 @@ export default async function ProprietaireDashboardPage({
                             <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.totalDebt)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-muted-foreground">{fmt(data.kpis.monthlyLoanPayment)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedMonth)}</td>
+                            <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedYTD)}</td>
                             <td className="py-3 px-4 text-center">
                               {data.kpis.ltv !== null && (
                                 <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted ${data.kpis.ltv > 80 ? "text-[var(--color-status-negative)]" : data.kpis.ltv > 60 ? "text-[var(--color-status-caution)]" : "text-[var(--color-brand-deep)]"}`}>{data.kpis.ltv}%</span>

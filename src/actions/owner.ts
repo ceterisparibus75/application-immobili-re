@@ -25,6 +25,8 @@ export type OwnerSocietySummary = {
   cashBalance: number;
   totalDebt: number;
   monthlyLoanPayment: number;
+  principalAmortizedMonth: number;
+  principalAmortizedYTD: number;
   monthlyRentHT: number;
   patrimonyValue: number;
   ltv: number | null;
@@ -64,6 +66,8 @@ export type OwnerAnalytics = {
   totalCash: number;
   totalDebt: number;
   totalMonthlyLoanPayment: number;
+  totalPrincipalAmortizedMonth: number;
+  totalPrincipalAmortizedYTD: number;
   totalMonthlyRentHT: number;
   totalRecoverableCharges: number;
   totalPatrimonyValue: number;
@@ -97,6 +101,7 @@ const EMPTY_ANALYTICS: OwnerAnalytics = {
   totalSocieties: 0, totalBuildings: 0, totalLots: 0, totalOccupied: 0,
   totalMonthRevenue: 0, totalOverdue: 0, totalActiveLeases: 0,
   totalCash: 0, totalDebt: 0, totalMonthlyLoanPayment: 0,
+  totalPrincipalAmortizedMonth: 0, totalPrincipalAmortizedYTD: 0,
   totalMonthlyRentHT: 0, totalRecoverableCharges: 0,
   totalPatrimonyValue: 0,
   grossYield: null, consolidatedLTV: null, occupancyRate: 0,
@@ -121,11 +126,14 @@ const _fetchOwnerAnalyticsData = unstable_cache(
     const ids = ownedSocieties.map((s) => s.id);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
     const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     const [
       buildings, lots, activeLeases, monthRevAgg, overdueInvoices,
       bankAccounts, loans, allOverdue, expiringLeasesRaw, rentAgg, chargeAgg,
+      amortizationLines,
     ] = await Promise.all([
       prisma.building.findMany({
         where: { societyId: { in: ids } },
@@ -227,6 +235,18 @@ const _fetchOwnerAnalyticsData = unstable_cache(
         },
         select: { amount: true },
       }),
+      // Lignes d'amortissement de l'année en cours (mois + YTD)
+      prisma.loanAmortizationLine.findMany({
+        where: {
+          loan: { societyId: { in: ids }, status: "EN_COURS" },
+          dueDate: { gte: yearStart, lte: monthEnd },
+        },
+        select: {
+          dueDate: true,
+          principalPayment: true,
+          loan: { select: { societyId: true } },
+        },
+      }),
     ]);
 
     const bMap = new Map<string, number>();
@@ -273,6 +293,18 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       }
     }
 
+    // Amortissement capital : mois courant + YTD, agrégé par société
+    const principalMonthMap = new Map<string, number>();
+    const principalYtdMap = new Map<string, number>();
+    for (const line of amortizationLines ?? []) {
+      const sid = line.loan.societyId;
+      const amount = Number(line.principalPayment);
+      principalYtdMap.set(sid, (principalYtdMap.get(sid) ?? 0) + amount);
+      if (line.dueDate >= monthStart && line.dueDate <= monthEnd) {
+        principalMonthMap.set(sid, (principalMonthMap.get(sid) ?? 0) + amount);
+      }
+    }
+
     const buckets = { lt30: 0, lt60: 0, lt90: 0, gt90: 0 };
     for (const inv of allOverdue) {
       const days = Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
@@ -316,6 +348,8 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       cashBalance: cashMap.get(s.id) ?? 0,
       totalDebt: debtMap.get(s.id) ?? 0,
       monthlyLoanPayment: loanPayMap.get(s.id) ?? 0,
+      principalAmortizedMonth: principalMonthMap.get(s.id) ?? 0,
+      principalAmortizedYTD: principalYtdMap.get(s.id) ?? 0,
       monthlyRentHT: Number(rentMap.get(s.id) ?? 0),
       patrimonyValue: patrimonyMap.get(s.id) ?? 0,
       ltv: (() => {
@@ -363,6 +397,8 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       totalCash: societies.reduce((s, x) => s + x.cashBalance, 0),
       totalDebt: societies.reduce((s, x) => s + x.totalDebt, 0),
       totalMonthlyLoanPayment: societies.reduce((s, x) => s + x.monthlyLoanPayment, 0),
+      totalPrincipalAmortizedMonth: societies.reduce((s, x) => s + x.principalAmortizedMonth, 0),
+      totalPrincipalAmortizedYTD: societies.reduce((s, x) => s + x.principalAmortizedYTD, 0),
       totalMonthlyRentHT: societies.reduce((s, x) => s + x.monthlyRentHT, 0),
       totalRecoverableCharges: chargeAgg.reduce((sum, c) => sum + Number(c.amount ?? 0), 0),
       totalPatrimonyValue,

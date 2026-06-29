@@ -83,7 +83,7 @@ export default async function DashboardPage() {
             <CardDescription>Capital restant dû et mensualités</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-3 gap-px bg-border/30">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border/30">
               <div className="bg-card p-4">
                 <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
                 <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(kpis.totalDebt)}</p>
@@ -91,6 +91,16 @@ export default async function DashboardPage() {
               <div className="bg-card p-4">
                 <p className="text-xs text-muted-foreground mb-1">Mensualité totale</p>
                 <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(kpis.monthlyLoanPayment)}</p>
+              </div>
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">Capital amorti — mois</p>
+                <p className="text-lg font-semibold tabular-nums text-[var(--color-status-positive)]">{fmt(kpis.principalAmortizedMonth)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Échéances dues ce mois-ci</p>
+              </div>
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">Capital amorti — YTD</p>
+                <p className="text-lg font-semibold tabular-nums text-[var(--color-status-positive)]">{fmt(kpis.principalAmortizedYTD)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Depuis le 1<sup>er</sup> janvier</p>
               </div>
               <div className="bg-card p-4">
                 <p className="text-xs text-muted-foreground mb-1">LTV</p>
