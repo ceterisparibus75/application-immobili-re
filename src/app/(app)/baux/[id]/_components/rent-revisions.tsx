@@ -9,9 +9,9 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CheckCircle2, XCircle, Loader2, ArrowRight, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, ArrowRight, Clock, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { validateRevision, rejectRevision } from "@/actions/rent-revision";
+import { validateRevision, rejectRevision, sendRevisionNotification } from "@/actions/rent-revision";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { IndexType } from "@/generated/prisma/client";
 
@@ -26,6 +26,7 @@ type RevisionData = {
   formula: string | null;
   isValidated: boolean;
   validatedAt: Date | null;
+  notificationSentAt?: Date | null; // optionnel : pas (encore) en BDD, vient de l'audit log si besoin
 };
 
 export function RentRevisions({
@@ -39,6 +40,19 @@ export function RentRevisions({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
+
+  const handleNotify = async (revisionId: string) => {
+    setNotifying(revisionId);
+    const result = await sendRevisionNotification(societyId, revisionId);
+    setNotifying(null);
+    if (result.success) {
+      toast.success("Notification envoyée au locataire");
+      router.refresh();
+    } else {
+      toast.error(result.error ?? "Erreur lors de l'envoi");
+    }
+  };
 
   const handleValidate = async (revisionId: string) => {
     setLoading(revisionId);
@@ -111,6 +125,25 @@ export function RentRevisions({
 
             {rev.formula && (
               <p className="text-xs text-muted-foreground font-mono">{rev.formula}</p>
+            )}
+
+            {!isPending && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => handleNotify(rev.id)}
+                  disabled={notifying === rev.id}
+                >
+                  {notifying === rev.id ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-3 w-3 mr-1" />
+                  )}
+                  Notifier le locataire
+                </Button>
+              </div>
             )}
 
             {isPending && isActive && (

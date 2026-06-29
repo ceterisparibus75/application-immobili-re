@@ -557,3 +557,101 @@ export async function applyCatchUpRevisions(
     return { success: false, error: "Erreur lors de l'application du rattrapage" };
   }
 }
+
+/**
+ * Notifie le locataire d'une révision de loyer par email. Le déclenchement
+ * est explicitement manuel (laisser la main à l'utilisateur). La révision
+ * doit avoir été validée au préalable.
+ */
+export async function sendRevisionNotification(
+  societyId: string,
+  revisionId: string
+): Promise<ActionResult<{ sent: true }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const revision = await prisma.rentRevision.findFirst({
+      where: { id: revisionId, lease: { societyId } },
+      include: {
+        lease: {
+          include: {
+            tenant: {
+              select: {
+                entityType: true,
+                companyName: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                billingEmail: true,
+              },
+            },
+            lot: { select: { number: true, building: { select: { name: true, addressLine1: true } } } },
+            society: { select: { name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!revision) return { success: false, error: "Révision introuvable" };
+    if (!revision.isValidated) {
+      return { success: false, error: "Validez la révision avant de notifier le locataire" };
+    }
+
+    const tenant = revision.lease.tenant;
+    const to = tenant.billingEmail || tenant.email;
+    if (!to) return { success: false, error: "Aucune adresse email pour ce locataire" };
+
+    const tenantName =
+      tenant.entityType === "PERSONNE_MORALE"
+        ? (tenant.companyName ?? "—")
+        : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "—";
+    const lotLabel = revision.lease.lot
+      ? `${revision.lease.lot.building.name ?? revision.lease.lot.building.addressLine1 ?? "—"} — Lot ${revision.lease.lot.number}`
+      : "Lot";
+    const society = revision.lease.society;
+
+    const { sendRevisionNotificationEmail } = await import("@/lib/email");
+    const result = await sendRevisionNotificationEmail({
+      to,
+      tenantName,
+      societyName: society?.name ?? "Bailleur",
+      lotLabel,
+      effectiveDate: revision.effectiveDate.toLocaleDateString("fr-FR"),
+      previousRentHT: revision.previousRentHT,
+      newRentHT: revision.newRentHT,
+      indexType: revision.indexType,
+      formula: revision.formula ?? `${revision.previousRentHT.toFixed(2)} → ${revision.newRentHT.toFixed(2)} HT`,
+      contactEmail: society?.email ?? undefined,
+      proofContext: {
+        entityType: "RentRevision",
+        entityId: revision.id,
+        tenantId: revision.lease.tenantId,
+        leaseId: revision.lease.id,
+      },
+    });
+
+    if (!result.success) {
+      return { success: false, error: `Envoi échoué : ${result.error ?? "erreur inconnue"}` };
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "SEND_EMAIL",
+      entity: "RentRevision",
+      entityId: revision.id,
+      details: { to, type: "REVISION_NOTIFICATION", resendEmailId: result.emailId ?? null },
+    });
+
+    revalidatePath("/indices");
+    revalidatePath("/baux/revisions");
+    revalidatePath(`/baux/${revision.lease.id}`);
+
+    return { success: true, data: { sent: true } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[sendRevisionNotification]", error);
+    return { success: false, error: "Erreur lors de l'envoi de la notification" };
+  }
+}

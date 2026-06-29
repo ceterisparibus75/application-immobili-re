@@ -18,6 +18,7 @@ import {
   Calendar,
   DatabaseZap,
   ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -217,6 +218,82 @@ function formatDateFr(date: Date): string {
   });
 }
 
+type IndexRow = { indexType: string; quarter: number; year: number; value: number };
+
+/**
+ * Calcule le loyer théorique d'un bail si toutes les révisions prévues au
+ * contrat avaient été appliquées jusqu'à `now`.
+ * - INSEE : baseRentHT × (dernierIndice du trimestre de référence / baseIndexValue)
+ * - POURCENTAGE_FIXE : baseRentHT × (1 + taux)^(années écoulées depuis l'entrée)
+ */
+function computeTheoreticalRent(params: {
+  indexType: string | null;
+  baseIndexValue: number | null;
+  baseIndexQuarter: string | null;
+  baseRentHT: number;
+  fixedAnnualIndexationRate: number | null;
+  entryDate: Date | null;
+  startDate: Date;
+  allIndices: IndexRow[];
+  latestForType: IndexRow | null;
+  now: Date;
+}): { theoreticalRentHT: number | null; gapIndexLabel: string | null } {
+  const {
+    indexType,
+    baseIndexValue,
+    baseIndexQuarter,
+    baseRentHT,
+    fixedAnnualIndexationRate,
+    entryDate,
+    startDate,
+    allIndices,
+    latestForType,
+    now,
+  } = params;
+
+  if (indexType === "POURCENTAGE_FIXE") {
+    const rate = fixedAnnualIndexationRate ?? 0;
+    const anchor = entryDate ?? startDate;
+    const yearsElapsed = Math.max(
+      0,
+      Math.floor(
+        (now.getTime() - anchor.getTime()) / (365.25 * 24 * 3600 * 1000),
+      ),
+    );
+    if (rate > 0 && baseRentHT) {
+      const theoretical =
+        Math.round(
+          baseRentHT * Math.pow(1 + rate / 100, yearsElapsed) * 100,
+        ) / 100;
+      return {
+        theoreticalRentHT: theoretical,
+        gapIndexLabel: `+${rate}%/an × ${yearsElapsed} an${yearsElapsed > 1 ? "s" : ""}`,
+      };
+    }
+    return { theoreticalRentHT: null, gapIndexLabel: null };
+  }
+
+  if (!baseIndexValue || !baseIndexQuarter || !indexType || !baseRentHT) {
+    return { theoreticalRentHT: null, gapIndexLabel: null };
+  }
+  const match = baseIndexQuarter.match(/T(\d)/);
+  const refQuarter = match ? parseInt(match[1]) : null;
+  let latestSameQ: IndexRow | undefined;
+  if (refQuarter) {
+    latestSameQ = allIndices.find(
+      (i) => i.indexType === indexType && i.quarter === refQuarter,
+    );
+  }
+  const refLatest = latestSameQ ?? latestForType;
+  if (!refLatest) return { theoreticalRentHT: null, gapIndexLabel: null };
+  const theoretical =
+    Math.round(baseRentHT * (refLatest.value / baseIndexValue) * 100) / 100;
+  return {
+    theoreticalRentHT: theoretical,
+    gapIndexLabel: `T${refLatest.quarter} ${refLatest.year} (${refLatest.value.toFixed(2)}) / ${baseIndexQuarter} (${baseIndexValue.toFixed(2)})`,
+  };
+}
+
 export default async function IndicesPage() {
   const headersList = await headers();
   const societyId = headersList.get("x-society-id");
@@ -246,6 +323,7 @@ export default async function IndicesPage() {
       revisionCustomDay: true,
       currentRentHT: true,
       baseRentHT: true,
+      fixedAnnualIndexationRate: true,
       tenant: {
         select: {
           entityType: true,
@@ -315,6 +393,7 @@ export default async function IndicesPage() {
   );
 
   // Préparer les données sérialisables pour le composant client
+  const now = new Date();
   const leasesData = leases
     .map((lease) => {
       const lastValidated = lease.rentRevisions.find((r) => r.isValidated);
@@ -369,6 +448,30 @@ export default async function IndicesPage() {
       const latestForType = indexByType[lease.indexType as string]?.latest;
       const displayIndex = referenceIndex ?? (latestForType ? { value: latestForType.value, quarter: latestForType.quarter, year: latestForType.year } : null);
 
+      // Analyse d'écart : loyer théorique vs réel
+      const { theoreticalRentHT, gapIndexLabel } = computeTheoreticalRent({
+        indexType: lease.indexType,
+        baseIndexValue: lease.baseIndexValue,
+        baseIndexQuarter: lease.baseIndexQuarter,
+        baseRentHT: lease.baseRentHT,
+        fixedAnnualIndexationRate: lease.fixedAnnualIndexationRate,
+        entryDate: lease.entryDate,
+        startDate: lease.startDate,
+        allIndices,
+        latestForType: latestForType ?? null,
+        now,
+      });
+
+      const gapMonthlyHT = theoreticalRentHT != null
+        ? Math.round((theoreticalRentHT - lease.currentRentHT) * 100) / 100
+        : null;
+      const gapAnnualHT = gapMonthlyHT != null
+        ? Math.round(gapMonthlyHT * 12 * 100) / 100
+        : null;
+      const gapPercentage = gapMonthlyHT != null && lease.currentRentHT > 0
+        ? Math.round((gapMonthlyHT / lease.currentRentHT) * 10000) / 100
+        : null;
+
       return {
         id: lease.id,
         tenantName,
@@ -391,6 +494,11 @@ export default async function IndicesPage() {
         referenceIndexQuarter: displayIndex ? `T${displayIndex.quarter}` : null,
         referenceIndexYear: displayIndex?.year ?? null,
         missedYears,
+        theoreticalRentHT,
+        gapMonthlyHT,
+        gapAnnualHT,
+        gapPercentage,
+        gapIndexLabel,
       };
     })
     .sort(
@@ -428,6 +536,21 @@ export default async function IndicesPage() {
   const pendingCount = leasesData.filter(
     (l) => l.pendingRevisionId
   ).length;
+
+  // ── Synthèse globale des écarts d'indexation ────────────────────────
+  // On ne considère que les baux ayant un loyer théorique calculable et
+  // un écart positif (loyer sous-indexé = manque à gagner).
+  const leasesWithGap = leasesData.filter(
+    (l) => l.gapMonthlyHT != null && l.gapMonthlyHT > 0.5
+  );
+  const totalMonthlyGap = leasesWithGap.reduce(
+    (sum, l) => sum + (l.gapMonthlyHT ?? 0),
+    0
+  );
+  const totalAnnualGap = totalMonthlyGap * 12;
+  const leasesUnderRented = [...leasesWithGap].sort(
+    (a, b) => (b.gapAnnualHT ?? 0) - (a.gapAnnualHT ?? 0)
+  );
 
   return (
     <div className="space-y-6">
@@ -527,6 +650,151 @@ export default async function IndicesPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Analyse des écarts d'indexation : loyer théorique vs loyer perçu */}
+      {leasesData.some((l) => l.theoreticalRentHT != null) && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Analyse des écarts d&apos;indexation
+                </CardTitle>
+                <CardDescription>
+                  Loyer actuellement perçu vs loyer théorique si toutes les
+                  révisions prévues avaient été appliquées
+                </CardDescription>
+              </div>
+              {leasesWithGap.length > 0 && (
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-muted-foreground">
+                    Manque à gagner annuel
+                  </p>
+                  <p className="text-xl font-bold text-[var(--color-status-negative)] tabular-nums">
+                    {totalAnnualGap.toLocaleString("fr-FR", {
+                      style: "currency",
+                      currency: "EUR",
+                      maximumFractionDigits: 0,
+                    })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground tabular-nums">
+                    soit{" "}
+                    {totalMonthlyGap.toLocaleString("fr-FR", {
+                      style: "currency",
+                      currency: "EUR",
+                      maximumFractionDigits: 0,
+                    })}
+                    /mois sur {leasesWithGap.length} bail
+                    {leasesWithGap.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {leasesWithGap.length === 0 ? (
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                    Tous les baux sont indexés à jour
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                    Le loyer perçu correspond au loyer théorique calculé à
+                    partir du dernier indice publié.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs text-muted-foreground">
+                      <th className="pb-2 text-left font-medium">
+                        Locataire / Lot
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        Perçu HT
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        Théorique HT
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        Écart mensuel
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        Écart annuel
+                      </th>
+                      <th className="pb-2 text-center font-medium hidden md:table-cell">
+                        Référence
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {leasesUnderRented.map((l) => (
+                      <tr key={`gap-${l.id}`}>
+                        <td className="py-2.5">
+                          <p className="font-medium leading-tight">
+                            {l.tenantName}
+                          </p>
+                          <p className="text-xs text-muted-foreground leading-tight">
+                            {l.lotLabel}
+                          </p>
+                        </td>
+                        <td className="py-2.5 text-right tabular-nums">
+                          {l.currentRentHT.toLocaleString("fr-FR", {
+                            style: "currency",
+                            currency: "EUR",
+                          })}
+                        </td>
+                        <td className="py-2.5 text-right tabular-nums font-medium">
+                          {(l.theoreticalRentHT ?? 0).toLocaleString("fr-FR", {
+                            style: "currency",
+                            currency: "EUR",
+                          })}
+                        </td>
+                        <td className="py-2.5 text-right tabular-nums text-[var(--color-status-negative)]">
+                          +
+                          {(l.gapMonthlyHT ?? 0).toLocaleString("fr-FR", {
+                            style: "currency",
+                            currency: "EUR",
+                          })}
+                          {l.gapPercentage != null && (
+                            <span className="text-[11px] text-muted-foreground ml-1">
+                              ({l.gapPercentage.toFixed(1)}%)
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-right tabular-nums font-semibold text-[var(--color-status-negative)]">
+                          +
+                          {(l.gapAnnualHT ?? 0).toLocaleString("fr-FR", {
+                            style: "currency",
+                            currency: "EUR",
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 text-center text-[11px] text-muted-foreground hidden md:table-cell">
+                          {l.gapIndexLabel ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+                  Le loyer théorique est calculé à partir du loyer de base à
+                  l&apos;entrée et de l&apos;évolution de l&apos;indice de
+                  référence ou du taux contractuel. L&apos;écart représente le
+                  manque à gagner si toutes les révisions prévues étaient
+                  appliquées au plus tard à ce jour (rappel : les révisions de
+                  loyers d&apos;habitation sont prescrites au-delà d&apos;un
+                  an).
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* KPIs indices */}

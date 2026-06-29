@@ -22,4 +22,5 @@ export {
   createManualRevision,
   detectPendingRevisions,
   applyCatchUpRevisions,
+  sendRevisionNotification,
 } from "@/actions/rent-revision-mutations";

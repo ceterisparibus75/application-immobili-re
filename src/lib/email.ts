@@ -359,6 +359,67 @@ export async function sendReminderEmail(params: ReminderEmailParams): Promise<Em
 }
 
 // ============================================================
+// RÉVISION DE LOYER (notification au locataire)
+// ============================================================
+
+interface RevisionNotificationEmailParams {
+  to: string;
+  tenantName: string;
+  societyName: string;
+  lotLabel: string; // ex: "9 Rue Myosotis — Lot 3"
+  effectiveDate: string; // date d'effet de la révision (formatée)
+  previousRentHT: number;
+  newRentHT: number;
+  indexType: string; // ex: "ILC" ou "POURCENTAGE_FIXE"
+  formula: string; // formule de calcul affichée au locataire
+  contactEmail?: string | null;
+  bcc?: string | string[];
+  proofContext?: EmailDeliveryProofContext;
+}
+
+export async function sendRevisionNotificationEmail(
+  params: RevisionNotificationEmailParams
+): Promise<EmailResult> {
+  const variationHT = params.newRentHT - params.previousRentHT;
+  const variationPct = params.previousRentHT > 0
+    ? (variationHT / params.previousRentHT) * 100
+    : 0;
+  const sign = variationHT >= 0 ? "+" : "";
+  const indexLabel =
+    params.indexType === "POURCENTAGE_FIXE"
+      ? "Indexation contractuelle à taux fixe"
+      : `Indice ${params.indexType}`;
+
+  const content = `
+    ${heading("Révision annuelle de votre loyer")}
+    ${para(`Bonjour <strong>${params.tenantName}</strong>,`)}
+    ${para(`Conformément aux dispositions de votre bail, nous procédons à la révision annuelle de votre loyer pour le local situé : <strong>${params.lotLabel}</strong>.`)}
+    ${infoTable([
+      { label: "Mode d'indexation", value: indexLabel },
+      { label: "Date d'effet", value: params.effectiveDate },
+      { label: "Loyer précédent (HT)", value: fmt(params.previousRentHT) },
+      { label: "Nouveau loyer (HT)", value: fmt(params.newRentHT), bold: true },
+      { label: "Variation", value: `${sign}${fmt(variationHT)} (${sign}${variationPct.toFixed(2)} %)` },
+    ])}
+    ${para("Détail du calcul :", { small: true })}
+    ${para(`<code style="font-family:monospace;background:#f3f4f6;padding:6px 10px;border-radius:4px;display:inline-block;">${params.formula}</code>`, { small: true })}
+    ${para("Cette révision sera appliquée sur les prochains appels de loyer. Le présent courrier vaut notification au sens de l'article L. 145-37 du Code de commerce le cas échéant.")}
+    ${params.contactEmail ? para(`Pour toute question : <a href="mailto:${params.contactEmail}" style="color:${BRAND.blue};text-decoration:none;">${params.contactEmail}</a>`) : ""}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `Révision de loyer — ${params.lotLabel} — ${fmt(params.newRentHT)} HT`,
+    baseTemplate("Révision de loyer", content, { societyName: params.societyName, borderLeftColor: BRAND.blue }),
+    undefined,
+    undefined,
+    params.bcc,
+    params.proofContext
+  );
+}
+
+// ============================================================
 // APPEL DE LOYER
 // ============================================================
 

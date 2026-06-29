@@ -459,7 +459,13 @@ async function buildCatchUpPreview(
 
   const targetYear = latestAvailable.year;
   if (targetYear <= baseYear) {
-    return { success: false, error: `L'indice de base est déjà à jour (année ${baseYear}, dernier disponible : ${targetYear})` };
+    return {
+      success: false,
+      error:
+        `Aucun rattrapage à appliquer : l'indice de base du bail (T${refQuarter} ${baseYear}) est déjà à jour. ` +
+        `Le dernier indice ${lease.indexType} T${refQuarter} disponible est celui de ${targetYear}. ` +
+        `Consultez la section « Analyse des écarts d'indexation » pour vérifier si le loyer reste cohérent avec l'évolution de l'indice.`,
+    };
   }
 
   // Récupérer tous les indices intermédiaires
