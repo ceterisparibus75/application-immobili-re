@@ -23,6 +23,7 @@ export type OwnerSocietySummary = {
   overdueAmount: number;
   activeLeases: number;
   cashBalance: number;
+  initialLoanCapital: number;
   totalDebt: number;
   monthlyLoanPayment: number;
   principalAmortizedMonth: number;
@@ -64,6 +65,7 @@ export type OwnerAnalytics = {
   totalOverdue: number;
   totalActiveLeases: number;
   totalCash: number;
+  totalInitialLoanCapital: number;
   totalDebt: number;
   totalMonthlyLoanPayment: number;
   totalPrincipalAmortizedMonth: number;
@@ -100,7 +102,7 @@ export async function getOwnerSocieties(proprietaireId?: string): Promise<Action
 const EMPTY_ANALYTICS: OwnerAnalytics = {
   totalSocieties: 0, totalBuildings: 0, totalLots: 0, totalOccupied: 0,
   totalMonthRevenue: 0, totalOverdue: 0, totalActiveLeases: 0,
-  totalCash: 0, totalDebt: 0, totalMonthlyLoanPayment: 0,
+  totalCash: 0, totalInitialLoanCapital: 0, totalDebt: 0, totalMonthlyLoanPayment: 0,
   totalPrincipalAmortizedMonth: 0, totalPrincipalAmortizedYTD: 0,
   totalMonthlyRentHT: 0, totalRecoverableCharges: 0,
   totalPatrimonyValue: 0,
@@ -285,7 +287,9 @@ const _fetchOwnerAnalyticsData = unstable_cache(
 
     const debtMap = new Map<string, number>();
     const loanPayMap = new Map<string, number>();
+    const initialCapitalMap = new Map<string, number>();
     for (const loan of loans) {
+      initialCapitalMap.set(loan.societyId, (initialCapitalMap.get(loan.societyId) ?? 0) + Number(loan.amount));
       const line = loan.amortizationLines[0];
       if (line) {
         debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));
@@ -346,6 +350,7 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       overdueAmount: Number(overdueMap.get(s.id) ?? 0),
       activeLeases: leaseMap.get(s.id) ?? 0,
       cashBalance: cashMap.get(s.id) ?? 0,
+      initialLoanCapital: initialCapitalMap.get(s.id) ?? 0,
       totalDebt: debtMap.get(s.id) ?? 0,
       monthlyLoanPayment: loanPayMap.get(s.id) ?? 0,
       principalAmortizedMonth: principalMonthMap.get(s.id) ?? 0,
@@ -395,6 +400,7 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       totalOverdue: societies.reduce((s, x) => s + x.overdueAmount, 0),
       totalActiveLeases: societies.reduce((s, x) => s + x.activeLeases, 0),
       totalCash: societies.reduce((s, x) => s + x.cashBalance, 0),
+      totalInitialLoanCapital: societies.reduce((s, x) => s + x.initialLoanCapital, 0),
       totalDebt: societies.reduce((s, x) => s + x.totalDebt, 0),
       totalMonthlyLoanPayment: societies.reduce((s, x) => s + x.monthlyLoanPayment, 0),
       totalPrincipalAmortizedMonth: societies.reduce((s, x) => s + x.principalAmortizedMonth, 0),

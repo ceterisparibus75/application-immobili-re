@@ -83,7 +83,12 @@ export default async function DashboardPage() {
             <CardDescription>Capital restant dû et mensualités</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border/30">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border/30">
+              <div className="bg-card p-4">
+                <p className="text-xs text-muted-foreground mb-1">Capital initial emprunté</p>
+                <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(kpis.initialLoanCapital)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Total des emprunts en cours</p>
+              </div>
               <div className="bg-card p-4">
                 <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
                 <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(kpis.totalDebt)}</p>

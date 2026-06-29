@@ -25,7 +25,7 @@ export type TopTenant = { name: string; total: number };
 export type RiskConcentrationItem = { name: string; annualRent: number; pct: number };
 export type RiskConcentration = { byBuilding: RiskConcentrationItem[]; byTenant: RiskConcentrationItem[]; hhiBuilding: number; hhiTenant: number };
 export type LeaseTimelineItem = { id: string; tenantName: string; lotRef: string; startDate: string; endDate: string; daysRemaining: number; progressPct: number };
-export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; totalDebt: number; monthlyLoanPayment: number; principalAmortizedMonth: number; principalAmortizedYTD: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
+export type AnalyticsKpis = { currentMonthRevenue: number; prevMonthRevenue: number; revenueChange: number; occupancyRate: number; totalOverdueAmount: number; expiringLeaseCount: number; grossYield: number | null; availableCash: number; monthlyRentHT: number; recoverableCharges: number; initialLoanCapital: number; totalDebt: number; monthlyLoanPayment: number; principalAmortizedMonth: number; principalAmortizedYTD: number; activeLoanCount: number; patrimonyValue: number; ltv: number | null; totalBuildings: number; totalLots: number; occupiedLots: number; vacantLots: number; totalTenants: number; activeLeaseCount: number; expiringDiagnosticCount: number; openMaintenanceCount: number; unpaidInvoiceCount: number; totalManagementFees: number; pendingRevisionCount: number; invoicesToIssueCount: number };
 export type LenderSummary = { lender: string; loanCount: number; totalCapital: number; remainingBalance: number; monthlyPayment: number; pctRepaid: number };
 export type AnalyticsData = { kpis: AnalyticsKpis; monthlyRevenue: MonthlyRevenue[]; buildingOccupancy: BuildingOccupancy[]; overdueByAge: OverdueByAge[]; patrimonyPoints: PatrimonyPoint[]; topTenants: TopTenant[]; riskConcentration: RiskConcentration; leaseTimeline: LeaseTimelineItem[]; lenderSummaries: LenderSummary[] };
 type AnalyticsCoreOptions = { includeTopTenants?: boolean };
@@ -419,7 +419,9 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   // 13. Dette (emprunts en cours)
   let totalDebt = 0;
   let monthlyLoanPayment = 0;
+  let initialLoanCapital = 0;
   for (const loan of activeLoansForDebt) {
+    initialLoanCapital += Number(loan.amount);
     if (loan.amortizationLines.length > 0) {
       totalDebt += loan.amortizationLines[0].remainingBalance;
       monthlyLoanPayment += loan.amortizationLines[0].totalPayment;
@@ -532,7 +534,7 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   }).length;
 
   return {
-    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, totalDebt, monthlyLoanPayment, principalAmortizedMonth, principalAmortizedYTD, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
+    kpis: { currentMonthRevenue, prevMonthRevenue, revenueChange, occupancyRate, totalOverdueAmount, expiringLeaseCount, grossYield, availableCash, monthlyRentHT, recoverableCharges, initialLoanCapital, totalDebt, monthlyLoanPayment, principalAmortizedMonth, principalAmortizedYTD, activeLoanCount, patrimonyValue, ltv, totalBuildings, totalLots, occupiedLots, vacantLots, totalTenants, activeLeaseCount, expiringDiagnosticCount, openMaintenanceCount, unpaidInvoiceCount, totalManagementFees, pendingRevisionCount, invoicesToIssueCount },
     monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, topTenants, riskConcentration, leaseTimeline, lenderSummaries,
   };
 }

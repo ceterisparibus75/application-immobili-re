@@ -281,7 +281,12 @@ export default async function ProprietaireDashboardPage({
                 <CardDescription>Capital restant dû et mensualités — toutes sociétés</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border">
+                  <div className="bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Capital initial emprunté</p>
+                    <p className="text-lg font-semibold tabular-nums text-[var(--color-brand-deep)]">{fmt(data.kpis.initialLoanCapital)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Total des emprunts en cours</p>
+                  </div>
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital restant dû</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-status-negative)]">{fmt(data.kpis.totalDebt)}</p>
@@ -314,6 +319,7 @@ export default async function ProprietaireDashboardPage({
                       <thead>
                         <tr className="border-y border-border bg-muted/30">
                           <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Société</th>
+                          <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Capital initial</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Restant dû</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Mensualité</th>
                           <th className="text-right py-2.5 px-4 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Amorti mois</th>
@@ -332,6 +338,7 @@ export default async function ProprietaireDashboardPage({
                                 <span className="font-medium text-[var(--color-brand-deep)] truncate">{s.name}</span>
                               </div>
                             </td>
+                            <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.initialLoanCapital)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-semibold text-[var(--color-brand-deep)]">{fmt(s.totalDebt)}</td>
                             <td className="py-3 px-4 text-right tabular-nums text-muted-foreground">{fmt(s.monthlyLoanPayment)}<span className="text-[10px] text-muted-foreground">/mois</span></td>
                             <td className="py-3 px-4 text-right tabular-nums text-[var(--color-status-positive)] font-medium">{fmt(s.principalAmortizedMonth)}</td>
@@ -348,6 +355,7 @@ export default async function ProprietaireDashboardPage({
                         <tfoot>
                           <tr className="bg-muted/30 border-t border-border">
                             <td className="py-3 px-4 font-semibold text-muted-foreground">Total</td>
+                            <td className="py-3 px-4 text-right tabular-nums font-bold text-muted-foreground">{fmt(data.kpis.initialLoanCapital)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-brand-deep)]">{fmt(data.kpis.totalDebt)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-muted-foreground">{fmt(data.kpis.monthlyLoanPayment)}</td>
                             <td className="py-3 px-4 text-right tabular-nums font-bold text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedMonth)}</td>
