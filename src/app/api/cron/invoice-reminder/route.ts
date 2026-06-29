@@ -24,12 +24,16 @@ export async function GET(req: NextRequest) {
       data: { status: "VALIDEE" },
     });
 
-    // 1. Passer en EN_RETARD les factures dont l'échéance est dépassée (hors quittances)
+    // 1. Passer en EN_RETARD les factures dont l'échéance est dépassée (hors quittances).
+    // ⚠️ sentAt: { not: null } est obligatoire : une facture jamais envoyée au
+    // locataire ne peut pas être "en retard" — on relancerait pour un appel
+    // qu'il n'a jamais reçu (incident Crystal juin 2026).
     const overdueResult = await prisma.invoice.updateMany({
       where: {
         status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "PARTIELLEMENT_PAYE"] },
         invoiceType: { not: "QUITTANCE" },
         dueDate: { lt: now },
+        sentAt: { not: null },
       },
       data: { status: "EN_RETARD" },
     });
@@ -42,6 +46,7 @@ export async function GET(req: NextRequest) {
         status: { in: ["EN_RETARD", "RELANCEE"] },
         invoiceType: { not: "QUITTANCE" },
         dueDate: { lt: now },
+        sentAt: { not: null }, // Safety belt : ne jamais relancer un appel jamais envoyé
       },
       include: {
         tenant: { select: { id: true, email: true } },
