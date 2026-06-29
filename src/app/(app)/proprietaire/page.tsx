@@ -34,7 +34,8 @@ import { TodayTasks } from "@/components/dashboard/today-tasks";
 
 export const metadata = { title: "Vue propriétaire" };
 
-function fmt(n: number) {
+function fmt(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 }
 

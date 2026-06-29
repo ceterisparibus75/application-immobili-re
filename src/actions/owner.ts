@@ -302,7 +302,8 @@ const _fetchOwnerAnalyticsData = unstable_cache(
     const principalYtdMap = new Map<string, number>();
     for (const line of amortizationLines ?? []) {
       const sid = line.loan.societyId;
-      const amount = Number(line.principalPayment);
+      const raw = Number(line.principalPayment);
+      const amount = Number.isFinite(raw) ? raw : 0;
       principalYtdMap.set(sid, (principalYtdMap.get(sid) ?? 0) + amount);
       if (line.dueDate >= monthStart && line.dueDate <= monthEnd) {
         principalMonthMap.set(sid, (principalMonthMap.get(sid) ?? 0) + amount);
@@ -419,7 +420,8 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       lenderSummaries,
     };
   },
-  ["owner-analytics-data"],
+  // v2 : ajout initialLoanCapital + principalAmortizedMonth/YTD aux sociétés et totaux
+  ["owner-analytics-data-v2"],
   { revalidate: 60 },
 );
 

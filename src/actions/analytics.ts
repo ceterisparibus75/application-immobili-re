@@ -435,7 +435,8 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   let principalAmortizedMonth = 0;
   let principalAmortizedYTD = 0;
   for (const line of amortizationLinesForKpi ?? []) {
-    const amount = Number(line.principalPayment);
+    const raw = Number(line.principalPayment);
+    const amount = Number.isFinite(raw) ? raw : 0;
     principalAmortizedYTD += amount;
     if (line.dueDate >= currentMonthStart && line.dueDate <= currentMonthEnd) {
       principalAmortizedMonth += amount;
@@ -542,9 +543,10 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
 export async function getAnalyticsData(societyId: string, options: AnalyticsCoreOptions = {}): Promise<AnalyticsData | null> {
   if (!(await getOptionalSocietyActionContext(societyId))) return null;
   const cacheKeySuffix = options.includeTopTenants ? "with-top-tenants" : "base";
+  // v2 : kpis enrichis (initialLoanCapital, principalAmortizedMonth/YTD)
   return unstable_cache(
     () => fetchAnalyticsCore([societyId], options),
-    [`dashboard-analytics-${societyId}-${cacheKeySuffix}`],
+    [`dashboard-analytics-${societyId}-${cacheKeySuffix}-v2`],
     { revalidate: 300, tags: [`society-${societyId}-analytics`] }
   )();
 }
@@ -565,9 +567,12 @@ export async function getConsolidatedAnalyticsData(proprietaireId?: string): Pro
   if (societies.length === 0) return null;
 
   const societyIds = societies.map((s) => s.id);
+  // v2 : ajout de initialLoanCapital + principalAmortizedMonth/YTD aux kpis.
+  // Bump la clé pour invalider les entrées de cache antérieures dont l'objet
+  // sérialisé ne contient pas encore ces champs (sinon fmt(undefined) → "NaN €").
   const cacheKey = proprietaireId
-    ? `owner-consolidated-${proprietaireId}`
-    : `owner-consolidated-${context.userId}`;
+    ? `owner-consolidated-${proprietaireId}-v2`
+    : `owner-consolidated-${context.userId}-v2`;
 
   return unstable_cache(
     () => fetchAnalyticsCore(societyIds),
