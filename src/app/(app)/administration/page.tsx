@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope } from "lucide-react";
+import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope, Wrench } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Administration" };
@@ -22,6 +22,12 @@ const modules = [
     description: "Vérifier qu'un appel de loyer a bien été émis et envoyé pour chaque bail",
     href: "/administration/diagnostic-facturation",
     icon: Stethoscope,
+  },
+  {
+    title: "Réparation paiements",
+    description: "Corriger les virements dont la somme des allocations dépasse le montant reçu",
+    href: "/administration/reparation-paiements",
+    icon: Wrench,
   },
   {
     title: "Audit",
