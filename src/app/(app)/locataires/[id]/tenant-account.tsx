@@ -108,11 +108,23 @@ interface LedgerImportLine {
   periodEnd?: string;
 }
 
+interface BankOverpayment {
+  id: string;
+  transactionDate: string;
+  label: string;
+  reference: string | null;
+  transactionAmount: number;
+  allocatedToTenant: number;
+  unallocated: number;
+  invoiceNumbers: string[];
+}
+
 interface TenantAccountProps {
   tenantId: string;
   societyId: string;
   invoices: AccountInvoice[];
   adjustments: BalanceAdjustment[];
+  bankOverpayments: BankOverpayment[];
   balance: number;
   tenantName: string;
 }
@@ -285,7 +297,11 @@ function parsePeriod(value: string): { periodLabel?: string; periodStart?: strin
  * Construit les mouvements chronologiques pour le relevé locatif.
  * Chaque facture = débit (ou crédit si avoir), chaque paiement = crédit.
  */
-function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustment[]) {
+function buildMovements(
+  invoices: AccountInvoice[],
+  adjustments: BalanceAdjustment[],
+  bankOverpayments: BankOverpayment[] = [],
+) {
   const movements: Array<{
     date: string;
     label: string;
@@ -367,6 +383,23 @@ function buildMovements(invoices: AccountInvoice[], adjustments: BalanceAdjustme
     }
   }
 
+  // Surplus bancaires : encaissement > affectation aux factures. On le
+  // remonte comme un crédit distinct pour rendre visible l'avoir du locataire
+  // (ex: virement 4 000 € pour une facture de 3 728,21 € → 271,79 € de crédit
+  // non affecté visible dans le solde).
+  for (const op of bankOverpayments) {
+    const refBits = [op.reference ? `Réf: ${op.reference}` : null].filter(Boolean).join(" — ");
+    const invoicesTag = op.invoiceNumbers.length
+      ? ` (au-delà de ${op.invoiceNumbers.join(", ")})`
+      : "";
+    movements.push({
+      date: op.transactionDate,
+      label: `Encaissement non affecté — ${op.label}${refBits ? ` — ${refBits}` : ""}${invoicesTag}`,
+      type: "credit",
+      amount: op.unallocated,
+    });
+  }
+
   // Trier par date croissante
   movements.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -389,10 +422,11 @@ export function TenantAccount({
   societyId,
   invoices,
   adjustments,
+  bankOverpayments,
   balance,
   tenantName,
 }: TenantAccountProps) {
-  const movements = buildMovements(invoices, adjustments);
+  const movements = buildMovements(invoices, adjustments, bankOverpayments);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [invoiceSearch, setInvoiceSearch] = useState("");
@@ -417,7 +451,8 @@ export function TenantAccount({
   const totalPaiements = invoices
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
     .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0)
-    + adjustments.filter((a) => a.isReconciled && a.amount > 0).reduce((s, a) => s + a.amount, 0);
+    + adjustments.filter((a) => a.isReconciled && a.amount > 0).reduce((s, a) => s + a.amount, 0)
+    + bankOverpayments.reduce((s, op) => s + op.unallocated, 0);
 
   // Import de solde précédent
   const [showDebitDialog, setShowDebitDialog] = useState(false);

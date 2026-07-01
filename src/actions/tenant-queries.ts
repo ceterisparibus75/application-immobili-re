@@ -491,6 +491,104 @@ export async function getTenantAccountStatement(
       : null,
   }));
 
+  // Encaissements bancaires : on remonte les BankTransaction rapprochées avec
+  // les Payment attachés aux factures de ce locataire pour rendre visible le
+  // vrai flux (et surtout les surplus non affectés = crédits du client).
+  const tenantInvoiceIds = invoices.map((inv) => inv.id);
+  const tenantReconciliations = tenantInvoiceIds.length
+    ? (await prisma.bankReconciliation.findMany({
+        where: { payment: { invoiceId: { in: tenantInvoiceIds } } },
+        select: {
+          amount: true,
+          transactionId: true,
+          transaction: {
+            select: {
+              id: true,
+              transactionDate: true,
+              amount: true,
+              label: true,
+              reference: true,
+            },
+          },
+          payment: { select: { invoiceId: true } },
+        },
+      })) ?? []
+    : [];
+
+  // Pour chaque transaction touchée, on a besoin du total réconcilié (toutes
+  // affectations confondues, y compris à d'autres locataires) pour connaître
+  // la part non affectée.
+  const touchedTxIds = [...new Set(tenantReconciliations.map((r) => r.transactionId))];
+  const totalReconciledByTx = touchedTxIds.length
+    ? (await prisma.bankReconciliation.groupBy({
+        by: ["transactionId"],
+        where: { transactionId: { in: touchedTxIds } },
+        _sum: { amount: true },
+      })) ?? []
+    : [];
+  const totalReconciledMap = new Map(
+    totalReconciledByTx.map((r) => [r.transactionId, Number(r._sum.amount ?? 0)]),
+  );
+
+  // Regrouper les réconciliations du locataire par transaction pour connaître
+  // combien lui a été affecté et sur quelles factures.
+  type TxAgg = {
+    id: string;
+    transactionDate: Date;
+    label: string;
+    reference: string | null;
+    transactionAmount: number;
+    allocatedToTenant: number;
+    unallocated: number;
+    invoiceNumbers: string[];
+  };
+  const invoiceNumberById = new Map(
+    invoices.map((i) => [i.id, i.invoiceNumber ?? "brouillon"]),
+  );
+  const txAggMap = new Map<string, TxAgg>();
+  for (const r of tenantReconciliations) {
+    const tx = r.transaction;
+    const existing = txAggMap.get(tx.id);
+    const invNum = r.payment.invoiceId
+      ? invoiceNumberById.get(r.payment.invoiceId) ?? null
+      : null;
+    if (existing) {
+      existing.allocatedToTenant += Number(r.amount);
+      if (invNum && !existing.invoiceNumbers.includes(invNum)) {
+        existing.invoiceNumbers.push(invNum);
+      }
+    } else {
+      const totalReconciled = totalReconciledMap.get(tx.id) ?? Number(r.amount);
+      txAggMap.set(tx.id, {
+        id: tx.id,
+        transactionDate: tx.transactionDate,
+        label: tx.label,
+        reference: tx.reference,
+        transactionAmount: Number(tx.amount),
+        allocatedToTenant: Number(r.amount),
+        // Part de la transaction qui n'est affectée à aucun paiement (ni ce
+        // locataire, ni un autre). Positive => crédit disponible pour le
+        // locataire (surplus versé).
+        unallocated: Math.round((Number(tx.amount) - totalReconciled) * 100) / 100,
+        invoiceNumbers: invNum ? [invNum] : [],
+      });
+    }
+  }
+  const bankOverpayments = [...txAggMap.values()]
+    // Ne remonter que les vrais surplus (crédits en faveur du locataire) sur
+    // des transactions entrantes (amount > 0 = encaissement).
+    .filter((t) => t.transactionAmount > 0 && t.unallocated > 0.005)
+    .map((t) => ({
+      id: t.id,
+      transactionDate: t.transactionDate,
+      label: t.label,
+      reference: t.reference,
+      transactionAmount: t.transactionAmount,
+      allocatedToTenant: Math.round(t.allocatedToTenant * 100) / 100,
+      unallocated: t.unallocated,
+      invoiceNumbers: t.invoiceNumbers,
+    }));
+
   // Calculer le solde courant. Un adjustment réconcilié est considéré soldé
   // (le virement bancaire l'a réglé) et ne contribue plus au solde.
   let balance = enrichedAdjustments.reduce((sum, adjustment) => {
@@ -507,10 +605,16 @@ export async function getTenantAccountStatement(
       balance += inv.totalTTC - paid;
     }
   }
+  // Les surplus bancaires non affectés viennent en déduction du solde dû
+  // (ou créent un solde en faveur du locataire s'il n'y a rien à devoir).
+  for (const op of bankOverpayments) {
+    balance -= op.unallocated;
+  }
 
   return {
     invoices,
     adjustments: enrichedAdjustments,
+    bankOverpayments,
     balance: Math.round(balance * 100) / 100,
   };
 }

@@ -369,6 +369,10 @@ export default async function LocataireDetailPage({
                     }
                   : null,
               }))}
+              bankOverpayments={accountData.bankOverpayments.map((op) => ({
+                ...op,
+                transactionDate: op.transactionDate.toISOString(),
+              }))}
               balance={accountData.balance}
               tenantName={name}
             />
