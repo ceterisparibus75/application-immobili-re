@@ -16,10 +16,12 @@ type Props = {
 };
 
 /**
- * Génère le blob PDF côté client via @react-pdf/renderer puis l'affiche dans
- * un <iframe>. On ne passe plus par <PDFViewer> qui échouait silencieusement
- * (rendu vide en dark mode quand certains champs de pdfData étaient absents).
- * Ici, toute erreur de rendu est capturée et affichée à l'utilisateur.
+ * Aperçu PDF via un endpoint server-side (/api/invoices/preview-pdf) — le PDF
+ * est rendu par renderToBuffer (Node), stocké 5 min en cache et servi depuis
+ * une URL same-origin, ce qui permet un affichage iframe fiable là où le blob
+ * URL client-side échouait (Chrome bloque le rendu de PDF blob avec la CSP
+ * stricte + @react-pdf/renderer client-side nécessite WebAssembly + 'unsafe-
+ * eval' selon les navigateurs).
  */
 export function InvoicePreviewSheet({
   open,
@@ -29,38 +31,35 @@ export function InvoicePreviewSheet({
   confirmLabel = "Confirmer et générer",
   isConfirming = false,
 }: Props) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    let currentUrl: string | null = null;
     setLoading(true);
     setError(null);
-    setBlobUrl(null);
+    setPdfUrl(null);
 
     (async () => {
       try {
-        const [reactPdf, invoiceModule, React] = await Promise.all([
-          import("@react-pdf/renderer"),
-          import("@/lib/invoice-pdf"),
-          import("react"),
-        ]);
-        const { pdf } = reactPdf;
-        const { InvoicePdf } = invoiceModule;
-        const element = React.createElement(InvoicePdf, { data: preview.pdfData });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const instance = pdf(element as any);
-        const blob = await instance.toBlob();
+        const res = await fetch("/api/invoices/preview-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(preview.pdfData),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        const { token } = (await res.json()) as { token: string };
         if (cancelled) return;
-        currentUrl = URL.createObjectURL(blob);
-        setBlobUrl(currentUrl);
+        setPdfUrl(`/api/invoices/preview-pdf?token=${token}`);
       } catch (err) {
         if (cancelled) return;
-        console.error("[InvoicePreviewSheet] erreur de rendu PDF", err);
-        setError(err instanceof Error ? err.message : "Erreur inconnue lors de la génération de l'aperçu");
+        console.error("[InvoicePreviewSheet] erreur d'aperçu", err);
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -68,7 +67,6 @@ export function InvoicePreviewSheet({
 
     return () => {
       cancelled = true;
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
   }, [open, preview.pdfData]);
 
@@ -118,9 +116,9 @@ export function InvoicePreviewSheet({
               </div>
             </div>
           )}
-          {!loading && !error && blobUrl && (
+          {!loading && !error && pdfUrl && (
             <iframe
-              src={blobUrl}
+              src={pdfUrl}
               title="Aperçu de la facture"
               className="w-full h-full border-0"
             />

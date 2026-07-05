@@ -146,7 +146,10 @@ export default auth(async (req) => {
 
   // Les routes de fichiers binaires (storage/view, invoices PDF) n'ont pas besoin de CSP
   // La CSP interfere avec le lecteur PDF integre du navigateur dans les iframes
-  const isBinaryRoute = pathname.startsWith("/api/storage/view") || pathname.match(/\/api\/invoices\/[^/]+\/pdf/);
+  const isBinaryRoute =
+    pathname.startsWith("/api/storage/view") ||
+    pathname.match(/\/api\/invoices\/[^/]+\/pdf/) ||
+    pathname === "/api/invoices/preview-pdf";
   if (isBinaryRoute) {
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set("x-pathname", pathname);
