@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, X, Zap, Loader2 } from "lucide-react";
+import { AlertCircle, X, Zap, Loader2, ExternalLink } from "lucide-react";
 import type { InvoicePreview } from "@/actions/invoice";
 
 type Props = {
@@ -113,6 +113,17 @@ export function InvoicePreviewSheet({
           </div>
         )}
 
+        {!loading && !error && pdfUrl && (
+          <div className="flex items-center justify-end gap-2 px-4 py-2 border-b shrink-0 bg-muted/30">
+            <a href={pdfUrl} target="_blank" rel="noreferrer">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ouvrir dans un nouvel onglet
+              </Button>
+            </a>
+          </div>
+        )}
+
         <div className="flex-1 min-h-0 bg-white">
           {loading && (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -132,11 +143,25 @@ export function InvoicePreviewSheet({
             </div>
           )}
           {!loading && !error && pdfUrl && (
-            <iframe
-              src={pdfUrl}
-              title="Aperçu de la facture"
-              className="w-full h-full border-0"
-            />
+            <object
+              data={pdfUrl}
+              type="application/pdf"
+              className="w-full h-full"
+            >
+              {/* Fallback si Chrome refuse d'embarquer le PDF (extension, config) */}
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Votre navigateur n&apos;a pas pu afficher l&apos;aperçu PDF ici.
+                  Utilisez le bouton ci-dessus pour l&apos;ouvrir dans un nouvel onglet.
+                </p>
+                <a href={pdfUrl} target="_blank" rel="noreferrer">
+                  <Button size="sm" className="gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ouvrir l&apos;aperçu
+                  </Button>
+                </a>
+              </div>
+            </object>
           )}
         </div>
       </SheetContent>
