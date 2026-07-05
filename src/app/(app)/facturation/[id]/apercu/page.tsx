@@ -58,12 +58,35 @@ export default async function FactureApercuPage({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-background">
-        <iframe
-          src={pdfViewerUrl}
-          title={`Aperçu PDF ${invoiceLabel}`}
-          className="h-full min-h-[calc(100vh-15rem)] w-full bg-white"
-        />
+      <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-white">
+        <object
+          data={pdfViewerUrl}
+          type="application/pdf"
+          className="h-full min-h-[calc(100vh-15rem)] w-full"
+        >
+          {/* Fallback quand Chrome/extension refuse d'embarquer le PDF */}
+          <div className="flex h-full min-h-[calc(100vh-15rem)] flex-col items-center justify-center gap-4 p-6 text-center">
+            <p className="text-sm text-muted-foreground max-w-md">
+              Votre navigateur bloque l&apos;affichage du PDF ici (extension ou
+              lecteur PDF Chrome désactivé). Utilisez l&apos;un des boutons
+              ci-dessous pour ouvrir ou télécharger le fichier.
+            </p>
+            <div className="flex items-center gap-2">
+              <a href={pdfUrl} target="_blank" rel="noreferrer">
+                <Button size="sm">
+                  <ExternalLink className="h-4 w-4" />
+                  Ouvrir dans un nouvel onglet
+                </Button>
+              </a>
+              <a href={pdfUrl} download>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4" />
+                  Télécharger
+                </Button>
+              </a>
+            </div>
+          </div>
+        </object>
       </div>
     </div>
   );
