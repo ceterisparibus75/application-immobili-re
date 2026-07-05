@@ -160,7 +160,10 @@ export default auth(async (req) => {
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const cspValue = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://static.zdassets.com https://*.zendesk.com https://*.zopim.com`,
+    // 'wasm-unsafe-eval' est requis par @react-pdf/renderer côté client
+    // (Yoga layout engine compile un module WebAssembly). Ce token CSP3
+    // autorise uniquement l'instantiation WebAssembly, sans réactiver eval().
+    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval' 'strict-dynamic' https://static.zdassets.com https://*.zendesk.com https://*.zopim.com`,
     // 'unsafe-inline' est ignoré dès qu'un nonce est présent dans le source-list
     // (spec CSP3). Radix UI / @react-pdf / tooltips injectent des styles inline
     // sans nonce — on garde donc 'unsafe-inline' seul pour les styles. Le risque
