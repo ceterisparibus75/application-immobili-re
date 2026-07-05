@@ -168,8 +168,11 @@ export default auth(async (req) => {
     `style-src 'self' 'unsafe-inline'`,
     "img-src 'self' blob: data: https:",
     "font-src 'self' https://static.zdassets.com",
-    "object-src 'none'",
-    "frame-src 'self' https://*.zendesk.com",
+    // blob: est requis pour l'aperçu PDF client-side de @react-pdf/renderer
+    // (PDFViewer génère un blob et l'affiche dans un <iframe>) et pour Chrome
+    // qui utilise <embed> pour rendre le PDF à l'intérieur de l'iframe.
+    "object-src 'self' blob:",
+    "frame-src 'self' blob: https://*.zendesk.com",
     "connect-src 'self' https://*.zendesk.com https://*.zopim.com wss://*.zendesk.com wss://*.zopim.com https://ekr.zdassets.com",
     "base-uri 'self'",
     "form-action 'self'",
