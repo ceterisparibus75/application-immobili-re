@@ -2,44 +2,72 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf, type InvoicePdfData } from "@/lib/invoice-pdf";
+import { env } from "@/lib/env";
+import { Redis } from "@upstash/redis";
 import React from "react";
 import crypto from "crypto";
 
 /**
  * Aperçu PDF d'une facture non-persistée (batch generation, correction manuelle).
  *
- * On sert le PDF depuis une URL same-origin (iframe-friendly) plutôt qu'en
- * blob:// côté client — Chrome bloque le rendu de blob PDF en iframe avec la
- * CSP par défaut, et @react-pdf/renderer côté client nécessite WebAssembly
- * qui pose problème avec strict-dynamic. Le rendu ici utilise exactement le
- * même composant InvoicePdf que la facture finale, donc l'aperçu est 100 %
- * fidèle.
+ * Store partagé POST/GET :
+ *   - Priorité : Upstash Redis (production, multi-instance safe)
+ *   - Fallback : globalThis.__invoicePreviewCache (dev / instance unique)
  *
- * Flux : POST { pdfData } → { token } → GET ?token=... → application/pdf
- * Le token est éphémère (5 min) et scopé à l'utilisateur qui l'a créé.
+ * Pourquoi pas juste globalThis ? Sur Vercel, chaque invocation serverless
+ * peut atterrir sur une instance différente ; un POST puis un GET immédiat
+ * peuvent se retrouver sur deux lambdas et le token disparaît → 404.
  */
 
-type CacheEntry = { data: InvoicePdfData; userId: string; expiresAt: number };
+type CacheEntry = { data: InvoicePdfData; userId: string };
+const KEY_PREFIX = "invoice-preview:";
+const TTL_SECONDS = 5 * 60;
 
-// Utilise globalThis pour partager le cache entre invocations POST/GET sur la
-// même instance serverless. Sur Vercel, cela fonctionne dans la fenêtre chaude
-// (les 2 requêtes s'enchaînent immédiatement côté client, donc cohabitent sur
-// la même Lambda). Fallback : le token n'est pas trouvé → 404, le client relance.
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (_redis) return _redis;
+  const url = env.UPSTASH_REDIS_REST_URL?.trim();
+  const token = env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (!url || !token) return null;
+  _redis = new Redis({ url, token });
+  return _redis;
+}
+
 declare global {
   // eslint-disable-next-line no-var
-  var __invoicePreviewCache: Map<string, CacheEntry> | undefined;
+  var __invoicePreviewCache:
+    | Map<string, { entry: CacheEntry; expiresAt: number }>
+    | undefined;
 }
-const cache: Map<string, CacheEntry> =
-  globalThis.__invoicePreviewCache ?? new Map<string, CacheEntry>();
-globalThis.__invoicePreviewCache = cache;
+const memoryCache =
+  globalThis.__invoicePreviewCache ??
+  new Map<string, { entry: CacheEntry; expiresAt: number }>();
+globalThis.__invoicePreviewCache = memoryCache;
 
-const TTL_MS = 5 * 60 * 1000;
-
-function cleanup() {
-  const now = Date.now();
-  for (const [k, v] of cache.entries()) {
-    if (v.expiresAt < now) cache.delete(k);
+async function storeEntry(token: string, entry: CacheEntry) {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(KEY_PREFIX + token, JSON.stringify(entry), { ex: TTL_SECONDS });
+    return;
   }
+  memoryCache.set(token, { entry, expiresAt: Date.now() + TTL_SECONDS * 1000 });
+}
+
+async function readEntry(token: string): Promise<CacheEntry | null> {
+  const redis = getRedis();
+  if (redis) {
+    const raw = await redis.get<string | CacheEntry>(KEY_PREFIX + token);
+    if (!raw) return null;
+    // Upstash désérialise automatiquement les strings JSON → on gère les 2 cas
+    return typeof raw === "string" ? (JSON.parse(raw) as CacheEntry) : raw;
+  }
+  const mem = memoryCache.get(token);
+  if (!mem) return null;
+  if (mem.expiresAt < Date.now()) {
+    memoryCache.delete(token);
+    return null;
+  }
+  return mem.entry;
 }
 
 export async function POST(req: NextRequest) {
@@ -47,7 +75,6 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  cleanup();
   let body: InvoicePdfData;
   try {
     body = (await req.json()) as InvoicePdfData;
@@ -55,7 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
   const token = crypto.randomUUID();
-  cache.set(token, { data: body, userId: session.user.id, expiresAt: Date.now() + TTL_MS });
+  await storeEntry(token, { data: body, userId: session.user.id });
   return NextResponse.json({ token });
 }
 
@@ -68,9 +95,9 @@ export async function GET(req: NextRequest) {
   if (!token)
     return NextResponse.json({ error: "missing_token" }, { status: 400 });
 
-  const entry = cache.get(token);
-  if (!entry || entry.expiresAt < Date.now())
-    return NextResponse.json({ error: "expired" }, { status: 404 });
+  const entry = await readEntry(token);
+  if (!entry)
+    return NextResponse.json({ error: "expired_or_missing" }, { status: 404 });
   if (entry.userId !== session.user.id)
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
 

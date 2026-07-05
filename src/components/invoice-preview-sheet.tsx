@@ -44,16 +44,31 @@ export function InvoicePreviewSheet({
 
     (async () => {
       try {
-        const res = await fetch("/api/invoices/preview-pdf", {
+        const postRes = await fetch("/api/invoices/preview-pdf", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(preview.pdfData),
         });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || `HTTP ${res.status}`);
+        if (!postRes.ok) {
+          const text = await postRes.text();
+          throw new Error(`POST ${postRes.status} — ${text || "erreur"}`);
         }
-        const { token } = (await res.json()) as { token: string };
+        const { token } = (await postRes.json()) as { token: string };
+        if (cancelled) return;
+
+        // Sanity check : on récupère le PDF nous-même pour être sûr que
+        // l'iframe pourra le charger. Si erreur (token expiré, render échoué,
+        // extension navigateur…), on affiche le message plutôt qu'un iframe
+        // Chrome « Ce contenu est bloqué ».
+        const getRes = await fetch(`/api/invoices/preview-pdf?token=${token}`);
+        if (!getRes.ok) {
+          const text = await getRes.text();
+          throw new Error(`GET ${getRes.status} — ${text || "erreur"}`);
+        }
+        const contentType = getRes.headers.get("content-type") ?? "";
+        if (!contentType.includes("pdf")) {
+          throw new Error(`Réponse inattendue : ${contentType || "type inconnu"}`);
+        }
         if (cancelled) return;
         setPdfUrl(`/api/invoices/preview-pdf?token=${token}`);
       } catch (err) {
