@@ -1,44 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, X, Zap } from "lucide-react";
+import { AlertCircle, X, Zap, Loader2 } from "lucide-react";
 import type { InvoicePreview } from "@/actions/invoice";
-
-// Composant rendu via react-pdf — chargé côté client uniquement pour éviter
-// l'import lourd côté serveur et éviter les erreurs de SSR sur les libs PDF.
-const PdfRender = dynamic(
-  () =>
-    Promise.all([import("@react-pdf/renderer"), import("@/lib/invoice-pdf")]).then(
-      ([pdf, invoice]) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const InvoicePdf = invoice.InvoicePdf as React.ComponentType<{ data: any }>;
-        const PDFViewer = pdf.PDFViewer as React.ComponentType<{
-          width: string | number;
-          height: string | number;
-          showToolbar?: boolean;
-          children: React.ReactNode;
-        }>;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const Wrapper = ({ data }: { data: any }) => (
-          <PDFViewer width="100%" height="100%" showToolbar={false}>
-            <InvoicePdf data={data} />
-          </PDFViewer>
-        );
-        Wrapper.displayName = "InvoicePreviewPdfRender";
-        return Wrapper;
-      },
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Chargement de l&apos;aperçu PDF…
-      </div>
-    ),
-  },
-);
 
 type Props = {
   open: boolean;
@@ -49,6 +15,12 @@ type Props = {
   isConfirming?: boolean;
 };
 
+/**
+ * Génère le blob PDF côté client via @react-pdf/renderer puis l'affiche dans
+ * un <iframe>. On ne passe plus par <PDFViewer> qui échouait silencieusement
+ * (rendu vide en dark mode quand certains champs de pdfData étaient absents).
+ * Ici, toute erreur de rendu est capturée et affichée à l'utilisateur.
+ */
 export function InvoicePreviewSheet({
   open,
   onOpenChange,
@@ -57,10 +29,52 @@ export function InvoicePreviewSheet({
   confirmLabel = "Confirmer et générer",
   isConfirming = false,
 }: Props) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    let currentUrl: string | null = null;
+    setLoading(true);
+    setError(null);
+    setBlobUrl(null);
+
+    (async () => {
+      try {
+        const [reactPdf, invoiceModule, React] = await Promise.all([
+          import("@react-pdf/renderer"),
+          import("@/lib/invoice-pdf"),
+          import("react"),
+        ]);
+        const { pdf } = reactPdf;
+        const { InvoicePdf } = invoiceModule;
+        const element = React.createElement(InvoicePdf, { data: preview.pdfData });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const instance = pdf(element as any);
+        const blob = await instance.toBlob();
+        if (cancelled) return;
+        currentUrl = URL.createObjectURL(blob);
+        setBlobUrl(currentUrl);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("[InvoicePreviewSheet] erreur de rendu PDF", err);
+        setError(err instanceof Error ? err.message : "Erreur inconnue lors de la génération de l'aperçu");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [open, preview.pdfData]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col p-0">
-        {/* Barre d'actions */}
         <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 print:hidden">
           <SheetTitle className="text-base font-semibold">Aperçu de la facture</SheetTitle>
           <div className="flex items-center gap-2">
@@ -79,7 +93,6 @@ export function InvoicePreviewSheet({
           </div>
         </div>
 
-        {/* Doublon */}
         {preview.alreadyExists && (
           <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive shrink-0">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -87,12 +100,31 @@ export function InvoicePreviewSheet({
           </div>
         )}
 
-        {/* Rendu canonique : on utilise le MÊME composant InvoicePdf que la
-            facture finale, alimenté par le pdfData construit côté serveur dans
-            computeInvoicePreview. Plus de divergence possible entre l'aperçu
-            et la facture émise. */}
-        <div className="flex-1 min-h-0">
-          <PdfRender data={preview.pdfData} />
+        <div className="flex-1 min-h-0 bg-white">
+          {loading && (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Génération de l&apos;aperçu…
+            </div>
+          )}
+          {error && (
+            <div className="p-4">
+              <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Impossible de générer l&apos;aperçu</p>
+                  <p className="text-xs opacity-80 mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {!loading && !error && blobUrl && (
+            <iframe
+              src={blobUrl}
+              title="Aperçu de la facture"
+              className="w-full h-full border-0"
+            />
+          )}
         </div>
       </SheetContent>
     </Sheet>
