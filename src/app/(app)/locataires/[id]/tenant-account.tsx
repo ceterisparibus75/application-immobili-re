@@ -119,12 +119,33 @@ interface BankOverpayment {
   invoiceNumbers: string[];
 }
 
+interface BankFlow {
+  id: string;
+  transactionDate: string;
+  label: string;
+  reference: string | null;
+  transactionAmount: number;
+  invoiceNumbers: string[];
+  adjustmentLabels: string[];
+}
+
+interface ManualPayment {
+  id: string;
+  paidAt: string;
+  amount: number;
+  method: string | null;
+  reference: string | null;
+  invoiceNumber: string | null;
+}
+
 interface TenantAccountProps {
   tenantId: string;
   societyId: string;
   invoices: AccountInvoice[];
   adjustments: BalanceAdjustment[];
   bankOverpayments: BankOverpayment[];
+  bankFlows: BankFlow[];
+  manualPayments: ManualPayment[];
   balance: number;
   tenantName: string;
 }
@@ -301,6 +322,8 @@ function buildMovements(
   invoices: AccountInvoice[],
   adjustments: BalanceAdjustment[],
   bankOverpayments: BankOverpayment[] = [],
+  bankFlows: BankFlow[] = [],
+  manualPayments: ManualPayment[] = [],
 ) {
   const movements: Array<{
     date: string;
@@ -377,35 +400,48 @@ function buildMovements(
       });
     }
 
-    // Paiements
-    for (const p of inv.payments) {
-      movements.push({
-        date: p.paidAt,
-        label: `Paiement ${inv.invoiceNumber}${p.method ? ` (${p.method})` : ""}${p.reference ? ` — Réf: ${p.reference}` : ""}`,
-        type: "credit",
-        amount: p.amount,
-        kind: "payment",
-      });
-    }
+    // On ne pousse PLUS les inv.payments comme des lignes séparées : les
+    // règlements bancaires sont désormais affichés au montant réel du
+    // virement (une ligne par BankTransaction, cf. bankFlows).
   }
 
-  // Surplus bancaires : encaissement > affectation aux factures. On le
-  // remonte comme un crédit distinct pour rendre visible l'avoir du locataire
-  // (ex: virement 4 000 € pour une facture de 3 728,21 € → 271,79 € de crédit
-  // non affecté visible dans le solde).
-  for (const op of bankOverpayments) {
-    const refBits = [op.reference ? `Réf: ${op.reference}` : null].filter(Boolean).join(" — ");
-    const invoicesTag = op.invoiceNumbers.length
-      ? ` (au-delà de ${op.invoiceNumbers.join(", ")})`
-      : "";
+  // Flux bancaires reçus : une ligne par virement, au montant total réellement
+  // encaissé (pas de fractionnement par facture). Les factures couvertes sont
+  // listées dans le libellé pour la traçabilité.
+  for (const flow of bankFlows) {
+    const covers = [
+      ...flow.invoiceNumbers,
+      ...flow.adjustmentLabels,
+    ];
+    const coversTag = covers.length ? ` (règle ${covers.join(", ")})` : "";
+    const refBits = flow.reference ? ` — Réf: ${flow.reference}` : "";
     movements.push({
-      date: op.transactionDate,
-      label: `Encaissement non affecté — ${op.label}${refBits ? ` — ${refBits}` : ""}${invoicesTag}`,
+      date: flow.transactionDate,
+      label: `Virement ${flow.label}${refBits}${coversTag}`,
       type: "credit",
-      amount: op.unallocated,
-      kind: "overpayment",
+      amount: flow.transactionAmount,
+      kind: "payment",
     });
   }
+
+  // Paiements manuels (chèque, espèces, virement non rapproché en banque).
+  for (const p of manualPayments) {
+    const methodBits = p.method ? ` (${p.method})` : "";
+    const refBits = p.reference ? ` — Réf: ${p.reference}` : "";
+    const invoiceBits = p.invoiceNumber ? ` — ${p.invoiceNumber}` : "";
+    movements.push({
+      date: p.paidAt,
+      label: `Paiement manuel${invoiceBits}${methodBits}${refBits}`,
+      type: "credit",
+      amount: p.amount,
+      kind: "payment",
+    });
+  }
+
+  // bankOverpayments est conservé pour rétro-compatibilité mais désormais
+  // redondant avec bankFlows (chaque virement est affiché à son montant total,
+  // le surplus est implicite dans le solde).
+  void bankOverpayments;
 
   // Trier par date croissante
   movements.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -430,10 +466,18 @@ export function TenantAccount({
   invoices,
   adjustments,
   bankOverpayments,
+  bankFlows,
+  manualPayments,
   balance,
   tenantName,
 }: TenantAccountProps) {
-  const movements = buildMovements(invoices, adjustments, bankOverpayments);
+  const movements = buildMovements(
+    invoices,
+    adjustments,
+    bankOverpayments,
+    bankFlows,
+    manualPayments,
+  );
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [invoiceSearch, setInvoiceSearch] = useState("");
@@ -455,11 +499,13 @@ export function TenantAccount({
     .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType === "AVOIR")
     .reduce((s, i) => s + getCreditNoteAmount(i.totalTTC), 0)
     + adjustments.filter((a) => a.amount < 0).reduce((s, a) => s + Math.abs(a.amount), 0);
-  const totalPaiements = invoices
-    .filter((i) => i.status !== "ANNULEE" && i.status !== "BROUILLON" && i.invoiceType !== "QUITTANCE")
-    .reduce((s, i) => s + i.payments.reduce((ps, p) => ps + p.amount, 0), 0)
-    + adjustments.filter((a) => a.isReconciled && a.amount > 0).reduce((s, a) => s + a.amount, 0)
-    + bankOverpayments.reduce((s, op) => s + op.unallocated, 0);
+  // Total paiements = virements réels reçus + paiements manuels + reprises
+  // réconciliées (elles sont incluses dans le montant du virement). Les
+  // reprises réconciliées apparaissent DÉJÀ dans bankFlows.transactionAmount,
+  // donc on ne les recompte pas ici.
+  const totalPaiements =
+    bankFlows.reduce((s, f) => s + f.transactionAmount, 0)
+    + manualPayments.reduce((s, p) => s + p.amount, 0);
 
   // Import de solde précédent
   const [showDebitDialog, setShowDebitDialog] = useState(false);

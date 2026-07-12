@@ -373,6 +373,14 @@ export default async function LocataireDetailPage({
                 ...op,
                 transactionDate: op.transactionDate.toISOString(),
               }))}
+              bankFlows={accountData.bankFlows.map((f) => ({
+                ...f,
+                transactionDate: f.transactionDate.toISOString(),
+              }))}
+              manualPayments={accountData.manualPayments.map((p) => ({
+                ...p,
+                paidAt: p.paidAt.toISOString(),
+              }))}
               balance={accountData.balance}
               tenantName={name}
             />

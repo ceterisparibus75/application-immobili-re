@@ -614,6 +614,56 @@ export async function getTenantAccountStatement(
       invoiceNumbers: t.invoiceNumbers,
     }));
 
+  // Flux bancaires : une ligne par BankTransaction créditrice rapprochée à ce
+  // locataire (via Payment OU via TenantBalanceAdjustment). Le montant affiché
+  // est le montant réel du virement — pas le fractionnement par facture.
+  const bankFlows = [...txAggMap.values()]
+    .filter((t) => t.transactionAmount > 0)
+    .map((t) => ({
+      id: t.id,
+      transactionDate: t.transactionDate,
+      label: t.label,
+      reference: t.reference,
+      transactionAmount: t.transactionAmount,
+      invoiceNumbers: t.invoiceNumbers,
+      // Reprises de solde soldées par ce virement (labels).
+      adjustmentLabels: enrichedAdjustments
+        .filter((a) => a.reconciledBankTransactionId === t.id)
+        .map((a) => a.label),
+    }));
+
+  // Paiements manuels : Payment attachés aux factures de ce locataire qui n'ont
+  // AUCUNE BankReconciliation (chèque, espèces, virement non rapproché).
+  const reconciledPaymentIdSet = new Set<string>();
+  if (tenantInvoiceIds.length > 0) {
+    const paymentReconciliations = (await prisma.bankReconciliation.findMany({
+      where: { payment: { invoiceId: { in: tenantInvoiceIds } } },
+      select: { paymentId: true },
+    })) ?? [];
+    for (const r of paymentReconciliations) reconciledPaymentIdSet.add(r.paymentId);
+  }
+  const manualPayments: Array<{
+    id: string;
+    paidAt: Date;
+    amount: number;
+    method: string | null;
+    reference: string | null;
+    invoiceNumber: string | null;
+  }> = [];
+  for (const inv of invoices) {
+    for (const p of inv.payments ?? []) {
+      if (reconciledPaymentIdSet.has(p.id)) continue;
+      manualPayments.push({
+        id: p.id,
+        paidAt: p.paidAt,
+        amount: p.amount,
+        method: p.method,
+        reference: p.reference,
+        invoiceNumber: inv.invoiceNumber ?? null,
+      });
+    }
+  }
+
   // Calculer le solde courant. Un adjustment réconcilié est considéré soldé
   // (le virement bancaire l'a réglé) et ne contribue plus au solde.
   let balance = enrichedAdjustments.reduce((sum, adjustment) => {
@@ -640,6 +690,8 @@ export async function getTenantAccountStatement(
     invoices,
     adjustments: enrichedAdjustments,
     bankOverpayments,
+    bankFlows,
+    manualPayments,
     balance: Math.round(balance * 100) / 100,
   };
 }
