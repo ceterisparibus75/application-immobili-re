@@ -651,6 +651,10 @@ export async function getTenantAccountStatement(
     invoiceNumber: string | null;
   }> = [];
   for (const inv of invoices) {
+    // Les quittances (QUITTANCE) ont des Payment auto-créés au moment de la
+    // génération de la quittance quand la facture est payée : ils dupliquent
+    // le paiement effectif de la facture d'origine. Les ignorer côté compte.
+    if (inv.invoiceType === "QUITTANCE") continue;
     for (const p of inv.payments ?? []) {
       if (reconciledPaymentIdSet.has(p.id)) continue;
       manualPayments.push({

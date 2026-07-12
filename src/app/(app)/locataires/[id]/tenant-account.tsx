@@ -353,19 +353,10 @@ function buildMovements(
       kind: "adjustment",
     });
 
-    // Si la reprise a été soldée par un virement, on affiche aussi la ligne
-    // de paiement pour expliciter la sortie de solde.
-    if (adjustment.isReconciled && adjustment.bankTransaction) {
-      const tx = adjustment.bankTransaction;
-      const ref = tx.reference ? ` — Réf: ${tx.reference}` : "";
-      movements.push({
-        date: tx.transactionDate,
-        label: `Paiement reprise — ${adjustment.label}${ref}`,
-        type: adjustment.amount >= 0 ? "credit" : "debit",
-        amount: Math.abs(adjustment.amount),
-        kind: "payment",
-      });
-    }
+    // Note : quand la reprise est réconciliée à un virement bancaire, son
+    // montant est déjà inclus dans le total du virement affiché plus bas
+    // (bankFlows.transactionAmount). On ne pousse plus de ligne « Paiement
+    // reprise » séparée pour éviter le double comptage.
   }
 
   for (const inv of invoices) {
