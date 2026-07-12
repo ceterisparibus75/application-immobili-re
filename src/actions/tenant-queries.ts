@@ -619,6 +619,103 @@ export async function getTenantAccountStatement(
   };
 }
 
+/**
+ * Solde du compte locataire à afficher comme « Solde précédent » sur un PDF
+ * de facture / quittance. Reproduit exactement la logique du compte locataire
+ * (getTenantAccountStatement) : additions des factures non soldées, avoirs
+ * en déduction, ajustements de reprise, surplus bancaires non affectés.
+ *
+ * `excludeInvoiceId` permet d'exclure la facture en cours d'émission afin
+ * d'obtenir le solde AVANT cette facture (utile côté /api/invoices/[id]/pdf).
+ *
+ * Retourne un montant signé : positif = le locataire doit encore ; négatif
+ * = le locataire est créditeur (a trop versé).
+ */
+export async function computeInvoicePreviousBalance(
+  societyId: string,
+  tenantId: string,
+  opts: { excludeInvoiceId?: string } = {},
+): Promise<number> {
+  const [invoicesRaw, adjustmentsRaw] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        societyId,
+        tenantId,
+        ...(opts.excludeInvoiceId ? { id: { not: opts.excludeInvoiceId } } : {}),
+        status: { notIn: ["ANNULEE", "BROUILLON"] },
+        invoiceType: { not: "QUITTANCE" },
+      },
+      select: {
+        id: true,
+        totalTTC: true,
+        invoiceType: true,
+        payments: { select: { amount: true } },
+      },
+    }),
+    prisma.tenantBalanceAdjustment.findMany({
+      where: { societyId, tenantId },
+      select: { amount: true, isReconciled: true },
+    }),
+  ]);
+  const invoices = invoicesRaw ?? [];
+  const adjustments = adjustmentsRaw ?? [];
+
+  let balance = adjustments.reduce((sum, adj) => {
+    // Un adjustment réconcilié est soldé par un virement — il ne contribue plus.
+    if (adj.isReconciled) return sum;
+    return sum + adj.amount;
+  }, 0);
+
+  for (const inv of invoices) {
+    const paid = (inv.payments ?? []).reduce((s, p) => s + p.amount, 0);
+    if (inv.invoiceType === "AVOIR") {
+      balance -= getCreditNoteAmount(inv.totalTTC);
+    } else {
+      balance += inv.totalTTC - paid;
+    }
+  }
+
+  // Surplus bancaires non affectés = crédits en faveur du locataire.
+  const tenantInvoiceIds = invoices.map((inv) => inv.id);
+  if (tenantInvoiceIds.length > 0) {
+    const tenantReconciliations = (await prisma.bankReconciliation.findMany({
+      where: { payment: { invoiceId: { in: tenantInvoiceIds } } },
+      select: {
+        amount: true,
+        transactionId: true,
+        transaction: { select: { id: true, amount: true } },
+      },
+    })) ?? [];
+
+    const touchedTxIds = [...new Set(tenantReconciliations.map((r) => r.transactionId))];
+    const totalReconciledByTx = touchedTxIds.length
+      ? (await prisma.bankReconciliation.groupBy({
+          by: ["transactionId"],
+          where: { transactionId: { in: touchedTxIds } },
+          _sum: { amount: true },
+        })) ?? []
+      : [];
+    const totalReconciledMap = new Map(
+      totalReconciledByTx.map((r) => [r.transactionId, Number(r._sum.amount ?? 0)]),
+    );
+
+    const seenTx = new Set<string>();
+    for (const r of tenantReconciliations) {
+      if (seenTx.has(r.transactionId)) continue;
+      seenTx.add(r.transactionId);
+      const txAmount = Number(r.transaction.amount);
+      if (txAmount <= 0) continue;
+      const totalReconciled = totalReconciledMap.get(r.transactionId) ?? Number(r.amount);
+      const unallocated = txAmount - totalReconciled;
+      if (unallocated > 0.005) {
+        balance -= unallocated;
+      }
+    }
+  }
+
+  return Math.round(balance * 100) / 100;
+}
+
 export async function getTenantsForSelect(): Promise<{ id: string; name: string }[]> {
   const context = await getOptionalAuthenticatedActionContext();
   if (!context) return [];

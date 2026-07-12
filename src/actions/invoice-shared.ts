@@ -5,6 +5,7 @@ import { decrypt } from "@/lib/encryption";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { logNonBlocking } from "@/lib/non-blocking-log";
+import { computeInvoicePreviousBalance } from "@/actions/tenant-queries";
 import type { PaymentFrequency, BillingTerm, Prisma } from "@/generated/prisma/client";
 
 // ============================================================
@@ -522,21 +523,10 @@ export async function computeInvoicePreview(
     } catch (e) { logNonBlocking("invoice-shared.signedLogoUrl", e); }
   }
 
-  let previousBalance = 0;
-  if (lease.id) {
-    const unpaid = await prisma.invoice.findMany({
-      where: {
-        societyId,
-        leaseId: lease.id,
-        status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
-      },
-      select: { totalTTC: true, payments: { select: { amount: true } } },
-    });
-    previousBalance = unpaid.reduce((sum, inv) => {
-      const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
-      return sum + (inv.totalTTC - paid);
-    }, 0);
-  }
+  // Solde précédent = solde du compte locataire tel qu'affiché dans
+  // /locataires/[id]. La facture en cours d'aperçu n'est pas encore
+  // persistée : aucune exclusion nécessaire.
+  const previousBalance = await computeInvoicePreviousBalance(societyId, lease.tenantId);
 
   const billingAnchor =
     lease.billingAnchorMonth != null && lease.billingAnchorDay != null

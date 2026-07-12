@@ -5,6 +5,7 @@ import { resolveInvoiceBankDetails } from "@/lib/invoice-bank-details";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 import { createClient } from "@supabase/supabase-js";
+import { computeInvoicePreviousBalance } from "@/actions/tenant-queries";
 import { createAuditLog } from "@/lib/audit";
 import * as nodePath from "path";
 import { env } from "@/lib/env";
@@ -104,34 +105,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    // 7. Calcul du solde précédent (factures impayées + reprises de solde hors facture)
-    let previousBalance = 0;
-    if (invoice.lease?.id) {
-      const [unpaid, adjustments] = await Promise.all([
-        prisma.invoice.findMany({
-          where: {
-            societyId: context.societyId,
-            leaseId: invoice.lease.id,
-            id: { not: invoice.id },
-            status: { in: ["VALIDEE", "ENVOYEE", "EN_ATTENTE", "EN_RETARD", "PARTIELLEMENT_PAYE", "RELANCEE", "LITIGIEUX"] },
-          },
-          select: { totalTTC: true, payments: { select: { amount: true } } },
-        }),
-        prisma.tenantBalanceAdjustment.findMany({
-          where: {
-            societyId: context.societyId,
-            tenantId: invoice.tenantId,
-            dueDate: { lte: invoice.issueDate },
-            OR: [{ leaseId: invoice.lease.id }, { leaseId: null }],
-          },
-          select: { amount: true },
-        }),
-      ]);
-      previousBalance = unpaid.reduce((sum, inv) => {
-        const paid = inv.payments.reduce((a, pp) => a + pp.amount, 0);
-        return sum + (inv.totalTTC - paid);
-      }, adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0));
-    }
+    // 7. Solde précédent = solde du compte locataire AVANT cette facture.
+    // Utilise la même logique que /locataires/[id] pour rester cohérent
+    // (inclut avoirs, ajustements non réconciliés, surplus bancaires non
+    // affectés — donc un locataire ayant trop versé apparaîtra en négatif).
+    const previousBalance = await computeInvoicePreviousBalance(
+      context.societyId,
+      invoice.tenantId,
+      { excludeInvoiceId: invoice.id },
+    );
 
     // 8. Construction des données pour le PDF
     const lot = invoice.lease?.lot;
