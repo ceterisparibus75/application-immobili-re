@@ -311,6 +311,7 @@ function buildMovements(
     invoiceNumber?: string;
     status?: string;
     balanceAfter?: number | null;
+    kind?: "adjustment" | "invoice" | "payment" | "overpayment";
   }> = [];
 
   for (const adjustment of adjustments) {
@@ -326,6 +327,7 @@ function buildMovements(
       type: adjustment.amount >= 0 ? "debit" : "credit",
       amount: Math.abs(adjustment.amount),
       balanceAfter: adjustment.balanceAfter,
+      kind: "adjustment",
     });
 
     // Si la reprise a été soldée par un virement, on affiche aussi la ligne
@@ -338,6 +340,7 @@ function buildMovements(
         label: `Paiement reprise — ${adjustment.label}${ref}`,
         type: adjustment.amount >= 0 ? "credit" : "debit",
         amount: Math.abs(adjustment.amount),
+        kind: "payment",
       });
     }
   }
@@ -359,6 +362,7 @@ function buildMovements(
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber ?? undefined,
         status: inv.status,
+        kind: "invoice",
       });
     } else {
       movements.push({
@@ -369,6 +373,7 @@ function buildMovements(
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber ?? undefined,
         status: inv.status,
+        kind: "invoice",
       });
     }
 
@@ -379,6 +384,7 @@ function buildMovements(
         label: `Paiement ${inv.invoiceNumber}${p.method ? ` (${p.method})` : ""}${p.reference ? ` — Réf: ${p.reference}` : ""}`,
         type: "credit",
         amount: p.amount,
+        kind: "payment",
       });
     }
   }
@@ -397,6 +403,7 @@ function buildMovements(
       label: `Encaissement non affecté — ${op.label}${refBits ? ` — ${refBits}` : ""}${invoicesTag}`,
       type: "credit",
       amount: op.unallocated,
+      kind: "overpayment",
     });
   }
 
@@ -1016,6 +1023,22 @@ export function TenantAccount({
                           <ArrowUpCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
                         ) : (
                           <ArrowDownCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        )}
+                        {m.kind === "adjustment" && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] shrink-0 border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                          >
+                            Reprise
+                          </Badge>
+                        )}
+                        {m.kind === "overpayment" && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] shrink-0 border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
+                          >
+                            Surplus
+                          </Badge>
                         )}
                         <span className="text-xs">{m.label}</span>
                         {m.invoiceNumber && (
