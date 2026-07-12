@@ -530,6 +530,31 @@ export async function getTenantAccountStatement(
     totalReconciledByTx.map((r) => [r.transactionId, Number(r._sum.amount ?? 0)]),
   );
 
+  // Certaines transactions peuvent aussi être partiellement consommées par
+  // une TenantBalanceAdjustment (« paiement reprise ») via son champ
+  // reconciledBankTransactionId — cette part n'apparaît pas dans
+  // BankReconciliation. Sans cette prise en compte, un virement de 5 309,14 €
+  // couvrant 2 factures (3 528,76 €) + 1 reprise (1 780,38 €) apparaît comme
+  // ayant 1 780,38 € de surplus fantôme (incident KSR juin 2026).
+  const adjustmentsByTx = new Map<string, number>();
+  for (const adj of enrichedAdjustments) {
+    if (!adj.isReconciled || !adj.reconciledBankTransactionId) continue;
+    const prev = adjustmentsByTx.get(adj.reconciledBankTransactionId) ?? 0;
+    // Un adjustment débiteur (amount > 0) soldé par un virement créditeur
+    // consomme |amount| du virement.
+    adjustmentsByTx.set(
+      adj.reconciledBankTransactionId,
+      prev + Math.abs(Number(adj.amount)),
+    );
+  }
+  // Fusionner : totalConsumed(tx) = Σ BankReconciliation.amount + Σ Adjustments.amount
+  for (const [txId, adjSum] of adjustmentsByTx) {
+    totalReconciledMap.set(
+      txId,
+      (totalReconciledMap.get(txId) ?? 0) + adjSum,
+    );
+  }
+
   // Regrouper les réconciliations du locataire par transaction pour connaître
   // combien lui a été affecté et sur quelles factures.
   type TxAgg = {
@@ -698,6 +723,29 @@ export async function computeInvoicePreviousBalance(
     const totalReconciledMap = new Map(
       totalReconciledByTx.map((r) => [r.transactionId, Number(r._sum.amount ?? 0)]),
     );
+
+    // Ajout des adjustments réconciliés à ces mêmes transactions (via
+    // reconciledBankTransactionId, hors BankReconciliation) — voir
+    // getTenantAccountStatement pour le même correctif.
+    if (touchedTxIds.length > 0) {
+      const reconciledAdjustments = (await prisma.tenantBalanceAdjustment.findMany({
+        where: {
+          societyId,
+          tenantId,
+          isReconciled: true,
+          reconciledBankTransactionId: { in: touchedTxIds },
+        },
+        select: { amount: true, reconciledBankTransactionId: true },
+      })) ?? [];
+      for (const adj of reconciledAdjustments) {
+        if (!adj.reconciledBankTransactionId) continue;
+        totalReconciledMap.set(
+          adj.reconciledBankTransactionId,
+          (totalReconciledMap.get(adj.reconciledBankTransactionId) ?? 0)
+            + Math.abs(Number(adj.amount)),
+        );
+      }
+    }
 
     const seenTx = new Set<string>();
     for (const r of tenantReconciliations) {
