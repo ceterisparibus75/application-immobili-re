@@ -237,11 +237,14 @@ const _fetchOwnerAnalyticsData = unstable_cache(
         },
         select: { amount: true },
       }),
-      // Lignes d'amortissement de l'année en cours (mois + YTD)
+      // Lignes d'amortissement échues à ce jour (mois + YTD).
+      // On borne à `now` et pas à `monthEnd` : sinon une échéance prévue plus
+      // tard dans le mois serait déjà comptée en début de mois, et le KPI
+      // resterait figé au lieu de croître au fil des échéances passées.
       prisma.loanAmortizationLine.findMany({
         where: {
           loan: { societyId: { in: ids }, status: "EN_COURS" },
-          dueDate: { gte: yearStart, lte: monthEnd },
+          dueDate: { gte: yearStart, lte: now },
         },
         select: {
           dueDate: true,
@@ -305,7 +308,9 @@ const _fetchOwnerAnalyticsData = unstable_cache(
       const raw = Number(line.principalPayment);
       const amount = Number.isFinite(raw) ? raw : 0;
       principalYtdMap.set(sid, (principalYtdMap.get(sid) ?? 0) + amount);
-      if (line.dueDate >= monthStart && line.dueDate <= monthEnd) {
+      // La borne haute (dueDate <= now) est déjà appliquée par la requête ;
+      // on ne garde donc ici que la comparaison au début du mois courant.
+      if (line.dueDate >= monthStart) {
         principalMonthMap.set(sid, (principalMonthMap.get(sid) ?? 0) + amount);
       }
     }
@@ -421,7 +426,7 @@ const _fetchOwnerAnalyticsData = unstable_cache(
     };
   },
   // v2 : ajout initialLoanCapital + principalAmortizedMonth/YTD aux sociétés et totaux
-  ["owner-analytics-data-v2"],
+  ["owner-analytics-data-v3"],
   { revalidate: 60 },
 );
 

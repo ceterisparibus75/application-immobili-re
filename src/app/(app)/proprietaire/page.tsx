@@ -299,7 +299,7 @@ export default async function ProprietaireDashboardPage({
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital amorti — mois</p>
                     <p className="text-lg font-semibold tabular-nums text-[var(--color-status-positive)]">{fmt(data.kpis.principalAmortizedMonth)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Échéances dues ce mois-ci</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Échéances passées ce mois-ci</p>
                   </div>
                   <div className="bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">Capital amorti — YTD</p>

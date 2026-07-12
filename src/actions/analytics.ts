@@ -205,10 +205,13 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
       },
     },
   });
+  // Échéances effectivement passées (dueDate <= now) — on ne pré-compte pas
+  // les échéances à venir dans le mois courant, sinon le KPI mensuel resterait
+  // figé au lieu de croître au fil du mois.
   const amortizationLinesPromise = prisma.loanAmortizationLine.findMany({
     where: {
       loan: { societyId: { in: societyIds }, status: "EN_COURS" },
-      dueDate: { gte: currentYearStart, lte: currentMonthEnd },
+      dueDate: { gte: currentYearStart, lte: now },
     },
     select: { dueDate: true, principalPayment: true },
   });
@@ -438,7 +441,8 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
     const raw = Number(line.principalPayment);
     const amount = Number.isFinite(raw) ? raw : 0;
     principalAmortizedYTD += amount;
-    if (line.dueDate >= currentMonthStart && line.dueDate <= currentMonthEnd) {
+    // La requête cape déjà la borne haute à `now`.
+    if (line.dueDate >= currentMonthStart) {
       principalAmortizedMonth += amount;
     }
   }
@@ -546,7 +550,7 @@ export async function getAnalyticsData(societyId: string, options: AnalyticsCore
   // v2 : kpis enrichis (initialLoanCapital, principalAmortizedMonth/YTD)
   return unstable_cache(
     () => fetchAnalyticsCore([societyId], options),
-    [`dashboard-analytics-${societyId}-${cacheKeySuffix}-v2`],
+    [`dashboard-analytics-${societyId}-${cacheKeySuffix}-v3`],
     { revalidate: 300, tags: [`society-${societyId}-analytics`] }
   )();
 }
@@ -571,8 +575,8 @@ export async function getConsolidatedAnalyticsData(proprietaireId?: string): Pro
   // Bump la clé pour invalider les entrées de cache antérieures dont l'objet
   // sérialisé ne contient pas encore ces champs (sinon fmt(undefined) → "NaN €").
   const cacheKey = proprietaireId
-    ? `owner-consolidated-${proprietaireId}-v2`
-    : `owner-consolidated-${context.userId}-v2`;
+    ? `owner-consolidated-${proprietaireId}-v3`
+    : `owner-consolidated-${context.userId}-v3`;
 
   return unstable_cache(
     () => fetchAnalyticsCore(societyIds),
