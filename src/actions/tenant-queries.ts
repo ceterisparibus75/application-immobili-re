@@ -414,14 +414,19 @@ export async function getTenantById(societyId: string, tenantId: string) {
  */
 export async function getTenantAccountStatement(
   societyId: string,
-  tenantId: string
+  tenantId: string,
+  opts: { excludeInvoiceId?: string } = {},
 ) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return null;
 
   const [invoices, adjustments] = await Promise.all([
     prisma.invoice.findMany({
-      where: { societyId, tenantId },
+      where: {
+        societyId,
+        tenantId,
+        ...(opts.excludeInvoiceId ? { id: { not: opts.excludeInvoiceId } } : {}),
+      },
       select: {
         id: true,
         invoiceNumber: true,
@@ -711,26 +716,33 @@ export async function getTenantAccountStatement(
     }
   }
 
-  // Calculer le solde courant. Un adjustment réconcilié est considéré soldé
-  // (le virement bancaire l'a réglé) et ne contribue plus au solde.
-  let balance = enrichedAdjustments.reduce((sum, adjustment) => {
-    if (adjustment.isReconciled) return sum;
-    return sum + adjustment.amount;
-  }, 0);
+  // Calculer le solde courant à partir des MÊMES agrégats que ceux affichés :
+  //   dettes  = factures non-AVOIR + toutes les reprises (débit)
+  //   crédits = avoirs + virements bancaires réels (bankFlows) + paiements
+  //             manuels non-écho
+  //
+  // On compte TOUTES les reprises (réconciliées ou non). Une reprise
+  // réconciliée est consommée par un virement inclus dans bankFlows : le net
+  // s'annule automatiquement. Une reprise non réconciliée reste une dette.
+  //
+  // Cet alignement évite qu'un Payment legacy filtré à l'affichage (echo d'un
+  // virement) reste comptabilisé dans le solde (incident Chevalier — solde dû
+  // affiché à -1 400 € alors que la colonne Solde tombait bien à 0 €).
+  let balance = enrichedAdjustments.reduce((sum, adj) => sum + adj.amount, 0);
   for (const inv of invoices) {
     if (inv.status === "ANNULEE" || inv.status === "BROUILLON") continue;
     if (inv.invoiceType === "QUITTANCE") continue;
-    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
       balance -= getCreditNoteAmount(inv.totalTTC);
     } else {
-      balance += inv.totalTTC - paid;
+      balance += inv.totalTTC;
     }
   }
-  // Les surplus bancaires non affectés viennent en déduction du solde dû
-  // (ou créent un solde en faveur du locataire s'il n'y a rien à devoir).
-  for (const op of bankOverpayments) {
-    balance -= op.unallocated;
+  for (const flow of bankFlows) {
+    balance -= flow.transactionAmount;
+  }
+  for (const p of manualPayments) {
+    balance -= p.amount;
   }
 
   return {
@@ -760,6 +772,12 @@ export async function computeInvoicePreviousBalance(
   tenantId: string,
   opts: { excludeInvoiceId?: string } = {},
 ): Promise<number> {
+  // Reproduit la logique de solde de getTenantAccountStatement sans dépendre
+  // du contexte auth (cette fonction est appelée depuis les routes PDF qui
+  // ont leur propre garde). Les factures et le calcul restent alignés avec
+  // l'affichage du compte locataire :
+  //   dettes  = factures non-AVOIR + toutes les reprises (au signe brut)
+  //   crédits = avoirs + virements bancaires réels + paiements manuels non-écho
   const [invoicesRaw, adjustmentsRaw] = await Promise.all([
     prisma.invoice.findMany({
       where: {
@@ -773,90 +791,103 @@ export async function computeInvoicePreviousBalance(
         id: true,
         totalTTC: true,
         invoiceType: true,
-        payments: { select: { amount: true } },
+        payments: {
+          select: { id: true, amount: true, method: true, reference: true },
+        },
       },
     }),
     prisma.tenantBalanceAdjustment.findMany({
       where: { societyId, tenantId },
-      select: { amount: true, isReconciled: true },
+      select: {
+        amount: true,
+        isReconciled: true,
+        reconciledBankTransactionId: true,
+      },
     }),
   ]);
   const invoices = invoicesRaw ?? [];
   const adjustments = adjustmentsRaw ?? [];
 
-  let balance = adjustments.reduce((sum, adj) => {
-    // Un adjustment réconcilié est soldé par un virement — il ne contribue plus.
-    if (adj.isReconciled) return sum;
-    return sum + adj.amount;
-  }, 0);
+  // Adjustments comptés au signe brut (débits/crédits nets).
+  let balance = adjustments.reduce((sum, adj) => sum + Number(adj.amount), 0);
 
+  // Factures : totalTTC en débit (les paiements sont soustraits ci-dessous
+  // via bankFlows/manualPayments, pas via inv.payments directement pour
+  // éviter les echos legacy).
   for (const inv of invoices) {
-    const paid = (inv.payments ?? []).reduce((s, p) => s + p.amount, 0);
     if (inv.invoiceType === "AVOIR") {
       balance -= getCreditNoteAmount(inv.totalTTC);
     } else {
-      balance += inv.totalTTC - paid;
+      balance += inv.totalTTC;
     }
   }
 
-  // Surplus bancaires non affectés = crédits en faveur du locataire.
+  // Virements bancaires (Payment + reconciledBankTransactionId sur adj).
   const tenantInvoiceIds = invoices.map((inv) => inv.id);
+  const reconciledPaymentIdSet = new Set<string>();
+  const bankFlowRefs = new Set<string>();
+  const bankFlowByTx = new Map<string, { transactionAmount: number; reference: string | null }>();
+
   if (tenantInvoiceIds.length > 0) {
-    const tenantReconciliations = (await prisma.bankReconciliation.findMany({
+    const paymentReconciliations = (await prisma.bankReconciliation.findMany({
       where: { payment: { invoiceId: { in: tenantInvoiceIds } } },
       select: {
         amount: true,
-        transactionId: true,
-        transaction: { select: { id: true, amount: true } },
+        paymentId: true,
+        transaction: { select: { id: true, amount: true, reference: true } },
       },
     })) ?? [];
-
-    const touchedTxIds = [...new Set(tenantReconciliations.map((r) => r.transactionId))];
-    const totalReconciledByTx = touchedTxIds.length
-      ? (await prisma.bankReconciliation.groupBy({
-          by: ["transactionId"],
-          where: { transactionId: { in: touchedTxIds } },
-          _sum: { amount: true },
-        })) ?? []
-      : [];
-    const totalReconciledMap = new Map(
-      totalReconciledByTx.map((r) => [r.transactionId, Number(r._sum.amount ?? 0)]),
-    );
-
-    // Ajout des adjustments réconciliés à ces mêmes transactions (via
-    // reconciledBankTransactionId, hors BankReconciliation) — voir
-    // getTenantAccountStatement pour le même correctif.
-    if (touchedTxIds.length > 0) {
-      const reconciledAdjustments = (await prisma.tenantBalanceAdjustment.findMany({
-        where: {
-          societyId,
-          tenantId,
-          isReconciled: true,
-          reconciledBankTransactionId: { in: touchedTxIds },
-        },
-        select: { amount: true, reconciledBankTransactionId: true },
-      })) ?? [];
-      for (const adj of reconciledAdjustments) {
-        if (!adj.reconciledBankTransactionId) continue;
-        totalReconciledMap.set(
-          adj.reconciledBankTransactionId,
-          (totalReconciledMap.get(adj.reconciledBankTransactionId) ?? 0)
-            + Math.abs(Number(adj.amount)),
-        );
+    for (const r of paymentReconciliations) {
+      reconciledPaymentIdSet.add(r.paymentId);
+      const tx = r.transaction;
+      if (!bankFlowByTx.has(tx.id)) {
+        bankFlowByTx.set(tx.id, {
+          transactionAmount: Number(tx.amount),
+          reference: tx.reference,
+        });
       }
     }
+  }
 
-    const seenTx = new Set<string>();
-    for (const r of tenantReconciliations) {
-      if (seenTx.has(r.transactionId)) continue;
-      seenTx.add(r.transactionId);
-      const txAmount = Number(r.transaction.amount);
-      if (txAmount <= 0) continue;
-      const totalReconciled = totalReconciledMap.get(r.transactionId) ?? Number(r.amount);
-      const unallocated = txAmount - totalReconciled;
-      if (unallocated > 0.005) {
-        balance -= unallocated;
+  // BankTransaction rapprochées via adjustments uniquement.
+  const reconciledTxIds = adjustments
+    .map((a) => a.reconciledBankTransactionId)
+    .filter((id): id is string => Boolean(id));
+  const missingTxIds = reconciledTxIds.filter((id) => !bankFlowByTx.has(id));
+  if (missingTxIds.length > 0) {
+    const extraTx = (await prisma.bankTransaction.findMany({
+      where: { id: { in: missingTxIds } },
+      select: { id: true, amount: true, reference: true },
+    })) ?? [];
+    for (const tx of extraTx) {
+      bankFlowByTx.set(tx.id, {
+        transactionAmount: Number(tx.amount),
+        reference: tx.reference,
+      });
+    }
+  }
+
+  for (const flow of bankFlowByTx.values()) {
+    if (flow.transactionAmount > 0) {
+      balance -= flow.transactionAmount;
+      if (flow.reference) bankFlowRefs.add(flow.reference.trim());
+    }
+  }
+
+  // Paiements manuels non-écho (chèque, espèces, virement sans BankReconciliation
+  // et sans référence identique à un bankFlow déjà comptabilisé).
+  for (const inv of invoices) {
+    for (const p of inv.payments ?? []) {
+      if (reconciledPaymentIdSet.has(p.id)) continue;
+      const pRef = p.reference?.trim();
+      if (
+        pRef
+        && p.method?.toLowerCase().includes("virement")
+        && bankFlowRefs.has(pRef)
+      ) {
+        continue;
       }
+      balance -= p.amount;
     }
   }
 
