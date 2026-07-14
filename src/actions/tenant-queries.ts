@@ -650,6 +650,16 @@ export async function getTenantAccountStatement(
     reference: string | null;
     invoiceNumber: string | null;
   }> = [];
+  // Références des BankTransaction déjà remontées dans bankFlows — sert à
+  // dédupliquer les Payment legacy créés à la main sur une facture pour un
+  // virement déjà représenté par sa BankTransaction (bug de sur-affectation
+  // corrigé par efbd7c7 mais dont les données historiques restent en base).
+  const bankFlowReferences = new Set(
+    bankFlows
+      .map((f) => f.reference?.trim())
+      .filter((r): r is string => Boolean(r && r.length > 0)),
+  );
+
   for (const inv of invoices) {
     // Les quittances (QUITTANCE) ont des Payment auto-créés au moment de la
     // génération de la quittance quand la facture est payée : ils dupliquent
@@ -657,6 +667,17 @@ export async function getTenantAccountStatement(
     if (inv.invoiceType === "QUITTANCE") continue;
     for (const p of inv.payments ?? []) {
       if (reconciledPaymentIdSet.has(p.id)) continue;
+      // Doublon legacy : Payment « virement » avec une référence identique à
+      // celle d'un BankTransaction déjà affiché en bankFlow → écho de la
+      // même transaction, ne pas recompter.
+      const pRef = p.reference?.trim();
+      if (
+        pRef
+        && p.method?.toLowerCase().includes("virement")
+        && bankFlowReferences.has(pRef)
+      ) {
+        continue;
+      }
       manualPayments.push({
         id: p.id,
         paidAt: p.paidAt,
