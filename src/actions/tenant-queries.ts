@@ -16,38 +16,10 @@ import { getCreditNoteAmount } from "@/actions/tenant-shared";
  */
 export async function computeTenantBalance(societyId: string, tenantId: string): Promise<number> {
   await requireSocietyActionContext(societyId);
-
-  const [invoices, adjustments] = await Promise.all([
-    prisma.invoice.findMany({
-      where: {
-        societyId,
-        tenantId,
-        status: { notIn: ["ANNULEE", "BROUILLON"] },
-        invoiceType: { not: "QUITTANCE" },
-      },
-      select: {
-        totalTTC: true,
-        invoiceType: true,
-        payments: { select: { amount: true } },
-      },
-    }),
-    prisma.tenantBalanceAdjustment.findMany({
-      where: { societyId, tenantId },
-      select: { amount: true },
-    }),
-  ]);
-
-  let balance = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
-  for (const inv of invoices) {
-    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
-    if (inv.invoiceType === "AVOIR") {
-      balance -= getCreditNoteAmount(inv.totalTTC);
-    } else {
-      balance += inv.totalTTC - paid;
-    }
-  }
-
-  return Math.round(balance * 100) / 100;
+  // Délègue au batch (traite bankFlows + manualPayments dédupliqués comme le
+  // compte locataire) pour rester aligné avec l'affichage.
+  const balances = await computeTenantBalances(societyId, [tenantId]);
+  return balances.get(tenantId) ?? 0;
 }
 
 /**
@@ -56,6 +28,8 @@ export async function computeTenantBalance(societyId: string, tenantId: string):
 export async function computeTenantBalances(societyId: string, tenantIds: string[]): Promise<Map<string, number>> {
   if (tenantIds.length === 0) return new Map();
 
+  // Chargement batch — invoices (avec payments détaillés pour dédup echo) et
+  // adjustments (avec info réconciliation).
   const [invoices, adjustments] = await Promise.all([
     prisma.invoice.findMany({
       where: {
@@ -69,34 +43,131 @@ export async function computeTenantBalances(societyId: string, tenantIds: string
         tenantId: true,
         totalTTC: true,
         invoiceType: true,
+        payments: {
+          select: { id: true, amount: true, method: true, reference: true },
+        },
       },
     }),
     prisma.tenantBalanceAdjustment.findMany({
       where: { societyId, tenantId: { in: tenantIds } },
-      select: { tenantId: true, amount: true },
+      select: {
+        tenantId: true,
+        amount: true,
+        reconciledBankTransactionId: true,
+      },
     }),
   ]);
 
-  const paymentTotals = invoices.length > 0
-    ? await prisma.payment.groupBy({
-        by: ["invoiceId"],
-        where: { invoiceId: { in: invoices.map((inv) => inv.id) } },
-        _sum: { amount: true },
-      })
+  // BankReconciliation → BankTransaction pour chaque tenant : on retrouve le
+  // tenantId via payment.invoiceId → invoice.tenantId.
+  const invoiceIdToTenantId = new Map(invoices.map((i) => [i.id, i.tenantId]));
+  const invoiceIds = invoices.map((i) => i.id);
+  const reconciliations = invoiceIds.length > 0
+    ? (await prisma.bankReconciliation.findMany({
+        where: { payment: { invoiceId: { in: invoiceIds } } },
+        select: {
+          paymentId: true,
+          transaction: { select: { id: true, amount: true, reference: true } },
+          payment: { select: { invoiceId: true } },
+        },
+      })) ?? []
     : [];
-  const paidByInvoice = new Map(paymentTotals.map((p) => [p.invoiceId, p._sum.amount ?? 0]));
 
-  const balances = new Map<string, number>();
-  for (const adjustment of adjustments) {
-    balances.set(adjustment.tenantId, (balances.get(adjustment.tenantId) ?? 0) + adjustment.amount);
+  // BankTransaction réconciliées uniquement via adjustments (pas via Payment).
+  const adjTxIds = adjustments
+    .map((a) => a.reconciledBankTransactionId)
+    .filter((id): id is string => Boolean(id));
+  const alreadyLoadedTxIds = new Set(reconciliations.map((r) => r.transaction.id));
+  const missingTxIds = adjTxIds.filter((id) => !alreadyLoadedTxIds.has(id));
+  const extraTx = missingTxIds.length > 0
+    ? (await prisma.bankTransaction.findMany({
+        where: { id: { in: missingTxIds } },
+        select: { id: true, amount: true, reference: true },
+      })) ?? []
+    : [];
+
+  // Regrouper les transactions par tenant.
+  // - Via Payment : tenantId = invoice.tenantId
+  // - Via adjustment : tenantId = adjustment.tenantId
+  const flowByTenant = new Map<string, Map<string, { amount: number; reference: string | null }>>();
+  const reconciledPaymentIdsByTenant = new Map<string, Set<string>>();
+
+  const addFlow = (tid: string, txId: string, amount: number, reference: string | null) => {
+    let map = flowByTenant.get(tid);
+    if (!map) { map = new Map(); flowByTenant.set(tid, map); }
+    if (!map.has(txId)) map.set(txId, { amount, reference });
+  };
+  const addReconciledPayment = (tid: string, pid: string) => {
+    let set = reconciledPaymentIdsByTenant.get(tid);
+    if (!set) { set = new Set(); reconciledPaymentIdsByTenant.set(tid, set); }
+    set.add(pid);
+  };
+
+  for (const r of reconciliations) {
+    const tid = r.payment.invoiceId ? invoiceIdToTenantId.get(r.payment.invoiceId) : null;
+    if (!tid) continue;
+    addFlow(tid, r.transaction.id, Number(r.transaction.amount), r.transaction.reference);
+    addReconciledPayment(tid, r.paymentId);
   }
-  for (const inv of invoices) {
-    const current = balances.get(inv.tenantId) ?? 0;
-    const paid = paidByInvoice.get(inv.id) ?? 0;
-    if (inv.invoiceType === "AVOIR") {
-      balances.set(inv.tenantId, current - getCreditNoteAmount(inv.totalTTC));
+  const extraTxById = new Map(extraTx.map((t) => [t.id, t]));
+  for (const adj of adjustments) {
+    if (!adj.reconciledBankTransactionId) continue;
+    const tx = extraTxById.get(adj.reconciledBankTransactionId);
+    if (tx) {
+      addFlow(adj.tenantId, tx.id, Number(tx.amount), tx.reference);
     } else {
-      balances.set(inv.tenantId, current + (inv.totalTTC - paid));
+      // La tx a déjà été chargée via une reconciliation Payment de ce tenant :
+      // rien à faire de plus (montant déjà pris en compte).
+    }
+  }
+
+  // Calcul du solde par tenant.
+  const balances = new Map<string, number>();
+
+  // Adjustments (signe brut).
+  for (const adj of adjustments) {
+    balances.set(adj.tenantId, (balances.get(adj.tenantId) ?? 0) + Number(adj.amount));
+  }
+
+  // Factures : totalTTC en débit (les crédits sont soustraits via bankFlows/
+  // manualPayments plus bas — évite les Payment echo legacy).
+  for (const inv of invoices) {
+    const cur = balances.get(inv.tenantId) ?? 0;
+    if (inv.invoiceType === "AVOIR") {
+      balances.set(inv.tenantId, cur - getCreditNoteAmount(inv.totalTTC));
+    } else {
+      balances.set(inv.tenantId, cur + inv.totalTTC);
+    }
+  }
+
+  // BankFlows en crédit.
+  for (const [tid, flows] of flowByTenant) {
+    let total = 0;
+    for (const f of flows.values()) {
+      if (f.amount > 0) total += f.amount;
+    }
+    balances.set(tid, (balances.get(tid) ?? 0) - total);
+  }
+
+  // ManualPayments non-écho en crédit.
+  for (const inv of invoices) {
+    const reconciledSet = reconciledPaymentIdsByTenant.get(inv.tenantId);
+    const tenantFlowRefs = new Set(
+      [...(flowByTenant.get(inv.tenantId)?.values() ?? [])]
+        .map((f) => f.reference?.trim())
+        .filter((r): r is string => Boolean(r && r.length > 0)),
+    );
+    for (const p of inv.payments ?? []) {
+      if (reconciledSet?.has(p.id)) continue;
+      const pRef = p.reference?.trim();
+      if (
+        pRef
+        && p.method?.toLowerCase().includes("virement")
+        && tenantFlowRefs.has(pRef)
+      ) {
+        continue; // écho legacy d'un virement déjà comptabilisé
+      }
+      balances.set(inv.tenantId, (balances.get(inv.tenantId) ?? 0) - p.amount);
     }
   }
 

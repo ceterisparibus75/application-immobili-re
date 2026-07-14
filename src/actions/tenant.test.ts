@@ -102,7 +102,7 @@ describe("computeTenantBalance", () => {
 
   it("retourne le montant dû pour une facture non payée", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
-      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
     ] as never);
     const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
     expect(balance).toBe(800);
@@ -110,7 +110,7 @@ describe("computeTenantBalance", () => {
 
   it("soustrait les paiements déjà effectués", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
-      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ amount: 500 }] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ id: "p1", amount: 500, method: "cheque", reference: null }] },
     ] as never);
     const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
     expect(balance).toBe(300);
@@ -118,8 +118,8 @@ describe("computeTenantBalance", () => {
 
   it("réduit le solde pour un avoir", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
-      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
-      { totalTTC: 200, invoiceType: "AVOIR", payments: [] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR", payments: [] },
     ] as never);
     const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
     expect(balance).toBe(600);
@@ -127,8 +127,8 @@ describe("computeTenantBalance", () => {
 
   it("réduit aussi le solde quand l'avoir est stocké en montant négatif", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
-      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
-      { totalTTC: -800, invoiceType: "AVOIR", payments: [] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: -800, invoiceType: "AVOIR", payments: [] },
     ] as never);
     const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
     expect(balance).toBe(0);
@@ -136,7 +136,7 @@ describe("computeTenantBalance", () => {
 
   it("retourne 0 si toutes les factures sont entièrement payées", async () => {
     prismaMock.invoice.findMany.mockResolvedValue([
-      { totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ amount: 800 }] },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [{ id: "p1", amount: 800, method: "cheque", reference: null }] },
     ] as never);
     const balance = await computeTenantBalance(SOCIETY_ID, TENANT_ID);
     expect(balance).toBe(0);
@@ -819,12 +819,15 @@ describe("getTenantsPaginated — computeTenantBalances avec AVOIR", () => {
     ] as never);
     prismaMock.tenant.count.mockResolvedValue(1 as never);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER" },
-      { id: "inv-2", tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR" },
+      {
+        id: "inv-1",
+        tenantId: TENANT_ID,
+        totalTTC: 800,
+        invoiceType: "APPEL_LOYER",
+        payments: [{ id: "p1", amount: 100, method: "cheque", reference: null }],
+      },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: 200, invoiceType: "AVOIR", payments: [] },
     ] as never);
-    prismaMock.payment.groupBy = vi.fn().mockResolvedValue([
-      { invoiceId: "inv-1", _sum: { amount: 100 } },
-    ]) as never;
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
     expect(result.data[0].balance).toBe(500); // 800 - 100 payment - 200 avoir = 500
@@ -836,10 +839,9 @@ describe("getTenantsPaginated — computeTenantBalances avec AVOIR", () => {
     ] as never);
     prismaMock.tenant.count.mockResolvedValue(1 as never);
     prismaMock.invoice.findMany.mockResolvedValue([
-      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER" },
-      { id: "inv-2", tenantId: TENANT_ID, totalTTC: -800, invoiceType: "AVOIR" },
+      { id: "inv-1", tenantId: TENANT_ID, totalTTC: 800, invoiceType: "APPEL_LOYER", payments: [] },
+      { id: "inv-2", tenantId: TENANT_ID, totalTTC: -800, invoiceType: "AVOIR", payments: [] },
     ] as never);
-    prismaMock.payment.groupBy = vi.fn().mockResolvedValue([]) as never;
 
     const result = await getTenantsPaginated(SOCIETY_ID, { page: 1, pageSize: 10 });
     expect(result.data[0].balance).toBe(0);
