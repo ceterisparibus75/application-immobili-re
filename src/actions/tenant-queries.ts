@@ -599,6 +599,28 @@ export async function getTenantAccountStatement(
       });
     }
   }
+
+  // Cas d'une BankTransaction rapprochée UNIQUEMENT via une reprise
+  // (TenantBalanceAdjustment.reconciledBankTransactionId), sans aucun
+  // Payment/BankReconciliation associé : elle n'apparaît pas dans
+  // tenantReconciliations. Sans ce complément, le virement soldant une
+  // reprise disparaîtrait totalement du compte (cas APRIS 62 mai 2026).
+  for (const adj of enrichedAdjustments) {
+    if (!adj.isReconciled || !adj.reconciledBankTransactionId || !adj.bankTransaction) continue;
+    if (txAggMap.has(adj.reconciledBankTransactionId)) continue;
+    const tx = adj.bankTransaction;
+    const totalReconciled = totalReconciledMap.get(tx.id) ?? Math.abs(Number(adj.amount));
+    txAggMap.set(tx.id, {
+      id: tx.id,
+      transactionDate: tx.transactionDate,
+      label: tx.label,
+      reference: tx.reference,
+      transactionAmount: Number(tx.amount),
+      allocatedToTenant: 0, // pas d'allocation Payment pour ce tenant
+      unallocated: Math.round((Number(tx.amount) - totalReconciled) * 100) / 100,
+      invoiceNumbers: [],
+    });
+  }
   const bankOverpayments = [...txAggMap.values()]
     // Ne remonter que les vrais surplus (crédits en faveur du locataire) sur
     // des transactions entrantes (amount > 0 = encaissement).
