@@ -829,7 +829,15 @@ export default async function ProprietaireDashboardPage({
   // ── Baux tab content ──
   const activeLeasesConsolidated = consolidatedLeases.filter((l) => l.status === "EN_COURS");
   const otherLeasesConsolidated = consolidatedLeases.filter((l) => l.status !== "EN_COURS");
-  const totalMonthlyRent = activeLeasesConsolidated.reduce((s, l) => s + l.currentRentHT / (FREQ_MULT_ANNUAL[l.paymentFrequency] ?? 12) * 12 / 12, 0);
+  // currentRentHT est le montant payé à chaque échéance (mensuel, trimestriel…).
+  // Pour l'équivalent mensuel : rentAnnuel = currentRentHT * fréquence-par-an,
+  // puis /12. Un loyer mensuel de 500 € donne 500 × 12 / 12 = 500 ; un loyer
+  // trimestriel de 1 500 € donne 1 500 × 4 / 12 = 500. L'ancienne formule
+  // divisait au lieu de multiplier → sous-évaluait × période chaque bail.
+  const totalMonthlyRent = activeLeasesConsolidated.reduce(
+    (s, l) => s + (l.currentRentHT * (FREQ_MULT_ANNUAL[l.paymentFrequency] ?? 12)) / 12,
+    0,
+  );
 
   const bauxContent = (
     <div className="space-y-5">
