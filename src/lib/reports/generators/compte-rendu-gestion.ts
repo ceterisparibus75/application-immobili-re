@@ -194,10 +194,17 @@ export async function generateCompteRenduGestion(opts: ReportOptions): Promise<R
         ? (tenant.companyName ?? "-")
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim() || "-";
       const lotNum = firstInvoice?.lease?.lot?.number ?? firstPayment?.invoice.lease?.lot?.number ?? firstAdjustment?.lease?.lot?.number ?? "-";
+      // Une reprise réconciliée (adjustment.isReconciled) est soldée par un
+      // virement bancaire hors Payment ; il ne faut plus la compter dans le
+      // solde restant. Sans ce filtre, une reprise soldée apparaissait à la
+      // fois en dette et en encaissée fantôme (incident APRIS 62 : solde
+      // affiché 7 971,50 € au lieu de 3 696,21 €).
       const quittance = tInvoices.reduce((s, i) => s + i.totalTTC, 0);
       const regle = tPayments.reduce((s, payment) => s + (payment.amount ?? 0), 0);
       const solde = tInvoices.reduce((s, i) => s + getOutstandingAmount(i), 0)
-        + tAdjustments.reduce((s, adjustment) => s + adjustment.amount, 0);
+        + tAdjustments
+          .filter((a) => !a.isReconciled)
+          .reduce((s, a) => s + a.amount, 0);
       bTotal += quittance;
       bPaid += regle;
       bOutstanding += solde;
