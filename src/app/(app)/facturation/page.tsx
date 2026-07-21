@@ -7,7 +7,7 @@ import {
   Clock,
   Euro,
   FilePlus2,
-  FileText,
+  Mail,
   Plus,
   Zap,
 } from "lucide-react";
@@ -102,11 +102,25 @@ export default async function FacturationPage({ searchParams }: PageProps) {
   ]);
 
   const issuedInvoices = invoices.filter(isIssuedInvoiceForBillingKpi);
-  const enAttente = issuedInvoices.filter((i) => i.status === "EN_ATTENTE");
-  const enRetard = issuedInvoices.filter((i) => i.status === "EN_RETARD");
   const totalTTC = sumInvoiceTotalTTC(issuedInvoices);
-  const totalImpaye = sumInvoiceTotalTTC([...enAttente, ...enRetard]);
   const brouillons = invoices.filter((i) => i.status === "BROUILLON");
+  // "À envoyer" : factures billables validées ou en attente, non transmises.
+  // Même filtre que la file de masse de l'onglet "À traiter".
+  const invoicesToSend = issuedInvoices.filter(
+    (i) =>
+      i.invoiceType !== "QUITTANCE" &&
+      (i.status === "VALIDEE" || i.status === "EN_ATTENTE") &&
+      !i.sentAt
+  );
+  // "Impayés" : aligné sur overdueInvoices (même source que l'onglet Relances).
+  // Restant dû = totalTTC − paiements reçus (déduit les paiements partiels).
+  const overdueTotal = overdueInvoices.reduce(
+    (sum, invoice) =>
+      sum +
+      invoice.totalTTC -
+      invoice.payments.reduce((paid, payment) => paid + payment.amount, 0),
+    0
+  );
   const resolvedSearchParams = (await searchParams) ?? {};
   const initialTab = parseFacturationTab(resolvedSearchParams.tab);
 
@@ -178,28 +192,40 @@ export default async function FacturationPage({ searchParams }: PageProps) {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-[var(--color-status-caution-bg)]/80 to-card p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-[var(--color-status-caution-bg)] flex items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5 text-[var(--color-status-caution)]" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-caution)]">{formatCurrencyAmountFr(totalImpaye)}</p>
-              <p className="text-xs text-muted-foreground">Impayés ({enAttente.length + enRetard.length})</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-[var(--color-status-negative-bg)]/80 to-card p-5 shadow-sm">
+        <Link
+          href="/facturation?tab=relances"
+          className="rounded-xl border border-border/60 bg-gradient-to-br from-[var(--color-status-negative-bg)]/80 to-card p-5 shadow-sm transition-colors hover:bg-accent/30"
+        >
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-[var(--color-status-negative-bg)] flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-[var(--color-status-negative)]" />
+              <AlertTriangle className="h-5 w-5 text-[var(--color-status-negative)]" />
             </div>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-negative)]">{overdueInvoices.length}</p>
-              <p className="text-xs text-muted-foreground">En retard</p>
+              <p className="text-2xl font-bold tabular-nums text-[var(--color-status-negative)]">
+                {formatCurrencyAmountFr(overdueTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Impayés ({overdueInvoices.length}) — restant dû
+              </p>
             </div>
           </div>
-        </div>
+        </Link>
+        <Link
+          href="/facturation#a-envoyer"
+          className={`rounded-xl border border-border/60 bg-gradient-to-br from-amber-50/80 to-card p-5 shadow-sm transition-colors ${
+            invoicesToSend.length > 0 ? "hover:bg-accent/30" : "opacity-60"
+          } dark:from-amber-950/20 dark:to-card`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <Mail className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold tabular-nums">{invoicesToSend.length}</p>
+              <p className="text-xs text-muted-foreground">À envoyer (validées)</p>
+            </div>
+          </div>
+        </Link>
         <Link
           href="/facturation?tab=brouillons"
           className="rounded-xl border border-border/60 bg-gradient-to-br from-violet-50/80 to-card p-5 shadow-sm transition-colors hover:bg-accent/30 dark:from-violet-950/20 dark:to-card"
