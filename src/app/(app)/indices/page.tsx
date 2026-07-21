@@ -425,28 +425,34 @@ export default async function IndicesPage() {
               .filter(Boolean)
               .join(" ") || "—";
 
-      // Trouver l'indice du trimestre de référence pour la prochaine révision
+      // Trouver l'indice du trimestre de référence pour la prochaine révision.
+      // Règle : le nouvel indice doit être POSTÉRIEUR à l'année de la base
+      // (baseIndexQuarter), sinon la révision serait vide (base = nouveau).
+      // On prend donc le T{refQuarter} le plus récent avec year > baseYear.
       let referenceIndex: { value: number; quarter: number; year: number } | null = null;
       if (lease.baseIndexQuarter) {
         const match = lease.baseIndexQuarter.match(/T(\d)\s*(\d{4})/);
         if (match) {
           const refQuarter = parseInt(match[1]);
-          const targetYear = nextRevisionDate.getFullYear();
-          // Chercher le même trimestre pour l'année cible, sinon année précédente
-          const targetIndex = allIndices.find(
-            (i) => i.indexType === lease.indexType && i.quarter === refQuarter && i.year === targetYear
-          ) ?? allIndices.find(
-            (i) => i.indexType === lease.indexType && i.quarter === refQuarter && i.year === targetYear - 1
-          );
+          const baseYear = parseInt(match[2]);
+          const targetIndex = allIndices
+            .filter(
+              (i) => i.indexType === lease.indexType && i.quarter === refQuarter && i.year > baseYear
+            )
+            .sort((a, b) => b.year - a.year)[0];
           if (targetIndex) {
             referenceIndex = { value: targetIndex.value, quarter: targetIndex.quarter, year: targetIndex.year };
           }
         }
       }
 
-      // Fallback : dernier indice disponible
+      // Fallback : dernier indice disponible — uniquement si aucun trimestre
+      // de référence n'est configuré sur le bail. Si baseIndexQuarter existe,
+      // on ne veut pas comparer avec un autre trimestre (ILC T4 vs T2 = calcul faux).
       const latestForType = indexByType[lease.indexType as string]?.latest;
-      const displayIndex = referenceIndex ?? (latestForType ? { value: latestForType.value, quarter: latestForType.quarter, year: latestForType.year } : null);
+      const displayIndex = referenceIndex ?? (!lease.baseIndexQuarter && latestForType
+        ? { value: latestForType.value, quarter: latestForType.quarter, year: latestForType.year }
+        : null);
 
       // Analyse d'écart : loyer théorique vs réel
       const { theoreticalRentHT, gapIndexLabel } = computeTheoreticalRent({

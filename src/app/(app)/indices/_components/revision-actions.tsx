@@ -95,13 +95,17 @@ export function RevisionActions({
 
   const indexMap = new Map(latestIndices.map((i) => [i.type, i]));
 
-  // Baux eligibles pour révision simple (1 an de retard max)
+  // Baux eligibles pour révision simple (1 an de retard max).
+  // On exige un referenceIndexValue explicite (T{refQuarter} postérieur à
+  // baseYear) — sinon la révision serait vide ou compare deux trimestres
+  // différents (ILC T4 vs T2 = calcul faux).
   const eligibleForGeneration = leases.filter(
     (l) =>
       !l.pendingRevisionId &&
       (l.statusVariant === "destructive" || l.statusVariant === "warning") &&
       l.baseIndexValue &&
-      (l.referenceIndexValue || indexMap.has(l.indexType)) &&
+      l.referenceIndexValue &&
+      l.referenceIndexValue !== l.baseIndexValue &&
       l.missedYears <= 1
   );
 
@@ -144,7 +148,9 @@ export function RevisionActions({
     if (!lease.referenceIndexValue && !indexMap.has(lease.indexType))
       return `Aucune valeur d'indice ${lease.indexType} disponible en base. L'indice sera recupere lors de la prochaine synchronisation INSEE.`;
     if (!lease.referenceIndexValue && lease.baseIndexQuarter)
-      return `L'indice ${lease.indexType} du trimestre de reference (${lease.baseIndexQuarter}) n'est pas encore disponible.`;
+      return `Aucun indice ${lease.indexType} ${lease.baseIndexQuarter.replace(/^T(\d)\s*\d{4}$/, "T$1")} postérieur à ${lease.baseIndexQuarter.replace(/^T\d\s*(\d{4})$/, "$1")} n'est encore publié. Patientez la parution INSEE.`;
+    if (lease.referenceIndexValue && lease.referenceIndexValue === lease.baseIndexValue)
+      return `L'indice de référence est identique à celui de base : aucune évolution à appliquer. Vérifiez le trimestre de base sur le bail.`;
     return null;
   }
 

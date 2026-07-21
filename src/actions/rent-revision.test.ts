@@ -778,7 +778,10 @@ describe("detectPendingRevisions — branches manquantes", () => {
     expect(r.created).toBe(1)
   })
 
-  it("essaie l'année précédente si l'indice cible est absent (lignes 455-456)", async () => {
+  it("ne crée aucune révision si aucun T{q} postérieur à baseYear n'existe", async () => {
+    // Nouvelle règle : le nouvel indice doit être T{refQuarter} year > baseYear
+    // (pas de fallback sur l'année de base ni antérieure, qui donnerait une
+    // révision vide). Ici baseYear = 2024 et aucun T1 > 2024 disponible.
     prismaMock.lease.findMany.mockResolvedValue([
       {
         ...VALID_LEASE_BASE,
@@ -788,13 +791,10 @@ describe("detectPendingRevisions — branches manquantes", () => {
       },
     ] as never)
     prismaMock.rentRevision.findFirst.mockResolvedValue(null)
-    prismaMock.inseeIndex.findFirst
-      .mockResolvedValueOnce(null as never)
-      .mockResolvedValueOnce({ value: 142.0, year: 2024, quarter: 1 } as never)
-    prismaMock.rentRevision.create.mockResolvedValue({ id: "rev-prev" } as never)
-    prismaMock.notification.create.mockResolvedValue({} as never)
+    prismaMock.inseeIndex.findFirst.mockResolvedValue(null as never)
     const r = await detectPendingRevisions()
-    expect(r.created).toBe(1)
+    expect(r.created).toBe(0)
+    expect(r.errors[0]).toMatch(/aucun indice/i)
   })
 
   it("saute si le nouvel indice est identique à l'indice de base (ligne 474)", async () => {

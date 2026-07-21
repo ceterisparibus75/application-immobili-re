@@ -18,7 +18,6 @@ import {
   getRevisionStatus,
   findClosestIndex,
   getLatestIndex,
-  getIndexForReferenceQuarter,
 } from "@/actions/rent-revision-shared";
 import type {
   ChainStep,
@@ -277,14 +276,23 @@ export async function getLeaseIndexationOverview(
     );
     const status = getRevisionStatus(nextRevisionDate);
 
+    // Règle : chercher le T{refQuarter} le plus récent avec year > baseYear
+    // pour éviter les révisions "vides" (nouveau == base).
     const baseQuarter = parseBaseIndexQuarter(lease.baseIndexQuarter);
     let referenceIndex: { value: number; year: number; quarter: number } | null = null;
     if (baseQuarter) {
-      referenceIndex =
-        (await getIndexForReferenceQuarter(lease.indexType, baseQuarter.quarter, nextRevisionDate.getFullYear())) ??
-        (await getIndexForReferenceQuarter(lease.indexType, baseQuarter.quarter, nextRevisionDate.getFullYear() - 1));
+      const later = await prisma.inseeIndex.findFirst({
+        where: {
+          indexType: lease.indexType,
+          quarter: baseQuarter.quarter,
+          year: { gt: baseQuarter.year },
+        },
+        orderBy: { year: "desc" },
+      });
+      if (later) referenceIndex = { value: later.value, year: later.year, quarter: later.quarter };
+    } else {
+      referenceIndex = await getLatestIndex(lease.indexType);
     }
-    referenceIndex ??= await getLatestIndex(lease.indexType);
 
     const estimatedNewRentHT = referenceIndex
       ? calculateNewRent(lease.currentRentHT, lease.baseIndexValue, referenceIndex.value, lease.indexType)
@@ -296,7 +304,9 @@ export async function getLeaseIndexationOverview(
         : null;
 
     const blockReason = !referenceIndex
-      ? `Aucun indice ${lease.indexType} disponible. Synchronisez les indices INSEE.`
+      ? baseQuarter
+        ? `Aucun indice ${lease.indexType} T${baseQuarter.quarter} postérieur à ${baseQuarter.year} n'est encore publié. Patientez sa parution INSEE ou synchronisez les indices.`
+        : `Aucun indice ${lease.indexType} disponible. Synchronisez les indices INSEE.`
       : pendingRevision
         ? "Une révision est déjà en attente de validation."
         : null;

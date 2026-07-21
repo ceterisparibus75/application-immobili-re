@@ -21,7 +21,6 @@ import {
   parseBaseIndexQuarter,
   getNextRevisionDate,
   getLatestIndex,
-  getIndexForReferenceQuarter,
 } from "@/actions/rent-revision-shared";
 import { previewCatchUpRevisions } from "@/actions/rent-revision-queries";
 
@@ -376,31 +375,28 @@ export async function detectPendingRevisions(): Promise<{
         }
 
         // ── Branche INSEE (existante) ───────────────────────────────────────
-        // Déterminer le trimestre de référence et l'année cible
+        // Règle : le nouvel indice doit être POSTÉRIEUR à l'année de la base
+        // (baseIndexQuarter du bail). Prendre l'année de la révision comme
+        // cible conduit à des révisions "vides" quand l'indice cible n'existe
+        // pas encore (fallback à baseYear → new = base → 0 % d'évolution).
+        // On cherche donc le T{refQuarter} le plus récent avec year > baseYear.
         const baseQuarterInfo = parseBaseIndexQuarter(lease.baseIndexQuarter);
         let newIndex: { value: number; year: number; quarter: number } | null = null;
 
         if (baseQuarterInfo) {
-          // Calculer l'année cible : année de la prochaine révision
-          const targetYear = nextRevisionDate.getFullYear();
-          // Chercher d'abord l'indice du même trimestre pour l'année cible
-          newIndex = await getIndexForReferenceQuarter(
-            lease.indexType as IndexType,
-            baseQuarterInfo.quarter,
-            targetYear
-          );
-          // Si pas disponible, essayer l'année précédente
-          if (!newIndex) {
-            newIndex = await getIndexForReferenceQuarter(
-              lease.indexType as IndexType,
-              baseQuarterInfo.quarter,
-              targetYear - 1
-            );
+          const later = await prisma.inseeIndex.findFirst({
+            where: {
+              indexType: lease.indexType as IndexType,
+              quarter: baseQuarterInfo.quarter,
+              year: { gt: baseQuarterInfo.year },
+            },
+            orderBy: { year: "desc" },
+          });
+          if (later) {
+            newIndex = { value: later.value, year: later.year, quarter: later.quarter };
           }
-        }
-
-        // Fallback : dernier indice disponible si pas de trimestre de référence
-        if (!newIndex) {
+        } else {
+          // Pas de trimestre de référence configuré : fallback dernier indice publié
           newIndex = await getLatestIndex(lease.indexType as IndexType);
         }
 
