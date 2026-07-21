@@ -840,6 +840,75 @@ export async function sendInvoiceReminderEmail(params: InvoiceReminderEmailParam
 }
 
 // ============================================================
+// BROUILLONS DE FACTURE PRÊTS (avis au gestionnaire)
+// ============================================================
+
+interface DraftsReadyEmailParams {
+  to: string;
+  recipientName?: string | null;
+  societyName: string;
+  drafts: Array<{
+    invoiceNumber: string | null;
+    tenantName: string;
+    lotLabel: string;
+    totalTTC: number;
+    dueDate: Date;
+  }>;
+}
+
+export async function sendDraftsReadyEmail(params: DraftsReadyEmailParams): Promise<EmailResult> {
+  const count = params.drafts.length;
+  const totalTTC = params.drafts.reduce((sum, d) => sum + d.totalTTC, 0);
+  const rows = params.drafts
+    .map(
+      (d) => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.text};">${d.tenantName}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.text};">${d.lotLabel}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.text};text-align:right;">${d.dueDate.toLocaleDateString("fr-FR")}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.deep};text-align:right;font-weight:600;">${fmt(d.totalTTC)}</td>
+        </tr>`
+    )
+    .join("");
+
+  const greeting = params.recipientName ? `Bonjour <strong>${params.recipientName}</strong>,` : "Bonjour,";
+  const url = `${SITE_URL}/facturation?tab=brouillons`;
+
+  const content = `
+    ${heading(`${count} brouillon${count > 1 ? "s" : ""} de facture prêt${count > 1 ? "s" : ""} à valider`)}
+    ${para(greeting)}
+    ${para(`Le système vient de générer <strong>${count} brouillon${count > 1 ? "s" : ""}</strong> d'appel de loyer pour la société <strong>${params.societyName}</strong>. Les échéances arrivent dans les 15 prochains jours.`)}
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border:1px solid ${BRAND.border};border-radius:8px;margin:16px 0;overflow:hidden;">
+      <thead>
+        <tr style="background:${BRAND.bg};">
+          <th style="padding:8px 12px;text-align:left;font-size:12px;color:${BRAND.muted};font-weight:600;">Locataire</th>
+          <th style="padding:8px 12px;text-align:left;font-size:12px;color:${BRAND.muted};font-weight:600;">Lot</th>
+          <th style="padding:8px 12px;text-align:right;font-size:12px;color:${BRAND.muted};font-weight:600;">Échéance</th>
+          <th style="padding:8px 12px;text-align:right;font-size:12px;color:${BRAND.muted};font-weight:600;">Montant TTC</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="background:${BRAND.bg};">
+          <td colspan="3" style="padding:10px 12px;font-size:13px;color:${BRAND.deep};font-weight:600;">Total</td>
+          <td style="padding:10px 12px;text-align:right;font-size:13px;color:${BRAND.deep};font-weight:700;">${fmt(totalTTC)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    ${para("Chaque brouillon reste modifiable. Le loyer n'est facturé au locataire qu'après validation puis envoi.")}
+    ${ctaButton("Vérifier et valider les brouillons", url)}
+    ${infoBox("Cet email est envoyé automatiquement chaque matin dès qu'un brouillon est créé. Vous pouvez désactiver cette notification depuis vos préférences.", "info")}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `${count} brouillon${count > 1 ? "s" : ""} à valider — ${params.societyName}`,
+    baseTemplate("Brouillons prêts", content, { societyName: params.societyName })
+  );
+}
+
+// ============================================================
 // RAPPORT CONSOLIDÉ PLANIFIÉ
 // ============================================================
 

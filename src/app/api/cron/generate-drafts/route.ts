@@ -23,16 +23,19 @@ export async function GET(req: NextRequest) {
 
 /**
  * Genere automatiquement les brouillons de facture pour les echeances
- * a venir dans les 10 prochains jours.
+ * a venir dans les 15 prochains jours.
  *
  * Pour chaque bail actif :
  * - Calcule la prochaine date d echeance
- * - Si elle est dans <= 10 jours et pas de facture existante, cree un brouillon
+ * - Si elle est dans <= 15 jours et pas de facture existante, cree un brouillon
+ *
+ * A la fin, envoie un email au(x) gestionnaire(s) de chaque societe pour
+ * signaler la disponibilite des brouillons a valider.
  */
 async function generateDraftInvoices() {
   const now = new Date();
   const horizon = new Date(now);
-  horizon.setDate(horizon.getDate() + 10);
+  horizon.setDate(horizon.getDate() + 15);
 
   // Recuperer tous les baux actifs avec leurs provisions de charges
   const activeLeases = await prisma.lease.findMany({
@@ -67,12 +70,25 @@ async function generateDraftInvoices() {
           building: { select: { name: true } },
         },
       },
+      tenant: {
+        select: {
+          entityType: true,
+          companyName: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
     },
   });
 
   let created = 0;
   let skipped = 0;
   const errors: string[] = [];
+  // Regroupement pour l'email récap par société
+  const draftsBySociety = new Map<
+    string,
+    Array<{ invoiceNumber: string | null; tenantName: string; lotLabel: string; totalTTC: number; dueDate: Date }>
+  >();
 
   for (const lease of activeLeases) {
     try {
@@ -255,7 +271,7 @@ async function generateDraftInvoices() {
 
       const dueDate = lease.billingTerm === "A_ECHOIR" ? periodStart : new Date(periodEnd.getTime() + 86400000);
 
-      await prisma.invoice.create({
+      const draft = await prisma.invoice.create({
         data: {
           societyId: lease.societyId,
           tenantId: lease.tenantId,
@@ -273,6 +289,20 @@ async function generateDraftInvoices() {
         },
       });
 
+      const tenantName =
+        lease.tenant.entityType === "PERSONNE_MORALE"
+          ? lease.tenant.companyName ?? "—"
+          : `${lease.tenant.firstName ?? ""} ${lease.tenant.lastName ?? ""}`.trim() || "—";
+      const list = draftsBySociety.get(lease.societyId) ?? [];
+      list.push({
+        invoiceNumber: draft.invoiceNumber,
+        tenantName,
+        lotLabel: lotLabel,
+        totalTTC,
+        dueDate,
+      });
+      draftsBySociety.set(lease.societyId, list);
+
       created++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -280,10 +310,59 @@ async function generateDraftInvoices() {
     }
   }
 
-  if (errors.length > 0) {
-    console.error("[cron/generate-drafts]", `${created} brouillon(s), ${skipped} ignore(s), ${errors.length} erreur(s)`, errors);
+  // Notifier les gestionnaires de chaque société ayant reçu des brouillons.
+  // Les échecs d'envoi ne bloquent pas le cron : on log seulement.
+  let notified = 0;
+  const notifyErrors: string[] = [];
+  for (const [societyId, drafts] of draftsBySociety) {
+    try {
+      await notifyManagersOfDrafts(societyId, drafts);
+      notified++;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      notifyErrors.push(`Société ${societyId}: ${msg}`);
+    }
   }
-  return { created, skipped, errors };
+
+  if (errors.length > 0 || notifyErrors.length > 0) {
+    console.error(
+      "[cron/generate-drafts]",
+      `${created} brouillon(s), ${skipped} ignore(s), ${errors.length} erreur(s), ${notified} notif(s), ${notifyErrors.length} echec(s) notif`,
+      { errors, notifyErrors }
+    );
+  }
+  return { created, skipped, notified, errors: [...errors, ...notifyErrors] };
+}
+
+async function notifyManagersOfDrafts(
+  societyId: string,
+  drafts: Array<{ invoiceNumber: string | null; tenantName: string; lotLabel: string; totalTTC: number; dueDate: Date }>
+) {
+  const [society, userSocieties] = await Promise.all([
+    prisma.society.findUnique({ where: { id: societyId }, select: { name: true } }),
+    prisma.userSociety.findMany({
+      where: { societyId, role: { in: ["ADMIN_SOCIETE", "GESTIONNAIRE"] } },
+      select: { user: { select: { email: true, firstName: true, lastName: true } } },
+    }),
+  ]);
+  if (!society) return;
+  const recipients = userSocieties
+    .map((us) => us.user)
+    .filter((u): u is { email: string; firstName: string | null; lastName: string | null } =>
+      Boolean(u?.email)
+    );
+  if (recipients.length === 0) return;
+
+  const { sendDraftsReadyEmail } = await import("@/lib/email");
+  for (const user of recipients) {
+    const recipientName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || null;
+    await sendDraftsReadyEmail({
+      to: user.email,
+      recipientName,
+      societyName: society.name,
+      drafts,
+    });
+  }
 }
 
 // Helpers - repliques des fonctions dans invoice.ts, sans dependance auth
