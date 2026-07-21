@@ -454,6 +454,20 @@ export default async function IndicesPage() {
         ? { value: latestForType.value, quarter: latestForType.quarter, year: latestForType.year }
         : null);
 
+      // Si baseIndexQuarter est configuré mais qu'aucun T{q} > baseYear n'est
+      // encore publié, la révision est structurellement impossible : le bail
+      // est déjà à jour en attente de parution INSEE. On surcharge donc le
+      // statut "En retard" par un statut "En attente publication INSEE".
+      const awaitingInseePublication = Boolean(
+        lease.baseIndexQuarter && !referenceIndex
+      );
+      const effectiveStatusVariant = awaitingInseePublication
+        ? "secondary"
+        : status.variant;
+      const effectiveStatusLabel = awaitingInseePublication
+        ? "En attente parution INSEE"
+        : status.label;
+
       // Analyse d'écart : loyer théorique vs réel
       const { theoreticalRentHT, gapIndexLabel } = computeTheoreticalRent({
         indexType: lease.indexType,
@@ -488,8 +502,8 @@ export default async function IndicesPage() {
         baseIndexValue: lease.baseIndexValue,
         baseIndexQuarter: lease.baseIndexQuarter,
         nextRevisionDate: nextRevisionDate.toISOString(),
-        statusVariant: status.variant,
-        statusLabel: status.label,
+        statusVariant: effectiveStatusVariant,
+        statusLabel: effectiveStatusLabel,
         lastRevisionDate:
           lastValidated?.effectiveDate?.toISOString() ?? null,
         lastRevisionNewRent: lastValidated?.newRentHT ?? null,

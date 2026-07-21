@@ -311,13 +311,24 @@ export async function getLeaseIndexationOverview(
         ? "Une révision est déjà en attente de validation."
         : null;
 
+    // Statut "à jour, attente parution INSEE" quand baseIndexQuarter est
+    // configuré mais aucun T{q} > baseYear n'est publié.
+    const awaitingInsee = Boolean(baseQuarter && !referenceIndex);
+    const effectiveStatusLabel = pendingRevision
+      ? "Révision en attente"
+      : awaitingInsee
+        ? "En attente parution INSEE"
+        : status.label;
+    const effectiveStatusVariant: "destructive" | "warning" | "default" | "secondary" | "outline" =
+      pendingRevision ? "warning" : awaitingInsee ? "secondary" : status.variant;
+
     return {
       success: true,
       data: {
         ...baseOverview,
         nextRevisionDate: nextRevisionDate.toISOString(),
-        statusLabel: pendingRevision ? "Révision en attente" : status.label,
-        statusVariant: pendingRevision ? "warning" : status.variant,
+        statusLabel: effectiveStatusLabel,
+        statusVariant: effectiveStatusVariant,
         missedRevisions,
         pendingRevision: pendingRevision
           ? {
@@ -334,7 +345,7 @@ export async function getLeaseIndexationOverview(
         estimatedNewRentHT,
         formula,
         canGenerateRevision: !pendingRevision && missedRevisions > 0 && missedRevisions <= 1 && Boolean(referenceIndex),
-        canCatchUp: !pendingRevision && missedRevisions > 1,
+        canCatchUp: !pendingRevision && missedRevisions > 1 && Boolean(referenceIndex),
         blockReason,
       },
     };
