@@ -571,6 +571,18 @@ model Society {
   // Configuration
   isActive Boolean @default(true)
 
+  // Expéditeur email personnalisé (Resend Domains)
+  // Permet à chaque société d'envoyer depuis sa propre adresse (ex.
+  // contact@masociete.fr) après vérification DNS SPF/DKIM. Tant que
+  // senderStatus != "verified", les envois retombent sur EMAIL_FROM
+  // (noreply@mygestia.immo).
+  senderEmail        String? // Adresse expéditrice complète (ex. "contact@masociete.fr")
+  senderName         String? // Libellé affiché à côté (ex. "SCI Foncière")
+  resendDomainId     String? // ID retourné par l'API Resend
+  senderStatus       String? // "not_started" | "pending" | "verified" | "failed" | "temporary_failure"
+  senderVerifiedAt   DateTime?
+  senderRecords      Json? // Snapshot des DNS records (SPF, DKIM, tracking) pour affichage UI
+
   // Facturation électronique — Solution Compatible PPF (DGFiP)
   ppfRegisteredAt DateTime? // Date d'inscription au Répertoire PPF (annuaire)
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, ArrowRight, Inbox, Sparkles, CheckCircle2 } from "lucide-react";
 import { getSupplierInboxConfig } from "@/actions/supplier-inbox";
+import { getSenderOverview } from "@/actions/society-sender";
 import { prisma } from "@/lib/prisma";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 import { env } from "@/lib/env";
@@ -12,6 +13,7 @@ import { InboxConfigForm } from "./_components/inbox-config-form";
 import { PPFActivationCard } from "./_components/ppf-activation-card";
 import { ChorusProCard } from "./_components/chorus-pro-card";
 import { InvoicePrefixForm } from "./_components/invoice-prefix-form";
+import { SenderDomainCard } from "./_components/sender-domain-card";
 import { EInvoicingBetaBanner } from "@/components/einvoicing-beta-banner";
 
 export const metadata = { title: "Paramètres de facturation" };
@@ -21,12 +23,13 @@ export default async function ParametresFacturationPage() {
   const societyId = h.get("x-society-id");
   if (!societyId) redirect("/societes");
 
-  const [config, society] = await Promise.all([
+  const [config, society, senderResult] = await Promise.all([
     getSupplierInboxConfig(societyId),
     prisma.society.findFirst({
       where: { id: societyId },
       select: { ppfRegisteredAt: true, siret: true, paOAuthAccessToken: true, invoicePrefix: true },
     }),
+    getSenderOverview(societyId),
   ]);
 
   const steps = [
@@ -66,6 +69,11 @@ export default async function ParametresFacturationPage() {
 
       {/* Numérotation des factures */}
       <InvoicePrefixForm societyId={societyId} initialPrefix={society?.invoicePrefix ?? ""} />
+
+      {/* Adresse expéditrice (Resend Domains) */}
+      {senderResult.success && senderResult.data && (
+        <SenderDomainCard societyId={societyId} initial={senderResult.data} />
+      )}
 
       <EInvoicingBetaBanner />
 

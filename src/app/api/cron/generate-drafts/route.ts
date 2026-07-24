@@ -360,6 +360,7 @@ async function notifyManagersOfDrafts(
       to: user.email,
       recipientName,
       societyName: society.name,
+      societyId,
       drafts,
     });
   }

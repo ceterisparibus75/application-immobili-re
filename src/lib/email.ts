@@ -1,14 +1,40 @@
 import { Resend } from "resend";
 import { withRetry } from "@/lib/retryable";
 import { env } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 import type { EmailDeliveryProofContext } from "@/lib/email-delivery-proof";
 import { createEmailDeliveryProof } from "@/lib/email-delivery-proof";
 
 function getResend() { return new Resend(env.RESEND_API_KEY ?? ""); }
 const _rawName = env.NEXT_PUBLIC_APP_NAME ?? "MyGestia";
 const APP_NAME = _rawName.toLowerCase() === "mygestia" ? "MyGestia" : _rawName;
-const FROM = `"${APP_NAME}" <${env.EMAIL_FROM ?? "noreply@mygestia.immo"}>`;
+const FALLBACK_FROM_ADDRESS = env.EMAIL_FROM ?? "noreply@mygestia.immo";
+const FROM = `"${APP_NAME}" <${FALLBACK_FROM_ADDRESS}>`;
 const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
+
+/**
+ * Résout l'adresse "From" à utiliser pour un envoi.
+ * Si `senderSocietyId` est fourni et que la société a configuré un
+ * expéditeur vérifié (Resend Domains), on utilise sa vraie adresse ;
+ * sinon on retombe sur EMAIL_FROM (noreply@mygestia.immo).
+ */
+async function resolveFrom(senderSocietyId?: string | null): Promise<{ from: string; fromAddress: string }> {
+  if (!senderSocietyId) return { from: FROM, fromAddress: FALLBACK_FROM_ADDRESS };
+  try {
+    const society = await prisma.society.findUnique({
+      where: { id: senderSocietyId },
+      select: { senderEmail: true, senderName: true, senderStatus: true, name: true },
+    });
+    if (society?.senderEmail && society.senderStatus === "verified") {
+      const label = society.senderName ?? society.name ?? APP_NAME;
+      return { from: `"${label}" <${society.senderEmail}>`, fromAddress: society.senderEmail };
+    }
+  } catch (err) {
+    // Fail-safe : jamais bloquer un envoi pour une lookup expediteur.
+    console.warn("[resolveFrom]", err);
+  }
+  return { from: FROM, fromAddress: FALLBACK_FROM_ADDRESS };
+}
 
 // ============================================================
 // DESIGN SYSTEM — LOGO 2.4
@@ -236,14 +262,20 @@ export async function sendMail(
   attachments?: Array<{ filename: string; content: Buffer }>,
   replyTo?: string,
   bcc?: string | string[],
-  proofContext?: EmailDeliveryProofContext
+  proofContext?: EmailDeliveryProofContext,
+  senderSocietyId?: string | null
 ): Promise<EmailResult> {
   try {
-    const fromAddress = env.EMAIL_FROM ?? "noreply@mygestia.immo";
+    // Priorité : param explicite > societyId du contexte de preuve.
+    // Ainsi tous les envois "métier" (facture, quittance, relance, courrier,
+    // révision, décompte, brouillons…) profitent automatiquement du sender
+    // société vérifié — sans avoir à propager societyId partout.
+    const resolvedSocietyId = senderSocietyId ?? proofContext?.societyId ?? null;
+    const { from, fromAddress } = await resolveFrom(resolvedSocietyId);
     const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]).filter(Boolean) : [];
     const { data, error } = await withRetry(() =>
       getResend().emails.send({
-        from: FROM,
+        from,
         to,
         subject,
         html,
@@ -847,6 +879,7 @@ interface DraftsReadyEmailParams {
   to: string;
   recipientName?: string | null;
   societyName: string;
+  societyId?: string | null; // Utilisé pour résoudre le sender vérifié
   drafts: Array<{
     invoiceNumber: string | null;
     tenantName: string;
@@ -904,7 +937,12 @@ export async function sendDraftsReadyEmail(params: DraftsReadyEmailParams): Prom
   return sendMail(
     params.to,
     `${count} brouillon${count > 1 ? "s" : ""} à valider — ${params.societyName}`,
-    baseTemplate("Brouillons prêts", content, { societyName: params.societyName })
+    baseTemplate("Brouillons prêts", content, { societyName: params.societyName }),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    params.societyId ?? null
   );
 }
 
