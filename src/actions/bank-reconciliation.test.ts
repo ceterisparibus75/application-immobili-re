@@ -239,6 +239,60 @@ describe("autoReconcile", () => {
     expect(r.data?.matched).toBe(1);
   });
 
+  it("passe 4 : rapproche par montant exact unique même si date > 3j", async () => {
+    // Cas AESIO signalé : le paiement a été saisi (lettrage comptable fait)
+    // bien avant/après l'import bancaire → paidAt éloigné du virement réel.
+    // On doit malgré tout lier automatiquement puisqu'un seul payment
+    // non rapproché a ce montant exact.
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: 3739.8, reference: null, transactionDate: new Date("2026-06-29") }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({
+        amount: 3739.8,
+        reference: null,
+        paidAt: new Date("2026-04-15"), // > 3 jours du virement bancaire
+        invoice: { isThirdPartyManaged: false, expectedNetAmount: null },
+      }),
+    ] as never);
+    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(1);
+  });
+
+  it("passe 4 : n'auto-lie PAS quand plusieurs payments ont le même montant (ambigu)", async () => {
+    mockAuthSession(UserRole.COMPTABLE);
+    prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      buildTransaction({ amount: 500, reference: null, transactionDate: new Date("2026-06-29") }),
+    ] as never);
+    prismaMock.payment.findMany.mockResolvedValue([
+      buildPayment({
+        id: "cpay-amb1",
+        amount: 500,
+        reference: null,
+        paidAt: new Date("2026-04-15"),
+        invoice: { isThirdPartyManaged: false, expectedNetAmount: null },
+      }),
+      buildPayment({
+        id: "cpay-amb2",
+        amount: 500,
+        reference: null,
+        paidAt: new Date("2026-04-16"),
+        invoice: { isThirdPartyManaged: false, expectedNetAmount: null },
+      }),
+    ] as never);
+    prismaMock.$transaction.mockResolvedValue([{}, {}, {}] as never);
+
+    const r = await autoReconcile(SOCIETY_ID, ACCOUNT_ID);
+    expect(r.success).toBe(true);
+    expect(r.data?.matched).toBe(0);
+  });
+
   it("couvre lignes 140, 159, 160 : paiement déjà utilisé et invoice non-tiers", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     prismaMock.bankAccount.findFirst.mockResolvedValue(buildAccount() as never);

@@ -128,6 +128,28 @@ export async function autoReconcile(
         usedPaymentIds.add(netMatch.id);
         usedTransactionIds.add(tx.id);
         matched++;
+        continue;
+      }
+
+      // Passe 4 : match unique par montant exact — SANS contrainte de date.
+      // Couvre le cas où le lettrage comptable a été fait avant/après l'import
+      // bancaire (paidAt éloigné du virement réel). Sécurité anti-collision :
+      // on n'auto-lie que si UN SEUL payment restant a ce montant exact,
+      // sinon la situation est ambigüe et on laisse la main à l'utilisateur.
+      const sameAmountMatches = payments.filter((p) => {
+        if (usedPaymentIds.has(p.id)) return false;
+        return Math.abs(p.amount - tx.amount) < 0.01;
+      });
+      if (sameAmountMatches.length === 1) {
+        const uniqueMatch = sameAmountMatches[0];
+        await createReconciliationRecord(tx.id, uniqueMatch.id, uniqueMatch.amount, true, undefined, context.userId, {
+          societyId,
+          transaction: tx,
+          payment: uniqueMatch,
+        });
+        usedPaymentIds.add(uniqueMatch.id);
+        usedTransactionIds.add(tx.id);
+        matched++;
       }
     }
 
