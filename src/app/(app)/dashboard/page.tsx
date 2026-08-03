@@ -1,8 +1,10 @@
 import { getAnalyticsData } from "@/actions/analytics";
+import { getOnboardingProgress } from "@/actions/onboarding";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Landmark } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { OnboardingChecklist } from "./_components/onboarding-checklist";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { OccupancyChart } from "@/components/dashboard/occupancy-chart";
 import { OverdueChart } from "@/components/dashboard/overdue-chart";
@@ -44,7 +46,10 @@ export default async function DashboardPage() {
   const societyId = headersList.get("x-society-id");
   if (!societyId) redirect("/login");
 
-  const data = await getAnalyticsData(societyId);
+  const [data, onboarding] = await Promise.all([
+    getAnalyticsData(societyId),
+    getOnboardingProgress(societyId),
+  ]);
   if (!data) redirect("/login");
 
   const { kpis, monthlyRevenue, buildingOccupancy, overdueByAge, patrimonyPoints, riskConcentration, leaseTimeline, lenderSummaries } = data;
@@ -58,6 +63,11 @@ export default async function DashboardPage() {
         </div>
         <ExportPdfButton />
       </div>
+
+      {/* ── Prise en main (masquée quand 100 %) ── */}
+      {onboarding.success && onboarding.data && onboarding.data.percent < 100 && (
+        <OnboardingChecklist progress={onboarding.data} societyId={societyId} />
+      )}
 
       {/* ── KPI Cards ── */}
       <KpiCards kpis={kpis} />
