@@ -99,20 +99,12 @@ export function StripeConnectCard({ societyId, initial }: Props) {
     });
   }
 
+  // Tant que Stripe Connect n'est pas configuré côté serveur
+  // (STRIPE_CONNECT_CLIENT_ID + STRIPE_CONNECT_WEBHOOK_SECRET absents), on
+  // n'affiche RIEN — pas de "Non disponible" qui pourrait dérouter les
+  // utilisateurs pendant que la plateforme est en attente de validation Stripe.
   if (!overview.serviceConfigured) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="h-4 w-4" />
-            Paiement en ligne locataire
-          </CardTitle>
-          <CardDescription>
-            Le service Stripe Connect n&apos;est pas encore configuré côté serveur.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return null;
   }
 
   return (
