@@ -22,6 +22,11 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Stripe Connect Standard — permet aux bailleurs de proposer paiement en
+  // ligne aux locataires. Les fonds arrivent directement sur leur compte
+  // Stripe (MyGestia = facilitateur, pas dépositaire).
+  STRIPE_CONNECT_CLIENT_ID: z.string().optional(), // ex. ca_xxx
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_STARTER_MONTHLY: z.string().optional(),
   STRIPE_PRICE_STARTER_YEARLY: z.string().optional(),
   STRIPE_PRICE_PRO_MONTHLY: z.string().optional(),

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, ArrowRight, Inbox, Sparkles, CheckCircle2 } from "lucide-react";
 import { getSupplierInboxConfig } from "@/actions/supplier-inbox";
 import { getSenderOverview } from "@/actions/society-sender";
+import { getStripeConnectOverview } from "@/actions/tenant-payment";
 import { prisma } from "@/lib/prisma";
 import { isEInvoicingConfigured } from "@/lib/pa-client";
 import { env } from "@/lib/env";
@@ -14,6 +15,7 @@ import { PPFActivationCard } from "./_components/ppf-activation-card";
 import { ChorusProCard } from "./_components/chorus-pro-card";
 import { InvoicePrefixForm } from "./_components/invoice-prefix-form";
 import { SenderDomainCard } from "./_components/sender-domain-card";
+import { StripeConnectCard } from "./_components/stripe-connect-card";
 import { EInvoicingBetaBanner } from "@/components/einvoicing-beta-banner";
 
 export const metadata = { title: "Paramètres de facturation" };
@@ -23,13 +25,14 @@ export default async function ParametresFacturationPage() {
   const societyId = h.get("x-society-id");
   if (!societyId) redirect("/societes");
 
-  const [config, society, senderResult] = await Promise.all([
+  const [config, society, senderResult, stripeConnectResult] = await Promise.all([
     getSupplierInboxConfig(societyId),
     prisma.society.findFirst({
       where: { id: societyId },
       select: { ppfRegisteredAt: true, siret: true, paOAuthAccessToken: true, invoicePrefix: true },
     }),
     getSenderOverview(societyId),
+    getStripeConnectOverview(societyId),
   ]);
 
   const steps = [
@@ -73,6 +76,11 @@ export default async function ParametresFacturationPage() {
       {/* Adresse expéditrice (Resend Domains) */}
       {senderResult.success && senderResult.data && (
         <SenderDomainCard societyId={societyId} initial={senderResult.data} />
+      )}
+
+      {/* Paiement en ligne (Stripe Connect) */}
+      {stripeConnectResult.success && stripeConnectResult.data && (
+        <StripeConnectCard societyId={societyId} initial={stripeConnectResult.data} />
       )}
 
       <EInvoicingBetaBanner />

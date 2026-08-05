@@ -56,7 +56,14 @@ export async function sendManualReminder(
                 lastName: true,
               },
             },
-            society: { select: { name: true, id: true } },
+            society: {
+              select: {
+                name: true,
+                id: true,
+                stripeConnectId: true,
+                stripeConnectStatus: true,
+              },
+            },
           },
         },
         payments: { select: { amount: true } },
@@ -96,6 +103,25 @@ export async function sendManualReminder(
       },
     });
 
+    // Générer / réutiliser un lien de paiement Stripe si la société est
+    // connectée. Une facture déjà payée en ligne n'a plus de lien affiché.
+    let paymentUrl: string | null = invoice.stripePaymentUrl ?? null;
+    const canOfferOnlinePayment =
+      invoice.lease.society?.stripeConnectId &&
+      invoice.lease.society?.stripeConnectStatus === "active" &&
+      !invoice.stripePaymentPaidAt &&
+      remaining > 0;
+    if (canOfferOnlinePayment && !paymentUrl) {
+      try {
+        const { createInvoicePaymentLink } = await import("@/actions/tenant-payment");
+        const res = await createInvoicePaymentLink(societyId, invoiceId);
+        if (res.success && res.data?.url) paymentUrl = res.data.url;
+      } catch (err) {
+        // Non bloquant : la relance part sans le CTA de paiement
+        console.warn("[sendManualReminder] createInvoicePaymentLink", err);
+      }
+    }
+
     // Envoyer l'email
     const bcc = await getAllEmailCopyBcc(societyId);
     const emailResult = await sendReminderEmail({
@@ -107,6 +133,7 @@ export async function sendManualReminder(
       reminderLevel: LEVEL_MAP[level],
       societyName,
       bcc,
+      paymentUrl,
     });
 
     // Marquer comme envoyée

@@ -583,6 +583,13 @@ model Society {
   senderVerifiedAt   DateTime?
   senderRecords      Json? // Snapshot des DNS records (SPF, DKIM, tracking) pour affichage UI
 
+  // Stripe Connect Standard — paiement en ligne locataire
+  // Les fonds arrivent directement chez le bailleur ; MyGestia n'est que
+  // facilitateur (pas dépositaire, pas de PSAN requis). Connecté via OAuth.
+  stripeConnectId     String? @unique // acct_xxx
+  stripeConnectStatus String? // "not_connected" | "pending" | "active" | "disabled"
+  stripeConnectAt     DateTime? // Date de la connexion OAuth
+
   // Facturation électronique — Solution Compatible PPF (DGFiP)
   ppfRegisteredAt DateTime? // Date d'inscription au Répertoire PPF (annuaire)
 
@@ -2114,6 +2121,13 @@ model Invoice {
   // SEPA
   sepaPaymentId String? // ID paiement GoCardless
   sepaStatus    SepaPaymentStatus?
+
+  // Paiement en ligne — Stripe Checkout Session sur compte connecté
+  // Le lien est généré à la demande et injecté dans les emails de facture
+  // et de relance. Les fonds arrivent directement chez le bailleur.
+  stripeCheckoutSessionId String? // cs_xxx
+  stripePaymentUrl        String? // URL hosted checkout
+  stripePaymentPaidAt     DateTime?
 
   // Gestion tiers
   isThirdPartyManaged Boolean @default(false)

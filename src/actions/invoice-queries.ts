@@ -117,6 +117,8 @@ export async function getInvoiceById(societyId: string, invoiceId: string) {
           ibanEncrypted: true,
           bicEncrypted: true,
           bankName: true,
+          stripeConnectId: true,
+          stripeConnectStatus: true,
         },
       },
       lease: {

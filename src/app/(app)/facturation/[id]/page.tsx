@@ -21,6 +21,7 @@ import { getLogoProxyUrl } from "@/lib/utils";
 import { LogoImage } from "./_components/logo-image";
 import PaymentForm from "./_components/payment-form";
 import { SendInvoiceButton } from "./_components/send-invoice-button";
+import { GeneratePaymentLinkButton } from "./_components/generate-payment-link-button";
 import { RefreshDraftButton } from "./_components/refresh-draft-button";
 import { SepaButton } from "./_components/sepa-button";
 import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
@@ -250,6 +251,18 @@ export default async function FactureDetailPage({
           {invoice.status !== "BROUILLON" && (
             <SendInvoiceButton invoiceId={invoice.id} societyId={societyId} alreadySent={!!invoice.sentAt} />
           )}
+          {/* Lien de paiement Stripe (locataire) — visible seulement si :
+              société connectée + facture émise + non payée + type "à encaisser" */}
+          {invoice.society.stripeConnectId &&
+            invoice.society.stripeConnectStatus === "active" &&
+            !["BROUILLON", "ANNULEE", "PAYE"].includes(invoice.status) &&
+            invoice.invoiceType !== "AVOIR" && (
+              <GeneratePaymentLinkButton
+                invoiceId={invoice.id}
+                societyId={societyId}
+                initialUrl={invoice.stripePaymentUrl ?? null}
+              />
+            )}
           {invoice.invoiceType !== "AVOIR" && !["BROUILLON", "ANNULEE"].includes(invoice.status) && (
             <DuplicateInvoiceButton invoiceId={invoice.id} societyId={societyId} />
           )}

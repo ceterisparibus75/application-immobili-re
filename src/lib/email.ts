@@ -352,6 +352,8 @@ interface ReminderEmailParams {
   societyName: string;
   contactEmail?: string;
   bcc?: string | string[];
+  /** Lien Stripe Checkout pour paiement en ligne (optionnel). */
+  paymentUrl?: string | null;
 }
 
 const REMINDER_LABELS = { 1: "Rappel amiable", 2: "Relance formelle", 3: "Mise en demeure" };
@@ -359,6 +361,10 @@ const REMINDER_LABELS = { 1: "Rappel amiable", 2: "Relance formelle", 3: "Mise e
 export async function sendReminderEmail(params: ReminderEmailParams): Promise<EmailResult> {
   const label = REMINDER_LABELS[params.reminderLevel];
   const badgeVariant = params.reminderLevel === 3 ? "red" : params.reminderLevel === 2 ? "amber" : "default";
+
+  const paymentCta = params.paymentUrl
+    ? `<div style="margin:20px 0;">${ctaButton(`💳 Payer ${fmt(params.amount)} par carte`, params.paymentUrl)}<p style="margin:8px 0 0;font-size:11px;color:${BRAND.muted};">Paiement sécurisé Stripe. Les fonds sont versés directement à votre bailleur.</p></div>`
+    : "";
 
   const content = `
     ${heading(`${label} — Loyer impayé`)}
@@ -375,6 +381,7 @@ export async function sendReminderEmail(params: ReminderEmailParams): Promise<Em
       { label: "Échéance", value: params.dueDate },
       { label: "Montant dû", value: fmt(params.amount), bold: true },
     ])}
+    ${paymentCta}
     ${params.contactEmail ? para(`Pour toute question : <a href="mailto:${params.contactEmail}" style="color:${BRAND.blue};text-decoration:none;">${params.contactEmail}</a>`) : ""}
     ${signature(params.societyName)}
   `;
