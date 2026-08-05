@@ -947,6 +947,163 @@ export async function sendDraftsReadyEmail(params: DraftsReadyEmailParams): Prom
 }
 
 // ============================================================
+// DIGEST QUOTIDIEN (récap matinal multi-sociétés)
+// ============================================================
+
+interface DigestSocietyBlockParams {
+  societyId: string;
+  societyName: string;
+  drafts: number;
+  overdueInvoices: { count: number; totalRemaining: number };
+  pendingRevisions: number;
+  leasesEndingSoon: number;
+  documentsExpiringSoon: number;
+  emailDeliveryIssues: number;
+}
+
+interface DailyDigestEmailParams {
+  to: string;
+  recipientName: string | null;
+  societies: DigestSocietyBlockParams[];
+  totals: {
+    drafts: number;
+    overdueInvoices: number;
+    overdueRemaining: number;
+    pendingRevisions: number;
+    leasesEndingSoon: number;
+    documentsExpiringSoon: number;
+    emailDeliveryIssues: number;
+    grandTotal: number;
+  };
+  date: Date;
+}
+
+function digestKpiCell(label: string, value: string, href: string): string {
+  return `
+    <td style="padding:12px;background:${BRAND.bg};border-radius:6px;text-align:center;vertical-align:top;">
+      <a href="${href}" style="text-decoration:none;color:${BRAND.deep};">
+        <div style="font-size:22px;font-weight:700;line-height:1.1;">${value}</div>
+        <div style="font-size:11px;color:${BRAND.muted};margin-top:4px;">${label}</div>
+      </a>
+    </td>`;
+}
+
+function digestSocietyBlock(s: DigestSocietyBlockParams): string {
+  const rows: string[] = [];
+  if (s.drafts > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">📄 <strong>${s.drafts}</strong> brouillon${s.drafts > 1 ? "s" : ""} à valider</li>`
+    );
+  }
+  if (s.overdueInvoices.count > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">🔴 <strong>${s.overdueInvoices.count}</strong> facture${s.overdueInvoices.count > 1 ? "s" : ""} impayée${s.overdueInvoices.count > 1 ? "s" : ""} — ${fmt(s.overdueInvoices.totalRemaining)} restant dû</li>`
+    );
+  }
+  if (s.pendingRevisions > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">📈 <strong>${s.pendingRevisions}</strong> révision${s.pendingRevisions > 1 ? "s" : ""} de loyer à valider</li>`
+    );
+  }
+  if (s.leasesEndingSoon > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">⏳ <strong>${s.leasesEndingSoon}</strong> bail${s.leasesEndingSoon > 1 ? "s" : ""} à échéance sous 30 j</li>`
+    );
+  }
+  if (s.documentsExpiringSoon > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">📁 <strong>${s.documentsExpiringSoon}</strong> document${s.documentsExpiringSoon > 1 ? "s" : ""} expirant sous 30 j</li>`
+    );
+  }
+  if (s.emailDeliveryIssues > 0) {
+    rows.push(
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">✉️ <strong>${s.emailDeliveryIssues}</strong> email${s.emailDeliveryIssues > 1 ? "s" : ""} en échec de livraison (24 h)</li>`
+    );
+  }
+  if (rows.length === 0) return "";
+
+  return `
+    <div style="margin:16px 0;padding:12px 16px;border-left:3px solid ${BRAND.cyan};background:${BRAND.bg};border-radius:0 6px 6px 0;">
+      <p style="margin:0 0 8px;font-weight:600;color:${BRAND.deep};font-size:14px;">${s.societyName}</p>
+      <ul style="margin:0;padding-left:0;list-style:none;">
+        ${rows.join("")}
+      </ul>
+    </div>`;
+}
+
+export async function sendDailyDigestEmail(params: DailyDigestEmailParams): Promise<EmailResult> {
+  if (params.totals.grandTotal === 0) {
+    return { success: true }; // Silence : rien à signaler = pas d'email
+  }
+
+  const greeting = params.recipientName ? `Bonjour <strong>${params.recipientName}</strong>,` : "Bonjour,";
+  const dateLabel = params.date.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const societyBlocks = params.societies
+    .filter((s) =>
+      s.drafts +
+        s.overdueInvoices.count +
+        s.pendingRevisions +
+        s.leasesEndingSoon +
+        s.documentsExpiringSoon +
+        s.emailDeliveryIssues >
+      0
+    )
+    .map(digestSocietyBlock)
+    .join("");
+
+  // Ligne KPIs (grille 3 colonnes)
+  const kpisRow1 = `
+    <table width="100%" cellpadding="0" cellspacing="8" role="presentation" style="margin:16px 0;">
+      <tr>
+        ${digestKpiCell("Brouillons à valider", String(params.totals.drafts), `${SITE_URL}/facturation?tab=brouillons`)}
+        ${digestKpiCell("Impayés (nb)", String(params.totals.overdueInvoices), `${SITE_URL}/facturation?tab=relances`)}
+        ${digestKpiCell("Restant dû", fmt(params.totals.overdueRemaining), `${SITE_URL}/facturation?tab=relances`)}
+      </tr>
+    </table>`;
+
+  const kpisRow2 = `
+    <table width="100%" cellpadding="0" cellspacing="8" role="presentation" style="margin:16px 0;">
+      <tr>
+        ${digestKpiCell("Révisions à valider", String(params.totals.pendingRevisions), `${SITE_URL}/baux/revisions`)}
+        ${digestKpiCell("Baux < 30 j", String(params.totals.leasesEndingSoon), `${SITE_URL}/baux`)}
+        ${digestKpiCell("Docs à renouveler", String(params.totals.documentsExpiringSoon), `${SITE_URL}/documents`)}
+      </tr>
+    </table>`;
+
+  const failureAlert = params.totals.emailDeliveryIssues > 0
+    ? infoBox(
+        `<strong>${params.totals.emailDeliveryIssues}</strong> email${params.totals.emailDeliveryIssues > 1 ? "s" : ""} n'${params.totals.emailDeliveryIssues > 1 ? "ont" : "a"} pas pu être livré${params.totals.emailDeliveryIssues > 1 ? "s" : ""}. Vérifiez les adresses destinataires. <a href="${SITE_URL}/documents/preuves-envoi?status=BOUNCED" style="color:${BRAND.deep};">Voir les preuves en échec →</a>`,
+        "warning"
+      )
+    : "";
+
+  const content = `
+    ${heading(`Votre récap du ${dateLabel}`)}
+    ${para(greeting)}
+    ${para(`<strong>${params.totals.grandTotal}</strong> action${params.totals.grandTotal > 1 ? "s" : ""} à traiter aujourd'hui sur ${params.societies.length} société${params.societies.length > 1 ? "s" : ""}.`)}
+    ${kpisRow1}
+    ${kpisRow2}
+    ${failureAlert}
+    ${societyBlocks}
+    ${para("Bonne journée !", { muted: true, small: true })}
+    <p style="margin:12px 0 0;font-size:11px;color:${BRAND.muted};line-height:1.5;">
+      Cet email est envoyé chaque matin en tant que récapitulatif consolidé. Vous pouvez le désactiver dans vos <a href="${SITE_URL}/parametres" style="color:${BRAND.muted};">paramètres</a>.
+    </p>
+  `;
+
+  return sendMail(
+    params.to,
+    `MyGestia — ${params.totals.grandTotal} action${params.totals.grandTotal > 1 ? "s" : ""} à traiter ce ${dateLabel.split(" ")[0]}`,
+    baseTemplate("Récap quotidien", content)
+  );
+}
+
+// ============================================================
 // RAPPORT CONSOLIDÉ PLANIFIÉ
 // ============================================================
 

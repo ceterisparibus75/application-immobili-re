@@ -338,10 +338,16 @@ async function notifyManagersOfDrafts(
   societyId: string,
   drafts: Array<{ invoiceNumber: string | null; tenantName: string; lotLabel: string; totalTTC: number; dueDate: Date }>
 ) {
+  // Ne notifie que les gestionnaires qui n'ont PAS activé le digest quotidien
+  // — sinon ils recevraient deux emails (celui-ci + le récap du matin).
   const [society, userSocieties] = await Promise.all([
     prisma.society.findUnique({ where: { id: societyId }, select: { name: true } }),
     prisma.userSociety.findMany({
-      where: { societyId, role: { in: ["ADMIN_SOCIETE", "GESTIONNAIRE"] } },
+      where: {
+        societyId,
+        role: { in: ["ADMIN_SOCIETE", "GESTIONNAIRE"] },
+        user: { dailyDigestEnabled: false },
+      },
       select: { user: { select: { email: true, firstName: true, lastName: true } } },
     }),
   ]);

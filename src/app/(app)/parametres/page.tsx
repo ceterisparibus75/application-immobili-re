@@ -10,6 +10,8 @@ import {
   confirmSetupTwoFactor,
   disableTwoFactor,
 } from "@/actions/two-factor";
+import { getMyPreferences } from "@/actions/user-preferences";
+import { DailyDigestCard } from "./_components/daily-digest-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,9 +49,19 @@ export default function ParametresPage() {
   const [twoFAError, setTwoFAError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // --- Digest quotidien ---
+  const [digestEnabled, setDigestEnabled] = useState<boolean | null>(null);
+  const [digestLastSent, setDigestLastSent] = useState<string | null>(null);
+
   useEffect(() => {
     getTwoFactorStatus().then((res) => {
       if (res.success) setTwoFAEnabled(res.data!.enabled);
+    });
+    getMyPreferences().then((res) => {
+      if (res.success && res.data) {
+        setDigestEnabled(res.data.dailyDigestEnabled);
+        setDigestLastSent(res.data.dailyDigestLastSentAt);
+      }
     });
   }, []);
 
@@ -193,6 +205,11 @@ export default function ParametresPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Digest quotidien */}
+      {digestEnabled !== null && (
+        <DailyDigestCard initialEnabled={digestEnabled} lastSentAt={digestLastSent} />
+      )}
 
       {/* Mot de passe */}
       <Card>

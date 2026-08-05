@@ -801,6 +801,13 @@ model User {
   emailCopyEnabled Boolean @default(false)
   emailCopyAddress String? // adresse BCC pour recevoir copie des emails locataires
 
+  // Digest quotidien : email unique de récap matinal qui remplace les
+  // notifications "par société" (brouillons, relances, échéances, alertes).
+  // Activé par défaut pour les nouveaux comptes ; les crons vérifient le
+  // flag pour éviter les doublons (per-society email + digest).
+  dailyDigestEnabled    Boolean   @default(true)
+  dailyDigestLastSentAt DateTime?
+
   // Relations
   ownedSocieties    Society[]        @relation("SocietyOwner")
   proprietaires     Proprietaire[]
