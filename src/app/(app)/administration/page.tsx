@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope, Wrench } from "lucide-react";
+import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope, Wrench, HeartPulse } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Administration" };
@@ -16,6 +16,12 @@ const modules = [
     description: "Gérer les utilisateurs et les rôles d'accès",
     href: "/administration/utilisateurs",
     icon: Shield,
+  },
+  {
+    title: "Santé des données",
+    description: "Diagnostic transversal : baux, factures, écritures, doublons bancaires, communications en échec",
+    href: "/administration/diagnostic",
+    icon: HeartPulse,
   },
   {
     title: "Diagnostic facturation",
