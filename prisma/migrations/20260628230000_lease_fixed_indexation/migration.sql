@@ -7,4 +7,4 @@
 ALTER TYPE "IndexType" ADD VALUE IF NOT EXISTS 'POURCENTAGE_FIXE';
 
 -- Stockage du taux annuel (en %, ex: 2.0 pour +2%/an).
-ALTER TABLE "Lease" ADD COLUMN "fixedAnnualIndexationRate" DOUBLE PRECISION;
+ALTER TABLE "Lease" ADD COLUMN IF NOT EXISTS "fixedAnnualIndexationRate" DOUBLE PRECISION;

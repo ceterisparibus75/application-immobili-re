@@ -3,4 +3,4 @@
 -- n'est pas explicitement renseignée, on hérite de cette valeur. Le champ
 -- reste modifiable par facture (override).
 
-ALTER TABLE "Tenant" ADD COLUMN "defaultInvoiceNote" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "defaultInvoiceNote" TEXT;

@@ -5,5 +5,5 @@
 -- le calendrier civil (1er janvier — 31 décembre).
 
 ALTER TABLE "Lease"
-  ADD COLUMN "billingAnchorMonth" INTEGER,
-  ADD COLUMN "billingAnchorDay"   INTEGER;
+  ADD COLUMN IF NOT EXISTS "billingAnchorMonth" INTEGER,
+  ADD COLUMN IF NOT EXISTS "billingAnchorDay"   INTEGER;
