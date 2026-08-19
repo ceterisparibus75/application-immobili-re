@@ -104,6 +104,7 @@ export function UnifiedSenderCard() {
   const [senderName, setSenderName] = useState("");
   const [isPending, startTransition] = useTransition();
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     getUnifiedSenderOverview().then((res) => {
@@ -111,13 +112,34 @@ export function UnifiedSenderCard() {
         setOverview(res.data);
         setSenderEmail(res.data.senderEmail ?? "");
         setSenderName(res.data.senderName ?? "");
+      } else {
+        setLoadError(res.error ?? "Erreur inconnue");
       }
       setLoaded(true);
     });
   }, []);
 
   if (!loaded) return null;
-  if (!overview) return null;
+
+  // État d'erreur : affiche un diagnostic au lieu de se cacher silencieusement
+  if (loadError || !overview) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AtSign className="h-4 w-4" />
+            Adresse expéditrice unifiée
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Impossible de charger la configuration : {loadError ?? "réponse vide"}.
+            {" "}
+            Si le déploiement est récent, patientez quelques minutes puis rechargez la page.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   if (!overview.resendConfigured) return null;
 
   const meta = STATUS_META[overview.status];
