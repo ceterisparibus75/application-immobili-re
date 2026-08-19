@@ -14,20 +14,62 @@ const SITE_URL = env.AUTH_URL ?? "https://app.mygestia.immo";
 
 /**
  * Résout l'adresse "From" à utiliser pour un envoi.
- * Si `senderSocietyId` est fourni et que la société a configuré un
- * expéditeur vérifié (Resend Domains), on utilise sa vraie adresse ;
- * sinon on retombe sur EMAIL_FROM (noreply@mygestia.immo).
+ *
+ * Trois niveaux, du plus spécifique au plus général :
+ *   1. Society.senderStatus === "verified" → sender société (prioritaire)
+ *   2. Sinon : User.unifiedSenderStatus === "verified" d'un ADMIN_SOCIETE
+ *      de la société → sender unifié (priorité au owner de la société)
+ *   3. Sinon : fallback global EMAIL_FROM (noreply@mygestia.immo)
+ *
+ * Rationale : un admin qui gère plusieurs sociétés configure UNE adresse
+ * unifiée qui couvre l'ensemble de son parc, sauf si une société a
+ * volontairement configuré son propre sender (cas d'un client final qui
+ * veut son identité visuelle).
  */
 async function resolveFrom(senderSocietyId?: string | null): Promise<{ from: string; fromAddress: string }> {
   if (!senderSocietyId) return { from: FROM, fromAddress: FALLBACK_FROM_ADDRESS };
   try {
     const society = await prisma.society.findUnique({
       where: { id: senderSocietyId },
-      select: { senderEmail: true, senderName: true, senderStatus: true, name: true },
+      select: {
+        name: true,
+        ownerId: true,
+        senderEmail: true,
+        senderName: true,
+        senderStatus: true,
+        // Sender unifié : cherche parmi tous les ADMIN_SOCIETE de la société
+        userSocieties: {
+          where: { role: "ADMIN_SOCIETE" },
+          select: {
+            userId: true,
+            user: {
+              select: {
+                unifiedSenderEmail: true,
+                unifiedSenderName: true,
+                unifiedSenderStatus: true,
+              },
+            },
+          },
+        },
+      },
     });
-    if (society?.senderEmail && society.senderStatus === "verified") {
+    if (!society) return { from: FROM, fromAddress: FALLBACK_FROM_ADDRESS };
+
+    // 1. Sender société vérifié → priorité absolue
+    if (society.senderEmail && society.senderStatus === "verified") {
       const label = society.senderName ?? society.name ?? APP_NAME;
       return { from: `"${label}" <${society.senderEmail}>`, fromAddress: society.senderEmail };
+    }
+
+    // 2. Sender unifié d'un admin — priorité au owner de la société
+    const eligibleAdmins = society.userSocieties
+      .filter((us) => us.user?.unifiedSenderStatus === "verified" && us.user?.unifiedSenderEmail);
+    const ownerAdmin = eligibleAdmins.find((us) => us.userId === society.ownerId);
+    const picked = ownerAdmin ?? eligibleAdmins[0];
+    const pickedEmail = picked?.user?.unifiedSenderEmail;
+    if (pickedEmail) {
+      const label = picked?.user?.unifiedSenderName ?? society.name ?? APP_NAME;
+      return { from: `"${label}" <${pickedEmail}>`, fromAddress: pickedEmail };
     }
   } catch (err) {
     // Fail-safe : jamais bloquer un envoi pour une lookup expediteur.

@@ -18,6 +18,7 @@ FAILED_CANDIDATES=(
   "20260724170000_society_sender_domain"
   "20260805170000_user_daily_digest"
   "20260805200000_stripe_connect"
+  "20260819180000_user_unified_sender"
 )
 
 for m in "${FAILED_CANDIDATES[@]}"; do

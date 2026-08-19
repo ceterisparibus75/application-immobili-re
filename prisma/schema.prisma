@@ -815,6 +815,17 @@ model User {
   dailyDigestEnabled    Boolean   @default(true)
   dailyDigestLastSentAt DateTime?
 
+  // Expéditeur email unifié — permet à un admin gérant plusieurs sociétés
+  // de configurer UNE SEULE adresse expéditrice (verifiée via Resend Domains)
+  // qui sera utilisée pour toutes ses sociétés (ADMIN_SOCIETE) tant qu'elles
+  // n'ont pas leur propre sender vérifié (Society.senderStatus).
+  unifiedSenderEmail      String?
+  unifiedSenderName       String?
+  unifiedResendDomainId   String?
+  unifiedSenderStatus     String? // "not_started" | "pending" | "verified" | "failed" | "temporary_failure"
+  unifiedSenderVerifiedAt DateTime?
+  unifiedSenderRecords    Json?
+
   // Relations
   ownedSocieties    Society[]        @relation("SocietyOwner")
   proprietaires     Proprietaire[]

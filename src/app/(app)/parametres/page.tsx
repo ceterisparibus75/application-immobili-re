@@ -12,6 +12,7 @@ import {
 } from "@/actions/two-factor";
 import { getMyPreferences } from "@/actions/user-preferences";
 import { DailyDigestCard } from "./_components/daily-digest-card";
+import { UnifiedSenderCard } from "./_components/unified-sender-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,6 +211,9 @@ export default function ParametresPage() {
       {digestEnabled !== null && (
         <DailyDigestCard initialEnabled={digestEnabled} lastSentAt={digestLastSent} />
       )}
+
+      {/* Adresse expéditrice unifiée (Resend Domains) */}
+      <UnifiedSenderCard />
 
       {/* Mot de passe */}
       <Card>
