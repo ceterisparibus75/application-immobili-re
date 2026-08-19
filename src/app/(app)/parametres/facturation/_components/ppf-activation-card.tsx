@@ -57,9 +57,11 @@ export function PPFActivationCard({
       const messages: Record<string, string> = {
         expired_state: "La session d'autorisation a expiré. Veuillez réessayer.",
         token_exchange_failed: "Échange de token échoué. Vérifiez vos credentials PA.",
-        missing_config: "Configuration PA incomplète.",
+        missing_config:
+          "Configuration OAuth SUPER PDP incomplète côté serveur (PA_OAUTH_AUTHORIZE_URL, PA_AUTH_CLIENT_ID ou AUTH_URL manquants).",
         missing_params: "Paramètres OAuth manquants.",
-        access_denied: "Accès refusé par SUPER PDP.",
+        access_denied: "Accès refusé — vous devez être administrateur de la société.",
+        unknown_error: "Erreur inattendue. Consultez les logs serveur.",
       };
       toast.error(messages[paError] ?? `Erreur OAuth : ${paError}`);
       const url = new URL(window.location.href);

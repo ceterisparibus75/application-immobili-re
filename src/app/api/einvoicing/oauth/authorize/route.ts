@@ -20,6 +20,11 @@ import { requireAuthenticatedRouteContext } from "@/lib/api-auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
+  // Base URL pour redirections d'erreur (fallback si AUTH_URL non défini)
+  const appBase = env.AUTH_URL ?? new URL(req.url).origin;
+  const errorRedirect = (code: string) =>
+    NextResponse.redirect(`${appBase}/parametres/facturation?pa_error=${code}`);
+
   // Auth
   const authCtx = await requireAuthenticatedRouteContext();
   if (authCtx instanceof NextResponse) return authCtx;
@@ -28,54 +33,65 @@ export async function GET(req: NextRequest) {
   const societyId = searchParams.get("societyId");
 
   if (!societyId) {
-    return NextResponse.json({ error: "societyId manquant" }, { status: 400 });
+    return errorRedirect("missing_params");
   }
 
   // Vérifier que l'utilisateur est admin de la société
   try {
     await requireSocietyAccess(authCtx.userId, societyId, "ADMIN_SOCIETE");
   } catch {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    return errorRedirect("access_denied");
   }
 
   if (!env.PA_OAUTH_AUTHORIZE_URL || !env.PA_AUTH_CLIENT_ID) {
-    return NextResponse.json(
-      { error: "OAuth SUPER PDP non configuré — renseignez PA_OAUTH_AUTHORIZE_URL et PA_AUTH_CLIENT_ID" },
-      { status: 503 }
-    );
+    console.error("[pa-oauth/authorize] Configuration incomplète:", {
+      hasAuthorizeUrl: !!env.PA_OAUTH_AUTHORIZE_URL,
+      hasClientId: !!env.PA_AUTH_CLIENT_ID,
+    });
+    return errorRedirect("missing_config");
   }
 
-  // Nettoyage des états PKCE expirés (best-effort)
-  cleanupExpiredOAuthStates().catch(() => {});
+  if (!env.AUTH_URL) {
+    console.error("[pa-oauth/authorize] AUTH_URL manquante — impossible de construire le redirect_uri");
+    return errorRedirect("missing_config");
+  }
 
-  // Générer les paramètres PKCE
-  const codeVerifier = randomPKCECodeVerifier();
-  const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
+  try {
+    // Nettoyage des états PKCE expirés (best-effort)
+    cleanupExpiredOAuthStates().catch(() => {});
 
-  // State opaque aléatoire — lie le callback à cette session/société.
-  const opaqueState = randomBytes(32).toString("hex");
+    // Générer les paramètres PKCE
+    const codeVerifier = randomPKCECodeVerifier();
+    const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
 
-  // Stocker le code_verifier + state + userId en DB (usage unique, expire dans 10 min)
-  await prisma.pAOAuthState.create({
-    data: {
-      state: opaqueState,
-      userId: authCtx.userId,
-      societyId,
-      codeVerifier,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    },
-  });
+    // State opaque aléatoire — lie le callback à cette session/société.
+    const opaqueState = randomBytes(32).toString("hex");
 
-  const redirectUri = `${env.AUTH_URL}/api/einvoicing/oauth/callback`;
+    // Stocker le code_verifier + state + userId en DB (usage unique, expire dans 10 min)
+    await prisma.pAOAuthState.create({
+      data: {
+        state: opaqueState,
+        userId: authCtx.userId,
+        societyId,
+        codeVerifier,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
 
-  const authUrl = new URL(env.PA_OAUTH_AUTHORIZE_URL);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("client_id", env.PA_AUTH_CLIENT_ID);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("state", opaqueState);
-  authUrl.searchParams.set("code_challenge", codeChallenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  // Scopes : aucun requis par SUPER PDP
+    const redirectUri = `${env.AUTH_URL}/api/einvoicing/oauth/callback`;
 
-  return NextResponse.redirect(authUrl.toString());
+    const authUrl = new URL(env.PA_OAUTH_AUTHORIZE_URL);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("client_id", env.PA_AUTH_CLIENT_ID);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("state", opaqueState);
+    authUrl.searchParams.set("code_challenge", codeChallenge);
+    authUrl.searchParams.set("code_challenge_method", "S256");
+    // Scopes : aucun requis par SUPER PDP
+
+    return NextResponse.redirect(authUrl.toString());
+  } catch (err) {
+    console.error("[pa-oauth/authorize] Erreur inattendue:", err);
+    return errorRedirect("unknown_error");
+  }
 }
