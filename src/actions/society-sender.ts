@@ -12,9 +12,9 @@ import {
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 import {
-  createResendDomain,
   deleteResendDomain,
   extractDomain,
+  findOrCreateResendDomain,
   getResendDomain,
   isResendConfigured,
   verifyResendDomain,
@@ -160,7 +160,9 @@ export async function configureSenderDomain(
           console.warn("[configureSenderDomain] delete previous", err);
         }
       }
-      const created = await createResendDomain(domain);
+      // findOrCreate : réutilise le domaine s'il est déjà enregistré chez
+      // Resend (ex: par l'unified sender d'un admin sur la même racine).
+      const created = await findOrCreateResendDomain(domain);
       await persistDomain(societyId, parsed.data, created);
     }
 

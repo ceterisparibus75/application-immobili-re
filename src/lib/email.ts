@@ -37,9 +37,10 @@ async function resolveFrom(senderSocietyId?: string | null): Promise<{ from: str
         senderEmail: true,
         senderName: true,
         senderStatus: true,
-        // Sender unifié : cherche parmi tous les ADMIN_SOCIETE de la société
+        // Sender unifié : cherche parmi les SUPER_ADMIN et ADMIN_SOCIETE
+        // de la société (les 2 rôles ont autorité pour administrer).
         userSocieties: {
-          where: { role: "ADMIN_SOCIETE" },
+          where: { role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
           select: {
             userId: true,
             user: {
@@ -49,6 +50,16 @@ async function resolveFrom(senderSocietyId?: string | null): Promise<{ from: str
                 unifiedSenderStatus: true,
               },
             },
+          },
+        },
+        // Owner de la société : aussi éligible pour le sender unifié même
+        // s'il n'est pas dans userSocieties (créateur historique).
+        owner: {
+          select: {
+            id: true,
+            unifiedSenderEmail: true,
+            unifiedSenderName: true,
+            unifiedSenderStatus: true,
           },
         },
       },
@@ -61,15 +72,26 @@ async function resolveFrom(senderSocietyId?: string | null): Promise<{ from: str
       return { from: `"${label}" <${society.senderEmail}>`, fromAddress: society.senderEmail };
     }
 
-    // 2. Sender unifié d'un admin — priorité au owner de la société
-    const eligibleAdmins = society.userSocieties
-      .filter((us) => us.user?.unifiedSenderStatus === "verified" && us.user?.unifiedSenderEmail);
-    const ownerAdmin = eligibleAdmins.find((us) => us.userId === society.ownerId);
-    const picked = ownerAdmin ?? eligibleAdmins[0];
-    const pickedEmail = picked?.user?.unifiedSenderEmail;
-    if (pickedEmail) {
-      const label = picked?.user?.unifiedSenderName ?? society.name ?? APP_NAME;
-      return { from: `"${label}" <${pickedEmail}>`, fromAddress: pickedEmail };
+    // 2. Sender unifié — priorité : owner direct > ADMIN de la société
+    // Owner (Society.owner) checked en premier
+    if (
+      society.owner?.unifiedSenderStatus === "verified" &&
+      society.owner?.unifiedSenderEmail
+    ) {
+      const label = society.owner.unifiedSenderName ?? society.name ?? APP_NAME;
+      return {
+        from: `"${label}" <${society.owner.unifiedSenderEmail}>`,
+        fromAddress: society.owner.unifiedSenderEmail,
+      };
+    }
+    // Sinon, premier admin avec un unified sender vérifié
+    const eligibleAdmin = society.userSocieties.find(
+      (us) => us.user?.unifiedSenderStatus === "verified" && us.user?.unifiedSenderEmail
+    );
+    const adminEmail = eligibleAdmin?.user?.unifiedSenderEmail;
+    if (adminEmail) {
+      const label = eligibleAdmin?.user?.unifiedSenderName ?? society.name ?? APP_NAME;
+      return { from: `"${label}" <${adminEmail}>`, fromAddress: adminEmail };
     }
   } catch (err) {
     // Fail-safe : jamais bloquer un envoi pour une lookup expediteur.

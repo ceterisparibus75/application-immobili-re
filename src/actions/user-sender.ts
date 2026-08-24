@@ -9,9 +9,9 @@ import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { UnauthenticatedActionError } from "@/lib/action-society";
 import { createAuditLogsForUserSocieties } from "@/lib/audit";
 import {
-  createResendDomain,
   deleteResendDomain,
   extractDomain,
+  findOrCreateResendDomain,
   getResendDomain,
   isResendConfigured,
   verifyResendDomain,
@@ -78,22 +78,32 @@ function toRecords(json: unknown): ResendDomainRecord[] {
 }
 
 async function loadCoveredSocieties(userId: string) {
-  // Sociétés où le user est ADMIN_SOCIETE
-  const memberships = await prisma.userSociety.findMany({
-    where: { userId, role: "ADMIN_SOCIETE" },
-    select: {
-      society: {
-        select: { id: true, name: true, senderStatus: true },
+  // Sociétés où le user est SUPER_ADMIN ou ADMIN_SOCIETE (les 2 rôles ont
+  // le droit d'administrer la société — SUPER_ADMIN a même des droits
+  // étendus). On inclut aussi les sociétés dont il est owner direct.
+  const [memberships, owned] = await Promise.all([
+    prisma.userSociety.findMany({
+      where: { userId, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
+      select: {
+        society: { select: { id: true, name: true, senderStatus: true } },
       },
-    },
-  });
-  return memberships
-    .filter((m) => m.society)
-    .map((m) => ({
-      id: m.society!.id,
-      name: m.society!.name,
-      hasOwnSender: m.society!.senderStatus === "verified",
-    }));
+    }),
+    prisma.society.findMany({
+      where: { ownerId: userId, isActive: true },
+      select: { id: true, name: true, senderStatus: true },
+    }),
+  ]);
+  const merged = new Map<string, { id: string; name: string; senderStatus: string | null }>();
+  for (const m of memberships) {
+    if (m.society) merged.set(m.society.id, m.society);
+  }
+  for (const o of owned) merged.set(o.id, o);
+
+  return Array.from(merged.values()).map((s) => ({
+    id: s.id,
+    name: s.name,
+    hasOwnSender: s.senderStatus === "verified",
+  }));
 }
 
 export async function getUnifiedSenderOverview(): Promise<ActionResult<UnifiedSenderOverview>> {
@@ -187,7 +197,9 @@ export async function configureUnifiedSender(input: {
           console.warn("[configureUnifiedSender] delete previous", err);
         }
       }
-      const created = await createResendDomain(domain);
+      // findOrCreate : réutilise le domaine s'il est déjà enregistré chez
+      // Resend (ex: par une société MyGestia qui l'a créé avant).
+      const created = await findOrCreateResendDomain(domain);
       await persistDomain(ctx.userId, parsed.data, created);
     }
 

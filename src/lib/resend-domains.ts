@@ -78,6 +78,39 @@ export async function createResendDomain(domain: string): Promise<ResendDomainDe
   return normalized;
 }
 
+/**
+ * Cherche un domaine existant chez Resend par son nom, sinon en crée un.
+ * Utilisé quand plusieurs entités MyGestia peuvent revendiquer le même
+ * domaine (ex: unified sender de l'admin + sender société sur la même
+ * racine domaine) — Resend interdit d'enregistrer le même domaine deux fois.
+ */
+export async function findOrCreateResendDomain(domain: string): Promise<ResendDomainDetails> {
+  if (!isResendConfigured()) throw new Error("RESEND_API_KEY manquant");
+  const c = client();
+  const targetName = domain.toLowerCase().trim();
+
+  // 1. Chercher dans la liste existante
+  const list = await c.domains.list();
+  if (list.error) throw new Error(`Resend: ${list.error.message}`);
+
+  const items = Array.isArray(list.data?.data)
+    ? (list.data.data as Array<{ id?: unknown; name?: unknown }>)
+    : Array.isArray(list.data)
+      ? (list.data as Array<{ id?: unknown; name?: unknown }>)
+      : [];
+  const existing = items.find(
+    (d) => typeof d.name === "string" && typeof d.id === "string" && d.name.toLowerCase() === targetName
+  );
+
+  if (existing && typeof existing.id === "string") {
+    // Récupérer les détails complets (les records ne sont pas dans list())
+    return await getResendDomain(existing.id);
+  }
+
+  // 2. Sinon créer
+  return await createResendDomain(domain);
+}
+
 export async function getResendDomain(domainId: string): Promise<ResendDomainDetails> {
   if (!isResendConfigured()) throw new Error("RESEND_API_KEY manquant");
   const { data, error } = await client().domains.get(domainId);
