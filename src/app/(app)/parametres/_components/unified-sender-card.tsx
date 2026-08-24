@@ -228,6 +228,76 @@ export function UnifiedSenderCard() {
       <CardContent className="space-y-6">
         <p className="text-xs text-muted-foreground">{meta.description}</p>
 
+        {/* Stepper visuel — 3 étapes du flow d'activation */}
+        {!isVerified && (
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <p className="mb-3 text-xs font-medium text-foreground">
+              Activation en 3 étapes
+            </p>
+            <ol className="space-y-2 text-xs">
+              <li className="flex items-start gap-2">
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    isConfigured
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[var(--color-brand-blue)] text-white ring-2 ring-[var(--color-brand-blue)]/30"
+                  }`}
+                >
+                  {isConfigured ? <Check className="h-3 w-3" /> : "1"}
+                </span>
+                <div>
+                  <p className={isConfigured ? "text-muted-foreground line-through" : "font-medium text-foreground"}>
+                    Renseignez votre adresse ci-dessous puis <strong>Enregistrer</strong>
+                  </p>
+                  <p className="text-muted-foreground">
+                    MyGestia génère les enregistrements DNS pour votre domaine
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-2">
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    !isConfigured
+                      ? "bg-muted text-muted-foreground"
+                      : overview.status === "verified"
+                        ? "bg-emerald-500 text-white"
+                        : "bg-[var(--color-brand-blue)] text-white ring-2 ring-[var(--color-brand-blue)]/30"
+                  }`}
+                >
+                  {overview.status === "verified" ? <Check className="h-3 w-3" /> : "2"}
+                </span>
+                <div>
+                  <p className={!isConfigured ? "text-muted-foreground" : "font-medium text-foreground"}>
+                    Ajoutez les enregistrements DNS chez votre registrar
+                  </p>
+                  <p className="text-muted-foreground">
+                    OVH, Gandi, Cloudflare… copiez les lignes SPF / DKIM affichées après l&apos;enregistrement
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-2">
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    isConfigured && overview.status !== "verified"
+                      ? "bg-[var(--color-brand-blue)] text-white ring-2 ring-[var(--color-brand-blue)]/30"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  3
+                </span>
+                <div>
+                  <p className={isConfigured && overview.status !== "verified" ? "font-medium text-foreground" : "text-muted-foreground"}>
+                    Cliquez <strong>Vérifier maintenant</strong>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Une fois les DNS propagés (quelques minutes à quelques heures)
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        )}
+
         {/* Sociétés couvertes */}
         {overview.coveredSocieties.length > 0 && (
           <div className="rounded-md border bg-muted/40 p-3 space-y-2">
@@ -258,9 +328,16 @@ export function UnifiedSenderCard() {
         )}
 
         {/* Formulaire de saisie */}
+        {!isVerified && (
+          <p className="text-xs font-medium text-foreground -mb-2">
+            {isConfigured ? "Modifier l'adresse" : "Étape 1 — Renseignez votre adresse"}
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-[2fr,1fr]">
           <div className="space-y-1.5">
-            <Label htmlFor="unified-sender-email">Adresse expéditrice</Label>
+            <Label htmlFor="unified-sender-email">
+              Adresse expéditrice <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="unified-sender-email"
               type="email"
@@ -268,6 +345,7 @@ export function UnifiedSenderCard() {
               value={senderEmail}
               onChange={(e) => setSenderEmail(e.target.value)}
               disabled={isPending}
+              required
             />
           </div>
           <div className="space-y-1.5">
@@ -283,9 +361,9 @@ export function UnifiedSenderCard() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleConfigure} disabled={isPending}>
+          <Button onClick={handleConfigure} disabled={isPending || !senderEmail.trim()}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <AtSign className="h-4 w-4" />}
-            {isConfigured ? "Mettre à jour" : "Enregistrer"}
+            {isConfigured ? "Mettre à jour l'adresse" : "Enregistrer et générer les DNS"}
           </Button>
           {isConfigured && !isVerified && (
             <Button variant="outline" onClick={handleVerify} disabled={isPending}>
