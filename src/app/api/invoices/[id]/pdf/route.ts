@@ -210,9 +210,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const pdfBuffer = await renderToBuffer(React.createElement(InvoicePdf, { data: pdfData }) as any);
 
     // 10. Upload dans Supabase Storage (si configuré)
+    // Nom déterministe pour la compta :
+    // - numéro de pièce en premier (retrouver l'écriture depuis le classeur)
+    // - période basée sur issueDate (stable, jamais nulle, correspond au
+    //   journal de vente) au format YYYY-MM (tri alphabétique = chronologique)
     const buildingName = lot?.building?.name ?? lot?.building?.addressLine1 ?? "";
-    const periodDate = invoice.periodStart ? new Date(invoice.periodStart) : new Date(invoice.dueDate);
-    const period = `${String(periodDate.getMonth() + 1).padStart(2, "0")}-${periodDate.getFullYear()}`;
+    const issueDate = new Date(invoice.issueDate);
+    const period = `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, "0")}`;
     const pdfFileName = buildStorageFileName(
       [invoice.invoiceNumber ?? "previsualisation", buildingName, tenantName, period],
       "pdf",
