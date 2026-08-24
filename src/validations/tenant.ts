@@ -9,6 +9,10 @@ const baseSchema = z.object({
   riskIndicator: z.enum(["VERT", "ORANGE", "ROUGE"]).default("VERT"),
   notes: z.string().optional().nullable(),
   defaultInvoiceNote: z.string().optional().nullable(),
+  // Nom d'affichage personnalisé (co-titulaires, nom d'usage, intitulé
+  // spécifique). S'il est renseigné, il est utilisé partout à la place
+  // de firstName+lastName (physique) ou companyName (morale).
+  displayName: z.string().max(200).optional().nullable(),
 });
 
 const moralSchema = baseSchema.extend({
@@ -60,6 +64,7 @@ export const updateTenantSchema = z.object({
   riskIndicator: z.enum(["VERT", "ORANGE", "ROUGE"]).optional(),
   notes: z.string().optional().nullable(),
   defaultInvoiceNote: z.string().optional().nullable(),
+  displayName: z.string().max(200).optional().nullable(),
   // Morale
   companyName: z.string().optional().nullable(),
   companyLegalForm: z.string().optional().nullable(),

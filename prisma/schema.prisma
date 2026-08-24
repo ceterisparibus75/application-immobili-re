@@ -1492,6 +1492,14 @@ model Tenant {
   entityType TenantEntityType
   isActive   Boolean          @default(true)
 
+  // Nom d'affichage optionnel qui override la concaténation firstName+lastName
+  // (personne physique) ou companyName (personne morale) dans les factures,
+  // quittances, relances, listes, etc. Utile pour :
+  // - co-titulaires personnes physiques (ex: "M. Langet et Mme Bui Duc")
+  // - locataires avec nom d'usage différent de l'état civil
+  // - SCI qui veut un intitulé spécifique sur les documents
+  displayName String?
+
   // --- Personne morale ---
   companyName      String?
   companyLegalForm String?

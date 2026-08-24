@@ -9,6 +9,7 @@ const INVOICE_INCLUDE = {
     select: {
       id: true,
       entityType: true,
+      displayName: true,
       companyName: true,
       firstName: true,
       lastName: true,
@@ -178,6 +179,7 @@ export async function getActiveLeasesForInvoicing(societyId: string) {
         select: {
           id: true,
           entityType: true,
+          displayName: true,
           companyName: true,
           firstName: true,
           lastName: true,
@@ -228,6 +230,7 @@ export async function getLeaseForInvoice(societyId: string, leaseId: string) {
         select: {
           id: true,
           entityType: true,
+          displayName: true,
           companyName: true,
           firstName: true,
           lastName: true,

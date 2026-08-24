@@ -37,6 +37,7 @@ type Tenant = {
   riskIndicator: string;
   notes?: string | null;
   defaultInvoiceNote?: string | null;
+  displayName?: string | null;
   companyName?: string | null;
   companyLegalForm?: string | null;
   siret?: string | null;
@@ -100,6 +101,7 @@ export default function ModifierLocatairePage() {
       riskIndicator: data.riskIndicator as "VERT" | "ORANGE" | "ROUGE",
       notes: data.notes || null,
       defaultInvoiceNote: data.defaultInvoiceNote || null,
+      displayName: data.displayName || null,
       // Morale
       companyName: data.companyName || null,
       companyLegalForm: data.companyLegalForm || null,
@@ -297,6 +299,21 @@ export default function ModifierLocatairePage() {
             <div className="space-y-2">
               <Label htmlFor="notes">Notes internes</Label>
               <Textarea id="notes" name="notes" rows={3} defaultValue={tenant.notes ?? ""} />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Nom affiché sur les factures (optionnel)</Label>
+              <Input
+                id="displayName"
+                name="displayName"
+                defaultValue={tenant.displayName ?? ""}
+                placeholder="Ex : « M. Langet et Mme Bui Duc » ou « Consorts Langet / Bui Duc »"
+                maxLength={200}
+              />
+              <p className="text-xs text-muted-foreground">
+                Si renseigné, remplace le nom généré automatiquement (prénom + nom, ou raison sociale)
+                sur les factures, quittances, relances et listes. Utile pour les co-titulaires ou noms d&apos;usage.
+              </p>
             </div>
             <Separator />
             <div className="space-y-2">

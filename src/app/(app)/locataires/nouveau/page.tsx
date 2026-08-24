@@ -74,6 +74,7 @@ export default function NouveauLocatairePage() {
             riskIndicator: (data.riskIndicator as "VERT" | "ORANGE" | "ROUGE") || "VERT",
             notes: data.notes || undefined,
             defaultInvoiceNote: data.defaultInvoiceNote || undefined,
+            displayName: data.displayName || undefined,
           }
         : {
             entityType: "PERSONNE_PHYSIQUE" as const,
@@ -90,6 +91,7 @@ export default function NouveauLocatairePage() {
             riskIndicator: (data.riskIndicator as "VERT" | "ORANGE" | "ROUGE") || "VERT",
             notes: data.notes || undefined,
             defaultInvoiceNote: data.defaultInvoiceNote || undefined,
+            displayName: data.displayName || undefined,
           };
 
     const result = await createTenant(activeSociety.id, input);
@@ -350,6 +352,20 @@ export default function NouveauLocatairePage() {
                 rows={3}
                 placeholder="Observations, historique, informations importantes..."
               />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Nom affiché sur les factures (optionnel)</Label>
+              <Input
+                id="displayName"
+                name="displayName"
+                placeholder="Ex : « M. Langet et Mme Bui Duc » ou « Consorts Langet / Bui Duc »"
+                maxLength={200}
+              />
+              <p className="text-xs text-muted-foreground">
+                Si renseigné, remplace le nom généré automatiquement (prénom + nom, ou raison sociale)
+                sur les factures, quittances, relances et listes. Utile pour les co-titulaires ou noms d&apos;usage.
+              </p>
             </div>
             <Separator />
             <div className="space-y-2">

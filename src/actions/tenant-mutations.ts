@@ -58,6 +58,7 @@ export async function createTenant(
         riskIndicator: data.riskIndicator,
         notes: data.notes ?? null,
         defaultInvoiceNote: data.defaultInvoiceNote ?? null,
+        displayName: data.displayName?.trim() || null,
         ...(data.entityType === "PERSONNE_MORALE"
           ? {
               companyName: data.companyName,

@@ -444,6 +444,7 @@ export async function computeInvoicePreview(
       tenant: {
         select: {
           entityType: true,
+          displayName: true,
           companyName: true,
           firstName: true,
           lastName: true,

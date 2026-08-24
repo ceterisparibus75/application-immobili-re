@@ -121,10 +121,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       ? `${lot.number} - ${lot.building.addressLine1 ?? ""}, ${lot.building.postalCode ?? ""} ${lot.building.city ?? ""}`
       : null;
 
+    // Priorité au displayName manuel (co-titulaires, noms d'usage, etc.)
+    // sinon fallback classique companyName / firstName+lastName
     const tenantName =
-      invoice.tenant.entityType === "PERSONNE_MORALE"
+      invoice.tenant.displayName?.trim() ||
+      (invoice.tenant.entityType === "PERSONNE_MORALE"
         ? (invoice.tenant.companyName ?? "---")
-        : (`${invoice.tenant.firstName ?? ""} ${invoice.tenant.lastName ?? ""}`.trim() || "---");
+        : (`${invoice.tenant.firstName ?? ""} ${invoice.tenant.lastName ?? ""}`.trim() || "---"));
 
     const tenantAddress =
       invoice.tenant.entityType === "PERSONNE_MORALE"
