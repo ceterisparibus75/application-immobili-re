@@ -188,6 +188,67 @@ function DeliveryBadge({ status, label }: { status: string | null; label: string
   );
 }
 
+// ── Filtre par période (sur invoice.dueDate) ──────────────────────────────
+
+type PeriodPreset =
+  | "all"
+  | "this_month"
+  | "last_month"
+  | "this_quarter"
+  | "this_year"
+  | "last_year"
+  | "custom";
+
+const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
+  { value: "all", label: "Toutes les périodes" },
+  { value: "this_month", label: "Ce mois-ci" },
+  { value: "last_month", label: "Mois dernier" },
+  { value: "this_quarter", label: "Ce trimestre" },
+  { value: "this_year", label: "Cette année" },
+  { value: "last_year", label: "Année dernière" },
+  { value: "custom", label: "Personnalisée…" },
+];
+
+function computePeriodRange(
+  preset: PeriodPreset,
+  customFrom: string,
+  customTo: string,
+  now: Date = new Date()
+): { from: Date | null; to: Date | null } {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  switch (preset) {
+    case "all":
+      return { from: null, to: null };
+    case "this_month":
+      return {
+        from: new Date(y, m, 1),
+        to: new Date(y, m + 1, 0, 23, 59, 59, 999),
+      };
+    case "last_month":
+      return {
+        from: new Date(y, m - 1, 1),
+        to: new Date(y, m, 0, 23, 59, 59, 999),
+      };
+    case "this_quarter": {
+      const qStart = Math.floor(m / 3) * 3;
+      return {
+        from: new Date(y, qStart, 1),
+        to: new Date(y, qStart + 3, 0, 23, 59, 59, 999),
+      };
+    }
+    case "this_year":
+      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31, 23, 59, 59, 999) };
+    case "last_year":
+      return { from: new Date(y - 1, 0, 1), to: new Date(y - 1, 11, 31, 23, 59, 59, 999) };
+    case "custom": {
+      const fromDate = customFrom ? new Date(`${customFrom}T00:00:00`) : null;
+      const toDate = customTo ? new Date(`${customTo}T23:59:59.999`) : null;
+      return { from: fromDate, to: toDate };
+    }
+  }
+}
+
 function StatBlock({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
     <div className="min-w-0 rounded-md border bg-background px-3 py-2">
@@ -228,6 +289,9 @@ export function InvoicesList({
   const [statusFilter, setStatusFilter] = useState<"all" | InvoiceStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | InvoiceType>("all");
   const [buildingFilter, setBuildingFilter] = useState<"all" | string>("all");
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("all");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
 
   useEffect(() => {
     const sentInvoices = invoices.filter((invoice) => invoice.resendEmailId);
@@ -282,13 +346,24 @@ export function InvoicesList({
       .map((building) => ({ value: building, label: building }));
   }, [invoices]);
 
+  const periodRange = useMemo(
+    () => computePeriodRange(periodPreset, customFrom, customTo),
+    [periodPreset, customFrom, customTo]
+  );
+
   const visibleInvoices = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
+    const { from: periodFrom, to: periodTo } = periodRange;
 
     return invoices.filter((invoice) => {
       if (statusFilter !== "all" && invoice.status !== statusFilter) return false;
       if (typeFilter !== "all" && invoice.invoiceType !== typeFilter) return false;
       if (buildingFilter !== "all" && getBuildingName(invoice) !== buildingFilter) return false;
+      if (periodFrom || periodTo) {
+        const due = new Date(invoice.dueDate).getTime();
+        if (periodFrom && due < periodFrom.getTime()) return false;
+        if (periodTo && due > periodTo.getTime()) return false;
+      }
       if (!normalizedQuery) return true;
 
       const haystack = [
@@ -301,7 +376,7 @@ export function InvoicesList({
 
       return haystack.includes(normalizedQuery);
     });
-  }, [buildingFilter, invoices, query, statusFilter, typeFilter]);
+  }, [buildingFilter, invoices, periodRange, query, statusFilter, typeFilter]);
 
   const sortedInvoices = useMemo(() => {
     const statusRank: Partial<Record<InvoiceStatus, number>> = {
@@ -365,6 +440,9 @@ export function InvoicesList({
     setStatusFilter("all");
     setTypeFilter("all");
     setBuildingFilter("all");
+    setPeriodPreset("all");
+    setCustomFrom("");
+    setCustomTo("");
   };
 
   const toggleAllVisible = useCallback(() => {
@@ -428,9 +506,23 @@ export function InvoicesList({
       const zip = new JSZipModule.default();
       const errors: string[] = [];
 
-      const fetchOne = async (invoice: InvoiceItem) => {
+      // Rate limit backend : 10 req/10s. On reste conservateur avec 2 en parallèle
+      // + petit délai entre batches. Sur 429, on retente avec backoff exponentiel
+      // pour éviter les échecs partiels sur les gros téléchargements.
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      const fetchOneWithRetry = async (invoice: InvoiceItem, attempt = 0): Promise<void> => {
         try {
           const response = await fetch(`/api/invoices/${invoice.id}/pdf`);
+          if (response.status === 429 && attempt < 4) {
+            // Respecter Retry-After si présent, sinon backoff 1s, 2s, 4s, 8s
+            const retryHeader = response.headers.get("retry-after");
+            const retryMs = retryHeader
+              ? Math.max(1000, parseInt(retryHeader, 10) * 1000)
+              : 1000 * Math.pow(2, attempt);
+            await sleep(retryMs);
+            return fetchOneWithRetry(invoice, attempt + 1);
+          }
           if (!response.ok) {
             errors.push(`${invoice.invoiceNumber ?? invoice.id} : HTTP ${response.status}`);
             return;
@@ -448,9 +540,13 @@ export function InvoicesList({
         }
       };
 
-      const batchSize = 4;
+      const batchSize = 2;
+      const interBatchDelayMs = 400;
       for (let i = 0; i < selectedInvoices.length; i += batchSize) {
-        await Promise.all(selectedInvoices.slice(i, i + batchSize).map(fetchOne));
+        await Promise.all(selectedInvoices.slice(i, i + batchSize).map((inv) => fetchOneWithRetry(inv)));
+        if (i + batchSize < selectedInvoices.length) {
+          await sleep(interBatchDelayMs);
+        }
       }
 
       const fileCount = Object.keys(zip.files).length;
@@ -511,7 +607,7 @@ export function InvoicesList({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="grid gap-2 xl:grid-cols-[minmax(16rem,1fr)_12rem_12rem_14rem_auto]">
+          <div className="grid gap-2 xl:grid-cols-[minmax(14rem,1fr)_10rem_10rem_12rem_12rem_auto]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -539,11 +635,46 @@ export function InvoicesList({
               options={[{ value: "all", label: "Tous les immeubles" }, ...buildingOptions]}
               aria-label="Filtrer par immeuble"
             />
+            <NativeSelect
+              value={periodPreset}
+              onChange={(event) => setPeriodPreset(event.target.value as PeriodPreset)}
+              options={PERIOD_OPTIONS}
+              aria-label="Filtrer par période"
+            />
             <Button type="button" variant="outline" onClick={resetFilters}>
               <FilterX className="size-4" />
               Réinitialiser
             </Button>
           </div>
+          {periodPreset === "custom" && (
+            <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto_1fr] sm:items-center rounded-md border bg-muted/20 px-3 py-2">
+              <label htmlFor="period-from" className="text-xs text-muted-foreground">
+                Du
+              </label>
+              <Input
+                id="period-from"
+                type="date"
+                value={customFrom}
+                onChange={(event) => setCustomFrom(event.target.value)}
+                aria-label="Date de début de période"
+              />
+              <label htmlFor="period-to" className="text-xs text-muted-foreground">
+                Au
+              </label>
+              <Input
+                id="period-to"
+                type="date"
+                value={customTo}
+                onChange={(event) => setCustomTo(event.target.value)}
+                aria-label="Date de fin de période"
+              />
+            </div>
+          )}
+          {periodPreset !== "all" && periodPreset !== "custom" && (
+            <p className="text-[11px] text-muted-foreground">
+              Filtrage sur la date d&apos;échéance des factures ({PERIOD_OPTIONS.find((p) => p.value === periodPreset)?.label.toLowerCase()}).
+            </p>
+          )}
 
           {enableSelection && (
             <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
