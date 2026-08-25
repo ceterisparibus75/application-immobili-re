@@ -211,15 +211,17 @@ export default async function BanquePage() {
             </CardContent>
           </Card>
         </Link>
-        <Card className="h-full border-0 bg-card shadow-brand">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-sm font-medium">Connexions à vérifier</p>
-              <p className="text-2xl font-bold">{dashboard.actionQueues.bankingConnectionsAttention}</p>
-            </div>
-            <RefreshCw className="h-5 w-5 text-muted-foreground" />
-          </CardContent>
-        </Card>
+        <Link href="/banque/partenaires">
+          <Card className="h-full border-0 bg-card shadow-brand transition-shadow hover:shadow-brand-lg">
+            <CardContent className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-sm font-medium">Connexions à vérifier</p>
+                <p className="text-2xl font-bold">{dashboard.actionQueues.bankingConnectionsAttention}</p>
+              </div>
+              <RefreshCw className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Card className="border-0 bg-card shadow-brand">
